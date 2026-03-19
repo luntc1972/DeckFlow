@@ -1,0 +1,104 @@
+@model DeckSyncWorkbench.Web.Models.CommanderCategoryViewModel
+@{
+    ViewData["Title"] = "Commander Categories";
+}
+
+<section class="hero">
+    <h1>Commander Categories</h1>
+    <p class="lede">Search for a commander and see which Archidekt categories appear most often in decks that list it as their commander.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="warning-banner">
+    Commander selections are resolved from the cached Archidekt category database. The results reflect the categories recorded on decks that name the searched card as commander, so you can see what tags players most often assign when the card is leading a list.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+<form method="post" action="/commander-categories" class="deck-form" data-cache-key="commander-categories" data-validate-lookup data-busy-title="Looking up commander categories" data-busy-message="Querying the cached category store." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Compiling commander categories" data-busy-duration="30000" data-busy-hold-final-step="true">
+    @Html.AntiForgeryToken()
+    <div class="toolbar">
+            <label class="mode-picker flex-grow">
+                <span>Commander</span>
+                <input id="commander-search-input" list="commander-suggestions" name="CommanderName" value="@Model.Request.CommanderName" placeholder="Bello, Bard of the Bramble" autocomplete="off" required />
+            <datalist id="commander-suggestions"></datalist>
+        </label>
+        <button type="submit" class="run-button" data-enable-on-ready>Show Categories</button>
+        <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>
+    </div>
+    <p class="mode-note">Type at least two letters to see intelligent suggestions for commanders backed by Scryfall.</p>
+    <div class="mode-note">
+        <span>Click Show Categories to scan Archidekt for another 30 seconds and grow the commander cache.</span>
+    </div>
+</form>
+
+@if (!Model.HasResults && string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="info-banner">
+        <p>No commander categories for @Model.Request.CommanderName have been observed in the cached data yet. Run Show Categories again to refresh the cache.</p>
+    </div>
+}
+
+@if (Model.ExtendedHarvestTriggered && Model.AdditionalDecksFound > 0)
+{
+    <div class="info-banner">
+        @if (Model.AdditionalDecksFound > 0)
+        {
+            <p><strong>@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
+        }
+    </div>
+}
+
+@if (Model.HasResults)
+{
+    <section class="result-panel">
+    <div class="panel-heading">
+            <div>
+                <h2>Categories for @Model.Request.CommanderName</h2>
+                <span class="info-tooltip" title="Categories sorted by how many cached commander decks included this card (descending).">i</span>
+                <p>@Model.CategoryRows.Count cards contributed to this summary.</p>
+                <p>Derived from @Model.HarvestedDeckCount cached decks with @Model.CategorySummaries.Count distinct categories.</p>
+                <p>@Model.Request.CommanderName appears in <strong>@Model.CardDeckTotals.TotalDeckCount</strong> cached commander deck(s).</p>
+            </div>
+    </div>
+    <table class="conflicts-table">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Inclusion count</th>
+                <th>Decks</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var summary in Model.CategorySummaries)
+        {
+            <tr>
+                <td>@summary.Category</td>
+                <td>@summary.Count</td>
+                <td>@summary.DeckCount</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    </section>
+}
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+    <script src="~/js/commander-search.js" asp-append-version="true"></script>
+    @if (Model.ExtendedHarvestTriggered)
+    {
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.showCommanderHarvestBusy) {
+                    window.showCommanderHarvestBusy();
+                }
+            });
+        </script>
+    }
+}

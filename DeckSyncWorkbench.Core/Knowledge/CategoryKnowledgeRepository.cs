@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using DeckSyncWorkbench.Core.Models;
 using DeckSyncWorkbench.Core.Normalization;
@@ -11,6 +14,9 @@ public sealed class CategoryKnowledgeRepository
     private readonly string _databasePath;
     private readonly string _directoryPath;
 
+    /// <summary>
+    /// Initializes the repository for the provided SQLite database path.
+    /// </summary>
     public CategoryKnowledgeRepository(string databasePath)
     {
         _databasePath = Path.GetFullPath(databasePath);
@@ -19,23 +25,19 @@ public sealed class CategoryKnowledgeRepository
 
     public string DatabasePath => _databasePath;
 
+    /// <summary>
+    /// Ensures the database schema and required tables exist.
+    /// </summary>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(_directoryPath);
         await using var connection = ConnectionFactory(_databasePath);
         await connection.OpenAsync(cancellationToken);
 
+        await CreateCardCategoryObservationsTableAsync(connection, cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-            CREATE TABLE IF NOT EXISTS card_category_observations (
-                source TEXT NOT NULL,
-                card_name TEXT NOT NULL,
-                normalized_card_name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                count INTEGER NOT NULL,
-                last_seen_utc TEXT NOT NULL,
-                PRIMARY KEY (source, normalized_card_name, category)
-            );
             CREATE TABLE IF NOT EXISTS deck_queue (
                 deck_id TEXT PRIMARY KEY,
                 inserted_utc TEXT NOT NULL,
@@ -47,8 +49,15 @@ public sealed class CategoryKnowledgeRepository
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         await EnsureDeckQueueColumnsAsync(connection, cancellationToken);
+        await EnsureCategoryObservationSchemaAsync(connection, cancellationToken);
+        await CreateCardDeckTotalsTableAsync(connection, cancellationToken);
     }
 
+    /// <summary>
+    /// Verifies the deck queue table includes the latest needed columns.
+    /// </summary>
+    /// <param name="connection">Open SQLite connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     private static async Task EnsureDeckQueueColumnsAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
@@ -72,6 +81,100 @@ public sealed class CategoryKnowledgeRepository
         }
     }
 
+    private static async Task EnsureCategoryObservationSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA table_info(card_category_observations);";
+        var hasBoard = false;
+        var hasDeckCount = false;
+        var columnCount = 0;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            columnCount++;
+            if (reader.GetString(1).Equals("board", StringComparison.OrdinalIgnoreCase))
+            {
+                hasBoard = true;
+            }
+            if (reader.GetString(1).Equals("deck_count", StringComparison.OrdinalIgnoreCase))
+            {
+                hasDeckCount = true;
+            }
+        }
+
+        if (columnCount == 0)
+        {
+            return;
+        }
+
+        if (!hasBoard || !hasDeckCount)
+        {
+            await MigrateCategoryObservationsTableAsync(connection, cancellationToken);
+        }
+    }
+
+    private static async Task CreateCardCategoryObservationsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE IF NOT EXISTS card_category_observations (
+                source TEXT NOT NULL,
+                card_name TEXT NOT NULL,
+                normalized_card_name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                board TEXT NOT NULL DEFAULT 'mainboard',
+                deck_count INTEGER NOT NULL DEFAULT 0,
+                count INTEGER NOT NULL,
+                last_seen_utc TEXT NOT NULL,
+                PRIMARY KEY (source, normalized_card_name, category, board)
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task CreateCardDeckTotalsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE IF NOT EXISTS card_deck_totals (
+                source TEXT NOT NULL,
+                card_name TEXT NOT NULL,
+                normalized_card_name TEXT NOT NULL,
+                board TEXT NOT NULL DEFAULT 'mainboard',
+                deck_count INTEGER NOT NULL DEFAULT 0,
+                last_seen_utc TEXT NOT NULL,
+                PRIMARY KEY (source, normalized_card_name, board)
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task MigrateCategoryObservationsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        var renameCommand = connection.CreateCommand();
+        renameCommand.CommandText = "ALTER TABLE card_category_observations RENAME TO card_category_observations_old;";
+        await renameCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        await CreateCardCategoryObservationsTableAsync(connection, cancellationToken);
+
+        var copyCommand = connection.CreateCommand();
+        copyCommand.CommandText = """
+            INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, board, deck_count, count, last_seen_utc)
+            SELECT source, card_name, normalized_card_name, category, 'mainboard', 0, count, last_seen_utc
+            FROM card_category_observations_old;
+            """;
+        await copyCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        var dropCommand = connection.CreateCommand();
+        dropCommand.CommandText = "DROP TABLE card_category_observations_old;";
+        await dropCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Retrieves previously observed categories for the specified card.
+    /// </summary>
+    /// <param name="cardName">Card name to look up.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
     public async Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
@@ -100,7 +203,59 @@ public sealed class CategoryKnowledgeRepository
         return categories;
     }
 
-    public async Task ReplaceSourceRowsAsync(string source, IReadOnlyList<CategoryKnowledgeRow> rows, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Retrieves detail rows for a card, including display name and count.
+    /// </summary>
+    /// <param name="cardName">Card name to query.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCardAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+        await EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        var queryTemplate = """
+            SELECT category, card_name, SUM(count) AS total, SUM(deck_count) AS deck_total
+            FROM card_category_observations
+            WHERE normalized_card_name = $normalized
+            {0}
+            GROUP BY category, card_name
+            ORDER BY total DESC, category COLLATE NOCASE;
+            """;
+        var filterClause = boardFilter is null
+            ? string.Empty
+            : "AND board = $board";
+        command.CommandText = string.Format(queryTemplate, filterClause);
+        command.Parameters.AddWithValue("$normalized", CardNormalizer.Normalize(cardName));
+        if (boardFilter is not null)
+        {
+            command.Parameters.AddWithValue("$board", NormalizeBoard(boardFilter));
+        }
+
+        var rows = new List<CategoryKnowledgeRow>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var category = reader.GetString(0);
+            var displayName = reader.GetString(1);
+            var total = reader.GetInt32(2);
+        var deckTotal = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+        rows.Add(new CategoryKnowledgeRow(category, displayName, total, deckTotal));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Replaces all observations for a source with the provided rows.
+    /// </summary>
+    /// <param name="source">Source label for the data.</param>
+    /// <param name="rows">Rows to persist.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public async Task ReplaceSourceRowsAsync(string source, IReadOnlyList<CategoryKnowledgeRow> rows, string board = "mainboard", int deckCount = 0, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
         if (rows is null)
@@ -124,13 +279,16 @@ public sealed class CategoryKnowledgeRepository
             var insertCommand = connection.CreateCommand();
             insertCommand.Transaction = (SqliteTransaction)transaction;
             insertCommand.CommandText = """
-                INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, count, last_seen_utc)
-                VALUES ($source, $cardName, $normalizedCardName, $category, $count, $lastSeenUtc)
+                INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, board, deck_count, count, last_seen_utc)
+                VALUES ($source, $cardName, $normalizedCardName, $category, $board, $deckCount, $count, $lastSeenUtc)
                 """;
             insertCommand.Parameters.AddWithValue("$source", source);
             insertCommand.Parameters.AddWithValue("$cardName", row.CardName);
             insertCommand.Parameters.AddWithValue("$normalizedCardName", CardNormalizer.Normalize(row.CardName));
             insertCommand.Parameters.AddWithValue("$category", row.Category);
+            insertCommand.Parameters.AddWithValue("$board", NormalizeBoard(board));
+            var deckCountValue = row.DeckCount > 0 ? row.DeckCount : deckCount;
+            insertCommand.Parameters.AddWithValue("$deckCount", deckCountValue);
             insertCommand.Parameters.AddWithValue("$count", row.Count);
             insertCommand.Parameters.AddWithValue("$lastSeenUtc", DateTimeOffset.UtcNow.ToString("O"));
             await insertCommand.ExecuteNonQueryAsync(cancellationToken);
@@ -139,7 +297,15 @@ public sealed class CategoryKnowledgeRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Persists observed categories for a specific card occurrence.
+    /// </summary>
+    /// <param name="source">Data source label.</param>
+    /// <param name="cardName">Card name.</param>
+    /// <param name="categories">Categories to record.</param>
+    /// <param name="quantity">Quantity observed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(cardName) || categories.Count == 0 || quantity <= 0)
         {
@@ -161,11 +327,12 @@ public sealed class CategoryKnowledgeRepository
             var command = connection.CreateCommand();
             command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
-                INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, count, last_seen_utc)
-                VALUES ($source, $cardName, $normalizedCardName, $category, $quantity, $lastSeenUtc)
-                ON CONFLICT(source, normalized_card_name, category)
+                INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, board, deck_count, count, last_seen_utc)
+                VALUES ($source, $cardName, $normalizedCardName, $category, $board, $deckCount, $quantity, $lastSeenUtc)
+                ON CONFLICT(source, normalized_card_name, category, board)
                 DO UPDATE SET
                     count = count + excluded.count,
+                    deck_count = deck_count + excluded.deck_count,
                     card_name = excluded.card_name,
                     last_seen_utc = excluded.last_seen_utc
                 """;
@@ -173,6 +340,8 @@ public sealed class CategoryKnowledgeRepository
             command.Parameters.AddWithValue("$cardName", cardName);
             command.Parameters.AddWithValue("$normalizedCardName", CardNormalizer.Normalize(cardName));
             command.Parameters.AddWithValue("$category", category);
+            command.Parameters.AddWithValue("$board", NormalizeBoard(board));
+            command.Parameters.AddWithValue("$deckCount", deckCountIncrement);
             command.Parameters.AddWithValue("$quantity", quantity);
             command.Parameters.AddWithValue("$lastSeenUtc", DateTimeOffset.UtcNow.ToString("O"));
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -181,6 +350,83 @@ public sealed class CategoryKnowledgeRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Persists the number of decks that contain the given card on the specified board.
+    /// </summary>
+    public async Task PersistCardDeckTotalsAsync(string source, string cardName, string board = "mainboard", int deckCountIncrement = 1, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(cardName) || deckCountIncrement <= 0)
+        {
+            return;
+        }
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO card_deck_totals (source, card_name, normalized_card_name, board, deck_count, last_seen_utc)
+            VALUES ($source, $cardName, $normalizedCardName, $board, $deckCount, $lastSeenUtc)
+            ON CONFLICT(source, normalized_card_name, board)
+            DO UPDATE SET
+                deck_count = deck_count + excluded.deck_count,
+                card_name = excluded.card_name,
+                last_seen_utc = excluded.last_seen_utc;
+            """;
+        command.Parameters.AddWithValue("$source", source);
+        command.Parameters.AddWithValue("$cardName", cardName);
+        command.Parameters.AddWithValue("$normalizedCardName", CardNormalizer.Normalize(cardName));
+        command.Parameters.AddWithValue("$board", NormalizeBoard(board));
+        command.Parameters.AddWithValue("$deckCount", deckCountIncrement);
+        command.Parameters.AddWithValue("$lastSeenUtc", DateTimeOffset.UtcNow.ToString("O"));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Retrieves deck totals for the card, optionally filtered by board.
+    /// </summary>
+    public async Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+        await EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var filterClause = boardFilter is null ? string.Empty : "AND board = $board";
+        var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT board, SUM(deck_count) AS total
+            FROM card_deck_totals
+            WHERE normalized_card_name = $normalized
+            {filterClause}
+            GROUP BY board;
+            """;
+        command.Parameters.AddWithValue("$normalized", CardNormalizer.Normalize(cardName));
+        if (boardFilter is not null)
+        {
+            command.Parameters.AddWithValue("$board", NormalizeBoard(boardFilter));
+        }
+
+        var boardCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var board = reader.GetString(0);
+            var total = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+            boardCounts[board] = total;
+        }
+
+        var totalDecks = boardCounts.Values.Sum();
+        return new CardDeckTotals(totalDecks, boardCounts);
+    }
+
+    /// <summary>
+    /// Checks whether the repository already contains entries for the source.
+    /// </summary>
+    /// <param name="source">Source label to check.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
     public async Task<bool> HasSourceDataAsync(string source, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(source))
@@ -199,6 +445,11 @@ public sealed class CategoryKnowledgeRepository
         return result == 1L;
     }
 
+    /// <summary>
+    /// Inserts new deck IDs into the queue for processing.
+    /// </summary>
+    /// <param name="deckIds">Deck IDs to enqueue.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
     {
         var unique = deckIds
@@ -226,6 +477,11 @@ public sealed class CategoryKnowledgeRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Gets the next batch of deck IDs that have not been processed or skipped.
+    /// </summary>
+    /// <param name="count">Maximum number of deck IDs to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<string>> GetNextUnprocessedDeckIdsAsync(int count, CancellationToken cancellationToken = default)
     {
         if (count <= 0)
@@ -257,6 +513,10 @@ public sealed class CategoryKnowledgeRepository
         return deckIds;
     }
 
+    /// <summary>
+    /// Retrieves the total number of unprocessed deck IDs.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -269,6 +529,28 @@ public sealed class CategoryKnowledgeRepository
         return (int)result;
     }
 
+    /// <summary>
+    /// Counts the number of decks that have been processed.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;";
+        var result = (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
+        return (int)result;
+    }
+
+    /// <summary>
+    /// Marks the provided deck IDs as processed, optionally skipping them.
+    /// </summary>
+    /// <param name="deckIds">Deck IDs to update.</param>
+    /// <param name="skip">Whether the decks should be skipped after failure.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, CancellationToken cancellationToken = default)
     {
         var unique = deckIds
@@ -304,5 +586,15 @@ public sealed class CategoryKnowledgeRepository
             }
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static string NormalizeBoard(string? board)
+    {
+        if (string.IsNullOrWhiteSpace(board))
+        {
+            return "mainboard";
+        }
+
+        return board.Trim().ToLowerInvariant();
     }
 }

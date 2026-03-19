@@ -4,4 +4,5 @@ public enum DeckPageTab
 {
     Sync = 0,
     SuggestCategories = 1,
+    CommanderCategories = 2,
 }

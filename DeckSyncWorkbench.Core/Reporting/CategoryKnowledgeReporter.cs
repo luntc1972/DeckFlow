@@ -4,6 +4,10 @@ namespace DeckSyncWorkbench.Core.Reporting;
 
 public static class CategoryKnowledgeReporter
 {
+    /// <summary>
+    /// Builds category knowledge rows from deck entries.
+    /// </summary>
+    /// <param name="entries">Deck entries to aggregate.</param>
     public static IReadOnlyList<CategoryKnowledgeRow> Build(IEnumerable<DeckEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -37,6 +41,10 @@ public static class CategoryKnowledgeReporter
             .ToList();
     }
 
+    /// <summary>
+    /// Parses category knowledge file text into rows.
+    /// </summary>
+    /// <param name="text">Text to parse.</param>
     public static IReadOnlyList<CategoryKnowledgeRow> Parse(string text)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
@@ -81,11 +89,21 @@ public static class CategoryKnowledgeReporter
         return rows;
     }
 
+    /// <summary>
+    /// Serializes deck entries into a category knowledge text blob.
+    /// </summary>
+    /// <param name="entries">Entries to format.</param>
+    /// <param name="deckCount">Number of decks harvested.</param>
     public static string ToText(IEnumerable<DeckEntry> entries, int deckCount)
     {
         return ToText(Build(entries), deckCount);
     }
 
+    /// <summary>
+    /// Serializes rows into the knowledge text format.
+    /// </summary>
+    /// <param name="rows">Knowledge rows to format.</param>
+    /// <param name="deckCount">Count of decks represented.</param>
     public static string ToText(IEnumerable<CategoryKnowledgeRow> rows, int deckCount)
     {
         var items = rows.ToList();
@@ -114,6 +132,10 @@ public static class CategoryKnowledgeReporter
         return string.Join(Environment.NewLine, lines);
     }
 
+    /// <summary>
+    /// Splits a comma-delimited category string, filtering out top-level types.
+    /// </summary>
+    /// <param name="categoryText">Raw category text.</param>
     public static IEnumerable<string> SplitCategories(string? categoryText)
     {
         if (string.IsNullOrWhiteSpace(categoryText))
@@ -131,4 +153,4 @@ public static class CategoryKnowledgeReporter
     }
 }
 
-public sealed record CategoryKnowledgeRow(string Category, string CardName, int Count);
+    public sealed record CategoryKnowledgeRow(string Category, string CardName, int Count, int DeckCount = 0);

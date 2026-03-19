@@ -1,12 +1,16 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
 using DeckSyncWorkbench.Core.Integration;
 using DeckSyncWorkbench.Core.Knowledge;
-using System.Diagnostics;
 using DeckSyncWorkbench.Core.Models;
 using DeckSyncWorkbench.Core.Reporting;
+using Microsoft.Extensions.Logging;
 
 namespace DeckSyncWorkbench.Web.Services;
 
-public sealed class CategoryKnowledgeStore
+public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
     private static readonly TimeSpan MaxAge = TimeSpan.FromHours(12);
@@ -15,18 +19,31 @@ public sealed class CategoryKnowledgeStore
     private readonly string _harvestTextPath;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CategoryKnowledgeRepository _repository;
+    private readonly ArchidektApiDeckImporter _archidektImporter;
+    private readonly ArchidektRecentDecksImporter _recentDeckImporter;
 
+    /// <summary>
+    /// Initializes the knowledge store for the web app environment.
+    /// </summary>
+    /// <param name="environment">Web host environment for locating artifacts.</param>
     public CategoryKnowledgeStore(IWebHostEnvironment environment)
     {
         _artifactsPath = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
         _databasePath = Path.Combine(_artifactsPath, "category-knowledge.db");
         _harvestTextPath = Path.Combine(_artifactsPath, "archidekt-recent-20-categories.txt");
         _repository = new CategoryKnowledgeRepository(_databasePath);
+        _archidektImporter = new ArchidektApiDeckImporter();
+        _recentDeckImporter = new ArchidektRecentDecksImporter();
     }
 
     public string DatabasePath => _databasePath;
 
-    public async Task EnsureHarvestFreshAsync(HttpClient httpClient, ILogger logger, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Refreshes the cached harvest if it is stale.
+    /// </summary>
+    /// <param name="logger">Logger guiding the refresh run.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task EnsureHarvestFreshAsync(ILogger logger, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -44,8 +61,8 @@ public sealed class CategoryKnowledgeStore
             }
 
             logger.LogInformation("Refreshing Archidekt category knowledge database at {Path}.", _databasePath);
-            var recentDeckIds = await new ArchidektRecentDecksImporter(httpClient).ImportRecentDeckIdsAsync(HarvestDeckCount, cancellationToken);
-            var importer = new ArchidektApiDeckImporter(httpClient);
+            var recentDeckIds = await _recentDeckImporter.ImportRecentDeckIdsAsync(HarvestDeckCount, cancellationToken);
+            var importer = _archidektImporter;
             var entries = new List<DeckEntry>();
 
             foreach (var deckId in recentDeckIds)
@@ -54,7 +71,7 @@ public sealed class CategoryKnowledgeStore
             }
 
             var rows = CategoryKnowledgeReporter.Build(entries);
-            await _repository.ReplaceSourceRowsAsync("archidekt_harvest", rows, cancellationToken);
+            await _repository.ReplaceSourceRowsAsync("archidekt_harvest", rows, "mainboard", 0, cancellationToken);
             await File.WriteAllTextAsync(_harvestTextPath, CategoryKnowledgeReporter.ToText(rows, recentDeckIds.Count), cancellationToken);
             await _repository.AddDeckIdsAsync(recentDeckIds, cancellationToken);
         }
@@ -64,6 +81,11 @@ public sealed class CategoryKnowledgeStore
         }
     }
 
+    /// <summary>
+    /// Gets cached categories for a given card from the repository.
+    /// </summary>
+    /// <param name="cardName">Card name to resolve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
@@ -79,7 +101,15 @@ public sealed class CategoryKnowledgeStore
         }
     }
 
-    public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Persists observed categories emitted during runtime lookups.
+    /// </summary>
+    /// <param name="source">Source label for categories.</param>
+    /// <param name="cardName">Card name.</param>
+    /// <param name="categories">Categories to persist.</param>
+    /// <param name="quantity">Quantity recorded.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(cardName) || categories.Count == 0 || quantity <= 0)
         {
@@ -89,7 +119,7 @@ public sealed class CategoryKnowledgeStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, cancellationToken);
+            await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
         }
         finally
         {
@@ -97,53 +127,19 @@ public sealed class CategoryKnowledgeStore
         }
     }
 
-    public async Task<int> ProcessNextDecksAsync(HttpClient httpClient, ILogger logger, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Processes the next batch of decks in the cache queue.
+    /// </summary>
+    /// <param name="logger">Logger for the cache run.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<int> ProcessNextDecksAsync(ILogger logger, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await _repository.EnsureSchemaAsync(cancellationToken);
-            var unprocessed = await _repository.GetUnprocessedCountAsync(cancellationToken);
-            if (unprocessed == 0)
-            {
-                var importer = new ArchidektRecentDecksImporter(httpClient);
-                var recentDeckIds = await importer.ImportRecentDeckIdsAsync(HarvestDeckCount, cancellationToken);
-                if (recentDeckIds.Count > 0)
-                {
-                    await _repository.AddDeckIdsAsync(recentDeckIds, cancellationToken);
-                    unprocessed = await _repository.GetUnprocessedCountAsync(cancellationToken);
-                }
-            }
-
-            if (unprocessed == 0)
-            {
-                return 0;
-            }
-
-            var toProcess = await _repository.GetNextUnprocessedDeckIdsAsync(1, cancellationToken);
-            if (toProcess.Count == 0)
-            {
-                return 0;
-            }
-
-            var deckImporter = new ArchidektApiDeckImporter(httpClient);
-            foreach (var deckId in toProcess)
-            {
-                try
-                {
-                    var entries = await deckImporter.ImportAsync(deckId, cancellationToken);
-                    await PersistDeckEntriesAsync("archidekt_live", entries, cancellationToken);
-                    await _repository.MarkDecksProcessedAsync(new[] { deckId }, cancellationToken: cancellationToken);
-                    logger.LogInformation("Cached categories from deck {DeckId}.", deckId);
-                }
-                catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
-                {
-                    await _repository.MarkDecksProcessedAsync(new[] { deckId }, skip: true, cancellationToken: cancellationToken);
-                    logger.LogWarning(exception, "Skipping deck {DeckId} while warming cache.", deckId);
-                }
-            }
-
-            return toProcess.Count;
+            var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
+            var result = await session.RunAsync(TimeSpan.FromSeconds(4), queueBatchSize: 1, fetchBatchSize: HarvestDeckCount, cancellationToken: cancellationToken);
+            return result.DecksProcessed;
         }
         finally
         {
@@ -151,56 +147,20 @@ public sealed class CategoryKnowledgeStore
         }
     }
 
-    public async Task<int> RunCacheSweepAsync(HttpClient httpClient, ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Runs an extended cache sweep for the specified duration.
+    /// </summary>
+    /// <param name="logger">Logger for the sweep.</param>
+    /// <param name="durationSeconds">Duration in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await _repository.EnsureSchemaAsync(cancellationToken);
-            var stopwatch = Stopwatch.StartNew();
-            var processed = 0;
-            var recentImporter = new ArchidektRecentDecksImporter(httpClient);
-            var deckImporter = new ArchidektApiDeckImporter(httpClient);
-
-            while (stopwatch.Elapsed.TotalSeconds < durationSeconds && !cancellationToken.IsCancellationRequested)
-            {
-                var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(5, cancellationToken);
-                if (deckIds.Count == 0)
-                {
-                    var newIds = await recentImporter.ImportRecentDeckIdsAsync(HarvestDeckCount, cancellationToken);
-                    if (newIds.Count == 0)
-                    {
-                        break;
-                    }
-
-                    await _repository.AddDeckIdsAsync(newIds, cancellationToken);
-                    continue;
-                }
-
-                foreach (var deckId in deckIds)
-                {
-                    try
-                    {
-                        var entries = await deckImporter.ImportAsync(deckId, cancellationToken);
-                        await PersistDeckEntriesAsync("archidekt_live", entries, cancellationToken);
-                        await _repository.MarkDecksProcessedAsync(new[] { deckId }, cancellationToken: cancellationToken);
-                        processed++;
-                        logger.LogInformation("Cached categories from deck {DeckId}.", deckId);
-                    }
-                    catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
-                    {
-                        await _repository.MarkDecksProcessedAsync(new[] { deckId }, skip: true, cancellationToken: cancellationToken);
-                        logger.LogWarning(exception, "Skipping deck {DeckId} while warming cache.", deckId);
-                    }
-
-                    if (stopwatch.Elapsed.TotalSeconds >= durationSeconds)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            return processed;
+            var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
+            var result = await session.RunAsync(TimeSpan.FromSeconds(durationSeconds), queueBatchSize: 5, fetchBatchSize: HarvestDeckCount, cancellationToken: cancellationToken);
+            return result.DecksProcessed;
         }
         finally
         {
@@ -208,23 +168,48 @@ public sealed class CategoryKnowledgeStore
         }
     }
 
-    private async Task PersistDeckEntriesAsync(string source, IEnumerable<DeckEntry> entries, CancellationToken cancellationToken)
+    /// <summary>
+    /// Retrieves cached category rows for a card.
+    /// </summary>
+    /// <param name="cardName">Card name to query.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
-        var counts = new Dictionary<(string CardName, string Category), int>(CardCategoryComparer.Instance);
-        foreach (var entry in entries)
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+        await _gate.WaitAsync(cancellationToken);
+        try
         {
-            foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
-            {
-                var key = (entry.Name, category);
-                counts[key] = counts.TryGetValue(key, out var existing) ? existing + entry.Quantity : entry.Quantity;
-            }
+            return await _repository.GetCategoryRowsForCardAsync(cardName, boardFilter, cancellationToken);
         }
-
-        foreach (var group in counts)
+        finally
         {
-            await _repository.PersistObservedCategoriesAsync(source, group.Key.CardName, new[] { group.Key.Category }, group.Value, cancellationToken);
+            _gate.Release();
         }
     }
 
+    /// <summary>
+    /// Retrieves overall deck totals for the provided card.
+    /// </summary>
+    public async Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await _repository.GetCardDeckTotalsAsync(cardName, boardFilter, cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
+    /// <summary>
+    /// Gets the number of decks whose categories have been cached.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
+    {
+        return _repository.GetProcessedDeckCountAsync(cancellationToken);
+    }
 }

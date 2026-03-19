@@ -2,6 +2,11 @@ namespace DeckSyncWorkbench.Core.Reporting;
 
 public static class CategoryInferenceReporter
 {
+    /// <summary>
+    /// Infers categories for a card from the harvested knowledge text.
+    /// </summary>
+    /// <param name="knowledgeText">Harvested knowledge text chunk.</param>
+    /// <param name="cardName">Card name to locate.</param>
     public static IReadOnlyList<string> InferCategoriesFromKnowledge(string knowledgeText, string cardName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(knowledgeText);
@@ -10,7 +15,9 @@ public static class CategoryInferenceReporter
         var matches = new List<string>();
         var currentCategory = string.Empty;
 
-        foreach (var rawLine in knowledgeText.Split(Environment.NewLine))
+        // Split lines robustly for both \n and \r\n
+        var lines = knowledgeText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+        foreach (var rawLine in lines)
         {
             var line = rawLine.Trim();
             if (line.Length == 0)
@@ -20,7 +27,7 @@ public static class CategoryInferenceReporter
 
             if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
             {
-                currentCategory = line[1..^1];
+                currentCategory = line[1..^1].Trim();
                 continue;
             }
 

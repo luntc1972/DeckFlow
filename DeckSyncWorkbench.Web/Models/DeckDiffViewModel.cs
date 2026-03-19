@@ -1,4 +1,5 @@
 using DeckSyncWorkbench.Core.Models;
+using DeckSyncWorkbench.Core.Reporting;
 
 namespace DeckSyncWorkbench.Web.Models;
 
@@ -34,10 +35,6 @@ public sealed class DeckDiffViewModel
 
     public string? InferredSuggestionContextText { get; init; }
 
-    public string? LiveSearchCategoriesText { get; init; }
-
-    public string? LiveSearchSuggestionContextText { get; init; }
-
     public string? EdhrecCategoriesText { get; init; }
 
     public string? EdhrecSuggestionContextText { get; init; }
@@ -47,4 +44,7 @@ public sealed class DeckDiffViewModel
     public string? NoSuggestionsMessage { get; init; }
 
     public string? SuggestionSourceSummary { get; init; }
+    public int AdditionalDecksFound { get; init; }
+    public bool ExtendedHarvestTriggered { get; init; }
+    public CardDeckTotals CardDeckTotals { get; init; } = CardDeckTotals.Empty;
 }

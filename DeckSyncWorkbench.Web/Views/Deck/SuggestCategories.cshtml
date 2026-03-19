@@ -3,6 +3,8 @@
 @{
     var suggestionMode = Model.SuggestionRequest.Mode;
     var suggestionInputSource = Model.SuggestionRequest.ArchidektInputSource;
+    var hasReferenceInput = suggestionMode == CategorySuggestionMode.ReferenceDeck
+        && (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektUrl) || !string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektText));
     ViewData["Title"] = "Suggest Categories";
 }
 
@@ -23,31 +25,43 @@
     <div class="error-banner" role="alert">@Model.SuggestionErrorMessage</div>
 }
 
-<form method="post" action="/suggest-categories" class="deck-form" data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources.">
+<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
             <span>Lookup mode</span>
-            <select name="Mode" onchange="updateSuggestionInputModeUi()">
+            <select name="Mode" required data-default-value="@CategorySuggestionMode.CachedData" onchange="updateSuggestionInputModeUi()">
                 <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData)">Use cached data</option>
                 <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck)">Use reference deck</option>
             </select>
         </label>
         <label class="mode-picker flex-grow">
             <span>Card name</span>
-            <input type="text" name="CardName" value="@Model.SuggestionRequest.CardName" placeholder="Guardian Project" />
+            <input type="text" name="CardName" list="card-suggestions" value="@Model.SuggestionRequest.CardName" placeholder="Guardian Project" autocomplete="off" required />
+            <datalist id="card-suggestions"></datalist>
         </label>
-        <button type="submit" class="run-button">Suggest</button>
+        <button type="submit" class="run-button" data-enable-on-ready>Suggest</button>
+        <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>
     </div>
 
     <div class="mode-note">
         <span>Cached data is the default. Switch to a reference deck only when you want exact deck-local categories from a specific Archidekt list.</span>
     </div>
+    <div class="mode-note">
+        <span>Click Suggest to keep scanning Archidekt decks for another 30 seconds and expand the cached category store.</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName) && Model.CardDeckTotals.TotalDeckCount > 0)
+    {
+        <div class="info-banner">
+            <p>The cached store currently contains <strong>@Model.CardDeckTotals.TotalDeckCount</strong> deck(s) featuring @Model.SuggestionRequest.CardName.</p>
+        </div>
+    }
 
     <div class="reference-controls @(suggestionMode == CategorySuggestionMode.ReferenceDeck ? string.Empty : "hidden")">
         <label class="mode-picker">
             <span>Reference deck input</span>
-            <select name="ArchidektInputSource" onchange="updateSuggestionInputModeUi()">
+            <select name="ArchidektInputSource" required data-default-value="@DeckInputSource.PublicUrl" onchange="updateSuggestionInputModeUi()">
                 <option value="@DeckInputSource.PublicUrl" selected="@(suggestionInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
                 <option value="@DeckInputSource.PasteText" selected="@(suggestionInputSource == DeckInputSource.PasteText)">Paste text</option>
             </select>
@@ -69,6 +83,24 @@
     </div>
 </form>
 
+@if (string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage)
+    && string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText)
+    && string.IsNullOrWhiteSpace(Model.InferredCategoriesText)
+    && string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText)
+    && !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName))
+{
+    <div class="info-banner">
+        <p>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName. Click Suggest to keep scanning public decks for another 30 seconds so those categories can populate.</p>
+    </div>
+}
+
+@if (Model.ExtendedHarvestTriggered && Model.AdditionalDecksFound > 0)
+{
+    <div class="info-banner">
+        <p><strong>@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
+    </div>
+}
+
 @if (Model.NoSuggestionsFound)
 {
     <section class="result-panel retry-panel">
@@ -77,7 +109,7 @@
                 <h2>No Suggestions Found</h2>
                 <p>@Model.NoSuggestionsMessage</p>
             </div>
-            <form method="post" action="/suggest-categories" data-busy-title="Retrying Category Lookup" data-busy-message="Starting the category checks again.">
+            <form method="post" action="/suggest-categories" data-busy-title="Retrying Category Lookup" data-busy-message="Starting the category checks again." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="Mode" value="@Model.SuggestionRequest.Mode" />
                 <input type="hidden" name="ArchidektInputSource" value="@Model.SuggestionRequest.ArchidektInputSource" />
@@ -90,7 +122,7 @@
     </section>
 }
 
-@if (!string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText) || !string.IsNullOrWhiteSpace(Model.InferredCategoriesText) || !string.IsNullOrWhiteSpace(Model.LiveSearchCategoriesText) || !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
+@if (!string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText) || !string.IsNullOrWhiteSpace(Model.InferredCategoriesText) || !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
 {
     <section class="stack">
         @if (!string.IsNullOrWhiteSpace(Model.SuggestionSourceSummary))
@@ -101,7 +133,7 @@
             </section>
         }
 
-        @if (suggestionMode == CategorySuggestionMode.ReferenceDeck)
+        @if (hasReferenceInput)
         {
             <section class="result-panel">
                 <div class="panel-heading">
@@ -114,62 +146,34 @@
                 <textarea id="exact-suggested-categories-output" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
             </section>
         }
-
-        <section class="result-panel inferred-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Exact Deck Match</h2>
-                    <p>@Model.ExactSuggestionContextText</p>
-                </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('exact-suggested-categories-output').value)">Copy</button>
-            </div>
-            <textarea id="exact-suggested-categories-output" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
-        </section>
-
         <section class="result-panel inferred-panel">
             <div class="panel-heading">
                 <div>
                     <h2>Cached Store Matches</h2>
+                    <span class="info-tooltip" title="These categories are ordered by how many cached decks contained the card (descending).">i</span>
                     <p>@Model.InferredSuggestionContextText</p>
+                    @if (Model.CardDeckTotals.TotalDeckCount > 0)
+                    {
+                        <p>@Model.CardDeckTotals.TotalDeckCount deck(s) in the cache include @Model.SuggestionRequest.CardName.</p>
+                    }
                 </div>
                 <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('inferred-categories-output').value)">Copy</button>
             </div>
             <textarea id="inferred-categories-output" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
         </section>
 
-        @if (!string.IsNullOrWhiteSpace(Model.LiveSearchCategoriesText) || !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
+        @if (!string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
         {
-            <details class="result-panel fallback-panel">
-                <summary>Lower-Confidence Fallback Sources</summary>
-
-                @if (!string.IsNullOrWhiteSpace(Model.LiveSearchCategoriesText))
-                {
-                    <section class="result-panel live-search-panel nested-panel">
-                        <div class="panel-heading">
-                            <div>
-                                <h2>Live Archidekt Search</h2>
-                                <p>@Model.LiveSearchSuggestionContextText</p>
-                            </div>
-                            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('live-search-categories-output').value)">Copy</button>
-                        </div>
-                        <textarea id="live-search-categories-output" readonly spellcheck="false">@Model.LiveSearchCategoriesText</textarea>
-                    </section>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
-                {
-                    <section class="result-panel edhrec-panel nested-panel">
-                        <div class="panel-heading">
-                            <div>
-                                <h2>EDHREC Themes</h2>
-                                <p>@Model.EdhrecSuggestionContextText</p>
-                            </div>
-                            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('edhrec-categories-output').value)">Copy</button>
-                        </div>
-                        <textarea id="edhrec-categories-output" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
-                    </section>
-                }
-            </details>
+            <section class="result-panel edhrec-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>EDHREC Themes</h2>
+                        <p>@Model.EdhrecSuggestionContextText</p>
+                    </div>
+                    <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('edhrec-categories-output').value)">Copy</button>
+                </div>
+                <textarea id="edhrec-categories-output" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
+            </section>
         }
     </section>
 }
@@ -209,25 +213,9 @@ function updateSuggestionInputModeUi() {
 document.addEventListener('DOMContentLoaded', function () {
     updateSuggestionInputModeUi();
 });
-
-function showBusyIndicator(title, message) {
-    var container = document.getElementById('busy-indicator');
-    var titleNode = document.getElementById('busy-indicator-title');
-    var messageNode = document.getElementById('busy-indicator-message');
-    if (!container || !titleNode || !messageNode) {
-        return;
-    }
-
-    titleNode.textContent = title || 'Working';
-    messageNode.textContent = message || 'Request in progress.';
-    container.classList.remove('hidden');
-}
-
-document.querySelectorAll('form[data-busy-title]').forEach(function (form) {
-    form.addEventListener('submit', function () {
-        showBusyIndicator(form.getAttribute('data-busy-title'), form.getAttribute('data-busy-message'));
-    });
-});
-
-updateSuggestionInputModeUi();
 </script>
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+    <script src="~/js/card-search.js" asp-append-version="true"></script>
+}

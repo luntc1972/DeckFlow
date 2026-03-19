@@ -1,35 +1,49 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using DeckSyncWorkbench.Core.Reporting;
+using RestSharp;
 
 namespace DeckSyncWorkbench.Core.Integration;
 
 public sealed partial class EdhrecCardLookup
 {
-    private readonly HttpClient _httpClient;
+    private readonly RestClient _restClient;
 
-    public EdhrecCardLookup(HttpClient httpClient)
+    /// <summary>
+    /// Initializes the lookup with an optional RestClient instance.
+    /// </summary>
+    /// <param name="restClient">Optional HTTP client for requests.</param>
+    public EdhrecCardLookup(RestClient? restClient = null)
     {
-        _httpClient = httpClient;
+        _restClient = restClient ?? new RestClient(new RestClientOptions
+        {
+            BaseUrl = new Uri("https://json.edhrec.com"),
+            ThrowOnAnyError = false,
+        });
     }
 
+    /// <summary>
+    /// Attempts to fetch EDHREC category tags for the supplied card name.
+    /// </summary>
+    /// <param name="cardName">Card name to look up.</param>
+    /// <param name="cancellationToken">Cancellation token for the request.</param>
     public async Task<IReadOnlyList<string>> LookupCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, BuildCardUri(cardName));
-        request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
-        request.Headers.Accept.ParseAdd("application/json, text/plain, */*");
-        request.Headers.Referrer = new Uri("https://edhrec.com/");
-        request.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+        var request = new RestRequest($"pages/cards/{Slugify(cardName)}.json", Method.Get);
+        request.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+        request.AddHeader("Accept", "application/json, text/plain, */*");
+        request.AddHeader("Referer", "https://edhrec.com/");
+        request.AddHeader("Accept-Language", "en-US,en;q=0.9");
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        var response = await _restClient.ExecuteAsync(request, cancellationToken);
+        if (!response.IsSuccessful)
         {
             return [];
         }
 
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var body = response.Content ?? string.Empty;
         using var document = JsonDocument.Parse(body);
 
         if (!document.RootElement.TryGetProperty("panels", out var panelsElement) || panelsElement.ValueKind != JsonValueKind.Array)
@@ -53,12 +67,20 @@ public sealed partial class EdhrecCardLookup
         return categories.OrderBy(item => item, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>
+    /// Builds the JSON endpoint URI for the given card on EDHREC.
+    /// </summary>
+    /// <param name="cardName">Card name to convert to a URI.</param>
     public static Uri BuildCardUri(string cardName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
         return new Uri($"https://json.edhrec.com/pages/cards/{Slugify(cardName)}.json", UriKind.Absolute);
     }
 
+    /// <summary>
+    /// Converts a card name to the slug format EDHREC expects.
+    /// </summary>
+    /// <param name="cardName">Card name to slugify.</param>
     public static string Slugify(string cardName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
@@ -71,6 +93,10 @@ public sealed partial class EdhrecCardLookup
         return compact.Trim('-');
     }
 
+    /// <summary>
+    /// Normalizes a category/tag label to title case and removes separators.
+    /// </summary>
+    /// <param name="category">Raw category value from EDHREC.</param>
     private static string? NormalizeCategory(string? category)
     {
         if (string.IsNullOrWhiteSpace(category))

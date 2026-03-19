@@ -6,10 +6,6 @@
     var archidektInputSource = Model.Request.ArchidektInputSource;
     var sourceName = direction == SyncDirection.DeckSyncWorkbench ? "Moxfield" : "Archidekt";
     var targetName = direction == SyncDirection.DeckSyncWorkbench ? "Archidekt" : "Moxfield";
-    var sourceTextareaName = direction == SyncDirection.DeckSyncWorkbench ? "MoxfieldText" : "ArchidektText";
-    var sourceTextareaValue = direction == SyncDirection.DeckSyncWorkbench ? Model.Request.MoxfieldText : Model.Request.ArchidektText;
-    var targetTextareaName = direction == SyncDirection.DeckSyncWorkbench ? "ArchidektText" : "MoxfieldText";
-    var targetTextareaValue = direction == SyncDirection.DeckSyncWorkbench ? Model.Request.ArchidektText : Model.Request.MoxfieldText;
     ViewData["Title"] = "Deck Sync";
 }
 
@@ -30,7 +26,7 @@
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<form method="post" class="deck-form" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output.">
+<form method="post" class="deck-form" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output.">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <div class="direction-group">
@@ -50,65 +46,83 @@
                 <option value="@MatchMode.Strict" selected="@(Model.Request.Mode == MatchMode.Strict)">Strict</option>
             </select>
         </label>
-        <button type="submit" class="run-button">Run Diff</button>
-    </div>
-
-    <div class="source-grid">
-        <label class="field">
-            <span>Moxfield input</span>
-            <select name="MoxfieldInputSource">
-                <option value="@DeckInputSource.PasteText" selected="@(moxfieldInputSource == DeckInputSource.PasteText)">Paste text</option>
-                <option value="@DeckInputSource.PublicUrl" selected="@(moxfieldInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+        <label class="mode-picker">
+            <span>Category sync</span>
+            <select name="CategorySyncMode">
+                <option value="@CategorySyncMode.TargetCategories" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.TargetCategories)">Use @targetName categories</option>
+                <option value="@CategorySyncMode.SourceTags" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.SourceTags)">Use @sourceName tags</option>
+                <option value="@CategorySyncMode.Combined" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.Combined)">Combine both</option>
             </select>
         </label>
-        <label class="field">
-            <span>Archidekt input</span>
-            <select name="ArchidektInputSource">
-                <option value="@DeckInputSource.PasteText" selected="@(archidektInputSource == DeckInputSource.PasteText)">Paste text</option>
-                <option value="@DeckInputSource.PublicUrl" selected="@(archidektInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
-            </select>
-        </label>
+        <button type="submit" class="run-button" data-enable-on-ready>Run Diff</button>
+        <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>
     </div>
 
     <div class="mode-note">
         <span>You can mix input methods. Public URLs are convenient when the deck APIs respond; pasted text is the more reliable fallback.</span>
     </div>
 
-    <div class="url-grid hidden" data-sync-panel="url">
-        <label class="field hidden" data-sync-panel="moxfield-url">
-            <span>Moxfield public deck URL</span>
-            <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="https://moxfield.com/decks/..." />
-        </label>
-        <label class="field hidden" data-sync-panel="archidekt-url">
-            <span>Archidekt public deck URL</span>
-            <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
-        </label>
-    </div>
-
-    <div class="field-grid hidden" data-sync-panel="text">
-        <label class="field hidden" data-sync-panel="moxfield-text">
-            <span>@sourceName export text</span>
-            <textarea name="@sourceTextareaName" spellcheck="false">@sourceTextareaValue</textarea>
-        </label>
-        <label class="field hidden" data-sync-panel="archidekt-text">
-            <span>@targetName export text</span>
-            <textarea name="@targetTextareaName" spellcheck="false">@targetTextareaValue</textarea>
-        </label>
+    <div class="sync-columns">
+        <section class="sync-column sync-column--moxfield" aria-labelledby="moxfield-panel-title">
+            <div class="sync-column__header">
+                <p id="moxfield-panel-title">Moxfield</p>
+                <span class="sync-column__status">
+                    @(direction == SyncDirection.DeckSyncWorkbench ? "Source deck" : "Target deck")
+                </span>
+            </div>
+            <p class="sync-column__description">Provide the Moxfield export or public URL you want to sync from or to.</p>
+            <label class="field">
+                <span>Input method</span>
+                <select name="MoxfieldInputSource">
+                    <option value="@DeckInputSource.PasteText" selected="@(moxfieldInputSource == DeckInputSource.PasteText)">Paste text</option>
+                    <option value="@DeckInputSource.PublicUrl" selected="@(moxfieldInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+                </select>
+            </label>
+            <div class="sync-column__body">
+                <label class="field sync-column__input-field hidden" data-sync-panel="moxfield-url">
+                    <span>Moxfield public deck URL</span>
+                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="https://moxfield.com/decks/..." />
+                </label>
+                <label class="field sync-column__input-field hidden" data-sync-panel="moxfield-text">
+                    <span>Moxfield export text</span>
+                    <textarea name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
+                    <small class="sync-column__hint">Use this when the Moxfield deck is @(direction == SyncDirection.DeckSyncWorkbench ? "the source" : "the target").</small>
+                </label>
+            </div>
+        </section>
+        <section class="sync-column sync-column--archidekt" aria-labelledby="archidekt-panel-title">
+            <div class="sync-column__header">
+                <p id="archidekt-panel-title">Archidekt</p>
+                <span class="sync-column__status">
+                    @(direction == SyncDirection.DeckSyncWorkbench ? "Target deck" : "Source deck")
+                </span>
+            </div>
+            <p class="sync-column__description">Provide the Archidekt export or public URL for syncing.</p>
+            <label class="field">
+                <span>Input method</span>
+                <select name="ArchidektInputSource">
+                    <option value="@DeckInputSource.PasteText" selected="@(archidektInputSource == DeckInputSource.PasteText)">Paste text</option>
+                    <option value="@DeckInputSource.PublicUrl" selected="@(archidektInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+                </select>
+            </label>
+            <div class="sync-column__body">
+                <label class="field sync-column__input-field hidden" data-sync-panel="archidekt-url">
+                    <span>Archidekt public deck URL</span>
+                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
+                </label>
+                <label class="field sync-column__input-field hidden" data-sync-panel="archidekt-text">
+                    <span>Archidekt export text</span>
+                    <textarea name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
+                    <small class="sync-column__hint">Use this when the Archidekt deck is @(direction == SyncDirection.DeckSyncWorkbench ? "the target" : "the source").</small>
+                </label>
+            </div>
+        </section>
     </div>
 </form>
 
-<script>
-function scrollResults() {
-    var hash = document.getElementById('results-anchor');
-    if (hash) {
-        hash.scrollIntoView({ behavior: 'smooth' });
-    }
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 }
-
-document.querySelector('form.deck-form').addEventListener('submit', function() {
-    setTimeout(scrollResults, 2500);
-});
-</script>
 
 @if (Model.Diff is not null)
 {
@@ -147,6 +161,7 @@ document.querySelector('form.deck-form').addEventListener('submit', function() {
                 <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" />
                 <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" />
                 <input type="hidden" name="Direction" value="@Model.Request.Direction" />
+                <input type="hidden" name="CategorySyncMode" value="@Model.Request.CategorySyncMode" />
                 <input type="hidden" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" />
                 <input type="hidden" name="MoxfieldText" value="@Model.Request.MoxfieldText" />
                 <input type="hidden" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" />
@@ -219,6 +234,7 @@ function setAllPrintingChoices(value) {
 function togglePanel(selector, shouldHide) {
     document.querySelectorAll(selector).forEach(function (element) {
         element.classList.toggle('hidden', shouldHide);
+        element.style.display = shouldHide ? 'none' : '';
     });
 }
 

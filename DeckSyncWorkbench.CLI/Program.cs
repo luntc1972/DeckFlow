@@ -4,10 +4,13 @@ using DeckSyncWorkbench.Core.Diffing;
 using DeckSyncWorkbench.Core.Exporting;
 using DeckSyncWorkbench.Core.Filtering;
 using DeckSyncWorkbench.Core.Integration;
+using DeckSyncWorkbench.Core.Knowledge;
 using DeckSyncWorkbench.Core.Models;
 using DeckSyncWorkbench.Core.Parsing;
 using DeckSyncWorkbench.Core.Reporting;
-using DeckSyncWorkbench.Core.Knowledge;
+using RestSharp;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 var compareCommand = new Command("compare", "Compare Moxfield and Archidekt exports.");
 var moxfieldOption = new Option<FileInfo?>("--moxfield");
@@ -124,13 +127,24 @@ categoryFindCommand.SetHandler((string cardName, int runSeconds, int timeoutSeco
 }, categoryFindCardOption, categoryFindSecondsOption, categoryFindTimeoutOption);
 return await rootCommand.InvokeAsync(args);
 
+/// <summary>
+/// Runs the compare command, optionally resolving conflicts and producing delta/full import outputs.
+/// </summary>
+/// <param name="moxfield">Local Moxfield file.</param>
+/// <param name="moxfieldUrl">Remote Moxfield deck URL.</param>
+/// <param name="archidekt">Local Archidekt file.</param>
+/// <param name="archidektUrl">Remote Archidekt deck URL.</param>
+/// <param name="output">Destination for the delta export.</param>
+/// <param name="mode">Match mode for the diff.</param>
+/// <param name="direction">Sync direction (DeckSyncWorkbench or Archidekt).</param>
+/// <param name="dryRun">Whether to skip writing files.</param>
+/// <param name="resolveConflicts">Whether to prompt for printing conflict resolutions.</param>
 static async Task<int> RunCompareAsync(FileInfo? moxfield, string? moxfieldUrl, FileInfo? archidekt, string? archidektUrl, FileInfo output, MatchMode mode, SyncDirection direction, bool dryRun, bool resolveConflicts)
 {
     try
     {
-        using var httpClient = new HttpClient();
-        var moxfieldEntries = DeckEntryFilter.ExcludeMaybeboard(await LoadMoxfieldEntriesAsync(httpClient, moxfield, moxfieldUrl));
-        var archidektEntries = await LoadArchidektEntriesAsync(httpClient, archidekt, archidektUrl);
+        var moxfieldEntries = DeckEntryFilter.ExcludeMaybeboard(await LoadMoxfieldEntriesAsync(moxfield, moxfieldUrl));
+        var archidektEntries = await LoadArchidektEntriesAsync(archidekt, archidektUrl);
         var sourceEntries = direction == SyncDirection.DeckSyncWorkbench ? moxfieldEntries : archidektEntries;
         var targetEntries = direction == SyncDirection.DeckSyncWorkbench ? archidektEntries : moxfieldEntries;
         var sourceSystem = direction == SyncDirection.DeckSyncWorkbench ? "Moxfield" : "Archidekt";
@@ -182,7 +196,12 @@ static async Task<int> RunCompareAsync(FileInfo? moxfield, string? moxfieldUrl, 
     }
 }
 
-static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(HttpClient httpClient, FileInfo? file, string? url)
+/// <summary>
+/// Loads Moxfield deck entries from either a local file or the API URL.
+/// </summary>
+/// <param name="file">Local file to parse.</param>
+/// <param name="url">Remote URL to fetch when no file is provided.</param>
+static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(FileInfo? file, string? url)
 {
     if (file is not null && !string.IsNullOrWhiteSpace(url))
     {
@@ -196,13 +215,18 @@ static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(HttpClient httpClien
 
     if (!string.IsNullOrWhiteSpace(url))
     {
-        return await new MoxfieldApiDeckImporter(httpClient).ImportAsync(url);
+        return await new MoxfieldApiDeckImporter().ImportAsync(url);
     }
 
     throw new InvalidOperationException("Either --moxfield or --moxfield-url is required.");
 }
 
-static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(HttpClient httpClient, FileInfo? file, string? url)
+/// <summary>
+/// Loads Archidekt deck entries from either a local file or the API URL.
+/// </summary>
+/// <param name="file">Local Archidekt export.</param>
+/// <param name="url">Remote Archidekt deck URL.</param>
+static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(FileInfo? file, string? url)
 {
     if (file is not null && !string.IsNullOrWhiteSpace(url))
     {
@@ -216,12 +240,18 @@ static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(HttpClient httpClie
 
     if (!string.IsNullOrWhiteSpace(url))
     {
-        return await new ArchidektApiDeckImporter(httpClient).ImportAsync(url);
+        return await new ArchidektApiDeckImporter().ImportAsync(url);
     }
 
     throw new InvalidOperationException("Either --archidekt or --archidekt-url is required.");
 }
 
+/// <summary>
+/// Interacts with the user to choose resolutions for printing conflicts.
+/// </summary>
+/// <param name="conflicts">List of printing conflicts.</param>
+/// <param name="sourceSystem">Label for the source system.</param>
+/// <param name="targetSystem">Label for the target system.</param>
 static IEnumerable<PrintingConflict> ResolveConflicts(IReadOnlyList<PrintingConflict> conflicts, string sourceSystem, string targetSystem)
 {
     foreach (var conflict in conflicts)
@@ -241,6 +271,11 @@ static IEnumerable<PrintingConflict> ResolveConflicts(IReadOnlyList<PrintingConf
     }
 }
 
+/// <summary>
+/// Fetches raw Moxfield deck JSON and inspects its top-level structure and tags.
+/// </summary>
+/// <param name="url">Moxfield deck URL.</param>
+/// <param name="output">Optional file to write raw JSON to.</param>
 static async Task<int> RunProbeAsync(string url, FileInfo? output)
 {
     if (!MoxfieldApiUrl.TryGetDeckId(url, out var deckId))
@@ -253,16 +288,21 @@ static async Task<int> RunProbeAsync(string url, FileInfo? output)
     Console.WriteLine($"Deck id: {deckId}");
     Console.WriteLine($"API URL: {apiUri}");
 
-    using var httpClient = new HttpClient();
-    httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 DeckSyncWorkbench/1.0");
-    httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
-    httpClient.DefaultRequestHeaders.Referrer = new Uri("https://moxfield.com/");
+    var client = new RestClient(new RestClientOptions
+    {
+        ThrowOnAnyError = false,
+    });
 
-    using var response = await httpClient.GetAsync(apiUri);
-    var body = await response.Content.ReadAsStringAsync();
+    var request = new RestRequest(apiUri, Method.Get);
+    request.AddHeader("User-Agent", "Mozilla/5.0 DeckSyncWorkbench/1.0");
+    request.AddHeader("Accept", "application/json, text/plain, */*");
+    request.AddHeader("Referer", "https://moxfield.com/");
 
-    Console.WriteLine($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
-    Console.WriteLine($"Content-Type: {response.Content.Headers.ContentType}");
+    var response = await client.ExecuteAsync(request);
+    var body = response.Content ?? string.Empty;
+
+    Console.WriteLine($"HTTP {(int)response.StatusCode} {response.StatusDescription}");
+    Console.WriteLine($"Content-Type: {response.ContentType}");
 
     if (!response.IsSuccessStatusCode)
     {
@@ -307,12 +347,16 @@ static async Task<int> RunProbeAsync(string url, FileInfo? output)
     return 0;
 }
 
+/// <summary>
+/// Fetches a public Moxfield deck via the API and writes its text export to disk.
+/// </summary>
+/// <param name="url">Moxfield deck URL.</param>
+/// <param name="output">File to write the exported deck text to.</param>
 static async Task<int> RunExportMoxfieldAsync(string url, FileInfo output)
 {
     try
     {
-        using var httpClient = new HttpClient();
-        var entries = await new MoxfieldApiDeckImporter(httpClient).ImportAsync(url);
+        var entries = await new MoxfieldApiDeckImporter().ImportAsync(url);
         Directory.CreateDirectory(output.DirectoryName ?? Directory.GetCurrentDirectory());
         MoxfieldTextExporter.WriteFile(entries, output.FullName);
         Console.WriteLine($"Wrote Moxfield deck file: {output.FullName}");
@@ -325,12 +369,16 @@ static async Task<int> RunExportMoxfieldAsync(string url, FileInfo output)
     }
 }
 
+/// <summary>
+/// Retrieves an Archidekt deck and reports category counts.
+/// </summary>
+/// <param name="url">Archidekt deck URL.</param>
+/// <param name="output">Optional file to capture the counts.</param>
 static async Task<int> RunArchidektCategoriesAsync(string url, FileInfo? output)
 {
     try
     {
-        using var httpClient = new HttpClient();
-        var entries = await new ArchidektApiDeckImporter(httpClient).ImportAsync(url);
+        var entries = await new ArchidektApiDeckImporter().ImportAsync(url);
         var text = CategoryCountReporter.ToText(entries);
 
         Console.WriteLine(text);
@@ -351,12 +399,17 @@ static async Task<int> RunArchidektCategoriesAsync(string url, FileInfo? output)
     }
 }
 
+/// <summary>
+/// Lists all cards from an Archidekt deck that belong to a specific category.
+/// </summary>
+/// <param name="url">Archidekt deck URL.</param>
+/// <param name="category">Category to filter by.</param>
+/// <param name="output">Optional file to output the card list.</param>
 static async Task<int> RunArchidektCategoryCardsAsync(string url, string category, FileInfo? output)
 {
     try
     {
-        using var httpClient = new HttpClient();
-        var entries = await new ArchidektApiDeckImporter(httpClient).ImportAsync(url);
+        var entries = await new ArchidektApiDeckImporter().ImportAsync(url);
         var text = CategoryCardReporter.ToText(entries, category);
 
         Console.WriteLine(text);
@@ -377,13 +430,17 @@ static async Task<int> RunArchidektCategoryCardsAsync(string url, string categor
     }
 }
 
+/// <summary>
+/// Harvests recent public Archidekt decks and persists aggregated category data to disk.
+/// </summary>
+/// <param name="count">Number of decks to harvest.</param>
+/// <param name="output">File to write the category knowledge.</param>
 static async Task<int> RunArchidektHarvestRecentAsync(int count, FileInfo output)
 {
     try
     {
-        using var httpClient = new HttpClient();
-        var recentDeckIds = await new ArchidektRecentDecksImporter(httpClient).ImportRecentDeckIdsAsync(count);
-        var importer = new ArchidektApiDeckImporter(httpClient);
+        var recentDeckIds = await new ArchidektRecentDecksImporter().ImportRecentDeckIdsAsync(count);
+        var importer = new ArchidektApiDeckImporter();
         var entries = new List<DeckEntry>();
 
         foreach (var deckId in recentDeckIds)
@@ -407,64 +464,28 @@ static async Task<int> RunArchidektHarvestRecentAsync(int count, FileInfo output
     }
 }
 
+/// <summary>
+/// Runs the Archidekt cache session for the requested duration, updating the local queue.
+/// </summary>
+/// <param name="seconds">Duration to run the cache sweep, in seconds.</param>
 static async Task<int> RunArchidektCacheAsync(int seconds)
 {
     try
     {
-        var duration = TimeSpan.FromSeconds(Math.Clamp(seconds, 5, 60));
+        var durationSeconds = Math.Max(5, seconds);
         var artifactsPath = Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
         var repository = new CategoryKnowledgeRepository(Path.Combine(artifactsPath, "category-knowledge.db"));
-        await repository.EnsureSchemaAsync();
+        var duration = TimeSpan.FromSeconds(durationSeconds);
 
-        using var httpClient = new HttpClient();
-        var recentImporter = new ArchidektRecentDecksImporter(httpClient);
-        var importer = new ArchidektApiDeckImporter(httpClient);
-        var stopwatch = Stopwatch.StartNew();
-        var processed = 0;
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            new ArchidektApiDeckImporter(),
+            new ArchidektRecentDecksImporter(),
+            NullLogger<ArchidektDeckCacheSession>.Instance);
 
-        while (stopwatch.Elapsed < duration)
-        {
-            var deckIds = await repository.GetNextUnprocessedDeckIdsAsync(5);
-            if (deckIds.Count == 0)
-            {
-                var newIds = await recentImporter.ImportRecentDeckIdsAsync(10);
-                if (newIds.Count == 0)
-                {
-                    break;
-                }
+        var result = await session.RunAsync(duration, queueBatchSize: 5, fetchBatchSize: 10);
 
-                await repository.AddDeckIdsAsync(newIds);
-                deckIds = await repository.GetNextUnprocessedDeckIdsAsync(5);
-                if (deckIds.Count == 0)
-                {
-                    continue;
-                }
-            }
-
-            foreach (var deckId in deckIds)
-            {
-                try
-                {
-                    var entries = await importer.ImportAsync(deckId);
-                    await PersistDeckEntriesAsync(repository, entries);
-                    await repository.MarkDecksProcessedAsync(new[] { deckId });
-                    processed++;
-                    Console.WriteLine($"Cached categories from deck {deckId}.");
-                }
-                catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
-                {
-                    await repository.MarkDecksProcessedAsync(new[] { deckId }, skip: true);
-                    Console.WriteLine($"Skipped deck {deckId}: {ex.Message}");
-                }
-
-                if (stopwatch.Elapsed >= duration)
-                {
-                    break;
-                }
-            }
-        }
-
-        Console.WriteLine($"Cache run stopped after {stopwatch.Elapsed.TotalSeconds:F1} seconds. Total decks cached: {processed}");
+        Console.WriteLine($"Cache run stopped after {result.Duration.TotalSeconds:F1} seconds. Decks cached: {result.DecksProcessed}; skipped: {result.DecksSkipped}.");
         return 0;
     }
     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException)
@@ -474,6 +495,12 @@ static async Task<int> RunArchidektCacheAsync(int seconds)
     }
 }
 
+/// <summary>
+/// Keeps running cache sweeps until the specified card is observed or the timeout expires.
+/// </summary>
+/// <param name="cardName">Card name to search for.</param>
+/// <param name="cacheSeconds">Duration for each cache sweep.</param>
+/// <param name="timeoutSeconds">Overall timeout for the search.</param>
 static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, int timeoutSeconds)
 {
     if (string.IsNullOrWhiteSpace(cardName))
@@ -512,25 +539,12 @@ static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, i
     return 2;
 }
 
-static async Task PersistDeckEntriesAsync(CategoryKnowledgeRepository repository, IEnumerable<DeckEntry> entries)
-{
-    var counts = new Dictionary<(string CardName, string Category), int>(CardCategoryComparer.Instance);
-
-    foreach (var entry in entries)
-    {
-        foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
-        {
-            var key = (entry.Name, category);
-            counts[key] = counts.TryGetValue(key, out var existing) ? existing + entry.Quantity : entry.Quantity;
-        }
-    }
-
-    foreach (var group in counts)
-    {
-        await repository.PersistObservedCategoriesAsync("archidekt_live", group.Key.CardName, new[] { group.Key.Category }, group.Value);
-    }
-}
-
+/// <summary>
+/// Recursively gathers interesting tag/category paths from a JSON element for inspection.
+/// </summary>
+/// <param name="element">JSON element being inspected.</param>
+/// <param name="path">Current JSON path.</param>
+/// <param name="paths">Collector for discovered paths.</param>
 static void CollectInterestingPaths(System.Text.Json.JsonElement element, string path, List<string> paths)
 {
     switch (element.ValueKind)

@@ -1,16 +1,38 @@
+using System.Net;
 using System.Text.RegularExpressions;
+using Polly;
+using Polly.Retry;
+using RestSharp;
 
 namespace DeckSyncWorkbench.Core.Integration;
 
 public sealed partial class ArchidektRecentDecksImporter
 {
-    private readonly HttpClient _httpClient;
+    private readonly RestClient _restClient;
+    private static readonly AsyncRetryPolicy<RestResponse> RetryPolicy = Policy<RestResponse>
+        .HandleResult(response => response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
+        .WaitAndRetryAsync(
+            retryCount: 4,
+            sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 250)));
 
-    public ArchidektRecentDecksImporter(HttpClient httpClient)
+    /// <summary>
+    /// Initializes the importer optionally using a provided RestClient.
+    /// </summary>
+    /// <param name="restClient">Optional REST client used for requests.</param>
+    public ArchidektRecentDecksImporter(RestClient? restClient = null)
     {
-        _httpClient = httpClient;
+        _restClient = restClient ?? new RestClient(new RestClientOptions
+        {
+            BaseUrl = new Uri("https://websockets.archidekt.com"),
+            ThrowOnAnyError = false,
+        });
     }
 
+    /// <summary>
+    /// Imports the requested number of recent public Archidekt deck IDs.
+    /// </summary>
+    /// <param name="count">Number of decks to collect.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
     {
         if (count <= 0)
@@ -48,17 +70,19 @@ public sealed partial class ArchidektRecentDecksImporter
         return deckIds;
     }
 
+    /// <summary>
+    /// Fetches a page of recent deck IDs from Archidekt.
+    /// </summary>
+    /// <param name="page">Page index to request.</param>
+    /// <param name="cancellationToken">Cancellation token for the HTTP call.</param>
     private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"https://websockets.archidekt.com/search/decks?name=&orderBy=-updatedAt&page={page}");
-        request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
-        request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        request.Headers.Referrer = new Uri("https://archidekt.com/");
-        request.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var response = await RetryPolicy.ExecuteAsync(ct => _restClient.ExecuteAsync(CreatePageRequest(page), ct), cancellationToken);
+        var body = response.Content ?? string.Empty;
+        if (!response.IsSuccessful)
+        {
+            throw new HttpRequestException($"Archidekt recent decks page {page} returned {(int)response.StatusCode} {response.StatusDescription}");
+        }
 
         return DeckLinkRegex()
             .Matches(body)
@@ -68,6 +92,23 @@ public sealed partial class ArchidektRecentDecksImporter
             .ToList();
     }
 
+    /// <summary>
+    /// Regular expression that matches Archidekt deck links in HTML responses.
+    /// </summary>
     [GeneratedRegex("href=\"/decks/(?<deckId>\\d+)(?:/[^\"#?]*)?\"", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex DeckLinkRegex();
+
+    /// <summary>
+    /// Builds the request used to scrape a page of public deck listings.
+    /// </summary>
+    /// <param name="page">Page index to request.</param>
+    private static RestRequest CreatePageRequest(int page)
+    {
+        var request = new RestRequest($"/search/decks?name=&orderBy=-updatedAt&page={page}", Method.Get);
+        request.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+        request.AddHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        request.AddHeader("Referer", "https://archidekt.com/");
+        request.AddHeader("Accept-Language", "en-US,en;q=0.9");
+        return request;
+    }
 }

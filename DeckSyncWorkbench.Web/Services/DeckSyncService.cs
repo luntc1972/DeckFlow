@@ -7,8 +7,16 @@ using DeckSyncWorkbench.Web.Models;
 
 namespace DeckSyncWorkbench.Web.Services;
 
+/// <summary>
+/// Defines the deck synchronization service used by the web UI.
+/// </summary>
 public interface IDeckSyncService
 {
+    /// <summary>
+    /// Compares two decks according to the provided request.
+    /// </summary>
+    /// <param name="request">Deck diff request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken);
 }
 
@@ -21,6 +29,9 @@ public sealed class DeckSyncService : IDeckSyncService
     private readonly MoxfieldParser _moxfieldParser;
     private readonly ArchidektParser _archidektParser;
 
+    /// <summary>
+    /// Creates a new instance that relies on the provided importers and parsers.
+    /// </summary>
     public DeckSyncService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
@@ -33,6 +44,11 @@ public sealed class DeckSyncService : IDeckSyncService
         _archidektParser = archidektParser;
     }
 
+    /// <summary>
+    /// Compares the two decks based on the supplied request.
+    /// </summary>
+    /// <param name="request">Deck diff request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -48,6 +64,11 @@ public sealed class DeckSyncService : IDeckSyncService
         return new DeckSyncResult(diff, loadedDecks);
     }
 
+    /// <summary>
+    /// Loads Moxfield entries by parsing text or calling the API.
+    /// </summary>
+    /// <param name="request">Request containing inputs.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     private async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
         var entries = request.MoxfieldInputSource == DeckInputSource.PublicUrl
@@ -57,6 +78,11 @@ public sealed class DeckSyncService : IDeckSyncService
         return DeckEntryFilter.ExcludeMaybeboard(entries);
     }
 
+    /// <summary>
+    /// Loads Archidekt entries either via API or text parsing.
+    /// </summary>
+    /// <param name="request">Request containing inputs.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     private async Task<List<DeckEntry>> LoadArchidektEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
         var entries = request.ArchidektInputSource == DeckInputSource.PublicUrl

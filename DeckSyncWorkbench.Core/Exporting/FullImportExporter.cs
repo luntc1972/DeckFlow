@@ -8,18 +8,18 @@ public static class FullImportExporter
     public static void WriteFile(List<DeckEntry> moxfield, List<DeckEntry> archidekt, MatchMode matchMode, string outputPath, IReadOnlyList<PrintingConflict>? conflicts = null)
         => WriteFile(moxfield, archidekt, matchMode, outputPath, "Archidekt", conflicts);
 
-    public static void WriteFile(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string outputPath, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null)
+    public static void WriteFile(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string outputPath, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null, CategorySyncMode categoryMode = CategorySyncMode.TargetCategories)
     {
         ArgumentNullException.ThrowIfNull(sourceEntries);
         ArgumentNullException.ThrowIfNull(targetEntries);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
-        File.WriteAllText(outputPath, ToText(sourceEntries, targetEntries, matchMode, targetSystem, conflicts));
+        File.WriteAllText(outputPath, ToText(sourceEntries, targetEntries, matchMode, targetSystem, conflicts, categoryMode));
     }
 
     public static string ToText(List<DeckEntry> moxfield, List<DeckEntry> archidekt, MatchMode matchMode, IReadOnlyList<PrintingConflict>? conflicts = null)
         => ToText(moxfield, archidekt, matchMode, "Archidekt", conflicts);
 
-    public static string ToText(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null)
+    public static string ToText(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null, CategorySyncMode categoryMode = CategorySyncMode.TargetCategories)
     {
         ArgumentNullException.ThrowIfNull(sourceEntries);
         ArgumentNullException.ThrowIfNull(targetEntries);
@@ -43,14 +43,14 @@ public static class FullImportExporter
                     ? entry with
                     {
                         Board = conflict.ArchidektVersion.Board,
-                        Category = SelectCategory(entry.Category, conflict.ArchidektVersion.Category, targetSystem),
+                        Category = SelectCategory(entry.Category, conflict.ArchidektVersion.Category, targetSystem, categoryMode),
                     }
                     : entry with
                     {
                         Board = conflict.ArchidektVersion.Board,
                         SetCode = conflict.ArchidektVersion.SetCode,
                         CollectorNumber = conflict.ArchidektVersion.CollectorNumber,
-                        Category = SelectCategory(entry.Category, conflict.ArchidektVersion.Category, targetSystem),
+                        Category = SelectCategory(entry.Category, conflict.ArchidektVersion.Category, targetSystem, categoryMode),
                     };
             }
             else if (TryGetTargetMatch(targetLookup, entry, out var targetMatch))
@@ -60,7 +60,7 @@ public static class FullImportExporter
                     Board = targetMatch.Board,
                     SetCode = string.IsNullOrWhiteSpace(targetMatch.SetCode) ? entry.SetCode : targetMatch.SetCode,
                     CollectorNumber = string.IsNullOrWhiteSpace(targetMatch.CollectorNumber) ? entry.CollectorNumber : targetMatch.CollectorNumber,
-                    Category = SelectCategory(entry.Category, targetMatch.Category, targetSystem),
+                    Category = SelectCategory(entry.Category, targetMatch.Category, targetSystem, categoryMode),
                 };
             }
 
@@ -193,11 +193,48 @@ public static class FullImportExporter
         return null;
     }
 
-    private static string? SelectCategory(string? sourceCategory, string? targetCategory, string targetSystem)
+    private static string? SelectCategory(string? sourceCategory, string? targetCategory, string targetSystem, CategorySyncMode categoryMode)
     {
-        return string.Equals(targetSystem, "Moxfield", StringComparison.OrdinalIgnoreCase)
-            ? sourceCategory
-            : targetCategory;
+        return categoryMode switch
+        {
+            CategorySyncMode.SourceTags => sourceCategory,
+            CategorySyncMode.Combined => CombineCategories(targetCategory, sourceCategory),
+            _ => string.Equals(targetSystem, "Moxfield", StringComparison.OrdinalIgnoreCase)
+                ? sourceCategory
+                : targetCategory,
+        };
+    }
+
+    private static string? CombineCategories(string? first, string? second)
+    {
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            return second;
+        }
+
+        if (string.IsNullOrWhiteSpace(second))
+        {
+            return first;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var collected = new List<string>();
+
+        void AddEntries(string source)
+        {
+            foreach (var part in source.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (seen.Add(part))
+                {
+                    collected.Add(part);
+                }
+            }
+        }
+
+        AddEntries(first);
+        AddEntries(second);
+
+        return collected.Count == 0 ? null : string.Join(",", collected);
     }
 
     private static IReadOnlyList<DeckEntry> DeduplicateCommanderCopies(IEnumerable<DeckEntry> entries)

@@ -7,6 +7,10 @@ namespace DeckSyncWorkbench.Web;
 
 public class Program
 {
+    /// <summary>
+    /// Bootstraps the ASP.NET Core MVC app with Serilog and service registrations.
+    /// </summary>
+    /// <param name="args">Command-line arguments.</param>
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -23,11 +27,13 @@ public class Program
 
         // Add services to the container.
         builder.Services.AddControllersWithViews();
-        builder.Services.AddHttpClient();
-        builder.Services.AddSingleton<CategoryKnowledgeStore>();
+        builder.Services.AddMemoryCache();
+        builder.Services.AddSingleton<ICommanderSearchService, ScryfallCommanderSearchService>();
+        builder.Services.AddSingleton<ICardSearchService, ScryfallCardSearchService>();
+        builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
         builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
-        builder.Services.AddHttpClient<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
-        builder.Services.AddHttpClient<IArchidektDeckImporter, ArchidektApiDeckImporter>();
+        builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
+        builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
         builder.Services.AddTransient<MoxfieldParser>();
         builder.Services.AddTransient<ArchidektParser>();
 
