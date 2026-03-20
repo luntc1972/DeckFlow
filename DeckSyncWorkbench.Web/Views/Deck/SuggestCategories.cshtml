@@ -5,6 +5,10 @@
     var suggestionInputSource = Model.SuggestionRequest.ArchidektInputSource;
     var hasReferenceInput = suggestionMode == CategorySuggestionMode.ReferenceDeck
         && (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektUrl) || !string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektText));
+    var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
+    var hasExact = !string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText);
+    var hasInferred = !string.IsNullOrWhiteSpace(Model.InferredCategoriesText);
+    var hasEdhrec = !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText);
     ViewData["Title"] = "Suggest Categories";
 }
 
@@ -20,12 +24,11 @@
     Suggestions are separated by confidence. Cached store results are the default source, exact Archidekt deck matches are optional, and EDHREC themes are weakest.
 </div>
 
-@if (!string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage))
-{
-    <div class="error-banner" role="alert">@Model.SuggestionErrorMessage</div>
-}
+<div class="error-banner @(string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage) ? "hidden" : string.Empty)" role="alert" data-api-panel="suggest-error">
+    <span data-api-field="suggest-error-text">@Model.SuggestionErrorMessage</span>
+</div>
 
-<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true">
+<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
@@ -83,100 +86,82 @@
     </div>
 </form>
 
-@if (string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage)
-    && string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText)
-    && string.IsNullOrWhiteSpace(Model.InferredCategoriesText)
-    && string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText)
-    && !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName))
-{
-    <div class="info-banner">
-        <p>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName. Click Suggest to keep scanning public decks for another 30 seconds so those categories can populate.</p>
-    </div>
-}
+<div class="info-banner @(cardSpecified ? string.Empty : "hidden")" data-api-panel="lookup-hint">
+    <p data-api-field="lookup-hint-text">
+        @if (!string.IsNullOrWhiteSpace(Model.NoSuggestionsMessage))
+        {
+            @Model.NoSuggestionsMessage
+        }
+        else if (cardSpecified)
+        {
+            <text>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName. Click Suggest to keep scanning public decks for another 30 seconds so those categories can populate.</text>
+        }
+        else
+        {
+            <text>Enter a card name and click Suggest to see category suggestions.</text>
+        }
+    </p>
+</div>
 
-@if (Model.ExtendedHarvestTriggered && Model.AdditionalDecksFound > 0)
-{
-    <div class="info-banner">
-        <p><strong>@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
-    </div>
-}
+<div class="info-banner @(Model.CardDeckTotals.TotalDeckCount > 0 && cardSpecified ? string.Empty : "hidden")" data-api-panel="cache-info">
+    <p data-api-field="cache-info-text">The cached store currently contains <strong data-api-field="cache-info-count">@Model.CardDeckTotals.TotalDeckCount</strong> deck(s) featuring @Model.SuggestionRequest.CardName.</p>
+</div>
 
-@if (Model.NoSuggestionsFound)
-{
-    <section class="result-panel retry-panel">
+<div class="info-banner @(Model.AdditionalDecksFound > 0 ? string.Empty : "hidden")" data-api-panel="additional-decks">
+    <p><strong data-api-field="additional-deck-count">@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
+</div>
+
+<section class="result-panel retry-panel @(Model.NoSuggestionsFound ? string.Empty : "hidden")" data-api-panel="no-suggestions">
+    <div class="panel-heading">
+        <div>
+            <h2>No Suggestions Found</h2>
+            <p data-api-field="no-suggestions-text">@Model.NoSuggestionsMessage</p>
+        </div>
+        <button type="button" class="run-button" data-api-action="retry">Check Again</button>
+    </div>
+</section>
+
+<section class="stack">
+    <section class="result-panel summary-panel @(string.IsNullOrWhiteSpace(Model.SuggestionSourceSummary) ? "hidden" : string.Empty)" data-api-panel="source-summary">
+        <strong>Source used</strong>
+        <p data-api-field="source-summary-text">@Model.SuggestionSourceSummary</p>
+    </section>
+
+    <section class="result-panel @(hasReferenceInput ? string.Empty : "hidden")" data-api-panel="exact">
         <div class="panel-heading">
             <div>
-                <h2>No Suggestions Found</h2>
-                <p>@Model.NoSuggestionsMessage</p>
+                <h2>Exact Deck Match</h2>
+                <p data-api-field="exact-context">@Model.ExactSuggestionContextText</p>
             </div>
-            <form method="post" action="/suggest-categories" data-busy-title="Retrying Category Lookup" data-busy-message="Starting the category checks again." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="Mode" value="@Model.SuggestionRequest.Mode" />
-                <input type="hidden" name="ArchidektInputSource" value="@Model.SuggestionRequest.ArchidektInputSource" />
-                <input type="hidden" name="ArchidektUrl" value="@Model.SuggestionRequest.ArchidektUrl" />
-                <input type="hidden" name="ArchidektText" value="@Model.SuggestionRequest.ArchidektText" />
-                <input type="hidden" name="CardName" value="@Model.SuggestionRequest.CardName" />
-                <button type="submit" class="run-button">Check Again</button>
-            </form>
+            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('exact-suggested-categories-output').value)">Copy</button>
         </div>
+        <textarea id="exact-suggested-categories-output" data-api-field="exact-text" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
     </section>
-}
 
-@if (!string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText) || !string.IsNullOrWhiteSpace(Model.InferredCategoriesText) || !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
-{
-    <section class="stack">
-        @if (!string.IsNullOrWhiteSpace(Model.SuggestionSourceSummary))
-        {
-            <section class="result-panel summary-panel">
-                <strong>Source used</strong>
-                <p>@Model.SuggestionSourceSummary</p>
-            </section>
-        }
-
-        @if (hasReferenceInput)
-        {
-            <section class="result-panel">
-                <div class="panel-heading">
-                    <div>
-                        <h2>Exact Deck Match</h2>
-                        <p>@Model.ExactSuggestionContextText</p>
-                    </div>
-                    <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('exact-suggested-categories-output').value)">Copy</button>
-                </div>
-                <textarea id="exact-suggested-categories-output" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
-            </section>
-        }
-        <section class="result-panel inferred-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Cached Store Matches</h2>
-                    <span class="info-tooltip" title="These categories are ordered by how many cached decks contained the card (descending).">i</span>
-                    <p>@Model.InferredSuggestionContextText</p>
-                    @if (Model.CardDeckTotals.TotalDeckCount > 0)
-                    {
-                        <p>@Model.CardDeckTotals.TotalDeckCount deck(s) in the cache include @Model.SuggestionRequest.CardName.</p>
-                    }
-                </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('inferred-categories-output').value)">Copy</button>
+    <section class="result-panel inferred-panel @(hasInferred ? string.Empty : "hidden")" data-api-panel="inferred">
+        <div class="panel-heading">
+            <div>
+                <h2>Cached Store Matches</h2>
+                <span class="info-tooltip" title="These categories are ordered by how many cached decks contained the card (descending).">i</span>
+                <p data-api-field="inferred-context">@Model.InferredSuggestionContextText</p>
+                <p data-api-field="cache-info-detail">@if (Model.CardDeckTotals.TotalDeckCount > 0) { <text>@Model.CardDeckTotals.TotalDeckCount deck(s) in the cache include @Model.SuggestionRequest.CardName.</text> }</p>
             </div>
-            <textarea id="inferred-categories-output" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
-        </section>
-
-        @if (!string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
-        {
-            <section class="result-panel edhrec-panel nested-panel">
-                <div class="panel-heading">
-                    <div>
-                        <h2>EDHREC Themes</h2>
-                        <p>@Model.EdhrecSuggestionContextText</p>
-                    </div>
-                    <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('edhrec-categories-output').value)">Copy</button>
-                </div>
-                <textarea id="edhrec-categories-output" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
-            </section>
-        }
+            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('inferred-categories-output').value)">Copy</button>
+        </div>
+        <textarea id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
     </section>
-}
+
+    <section class="result-panel edhrec-panel nested-panel @(hasEdhrec ? string.Empty : "hidden")" data-api-panel="edhrec">
+        <div class="panel-heading">
+            <div>
+                <h2>EDHREC Themes</h2>
+                <p data-api-field="edhrec-context">@Model.EdhrecSuggestionContextText</p>
+            </div>
+            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('edhrec-categories-output').value)">Copy</button>
+        </div>
+        <textarea id="edhrec-categories-output" data-api-field="edhrec-text" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
+    </section>
+</section>
 
 <script>
 function updateSuggestionInputModeUi() {
@@ -218,4 +203,5 @@ document.addEventListener('DOMContentLoaded', function () {
 @section Scripts {
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/card-search.js" asp-append-version="true"></script>
+    <script src="~/js/category-suggestions.js" asp-append-version="true"></script>
 }

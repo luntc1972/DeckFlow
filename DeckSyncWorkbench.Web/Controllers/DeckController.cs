@@ -19,17 +19,20 @@ public sealed class DeckController : Controller
     private readonly IDeckSyncService _deckSyncService;
     private readonly ICategoryKnowledgeStore _categoryKnowledgeStore;
     private readonly ICardSearchService _cardSearchService;
+    private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly ILogger<DeckController> _logger;
 
     public DeckController(
         IDeckSyncService deckSyncService,
         ICategoryKnowledgeStore categoryKnowledgeStore,
         ICardSearchService cardSearchService,
+        ICategorySuggestionService categorySuggestionService,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
         _categoryKnowledgeStore = categoryKnowledgeStore;
         _cardSearchService = cardSearchService;
+        _categorySuggestionService = categorySuggestionService;
         _logger = logger;
     }
 
@@ -116,67 +119,30 @@ public sealed class DeckController : Controller
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(HttpContext.RequestAborted);
             timeoutCts.CancelAfter(SuggestionTimeout);
             var cancellationToken = timeoutCts.Token;
-            var initialProcessedDeckCount = await _categoryKnowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-
-            await _categoryKnowledgeStore.EnsureHarvestFreshAsync(_logger, cancellationToken);
-            var exactCategories = request.Mode == CategorySuggestionMode.ReferenceDeck
-                ? CategorySuggestionReporter.SuggestCategories(await LoadArchidektSuggestionEntriesAsync(request, cancellationToken), request.CardName)
-                : [];
-            var inferredCategories = await _categoryKnowledgeStore.GetCategoriesAsync(request.CardName, cancellationToken);
-            if (inferredCategories.Count == 0)
-            {
-                await _categoryKnowledgeStore.ProcessNextDecksAsync(_logger, cancellationToken);
-                inferredCategories = await _categoryKnowledgeStore.GetCategoriesAsync(request.CardName, cancellationToken);
-            }
-            var cardTotals = await _categoryKnowledgeStore.GetCardDeckTotalsAsync(request.CardName, cancellationToken: cancellationToken);
-            var edhrecCategories = exactCategories.Count == 0 && inferredCategories.Count == 0
-                ? await new EdhrecCardLookup().LookupCategoriesAsync(request.CardName, cancellationToken)
-                : [];
-            var nothingFound = exactCategories.Count == 0
-                && inferredCategories.Count == 0
-                && edhrecCategories.Count == 0;
-            var usedSources = new List<string>();
-            if (exactCategories.Count > 0)
-            {
-                usedSources.Add("reference deck");
-            }
-
-            if (inferredCategories.Count > 0)
-            {
-                usedSources.Add("cached store");
-            }
-
-            if (edhrecCategories.Count > 0)
-            {
-                usedSources.Add("EDHREC");
-            }
-
-            await _categoryKnowledgeStore.PersistObservedCategoriesAsync("edhrec", request.CardName, edhrecCategories, cancellationToken: cancellationToken);
-            var finalProcessedDeckCount = await _categoryKnowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-            var additionalDecksFound = Math.Max(finalProcessedDeckCount - initialProcessedDeckCount, 0);
-            var lookupMessage = BuildNoSuggestionsMessage(request.CardName, cardTotals);
+            var result = await _categorySuggestionService.SuggestAsync(request, cancellationToken);
+            var lookupMessage = result.NothingFound
+                ? CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage(result.CardName, result.CardDeckTotals)
+                : null;
             var viewModel = new DeckDiffViewModel
             {
                 ActiveTab = DeckPageTab.SuggestCategories,
                 SuggestionRequest = request,
-                ExactSuggestedCategoriesText = CategorySuggestionReporter.ToText(exactCategories, request.CardName),
+                ExactSuggestedCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
-                InferredCategoriesText = CategorySuggestionReporter.ToText(inferredCategories, request.CardName),
+                InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),
                 InferredSuggestionContextText = "These come from the local cached store built from recent Archidekt decks.",
-                EdhrecCategoriesText = CategorySuggestionReporter.ToText(edhrecCategories, request.CardName),
+                EdhrecCategoriesText = CategorySuggestionReporter.ToText(result.EdhrecCategories, result.CardName),
                 EdhrecSuggestionContextText = "These themes/tags are inferred from EDHREC’s deck data that include the card.",
-                NoSuggestionsFound = nothingFound,
-                NoSuggestionsMessage = nothingFound
-                    ? lookupMessage
-                    : null,
-                SuggestionSourceSummary = usedSources.Count == 0
+                NoSuggestionsFound = result.NothingFound,
+                NoSuggestionsMessage = lookupMessage,
+                SuggestionSourceSummary = result.UsedSources.Count == 0
                     ? null
-                    : $"Source used: {string.Join(" + ", usedSources)}",
-                ExtendedHarvestTriggered = true,
-                AdditionalDecksFound = additionalDecksFound,
-                CardDeckTotals = cardTotals
+                    : $"Source used: {string.Join(" + ", result.UsedSources)}",
+                ExtendedHarvestTriggered = result.CacheHarvestTriggered,
+                AdditionalDecksFound = result.AdditionalDecksFound,
+                CardDeckTotals = result.CardDeckTotals
             };
-            ScheduleExtendedArchidektHarvest();
+            CategoryHarvestScheduler.ScheduleSweep(_categoryKnowledgeStore, _logger, ExtendedHarvestDurationSeconds);
             return View("SuggestCategories", viewModel);
         }
         catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)
@@ -321,21 +287,6 @@ public sealed class DeckController : Controller
     }
 
     /// <summary>
-    /// Loads entries for reference deck suggestions based on request inputs.
-    /// </summary>
-    /// <param name="request">Suggestion request details.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private static async Task<List<DeckEntry>> LoadArchidektSuggestionEntriesAsync(CategorySuggestionRequest request, CancellationToken cancellationToken)
-    {
-        if (request.ArchidektInputSource == DeckInputSource.PublicUrl)
-        {
-            return await new ArchidektApiDeckImporter().ImportAsync(request.ArchidektUrl, cancellationToken);
-        }
-
-        return new ArchidektParser().ParseText(request.ArchidektText);
-    }
-
-    /// <summary>
     /// Builds a user-friendly error message for controller failures.
     /// </summary>
     /// <param name="request">Original request data.</param>
@@ -348,21 +299,6 @@ public sealed class DeckController : Controller
         }
 
         return exception.Message;
-    }
-
-    private void ScheduleExtendedArchidektHarvest()
-    {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await _categoryKnowledgeStore.RunCacheSweepAsync(_logger, ExtendedHarvestDurationSeconds);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Extended Archidekt harvest failed.");
-            }
-        });
     }
 
     /// <summary>
@@ -404,17 +340,6 @@ public sealed class DeckController : Controller
         => request.ArchidektInputSource == DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
             : !string.IsNullOrWhiteSpace(request.ArchidektText);
-
-    private const string NoCachedDataMessage = "No card categories for {0} have been observed in the cached data yet. Run Show Categories again to refresh the cache.";
-    private const string NoSuggestionsElsewhereMessage = "No category suggestions were found for {0}. You can run the lookup again to retry the live Archidekt and EDHREC checks.";
-
-    internal static string BuildNoSuggestionsMessage(string cardName, CardDeckTotals deckTotals)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
-        return deckTotals.TotalDeckCount == 0
-            ? string.Format(NoCachedDataMessage, cardName)
-            : string.Format(NoSuggestionsElsewhereMessage, cardName);
-    }
 
     /// <summary>
     /// Searches recent Archidekt decks live for potential categories.

@@ -15,12 +15,11 @@
     Commander selections are resolved from the cached Archidekt category database. The results reflect the categories recorded on decks that name the searched card as commander, so you can see what tags players most often assign when the card is leading a list.
 </div>
 
-@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
-{
-    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
-}
+<div class="error-banner @(string.IsNullOrWhiteSpace(Model.ErrorMessage) ? "hidden" : string.Empty)" role="alert" data-api-panel="commander-error">
+    <span data-api-field="commander-error-text">@Model.ErrorMessage</span>
+</div>
 
-<form method="post" action="/commander-categories" class="deck-form" data-cache-key="commander-categories" data-validate-lookup data-busy-title="Looking up commander categories" data-busy-message="Querying the cached category store." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Compiling commander categories" data-busy-duration="30000" data-busy-hold-final-step="true">
+<form method="post" action="/commander-categories" class="deck-form" data-cache-key="commander-categories" data-validate-lookup data-busy-title="Looking up commander categories" data-busy-message="Querying the cached category store." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Compiling commander categories" data-busy-duration="30000" data-busy-hold-final-step="true" data-suggestions-type="commander" data-suggestion-api="/api/suggestions/commander">
     @Html.AntiForgeryToken()
     <div class="toolbar">
             <label class="mode-picker flex-grow">
@@ -37,34 +36,36 @@
     </div>
 </form>
 
-@if (!Model.HasResults && string.IsNullOrWhiteSpace(Model.ErrorMessage))
-{
-    <div class="info-banner">
-        <p>No commander categories for @Model.Request.CommanderName have been observed in the cached data yet. Run Show Categories again to refresh the cache.</p>
-    </div>
-}
-
-@if (Model.ExtendedHarvestTriggered && Model.AdditionalDecksFound > 0)
-{
-    <div class="info-banner">
-        @if (Model.AdditionalDecksFound > 0)
+<div class="info-banner hidden" data-api-panel="commander-hint">
+    <p data-api-field="commander-hint-text">
+        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
         {
-            <p><strong>@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
+            @Model.ErrorMessage
         }
-    </div>
-}
+        else if (!string.IsNullOrWhiteSpace(Model.Request.CommanderName))
+        {
+            <text>Commander selections are resolved from the cached Archidekt category database. Click Show Categories to scan Archidekt for another 30 seconds and grow the commander cache.</text>
+        }
+        else
+        {
+            <text>Enter a commander name and click Show Categories to gather data.</text>
+        }
+    </p>
+</div>
 
-@if (Model.HasResults)
-{
-    <section class="result-panel">
+<div class="info-banner hidden" data-api-panel="commander-additional">
+    <p><strong data-api-field="commander-additional-count">@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
+</div>
+
+<section class="result-panel hidden" data-api-panel="commander-results">
     <div class="panel-heading">
-            <div>
-                <h2>Categories for @Model.Request.CommanderName</h2>
-                <span class="info-tooltip" title="Categories sorted by how many cached commander decks included this card (descending).">i</span>
-                <p>@Model.CategoryRows.Count cards contributed to this summary.</p>
-                <p>Derived from @Model.HarvestedDeckCount cached decks with @Model.CategorySummaries.Count distinct categories.</p>
-                <p>@Model.Request.CommanderName appears in <strong>@Model.CardDeckTotals.TotalDeckCount</strong> cached commander deck(s).</p>
-            </div>
+        <div>
+            <h2>Categories for @Model.Request.CommanderName</h2>
+            <span class="info-tooltip" title="Categories sorted by how many cached commander decks included this card (descending).">i</span>
+            <p data-api-field="commander-cards-count">@Model.CategoryRows.Count cards contributed to this summary.</p>
+            <p data-api-field="commander-deck-count">Derived from @Model.HarvestedDeckCount cached decks with @Model.CategorySummaries.Count distinct categories.</p>
+            <p data-api-field="commander-card-deck-count">@Model.Request.CommanderName appears in <strong data-api-field="commander-card-count">@Model.CardDeckTotals.TotalDeckCount</strong> cached commander deck(s).</p>
+        </div>
     </div>
     <table class="conflicts-table">
         <thead>
@@ -74,7 +75,7 @@
                 <th>Decks</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody data-api-field="commander-summary-body">
         @foreach (var summary in Model.CategorySummaries)
         {
             <tr>
@@ -85,12 +86,16 @@
         }
         </tbody>
     </table>
-    </section>
-}
+</section>
+
+<div class="info-banner hidden" data-api-panel="commander-no-results">
+    <p data-api-field="commander-no-results-text">No commander categories for @Model.Request.CommanderName have been observed in the cached data yet. Run Show Categories again to refresh the cache.</p>
+</div>
 
 @section Scripts {
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/commander-search.js" asp-append-version="true"></script>
+    <script src="~/js/category-suggestions.js" asp-append-version="true"></script>
     @if (Model.ExtendedHarvestTriggered)
     {
         <script>

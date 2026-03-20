@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DeckSyncWorkbench.Core.Reporting;
-using DeckSyncWorkbench.Web.Controllers;
+using DeckSyncWorkbench.Web.Services;
 using Xunit;
 
 namespace DeckSyncWorkbench.Web.Tests;
@@ -12,7 +12,7 @@ public sealed class DeckControllerTests
     public void BuildNoSuggestionsMessage_UsesCacheRefreshNotice_WhenNoDecks()
     {
         var totals = new CardDeckTotals(0, new Dictionary<string, int>());
-        var message = DeckController.BuildNoSuggestionsMessage("Guardian Project", totals);
+        var message = CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage("Guardian Project", totals);
 
         Assert.Equal("No card categories for Guardian Project have been observed in the cached data yet. Run Show Categories again to refresh the cache.", message);
     }
@@ -24,7 +24,7 @@ public sealed class DeckControllerTests
         {
             ["mainboard"] = 5
         });
-        var message = DeckController.BuildNoSuggestionsMessage("Guardian Project", totals);
+        var message = CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage("Guardian Project", totals);
 
         Assert.Equal("No category suggestions were found for Guardian Project. You can run the lookup again to retry the live Archidekt and EDHREC checks.", message);
     }

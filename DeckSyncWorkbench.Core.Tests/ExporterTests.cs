@@ -171,6 +171,42 @@ public sealed class ExporterTests
         Assert.DoesNotContain("[Draw]", text);
     }
 
+    [Fact]
+    public void FullImportExporter_NormalizesMoxfieldTagsWhenUsingSourceTags()
+    {
+        var source = new List<DeckEntry>
+        {
+            new()
+            {
+                Name = "Bello, Bard of the Brambles",
+                NormalizedName = "bello bard of the brambles",
+                Quantity = 1,
+                Board = "commander",
+                SetCode = "blc",
+                CollectorNumber = "1",
+                Category = "Commander{top},Ramp",
+            },
+        };
+        var target = new List<DeckEntry>
+        {
+            new()
+            {
+                Name = "Bello, Bard of the Brambles",
+                NormalizedName = "bello bard of the brambles",
+                Quantity = 1,
+                Board = "commander",
+                SetCode = "blc",
+                CollectorNumber = "1",
+                Category = "Draw",
+            },
+        };
+
+        var text = FullImportExporter.ToText(source, target, MatchMode.Loose, "Archidekt", categoryMode: CategorySyncMode.SourceTags);
+
+        Assert.Contains("[Commander,Ramp]", text);
+        Assert.DoesNotContain("{top}", text);
+    }
+
     /// <summary>
     /// Combines categories from both sides without duplicating entries.
     /// </summary>

@@ -1,5 +1,4 @@
-(() => {
-    "use strict";
+"use strict";
 const togglePanel = (selector, shouldHide) => {
     document.querySelectorAll(selector).forEach(element => {
         element.classList.toggle('hidden', shouldHide);
@@ -171,37 +170,12 @@ const registerBusyIndicator = () => {
     });
 };
 const formStateStoragePrefix = 'decksync-form-state-';
-const cacheInitializedKey = 'decksync-cache-initialized';
-const readinessStartTime = performance.now();
-let readinessMarked = false;
-
-const disableReadinessButtons = () => {
-    document.querySelectorAll('[data-enable-on-ready]').forEach(button => {
-        button.disabled = true;
-        button.classList.add('disabled');
-    });
-};
-
-const markReadiness = () => {
-    if (readinessMarked) {
-        return;
-    }
-
-    readinessMarked = true;
-    const duration = performance.now() - readinessStartTime;
-    console.info(`Deck Sync page ready in ${Math.round(duration)}ms.`);
-    document.querySelectorAll('[data-enable-on-ready]').forEach(button => {
-        button.disabled = false;
-        button.classList.remove('disabled');
-    });
-};
 const storageAvailable = (() => {
     try {
         const testKey = '__decksync_test_key__';
-        const storage = window.sessionStorage;
-        storage.setItem(testKey, '1');
-        storage.removeItem(testKey);
-        return storage;
+        window.localStorage.setItem(testKey, '1');
+        window.localStorage.removeItem(testKey);
+        return window.localStorage;
     }
     catch (_a) {
         return null;
@@ -269,102 +243,6 @@ const attachFormStatePersistence = () => {
         form.addEventListener('submit', handler);
     });
 };
-
-const resetFormFields = (form) => {
-    form.querySelectorAll('input, textarea, select').forEach(element => {
-        if (element instanceof HTMLInputElement) {
-            if (element.type === 'checkbox' || element.type === 'radio') {
-                element.checked = false;
-                return;
-            }
-            if (element.type === 'submit' || element.type === 'button') {
-                return;
-            }
-        }
-
-        if (element instanceof HTMLSelectElement) {
-            const defaultValue = element.getAttribute('data-default-value');
-            element.value = defaultValue ?? (element.options[0]?.value ?? '');
-            return;
-        }
-
-        element.value = element.getAttribute('data-default-value') ?? '';
-    });
-};
-
-const clearFormCache = (form) => {
-    if (!form) {
-        return;
-    }
-
-    const key = form.getAttribute('data-cache-key');
-    if (key && storageAvailable) {
-        storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
-    }
-
-    resetFormFields(form);
-    updateSyncInputModeUi();
-};
-
-const clearAllFormCache = () => {
-    document.querySelectorAll('form[data-cache-key]').forEach(form => {
-        clearFormCache(form);
-    });
-};
-
-const ensureCacheInitialized = () => {
-    if (!storageAvailable) {
-        return;
-    }
-
-    if (!storageAvailable.getItem(cacheInitializedKey)) {
-        clearAllFormCache();
-        storageAvailable.setItem(cacheInitializedKey, 'true');
-    }
-};
-
-const attachCacheClearButtons = () => {
-    document.querySelectorAll('[data-clear-cache]').forEach(button => {
-        button.addEventListener('click', event => {
-            event.preventDefault();
-            const form = button.closest('form[data-cache-key]');
-            if (form) {
-                clearFormCache(form);
-            }
-        });
-    });
-};
-
-const validateLookupForm = (form) => {
-    const lookupField = form.querySelector('input[name="CardName"], input[name="CommanderName"]');
-    if (!lookupField || !lookupField.value.trim()) {
-        lookupField?.setCustomValidity('Please enter a card or commander name.');
-        lookupField?.reportValidity();
-        return false;
-    }
-
-    const modeSelect = form.querySelector('select[name="Mode"]');
-    if (modeSelect && !modeSelect.value) {
-        modeSelect.setCustomValidity('Please choose a lookup mode.');
-        modeSelect.reportValidity();
-        return false;
-    }
-
-    lookupField?.setCustomValidity('');
-    modeSelect?.setCustomValidity('');
-
-    return true;
-};
-
-const attachLookupValidation = () => {
-    document.querySelectorAll('form[data-validate-lookup]').forEach(form => {
-        form.addEventListener('submit', event => {
-            if (!validateLookupForm(form)) {
-                event.preventDefault();
-            }
-        });
-    });
-};
 const initializeScrollHandler = () => {
     const deckForm = document.querySelector('form.deck-form');
     if (deckForm) {
@@ -383,15 +261,9 @@ const bootstrapDeckSync = () => {
     initializeSyncInputModeUi();
     registerBusyIndicator();
     initializeScrollHandler();
-    ensureCacheInitialized();
     attachFormStatePersistence();
-    attachCacheClearButtons();
-    attachLookupValidation();
-    markReadiness();
 };
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);
 if (document.readyState !== 'loading') {
     bootstrapDeckSync();
 }
-disableReadinessButtons();
-})();

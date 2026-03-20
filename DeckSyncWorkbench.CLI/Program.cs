@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Diagnostics;
 using DeckSyncWorkbench.Core.Diffing;
 using DeckSyncWorkbench.Core.Exporting;
@@ -10,7 +11,20 @@ using DeckSyncWorkbench.Core.Parsing;
 using DeckSyncWorkbench.Core.Reporting;
 using RestSharp;
 using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
 using Microsoft.Extensions.Logging.Abstractions;
+
+var logDirectory = Path.Combine(Directory.GetCurrentDirectory(), "logs");
+Directory.CreateDirectory(logDirectory);
+var logPath = Path.Combine(logDirectory, "cli-.log");
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14)
+    .CreateLogger();
+
+AppDomain.CurrentDomain.ProcessExit += (_, _) => Log.CloseAndFlush();
 
 var compareCommand = new Command("compare", "Compare Moxfield and Archidekt exports.");
 var moxfieldOption = new Option<FileInfo?>("--moxfield");
@@ -88,6 +102,24 @@ compareCommand.SetHandler(context =>
 });
 
 var rootCommand = new RootCommand("DeckSyncWorkbench");
+var cacheFlagOption = new Option<bool>("--archidekt-cache", "Run an Archidekt category cache sweep for the requested duration.");
+var cacheMinutesOption = new Option<int>("--minutes", () => 0) { Description = "Duration in minutes when using --archidekt-cache." };
+var cacheSecondsOption = new Option<int>("--seconds", () => 0) { Description = "Duration in seconds when using --archidekt-cache." };
+rootCommand.AddOption(cacheFlagOption);
+rootCommand.AddOption(cacheMinutesOption);
+rootCommand.AddOption(cacheSecondsOption);
+rootCommand.SetHandler(async (bool runCache, int minutes, int seconds) =>
+{
+    if (!runCache)
+    {
+        Console.WriteLine("DeckSyncWorkbench CLI. Use --help to see available commands or specify --archidekt-cache.");
+        Environment.ExitCode = 0;
+        return;
+    }
+
+    var totalSeconds = GetCacheDurationSeconds(minutes, seconds);
+    Environment.ExitCode = await RunArchidektCacheAsync(totalSeconds, Log.Logger);
+}, cacheFlagOption, cacheMinutesOption, cacheSecondsOption);
 rootCommand.AddCommand(compareCommand);
 rootCommand.AddCommand(probeCommand);
 rootCommand.AddCommand(exportMoxfieldCommand);
@@ -118,8 +150,8 @@ archidektHarvestRecentCommand.SetHandler((int count, FileInfo output) =>
 }, archidektHarvestRecentCountOption, archidektHarvestRecentOutOption);
 archidektCacheCommand.SetHandler((int seconds, int minutes) =>
 {
-    var totalSeconds = minutes > 0 ? minutes * 60 : seconds;
-    Environment.ExitCode = RunArchidektCacheAsync(totalSeconds).GetAwaiter().GetResult();
+    var totalSeconds = GetCacheDurationSeconds(minutes, seconds);
+    Environment.ExitCode = RunArchidektCacheAsync(totalSeconds, Log.Logger).GetAwaiter().GetResult();
 }, archidektCacheSecondsOption, archidektCacheMinutesOption);
 categoryFindCommand.SetHandler((string cardName, int runSeconds, int timeoutSeconds) =>
 {
@@ -127,18 +159,6 @@ categoryFindCommand.SetHandler((string cardName, int runSeconds, int timeoutSeco
 }, categoryFindCardOption, categoryFindSecondsOption, categoryFindTimeoutOption);
 return await rootCommand.InvokeAsync(args);
 
-/// <summary>
-/// Runs the compare command, optionally resolving conflicts and producing delta/full import outputs.
-/// </summary>
-/// <param name="moxfield">Local Moxfield file.</param>
-/// <param name="moxfieldUrl">Remote Moxfield deck URL.</param>
-/// <param name="archidekt">Local Archidekt file.</param>
-/// <param name="archidektUrl">Remote Archidekt deck URL.</param>
-/// <param name="output">Destination for the delta export.</param>
-/// <param name="mode">Match mode for the diff.</param>
-/// <param name="direction">Sync direction (DeckSyncWorkbench or Archidekt).</param>
-/// <param name="dryRun">Whether to skip writing files.</param>
-/// <param name="resolveConflicts">Whether to prompt for printing conflict resolutions.</param>
 static async Task<int> RunCompareAsync(FileInfo? moxfield, string? moxfieldUrl, FileInfo? archidekt, string? archidektUrl, FileInfo output, MatchMode mode, SyncDirection direction, bool dryRun, bool resolveConflicts)
 {
     try
@@ -196,11 +216,6 @@ static async Task<int> RunCompareAsync(FileInfo? moxfield, string? moxfieldUrl, 
     }
 }
 
-/// <summary>
-/// Loads Moxfield deck entries from either a local file or the API URL.
-/// </summary>
-/// <param name="file">Local file to parse.</param>
-/// <param name="url">Remote URL to fetch when no file is provided.</param>
 static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(FileInfo? file, string? url)
 {
     if (file is not null && !string.IsNullOrWhiteSpace(url))
@@ -221,11 +236,6 @@ static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(FileInfo? file, stri
     throw new InvalidOperationException("Either --moxfield or --moxfield-url is required.");
 }
 
-/// <summary>
-/// Loads Archidekt deck entries from either a local file or the API URL.
-/// </summary>
-/// <param name="file">Local Archidekt export.</param>
-/// <param name="url">Remote Archidekt deck URL.</param>
 static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(FileInfo? file, string? url)
 {
     if (file is not null && !string.IsNullOrWhiteSpace(url))
@@ -246,12 +256,6 @@ static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(FileInfo? file, str
     throw new InvalidOperationException("Either --archidekt or --archidekt-url is required.");
 }
 
-/// <summary>
-/// Interacts with the user to choose resolutions for printing conflicts.
-/// </summary>
-/// <param name="conflicts">List of printing conflicts.</param>
-/// <param name="sourceSystem">Label for the source system.</param>
-/// <param name="targetSystem">Label for the target system.</param>
 static IEnumerable<PrintingConflict> ResolveConflicts(IReadOnlyList<PrintingConflict> conflicts, string sourceSystem, string targetSystem)
 {
     foreach (var conflict in conflicts)
@@ -271,11 +275,6 @@ static IEnumerable<PrintingConflict> ResolveConflicts(IReadOnlyList<PrintingConf
     }
 }
 
-/// <summary>
-/// Fetches raw Moxfield deck JSON and inspects its top-level structure and tags.
-/// </summary>
-/// <param name="url">Moxfield deck URL.</param>
-/// <param name="output">Optional file to write raw JSON to.</param>
 static async Task<int> RunProbeAsync(string url, FileInfo? output)
 {
     if (!MoxfieldApiUrl.TryGetDeckId(url, out var deckId))
@@ -347,11 +346,6 @@ static async Task<int> RunProbeAsync(string url, FileInfo? output)
     return 0;
 }
 
-/// <summary>
-/// Fetches a public Moxfield deck via the API and writes its text export to disk.
-/// </summary>
-/// <param name="url">Moxfield deck URL.</param>
-/// <param name="output">File to write the exported deck text to.</param>
 static async Task<int> RunExportMoxfieldAsync(string url, FileInfo output)
 {
     try
@@ -369,11 +363,6 @@ static async Task<int> RunExportMoxfieldAsync(string url, FileInfo output)
     }
 }
 
-/// <summary>
-/// Retrieves an Archidekt deck and reports category counts.
-/// </summary>
-/// <param name="url">Archidekt deck URL.</param>
-/// <param name="output">Optional file to capture the counts.</param>
 static async Task<int> RunArchidektCategoriesAsync(string url, FileInfo? output)
 {
     try
@@ -399,12 +388,6 @@ static async Task<int> RunArchidektCategoriesAsync(string url, FileInfo? output)
     }
 }
 
-/// <summary>
-/// Lists all cards from an Archidekt deck that belong to a specific category.
-/// </summary>
-/// <param name="url">Archidekt deck URL.</param>
-/// <param name="category">Category to filter by.</param>
-/// <param name="output">Optional file to output the card list.</param>
 static async Task<int> RunArchidektCategoryCardsAsync(string url, string category, FileInfo? output)
 {
     try
@@ -430,11 +413,6 @@ static async Task<int> RunArchidektCategoryCardsAsync(string url, string categor
     }
 }
 
-/// <summary>
-/// Harvests recent public Archidekt decks and persists aggregated category data to disk.
-/// </summary>
-/// <param name="count">Number of decks to harvest.</param>
-/// <param name="output">File to write the category knowledge.</param>
 static async Task<int> RunArchidektHarvestRecentAsync(int count, FileInfo output)
 {
     try
@@ -464,18 +442,17 @@ static async Task<int> RunArchidektHarvestRecentAsync(int count, FileInfo output
     }
 }
 
-/// <summary>
-/// Runs the Archidekt cache session for the requested duration, updating the local queue.
-/// </summary>
-/// <param name="seconds">Duration to run the cache sweep, in seconds.</param>
-static async Task<int> RunArchidektCacheAsync(int seconds)
+static async Task<int> RunArchidektCacheAsync(int seconds, Serilog.ILogger? logger = null)
 {
+    logger ??= Log.Logger;
     try
     {
         var durationSeconds = Math.Max(5, seconds);
         var artifactsPath = Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
         var repository = new CategoryKnowledgeRepository(Path.Combine(artifactsPath, "category-knowledge.db"));
         var duration = TimeSpan.FromSeconds(durationSeconds);
+
+        logger.Information("Starting Archidekt cache sweep for {DurationSeconds}s (artifacts: {ArtifactsPath}).", durationSeconds, artifactsPath);
 
         var session = new ArchidektDeckCacheSession(
             repository,
@@ -485,22 +462,18 @@ static async Task<int> RunArchidektCacheAsync(int seconds)
 
         var result = await session.RunAsync(duration, queueBatchSize: 5, fetchBatchSize: 10);
 
+        logger.Information("Cache run stopped after {ElapsedSeconds:F1}s. Decks processed: {DecksProcessed}; skipped: {DecksSkipped}.", result.Duration.TotalSeconds, result.DecksProcessed, result.DecksSkipped);
         Console.WriteLine($"Cache run stopped after {result.Duration.TotalSeconds:F1} seconds. Decks cached: {result.DecksProcessed}; skipped: {result.DecksSkipped}.");
         return 0;
     }
     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException)
     {
+        logger.Error(exception, "Archidekt cache sweep failed.");
         Console.Error.WriteLine(exception.Message);
         return 1;
     }
 }
 
-/// <summary>
-/// Keeps running cache sweeps until the specified card is observed or the timeout expires.
-/// </summary>
-/// <param name="cardName">Card name to search for.</param>
-/// <param name="cacheSeconds">Duration for each cache sweep.</param>
-/// <param name="timeoutSeconds">Overall timeout for the search.</param>
 static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, int timeoutSeconds)
 {
     if (string.IsNullOrWhiteSpace(cardName))
@@ -511,7 +484,7 @@ static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, i
 
     var artifactsPath = Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
     var repository = new CategoryKnowledgeRepository(Path.Combine(artifactsPath, "category-knowledge.db"));
-    var perRun = Math.Max(5, cacheSeconds);
+    var perRun = GetCacheDurationSeconds(0, cacheSeconds);
     var totalTimeout = TimeSpan.FromSeconds(Math.Max(perRun, timeoutSeconds));
     using var cancellation = new CancellationTokenSource(totalTimeout);
     var stopwatch = Stopwatch.StartNew();
@@ -532,19 +505,13 @@ static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, i
             break;
         }
 
-        await RunArchidektCacheAsync(remainingSeconds);
+        await RunArchidektCacheAsync(remainingSeconds, Log.Logger);
     }
 
     Console.WriteLine($"Timed out after {totalTimeout.TotalSeconds:F0}s without finding {cardName}.");
     return 2;
 }
 
-/// <summary>
-/// Recursively gathers interesting tag/category paths from a JSON element for inspection.
-/// </summary>
-/// <param name="element">JSON element being inspected.</param>
-/// <param name="path">Current JSON path.</param>
-/// <param name="paths">Collector for discovered paths.</param>
 static void CollectInterestingPaths(System.Text.Json.JsonElement element, string path, List<string> paths)
 {
     switch (element.ValueKind)
@@ -581,4 +548,10 @@ static void CollectInterestingPaths(System.Text.Json.JsonElement element, string
 
             break;
     }
+}
+
+static int GetCacheDurationSeconds(int minutes, int seconds)
+{
+    var duration = minutes > 0 ? minutes * 60 : seconds;
+    return Math.Max(5, duration);
 }

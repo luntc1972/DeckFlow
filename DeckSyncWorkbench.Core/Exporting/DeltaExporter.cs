@@ -114,9 +114,10 @@ public static class DeltaExporter
 
         if (string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
         {
-            return string.IsNullOrWhiteSpace(entry.Category)
+            var normalizedCategory = CategoryNormalization.NormalizeSourceCategoriesForTarget(entry.Category, targetSystem);
+            return string.IsNullOrWhiteSpace(normalizedCategory)
                 ? "Commander"
-                : $"Commander,{entry.Category}";
+                : $"Commander,{normalizedCategory}";
         }
 
         return null;

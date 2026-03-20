@@ -11,12 +11,14 @@ public sealed class CommanderController : Controller
 {
     private readonly ICategoryKnowledgeStore _categoryKnowledgeStore;
     private readonly ICommanderSearchService _searchService;
+    private readonly ICommanderCategoryService _commanderCategoryService;
     private readonly ILogger<CommanderController> _logger;
 
-    public CommanderController(ICategoryKnowledgeStore categoryKnowledgeStore, ICommanderSearchService searchService, ILogger<CommanderController> logger)
+    public CommanderController(ICategoryKnowledgeStore categoryKnowledgeStore, ICommanderSearchService searchService, ICommanderCategoryService commanderCategoryService, ILogger<CommanderController> logger)
     {
         _categoryKnowledgeStore = categoryKnowledgeStore;
         _searchService = searchService;
+        _commanderCategoryService = commanderCategoryService;
         _logger = logger;
     }
 
@@ -50,40 +52,20 @@ public sealed class CommanderController : Controller
 
         var trimmed = request.CommanderName.Trim();
         var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
-        var initialDeckCount = await _categoryKnowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
         try
         {
-            await _categoryKnowledgeStore.EnsureHarvestFreshAsync(_logger, cancellationToken);
-            var rows = await _categoryKnowledgeStore.GetCategoryRowsAsync(trimmed, boardFilter: "commander", cancellationToken);
-            if (!rows.Any())
-            {
-                _logger.LogInformation("No cached rows found for {Commander}; importing additional Archidekt decks.", trimmed);
-                await _categoryKnowledgeStore.ProcessNextDecksAsync(_logger, cancellationToken);
-                rows = await _categoryKnowledgeStore.GetCategoryRowsAsync(trimmed, boardFilter: "commander", cancellationToken);
-            }
-            var deckCount = await _categoryKnowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-            var cardTotals = await _categoryKnowledgeStore.GetCardDeckTotalsAsync(trimmed, boardFilter: "commander", cancellationToken);
-            var categorySummaries = rows
-                .GroupBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
-                .Select(group => new CommanderCategorySummary(
-                    group.Key,
-                    group.Sum(row => row.Count),
-                    group.Sum(row => row.DeckCount)))
-                .OrderByDescending(summary => summary.Count)
-                .ThenBy(summary => summary.Category, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var additionalDecksFound = Math.Max(deckCount - initialDeckCount, 0);
+            var result = await _commanderCategoryService.LookupAsync(trimmed, cancellationToken);
             var viewModel = new CommanderCategoryViewModel
             {
                 Request = new CommanderCategoryRequest { CommanderName = trimmed },
-                CategoryRows = rows,
-                CategorySummaries = categorySummaries,
-                HarvestedDeckCount = deckCount,
-                AdditionalDecksFound = additionalDecksFound,
-                ExtendedHarvestTriggered = true,
-                CardDeckTotals = cardTotals
+                CategoryRows = result.Rows,
+                CategorySummaries = result.Summaries,
+                HarvestedDeckCount = result.HarvestedDeckCount,
+                AdditionalDecksFound = result.AdditionalDecksFound,
+                ExtendedHarvestTriggered = result.CacheSweepPerformed,
+                CardDeckTotals = result.CardDeckTotals
             };
-            ScheduleExtendedArchidektHarvest();
+            CategoryHarvestScheduler.ScheduleSweep(_categoryKnowledgeStore, _logger, 30 * 60);
             return View("CommanderCategories", viewModel);
         }
         catch (OperationCanceledException)

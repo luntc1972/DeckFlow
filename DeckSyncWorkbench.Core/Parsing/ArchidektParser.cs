@@ -33,6 +33,11 @@ public sealed partial class ArchidektParser : IParser
             var match = QuantityRegex().Match(line);
             if (!match.Success)
             {
+                if (IsIgnorableLine(line))
+                {
+                    continue;
+                }
+
                 throw new DeckParseException($"Unable to parse Archidekt line {i + 1}: \"{line}\"");
             }
 
@@ -141,4 +146,24 @@ public sealed partial class ArchidektParser : IParser
 
     [GeneratedRegex(@"\{[^}]+\}", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex BraceTokenRegex();
+
+    private static bool IsIgnorableLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return true;
+        }
+
+        var trimmed = line.Trim();
+        if (trimmed.StartsWith("//", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var normalized = trimmed.TrimEnd(':');
+        return string.Equals(normalized, "Deck", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Commander", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Maybeboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Sideboard", StringComparison.OrdinalIgnoreCase);
+    }
 }

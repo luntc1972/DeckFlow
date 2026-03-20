@@ -154,6 +154,10 @@ body {
   margin-bottom: 1rem;
 }
 
+.toolbar button {
+  align-self: flex-end;
+}
+
 .direction-group {
   display: flex;
   gap: 0.5rem;
@@ -181,12 +185,14 @@ body {
 }
 
 .clear-cache-button {
+  background: #fff;
   border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
+  color: var(--text);
+  align-items: flex-end;
+  padding: 0.6rem 0.9rem;
   border-radius: 8px;
-  padding: 0.45rem 0.9rem;
   cursor: pointer;
+  margin-bottom: 0.35rem;
   font-size: 0.95rem;
 }
 
@@ -443,6 +449,7 @@ select {
   cursor: pointer;
   color: #fff;
   background: var(--accent);
+  margin-bottom: 0.35rem;
 }
 
 .conflict-actions {

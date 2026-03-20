@@ -1,3 +1,5 @@
+using System.Reflection;
+using Microsoft.OpenApi.Models;
 using Serilog;
 using DeckSyncWorkbench.Core.Integration;
 using DeckSyncWorkbench.Core.Parsing;
@@ -28,9 +30,27 @@ public class Program
         // Add services to the container.
         builder.Services.AddControllersWithViews();
         builder.Services.AddMemoryCache();
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "Deck Sync Workbench API",
+                Version = "v1",
+                Description = "Card and commander category suggestion endpoints used by the UI."
+            });
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
         builder.Services.AddSingleton<ICommanderSearchService, ScryfallCommanderSearchService>();
         builder.Services.AddSingleton<ICardSearchService, ScryfallCardSearchService>();
         builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
+        builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
+        builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
         builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
         builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
         builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
@@ -50,9 +70,16 @@ public class Program
         app.UseStaticFiles();
         app.UseRouting();
         app.UseSerilogRequestLogging();
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Deck Sync Workbench API v1");
+            c.RoutePrefix = "swagger";
+        });
 
         app.UseAuthorization();
 
+        app.MapControllers();
         app.MapDefaultControllerRoute();
 
         app.Run();

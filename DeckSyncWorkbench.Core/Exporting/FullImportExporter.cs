@@ -195,12 +195,13 @@ public static class FullImportExporter
 
     private static string? SelectCategory(string? sourceCategory, string? targetCategory, string targetSystem, CategorySyncMode categoryMode)
     {
+        var normalizedSource = CategoryNormalization.NormalizeSourceCategoriesForTarget(sourceCategory, targetSystem);
         return categoryMode switch
         {
-            CategorySyncMode.SourceTags => sourceCategory,
-            CategorySyncMode.Combined => CombineCategories(targetCategory, sourceCategory),
+            CategorySyncMode.SourceTags => normalizedSource,
+            CategorySyncMode.Combined => CombineCategories(targetCategory, normalizedSource),
             _ => string.Equals(targetSystem, "Moxfield", StringComparison.OrdinalIgnoreCase)
-                ? sourceCategory
+                ? normalizedSource
                 : targetCategory,
         };
     }
