@@ -14,26 +14,30 @@ namespace DeckSyncWorkbench.Web.Controllers.Api;
 [Route("api/suggestions")]
 public sealed class SuggestionsApiController : ControllerBase
 {
-    private const int CardHarvestDurationSeconds = 30;
-    private const int CommanderHarvestDurationSeconds = 30 * 60;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly ICommanderCategoryService _commanderCategoryService;
-    private readonly ICategoryKnowledgeStore _categoryKnowledgeStore;
     private readonly ILogger<SuggestionsApiController> _logger;
 
     public SuggestionsApiController(
         ICategorySuggestionService categorySuggestionService,
         ICommanderCategoryService commanderCategoryService,
-        ICategoryKnowledgeStore categoryKnowledgeStore,
         ILogger<SuggestionsApiController> logger)
     {
         _categorySuggestionService = categorySuggestionService;
         _commanderCategoryService = commanderCategoryService;
-        _categoryKnowledgeStore = categoryKnowledgeStore;
         _logger = logger;
     }
 
+    /// <summary>
+    /// Suggests Archidekt-style categories for a single card using the local cache, optional reference deck data, and EDHREC fallback data.
+    /// </summary>
+    /// <param name="request">Card suggestion lookup request.</param>
+    /// <param name="cancellationToken">Cancellation token for the lookup.</param>
+    /// <returns>A structured suggestion response used by the web UI and external callers.</returns>
     [HttpPost("card")]
+    [ProducesResponseType(typeof(CategorySuggestionApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     public async Task<ActionResult<CategorySuggestionApiResponse>> PostCardSuggestionAsync([FromBody] CategorySuggestionRequest request, CancellationToken cancellationToken)
     {
         if (request is null)
@@ -70,9 +74,9 @@ public sealed class SuggestionsApiController : ControllerBase
                 NoSuggestionsFound = result.NothingFound,
                 NoSuggestionsMessage = result.NothingFound ? CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage(result.CardName, result.CardDeckTotals) : null,
                 CardDeckTotals = result.CardDeckTotals,
-                AdditionalDecksFound = result.AdditionalDecksFound
+                AdditionalDecksFound = result.AdditionalDecksFound,
+                CacheSweepPerformed = result.CacheHarvestTriggered
             };
-            CategoryHarvestScheduler.ScheduleSweep(_categoryKnowledgeStore, _logger, CardHarvestDurationSeconds);
             return Ok(response);
         }
         catch (OperationCanceledException)
@@ -86,7 +90,16 @@ public sealed class SuggestionsApiController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Returns the most common Archidekt categories seen on decks where the supplied card appears as the commander.
+    /// </summary>
+    /// <param name="request">Commander category lookup request.</param>
+    /// <param name="cancellationToken">Cancellation token for the lookup.</param>
+    /// <returns>A commander category summary response used by the web UI and external callers.</returns>
     [HttpPost("commander")]
+    [ProducesResponseType(typeof(CommanderCategoryApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     public async Task<ActionResult<CommanderCategoryApiResponse>> PostCommanderSuggestionAsync([FromBody] CommanderCategoryRequest request, CancellationToken cancellationToken)
     {
         if (request is null || string.IsNullOrWhiteSpace(request.CommanderName))
@@ -105,6 +118,7 @@ public sealed class SuggestionsApiController : ControllerBase
                 HarvestedDeckCount = result.HarvestedDeckCount,
                 AdditionalDecksFound = result.AdditionalDecksFound,
                 CardDeckTotals = result.CardDeckTotals,
+                CacheSweepPerformed = result.CacheSweepPerformed,
                 Summaries = result.Summaries
                     .Select(summary => new CommanderCategorySummaryDto
                     {
@@ -117,7 +131,6 @@ public sealed class SuggestionsApiController : ControllerBase
                     ? $"No commander categories for {result.CommanderName} have been observed in the cached data yet. Run Show Categories again to refresh the cache."
                     : null
             };
-            CategoryHarvestScheduler.ScheduleSweep(_categoryKnowledgeStore, _logger, CommanderHarvestDurationSeconds);
             return Ok(response);
         }
         catch (OperationCanceledException)

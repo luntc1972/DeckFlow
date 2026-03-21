@@ -3,9 +3,11 @@ using DeckSyncWorkbench.Core.Exporting;
 using DeckSyncWorkbench.Core.Models;
 using DeckSyncWorkbench.Core.Parsing;
 using DeckSyncWorkbench.Core.Reporting;
+using DeckSyncWorkbench.Web.Models;
 using DeckSyncWorkbench.Web.Models.Api;
 using DeckSyncWorkbench.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 
 namespace DeckSyncWorkbench.Web.Controllers.Api;
 
@@ -22,12 +24,30 @@ public sealed class DeckSyncApiController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Compares the two decks and returns the report, delta import text, full export text, and printing conflicts.
+    /// </summary>
+    /// <param name="request">Deck sync request payload.</param>
+    /// <param name="cancellationToken">Cancellation token for the sync.</param>
+    /// <returns>A structured deck sync response used by the web UI and external callers.</returns>
     [HttpPost("diff")]
+    [ProducesResponseType(typeof(DeckSyncApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<DeckSyncApiResponse>> PostDiffAsync([FromBody] DeckSyncApiRequest request, CancellationToken cancellationToken)
     {
         if (request is null)
         {
             return BadRequest(new { Message = "Request body is required." });
+        }
+
+        if (!HasMoxfieldInput(request))
+        {
+            return BadRequest(new { Message = request.MoxfieldInputSource == DeckSyncWorkbench.Web.Models.DeckInputSource.PublicUrl ? "A Moxfield deck URL is required." : "Moxfield text is required." });
+        }
+
+        if (!HasArchidektInput(request))
+        {
+            return BadRequest(new { Message = request.ArchidektInputSource == DeckSyncWorkbench.Web.Models.DeckInputSource.PublicUrl ? "An Archidekt deck URL is required." : "Archidekt text is required." });
         }
 
         try
@@ -44,6 +64,7 @@ public sealed class DeckSyncApiController : ControllerBase
                 ReconciliationReporter.ToText(diff, sourceSystem, targetSystem),
                 DeltaExporter.ToText(diff.ToAdd.ToList(), targetSystem),
                 FullImportExporter.ToText(sourceEntries, targetEntries, deckRequest.Mode, targetSystem, diff.PrintingConflicts, deckRequest.CategorySyncMode),
+                ReconciliationReporter.GetInstructions(targetSystem),
                 sourceSystem,
                 targetSystem,
                 new DeckSyncApiDiffSummary(
@@ -65,7 +86,30 @@ public sealed class DeckSyncApiController : ControllerBase
         catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)
         {
             _logger.LogWarning(exception, "Deck sync API request failed.");
-            return BadRequest(new { Message = exception.Message });
+            return BadRequest(new { Message = BuildUserFacingErrorMessage(request, exception) });
         }
+    }
+
+    private static bool HasMoxfieldInput(DeckSyncApiRequest request)
+        => request.MoxfieldInputSource == DeckSyncWorkbench.Web.Models.DeckInputSource.PublicUrl
+            ? !string.IsNullOrWhiteSpace(request.MoxfieldUrl)
+            : !string.IsNullOrWhiteSpace(request.MoxfieldText);
+
+    private static bool HasArchidektInput(DeckSyncApiRequest request)
+        => request.ArchidektInputSource == DeckSyncWorkbench.Web.Models.DeckInputSource.PublicUrl
+            ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
+            : !string.IsNullOrWhiteSpace(request.ArchidektText);
+
+    private static string BuildUserFacingErrorMessage(DeckSyncApiRequest request, Exception exception)
+    {
+        if (request.MoxfieldInputSource == DeckSyncWorkbench.Web.Models.DeckInputSource.PublicUrl
+            && !string.IsNullOrWhiteSpace(request.MoxfieldUrl)
+            && exception is HttpRequestException httpException
+            && httpException.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return "Moxfield blocked the deck URL request from this local web app with HTTP 403. Paste the Moxfield export text into the form instead, or run the compare from the CLI/WSL environment where URL fetches succeed.";
+        }
+
+        return exception.Message;
     }
 }

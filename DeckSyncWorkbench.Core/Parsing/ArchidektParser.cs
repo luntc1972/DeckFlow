@@ -20,6 +20,7 @@ public sealed partial class ArchidektParser : IParser
         }
 
         var entries = new List<DeckEntry>();
+        var foundEntries = false;
         var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
         for (var i = 0; i < lines.Length; i++)
@@ -30,10 +31,19 @@ public sealed partial class ArchidektParser : IParser
                 continue;
             }
 
-            var match = QuantityRegex().Match(line);
-            if (!match.Success)
+            if (IsStoppingLine(line) && foundEntries)
             {
-                if (IsIgnorableLine(line))
+                break;
+            }
+
+            if (IsIgnorableLine(line))
+            {
+                continue;
+            }
+
+            if (!TryParseEntry(line, allowImplicitQuantity: !foundEntries, out var entry))
+            {
+                if (foundEntries && IsNonDeckTextLine(line))
                 {
                     continue;
                 }
@@ -41,53 +51,13 @@ public sealed partial class ArchidektParser : IParser
                 throw new DeckParseException($"Unable to parse Archidekt line {i + 1}: \"{line}\"");
             }
 
-            var quantity = int.Parse(match.Groups["quantity"].Value);
-            if (quantity == 0)
+            if (entry.Quantity == 0)
             {
                 continue;
             }
 
-            var remainder = match.Groups["rest"].Value.Trim();
-            string? categoryText = null;
-            var categoryMatch = CategoryRegex().Match(remainder);
-            if (categoryMatch.Success)
-            {
-                categoryText = NullIfWhiteSpace(categoryMatch.Groups["categories"].Value);
-                remainder = categoryMatch.Groups["name"].Value.TrimEnd();
-            }
-
-            var isFoil = false;
-            if (remainder.EndsWith("★", StringComparison.Ordinal))
-            {
-                isFoil = true;
-                remainder = remainder[..^1].TrimEnd();
-            }
-
-            if (remainder.EndsWith("*F*", StringComparison.OrdinalIgnoreCase))
-            {
-                isFoil = true;
-                remainder = remainder[..^3].TrimEnd();
-            }
-
-            var printingMatch = PrintingRegex().Match(remainder);
-            if (!printingMatch.Success)
-            {
-                throw new DeckParseException($"Unable to parse Archidekt line {i + 1}: \"{line}\"");
-            }
-
-            var board = DetermineBoard(categoryText);
-
-            entries.Add(new DeckEntry
-            {
-                Name = printingMatch.Groups["name"].Value.Trim(),
-                NormalizedName = CardNormalizer.Normalize(printingMatch.Groups["name"].Value),
-                Quantity = quantity,
-                Board = board,
-                SetCode = NullIfWhiteSpace(printingMatch.Groups["set"].Value),
-                CollectorNumber = NullIfWhiteSpace(printingMatch.Groups["collector"].Value),
-                Category = NormalizeCategory(categoryText),
-                IsFoil = isFoil,
-            });
+            entries.Add(entry);
+            foundEntries = true;
         }
 
         if (entries.Count == 0)
@@ -96,6 +66,89 @@ public sealed partial class ArchidektParser : IParser
         }
 
         return entries;
+    }
+
+    private static bool TryParseEntry(string line, bool allowImplicitQuantity, out DeckEntry entry)
+    {
+        entry = default!;
+
+        var quantity = 1;
+        var remainder = line;
+        var match = QuantityRegex().Match(line);
+        if (match.Success)
+        {
+            quantity = int.Parse(match.Groups["quantity"].Value);
+            remainder = match.Groups["rest"].Value.Trim();
+        }
+        else if (!allowImplicitQuantity)
+        {
+            return false;
+        }
+
+        var hashtagCategories = ExtractHashtagCategories(ref remainder);
+        string? categoryText = null;
+        var categoryMatch = CategoryRegex().Match(remainder);
+        if (categoryMatch.Success)
+        {
+            categoryText = NullIfWhiteSpace(categoryMatch.Groups["categories"].Value);
+            remainder = categoryMatch.Groups["name"].Value.TrimEnd();
+        }
+
+        if (string.IsNullOrWhiteSpace(categoryText) && hashtagCategories.Count > 0)
+        {
+            categoryText = string.Join(",", hashtagCategories);
+        }
+
+        var isFoil = false;
+        if (remainder.EndsWith("★", StringComparison.Ordinal))
+        {
+            isFoil = true;
+            remainder = remainder[..^1].TrimEnd();
+        }
+
+        if (remainder.EndsWith("*F*", StringComparison.OrdinalIgnoreCase))
+        {
+            isFoil = true;
+            remainder = remainder[..^3].TrimEnd();
+        }
+
+        var printingMatch = PrintingRegex().Match(remainder);
+        string cardName;
+        string? setCode = null;
+        string? collectorNumber = null;
+        if (printingMatch.Success)
+        {
+            cardName = printingMatch.Groups["name"].Value.Trim();
+            setCode = NullIfWhiteSpace(printingMatch.Groups["set"].Value);
+            collectorNumber = NullIfWhiteSpace(printingMatch.Groups["collector"].Value);
+        }
+        else
+        {
+            if (!match.Success && hashtagCategories.Count == 0)
+            {
+                return false;
+            }
+
+            cardName = remainder.Trim();
+            if (string.IsNullOrWhiteSpace(cardName))
+            {
+                return false;
+            }
+        }
+
+        var board = DetermineBoard(categoryText);
+        entry = new DeckEntry
+        {
+            Name = cardName,
+            NormalizedName = CardNormalizer.Normalize(cardName),
+            Quantity = quantity,
+            Board = board,
+            SetCode = setCode,
+            CollectorNumber = collectorNumber,
+            Category = NormalizeCategory(categoryText),
+            IsFoil = isFoil,
+        };
+        return true;
     }
 
     private static string DetermineBoard(string? categories)
@@ -135,6 +188,22 @@ public sealed partial class ArchidektParser : IParser
 
     private static string? NullIfWhiteSpace(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static List<string> ExtractHashtagCategories(ref string remainder)
+    {
+        var categories = HashtagRegex()
+            .Matches(remainder)
+            .Select(match => match.Groups["tag"].Value.Trim())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .ToList();
+
+        if (categories.Count > 0)
+        {
+            remainder = HashtagRegex().Replace(remainder, string.Empty).Trim();
+        }
+
+        return categories;
+    }
+
     [GeneratedRegex(@"^(?<quantity>\d+)\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex QuantityRegex();
 
@@ -146,6 +215,9 @@ public sealed partial class ArchidektParser : IParser
 
     [GeneratedRegex(@"\{[^}]+\}", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex BraceTokenRegex();
+
+    [GeneratedRegex(@"\s+#(?<tag>[A-Za-z0-9][A-Za-z0-9_-]*)", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex HashtagRegex();
 
     private static bool IsIgnorableLine(string line)
     {
@@ -165,5 +237,63 @@ public sealed partial class ArchidektParser : IParser
             || string.Equals(normalized, "Commander", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Maybeboard", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Sideboard", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStoppingLine(string line)
+    {
+        var normalized = line.Trim().TrimEnd(':');
+        return string.Equals(normalized, "Possible names", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Possible name", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Notes", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Description", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Primer", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsNonDeckTextLine(string line)
+    {
+        var trimmed = line.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("-", StringComparison.Ordinal)
+            || trimmed.StartsWith("•", StringComparison.Ordinal)
+            || trimmed.StartsWith(">", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (trimmed.Contains("→", StringComparison.Ordinal)
+            || trimmed.Contains("👉", StringComparison.Ordinal)
+            || trimmed.Contains("🧩", StringComparison.Ordinal)
+            || trimmed.Contains("🎯", StringComparison.Ordinal)
+            || trimmed.Contains("💡", StringComparison.Ordinal)
+            || trimmed.Contains("🔥", StringComparison.Ordinal)
+            || trimmed.Contains("⚡", StringComparison.Ordinal)
+            || trimmed.Contains("🧠", StringComparison.Ordinal)
+            || trimmed.Contains("✅", StringComparison.Ordinal)
+            || trimmed.Contains("🚀", StringComparison.Ordinal)
+            || trimmed.Contains("❌", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (char.IsDigit(trimmed[0]))
+        {
+            return false;
+        }
+
+        if (trimmed.Contains("(", StringComparison.Ordinal) && trimmed.Contains(")", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (trimmed.Contains('#', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return true;
     }
 }

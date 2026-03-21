@@ -34,6 +34,29 @@ const updateSyncInputModeUi = () => {
         togglePanel(config.textSelector, !showText);
     });
 };
+const updateSyncDirectionUi = () => {
+    const directionSelect = document.querySelector('select[name="Direction"]');
+    if (!directionSelect) {
+        return;
+    }
+    const moxfieldIsSource = directionSelect.value === 'DeckSyncWorkbench';
+    const moxfieldStatus = document.querySelector('[data-sync-role="moxfield-status"]');
+    const archidektStatus = document.querySelector('[data-sync-role="archidekt-status"]');
+    const moxfieldHint = document.querySelector('[data-sync-role="moxfield-hint"]');
+    const archidektHint = document.querySelector('[data-sync-role="archidekt-hint"]');
+    if (moxfieldStatus) {
+        moxfieldStatus.textContent = moxfieldIsSource ? 'Source deck' : 'Target deck';
+    }
+    if (archidektStatus) {
+        archidektStatus.textContent = moxfieldIsSource ? 'Target deck' : 'Source deck';
+    }
+    if (moxfieldHint) {
+        moxfieldHint.textContent = `Use this when the Moxfield deck is ${moxfieldIsSource ? 'the source' : 'the target'}.`;
+    }
+    if (archidektHint) {
+        archidektHint.textContent = `Use this when the Archidekt deck is ${moxfieldIsSource ? 'the target' : 'the source'}.`;
+    }
+};
 let syncInputModeInitialized = false;
 const initializeSyncInputModeUi = () => {
     if (syncInputModeInitialized) {
@@ -44,7 +67,10 @@ const initializeSyncInputModeUi = () => {
     inputSelectors.forEach(element => {
         element.addEventListener('change', updateSyncInputModeUi);
     });
+    const directionSelect = document.querySelector('select[name="Direction"]');
+    directionSelect === null || directionSelect === void 0 ? void 0 : directionSelect.addEventListener('change', updateSyncDirectionUi);
     updateSyncInputModeUi();
+    updateSyncDirectionUi();
 };
 const scrollResults = () => {
     const anchor = document.getElementById('results-anchor');
@@ -57,22 +83,6 @@ const setAllPrintingChoices = (value) => {
     document.querySelectorAll(selector).forEach(input => {
         input.checked = true;
     });
-};
-const toggleSyncDirection = () => {
-    const directionSelect = document.querySelector('select[name="Direction"]');
-    const form = document.querySelector('form.deck-form');
-    if (!directionSelect || !form) {
-        return;
-    }
-    directionSelect.value = directionSelect.value === 'DeckSyncWorkbench'
-        ? 'ArchidektToMoxfield'
-        : 'DeckSyncWorkbench';
-    if (typeof form.requestSubmit === 'function') {
-        form.requestSubmit();
-    }
-    else {
-        form.submit();
-    }
 };
 let busyProgressTimer;
 let busyHideTimer;
@@ -170,12 +180,13 @@ const registerBusyIndicator = () => {
     });
 };
 const formStateStoragePrefix = 'decksync-form-state-';
+const tabNavigationKey = 'decksync-tab-navigation';
 const storageAvailable = (() => {
     try {
         const testKey = '__decksync_test_key__';
-        window.localStorage.setItem(testKey, '1');
-        window.localStorage.removeItem(testKey);
-        return window.localStorage;
+        window.sessionStorage.setItem(testKey, '1');
+        window.sessionStorage.removeItem(testKey);
+        return window.sessionStorage;
     }
     catch (_a) {
         return null;
@@ -234,13 +245,171 @@ const hydrateFormState = (form) => {
         storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
     }
 };
-const attachFormStatePersistence = () => {
-    document.querySelectorAll('form[data-cache-key]').forEach(form => {
+const clearDeckSyncUi = () => {
+    const results = document.getElementById('deck-sync-results');
+    const error = document.getElementById('deck-sync-error');
+    if (results) {
+        results.classList.add('hidden');
+    }
+    if (error) {
+        error.classList.add('hidden');
+        error.textContent = '';
+    }
+};
+const setDeckSyncResultLabels = (sourceSystem, targetSystem) => {
+    document.querySelectorAll('[data-sync-result="source-system"]').forEach(node => {
+        node.textContent = sourceSystem;
+    });
+    document.querySelectorAll('[data-sync-result="target-system"]').forEach(node => {
+        node.textContent = targetSystem;
+    });
+};
+const renderDeckSyncConflicts = (printingConflicts) => {
+    const panel = document.getElementById('deck-sync-conflicts-js');
+    const body = document.getElementById('deck-sync-conflicts-body');
+    if (!panel || !body) {
+        return;
+    }
+    body.innerHTML = '';
+    if (printingConflicts.length === 0) {
+        panel.classList.add('hidden');
+        return;
+    }
+    printingConflicts.forEach(conflict => {
+        var _a, _b;
+        const row = document.createElement('tr');
+        const targetCategory = conflict.archidektCategory ? ` [${conflict.archidektCategory}]` : '';
+        const cardCell = document.createElement('td');
+        cardCell.textContent = conflict.cardName;
+        const archidektCell = document.createElement('td');
+        archidektCell.textContent = `(${conflict.archidektSetCode}) ${conflict.archidektCollectorNumber}${targetCategory}`;
+        const moxfieldCell = document.createElement('td');
+        moxfieldCell.textContent = `(${(_a = conflict.moxfieldSetCode) !== null && _a !== void 0 ? _a : ''}) ${(_b = conflict.moxfieldCollectorNumber) !== null && _b !== void 0 ? _b : ''}`;
+        row.appendChild(cardCell);
+        row.appendChild(archidektCell);
+        row.appendChild(moxfieldCell);
+        body.appendChild(row);
+    });
+    panel.classList.remove('hidden');
+};
+const renderDeckSyncResponse = (response) => {
+    const error = document.getElementById('deck-sync-error');
+    const results = document.getElementById('deck-sync-results');
+    const report = document.getElementById('deck-sync-report');
+    const delta = document.getElementById('delta-output');
+    const fullImport = document.getElementById('full-import-output');
+    const instructions = document.getElementById('deck-sync-instructions');
+    if (error) {
+        error.classList.add('hidden');
+        error.textContent = '';
+    }
+    if (report) {
+        report.textContent = response.reportText;
+    }
+    if (delta) {
+        delta.value = response.deltaText;
+    }
+    if (fullImport) {
+        fullImport.value = response.fullImportText;
+    }
+    if (instructions) {
+        instructions.textContent = response.instructionsText;
+    }
+    setDeckSyncResultLabels(response.sourceSystem, response.targetSystem);
+    renderDeckSyncConflicts(response.printingConflicts);
+    results === null || results === void 0 ? void 0 : results.classList.remove('hidden');
+    window.setTimeout(scrollResults, 100);
+};
+const submitDeckSyncApi = async (form) => {
+    var _a, _b, _c, _d, _e, _f;
+    const endpoint = form.dataset.deckSyncApi;
+    if (!endpoint) {
+        return;
+    }
+    const error = document.getElementById('deck-sync-error');
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(serializeFormFields(form))
+        });
+        if (!response.ok) {
+            let payload = null;
+            try {
+                payload = await response.json();
+            }
+            catch (_g) {
+                payload = null;
+            }
+            if (error) {
+                const validationSummary = (payload === null || payload === void 0 ? void 0 : payload.errors)
+                    ? Object.values(payload.errors)
+                        .reduce((messages, current) => messages.concat(current), [])
+                        .join(' ')
+                    : null;
+                error.textContent = (_d = (_c = (_b = (_a = payload === null || payload === void 0 ? void 0 : payload.message) !== null && _a !== void 0 ? _a : payload === null || payload === void 0 ? void 0 : payload.Message) !== null && _b !== void 0 ? _b : validationSummary) !== null && _c !== void 0 ? _c : payload === null || payload === void 0 ? void 0 : payload.title) !== null && _d !== void 0 ? _d : 'Unable to run deck sync.';
+                error.classList.remove('hidden');
+            }
+            (_e = document.getElementById('deck-sync-results')) === null || _e === void 0 ? void 0 : _e.classList.add('hidden');
+            hideBusyIndicator();
+            return;
+        }
+        renderDeckSyncResponse(await response.json());
+        hideBusyIndicator();
+    }
+    catch (requestError) {
+        if (error) {
+            error.textContent = requestError instanceof Error ? requestError.message : 'Unable to run deck sync.';
+            error.classList.remove('hidden');
+        }
+        (_f = document.getElementById('deck-sync-results')) === null || _f === void 0 ? void 0 : _f.classList.add('hidden');
+        hideBusyIndicator();
+    }
+};
+const attachDeckSyncPersistence = () => {
+    const form = document.getElementById('deck-sync-form');
+    if (!form) {
+        return;
+    }
+    const key = form.getAttribute('data-cache-key');
+    if (!key || !storageAvailable) {
+        updateSyncInputModeUi();
+        updateSyncDirectionUi();
+        return;
+    }
+    const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
+    if (restoredFromTabs) {
         hydrateFormState(form);
-        const handler = () => persistFormState(form);
-        form.addEventListener('input', handler);
-        form.addEventListener('change', handler);
-        form.addEventListener('submit', handler);
+        storageAvailable.removeItem(tabNavigationKey);
+    }
+    else {
+        storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+    }
+    updateSyncInputModeUi();
+    updateSyncDirectionUi();
+    const handler = () => persistFormState(form);
+    form.addEventListener('input', handler);
+    form.addEventListener('change', handler);
+    form.addEventListener('submit', event => {
+        handler();
+        event.preventDefault();
+        submitDeckSyncApi(form);
+    });
+    const clearButton = form.querySelector('[data-clear-cache]');
+    clearButton === null || clearButton === void 0 ? void 0 : clearButton.addEventListener('click', () => {
+        form.reset();
+        storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+        clearDeckSyncUi();
+        updateSyncInputModeUi();
+        updateSyncDirectionUi();
+    });
+    document.querySelectorAll('.tab-bar .tab-link').forEach(link => {
+        link.addEventListener('click', () => {
+            persistFormState(form);
+            storageAvailable.setItem(tabNavigationKey, '1');
+        });
     });
 };
 const initializeScrollHandler = () => {
@@ -251,17 +420,13 @@ const initializeScrollHandler = () => {
         });
     }
 };
-window.toggleSyncDirection = toggleSyncDirection;
 window.setAllPrintingChoices = setAllPrintingChoices;
-window.showCommanderHarvestBusy = () => {
-    showBusyIndicator('Growing commander cache', 'Scanning Archidekt decks for commander categories.', ['Refreshing cached store', 'Scanning recent Archidekt decks', 'Compiling commander categories'], 30000, true);
-};
 window.hideBusyIndicator = hideBusyIndicator;
 const bootstrapDeckSync = () => {
     initializeSyncInputModeUi();
     registerBusyIndicator();
     initializeScrollHandler();
-    attachFormStatePersistence();
+    attachDeckSyncPersistence();
 };
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);
 if (document.readyState !== 'loading') {

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 using DeckSyncWorkbench.Web.Services;
 using Microsoft.Extensions.Caching.Memory;
@@ -11,28 +10,22 @@ using Xunit;
 
 namespace DeckSyncWorkbench.Web.Tests;
 
-/// <summary>
-/// Contains unit tests for commander look-up behavior.
-/// </summary>
-public sealed class ScryfallCommanderSearchServiceTests
+public sealed class CardSearchServiceTests
 {
     private static readonly IReadOnlyList<ScryfallCard> SampleCards = new[]
     {
-        new ScryfallCard("Bello, Bard of the Brambles"),
-        new ScryfallCard("Bello, Bard of the Brambles"),
-        new ScryfallCard("Bellowjohn")
+        new ScryfallCard("Guardian Project"),
+        new ScryfallCard("Guardian Project"),
+        new ScryfallCard("Guard Gomazoa")
     };
 
     [Fact]
-    /// <summary>
-    /// Ensures the service extracts distinct names and builds the correct query.
-    /// </summary>
     public async Task SearchAsync_ReturnsDistinctNamesFromResponse()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var callCount = 0;
         RestRequest? lastRequest = null;
-        var service = new ScryfallCommanderSearchService(
+        var service = new ScryfallCardSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -41,22 +34,19 @@ public sealed class ScryfallCommanderSearchServiceTests
                 return Task.FromResult(CreateResponse(SampleCards, request));
             });
 
-        var result = await service.SearchAsync("bel");
+        var result = await service.SearchAsync("guard");
 
-        Assert.Equal(new[] { "Bello, Bard of the Brambles", "Bellowjohn" }, result);
+        Assert.Equal(new[] { "Guardian Project", "Guard Gomazoa" }, result);
         Assert.Equal(1, callCount);
-        Assert.Equal("is:commander type:legendary (type:creature or type:vehicle) name:bel", lastRequest?.Parameters.First(p => p.Name == "q").Value);
+        Assert.Equal("name:guard", lastRequest?.Parameters.First(p => p.Name == "q").Value);
     }
 
     [Fact]
-    /// <summary>
-    /// Verifies the service caches normalized queries so duplicate requests do not call Scryfall twice.
-    /// </summary>
     public async Task SearchAsync_UsesCacheOnSubsequentCalls()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var callCount = 0;
-        var service = new ScryfallCommanderSearchService(
+        var service = new ScryfallCardSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -64,20 +54,17 @@ public sealed class ScryfallCommanderSearchServiceTests
                 return Task.FromResult(CreateResponse(SampleCards, request));
             });
 
-        await service.SearchAsync("bel");
-        await service.SearchAsync("  bel  ");
+        await service.SearchAsync("guard");
+        await service.SearchAsync("  guard  ");
 
         Assert.Equal(1, callCount);
     }
 
     [Fact]
-    /// <summary>
-    /// Throws an HTTP exception when the Scryfall response is not successful.
-    /// </summary>
     public async Task SearchAsync_ThrowsWhenResponseFails()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallCommanderSearchService(
+        var service = new ScryfallCardSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -88,15 +75,12 @@ public sealed class ScryfallCommanderSearchServiceTests
                 });
             });
 
-        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.SearchAsync("bel"));
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.SearchAsync("guard"));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
         Assert.Contains("Scryfall", exception.Message);
     }
 
-    /// <summary>
-    /// Builds a successful REST response containing the provided cards.
-    /// </summary>
     private static RestResponse<ScryfallSearchResponse> CreateResponse(IReadOnlyList<ScryfallCard> cards, RestRequest request)
     {
         return new RestResponse<ScryfallSearchResponse>(request)

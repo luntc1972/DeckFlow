@@ -1,10 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using DeckSyncWorkbench.Core.Integration;
 using DeckSyncWorkbench.Core.Knowledge;
-using DeckSyncWorkbench.Core.Models;
 using DeckSyncWorkbench.Core.Reporting;
 using Microsoft.Extensions.Logging;
 
@@ -13,10 +11,8 @@ namespace DeckSyncWorkbench.Web.Services;
 public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
-    private static readonly TimeSpan MaxAge = TimeSpan.FromHours(12);
     private readonly string _artifactsPath;
     private readonly string _databasePath;
-    private readonly string _harvestTextPath;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CategoryKnowledgeRepository _repository;
     private readonly ArchidektApiDeckImporter _archidektImporter;
@@ -30,56 +26,12 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         _artifactsPath = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
         _databasePath = Path.Combine(_artifactsPath, "category-knowledge.db");
-        _harvestTextPath = Path.Combine(_artifactsPath, "archidekt-recent-20-categories.txt");
         _repository = new CategoryKnowledgeRepository(_databasePath);
         _archidektImporter = new ArchidektApiDeckImporter();
         _recentDeckImporter = new ArchidektRecentDecksImporter();
     }
 
     public string DatabasePath => _databasePath;
-
-    /// <summary>
-    /// Refreshes the cached harvest if it is stale.
-    /// </summary>
-    /// <param name="logger">Logger guiding the refresh run.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task EnsureHarvestFreshAsync(ILogger logger, CancellationToken cancellationToken = default)
-    {
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            Directory.CreateDirectory(_artifactsPath);
-            await _repository.EnsureSchemaAsync(cancellationToken);
-
-            var refreshNeeded = !File.Exists(_harvestTextPath)
-                || DateTimeOffset.UtcNow - File.GetLastWriteTimeUtc(_harvestTextPath) > MaxAge
-                || !await _repository.HasSourceDataAsync("archidekt_harvest", cancellationToken);
-
-            if (!refreshNeeded)
-            {
-                return;
-            }
-
-            logger.LogInformation("Refreshing Archidekt category knowledge database at {Path}.", _databasePath);
-            var recentDeckIds = await _recentDeckImporter.ImportRecentDeckIdsAsync(HarvestDeckCount, cancellationToken);
-            var importer = _archidektImporter;
-            var entries = new List<DeckEntry>();
-
-            foreach (var deckId in recentDeckIds)
-            {
-                entries.AddRange(await importer.ImportAsync(deckId, cancellationToken));
-            }
-
-            var rows = CategoryKnowledgeReporter.Build(entries);
-            await _repository.ReplaceSourceRowsAsync("archidekt_harvest", rows, "mainboard", 0, cancellationToken);
-            await File.WriteAllTextAsync(_harvestTextPath, CategoryKnowledgeReporter.ToText(rows, recentDeckIds.Count), cancellationToken);
-            await _repository.AddDeckIdsAsync(recentDeckIds, cancellationToken);
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
 
     /// <summary>
     /// Gets cached categories for a given card from the repository.
@@ -128,26 +80,6 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <summary>
-    /// Processes the next batch of decks in the cache queue.
-    /// </summary>
-    /// <param name="logger">Logger for the cache run.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<int> ProcessNextDecksAsync(ILogger logger, CancellationToken cancellationToken = default)
-    {
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
-            var result = await session.RunAsync(TimeSpan.FromSeconds(4), queueBatchSize: 1, fetchBatchSize: HarvestDeckCount, cancellationToken: cancellationToken);
-            return result.DecksProcessed;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    /// <summary>
     /// Runs an extended cache sweep for the specified duration.
     /// </summary>
     /// <param name="logger">Logger for the sweep.</param>
@@ -158,6 +90,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            Directory.CreateDirectory(_artifactsPath);
+            await _repository.EnsureSchemaAsync(cancellationToken);
             var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
             var result = await session.RunAsync(TimeSpan.FromSeconds(durationSeconds), queueBatchSize: 5, fetchBatchSize: HarvestDeckCount, cancellationToken: cancellationToken);
             return result.DecksProcessed;

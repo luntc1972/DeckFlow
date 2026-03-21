@@ -165,6 +165,8 @@ static async Task<int> RunCompareAsync(FileInfo? moxfield, string? moxfieldUrl, 
     {
         var moxfieldEntries = DeckEntryFilter.ExcludeMaybeboard(await LoadMoxfieldEntriesAsync(moxfield, moxfieldUrl));
         var archidektEntries = await LoadArchidektEntriesAsync(archidekt, archidektUrl);
+        ValidateDeckSize("Moxfield", moxfieldEntries);
+        ValidateDeckSize("Archidekt", archidektEntries);
         var sourceEntries = direction == SyncDirection.DeckSyncWorkbench ? moxfieldEntries : archidektEntries;
         var targetEntries = direction == SyncDirection.DeckSyncWorkbench ? archidektEntries : moxfieldEntries;
         var sourceSystem = direction == SyncDirection.DeckSyncWorkbench ? "Moxfield" : "Archidekt";
@@ -254,6 +256,19 @@ static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(FileInfo? file, str
     }
 
     throw new InvalidOperationException("Either --archidekt or --archidekt-url is required.");
+}
+
+static void ValidateDeckSize(string systemName, IReadOnlyList<DeckEntry> entries)
+{
+    const int requiredDeckSize = 100;
+    var count = entries
+        .Where(entry => !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
+        .Sum(entry => entry.Quantity);
+
+    if (count != requiredDeckSize)
+    {
+        throw new InvalidOperationException($"{systemName} deck must contain exactly {requiredDeckSize} cards across commander and mainboard. Found {count}.");
+    }
 }
 
 static IEnumerable<PrintingConflict> ResolveConflicts(IReadOnlyList<PrintingConflict> conflicts, string sourceSystem, string targetSystem)

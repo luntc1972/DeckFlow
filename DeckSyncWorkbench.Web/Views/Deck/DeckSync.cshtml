@@ -26,7 +26,7 @@
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<form id="deck-sync-form" method="post" class="deck-form" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="true">
+<form id="deck-sync-form" method="post" class="deck-form" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="/api/deck/diff">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <div class="direction-group">
@@ -37,7 +37,6 @@
                     <option value="@SyncDirection.ArchidektToMoxfield" selected="@(direction == SyncDirection.ArchidektToMoxfield)">Archidekt to Moxfield</option>
                 </select>
             </label>
-            <button type="button" class="swap-direction-button" onclick="toggleSyncDirection()">Swap main deck</button>
         </div>
         <label class="mode-picker">
             <span>Match mode</span>
@@ -66,11 +65,11 @@
         <section class="sync-column sync-column--moxfield" aria-labelledby="moxfield-panel-title">
             <div class="sync-column__header">
                 <p id="moxfield-panel-title">Moxfield</p>
-                <span class="sync-column__status">
+                <span class="sync-column__status" data-sync-role="moxfield-status">
                     @(direction == SyncDirection.DeckSyncWorkbench ? "Source deck" : "Target deck")
                 </span>
             </div>
-            <p class="sync-column__description">Provide the Moxfield export or public URL you want to sync from or to.</p>
+            <p class="sync-column__description" data-sync-role="moxfield-description">Provide the Moxfield export or public URL you want to sync from or to.</p>
             <label class="field">
                 <span>Input method</span>
                 <select name="MoxfieldInputSource">
@@ -79,25 +78,25 @@
                 </select>
             </label>
             <div class="sync-column__body">
-                <label class="field sync-column__input-field hidden" data-sync-panel="moxfield-url">
+                <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="moxfield-url">
                     <span>Moxfield public deck URL</span>
                     <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="https://moxfield.com/decks/..." />
                 </label>
-                <label class="field sync-column__input-field hidden" data-sync-panel="moxfield-text">
+                <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="moxfield-text">
                     <span>Moxfield export text</span>
                     <textarea name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
-                    <small class="sync-column__hint">Use this when the Moxfield deck is @(direction == SyncDirection.DeckSyncWorkbench ? "the source" : "the target").</small>
+                    <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the Moxfield deck is @(direction == SyncDirection.DeckSyncWorkbench ? "the source" : "the target").</small>
                 </label>
             </div>
         </section>
         <section class="sync-column sync-column--archidekt" aria-labelledby="archidekt-panel-title">
             <div class="sync-column__header">
                 <p id="archidekt-panel-title">Archidekt</p>
-                <span class="sync-column__status">
+                <span class="sync-column__status" data-sync-role="archidekt-status">
                     @(direction == SyncDirection.DeckSyncWorkbench ? "Target deck" : "Source deck")
                 </span>
             </div>
-            <p class="sync-column__description">Provide the Archidekt export or public URL for syncing.</p>
+            <p class="sync-column__description" data-sync-role="archidekt-description">Provide the Archidekt export or public URL for syncing.</p>
             <label class="field">
                 <span>Input method</span>
                 <select name="ArchidektInputSource">
@@ -106,14 +105,14 @@
                 </select>
             </label>
             <div class="sync-column__body">
-                <label class="field sync-column__input-field hidden" data-sync-panel="archidekt-url">
+                <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="archidekt-url">
                     <span>Archidekt public deck URL</span>
                     <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
                 </label>
-                <label class="field sync-column__input-field hidden" data-sync-panel="archidekt-text">
+                <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="archidekt-text">
                     <span>Archidekt export text</span>
                     <textarea name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
-                    <small class="sync-column__hint">Use this when the Archidekt deck is @(direction == SyncDirection.DeckSyncWorkbench ? "the target" : "the source").</small>
+                    <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the Archidekt deck is @(direction == SyncDirection.DeckSyncWorkbench ? "the target" : "the source").</small>
                 </label>
             </div>
         </section>
@@ -133,7 +132,7 @@
         <div class="panel-heading">
             <div>
                 <h2>Add Missing Cards</h2>
-                <p>Paste this into @targetName to add only the cards that are missing from the target deck.</p>
+                <p>Paste this into <span data-sync-result="target-system">@targetName</span> to add only the cards that are missing from the target deck.</p>
             </div>
             <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('delta-output').value)">Copy</button>
         </div>
@@ -144,7 +143,7 @@
         <div class="panel-heading">
             <div>
                 <h2>Full Deck Export</h2>
-                <p>A full export formatted for @targetName, reusing target printings and board placement where matches already exist.</p>
+                <p>A full export formatted for <span data-sync-result="target-system">@targetName</span>, reusing target printings and board placement where matches already exist.</p>
             </div>
             <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('full-import-output').value)">Copy</button>
         </div>
@@ -155,15 +154,15 @@
         <div class="panel-heading">
             <div>
                 <h2>Printing Conflicts</h2>
-                <p>@targetName printings stay in place unless you generate a manual checklist for swapping them afterward.</p>
+                <p><span data-sync-result="target-system">@targetName</span> printings stay in place unless you generate a manual checklist for swapping them afterward.</p>
             </div>
         </div>
         <table class="conflicts-table">
             <thead>
                 <tr>
                     <th>Card</th>
-                    <th id="deck-sync-conflict-target">@targetName</th>
-                    <th id="deck-sync-conflict-source">@sourceName</th>
+                    <th id="deck-sync-conflict-target"><span data-sync-result="target-system">@targetName</span></th>
+                    <th id="deck-sync-conflict-source"><span data-sync-result="source-system">@sourceName</span></th>
                 </tr>
             </thead>
             <tbody id="deck-sync-conflicts-body">
@@ -181,6 +180,11 @@
             </tbody>
         </table>
     </section>
+
+    <details class="result-panel">
+        <summary>How to import safely</summary>
+        <pre id="deck-sync-instructions" spellcheck="false">@Model.InstructionsText</pre>
+    </details>
 </div>
 
 @section Scripts {

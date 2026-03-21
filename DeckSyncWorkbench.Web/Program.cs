@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json.Serialization;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using DeckSyncWorkbench.Core.Integration;
@@ -28,7 +29,12 @@ public class Program
         });
 
         // Add services to the container.
-        builder.Services.AddControllersWithViews();
+        builder.Services
+            .AddControllersWithViews()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
         builder.Services.AddMemoryCache();
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(options =>

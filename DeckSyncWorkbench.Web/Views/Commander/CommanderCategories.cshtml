@@ -1,5 +1,10 @@
 @model DeckSyncWorkbench.Web.Models.CommanderCategoryViewModel
 @{
+    var commanderSpecified = !string.IsNullOrWhiteSpace(Model.Request.CommanderName);
+    var hasResults = Model.CategorySummaries.Count > 0;
+    var showHint = commanderSpecified || !string.IsNullOrWhiteSpace(Model.ErrorMessage);
+    var showAdditional = Model.AdditionalDecksFound > 0;
+    var showNoResults = commanderSpecified && !hasResults && string.IsNullOrWhiteSpace(Model.ErrorMessage);
     ViewData["Title"] = "Commander Categories";
 }
 
@@ -19,6 +24,10 @@
     <span data-api-field="commander-error-text">@Model.ErrorMessage</span>
 </div>
 
+<div class="error-banner hidden" role="alert" data-api-panel="commander-search-error">
+    <span data-api-field="commander-search-error-text"></span>
+</div>
+
 <form method="post" action="/commander-categories" class="deck-form" data-cache-key="commander-categories" data-validate-lookup data-busy-title="Looking up commander categories" data-busy-message="Querying the cached category store." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Compiling commander categories" data-busy-duration="30000" data-busy-hold-final-step="true" data-suggestions-type="commander" data-suggestion-api="/api/suggestions/commander">
     @Html.AntiForgeryToken()
     <div class="toolbar">
@@ -36,7 +45,7 @@
     </div>
 </form>
 
-<div class="info-banner hidden" data-api-panel="commander-hint">
+<div class="info-banner @(showHint ? string.Empty : "hidden")" data-api-panel="commander-hint">
     <p data-api-field="commander-hint-text">
         @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
         {
@@ -53,11 +62,11 @@
     </p>
 </div>
 
-<div class="info-banner hidden" data-api-panel="commander-additional">
+<div class="info-banner @(showAdditional ? string.Empty : "hidden")" data-api-panel="commander-additional">
     <p><strong data-api-field="commander-additional-count">@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
 </div>
 
-<section class="result-panel hidden" data-api-panel="commander-results">
+<section class="result-panel @(hasResults ? string.Empty : "hidden")" data-api-panel="commander-results">
     <div class="panel-heading">
         <div>
             <h2>Categories for @Model.Request.CommanderName</h2>
@@ -88,7 +97,7 @@
     </table>
 </section>
 
-<div class="info-banner hidden" data-api-panel="commander-no-results">
+<div class="info-banner @(showNoResults ? string.Empty : "hidden")" data-api-panel="commander-no-results">
     <p data-api-field="commander-no-results-text">No commander categories for @Model.Request.CommanderName have been observed in the cached data yet. Run Show Categories again to refresh the cache.</p>
 </div>
 
@@ -96,14 +105,4 @@
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/commander-search.js" asp-append-version="true"></script>
     <script src="~/js/category-suggestions.js" asp-append-version="true"></script>
-    @if (Model.ExtendedHarvestTriggered)
-    {
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                if (window.showCommanderHarvestBusy) {
-                    window.showCommanderHarvestBusy();
-                }
-            });
-        </script>
-    }
 }

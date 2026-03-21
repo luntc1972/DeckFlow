@@ -28,6 +28,10 @@
     <span data-api-field="suggest-error-text">@Model.SuggestionErrorMessage</span>
 </div>
 
+<div class="error-banner hidden" role="alert" data-api-panel="card-search-error">
+    <span data-api-field="card-search-error-text"></span>
+</div>
+
 <form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
     @Html.AntiForgeryToken()
     <div class="toolbar">
@@ -162,43 +166,6 @@
         <textarea id="edhrec-categories-output" data-api-field="edhrec-text" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
     </section>
 </section>
-
-<script>
-function updateSuggestionInputModeUi() {
-    var modeSelect = document.querySelector('select[name="Mode"]');
-    var archidektModeSelect = document.querySelector('select[name="ArchidektInputSource"]');
-    if (!modeSelect || !archidektModeSelect) {
-        return;
-    }
-
-    var useReferenceDeck = modeSelect.value === '@CategorySuggestionMode.ReferenceDeck';
-    var showUrl = archidektModeSelect.value === '@DeckInputSource.PublicUrl';
-    var showText = archidektModeSelect.value === '@DeckInputSource.PasteText';
-    document.querySelectorAll('select[name="ArchidektInputSource"]').forEach(function (element) {
-        var wrapper = element.closest('.mode-picker');
-        if (wrapper) {
-            wrapper.classList.toggle('hidden', !useReferenceDeck);
-        }
-    });
-    document.querySelectorAll('.reference-input').forEach(function (element) {
-        element.classList.toggle('hidden', !useReferenceDeck);
-    });
-    document.querySelectorAll('[data-suggest-panel="url"]').forEach(function (element) {
-        element.classList.toggle('hidden', !showUrl);
-    });
-    document.querySelectorAll('[data-suggest-panel="text"]').forEach(function (element) {
-        element.classList.toggle('hidden', !showText);
-    });
-
-    document.querySelectorAll('.reference-controls').forEach(function (element) {
-        element.classList.toggle('hidden', !useReferenceDeck);
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    updateSuggestionInputModeUi();
-});
-</script>
 
 @section Scripts {
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>

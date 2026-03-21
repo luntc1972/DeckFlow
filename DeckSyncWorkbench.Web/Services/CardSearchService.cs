@@ -63,6 +63,14 @@ public sealed class ScryfallCardSearchService : ICardSearchService
         request.AddQueryParameter("include_multilingual", "false");
 
         var response = await _executeAsync(request, cancellationToken);
+        if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
+        {
+            throw new HttpRequestException(
+                $"Scryfall search returned HTTP {(int)response.StatusCode}.",
+                null,
+                response.StatusCode);
+        }
+
         var names = response.Data?.Data?
             .Select(card => card.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name))

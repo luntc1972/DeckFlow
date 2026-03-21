@@ -15,22 +15,18 @@ namespace DeckSyncWorkbench.Web.Controllers;
 public sealed class DeckController : Controller
 {
     private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromMinutes(1);
-    private const int ExtendedHarvestDurationSeconds = 30;
     private readonly IDeckSyncService _deckSyncService;
-    private readonly ICategoryKnowledgeStore _categoryKnowledgeStore;
     private readonly ICardSearchService _cardSearchService;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly ILogger<DeckController> _logger;
 
     public DeckController(
         IDeckSyncService deckSyncService,
-        ICategoryKnowledgeStore categoryKnowledgeStore,
         ICardSearchService cardSearchService,
         ICategorySuggestionService categorySuggestionService,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
-        _categoryKnowledgeStore = categoryKnowledgeStore;
         _cardSearchService = cardSearchService;
         _categorySuggestionService = categorySuggestionService;
         _logger = logger;
@@ -68,8 +64,19 @@ public sealed class DeckController : Controller
     /// <param name="query">Partial card name.</param>
     public async Task<IActionResult> CardSearch(string query)
     {
-        var names = await _cardSearchService.SearchAsync(query ?? string.Empty, HttpContext.RequestAborted);
-        return Json(names);
+        try
+        {
+            var names = await _cardSearchService.SearchAsync(query ?? string.Empty, HttpContext.RequestAborted);
+            return Json(names);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            _logger.LogWarning(exception, "Card search autocomplete failed for query {Query}.", query);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                Message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)
+            });
+        }
     }
 
     [HttpPost("/")]
@@ -142,7 +149,6 @@ public sealed class DeckController : Controller
                 AdditionalDecksFound = result.AdditionalDecksFound,
                 CardDeckTotals = result.CardDeckTotals
             };
-            CategoryHarvestScheduler.ScheduleSweep(_categoryKnowledgeStore, _logger, ExtendedHarvestDurationSeconds);
             return View("SuggestCategories", viewModel);
         }
         catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)

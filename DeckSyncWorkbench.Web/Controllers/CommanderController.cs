@@ -9,14 +9,12 @@ namespace DeckSyncWorkbench.Web.Controllers;
 
 public sealed class CommanderController : Controller
 {
-    private readonly ICategoryKnowledgeStore _categoryKnowledgeStore;
     private readonly ICommanderSearchService _searchService;
     private readonly ICommanderCategoryService _commanderCategoryService;
     private readonly ILogger<CommanderController> _logger;
 
-    public CommanderController(ICategoryKnowledgeStore categoryKnowledgeStore, ICommanderSearchService searchService, ICommanderCategoryService commanderCategoryService, ILogger<CommanderController> logger)
+    public CommanderController(ICommanderSearchService searchService, ICommanderCategoryService commanderCategoryService, ILogger<CommanderController> logger)
     {
-        _categoryKnowledgeStore = categoryKnowledgeStore;
         _searchService = searchService;
         _commanderCategoryService = commanderCategoryService;
         _logger = logger;
@@ -65,7 +63,6 @@ public sealed class CommanderController : Controller
                 ExtendedHarvestTriggered = result.CacheSweepPerformed,
                 CardDeckTotals = result.CardDeckTotals
             };
-            CategoryHarvestScheduler.ScheduleSweep(_categoryKnowledgeStore, _logger, 30 * 60);
             return View("CommanderCategories", viewModel);
         }
         catch (OperationCanceledException)
@@ -95,22 +92,18 @@ public sealed class CommanderController : Controller
     /// <param name="query">Partial commander name.</param>
     public async Task<IActionResult> Search(string query)
     {
-        var names = await _searchService.SearchAsync(query ?? string.Empty, HttpContext.RequestAborted);
-        return Json(names);
-    }
-
-    private void ScheduleExtendedArchidektHarvest()
-    {
-        _ = Task.Run(async () =>
+        try
         {
-            try
+            var names = await _searchService.SearchAsync(query ?? string.Empty, HttpContext.RequestAborted);
+            return Json(names);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            _logger.LogWarning(exception, "Commander search autocomplete failed for query {Query}.", query);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
             {
-                await _categoryKnowledgeStore.RunCacheSweepAsync(_logger, 30 * 60);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Extended Archidekt harvest failed.");
-            }
-        });
+                Message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)
+            });
+        }
     }
 }

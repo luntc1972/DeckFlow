@@ -39,7 +39,7 @@ public sealed class CategorySuggestionServiceTests
 
         Assert.False(result.NothingFound);
         Assert.Contains("Ramp", result.InferredCategories);
-        Assert.Equal(0, store.ProcessNextDecksCalled);
+        Assert.Equal(1, store.RunCacheSweepCalls);
         Assert.Equal(1, result.CardDeckTotals.TotalDeckCount);
     }
 
@@ -59,7 +59,7 @@ public sealed class CategorySuggestionServiceTests
         var result = await service.SuggestAsync(request);
 
         Assert.Contains("Draw", result.InferredCategories);
-        Assert.True(store.ProcessNextDecksCalled > 0);
+        Assert.Equal(1, store.RunCacheSweepCalls);
         Assert.Equal(1, result.AdditionalDecksFound);
     }
 
@@ -94,8 +94,7 @@ public sealed class CategorySuggestionServiceTests
     {
         private readonly Queue<IReadOnlyList<string>> _responses;
         private readonly CardDeckTotals _totals;
-        public int ProcessNextDecksCalled { get; private set; }
-        public int EnsureHarvestFreshCalls { get; private set; }
+        public int RunCacheSweepCalls { get; private set; }
         public int ProcessedDeckCount { get; private set; }
         private IReadOnlyList<string> _current = Array.Empty<string>();
 
@@ -107,28 +106,19 @@ public sealed class CategorySuggestionServiceTests
             _current = _responses.Count > 0 ? _responses.Dequeue() : Array.Empty<string>();
         }
 
-        public Task EnsureHarvestFreshAsync(ILogger logger, CancellationToken cancellationToken = default)
-        {
-            EnsureHarvestFreshCalls++;
-            return Task.CompletedTask;
-        }
-
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
 
         public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(ProcessedDeckCount);
 
-        public Task<int> ProcessNextDecksAsync(ILogger logger, CancellationToken cancellationToken = default)
+        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
         {
-            ProcessNextDecksCalled++;
+            RunCacheSweepCalls++;
             ProcessedDeckCount++;
-            _current = _responses.Count > 0 ? _responses.Dequeue() : Array.Empty<string>();
+            _current = _responses.Count > 0 ? _responses.Dequeue() : _current;
             return Task.FromResult(1);
         }
-
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
-            => Task.FromResult(0);
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => Task.FromResult(_current);

@@ -5,10 +5,8 @@ namespace DeckSyncWorkbench.Web.Services;
 
 public interface ICategoryKnowledgeStore
 {
-    Task EnsureHarvestFreshAsync(ILogger logger, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default);
     Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default);
-    Task<int> ProcessNextDecksAsync(ILogger logger, CancellationToken cancellationToken = default);
     Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default);
     Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default);

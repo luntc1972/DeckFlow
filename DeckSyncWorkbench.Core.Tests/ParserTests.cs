@@ -88,6 +88,36 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void MoxfieldParser_AllowsImplicitQuantityOfOne()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            Bello, Bard of the Brambles (BLC) 1
+            1 Arcane Signet
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Bello, Bard of the Brambles", entries[0].Name);
+        Assert.Equal(1, entries[0].Quantity);
+        Assert.Equal("BLC", entries[0].SetCode);
+        Assert.Equal("1", entries[0].CollectorNumber);
+    }
+
+    [Fact]
+    public void MoxfieldParser_IgnoresPossibleNamesAndTrailingNotes()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Bello, Bard of the Brambles
+            1 Arcane Signet
+            Possible names:
+            The Fire You Saved
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Bello, Bard of the Brambles", entries[0].Name);
+        Assert.Equal("Arcane Signet", entries[1].Name);
+    }
+
+    [Fact]
     public void ArchidektParser_ParsesCategoriesAndMaybeboard()
     {
         var entries = new ArchidektParser().ParseText("""
@@ -112,5 +142,43 @@ public sealed class ParserTests
         Assert.Equal("727", entry.CollectorNumber);
         Assert.Equal("Draw", entry.Category);
         Assert.True(entry.IsFoil);
+    }
+
+    [Fact]
+    public void ArchidektParser_AllowsCommanderLineWithoutLeadingQuantity()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            Edgin, Larcenous Lutenist (SLD) 1242 #Commander #ExileEngine
+            Deck
+            1 Arcane Signet (LCC) 299 #Ramp
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Edgin, Larcenous Lutenist", entries[0].Name);
+        Assert.Equal(1, entries[0].Quantity);
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("ExileEngine", entries[0].Category);
+        Assert.Equal("SLD", entries[0].SetCode);
+        Assert.Equal("1242", entries[0].CollectorNumber);
+    }
+
+    [Fact]
+    public void ArchidektParser_IgnoresPossibleNamesAndTrailingNotes()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            Edgin, Larcenous Lutenist (SLD) 1242 #Commander #ExileEngine
+            Deck
+            1 Arcane Signet (LCC) 299 #Ramp
+            1 Goblin Bombardment (WOT) 43 #TokenConversion
+
+            Possible names
+            Anytime, Anywhere, All at Once
+            The Fire You Saved
+            """);
+
+        Assert.Equal(3, entries.Count);
+        Assert.Equal("Edgin, Larcenous Lutenist", entries[0].Name);
+        Assert.Equal("Arcane Signet", entries[1].Name);
+        Assert.Equal("Goblin Bombardment", entries[2].Name);
     }
 }

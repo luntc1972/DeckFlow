@@ -1,0 +1,134 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using DeckSyncWorkbench.Core.Models;
+using DeckSyncWorkbench.Core.Reporting;
+using DeckSyncWorkbench.Web.Controllers.Api;
+using DeckSyncWorkbench.Web.Models;
+using DeckSyncWorkbench.Web.Models.Api;
+using DeckSyncWorkbench.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+
+namespace DeckSyncWorkbench.Web.Tests;
+
+public sealed class SuggestionsApiControllerTests
+{
+    [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsBadRequest_WhenCardNameMissing()
+    {
+        var controller = new SuggestionsApiController(
+            new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest(), CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(400, badRequest.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsStructuredResponse()
+    {
+        var result = new CategorySuggestionResult(
+            "Guardian Project",
+            Array.Empty<string>(),
+            new[] { "Draw", "Ramp" },
+            Array.Empty<string>(),
+            new CardDeckTotals(3, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["mainboard"] = 3 }),
+            new[] { "cached store" },
+            false,
+            2,
+            true);
+
+        var controller = new SuggestionsApiController(
+            new FakeCategorySuggestionService(result),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Guardian Project"
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<CategorySuggestionApiResponse>(ok.Value);
+        Assert.Equal("Guardian Project", payload.CardName);
+        Assert.True(payload.HasInferredCategories);
+        Assert.Equal(2, payload.AdditionalDecksFound);
+        Assert.True(payload.CacheSweepPerformed);
+    }
+
+    [Fact]
+    public async Task PostCommanderSuggestionAsync_ReturnsBadRequest_WhenCommanderMissing()
+    {
+        var controller = new SuggestionsApiController(
+            new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCommanderSuggestionAsync(new CommanderCategoryRequest(), CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(400, badRequest.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostCommanderSuggestionAsync_ReturnsStructuredResponse()
+    {
+        var result = new CommanderCategoryResult(
+            "Bello",
+            new[] { new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2) },
+            new[] { new CommanderCategorySummary("Ramp", 2, 2) },
+            8,
+            new CardDeckTotals(4, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["commander"] = 4 }),
+            3,
+            true);
+
+        var controller = new SuggestionsApiController(
+            new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
+            new FakeCommanderCategoryService(result),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCommanderSuggestionAsync(new CommanderCategoryRequest
+        {
+            CommanderName = "Bello"
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<CommanderCategoryApiResponse>(ok.Value);
+        Assert.Equal("Bello", payload.CommanderName);
+        Assert.Equal(1, payload.CategoryCount);
+        Assert.Equal(3, payload.AdditionalDecksFound);
+        Assert.True(payload.CacheSweepPerformed);
+    }
+
+    private sealed class FakeCategorySuggestionService : ICategorySuggestionService
+    {
+        private readonly CategorySuggestionResult _result;
+
+        public FakeCategorySuggestionService(CategorySuggestionResult result)
+        {
+            _result = result;
+        }
+
+        public Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(_result);
+    }
+
+    private sealed class FakeCommanderCategoryService : ICommanderCategoryService
+    {
+        private readonly CommanderCategoryResult _result;
+
+        public FakeCommanderCategoryService(CommanderCategoryResult result)
+        {
+            _result = result;
+        }
+
+        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
+            => Task.FromResult(_result);
+    }
+}

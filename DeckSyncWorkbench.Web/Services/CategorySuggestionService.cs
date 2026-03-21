@@ -55,6 +55,7 @@ public sealed record CategorySuggestionResult(
 /// </summary>
 public sealed class CategorySuggestionService : ICategorySuggestionService
 {
+    private const int ClickSweepDurationSeconds = 30;
     private readonly ICategoryKnowledgeStore _knowledgeStore;
     private readonly ILogger<CategorySuggestionService> _logger;
     private readonly ArchidektParser _archidektParser;
@@ -97,20 +98,14 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
 
         var cardName = request.CardName.Trim();
         var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-        await _knowledgeStore.EnsureHarvestFreshAsync(_logger, cancellationToken);
 
         var exactCategories = request.Mode == CategorySuggestionMode.ReferenceDeck
             ? CategorySuggestionReporter.SuggestCategories(await LoadReferenceEntriesAsync(request, cancellationToken), cardName)
             : Array.Empty<string>();
 
+        await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
+
         var inferredCategories = await _knowledgeStore.GetCategoriesAsync(cardName, cancellationToken);
-        var harvestTriggered = false;
-        if (inferredCategories.Count == 0)
-        {
-            harvestTriggered = true;
-            await _knowledgeStore.ProcessNextDecksAsync(_logger, cancellationToken);
-            inferredCategories = await _knowledgeStore.GetCategoriesAsync(cardName, cancellationToken);
-        }
 
         var cardTotals = await _knowledgeStore.GetCardDeckTotalsAsync(cardName, cancellationToken: cancellationToken);
         var edhrecCategories = exactCategories.Count == 0 && inferredCategories.Count == 0
@@ -152,7 +147,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             usedSources,
             nothingFound,
             additionalDecksFound,
-            harvestTriggered);
+            true);
     }
 
     private static bool HasSuggestionInput(CategorySuggestionRequest request)

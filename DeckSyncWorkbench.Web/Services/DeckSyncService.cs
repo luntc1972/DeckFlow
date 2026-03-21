@@ -24,6 +24,7 @@ public sealed record DeckSyncResult(DeckDiff Diff, LoadedDecks LoadedDecks);
 
 public sealed class DeckSyncService : IDeckSyncService
 {
+    private const int RequiredDeckSize = 100;
     private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
     private readonly IArchidektDeckImporter _archidektDeckImporter;
     private readonly MoxfieldParser _moxfieldParser;
@@ -56,6 +57,9 @@ public sealed class DeckSyncService : IDeckSyncService
         var loadedDecks = new LoadedDecks(
             await LoadMoxfieldEntriesAsync(request, cancellationToken).ConfigureAwait(false),
             await LoadArchidektEntriesAsync(request, cancellationToken).ConfigureAwait(false));
+
+        ValidateDeckSize("Moxfield", loadedDecks.MoxfieldEntries);
+        ValidateDeckSize("Archidekt", loadedDecks.ArchidektEntries);
 
         var diff = new DiffEngine(request.Mode).Compare(
             DeckSyncSupport.GetSourceEntries(request.Direction, loadedDecks),
@@ -90,5 +94,22 @@ public sealed class DeckSyncService : IDeckSyncService
             : _archidektParser.ParseText(request.ArchidektText ?? string.Empty);
 
         return entries;
+    }
+
+    /// <summary>
+    /// Ensures the submitted deck has exactly 100 cards across commander and mainboard sections.
+    /// </summary>
+    /// <param name="systemName">Display name for the deck source.</param>
+    /// <param name="entries">Parsed deck entries.</param>
+    private static void ValidateDeckSize(string systemName, IReadOnlyList<DeckEntry> entries)
+    {
+        var count = entries
+            .Where(entry => !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
+            .Sum(entry => entry.Quantity);
+
+        if (count != RequiredDeckSize)
+        {
+            throw new InvalidOperationException($"{systemName} deck must contain exactly {RequiredDeckSize} cards across commander and mainboard. Found {count}.");
+        }
     }
 }

@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckSyncWorkbench.Core.Reporting;
 using DeckSyncWorkbench.Web.Controllers;
 using DeckSyncWorkbench.Web.Models;
 using DeckSyncWorkbench.Web.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -46,7 +47,6 @@ public sealed class CommanderControllerTests
             CacheSweepPerformed: true);
 
         var controller = new CommanderController(
-            new DummyCategoryKnowledgeStore(),
             new DummyCommanderSearchService(),
             new FakeCommanderCategoryService(result),
             NullLogger<CommanderController>.Instance);
@@ -77,7 +77,6 @@ public sealed class CommanderControllerTests
             CacheSweepPerformed: false);
 
         var controller = new CommanderController(
-            new DummyCategoryKnowledgeStore(),
             new DummyCommanderSearchService(),
             new FakeCommanderCategoryService(result),
             NullLogger<CommanderController>.Instance);
@@ -92,26 +91,46 @@ public sealed class CommanderControllerTests
         Assert.Equal(0, model.AdditionalDecksFound);
     }
 
-    private sealed class DummyCategoryKnowledgeStore : ICategoryKnowledgeStore
+    [Fact]
+    public async Task Search_ReturnsServiceUnavailable_WhenScryfallFails()
     {
-        public Task EnsureHarvestFreshAsync(ILogger logger, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
-        public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task<int> ProcessNextDecksAsync(ILogger logger, CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
-        public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-        public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
-            => Task.FromResult(CardDeckTotals.Empty);
+        var controller = new CommanderController(
+            new ThrowingCommanderSearchService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            NullLogger<CommanderController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.Search("bello");
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, objectResult.StatusCode);
+        var payload = objectResult.Value!;
+        var message = payload.GetType().GetProperty("Message")?.GetValue(payload) as string;
+        Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", message);
     }
 
     private sealed class DummyCommanderSearchService : ICommanderSearchService
     {
         public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+    }
+
+    private sealed class ThrowingCommanderSearchService : ICommanderSearchService
+    {
+        private readonly Exception _exception;
+
+        public ThrowingCommanderSearchService(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
+            => Task.FromException<IReadOnlyList<string>>(_exception);
     }
 
     private sealed class FakeCommanderCategoryService : ICommanderCategoryService

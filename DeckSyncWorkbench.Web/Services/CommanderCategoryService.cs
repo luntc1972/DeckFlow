@@ -38,6 +38,7 @@ public sealed record CommanderCategoryResult(
 /// </summary>
 public sealed class CommanderCategoryService : ICommanderCategoryService
 {
+    private const int ClickSweepDurationSeconds = 30;
     private readonly ICategoryKnowledgeStore _knowledgeStore;
     private readonly ILogger<CommanderCategoryService> _logger;
 
@@ -57,16 +58,9 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
 
         var trimmed = commanderName.Trim();
         var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-        await _knowledgeStore.EnsureHarvestFreshAsync(_logger, cancellationToken);
+        await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
 
         var rows = await _knowledgeStore.GetCategoryRowsAsync(trimmed, boardFilter: "commander", cancellationToken);
-        var cacheSweepPerformed = false;
-        if (!rows.Any())
-        {
-            cacheSweepPerformed = true;
-            await _knowledgeStore.ProcessNextDecksAsync(_logger, cancellationToken);
-            rows = await _knowledgeStore.GetCategoryRowsAsync(trimmed, boardFilter: "commander", cancellationToken);
-        }
 
         var deckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
         var cardTotals = await _knowledgeStore.GetCardDeckTotalsAsync(trimmed, boardFilter: "commander", cancellationToken);
@@ -81,6 +75,6 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
             .ToList();
 
         var additionalDecksFound = Math.Max(deckCount - initialDeckCount, 0);
-        return new CommanderCategoryResult(trimmed, rows, summaries, deckCount, cardTotals, additionalDecksFound, cacheSweepPerformed);
+        return new CommanderCategoryResult(trimmed, rows, summaries, deckCount, cardTotals, additionalDecksFound, true);
     }
 }

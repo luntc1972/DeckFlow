@@ -17,6 +17,17 @@ const renderSuggestions = (list: string[], datalist: HTMLDataListElement): void 
   });
 };
 
+const setCommanderSearchError = (message?: string): void => {
+  const panel = document.querySelector<HTMLElement>('[data-api-panel="commander-search-error"]');
+  const text = document.querySelector<HTMLElement>('[data-api-field="commander-search-error-text"]');
+  if (!panel || !text) {
+    return;
+  }
+
+  text.textContent = message ?? '';
+  panel.classList.toggle('hidden', !message);
+};
+
 const attachCommanderSearch = (): void => {
   const input = document.getElementById('commander-search-input') as HTMLInputElement | null;
   const datalist = document.getElementById('commander-suggestions') as HTMLDataListElement | null;
@@ -28,17 +39,30 @@ const attachCommanderSearch = (): void => {
     const query = input.value.trim();
     if (query.length < 2) {
       datalist.innerHTML = '';
+      setCommanderSearchError();
       return;
     }
 
     try {
       const response = await fetch(`/commander-categories/search?query=${encodeURIComponent(query)}`);
       if (!response.ok) {
+        let payload: { message?: string; Message?: string } | null = null;
+        try {
+          payload = await response.json() as { message?: string; Message?: string };
+        } catch {
+          payload = null;
+        }
+
+        datalist.innerHTML = '';
+        setCommanderSearchError(payload?.message ?? payload?.Message ?? 'Scryfall could not be reached right now. Try again shortly.');
         return;
       }
       const names: string[] = await response.json();
       renderSuggestions(names, datalist);
+      setCommanderSearchError();
     } catch (error) {
+      datalist.innerHTML = '';
+      setCommanderSearchError(error instanceof Error ? error.message : 'Scryfall could not be reached right now. Try again shortly.');
       console.error('Failed to fetch commander suggestions', error);
     }
   };

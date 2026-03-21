@@ -19,6 +19,46 @@ DeckSyncWorkbench helps deck builders translate decks between Moxfield and Archi
 - Run `dotnet run --project DeckSyncWorkbench.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks. The CLI now runs a dedicated cache session that respects rate limits (via Polly), records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The web cache service now reuses the same session logic, so the MVC tools can refresh a few decks on demand or run longer sweeps with `CategoryKnowledgeStore.RunCacheSweepAsync`.
 
+## Web API
+- Swagger UI is available at `/swagger` when the web app is running.
+- `POST /api/suggestions/card` looks up a single card, runs the bounded Archidekt cache sweep used by the UI, and returns exact reference-deck categories, cached matches, and EDHREC fallback themes.
+- `POST /api/suggestions/commander` looks up a commander and returns the most common Archidekt categories seen on decks where that card is recorded as commander.
+
+### Card suggestion example
+```json
+POST /api/suggestions/card
+Content-Type: application/json
+
+{
+  "mode": "CachedData",
+  "archidektInputSource": "PublicUrl",
+  "archidektUrl": "",
+  "archidektText": "",
+  "cardName": "Guardian Project"
+}
+```
+
+### Commander category example
+```json
+POST /api/suggestions/commander
+Content-Type: application/json
+
+{
+  "commanderName": "Bello, Bard of the Brambles"
+}
+```
+
+### cURL examples
+```bash
+curl -X POST http://localhost:5000/api/suggestions/card \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"CachedData","archidektInputSource":"PublicUrl","cardName":"Guardian Project"}'
+
+curl -X POST http://localhost:5000/api/suggestions/commander \
+  -H "Content-Type: application/json" \
+  -d '{"commanderName":"Bello, Bard of the Brambles"}'
+```
+
 ## CLI usage examples
 - `dotnet run --project DeckSyncWorkbench.CLI -- compare --moxfield my.deck --archidekt other.deck --out diff.txt`
 - `dotnet run --project DeckSyncWorkbench.CLI -- archidekt-cache --minutes 10` (harvest for ten minutes)
