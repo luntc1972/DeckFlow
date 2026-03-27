@@ -18,10 +18,13 @@ public sealed class ScryfallCommanderSearchServiceTests
 {
     private static readonly IReadOnlyList<ScryfallCard> SampleCards = new[]
     {
-        new ScryfallCard("Bello, Bard of the Brambles"),
-        new ScryfallCard("Bello, Bard of the Brambles"),
-        new ScryfallCard("Bellowjohn")
+        BasicCard("Bello, Bard of the Brambles"),
+        BasicCard("Bello, Bard of the Brambles"),
+        BasicCard("Bellowjohn")
     };
+
+    private static ScryfallCard BasicCard(string name)
+        => new(name, "{1}", "Legendary Creature", "Some text", "2", "2");
 
     [Fact]
     /// <summary>

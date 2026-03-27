@@ -17,17 +17,20 @@ public sealed class DeckController : Controller
     private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromSeconds(20);
     private readonly IDeckSyncService _deckSyncService;
     private readonly ICardSearchService _cardSearchService;
+    private readonly ICardLookupService _cardLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly ILogger<DeckController> _logger;
 
     public DeckController(
         IDeckSyncService deckSyncService,
         ICardSearchService cardSearchService,
+        ICardLookupService cardLookupService,
         ICategorySuggestionService categorySuggestionService,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
         _cardSearchService = cardSearchService;
+        _cardLookupService = cardLookupService;
         _categorySuggestionService = categorySuggestionService;
         _logger = logger;
     }
@@ -57,6 +60,17 @@ public sealed class DeckController : Controller
         });
     }
 
+    [HttpGet("/card-lookup")]
+    /// <summary>
+    /// Renders the card lookup page.
+    /// </summary>
+    public IActionResult CardLookup()
+    {
+        return View("CardLookup", new CardLookupViewModel
+        {
+            ActiveTab = DeckPageTab.CardLookup,
+        });
+    }
     [HttpGet("/suggest-categories/card-search")]
     /// <summary>
     /// Provides card name suggestions for the suggest categories form.
@@ -88,6 +102,106 @@ public sealed class DeckController : Controller
     public async Task<IActionResult> Index(DeckDiffRequest request)
     {
         return await RenderDiffAsync(request);
+    }
+
+    [HttpPost("/card-lookup")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Looks up a pasted card list against Scryfall and renders returned text.
+    /// </summary>
+    /// <param name="request">Card verification request.</param>
+    public async Task<IActionResult> CardLookup(CardLookupRequest request)
+    {
+        return await RenderCardLookupAsync(request, downloadFile: false);
+    }
+
+    [HttpPost("/card-lookup/download")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Verifies a pasted card list and returns the output as a downloadable text file.
+    /// </summary>
+    /// <param name="request">Card verification request.</param>
+    public async Task<IActionResult> DownloadCardLookup(CardLookupRequest request)
+    {
+        return await RenderCardLookupAsync(request, downloadFile: true);
+    }
+
+    /// <summary>
+    /// Verifies a pasted card list and either renders the page or returns a text download.
+    /// </summary>
+    /// <param name="request">Card verification request.</param>
+    /// <param name="downloadFile">Whether the result should be returned as a file.</param>
+    private async Task<IActionResult> RenderCardLookupAsync(CardLookupRequest request, bool downloadFile)
+    {
+        request ??= new CardLookupRequest();
+        if (string.IsNullOrWhiteSpace(request.CardList))
+        {
+            return View("CardLookup", new CardLookupViewModel
+            {
+                ActiveTab = DeckPageTab.CardLookup,
+                Request = request,
+                ErrorMessage = "A card list is required.",
+            });
+        }
+
+        try
+        {
+            var result = await _cardLookupService.LookupAsync(request.CardList, HttpContext.RequestAborted);
+            if (downloadFile)
+            {
+                var output = BuildVerificationFile(result);
+                var fileName = $"verified-cards-{DateTime.UtcNow:yyyyMMdd-HHmmss}.txt";
+                return File(System.Text.Encoding.UTF8.GetBytes(output), "text/plain; charset=utf-8", fileName);
+            }
+
+            return View("CardLookup", new CardLookupViewModel
+            {
+                ActiveTab = DeckPageTab.CardLookup,
+                Request = request,
+                VerifiedText = string.Join(System.Environment.NewLine + System.Environment.NewLine, result.VerifiedOutputs),
+                MissingText = string.Join(Environment.NewLine, result.MissingLines),
+                FoundCount = result.VerifiedOutputs.Count,
+                MissingCount = result.MissingLines.Count,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "Bulk card verification request failed validation.");
+            return View("CardLookup", new CardLookupViewModel
+            {
+                ActiveTab = DeckPageTab.CardLookup,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Bulk card verification failed.");
+            return View("CardLookup", new CardLookupViewModel
+            {
+                ActiveTab = DeckPageTab.CardLookup,
+                Request = request,
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    /// <summary>
+    /// Builds a downloadable text payload for verified and missing cards.
+    /// </summary>
+    /// <param name="result">Verification result.</param>
+    private static string BuildVerificationFile(CardLookupResult result)
+    {
+        var lines = new List<string>
+        {
+            "Verified Cards"
+        };
+
+        lines.AddRange(result.VerifiedOutputs.Count == 0 ? ["(none)"] : result.VerifiedOutputs);
+        lines.Add(string.Empty);
+        lines.Add("Cards With Errors");
+        lines.AddRange(result.MissingLines.Count == 0 ? ["(none)"] : result.MissingLines);
+        return string.Join(Environment.NewLine, lines);
     }
 
     [HttpPost("/suggest-categories")]

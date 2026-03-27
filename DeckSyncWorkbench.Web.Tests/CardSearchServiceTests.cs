@@ -14,10 +14,13 @@ public sealed class CardSearchServiceTests
 {
     private static readonly IReadOnlyList<ScryfallCard> SampleCards = new[]
     {
-        new ScryfallCard("Guardian Project"),
-        new ScryfallCard("Guardian Project"),
-        new ScryfallCard("Guard Gomazoa")
+        BasicCard("Guardian Project"),
+        BasicCard("Guardian Project"),
+        BasicCard("Guard Gomazoa")
     };
+
+    private static ScryfallCard BasicCard(string name)
+        => new(name, string.Empty, "Creature", name == "Guard Gomazoa" ? "Sample text" : "Sample text", "1", "1");
 
     [Fact]
     public async Task SearchAsync_ReturnsDistinctNamesFromResponse()

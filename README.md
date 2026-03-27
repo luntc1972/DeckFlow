@@ -24,6 +24,12 @@ DeckSyncWorkbench helps deck builders translate decks between Moxfield and Archi
 - `POST /api/suggestions/card` looks up a single card, runs the bounded Archidekt cache sweep used by the UI, and returns exact reference-deck categories, cached matches, and EDHREC fallback themes.
 - `POST /api/suggestions/commander` looks up a commander and returns the most common Archidekt categories seen on decks where that card is recorded as commander.
 
+## Scryfall usage
+- Scryfall is used in three places: card-name autocomplete, commander autocomplete, and the `Card Lookup` page.
+- All Scryfall clients send a real `User-Agent`, an explicit `Accept` header, and use `https`.
+- `Card Lookup` uses `POST /cards/collection` in batches of `75` identifiers instead of one live request per card.
+- The Card Lookup page is capped at `100` non-empty input lines per submission, so it results in at most two live Scryfall collection requests.
+
 ### Card suggestion example
 ```json
 POST /api/suggestions/card

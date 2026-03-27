@@ -32,11 +32,7 @@ public sealed class ScryfallCardSearchService : ICardSearchService
     public ScryfallCardSearchService(IMemoryCache cache, RestClient? restClient = null, Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeAsync = null)
     {
         _cache = cache;
-        var client = restClient ?? new RestClient(new RestClientOptions
-        {
-            BaseUrl = new Uri("https://api.scryfall.com"),
-            ThrowOnAnyError = false,
-        });
+        var client = restClient ?? ScryfallRestClientFactory.Create();
 
         _executeAsync = executeAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
     }

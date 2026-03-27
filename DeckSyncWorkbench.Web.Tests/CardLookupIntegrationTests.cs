@@ -1,0 +1,45 @@
+using System.Diagnostics;
+using Xunit;
+
+namespace DeckSyncWorkbench.Web.Tests;
+
+public sealed class CardLookupIntegrationTests
+{
+    private const string IntegrationFlag = "DECKSYNC_RUN_SCRYFALL_INTEGRATION";
+
+    [Fact]
+    public async Task CardLookupCli_ReturnsQuantumRiddlerText()
+    {
+        if (Environment.GetEnvironmentVariable(IntegrationFlag) != "1")
+        {
+            return;
+        }
+
+        var psi = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            ArgumentList =
+            {
+                "run",
+                "--project",
+                "/mnt/c/users/chrislunt/source/personal/DeckSyncWorkbench/DeckSyncWorkbench.CLI/DeckSyncWorkbench.CLI.csproj",
+                "--",
+                "card-lookup",
+                "--name",
+                "Quantum Riddler"
+            }
+        };
+
+        using var process = Process.Start(psi);
+        Assert.NotNull(process);
+        var output = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        Assert.Equal(0, process.ExitCode);
+        Assert.Contains("Quantum Riddler", output);
+        Assert.Contains("{3}{U}{U}", output);
+        Assert.Contains("Creature — Sphinx", output);
+        Assert.Contains("When this creature enters", output);
+    }
+}

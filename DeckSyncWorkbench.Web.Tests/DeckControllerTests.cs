@@ -43,6 +43,7 @@ public sealed class DeckControllerTests
         var controller = new DeckController(
             new FakeDeckSyncService(),
             new ThrowingCardSearchService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
+            new FakeCardLookupService(),
             new FakeCategorySuggestionService(),
             NullLogger<DeckController>.Instance)
         {
@@ -59,6 +60,109 @@ public sealed class DeckControllerTests
         var payload = objectResult.Value!;
         var message = payload.GetType().GetProperty("Message")?.GetValue(payload) as string;
         Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", message);
+    }
+
+    [Fact]
+    public async Task CardLookup_ReturnsValidationError_WhenCardListMissing()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeCategorySuggestionService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.CardLookup(new CardLookupRequest());
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CardLookupViewModel>(view.Model);
+        Assert.Equal("A card list is required.", model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CardLookup_ReturnsUserFacingError_WhenScryfallFails()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
+            new FakeCategorySuggestionService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.CardLookup(new CardLookupRequest
+        {
+            CardList = "Sol Ring"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CardLookupViewModel>(view.Model);
+        Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CardLookup_ReturnsValidationMessage_WhenTooManyLinesSubmitted()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new ThrowingCardLookupService(new InvalidOperationException("Please verify 100 non-empty lines or fewer per submission.")),
+            new FakeCategorySuggestionService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.CardLookup(new CardLookupRequest
+        {
+            CardList = "Sol Ring"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CardLookupViewModel>(view.Model);
+        Assert.Equal("Please verify 100 non-empty lines or fewer per submission.", model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DownloadCardLookup_ReturnsTextFile_WhenVerificationSucceeds()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new SuccessfulCardLookupService(),
+            new FakeCategorySuggestionService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.DownloadCardLookup(new CardLookupRequest
+        {
+            CardList = "Sol Ring"
+        });
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("text/plain; charset=utf-8", fileResult.ContentType);
+        var text = System.Text.Encoding.UTF8.GetString(fileResult.FileContents);
+        Assert.Contains("Verified Cards", text);
+        Assert.Contains("Sol Ring", text);
     }
 
     private sealed class FakeDeckSyncService : IDeckSyncService
@@ -78,6 +182,31 @@ public sealed class DeckControllerTests
 
         public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
             => Task.FromException<IReadOnlyList<string>>(_exception);
+    }
+
+    private sealed class FakeCardLookupService : ICardLookupService
+    {
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+    }
+
+    private sealed class ThrowingCardLookupService : ICardLookupService
+    {
+        private readonly Exception _exception;
+
+        public ThrowingCardLookupService(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+            => Task.FromException<CardLookupResult>(_exception);
+    }
+
+    private sealed class SuccessfulCardLookupService : ICardLookupService
+    {
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardLookupResult(new[] { "Sol Ring" }, Array.Empty<string>()));
     }
 
     private sealed class FakeCategorySuggestionService : ICategorySuggestionService
