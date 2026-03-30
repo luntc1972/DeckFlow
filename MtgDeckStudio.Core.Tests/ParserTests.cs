@@ -127,6 +127,26 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void MoxfieldParser_UsesInlineHashtagsToAssignBoardsInFlatLists()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Bohn, Beguiling Balladeer (sld) 1242 #Commander #engine #exile
+            1 Arcane Signet (lcc) 299 #ramp
+            1 Counterspell (2xm) 51 #Sideboard #interaction
+            1 Smothering Tithe (rna) 22 #Maybeboard #ramp
+            """);
+
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("engine,exile", entries[0].Category);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("ramp", entries[1].Category);
+        Assert.Equal("sideboard", entries[2].Board);
+        Assert.Equal("interaction", entries[2].Category);
+        Assert.Equal("maybeboard", entries[3].Board);
+        Assert.Equal("ramp", entries[3].Category);
+    }
+
+    [Fact]
     public void ArchidektParser_ParsesCategoriesAndMaybeboard()
     {
         var entries = new ArchidektParser().ParseText("""
@@ -189,5 +209,25 @@ public sealed class ParserTests
         Assert.Equal("Edgin, Larcenous Lutenist", entries[0].Name);
         Assert.Equal("Arcane Signet", entries[1].Name);
         Assert.Equal("Goblin Bombardment", entries[2].Name);
+    }
+
+    [Fact]
+    public void ArchidektParser_UsesInlineSideboardAndMaybeboardTagsInFlatLists()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            Edgin, Larcenous Lutenist (SLD) 1242 #Commander #ExileEngine
+            1 Arcane Signet (LCC) 299 #Ramp
+            1 Counterspell (2XM) 51 #Sideboard #Interaction
+            1 Smothering Tithe (RNA) 22 #Maybeboard #Ramp
+            """);
+
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("ExileEngine", entries[0].Category);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("Ramp", entries[1].Category);
+        Assert.Equal("sideboard", entries[2].Board);
+        Assert.Equal("Interaction", entries[2].Category);
+        Assert.Equal("maybeboard", entries[3].Board);
+        Assert.Equal("Ramp", entries[3].Category);
     }
 }

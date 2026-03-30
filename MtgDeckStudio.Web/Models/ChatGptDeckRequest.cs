@@ -12,6 +12,7 @@ public sealed class ChatGptDeckRequest
     private string _targetCommanderBracket = string.Empty;
     private List<string> _selectedAnalysisQuestions = [];
     private string _cardSpecificQuestionCardName = string.Empty;
+    private string _budgetUpgradeAmount = string.Empty;
     private List<string> _selectedSetCodes = [];
     private string _setPacketText = string.Empty;
 
@@ -77,6 +78,12 @@ public sealed class ChatGptDeckRequest
     {
         get => _cardSpecificQuestionCardName;
         set => _cardSpecificQuestionCardName = value ?? string.Empty;
+    }
+
+    public string BudgetUpgradeAmount
+    {
+        get => _budgetUpgradeAmount;
+        set => _budgetUpgradeAmount = value ?? string.Empty;
     }
 
     public List<string> SelectedSetCodes

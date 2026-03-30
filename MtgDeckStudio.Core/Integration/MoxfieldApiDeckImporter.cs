@@ -9,17 +9,21 @@ namespace MtgDeckStudio.Core.Integration;
 public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
 {
     private readonly RestClient _restClient;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse>> _executeAsync;
 
     /// <summary>
     /// Initializes a new instance with an optional RestClient instance.
     /// </summary>
     /// <param name="restClient">Client used for HTTP requests (tests can override).</param>
-    public MoxfieldApiDeckImporter(RestClient? restClient = null)
+    public MoxfieldApiDeckImporter(
+        RestClient? restClient = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse>>? executeAsync = null)
     {
         _restClient = restClient ?? new RestClient(new RestClientOptions
         {
             ThrowOnAnyError = false,
         });
+        _executeAsync = executeAsync ?? ((request, cancellationToken) => _restClient.ExecuteAsync(request, cancellationToken));
     }
 
     /// <summary>
@@ -40,7 +44,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
         request.AddHeader("Referer", "https://moxfield.com/");
         request.AddHeader("Accept-Language", "en-US,en;q=0.9");
 
-        var response = await _restClient.ExecuteAsync(request, cancellationToken);
+        var response = await _executeAsync(request, cancellationToken);
         var body = response.Content ?? string.Empty;
         if (!response.IsSuccessful)
         {
@@ -55,7 +59,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
         AddBoardEntries(root, "commanders", "commander", authorTags, entries);
         AddBoardEntries(root, "mainboard", "mainboard", authorTags, entries);
         AddBoardEntries(root, "maybeboard", "maybeboard", authorTags, entries);
-        AddBoardEntries(root, "sideboard", "maybeboard", authorTags, entries);
+        AddBoardEntries(root, "sideboard", "sideboard", authorTags, entries);
 
         return entries;
     }

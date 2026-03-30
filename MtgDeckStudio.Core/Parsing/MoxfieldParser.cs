@@ -100,6 +100,13 @@ public sealed partial class MoxfieldParser : IParser
             return false;
         }
 
+        var hashtagCategories = ExtractHashtagCategories(ref remainder);
+        var boardOverride = DetermineBoard(hashtagCategories);
+        if (!string.IsNullOrWhiteSpace(boardOverride))
+        {
+            board = boardOverride;
+        }
+
         var isFoil = false;
         if (remainder.EndsWith("★", StringComparison.Ordinal))
         {
@@ -143,14 +150,67 @@ public sealed partial class MoxfieldParser : IParser
             SetCode = setCode,
             CollectorNumber = collectorNumber,
             IsFoil = isFoil,
-            Category = board switch
-            {
-                "maybeboard" => "Maybeboard",
-                "sideboard" => "Sideboard",
-                _ => null
-            },
+            Category = NormalizeCategory(hashtagCategories, board),
         };
         return true;
+    }
+
+    private static string? DetermineBoard(IReadOnlyList<string> tags)
+    {
+        if (tags.Any(tag => string.Equals(tag, "sideboard", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "sideboard";
+        }
+
+        if (tags.Any(tag => string.Equals(tag, "maybeboard", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "maybeboard";
+        }
+
+        if (tags.Any(tag => string.Equals(tag, "commander", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "commander";
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeCategory(IReadOnlyList<string> tags, string board)
+    {
+        var categories = tags
+            .Where(tag =>
+                !string.Equals(tag, "commander", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(tag, "sideboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(tag, "maybeboard", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (categories.Count > 0)
+        {
+            return string.Join(",", categories);
+        }
+
+        return board switch
+        {
+            "maybeboard" => "Maybeboard",
+            "sideboard" => "Sideboard",
+            _ => null
+        };
+    }
+
+    private static List<string> ExtractHashtagCategories(ref string remainder)
+    {
+        var categories = HashtagRegex()
+            .Matches(remainder)
+            .Select(match => match.Groups["tag"].Value.Trim())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .ToList();
+
+        if (categories.Count > 0)
+        {
+            remainder = HashtagRegex().Replace(remainder, string.Empty).Trim();
+        }
+
+        return categories;
     }
 
     private static bool TryGetBoardHeader(string line, out string board)
@@ -265,6 +325,9 @@ public sealed partial class MoxfieldParser : IParser
 
     [GeneratedRegex(@"^(?<quantity>\d+)\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex QuantityRegex();
+
+    [GeneratedRegex(@"\s+#(?<tag>[A-Za-z0-9][A-Za-z0-9_-]*)", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex HashtagRegex();
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\((?<set>[^)]+)\)\s+(?<collector>\S+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex PrintingRegex();

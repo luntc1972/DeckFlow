@@ -374,7 +374,8 @@ public sealed class DeckControllerTests
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
             ProbeResponseJson = "{\"unknown_cards\":[]}",
             TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["consistency", "strengths-weaknesses"],
+            SelectedAnalysisQuestions = ["consistency", "strengths-weaknesses", "budget-upgrades"],
+            BudgetUpgradeAmount = "75",
             DeckProfileJson = "{\"game_plan\":\"midrange\"}",
             SelectedSetCodes = ["dsk", "fdn"]
         };
@@ -388,6 +389,7 @@ public sealed class DeckControllerTests
         Assert.Equal(2, capturingService.LastRequest.SelectedSetCodes.Count);
         Assert.Contains("dsk", capturingService.LastRequest.SelectedSetCodes);
         Assert.Contains("fdn", capturingService.LastRequest.SelectedSetCodes);
+        Assert.Equal("75", capturingService.LastRequest.BudgetUpgradeAmount);
     }
 
     private sealed class FakeDeckSyncService : IDeckSyncService

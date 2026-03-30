@@ -178,6 +178,25 @@ public sealed class CardLookupServiceTests
         Assert.Empty(result.MissingLines);
     }
 
+    [Fact]
+    public async Task LookupAsync_MatchesCurlyApostrophesAgainstStraightApostropheResults()
+    {
+        var service = new ScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
+                new[]
+                {
+                    new ScryfallCard("April O'Neil, Hacktivist", "{1}{U}{R}", "Legendary Creature — Human Journalist", "Whenever you cast your second spell each turn, draw a card.", "2", "3", null, null, "who", "Doctor Who", "119")
+                },
+                Array.Empty<ScryfallCollectionIdentifier>(),
+                request)));
+
+        var result = await service.LookupAsync("April O’Neil, Hacktivist");
+
+        Assert.Single(result.VerifiedOutputs);
+        Assert.Contains("April O'Neil, Hacktivist", result.VerifiedOutputs[0]);
+        Assert.Empty(result.MissingLines);
+    }
+
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(
         IReadOnlyList<ScryfallCard> cards,
         IReadOnlyList<ScryfallCollectionIdentifier> notFound,

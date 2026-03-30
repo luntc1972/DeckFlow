@@ -4,6 +4,35 @@ const countNonEmptyLines = (value) => value
     .map(line => line.trim())
     .filter(line => line.length > 0)
     .length;
+const debounceCardLookupSearch = (fn, delay) => {
+    let timer;
+    return () => {
+        if (timer !== undefined) {
+            window.clearTimeout(timer);
+        }
+        timer = window.setTimeout(fn, delay);
+    };
+};
+const parseLookupLine = (line) => {
+    var _a, _b;
+    const trimmed = line.trim();
+    const match = trimmed.match(/^(\d+)\s+(.+)$/);
+    if (!match) {
+        return { quantity: '', cardName: trimmed };
+    }
+    return {
+        quantity: (_a = match[1]) !== null && _a !== void 0 ? _a : '',
+        cardName: ((_b = match[2]) !== null && _b !== void 0 ? _b : '').trim()
+    };
+};
+const buildLookupLine = (quantity, cardName) => {
+    const trimmedName = cardName.trim();
+    const trimmedQuantity = quantity.trim();
+    if (!trimmedName) {
+        return '';
+    }
+    return trimmedQuantity ? `${trimmedQuantity} ${trimmedName}` : trimmedName;
+};
 const initializeCardLookupForm = () => {
     const form = document.querySelector('form[action="/card-lookup"]');
     if (!form) {
@@ -14,6 +43,10 @@ const initializeCardLookupForm = () => {
     const validationMessage = document.querySelector('[data-verify-lines-error]');
     const submitButtons = form.querySelectorAll('button[type="submit"]');
     const downloadButton = form.querySelector('button[formaction="/card-lookup/download"]');
+    const buildLinesButton = form.querySelector('[data-card-lookup-build-lines]');
+    const addLineButton = form.querySelector('[data-card-lookup-add-line]');
+    const lineEditor = form.querySelector('[data-card-lookup-line-editor]');
+    const datalist = document.getElementById('card-lookup-line-suggestions');
     if (!textArea || !counter || !validationMessage) {
         return;
     }
@@ -30,13 +63,129 @@ const initializeCardLookupForm = () => {
             button.disabled = overLimit;
         });
     };
+    const syncTextareaFromEditor = () => {
+        if (!lineEditor) {
+            return;
+        }
+        const lines = Array.from(lineEditor.querySelectorAll('[data-card-lookup-line]'))
+            .map(row => {
+            var _a, _b, _c, _d;
+            const quantity = (_b = (_a = row.querySelector('[data-card-lookup-quantity]')) === null || _a === void 0 ? void 0 : _a.value) !== null && _b !== void 0 ? _b : '';
+            const cardName = (_d = (_c = row.querySelector('[data-card-lookup-name]')) === null || _c === void 0 ? void 0 : _c.value) !== null && _d !== void 0 ? _d : '';
+            return buildLookupLine(quantity, cardName);
+        })
+            .filter(line => line.length > 0);
+        textArea.value = lines.join('\n');
+        updateUi();
+    };
+    const renderSuggestions = (names) => {
+        if (!datalist) {
+            return;
+        }
+        datalist.innerHTML = '';
+        names.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            datalist.appendChild(option);
+        });
+    };
+    const attachLookupSearch = (input) => {
+        if (!datalist) {
+            return;
+        }
+        const fetchSuggestions = async () => {
+            const query = input.value.trim();
+            if (query.length < 2) {
+                datalist.innerHTML = '';
+                return;
+            }
+            try {
+                const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
+                if (!response.ok) {
+                    datalist.innerHTML = '';
+                    return;
+                }
+                const names = await response.json();
+                renderSuggestions(names);
+            }
+            catch (_a) {
+                datalist.innerHTML = '';
+            }
+        };
+        const debounced = debounceCardLookupSearch(fetchSuggestions, 250);
+        input.addEventListener('input', debounced);
+        input.addEventListener('focus', debounced);
+    };
+    const createLookupLineRow = (line) => {
+        const row = document.createElement('div');
+        row.className = 'card-lookup-line-row';
+        row.dataset.cardLookupLine = 'true';
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'text';
+        quantityInput.inputMode = 'numeric';
+        quantityInput.placeholder = 'Qty';
+        quantityInput.value = line.quantity;
+        quantityInput.dataset.cardLookupQuantity = 'true';
+        quantityInput.className = 'card-lookup-line-row__quantity';
+        const cardInput = document.createElement('input');
+        cardInput.type = 'text';
+        cardInput.placeholder = 'Card name';
+        cardInput.value = line.cardName;
+        cardInput.dataset.cardLookupName = 'true';
+        cardInput.className = 'card-lookup-line-row__name';
+        if (datalist) {
+            cardInput.setAttribute('list', datalist.id);
+            attachLookupSearch(cardInput);
+        }
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'clear-cache-button card-lookup-line-row__remove';
+        removeButton.textContent = 'Remove';
+        removeButton.addEventListener('click', () => {
+            row.remove();
+            syncTextareaFromEditor();
+            if (lineEditor && lineEditor.querySelectorAll('[data-card-lookup-line]').length === 0) {
+                addLineButton === null || addLineButton === void 0 ? void 0 : addLineButton.classList.remove('hidden');
+            }
+        });
+        quantityInput.addEventListener('input', syncTextareaFromEditor);
+        cardInput.addEventListener('input', syncTextareaFromEditor);
+        cardInput.addEventListener('change', syncTextareaFromEditor);
+        row.append(quantityInput, cardInput, removeButton);
+        return row;
+    };
+    const rebuildLineEditor = () => {
+        if (!lineEditor) {
+            return;
+        }
+        const lines = textArea.value
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map(parseLookupLine);
+        lineEditor.replaceChildren(...(lines.length > 0 ? lines : [{ quantity: '', cardName: '' }]).map(createLookupLineRow));
+        lineEditor.classList.remove('hidden');
+        addLineButton === null || addLineButton === void 0 ? void 0 : addLineButton.classList.remove('hidden');
+    };
     textArea.addEventListener('input', updateUi);
+    buildLinesButton === null || buildLinesButton === void 0 ? void 0 : buildLinesButton.addEventListener('click', rebuildLineEditor);
+    addLineButton === null || addLineButton === void 0 ? void 0 : addLineButton.addEventListener('click', () => {
+        if (!lineEditor) {
+            return;
+        }
+        lineEditor.classList.remove('hidden');
+        lineEditor.appendChild(createLookupLineRow({ quantity: '', cardName: '' }));
+        addLineButton.classList.remove('hidden');
+    });
     downloadButton === null || downloadButton === void 0 ? void 0 : downloadButton.addEventListener('click', () => {
         window.setTimeout(() => {
             var _a;
             (_a = window.hideBusyIndicator) === null || _a === void 0 ? void 0 : _a.call(window);
         }, 300);
     });
+    if (textArea.value.trim().length > 0) {
+        rebuildLineEditor();
+    }
     updateUi();
 };
 if (document.readyState === 'loading') {

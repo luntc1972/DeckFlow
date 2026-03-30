@@ -105,6 +105,7 @@ Commander
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Do not recommend cards from the official Commander banned list.", result.AnalysisPromptText);
         Assert.Contains("Dockside Extortionist", result.AnalysisPromptText);
+        Assert.Contains("including any newly supplied keywords or mechanics", result.AnalysisPromptText);
         Assert.Contains("What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
         Assert.Contains("How consistent is this deck?", result.AnalysisPromptText);
         Assert.Contains("Is Sol Ring worth including in this deck?", result.AnalysisPromptText);
@@ -192,6 +193,92 @@ Commander
     }
 
     [Fact]
+    public async Task BuildAsync_ThrowsValidationError_WhenBudgetQuestionMissingBudgetAmount()
+    {
+        var service = CreateService();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+  "unknown_cards": ["Sol Ring"]
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["budget-upgrades"]
+        }));
+
+        Assert.Equal("Enter a budget amount for the selected budget upgrade question.", exception.Message);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ReplacesBudgetPlaceholder_WhenBudgetQuestionSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": ["Sol Ring"]
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["budget-upgrades"],
+            BudgetUpgradeAmount = "50"
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("What are the best upgrades under $50 budget?", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_IncludesBothFacesForDoubleFacedCardsInReferenceText()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": ["Blex, Vexing Pest // Search for Blex"]
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"]
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.Contains("Blex, Vexing Pest", result.ReferenceText);
+        Assert.Contains("Search for Blex", result.ReferenceText);
+        Assert.Contains("Legendary Creature — Pest", result.ReferenceText);
+        Assert.Contains("Sorcery", result.ReferenceText);
+        Assert.Contains("other Pests", result.ReferenceText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Look at the top five cards of your library", result.ReferenceText);
+    }
+
+    [Fact]
     public async Task BuildAsync_GeneratesSetUpgradePrompt_WhenDeckProfileAndSetPacketProvided()
     {
         var service = CreateService();
@@ -225,7 +312,9 @@ Commander
         Assert.NotNull(result.SetUpgradePromptText);
         Assert.Contains("Do not recommend cards from the official Commander banned list.", result.SetUpgradePromptText);
         Assert.Contains("Dockside Extortionist", result.SetUpgradePromptText);
-        Assert.Contains("real upgrades", result.SetUpgradePromptText);
+        Assert.Contains("per-set analysis", result.SetUpgradePromptText);
+        Assert.Contains("top adds from that set", result.SetUpgradePromptText);
+        Assert.Contains("suggested removals for each add from that set", result.SetUpgradePromptText);
         Assert.Contains("For every recommended add or cut, explain the reasoning briefly", result.SetUpgradePromptText);
         Assert.Contains("SET: Test Set", result.SetUpgradePromptText);
         Assert.Contains("\"game_plan\": \"Midrange value\"", result.SetUpgradePromptText);
@@ -266,6 +355,7 @@ Commander
         Assert.Contains("set_packet:", result.SetUpgradePromptText);
         Assert.Contains("Test Set (DSK)", result.SetUpgradePromptText);
         Assert.Contains("Survival", result.SetUpgradePromptText);
+        Assert.Contains("final cross-set ranked shortlist", result.SetUpgradePromptText);
         Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
         Assert.DoesNotContain("Paste the condensed set packet", result.SetUpgradePromptText);
     }
@@ -384,7 +474,35 @@ Commander
                 new List<ScryfallCard>
                 {
                     new("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, null, [], null, null, null),
-                    new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], ["G", "W", "U", "B"], null, null, null)
+                    new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], ["G", "W", "U", "B"], null, null, null),
+                    new(
+                        "Blex, Vexing Pest // Search for Blex",
+                        null,
+                        "Legendary Creature — Pest // Sorcery",
+                        null,
+                        null,
+                        null,
+                        ["Pest"],
+                        ["B", "G"],
+                        null,
+                        null,
+                        null,
+                        [
+                            new ScryfallCardFace(
+                                "Blex, Vexing Pest",
+                                "{2}{B}{G}",
+                                "Legendary Creature — Pest",
+                                "Other Pests, Bats, Insects, Snakes, and Spiders you control get +1/+1.",
+                                "3",
+                                "2"),
+                            new ScryfallCardFace(
+                                "Search for Blex",
+                                "{X}{2}{B/G}{B/G}",
+                                "Sorcery",
+                                "Look at the top five cards of your library. You may reveal any number of creature cards with mana value X or less from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order. You lose 3 life.",
+                                null,
+                                null)
+                        ])
                 },
                 [])
         };

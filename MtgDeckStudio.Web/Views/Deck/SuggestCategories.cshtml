@@ -8,20 +8,19 @@
     var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
     var hasExact = !string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText);
     var hasInferred = !string.IsNullOrWhiteSpace(Model.InferredCategoriesText);
-    var hasEdhrec = !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText);
     ViewData["Title"] = "Suggest Categories";
 }
 
 <section class="hero">
     <h1>Suggest Categories</h1>
-    <p class="lede">Look up a single card against an Archidekt deck, the local category store, recent public decks, and then EDHREC if needed.</p>
+    <p class="lede">Look up a single card against the local category store and recent public Archidekt decks.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
 <div class="warning-banner">
-    Suggestions are separated by confidence. Cached store results are the default source, exact Archidekt deck matches are optional, and EDHREC themes are weakest.
+    Suggestions are separated by confidence. Cached store results are the default source, and exact Archidekt deck matches are optional.
 </div>
 
 <div class="error-banner @(string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage) ? "hidden" : string.Empty)" role="alert" data-api-panel="suggest-error">
@@ -32,7 +31,7 @@
     <span data-api-field="card-search-error-text"></span>
 </div>
 
-<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
+<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store and recent Archidekt decks." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
@@ -149,17 +148,6 @@
             <button type="button" class="copy-button" data-copy-target="inferred-categories-output">Copy</button>
         </div>
         <textarea id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
-    </section>
-
-    <section class="result-panel edhrec-panel nested-panel @(hasEdhrec ? string.Empty : "hidden")" data-api-panel="edhrec">
-        <div class="panel-heading">
-            <div>
-                <h2>EDHREC Themes</h2>
-                <p data-api-field="edhrec-context">@Model.EdhrecSuggestionContextText</p>
-            </div>
-            <button type="button" class="copy-button" data-copy-target="edhrec-categories-output">Copy</button>
-        </div>
-        <textarea id="edhrec-categories-output" data-api-field="edhrec-text" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
     </section>
 </section>
 

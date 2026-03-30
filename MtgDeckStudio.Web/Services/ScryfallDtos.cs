@@ -47,7 +47,16 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("color_identity")] IReadOnlyList<string>? ColorIdentity,
     [property: JsonPropertyName("set")] string? SetCode,
     [property: JsonPropertyName("set_name")] string? SetName,
-    [property: JsonPropertyName("collector_number")] string? CollectorNumber);
+    [property: JsonPropertyName("collector_number")] string? CollectorNumber,
+    [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null);
+
+public sealed record ScryfallCardFace(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("mana_cost")] string? ManaCost,
+    [property: JsonPropertyName("type_line")] string? TypeLine,
+    [property: JsonPropertyName("oracle_text")] string? OracleText,
+    [property: JsonPropertyName("power")] string? Power,
+    [property: JsonPropertyName("toughness")] string? Toughness);
 
 /// <summary>
 /// Represents an identifier Scryfall could not resolve from a collection request.

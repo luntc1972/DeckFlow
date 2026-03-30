@@ -145,6 +145,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             throw new InvalidOperationException("Enter a card name for the selected card-specific analysis questions.");
         }
 
+        if (probeResponse is not null
+            && selectedQuestions.Contains("budget-upgrades", StringComparer.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(request.BudgetUpgradeAmount))
+        {
+            throw new InvalidOperationException("Enter a budget amount for the selected budget upgrade question.");
+        }
+
         if (probeResponse is not null)
         {
             var unknownCardNames = MergeUnknownCards(probeResponse.UnknownCards, commanderName);
@@ -242,9 +249,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
     private static string BuildInputSummary(ChatGptDeckRequest request, IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, string? commanderName)
     {
-        var totalCards = entries.Sum(entry => entry.Quantity);
         var mainDeckCards = entries
-            .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            .Where(entry => string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase))
+            .Sum(entry => entry.Quantity);
+        var commanderCards = entries
+            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Sum(entry => entry.Quantity);
         var sideboardCards = possibleIncludeEntries
             .Where(entry => string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
@@ -265,9 +274,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         }
 
         builder.AppendLine($"Main deck cards: {mainDeckCards}");
-        if (!string.IsNullOrWhiteSpace(commanderName))
+        if (!string.IsNullOrWhiteSpace(commanderName) || commanderCards > 0)
         {
-            builder.AppendLine($"Commander cards: {totalCards - mainDeckCards}");
+            builder.AppendLine($"Commander cards: {commanderCards}");
         }
 
         if (possibleIncludeEntries.Count > 0)
@@ -465,12 +474,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
-        var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardName);
+        var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardName, request.BudgetUpgradeAmount);
         var builder = new StringBuilder();
         builder.AppendLine("Analyze this Magic: The Gathering deck.");
         builder.AppendLine();
         builder.AppendLine("Use the mechanic definitions as authoritative.");
         builder.AppendLine("Use the card reference as authoritative for listed cards.");
+        builder.AppendLine("Before you begin the analysis, read the supplied card reference entries for any cards you did not already know, including any newly supplied keywords or mechanics, and use that supplied text when evaluating the deck.");
         builder.AppendLine("Do not invent card text or rules.");
         builder.AppendLine("Cards listed under Possible Includes are not part of the current deck. Treat them only as candidate additions.");
         builder.AppendLine("Do not recommend cards from the official Commander banned list.");
@@ -535,7 +545,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private static string BuildSetUpgradePrompt(ChatGptDeckRequest request, string decklistText, string deckProfileJson, string? commanderName, string? generatedSetPacket, IReadOnlyList<string> bannedCards)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("Given this deck and this set packet, which cards from the set are real upgrades, what should they replace, and which cards from the set are traps for this deck?");
+        builder.AppendLine("Given this deck and this set packet, analyze each selected set for possible additions to the deck, suggested removals for those additions, and any traps from that set.");
         builder.AppendLine();
         builder.AppendLine("Use the deck profile as authoritative for the deck's plan, strengths, weaknesses, and replaceable slots.");
         builder.AppendLine("Use the set mechanics and card reference as authoritative for the set.");
@@ -545,11 +555,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine($"Official Commander banned cards: {FormatBannedCardsLine(bannedCards)}");
         builder.AppendLine();
         builder.AppendLine("Return sections:");
-        builder.AppendLine("1. real upgrades");
-        builder.AppendLine("2. likely cuts for each upgrade");
-        builder.AppendLine("3. traps");
-        builder.AppendLine("4. speculative tests");
-        builder.AppendLine("5. final ranked shortlist with must-test, optional, and skip");
+        builder.AppendLine("1. per-set analysis");
+        builder.AppendLine("For each selected set, include:");
+        builder.AppendLine("- top adds from that set");
+        builder.AppendLine("- suggested removals for each add from that set");
+        builder.AppendLine("- traps from that set");
+        builder.AppendLine("- speculative tests from that set");
+        builder.AppendLine("2. final cross-set ranked shortlist with must-test, optional, and skip");
         builder.AppendLine("For every recommended add or cut, explain the reasoning briefly and connect it to the deck profile.");
         builder.AppendLine();
         builder.AppendLine("deck_context:");
@@ -831,6 +843,40 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             parts.Add(CollapseWhitespace(card.OracleText));
         }
 
+        foreach (var face in card.CardFaces ?? Array.Empty<ScryfallCardFace>())
+        {
+            var faceParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(face.Name))
+            {
+                faceParts.Add(face.Name.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.ManaCost))
+            {
+                faceParts.Add(face.ManaCost.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.TypeLine))
+            {
+                faceParts.Add(CollapseWhitespace(face.TypeLine));
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.OracleText))
+            {
+                faceParts.Add(CollapseWhitespace(face.OracleText));
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.Power) && !string.IsNullOrWhiteSpace(face.Toughness))
+            {
+                faceParts.Add($"{face.Power}/{face.Toughness}");
+            }
+
+            if (faceParts.Count > 0)
+            {
+                parts.Add(string.Join(" | ", faceParts));
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(card.Power) && !string.IsNullOrWhiteSpace(card.Toughness))
         {
             parts.Add($"{card.Power}/{card.Toughness}");
@@ -998,6 +1044,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");
         builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
         builder.AppendLine($"card_specific_question_card_name: {NormalizeSingleLine(request.CardSpecificQuestionCardName, string.Empty)}");
+        builder.AppendLine($"budget_upgrade_amount: {NormalizeSingleLine(request.BudgetUpgradeAmount, string.Empty)}");
         builder.AppendLine("selected_analysis_questions:");
         foreach (var questionId in AnalysisQuestionCatalog.NormalizeSelections(request.SelectedAnalysisQuestions))
         {
@@ -1041,23 +1088,37 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             }
         }
 
-        if (string.IsNullOrWhiteSpace(card.OracleText))
+        foreach (var oracleText in EnumerateOracleText(card))
         {
-            yield break;
+            foreach (var line in oracleText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    continue;
+                }
+
+                var abilityWordMatch = AbilityWordRegex.Match(trimmedLine);
+                if (abilityWordMatch.Success)
+                {
+                    yield return abilityWordMatch.Groups["term"].Value.Trim();
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumerateOracleText(ScryfallCard card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.OracleText))
+        {
+            yield return card.OracleText;
         }
 
-        foreach (var line in card.OracleText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        foreach (var face in card.CardFaces ?? Array.Empty<ScryfallCardFace>())
         {
-            var trimmedLine = line.Trim();
-            if (string.IsNullOrWhiteSpace(trimmedLine))
+            if (!string.IsNullOrWhiteSpace(face.OracleText))
             {
-                continue;
-            }
-
-            var abilityWordMatch = AbilityWordRegex.Match(trimmedLine);
-            if (abilityWordMatch.Success)
-            {
-                yield return abilityWordMatch.Groups["term"].Value.Trim();
+                yield return face.OracleText;
             }
         }
     }

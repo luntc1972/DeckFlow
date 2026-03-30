@@ -146,6 +146,16 @@ const copyElementValue = async (targetId: string): Promise<void> => {
   await navigator.clipboard.writeText(text);
 };
 
+const setTemporaryButtonText = (button: HTMLElement, text: string, durationMs = 1800): void => {
+  const originalText = button.dataset.copyOriginalText ?? button.textContent?.trim() ?? 'Copy';
+  button.dataset.copyOriginalText = originalText;
+  button.textContent = text;
+
+  window.setTimeout(() => {
+    button.textContent = originalText;
+  }, durationMs);
+};
+
 const attachActionButtons = (): void => {
   document.querySelectorAll<HTMLElement>('[data-copy-target]').forEach(button => {
     button.addEventListener('click', async () => {
@@ -154,7 +164,12 @@ const attachActionButtons = (): void => {
         return;
       }
 
-      await copyElementValue(targetId);
+      try {
+        await copyElementValue(targetId);
+        setTemporaryButtonText(button, 'Copied');
+      } catch {
+        setTemporaryButtonText(button, 'Copy failed');
+      }
     });
   });
 
@@ -736,12 +751,16 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   const deckProfileJson = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckProfileJson"]')?.value.trim() ?? '';
   const targetCommanderBracket = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]')?.value.trim() ?? '';
   const cardSpecificQuestionCardName = form.querySelector<HTMLInputElement>('input[name="CardSpecificQuestionCardName"]')?.value.trim() ?? '';
+  const budgetUpgradeAmount = form.querySelector<HTMLInputElement>('input[name="BudgetUpgradeAmount"]')?.value.trim() ?? '';
   const setPacketText = form.querySelector<HTMLTextAreaElement>('textarea[name="SetPacketText"]')?.value.trim() ?? '';
   const selectedSetCodes = Array.from(
     form.querySelectorAll<HTMLOptionElement>('select[name="SelectedSetCodes"] option:checked')
   );
   const selectedCardSpecificQuestions = form.querySelectorAll<HTMLInputElement>(
     'input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked'
+  ).length;
+  const selectedBudgetQuestions = form.querySelectorAll<HTMLInputElement>(
+    'input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked'
   ).length;
 
   if (!deckSource) {
@@ -762,6 +781,10 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
 
   if (step >= 3 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
     return 'Enter a card name for the selected card-specific analysis questions.';
+  }
+
+  if (step >= 3 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
+    return 'Enter a budget amount for the selected budget upgrade question.';
   }
 
   if (step >= 4) {
@@ -788,6 +811,19 @@ const syncCardSpecificQuestionField = (form: HTMLFormElement): void => {
   ).length > 0;
 
   field.classList.toggle('hidden', !hasCardSpecificQuestion);
+};
+
+const syncBudgetQuestionField = (form: HTMLFormElement): void => {
+  const field = form.querySelector<HTMLElement>('[data-budget-question-field]');
+  if (!field) {
+    return;
+  }
+
+  const hasBudgetQuestion = form.querySelectorAll<HTMLInputElement>(
+    'input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked'
+  ).length > 0;
+
+  field.classList.toggle('hidden', !hasBudgetQuestion);
 };
 
 const syncQuestionBucketState = (form: HTMLFormElement): void => {
@@ -819,6 +855,7 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
 
       syncQuestionBucketState(form);
       syncCardSpecificQuestionField(form);
+      syncBudgetQuestionField(form);
     });
   });
 
@@ -826,11 +863,13 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
     questionCheckbox.addEventListener('change', () => {
       syncQuestionBucketState(form);
       syncCardSpecificQuestionField(form);
+      syncBudgetQuestionField(form);
     });
   });
 
   syncQuestionBucketState(form);
   syncCardSpecificQuestionField(form);
+  syncBudgetQuestionField(form);
 };
 
 const attachChatGptPacketsWorkflow = (): void => {

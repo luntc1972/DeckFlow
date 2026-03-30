@@ -527,6 +527,41 @@ body {
   background: #eef3f8;
 }
 
+.card-lookup-editor-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.card-lookup-editor-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.card-lookup-line-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.card-lookup-line-row {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.card-lookup-line-row__quantity {
+  width: 100%;
+}
+
+.card-lookup-line-row__name {
+  width: 100%;
+}
+
 .sync-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -699,6 +734,12 @@ details summary {
   .source-grid,
   .url-grid {
     grid-template-columns: 1fr;
+  }
+
+  .card-lookup-editor-note,
+  .card-lookup-line-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .chatgpt-step-heading {

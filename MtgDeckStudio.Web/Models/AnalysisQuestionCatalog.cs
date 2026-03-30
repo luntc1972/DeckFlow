@@ -113,18 +113,26 @@ public static class AnalysisQuestionCatalog
 
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections)
     {
-        return ResolveTexts(selections, null);
+        return ResolveTexts(selections, null, null);
     }
 
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, string? cardName)
     {
+        return ResolveTexts(selections, cardName, null);
+    }
+
+    public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, string? cardName, string? budgetAmount)
+    {
         var selectedSet = NormalizeSelections(selections)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var normalizedCardName = string.IsNullOrWhiteSpace(cardName) ? "[card]" : cardName.Trim();
+        var normalizedBudgetAmount = string.IsNullOrWhiteSpace(budgetAmount) ? "$X" : $"${budgetAmount.Trim()}";
 
         return AllQuestions
             .Where(question => selectedSet.Contains(question.Id))
-            .Select(question => question.Text.Replace("[card]", normalizedCardName, StringComparison.Ordinal))
+            .Select(question => question.Text
+                .Replace("[card]", normalizedCardName, StringComparison.Ordinal)
+                .Replace("$X", normalizedBudgetAmount, StringComparison.Ordinal))
             .ToList();
     }
 }

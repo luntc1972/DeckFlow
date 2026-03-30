@@ -158,6 +158,11 @@ public sealed partial class ArchidektParser : IParser
             return "mainboard";
         }
 
+        if (categories.Contains("Sideboard", StringComparison.OrdinalIgnoreCase))
+        {
+            return "sideboard";
+        }
+
         if (categories.Contains("Maybeboard", StringComparison.OrdinalIgnoreCase))
         {
             return "maybeboard";
@@ -179,6 +184,7 @@ public sealed partial class ArchidektParser : IParser
         }
 
         var cleaned = BraceTokenRegex().Replace(categories, string.Empty);
+        cleaned = cleaned.Replace("Sideboard", string.Empty, StringComparison.OrdinalIgnoreCase);
         cleaned = cleaned.Replace("Maybeboard", string.Empty, StringComparison.OrdinalIgnoreCase);
         cleaned = cleaned.Replace("Commander", string.Empty, StringComparison.OrdinalIgnoreCase);
         cleaned = cleaned.Replace(",,", ",", StringComparison.Ordinal);

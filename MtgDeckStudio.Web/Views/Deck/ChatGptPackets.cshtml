@@ -207,7 +207,8 @@
             <strong>How to push back on ChatGPT's conclusions</strong>
             <p>If ChatGPT makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
             <p>Examples: "Re-evaluate this as Bracket 2 Core, not Bracket 3 Upgraded." "You overstated the combo finishers; the deck wins primarily through combat." "Card X is not a weak slot because it is part of the recursion engine."</p>
-            <p>Best practice: correct the analysis in ChatGPT first, then paste only the corrected <code>deck_profile</code> JSON into Step 4.</p>
+            <p>If you ask additional follow-up questions in ChatGPT, have it answer those questions first and then regenerate the full updated <code>deck_profile</code> JSON again in a fenced <code>```json</code> code block. Paste only the newest corrected JSON into Step 4.</p>
+            <p>Best practice: keep the conversation in ChatGPT going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 4.</p>
         </div>
 
         <label class="field">
@@ -246,6 +247,14 @@
                                         data-question-option="@bucket.Id"
                                         checked="@(Model.Request.SelectedAnalysisQuestions.Contains(question.Id, StringComparer.OrdinalIgnoreCase))" />
                                     <span>@question.Text</span>
+                                </label>
+                            }
+                            @if (string.Equals(bucket.Id, "optimization-upgrades", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <label class="field chatgpt-budget-field hidden" data-budget-question-field>
+                                    <span>Budget amount for budget upgrade question</span>
+                                    <input type="text" name="BudgetUpgradeAmount" value="@Model.Request.BudgetUpgradeAmount" inputmode="decimal" />
+                                    <small class="sync-column__hint">Used when you select “What are the best upgrades under $X budget?” Enter just the amount, for example <code>50</code>.</small>
                                 </label>
                             }
                             @if (string.Equals(bucket.Id, "card-level", StringComparison.OrdinalIgnoreCase))

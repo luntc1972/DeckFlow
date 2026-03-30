@@ -148,7 +148,16 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     }
 
     private static string NormalizeName(string cardName)
-        => cardName.Trim().ToLowerInvariant();
+        => cardName
+            .Trim()
+            .Replace('\u2019', '\'')
+            .Replace('\u2018', '\'')
+            .Replace('\u02BC', '\'')
+            .Replace('\u201C', '"')
+            .Replace('\u201D', '"')
+            .Replace('\u2013', '-')
+            .Replace('\u2014', '-')
+            .ToLowerInvariant();
 
     private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
     {
