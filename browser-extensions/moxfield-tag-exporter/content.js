@@ -12,7 +12,8 @@
     deckPayload: null,
     exportBundle: null,
     loading: false,
-    collapsed: false
+    collapsed: false,
+    currentUrl: window.location.href
   };
 
   if (!state.deckId || document.getElementById(PANEL_ID)) {
@@ -26,6 +27,7 @@
   document.getElementById(COPY_MOXFIELD_ID)?.addEventListener('click', () => runExport('copy-moxfield'));
   document.getElementById(DOWNLOAD_ID)?.addEventListener('click', () => runExport('download'));
   document.getElementById(TOGGLE_ID)?.addEventListener('click', togglePanel);
+  attachLocationTracking();
 
   async function runExport(action) {
     if (state.loading) {
@@ -43,13 +45,13 @@
 
       if (action === 'copy-archidekt') {
         await copyText(state.exportBundle.archidektText);
-        updateStatus(`Copied Archidekt text for ${state.exportBundle.cardCount} cards.`);
+        updateStatus(`Copied Archidekt text for ${state.exportBundle.cardCount} cards to the clipboard.`);
         return;
       }
 
       if (action === 'copy-moxfield') {
         await copyText(state.exportBundle.moxfieldText);
-        updateStatus(`Copied Moxfield text for ${state.exportBundle.cardCount} cards.`);
+        updateStatus(`Copied Moxfield text for ${state.exportBundle.cardCount} cards to the clipboard.`);
         return;
       }
 
@@ -295,7 +297,26 @@
   }
 
   async function copyText(text) {
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', 'readonly');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      helper.style.pointerEvents = 'none';
+      document.body.appendChild(helper);
+      helper.select();
+      helper.setSelectionRange(0, helper.value.length);
+      const succeeded = document.execCommand('copy');
+      helper.remove();
+
+      if (!succeeded) {
+        throw new Error('Clipboard copy failed. Check browser clipboard permissions and try again.');
+      }
+    }
   }
 
   function downloadTextFile(fileName, text) {
@@ -361,6 +382,42 @@
       toggle.setAttribute('aria-expanded', state.collapsed ? 'false' : 'true');
       toggle.title = state.collapsed ? 'Expand exporter' : 'Minimize exporter';
     }
+  }
+
+  function attachLocationTracking() {
+    const refreshIfNeeded = () => {
+      if (window.location.href === state.currentUrl) {
+        return;
+      }
+
+      state.currentUrl = window.location.href;
+      const nextDeckId = getDeckId();
+      if (!nextDeckId || nextDeckId === state.deckId) {
+        return;
+      }
+
+      state.deckId = nextDeckId;
+      state.deckPayload = null;
+      state.exportBundle = null;
+      updateStatus(`Detected a different deck in this tab.\nReady to export deck ${nextDeckId}.`);
+    };
+
+    const originalPushState = history.pushState;
+    history.pushState = function () {
+      const result = originalPushState.apply(this, arguments);
+      window.setTimeout(refreshIfNeeded, 0);
+      return result;
+    };
+
+    const originalReplaceState = history.replaceState;
+    history.replaceState = function () {
+      const result = originalReplaceState.apply(this, arguments);
+      window.setTimeout(refreshIfNeeded, 0);
+      return result;
+    };
+
+    window.addEventListener('popstate', refreshIfNeeded);
+    window.setInterval(refreshIfNeeded, 1000);
   }
 
   function setBusy(isBusy) {
