@@ -161,6 +161,41 @@ body {
   margin-bottom: 1rem;
 }
 
+.chatgpt-page-toolbar {
+  align-items: stretch;
+}
+
+.chatgpt-layout-picker {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f6f9fc;
+}
+
+.chatgpt-layout-picker__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--muted);
+}
+
+.chatgpt-layout-picker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(15, 98, 214, 0.08);
+}
+
 .chatgpt-step-tab {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -231,6 +266,55 @@ body {
 .chatgpt-instructions ol {
   margin: 0;
   padding-left: 1.2rem;
+}
+
+.chatgpt-packets-form[data-chatgpt-ui-mode="focused"] .chatgpt-step-eyebrow,
+.chatgpt-packets-form[data-chatgpt-ui-mode="focused"] .chatgpt-step-badge,
+.chatgpt-packets-form[data-chatgpt-ui-mode="focused"] .chatgpt-step-note,
+.chatgpt-packets-form[data-chatgpt-ui-mode="focused"] .chatgpt-context-note,
+.chatgpt-packets-form[data-chatgpt-ui-mode="focused"] .chatgpt-question-picker__header p {
+  display: none;
+}
+
+.chatgpt-packets-form[data-chatgpt-ui-mode="focused"] .chatgpt-instructions {
+  padding: 0.75rem 0.85rem;
+}
+
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-eyebrow,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-badge,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-note,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-context-note,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-helper-panel,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-question-picker__header p,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .sync-column__hint,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-footer,
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] details.result-panel.nested-panel {
+  display: none;
+}
+
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-instructions {
+  padding: 0.7rem 0.8rem;
+  background: #f8fafc;
+}
+
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-heading {
+  margin-bottom: 0.6rem;
+}
+
+.chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .result-panel {
+  padding: 0.85rem;
+}
+
+.chatgpt-global-note {
+  transition: opacity 0.2s ease;
+}
+
+body:has(.chatgpt-packets-form[data-chatgpt-ui-mode="expert"]) .chatgpt-global-note {
+  display: none;
+}
+
+body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
+  display: none;
 }
 
 .chatgpt-step-actions {

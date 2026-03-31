@@ -19,24 +19,35 @@
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<div class="info-banner">
+<div class="info-banner chatgpt-global-note">
     Follow the steps in order. Each step tells you what to paste into ChatGPT and what to paste back into this page.
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
 {
-    <div class="info-banner">
+    <div class="info-banner chatgpt-global-note">
         Saved packet artifacts to <code>@Model.SavedArtifactsDirectory</code>.
     </div>
 }
 
 <div class="error-banner hidden" data-chatgpt-validation-error role="alert"></div>
 
-<div class="toolbar">
+<div class="toolbar chatgpt-page-toolbar">
+    <div class="chatgpt-layout-picker" data-chatgpt-ui-mode-picker>
+        <div class="chatgpt-layout-picker__copy">
+            <strong>Workflow layout</strong>
+            <span>Try different levels of guidance without changing the underlying prompt flow.</span>
+        </div>
+        <div class="chatgpt-layout-picker__actions">
+            <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="guided">Guided</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="focused">Focused</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="expert">Expert</button>
+        </div>
+    </div>
     <a class="clear-cache-button" href="/chatgpt-json-to-text">Open ChatGPT JSON to Text</a>
 </div>
 
-<form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
+<form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
     <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
@@ -68,7 +79,7 @@
 
         <label class="chatgpt-question-option">
             <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
-            <span>Save generated prompts, pasted JSON responses, and hidden additional context to disk under <code>artifacts/chatgpt-packets</code></span>
+            <span>Save generated prompts, pasted JSON responses, and hidden additional context to disk under <code>Documents/MTG Deck Studio/ChatGPT Packets</code></span>
         </label>
 
         <label class="field">
@@ -203,7 +214,7 @@
             </ol>
         </div>
 
-        <div class="info-banner">
+        <div class="info-banner chatgpt-helper-panel">
             <strong>How to push back on ChatGPT's conclusions</strong>
             <p>If ChatGPT makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
             <p>Examples: "Re-evaluate this as Bracket 2 Core, not Bracket 3 Upgraded." "You overstated the combo finishers; the deck wins primarily through combat." "Card X is not a weak slot because it is part of the recursion engine."</p>
@@ -340,6 +351,7 @@
                 <li>Select one or more sets, or paste a condensed set packet.</li>
                 <li>Click <code>Generate Set Upgrade Packet</code>.</li>
                 <li>Paste the returned <code>set-upgrade-analysis.txt</code> into ChatGPT.</li>
+                <li>Have ChatGPT return both a fenced <code>```json</code> block for the set analysis data and a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with condensed per-set notes, recommendations, and answers.</li>
             </ol>
         </div>
 
@@ -380,7 +392,7 @@
                 <div class="panel-heading">
                     <div>
                         <h3>set-upgrade-analysis.txt</h3>
-                        <p>Paste this into ChatGPT after you have a deck profile and a condensed set packet.</p>
+                        <p>Paste this into ChatGPT after you have a deck profile and a condensed set packet. It tells ChatGPT to return both structured JSON and a condensed discussion summary text block that includes the per-set analysis.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
                 </div>

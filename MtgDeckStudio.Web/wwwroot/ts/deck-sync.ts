@@ -696,6 +696,18 @@ const parseChatGptStep = (value: string | undefined | null): number => {
   return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
 };
 
+type ChatGptUiMode = 'guided' | 'focused' | 'expert';
+
+const chatGptUiModeStorageKey = 'decksync-chatgpt-ui-mode';
+
+const parseChatGptUiMode = (value: string | undefined | null): ChatGptUiMode => {
+  if (value === 'focused' || value === 'expert') {
+    return value;
+  }
+
+  return 'guided';
+};
+
 const setChatGptValidationMessage = (message: string | null): void => {
   const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-validation-error]');
   if (!errorNode) {
@@ -742,6 +754,16 @@ const showChatGptStep = (form: HTMLFormElement, step: number): void => {
     const buttonStep = parseChatGptStep(button.dataset.chatgptShowStep);
     button.classList.toggle('is-active', buttonStep === step);
     button.setAttribute('aria-pressed', buttonStep === step ? 'true' : 'false');
+  });
+};
+
+const applyChatGptUiMode = (form: HTMLFormElement, mode: ChatGptUiMode): void => {
+  form.dataset.chatgptUiMode = mode;
+  document.body.dataset.chatgptUiMode = mode;
+  document.querySelectorAll<HTMLElement>('[data-chatgpt-ui-mode-button]').forEach(button => {
+    const buttonMode = parseChatGptUiMode(button.dataset.chatgptUiModeButton);
+    button.classList.toggle('is-active', buttonMode === mode);
+    button.setAttribute('aria-pressed', buttonMode === mode ? 'true' : 'false');
   });
 };
 
@@ -879,10 +901,20 @@ const attachChatGptPacketsWorkflow = (): void => {
   }
 
   const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
+  const initialUiMode = parseChatGptUiMode(storageAvailable?.getItem(chatGptUiModeStorageKey));
   attachQuestionBucketSelection(form);
+  applyChatGptUiMode(form, initialUiMode);
   showChatGptStep(form, currentStep);
   setChatGptValidationMessage(null);
   scrollChatGptResults(form);
+
+  document.querySelectorAll<HTMLElement>('[data-chatgpt-ui-mode-button]').forEach(button => {
+    button.addEventListener('click', () => {
+      const mode = parseChatGptUiMode(button.dataset.chatgptUiModeButton);
+      applyChatGptUiMode(form, mode);
+      storageAvailable?.setItem(chatGptUiModeStorageKey, mode);
+    });
+  });
 
   form.querySelectorAll<HTMLElement>('[data-chatgpt-show-step]').forEach(button => {
     button.addEventListener('click', () => {
