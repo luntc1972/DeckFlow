@@ -766,7 +766,7 @@ const attachDeckSyncPersistence = (): void => {
 
 const parseChatGptStep = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
-  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
+  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 5 ? 1 : parsedValue;
 };
 
 type ChatGptUiMode = 'guided' | 'focused' | 'expert';
@@ -821,12 +821,14 @@ const showChatGptStep = (form: HTMLFormElement, step: number): void => {
   form.querySelectorAll<HTMLElement>('[data-chatgpt-step]').forEach(panel => {
     const panelStep = parseChatGptStep(panel.dataset.chatgptStep);
     panel.classList.toggle('hidden', panelStep !== step);
+    panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
   });
 
   form.querySelectorAll<HTMLElement>('[data-chatgpt-show-step]').forEach(button => {
     const buttonStep = parseChatGptStep(button.dataset.chatgptShowStep);
     button.classList.toggle('is-active', buttonStep === step);
-    button.setAttribute('aria-pressed', buttonStep === step ? 'true' : 'false');
+    button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
+    button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
   });
 };
 
@@ -842,7 +844,6 @@ const applyChatGptUiMode = (form: HTMLFormElement, mode: ChatGptUiMode): void =>
 
 const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string | null => {
   const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
-  const probeResponseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="ProbeResponseJson"]')?.value.trim() ?? '';
   const deckProfileJson = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckProfileJson"]')?.value.trim() ?? '';
   const targetCommanderBracket = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]')?.value.trim() ?? '';
   const cardSpecificQuestionCardName = form.querySelector<HTMLInputElement>('input[name="CardSpecificQuestionCardName"]')?.value.trim() ?? '';
@@ -866,31 +867,27 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
     return 'Paste a deck URL or deck export before generating ChatGPT packets.';
   }
 
-  if (step >= 2 && !probeResponseJson) {
-    return 'Paste the JSON returned from ChatGPT into Probe response JSON before generating the analysis packet.';
-  }
-
-  if (step >= 3 && !targetCommanderBracket) {
+  if (step >= 4 && !targetCommanderBracket) {
     return 'Choose the target Commander bracket before generating the analysis packet.';
   }
 
-  if (step >= 3 && form.querySelectorAll<HTMLInputElement>('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
+  if (step >= 4 && form.querySelectorAll<HTMLInputElement>('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
     return 'Select at least one analysis question before generating the analysis packet.';
   }
 
-  if (step >= 3 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
+  if (step >= 4 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
     return 'Enter a card name for the selected card-specific analysis questions.';
   }
 
-  if (step >= 3 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
+  if (step >= 4 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
     return 'Enter a budget amount for the selected budget upgrade question.';
   }
 
-  if (step >= 3 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
+  if (step >= 4 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
     return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
   }
 
-  if (step >= 4) {
+  if (step >= 5) {
     if (!deckProfileJson) {
       return 'Paste the deck_profile JSON returned from ChatGPT into Deck profile JSON before generating the set-upgrade packet.';
     }

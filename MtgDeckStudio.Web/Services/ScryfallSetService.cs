@@ -52,7 +52,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
         {
             throw new HttpRequestException(
-                $"Scryfall search returned HTTP {(int)response.StatusCode}.",
+                $"Scryfall set catalog lookup returned HTTP {(int)response.StatusCode}.",
                 null,
                 response.StatusCode);
         }
@@ -181,7 +181,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new HttpRequestException(
-                    $"Scryfall search returned HTTP {(int)response.StatusCode}.",
+                    $"Scryfall set card lookup returned HTTP {(int)response.StatusCode} for set {setCode}.",
                     null,
                     response.StatusCode);
             }

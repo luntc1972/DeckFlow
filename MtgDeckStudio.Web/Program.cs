@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Microsoft.OpenApi.Models;
@@ -138,6 +139,71 @@ public class Program
         app.MapControllers();
         app.MapDefaultControllerRoute();
 
+        if (app.Environment.IsDevelopment()
+            && !string.Equals(
+                Environment.GetEnvironmentVariable("MTGDECKSTUDIO_DISABLE_AUTO_BROWSER"),
+                "true",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            app.Lifetime.ApplicationStarted.Register(() =>
+            {
+                var launchUrl = app.Urls
+                    .OrderByDescending(url => url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    .FirstOrDefault();
+
+                if (string.IsNullOrWhiteSpace(launchUrl))
+                {
+                    return;
+                }
+
+                try
+                {
+                    OpenChromeWindow(launchUrl);
+                }
+                catch (Exception exception)
+                {
+                    Log.Warning(exception, "Failed to auto-open browser for {LaunchUrl}.", launchUrl);
+                }
+            });
+        }
+
         app.Run();
+    }
+
+    private static void OpenChromeWindow(string launchUrl)
+    {
+        var chromePath = GetChromePath();
+        if (!string.IsNullOrWhiteSpace(chromePath))
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = chromePath,
+                Arguments = $"--new-window \"{launchUrl}\"",
+                UseShellExecute = true
+            });
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = launchUrl,
+            UseShellExecute = true
+        });
+    }
+
+    private static string? GetChromePath()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+        var candidates = new[]
+        {
+            Path.Combine(localAppData, "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(programFilesX86, "Google", "Chrome", "Application", "chrome.exe")
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 }

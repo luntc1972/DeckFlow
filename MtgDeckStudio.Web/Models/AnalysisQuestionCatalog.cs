@@ -33,7 +33,6 @@ public static class AnalysisQuestionCatalog
                 new("strengths-weaknesses", "What are the strengths and weaknesses of this deck?"),
                 new("primary-win-condition", "What is this deck’s primary win condition?"),
                 new("consistency", "How consistent is this deck?"),
-                new("power-level", "What power level would you rate this deck (1–10)? Why?"),
                 new("best-meta", "What kind of meta does this deck perform best in?")
             ]),
         new(

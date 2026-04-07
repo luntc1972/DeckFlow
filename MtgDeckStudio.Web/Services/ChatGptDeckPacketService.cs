@@ -1284,7 +1284,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new HttpRequestException(
-                    $"Scryfall search returned HTTP {(int)response.StatusCode}.",
+                    $"Scryfall card reference lookup (cards/collection) returned HTTP {(int)response.StatusCode} while building the analysis packet.",
                     null,
                     response.StatusCode);
             }

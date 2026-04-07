@@ -42,7 +42,32 @@ public static class UpstreamErrorMessageBuilder
     /// </summary>
     /// <param name="exception">Failure to translate.</param>
     public static string BuildScryfallMessage(Exception exception)
-        => BuildSiteSpecificMessage(exception) ?? "Scryfall could not be reached right now. Try again shortly.";
+        => BuildDetailedScryfallMessage(exception) ?? BuildSiteSpecificMessage(exception) ?? "Scryfall could not be reached right now. Try again shortly.";
+
+    private static string? BuildDetailedScryfallMessage(Exception exception)
+    {
+        var statusCode = TryGetStatusCode(exception);
+        var statusSuffix = statusCode is null ? "Try again shortly." : $"HTTP {(int)statusCode.Value}. Try again shortly.";
+        var message = exception.Message;
+
+        if (message.Contains("cards/collection", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("analysis packet", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Scryfall card reference lookup failed while building the analysis packet with {statusSuffix}";
+        }
+
+        if (message.Contains("set catalog", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Scryfall set catalog lookup failed with {statusSuffix}";
+        }
+
+        if (message.Contains("set card lookup", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Scryfall set card lookup failed with {statusSuffix}";
+        }
+
+        return null;
+    }
 
     private static string? BuildSiteSpecificMessage(Exception exception)
     {
