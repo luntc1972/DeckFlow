@@ -14,8 +14,8 @@
             Deck Tools
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.Sync ? "is-active" : string.Empty)" href="/">Deck Sync</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.Convert ? "is-active" : string.Empty)" href="/convert">Convert Deck</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.Sync ? "is-active" : string.Empty)" href="@Url.Content("~/")">Deck Sync</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.Convert ? "is-active" : string.Empty)" href="@Url.Content("~/convert")">Convert Deck</a>
         </div>
     </div>
     <div class="tool-nav__group @(categoriesActive ? "is-active" : string.Empty)" data-tool-nav-group>
@@ -23,8 +23,8 @@
             Categories
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="/suggest-categories">AI Category Suggestions</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="/commander-categories">Category Reference</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="@Url.Content("~/commander-categories")">Category Reference</a>
         </div>
     </div>
     <div class="tool-nav__group @(referenceActive ? "is-active" : string.Empty)" data-tool-nav-group>
@@ -32,8 +32,8 @@
             Reference
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.CardLookup ? "is-active" : string.Empty)" href="/card-lookup">Card Lookup</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.MechanicLookup ? "is-active" : string.Empty)" href="/mechanic-lookup">Mechanic Rules</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.CardLookup ? "is-active" : string.Empty)" href="@Url.Content("~/card-lookup")">Card Lookup</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.MechanicLookup ? "is-active" : string.Empty)" href="@Url.Content("~/mechanic-lookup")">Mechanic Rules</a>
         </div>
     </div>
     <div class="tool-nav__group @(chatGptActive ? "is-active" : string.Empty)" data-tool-nav-group>
@@ -41,8 +41,8 @@
             ChatGPT
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="/chatgpt-packets">ChatGPT Analysis</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptJsonToText ? "is-active" : string.Empty)" href="/chatgpt-json-to-text">Response Formatter</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-packets")">ChatGPT Analysis</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptJsonToText ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-json-to-text")">Response Formatter</a>
         </div>
     </div>
 </nav>

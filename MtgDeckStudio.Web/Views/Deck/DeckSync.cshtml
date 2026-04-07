@@ -41,7 +41,7 @@
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<form id="deck-sync-form" method="post" class="deck-form" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="/api/deck/diff">
+<form id="deck-sync-form" method="post" class="deck-form" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="@Url.Content("~/api/deck/diff")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <div class="direction-group">
@@ -252,7 +252,7 @@
 
         @if (Model.Diff.PrintingConflicts.Count > 0)
         {
-            <form method="post" action="/resolve" class="result-panel" data-busy-title="Generating Swap Checklist" data-busy-message="Applying your printing choices.">
+            <form method="post" action="@Url.Content("~/resolve")" class="result-panel" data-busy-title="Generating Swap Checklist" data-busy-message="Applying your printing choices.">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" />
                 <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" />

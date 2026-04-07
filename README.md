@@ -17,6 +17,14 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 2. Run the web app: `dotnet run --project MtgDeckStudio.Web`
 3. Use the CLI to compare or harvest decks: `dotnet run --project MtgDeckStudio.CLI -- --help`
 
+### IIS publish
+- Publish the web app with `dotnet publish MtgDeckStudio.Web/MtgDeckStudio.Web.csproj /p:PublishProfile=IIS-LocalFolder`
+- The publish output goes to `MtgDeckStudio.Web/bin/Release/net10.0/publish/iis-local/`
+- The .NET SDK generates `web.config` during publish; there is no checked-in `web.config`
+- In IIS, create an application such as `/mtgdeckstudio` that points at that publish folder
+- Install the ASP.NET Core Hosting Bundle on the IIS machine
+- The checked-in views and scripts are path-base safe, so links and API calls stay under the IIS application path instead of jumping to `/`
+
 ---
 
 ## ChatGPT Packets Workflow

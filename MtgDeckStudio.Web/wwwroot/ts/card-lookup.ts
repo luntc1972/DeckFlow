@@ -58,7 +58,7 @@ const hideLookupSuggestionPanel = (panel: HTMLElement): void => {
 };
 
 const initializeCardLookupForm = (): void => {
-  const form = document.querySelector<HTMLFormElement>('form[action="/card-lookup"]');
+  const form = document.querySelector<HTMLFormElement>('form[data-cache-key="card-lookup"]');
   if (!form) {
     return;
   }
@@ -67,7 +67,7 @@ const initializeCardLookupForm = (): void => {
   const counter = document.querySelector<HTMLElement>('[data-verify-lines-count]');
   const validationMessage = document.querySelector<HTMLElement>('[data-verify-lines-error]');
   const submitButtons = form.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
-  const downloadButton = form.querySelector<HTMLButtonElement>('button[formaction="/card-lookup/download"]');
+  const downloadButton = form.querySelector<HTMLButtonElement>('button[formaction]');
   const buildLinesButton = form.querySelector<HTMLButtonElement>('[data-card-lookup-build-lines]');
   const addLineButton = form.querySelector<HTMLButtonElement>('[data-card-lookup-add-line]');
   const lineEditor = form.querySelector<HTMLElement>('[data-card-lookup-line-editor]');

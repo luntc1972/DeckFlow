@@ -58,15 +58,15 @@
             <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="expert">Expert</button>
         </div>
     </div>
-    <a class="clear-cache-button" href="/chatgpt-json-to-text">Open ChatGPT JSON to Text</a>
+    <a class="clear-cache-button" href="@Url.Content("~/chatgpt-json-to-text")">Open ChatGPT JSON to Text</a>
 </div>
 
 <form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
     <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
-        <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="1">Step 1: Probe</button>
-        <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="2">Step 2: Probe JSON</button>
+        <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="1">Optional Step 1: Probe</button>
+        <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="2">Optional Step 2: Probe JSON</button>
         <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="3">Step 3: Analysis Questions</button>
         <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="4">Optional Step 4: Set Upgrades</button>
     </div>
@@ -75,19 +75,20 @@
         <div class="chatgpt-step-heading">
             <div>
                 <p class="chatgpt-step-eyebrow">Step 1</p>
-                <h2>Build the probe prompt</h2>
-                <p>Paste a public Moxfield or Archidekt URL, or paste deck export text directly. This stage generates the first prompt you send to ChatGPT so it can identify any cards it is unsure about.</p>
+                <h2>Optional: Build the probe prompt</h2>
+                <p>Paste a public Moxfield or Archidekt URL, or paste deck export text directly. This optional stage lets ChatGPT report what it is unsure about, but the main analysis packet no longer depends on the probe step.</p>
             </div>
-            <span class="chatgpt-step-badge">Start here</span>
+            <span class="chatgpt-step-badge">Optional</span>
         </div>
 
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
+                <li>Use this only if you want a probe prompt for the ChatGPT conversation.</li>
                 <li>Paste the deck below.</li>
                 <li>Click <code>Generate Probe Prompt</code>.</li>
                 <li>Copy <code>probe.txt</code> and paste it into ChatGPT.</li>
-                <li>Ask ChatGPT to return the JSON in a fenced <code>```json</code> code block, then copy that response and move to Step 2.</li>
+                <li>Ask ChatGPT to return the JSON in a fenced <code>```json</code> code block, then copy that response and move to Step 2 if you want to keep that output with the workflow.</li>
             </ol>
         </div>
 
@@ -100,39 +101,8 @@
             <span>Deck URL or deck text</span>
             <textarea name="DeckSource" spellcheck="false">@Model.Request.DeckSource</textarea>
         </label>
-        <details class="result-panel nested-panel">
-            <summary>Additional context</summary>
-            <div class="chatgpt-context-note">
-                <p>These fields do not change the deck parser. They are extra instructions that get inserted into the ChatGPT prompts.</p>
-                <ul>
-                    <li><strong>Format</strong> is included in the probe, analysis, and set-upgrade prompts so ChatGPT evaluates the deck in the right rules context.</li>
-                    <li><strong>Deck name</strong> gives the prompts a stable label and is also saved with the packet artifacts.</li>
-                    <li><strong>Strategy notes</strong> tell ChatGPT what the deck is trying to do so it weighs the list against your intended game plan.</li>
-                    <li><strong>Meta notes</strong> tell ChatGPT what kinds of tables or threats you expect, which changes how it judges weaknesses and upgrades.</li>
-                </ul>
-                <p>If you leave these blank, the prompts still work. ChatGPT will just infer more from the decklist alone.</p>
-            </div>
-            <div class="sync-columns">
-                <label class="field">
-                    <span>Format</span>
-                    <input type="text" name="Format" value="@Model.Request.Format" />
-                </label>
-                <label class="field">
-                    <span>Deck name</span>
-                    <input type="text" name="DeckName" value="@Model.Request.DeckName" />
-                </label>
-            </div>
-            <label class="field">
-                <span>Strategy notes</span>
-                <textarea name="StrategyNotes" spellcheck="false">@Model.Request.StrategyNotes</textarea>
-            </label>
-            <label class="field">
-                <span>Meta notes</span>
-                <textarea name="MetaNotes" spellcheck="false">@Model.Request.MetaNotes</textarea>
-            </label>
-        </details>
         <div class="toolbar chatgpt-step-actions">
-            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="/chatgpt-packets">Clear</button>
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-packets")">Clear</button>
             <div class="chatgpt-step-note">This builds the deck summary, <code>probe.txt</code>, and the expected probe JSON schema.</div>
             <button type="submit" class="run-button" data-chatgpt-submit-step="1">Generate Probe Prompt</button>
         </div>
@@ -183,17 +153,17 @@
         <div class="chatgpt-step-heading">
             <div>
                 <p class="chatgpt-step-eyebrow">Step 2</p>
-                <h2>Paste the probe JSON</h2>
-                <p>After ChatGPT responds to <code>probe.txt</code>, paste the returned JSON here. Then continue to choose the Commander bracket and the questions you want the analysis prompt to answer.</p>
+                <h2>Optional: Paste the probe JSON</h2>
+                <p>This step is optional now. If you ran <code>probe.txt</code>, paste the returned JSON here for your records. The analysis packet no longer depends on it.</p>
             </div>
-            <span class="chatgpt-step-badge">Paste ChatGPT JSON</span>
+            <span class="chatgpt-step-badge">Optional</span>
         </div>
 
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
-                <li>Paste the JSON code block from ChatGPT into <code>Probe response JSON</code>.</li>
-                <li>Click <code>Next: Choose analysis questions</code>.</li>
+                <li>If you used the optional probe step, paste the JSON code block from ChatGPT into <code>Probe response JSON</code>.</li>
+                <li>Continue to Step 3 when you are ready to generate the analysis packet.</li>
             </ol>
         </div>
 
@@ -212,7 +182,7 @@
             <div>
                 <p class="chatgpt-step-eyebrow">Step 3</p>
                 <h2>Choose the analysis questions and generate the analysis packet</h2>
-                <p>Select the Commander bracket you want to target, then choose the question buckets or individual questions that should be answered in the analysis prompt.</p>
+                <p>Select the Commander bracket you want to target, then choose the question buckets or individual questions that should be answered in the analysis prompt. This packet now includes authoritative definitions for all cards in the current deck, with optional sideboard and maybeboard candidate references if you choose them.</p>
             </div>
             <span class="chatgpt-step-badge">Customize the analysis</span>
         </div>
@@ -222,6 +192,7 @@
             <ol>
                 <li>Choose the target Commander bracket.</li>
                 <li>Select one or more question buckets, individual questions, or both.</li>
+                <li>Optionally include sideboard and/or maybeboard cards as candidate references.</li>
                 <li>Click <code>Generate Analysis Packet</code>.</li>
                 <li>Copy <code>analysis.txt</code> and paste it into ChatGPT.</li>
                 <li>Ask ChatGPT to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
@@ -248,6 +219,48 @@
             </select>
             <small class="sync-column__hint">The analysis prompt will include the official Commander bracket expectation and turn pacing for the bracket you select.</small>
         </label>
+        <details class="result-panel nested-panel">
+            <summary>Analysis context</summary>
+            <div class="chatgpt-context-note">
+                <p>These fields do not change the deck parser. They are extra instructions that get inserted into the analysis and set-upgrade prompts.</p>
+                <ul>
+                    <li><strong>Format</strong> keeps the analysis and upgrade prompts in the right rules context.</li>
+                    <li><strong>Deck name</strong> gives the prompts a stable label and is also saved with the packet artifacts.</li>
+                    <li><strong>Strategy notes</strong> tell ChatGPT what the deck is trying to do so it weighs the list against your intended game plan.</li>
+                    <li><strong>Meta notes</strong> tell ChatGPT what kinds of tables or threats you expect, which changes how it judges weaknesses and upgrades.</li>
+                </ul>
+                <p>If you leave these blank, the prompts still work. ChatGPT will infer more from the decklist alone.</p>
+            </div>
+            <div class="sync-columns">
+                <label class="field">
+                    <span>Format</span>
+                    <input type="text" name="Format" value="@Model.Request.Format" />
+                </label>
+                <label class="field">
+                    <span>Deck name</span>
+                    <input type="text" name="DeckName" value="@Model.Request.DeckName" />
+                </label>
+            </div>
+            <label class="field">
+                <span>Strategy notes</span>
+                <textarea name="StrategyNotes" spellcheck="false">@Model.Request.StrategyNotes</textarea>
+            </label>
+            <label class="field">
+                <span>Meta notes</span>
+                <textarea name="MetaNotes" spellcheck="false">@Model.Request.MetaNotes</textarea>
+            </label>
+        </details>
+        <div class="result-panel nested-panel">
+            <label class="chatgpt-question-option">
+                <input type="checkbox" name="IncludeSideboardInAnalysis" value="true" @(Model.Request.IncludeSideboardInAnalysis ? "checked" : "") />
+                <span>Include sideboard cards as candidate references in the analysis prompt</span>
+            </label>
+            <label class="chatgpt-question-option">
+                <input type="checkbox" name="IncludeMaybeboardInAnalysis" value="true" @(Model.Request.IncludeMaybeboardInAnalysis ? "checked" : "") />
+                <span>Include maybeboard cards as candidate references in the analysis prompt</span>
+            </label>
+            <small class="sync-column__hint">Current-deck card definitions are always included. These options only add authoritative references for optional candidate cards and keep them labeled as candidates, not active deck cards.</small>
+        </div>
         <section class="chatgpt-question-picker">
             <div class="chatgpt-question-picker__header">
                 <h3>Analysis questions</h3>

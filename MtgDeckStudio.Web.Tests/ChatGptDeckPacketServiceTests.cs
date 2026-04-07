@@ -45,6 +45,9 @@ Commander
         Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);
         Assert.Contains("Sol Ring", result.ProbePromptText);
         Assert.Contains("Suggested chat title: Atraxa, Praetors' Voice | AI Deck Analysis", result.ProbePromptText);
+        Assert.Contains("Return exactly one JSON object only.", result.ProbePromptText);
+        Assert.Contains("Do not write any prose before the code block.", result.ProbePromptText);
+        Assert.Contains("Do not write any prose after the code block.", result.ProbePromptText);
         Assert.Contains("\"game_plan\"", result.DeckProfileSchemaJson);
     }
 
@@ -150,28 +153,161 @@ Commander
         Assert.Contains("Sol Ring", result.ReferenceText);
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Do not recommend cards from the official Commander banned list.", result.AnalysisPromptText);
+        Assert.Contains("Commander bracket definitions:", result.AnalysisPromptText);
+        Assert.Contains("Bracket 1: Exhibition", result.AnalysisPromptText);
+        Assert.Contains("Bracket 5: cEDH", result.AnalysisPromptText);
         Assert.Contains("Dockside Extortionist", result.AnalysisPromptText);
         Assert.Contains("including any newly supplied keywords or mechanics", result.AnalysisPromptText);
-        Assert.Contains("What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
-        Assert.Contains("How consistent is this deck?", result.AnalysisPromptText);
-        Assert.Contains("Is Sol Ring worth including in this deck?", result.AnalysisPromptText);
+        Assert.Contains("1. What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
+        Assert.Contains("2. How consistent is this deck?", result.AnalysisPromptText);
+        Assert.Contains("3. Is Sol Ring worth including in this deck?", result.AnalysisPromptText);
+        Assert.Contains("Start with a section titled Requested Question Answers.", result.AnalysisPromptText);
+        Assert.Contains("answer every requested question explicitly, using the same numbering shown above", result.AnalysisPromptText);
+        Assert.Contains("If you make an inference that is not stated directly in the supplied factual input, label it clearly as an inference", result.AnalysisPromptText);
         Assert.Contains("1. top adds", result.AnalysisPromptText);
         Assert.Contains("2. top cuts", result.AnalysisPromptText);
         Assert.Contains("For every recommended add and cut, explain the reasoning briefly", result.AnalysisPromptText);
         Assert.Contains("Bracket 3: Upgraded", result.AnalysisPromptText);
         Assert.Contains("Expect to play at least six turns before you win or lose.", result.AnalysisPromptText);
         Assert.Contains("```json", result.AnalysisPromptText);
+        Assert.Contains("\"question_answers\"", result.DeckProfileSchemaJson);
+        Assert.Contains("\"question_number\"", result.DeckProfileSchemaJson);
+        Assert.Contains("\"basis\": \"authoritative|inference|mixed\"", result.DeckProfileSchemaJson);
     }
 
-    /// <summary>
-    /// Requires a target Commander bracket before the analysis packet can be generated.
-    /// </summary>
     [Fact]
-    public async Task BuildAsync_ThrowsValidationError_WhenProbeJsonProvidedWithoutTargetBracket()
+    public async Task BuildAsync_IncludesBracketAssessmentQuestionAndDefinitions_WhenSelected()
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["bracket-assessment"]
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("1. Based on the provided Commander bracket definitions, what bracket is this deck closest to and why?", result.AnalysisPromptText);
+        Assert.Contains("Commander bracket definitions:", result.AnalysisPromptText);
+        Assert.Contains("Bracket 1: Exhibition", result.AnalysisPromptText);
+        Assert.Contains("Bracket 2: Core", result.AnalysisPromptText);
+        Assert.Contains("Bracket 3: Upgraded", result.AnalysisPromptText);
+        Assert.Contains("Bracket 4: Optimized", result.AnalysisPromptText);
+        Assert.Contains("Bracket 5: cEDH", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_GeneratesReferenceAndAnalysis_WithoutProbeJson()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.Contains("[current_deck] Atraxa, Praetors' Voice", result.ReferenceText);
+        Assert.Contains("[current_deck] Sol Ring", result.ReferenceText);
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("read the supplied card reference entries for all listed current-deck cards", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_IncludesOptionalCandidateBoardsInAnalysis_WhenSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Arcane Signet
+
+Sideboard
+1 Swords to Plowshares
+
+Maybeboard
+1 Smothering Tithe
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"],
+            IncludeSideboardInAnalysis = true,
+            IncludeMaybeboardInAnalysis = true
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.Contains("[candidate_include:sideboard] Swords to Plowshares", result.ReferenceText);
+        Assert.Contains("[candidate_include:maybeboard] Smothering Tithe", result.ReferenceText);
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Possible Includes", result.AnalysisPromptText);
+        Assert.Contains("1 Swords to Plowshares", result.AnalysisPromptText);
+        Assert.Contains("1 Smothering Tithe", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ExcludesOptionalCandidateBoardsInAnalysis_WhenNotSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Arcane Signet
+
+Sideboard
+1 Swords to Plowshares
+
+Maybeboard
+1 Smothering Tithe
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.DoesNotContain("[candidate_include:sideboard] Swords to Plowshares", result.ReferenceText);
+        Assert.DoesNotContain("[candidate_include:maybeboard] Smothering Tithe", result.ReferenceText);
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.DoesNotContain("Possible Includes\n1 Swords to Plowshares", result.AnalysisPromptText.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.DoesNotContain("Swords to Plowshares", result.AnalysisPromptText);
+        Assert.DoesNotContain("Smothering Tithe", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_DoesNotRequireTargetBracket_WhenOnlyProbeJsonProvided()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
         {
             DeckSource = """
 Commander
@@ -185,9 +321,10 @@ Commander
   "unknown_cards": ["Sol Ring"]
 }
 """
-        }));
+        });
 
-        Assert.Equal("Choose a target Commander bracket before generating the analysis packet.", exception.Message);
+        Assert.NotNull(result.ProbePromptText);
+        Assert.Null(result.AnalysisPromptText);
     }
 
     /// <summary>
@@ -624,16 +761,13 @@ Commander
 Commander
 1 Atraxa, Praetors' Voice
 
+1 Blex, Vexing Pest // Search for Blex
 1 Sol Ring
 1 Arcane Signet
 """,
-            ProbeResponseJson = """
-{
- "unknown_cards": ["Blex, Vexing Pest // Search for Blex"]
-}
-""",
             TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["consistency"]
+            SelectedAnalysisQuestions = ["consistency"],
+            WorkflowStep = 3
         });
 
         Assert.NotNull(result.ReferenceText);
@@ -704,16 +838,13 @@ Commander
 Commander
 1 Atraxa, Praetors' Voice
 
+1 Ya viene el coco
 1 Sol Ring
 1 Arcane Signet
 """,
-            ProbeResponseJson = """
-{
- "unknown_cards": ["Ya viene el coco"]
-}
-""",
             TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["consistency"]
+            SelectedAnalysisQuestions = ["consistency"],
+            WorkflowStep = 3
         });
 
         Assert.NotNull(result.ReferenceText);
@@ -1097,7 +1228,31 @@ Commander
 
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Would this deck benefit from a dedicated stax package?", result.AnalysisPromptText);
-        Assert.Contains("What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
+        Assert.Contains("1. What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
+        Assert.Contains("2. Would this deck benefit from a dedicated stax package?", result.AnalysisPromptText);
+        Assert.Contains("The deck_profile.question_answers array must contain one entry for every requested question", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_DoesNotIncludeStrategyOrMetaNotes_InProbePrompt()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            StrategyNotes = "Use the graveyard as a second hand.",
+            MetaNotes = "Expect graveyard hate and fast combo."
+        });
+
+        Assert.DoesNotContain("strategy_notes:", result.ProbePromptText);
+        Assert.DoesNotContain("meta_notes:", result.ProbePromptText);
     }
 
     /// <summary>
@@ -1149,53 +1304,107 @@ Commander
             new FakeCommanderSpellbookService(),
             new FakeWebHostEnvironment(rootPath),
             executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
-            executeSearchAsync: executeSearchAsync,
-            executeNamedAsync: executeNamedAsync,
+            executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
+            executeNamedAsync: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))),
             chatGptArtifactsPath: rootPath);
     }
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(RestRequest request)
     {
+        var requestedNames = request.Parameters
+            .FirstOrDefault(parameter => string.Equals(parameter.Name?.ToString(), "application/json", StringComparison.OrdinalIgnoreCase))
+            ?.Value?
+            .ToString();
+
         return new RestResponse<ScryfallCollectionResponse>(request)
         {
             StatusCode = HttpStatusCode.OK,
             Data = new ScryfallCollectionResponse(
-                new List<ScryfallCard>
-                {
-                    new("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, null, [], null, null, null),
-                    new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], ["G", "W", "U", "B"], null, null, null),
-                    new(
-                        "Blex, Vexing Pest // Search for Blex",
-                        null,
-                        "Legendary Creature — Pest // Sorcery",
-                        null,
-                        null,
-                        null,
-                        ["Pest"],
-                        ["B", "G"],
-                        null,
-                        null,
-                        null,
-                        [
-                            new ScryfallCardFace(
-                                "Blex, Vexing Pest",
-                                "{2}{B}{G}",
-                                "Legendary Creature — Pest",
-                                "Other Pests, Bats, Insects, Snakes, and Spiders you control get +1/+1.",
-                                "3",
-                                "2"),
-                            new ScryfallCardFace(
-                                "Search for Blex",
-                                "{X}{2}{B/G}{B/G}",
-                                "Sorcery",
-                                "Look at the top five cards of your library. You may reveal any number of creature cards with mana value X or less from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order. You lose 3 life.",
-                                null,
-                                null)
-                        ])
-                },
+                GetDefaultTestCards().ToList(),
                 [])
         };
     }
+
+    private static RestResponse<ScryfallSearchResponse> CreateSearchResponse(RestRequest request)
+    {
+        var query = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "q")?.Value?.ToString() ?? string.Empty;
+        var match = FindDefaultCard(query);
+        return new RestResponse<ScryfallSearchResponse>(request)
+        {
+            StatusCode = HttpStatusCode.OK,
+            Data = new ScryfallSearchResponse(match is null ? [] : [match])
+        };
+    }
+
+    private static RestResponse<ScryfallCard> CreateNamedResponse(RestRequest request)
+    {
+        var fuzzy = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "fuzzy")?.Value?.ToString() ?? string.Empty;
+        var match = FindDefaultCard(fuzzy);
+        return new RestResponse<ScryfallCard>(request)
+        {
+            StatusCode = match is null ? HttpStatusCode.NotFound : HttpStatusCode.OK,
+            Data = match
+        };
+    }
+
+    private static ScryfallCard? FindDefaultCard(string query)
+    {
+        var normalizedQuery = NormalizeTestLookup(query);
+        return GetDefaultTestCards().FirstOrDefault(card =>
+            normalizedQuery.Contains(NormalizeTestLookup(card.Name), StringComparison.Ordinal)
+            || (card.CardFaces?.Any(face => normalizedQuery.Contains(NormalizeTestLookup(face.Name), StringComparison.Ordinal)) ?? false));
+    }
+
+    private static string NormalizeTestLookup(string value)
+        => value
+            .Trim()
+            .Replace("\"", string.Empty, StringComparison.Ordinal)
+            .Replace("'", string.Empty, StringComparison.Ordinal)
+            .Replace("(", string.Empty, StringComparison.Ordinal)
+            .Replace(")", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+
+    private static IReadOnlyList<ScryfallCard> GetDefaultTestCards() =>
+    [
+        new("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, null, [], null, null, null),
+        new("Arcane Signet", "{2}", "Artifact", "{T}: Add one mana of any color in your commander's color identity.", null, null, null, [], null, null, null),
+        new("Swords to Plowshares", "{W}", "Instant", "Exile target creature. Its controller gains life equal to its power.", null, null, null, ["W"], null, null, null),
+        new("Smothering Tithe", "{3}{W}", "Enchantment", "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token.", null, null, ["Treasure"], ["W"], null, null, null),
+        new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], ["G", "W", "U", "B"], null, null, null),
+        new("Tymna the Weaver", "{1}{W}{B}", "Legendary Creature — Human Cleric", "Lifelink\nAt the beginning of your postcombat main phase, you may pay X life, where X is the number of opponents that were dealt combat damage this turn. If you do, draw X cards.", "2", "2", ["Lifelink"], ["W", "B"], null, null, null),
+        new("Thrasios, Triton Hero", "{G/U}", "Legendary Creature — Merfolk Wizard", "{4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.", "1", "3", [], ["G", "U"], null, null, null),
+        new("Tannuk, Memorial Ensign", "{3}{G}{W}", "Legendary Creature — Human Scout", "Vigilance\nWhenever one or more cards leave your graveyard during your turn, create a 2/2 white and black Soldier creature token. This ability triggers only once each turn.", "3", "4", ["Vigilance"], ["G", "W"], null, null, null),
+        new("Aftermath Analyst", "{1}{G}", "Creature — Elf Detective", "When Aftermath Analyst enters, mill three cards.\n{3}{G}, Exile Aftermath Analyst from your graveyard: Return all land cards from your graveyard to the battlefield tapped.", "2", "1", [], ["G"], null, null, null),
+        new("Aerith's Curaga Magic", "{1}{G}", "Instant", "Prevent all damage that would be dealt to target creature this turn.", null, null, [], ["G"], "sld", "Secret Lair Drop", "1872"),
+        new(
+            "Blex, Vexing Pest // Search for Blex",
+            null,
+            "Legendary Creature — Pest // Sorcery",
+            null,
+            null,
+            null,
+            ["Pest"],
+            ["B", "G"],
+            null,
+            null,
+            null,
+            [
+                new ScryfallCardFace(
+                    "Blex, Vexing Pest",
+                    "{2}{B}{G}",
+                    "Legendary Creature — Pest",
+                    "Other Pests, Bats, Insects, Snakes, and Spiders you control get +1/+1.",
+                    "3",
+                    "2"),
+                new ScryfallCardFace(
+                    "Search for Blex",
+                    "{X}{2}{B/G}{B/G}",
+                    "Sorcery",
+                    "Look at the top five cards of your library. You may reveal any number of creature cards with mana value X or less from among them and put the revealed cards into your hand. Put the rest on the bottom of your library in a random order. You lose 3 life.",
+                    null,
+                    null)
+            ])
+    ];
 
     private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
     {

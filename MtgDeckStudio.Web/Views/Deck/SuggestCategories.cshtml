@@ -31,7 +31,7 @@
     <span data-api-field="card-search-error-text"></span>
 </div>
 
-<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store and recent Archidekt decks." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
+<form method="post" action="@Url.Content("~/suggest-categories")" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store and recent Archidekt decks." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="@Url.Content("~/api/suggestions/card")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">

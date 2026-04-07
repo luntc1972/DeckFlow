@@ -24,8 +24,14 @@ public class Program
             configuration
                 .ReadFrom.Configuration(context.Configuration)
                 .ReadFrom.Services(services)
-                .Enrich.FromLogContext()
-                .WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14);
+                .Enrich.FromLogContext();
+
+            if (context.HostingEnvironment.IsDevelopment())
+            {
+                configuration.WriteTo.Console();
+            }
+
+            configuration.WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14);
         });
 
         // Add services to the container.
@@ -122,7 +128,7 @@ public class Program
             app.UseSwagger();
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Deck Sync Workbench API v1");
+                c.SwaggerEndpoint("v1/swagger.json", "Deck Sync Workbench API v1");
                 c.RoutePrefix = "swagger";
             });
         }

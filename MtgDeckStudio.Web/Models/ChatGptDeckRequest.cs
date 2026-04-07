@@ -115,6 +115,10 @@ public sealed class ChatGptDeckRequest
 
     public bool IncludeCardVersions { get; set; }
 
+    public bool IncludeSideboardInAnalysis { get; set; }
+
+    public bool IncludeMaybeboardInAnalysis { get; set; }
+
     public string PreferredCategories
     {
         get => _preferredCategories;

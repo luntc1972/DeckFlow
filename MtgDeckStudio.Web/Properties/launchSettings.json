@@ -25,11 +25,20 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "IIS": {
+      "commandName": "IIS",
+      "launchBrowser": true,
+      "launchUrl": "/"
     }
   },
   "iisSettings": {
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
+    "iis": {
+      "applicationUrl": "http://localhost/mtgdeckstudio",
+      "sslPort": 0
+    },
     "iisExpress": {
       "applicationUrl": "http://localhost:51351",
       "sslPort": 44353

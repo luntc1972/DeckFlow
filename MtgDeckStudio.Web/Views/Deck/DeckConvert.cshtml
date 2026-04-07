@@ -23,7 +23,7 @@
     <div class="warning-banner" role="alert">No commander was found in the import. Enter a commander name below and convert again to include it.</div>
 }
 
-<form method="post" action="/convert" class="deck-form" data-cache-key="deck-convert" data-busy-title="Converting Deck" data-busy-message="Loading and reformatting the deck.">
+<form method="post" action="@Url.Content("~/convert")" class="deck-form" data-cache-key="deck-convert" data-busy-title="Converting Deck" data-busy-message="Loading and reformatting the deck.">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
@@ -48,7 +48,7 @@
             </select>
         </label>
         <button type="submit" class="run-button">Convert</button>
-        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="/convert">Clear</button>
+        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/convert")">Clear</button>
     </div>
 
     <label class="field @(inputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-convert-panel="url">
@@ -68,7 +68,7 @@
                placeholder="Start typing a legendary creature or planeswalker name…"
                autocomplete="off"
                list="commander-suggestions"
-               data-commander-search="/convert/commander-search" />
+               data-commander-search="@Url.Content("~/convert/commander-search")" />
         <datalist id="commander-suggestions"></datalist>
     </label>
 </form>

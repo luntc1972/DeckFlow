@@ -20,7 +20,7 @@
     This tool accepts raw JSON or a fenced <code>```json</code> code block and rewrites it into readable text sections.
 </div>
 
-<form method="post" action="/chatgpt-json-to-text" class="deck-form" data-cache-key="chatgpt-json-to-text" data-busy-title="Converting ChatGPT JSON" data-busy-message="Formatting the JSON into readable text.">
+<form method="post" action="@Url.Content("~/chatgpt-json-to-text")" class="deck-form" data-cache-key="chatgpt-json-to-text" data-busy-title="Converting ChatGPT JSON" data-busy-message="Formatting the JSON into readable text.">
     @Html.AntiForgeryToken()
     <label class="field">
         <span>ChatGPT JSON</span>
@@ -28,7 +28,7 @@
     </label>
     <div class="toolbar">
         <button type="submit" class="run-button">Convert to Text</button>
-        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="/chatgpt-json-to-text">Clear</button>
+        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-json-to-text")">Clear</button>
     </div>
 </form>
 

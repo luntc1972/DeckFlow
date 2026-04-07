@@ -45,7 +45,7 @@ const hideLookupSuggestionPanel = (panel) => {
     panel.replaceChildren();
 };
 const initializeCardLookupForm = () => {
-    const form = document.querySelector('form[action="/card-lookup"]');
+    const form = document.querySelector('form[data-cache-key="card-lookup"]');
     if (!form) {
         return;
     }
@@ -53,7 +53,7 @@ const initializeCardLookupForm = () => {
     const counter = document.querySelector('[data-verify-lines-count]');
     const validationMessage = document.querySelector('[data-verify-lines-error]');
     const submitButtons = form.querySelectorAll('button[type="submit"]');
-    const downloadButton = form.querySelector('button[formaction="/card-lookup/download"]');
+    const downloadButton = form.querySelector('button[formaction]');
     const buildLinesButton = form.querySelector('[data-card-lookup-build-lines]');
     const addLineButton = form.querySelector('[data-card-lookup-add-line]');
     const lineEditor = form.querySelector('[data-card-lookup-line-editor]');

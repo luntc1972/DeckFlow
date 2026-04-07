@@ -29,6 +29,7 @@ public static class AnalysisQuestionCatalog
             "core-analysis",
             "Core Deck Analysis",
             [
+                new("bracket-assessment", "Based on the provided Commander bracket definitions, what bracket is this deck closest to and why?"),
                 new("strengths-weaknesses", "What are the strengths and weaknesses of this deck?"),
                 new("primary-win-condition", "What is this deck’s primary win condition?"),
                 new("consistency", "How consistent is this deck?"),

@@ -26,7 +26,7 @@
     <div class="warning-banner" role="status">@Model.NotFoundMessage</div>
 }
 
-<form method="post" action="/mechanic-lookup" class="deck-form" data-cache-key="mechanic-lookup" data-busy-title="Looking up mechanic rules" data-busy-message="Fetching the current official rules text from Wizards of the Coast.">
+<form method="post" action="@Url.Content("~/mechanic-lookup")" class="deck-form" data-cache-key="mechanic-lookup" data-busy-title="Looking up mechanic rules" data-busy-message="Fetching the current official rules text from Wizards of the Coast.">
     @Html.AntiForgeryToken()
     <div class="field-grid">
         <label class="field">
