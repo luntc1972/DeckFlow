@@ -603,7 +603,7 @@ const attachDeckSyncPersistence = () => {
 };
 const parseChatGptStep = (value) => {
     const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
-    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
+    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
 };
 const chatGptUiModeStorageKey = 'decksync-chatgpt-ui-mode';
 const parseChatGptUiMode = (value) => {
@@ -680,22 +680,22 @@ const validateChatGptPacketsStep = (form, step) => {
     if (!deckSource) {
         return 'Paste a deck URL or deck export before generating ChatGPT packets.';
     }
-    if (step >= 3 && !targetCommanderBracket) {
+    if (step >= 2 && !targetCommanderBracket) {
         return 'Choose the target Commander bracket before generating the analysis packet.';
     }
-    if (step >= 3 && form.querySelectorAll('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
+    if (step >= 2 && form.querySelectorAll('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
         return 'Select at least one analysis question before generating the analysis packet.';
     }
-    if (step >= 3 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
+    if (step >= 2 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
         return 'Enter a card name for the selected card-specific analysis questions.';
     }
-    if (step >= 3 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
+    if (step >= 2 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
         return 'Enter a budget amount for the selected budget upgrade question.';
     }
-    if (step >= 3 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
+    if (step >= 2 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
         return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
     }
-    if (step >= 4) {
+    if (step >= 3) {
         if (!deckProfileJson) {
             return 'Paste the deck_profile JSON returned from ChatGPT into Deck profile JSON before generating the set-upgrade packet.';
         }
@@ -835,13 +835,18 @@ const attachQuestionBucketSelection = (form) => {
     syncPreferredCategoriesField(form);
 };
 const loadSetOptionsAsync = () => {
-    var _a;
-    const select = document.querySelector('[data-set-options-select]');
-    if (!select) {
+    var _a, _b;
+    const form = document.querySelector('[data-chatgpt-packets-form]');
+    const select = form === null || form === void 0 ? void 0 : form.querySelector('[data-set-options-select]');
+    if (!form || !select) {
         return;
     }
-    const selectedCodes = new Set(((_a = select.dataset.selectedCodes) !== null && _a !== void 0 ? _a : '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean));
-    fetch('/api/set-options')
+    const setOptionsUrl = (_a = form.dataset.setOptionsUrl) === null || _a === void 0 ? void 0 : _a.trim();
+    if (!setOptionsUrl) {
+        return;
+    }
+    const selectedCodes = new Set(((_b = select.dataset.selectedCodes) !== null && _b !== void 0 ? _b : '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean));
+    fetch(setOptionsUrl)
         .then(response => {
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);

@@ -18,15 +18,16 @@ namespace MtgDeckStudio.Web.Tests;
 public sealed class ChatGptDeckPacketServiceTests
 {
     /// <summary>
-    /// Builds the initial probe prompt and schema from pasted deck text.
+    /// Builds the deck summary and schema from pasted deck text on the setup step.
     /// </summary>
     [Fact]
-    public async Task BuildAsync_GeneratesProbePrompt_ForPastedDeckText()
+    public async Task BuildAsync_GeneratesSummaryAndSchema_ForPastedDeckText()
     {
         var service = CreateService();
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -36,18 +37,8 @@ Commander
 """
         });
 
-        Assert.Contains("unknown_cards", result.ProbePromptText);
-        Assert.Contains("commander_status", result.ProbePromptText);
-        Assert.Contains("legendary creature, a legendary Vehicle, or a planeswalker whose text says it can be your commander", result.ProbePromptText);
-        Assert.Contains("enter one before continuing", result.ProbePromptText);
-        Assert.DoesNotContain("unknown_mechanics", result.ProbePromptText);
-        Assert.Contains("```json", result.ProbePromptText);
-        Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);
-        Assert.Contains("Sol Ring", result.ProbePromptText);
-        Assert.Contains("Suggested chat title: Atraxa, Praetors' Voice | AI Deck Analysis", result.ProbePromptText);
-        Assert.Contains("Return exactly one JSON object only.", result.ProbePromptText);
-        Assert.Contains("Do not write any prose before the code block.", result.ProbePromptText);
-        Assert.Contains("Do not write any prose after the code block.", result.ProbePromptText);
+        Assert.Contains("Atraxa, Praetors' Voice", result.InputSummary);
+        Assert.Equal("Atraxa, Praetors' Voice | AI Deck Analysis", result.SuggestedChatTitle);
         Assert.Contains("\"game_plan\"", result.DeckProfileSchemaJson);
     }
 
@@ -61,6 +52,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -77,47 +69,10 @@ Maybeboard
 """
         });
 
-        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("Commander\n1 Atraxa, Praetors' Voice [Commander]", probeText);
-        Assert.Contains("Decklist\n1 Arcane Signet\n1 Sol Ring", probeText);
-        Assert.Contains("Sideboard\n1 Swords to Plowshares", probeText);
-        Assert.Contains("Maybeboard\n1 Smothering Tithe", probeText);
-        Assert.Contains("Treat the Commander and Decklist sections as the actual deck being evaluated.", probeText);
-        Assert.Contains("Treat the Sideboard and Maybeboard sections only as candidate additions, not part of the current deck.", probeText);
         Assert.Contains("Main deck cards: 2", result.InputSummary);
         Assert.Contains("Commander cards: 1", result.InputSummary);
         Assert.Contains("Sideboard cards: 1", result.InputSummary);
         Assert.Contains("Maybeboard cards: 1", result.InputSummary);
-    }
-
-    /// <summary>
-    /// Preserves set code and collector number in probe card lines, normalizes DFC names to the
-    /// front face, and annotates the commander line with [Commander].
-    /// </summary>
-    [Fact]
-    public async Task BuildAsync_PreservesSetInfoAndNormalizesDfcNamesInProbePrompt()
-    {
-        var service = CreateService();
-
-        var result = await service.BuildAsync(new ChatGptDeckRequest
-        {
-            DeckSource = """
-Commander
-1 Atraxa, Praetors' Voice (ONE) 196
-
-1 Sol Ring (2ED) 271
-1 Delver of Secrets // Insectile Aberration (ISD) 51
-"""
-        });
-
-        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
-        // Commander line: set code preserved and [Commander] annotation added
-        Assert.Contains("1 Atraxa, Praetors' Voice (ONE) 196 [Commander]", probeText);
-        // Mainboard line: set code preserved
-        Assert.Contains("1 Sol Ring (2ED) 271", probeText);
-        // DFC: only front-face name used, set code preserved, no back-face name
-        Assert.Contains("1 Delver of Secrets (ISD) 51", probeText);
-        Assert.DoesNotContain("Insectile Aberration", probeText);
     }
 
     /// <summary>
@@ -130,17 +85,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
- "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses", "consistency", "card-worth-it"],
@@ -152,21 +103,21 @@ Commander
         Assert.Contains("Proliferate", result.ReferenceText);
         Assert.Contains("Sol Ring", result.ReferenceText);
         Assert.NotNull(result.AnalysisPromptText);
-        Assert.Contains("Do not recommend cards from the official Commander banned list.", result.AnalysisPromptText);
+        Assert.Contains("Do not recommend cards from the official Commander banned list", result.AnalysisPromptText);
         Assert.Contains("Commander bracket definitions:", result.AnalysisPromptText);
         Assert.Contains("Bracket 1: Exhibition", result.AnalysisPromptText);
         Assert.Contains("Bracket 5: cEDH", result.AnalysisPromptText);
         Assert.Contains("Dockside Extortionist", result.AnalysisPromptText);
-        Assert.Contains("including any newly supplied keywords or mechanics", result.AnalysisPromptText);
+        Assert.Contains("Read all supplied card entries before beginning the analysis", result.AnalysisPromptText);
         Assert.Contains("1. What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
         Assert.Contains("2. How consistent is this deck?", result.AnalysisPromptText);
         Assert.Contains("3. Is Sol Ring worth including in this deck?", result.AnalysisPromptText);
         Assert.Contains("Start with a section titled Requested Question Answers.", result.AnalysisPromptText);
-        Assert.Contains("answer every requested question explicitly, using the same numbering shown above", result.AnalysisPromptText);
-        Assert.Contains("If you make an inference that is not stated directly in the supplied factual input, label it clearly as an inference", result.AnalysisPromptText);
-        Assert.Contains("1. top adds", result.AnalysisPromptText);
-        Assert.Contains("2. top cuts", result.AnalysisPromptText);
-        Assert.Contains("For every recommended add and cut, explain the reasoning briefly", result.AnalysisPromptText);
+        Assert.Contains("Answer every question using the same numbering", result.AnalysisPromptText);
+        Assert.Contains("label it as an inference", result.AnalysisPromptText);
+        Assert.Contains("Top Adds", result.AnalysisPromptText);
+        Assert.Contains("Top Cuts", result.AnalysisPromptText);
+        Assert.Contains("reasoning per card", result.AnalysisPromptText);
         Assert.Contains("Bracket 3: Upgraded", result.AnalysisPromptText);
         Assert.Contains("Expect to play at least six turns before you win or lose.", result.AnalysisPromptText);
         Assert.Contains("```json", result.AnalysisPromptText);
@@ -182,7 +133,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
-            WorkflowStep = 3,
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -211,7 +162,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
-            WorkflowStep = 3,
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -227,7 +178,7 @@ Commander
         Assert.Contains("[current_deck] Atraxa, Praetors' Voice", result.ReferenceText);
         Assert.Contains("[current_deck] Sol Ring", result.ReferenceText);
         Assert.NotNull(result.AnalysisPromptText);
-        Assert.Contains("read the supplied card reference entries for all listed current-deck cards", result.AnalysisPromptText);
+        Assert.Contains("Read all supplied card entries before beginning the analysis", result.AnalysisPromptText);
     }
 
     [Fact]
@@ -237,7 +188,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
-            WorkflowStep = 3,
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -274,7 +225,7 @@ Maybeboard
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
-            WorkflowStep = 3,
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -303,27 +254,23 @@ Maybeboard
     }
 
     [Fact]
-    public async Task BuildAsync_DoesNotRequireTargetBracket_WhenOnlyProbeJsonProvided()
+    public async Task BuildAsync_DoesNotGenerateAnalysis_WhenOnSetupStep()
     {
         var service = CreateService();
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": ["Sol Ring"]
-}
 """
         });
 
-        Assert.NotNull(result.ProbePromptText);
+        Assert.NotNull(result.InputSummary);
         Assert.Null(result.AnalysisPromptText);
     }
 
@@ -337,17 +284,13 @@ Commander
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded"
         }));
@@ -365,17 +308,13 @@ Commander
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["card-worth-it"]
@@ -394,17 +333,13 @@ Commander
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["budget-upgrades"]
@@ -420,17 +355,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
- "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["budget-upgrades"],
@@ -448,17 +379,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
- "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["bracket-3-version", "three-upgrade-paths"]
@@ -467,8 +394,8 @@ Commander
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Create a Bracket 3 version of this deck.", result.AnalysisPromptText);
         Assert.Contains("Create 3 different upgrade-path versions of this deck.", result.AnalysisPromptText);
-        Assert.Contains("you must output the full, complete 100-card Commander decklist", result.AnalysisPromptText);
-        Assert.Contains("exactly 1 commander and 99 other cards", result.AnalysisPromptText);
+        Assert.Contains("output the full 100-card Commander decklist", result.AnalysisPromptText);
+        Assert.Contains("1 commander and 99 other cards", result.AnalysisPromptText);
         Assert.Contains("clearly labeled ```text fenced code block", result.AnalysisPromptText);
     }
 
@@ -482,6 +409,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -489,18 +417,13 @@ Commander
 1 Sol Ring
 1 Arcane Signet
 """,
-            ProbeResponseJson = """
-{
- "unknown_cards": []
-}
-""",
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["bracket-2-version"]
         });
 
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Create a Bracket 2 version of this deck.", result.AnalysisPromptText);
-        Assert.Contains("you must output the full, complete 100-card Commander decklist", result.AnalysisPromptText);
+        Assert.Contains("output the full 100-card Commander decklist", result.AnalysisPromptText);
     }
 
     [Fact]
@@ -510,17 +433,13 @@ Commander
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
- "unknown_cards": []
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["add-categories"]
@@ -536,6 +455,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -543,19 +463,14 @@ Commander
 1 Sol Ring
 1 Arcane Signet
 """,
-            ProbeResponseJson = """
-{
- "unknown_cards": []
-}
-""",
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["add-categories"],
             DecklistExportFormat = "moxfield"
         });
 
         Assert.NotNull(result.AnalysisPromptText);
-        Assert.Contains("Return the categorized decklist only inside a fenced ```text code block.", result.AnalysisPromptText);
-        Assert.Contains("Format each decklist for Moxfield bulk edit", result.AnalysisPromptText);
+        Assert.Contains("Return the categorized decklist only inside a fenced ```text code block", result.AnalysisPromptText);
+        Assert.Contains("Format for Moxfield bulk edit", result.AnalysisPromptText);
     }
 
     [Fact]
@@ -617,17 +532,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
- "unknown_cards": []
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["bracket-3-version"],
@@ -651,17 +562,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
- "unknown_cards": []
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses"],
@@ -675,7 +582,7 @@ Commander
 
     /// <summary>
     /// When a Moxfield export has no Commander section header, the first 1-of entry is treated
-    /// as the commander so the probe prompt's suggested title and deck_context are populated.
+    /// as the commander so the suggested title and input summary are populated.
     /// </summary>
     [Fact]
     public async Task BuildAsync_DetectsCommanderFromLeadingEntries_WhenNoCommanderSectionHeader()
@@ -692,11 +599,8 @@ Commander
 """
         });
 
-        Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);
-        Assert.Contains("Suggested chat title: Atraxa, Praetors' Voice | AI Deck Analysis", result.ProbePromptText);
-        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("Commander\n1 Atraxa, Praetors' Voice [Commander]", probeText);
-        Assert.DoesNotContain("Arcane Signet [Commander]", probeText);
+        Assert.Contains("Atraxa, Praetors' Voice", result.InputSummary);
+        Assert.Equal("Atraxa, Praetors' Voice | AI Deck Analysis", result.SuggestedChatTitle);
     }
 
     /// <summary>
@@ -722,9 +626,6 @@ Commander
         var summary = result.InputSummary;
         Assert.Contains("Commander: Tannuk, Memorial Ensign", summary);
         Assert.Contains("Commander cards: 1", summary);
-        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("Tannuk, Memorial Ensign [Commander]", probeText);
-        Assert.DoesNotContain("Aerith's Curaga Magic [Commander]", probeText);
     }
 
     /// <summary>
@@ -745,9 +646,8 @@ Commander
 """
         });
 
-        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("Tymna the Weaver [Commander]", probeText);
-        Assert.Contains("Thrasios, Triton Hero [Commander]", probeText);
+        Assert.Contains("Tymna the Weaver", result.InputSummary);
+        Assert.Equal("Tymna the Weaver | AI Deck Analysis", result.SuggestedChatTitle);
     }
 
     [Fact]
@@ -757,6 +657,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -766,8 +667,7 @@ Commander
 1 Arcane Signet
 """,
             TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["consistency"],
-            WorkflowStep = 3
+            SelectedAnalysisQuestions = ["consistency"]
         });
 
         Assert.NotNull(result.ReferenceText);
@@ -834,6 +734,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -843,8 +744,7 @@ Commander
 1 Arcane Signet
 """,
             TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["consistency"],
-            WorkflowStep = 3
+            SelectedAnalysisQuestions = ["consistency"]
         });
 
         Assert.NotNull(result.ReferenceText);
@@ -862,6 +762,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -887,12 +788,12 @@ Commander
         });
 
         Assert.NotNull(result.SetUpgradePromptText);
-        Assert.Contains("Do not recommend cards from the official Commander banned list.", result.SetUpgradePromptText);
+        Assert.Contains("Do not recommend cards from the official Commander banned list", result.SetUpgradePromptText);
         Assert.Contains("Dockside Extortionist", result.SetUpgradePromptText);
-        Assert.Contains("per-set analysis", result.SetUpgradePromptText);
-        Assert.Contains("top adds from that set", result.SetUpgradePromptText);
-        Assert.Contains("suggested removals for each add from that set", result.SetUpgradePromptText);
-        Assert.Contains("For every recommended add or cut, explain the reasoning briefly", result.SetUpgradePromptText);
+        Assert.Contains("Per-set analysis", result.SetUpgradePromptText);
+        Assert.Contains("Top adds from that set", result.SetUpgradePromptText);
+        Assert.Contains("Suggested removals for each add", result.SetUpgradePromptText);
+        Assert.Contains("explain the reasoning briefly", result.SetUpgradePromptText);
         Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
         Assert.Contains("```json", result.SetUpgradePromptText);
         Assert.Contains("\"final_shortlist\"", result.SetUpgradePromptText);
@@ -913,6 +814,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -939,10 +841,10 @@ Commander
         });
 
         Assert.NotNull(result.SetUpgradePromptText);
-        Assert.Contains("Focus: lateral moves only.", result.SetUpgradePromptText);
+        Assert.Contains("LATERAL MOVES ONLY", result.SetUpgradePromptText);
         Assert.Contains("fills the same role as a card already in the deck", result.SetUpgradePromptText);
-        Assert.Contains("neither card is strictly better", result.SetUpgradePromptText);
-        Assert.DoesNotContain("Focus: strict upgrades only.", result.SetUpgradePromptText);
+        Assert.Contains("why the swap is worth considering", result.SetUpgradePromptText);
+        Assert.DoesNotContain("STRICT UPGRADES ONLY", result.SetUpgradePromptText);
     }
 
     /// <summary>
@@ -955,6 +857,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -981,9 +884,9 @@ Commander
         });
 
         Assert.NotNull(result.SetUpgradePromptText);
-        Assert.Contains("Focus: strict upgrades only.", result.SetUpgradePromptText);
+        Assert.Contains("STRICT UPGRADES ONLY", result.SetUpgradePromptText);
         Assert.Contains("meaningfully more powerful, more efficient", result.SetUpgradePromptText);
-        Assert.DoesNotContain("Focus: lateral moves only.", result.SetUpgradePromptText);
+        Assert.DoesNotContain("LATERAL MOVES ONLY", result.SetUpgradePromptText);
     }
 
     /// <summary>
@@ -996,6 +899,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -1022,7 +926,7 @@ Commander
         });
 
         Assert.NotNull(result.SetUpgradePromptText);
-        Assert.Contains("Focus: strict upgrades and lateral moves.", result.SetUpgradePromptText);
+        Assert.Contains("STRICT UPGRADES AND LATERAL MOVES", result.SetUpgradePromptText);
         Assert.Contains("'Strict Upgrade' or 'Lateral Move'", result.SetUpgradePromptText);
     }
 
@@ -1036,6 +940,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -1061,9 +966,9 @@ Commander
         });
 
         Assert.NotNull(result.SetUpgradePromptText);
-        Assert.DoesNotContain("Focus: lateral moves only.", result.SetUpgradePromptText);
-        Assert.DoesNotContain("Focus: strict upgrades only.", result.SetUpgradePromptText);
-        Assert.DoesNotContain("Focus: strict upgrades and lateral moves.", result.SetUpgradePromptText);
+        Assert.DoesNotContain("LATERAL MOVES ONLY", result.SetUpgradePromptText);
+        Assert.DoesNotContain("STRICT UPGRADES ONLY", result.SetUpgradePromptText);
+        Assert.DoesNotContain("STRICT UPGRADES AND LATERAL MOVES", result.SetUpgradePromptText);
     }
 
     [Fact]
@@ -1073,6 +978,7 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 1,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
@@ -1098,10 +1004,10 @@ Commander
         });
 
         Assert.NotNull(result.SetUpgradePromptText);
-        Assert.Contains("set_packet:", result.SetUpgradePromptText);
+        Assert.Contains("## SET PACKET", result.SetUpgradePromptText);
         Assert.Contains("Test Set (DSK)", result.SetUpgradePromptText);
         Assert.Contains("Survival", result.SetUpgradePromptText);
-        Assert.Contains("final cross-set ranked shortlist", result.SetUpgradePromptText);
+        Assert.Contains("Final cross-set ranked shortlist", result.SetUpgradePromptText);
         Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
         Assert.Contains("\"sets\": [", result.SetUpgradePromptText);
         Assert.Contains("discussion_summary.txt", result.SetUpgradePromptText);
@@ -1118,19 +1024,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-```json
-{
-  "unknown_cards": ["Sol Ring"]
-}
-```
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses"],
@@ -1144,12 +1044,12 @@ Commander
 
         Assert.False(string.IsNullOrWhiteSpace(result.SavedArtifactsDirectory));
         Assert.True(Directory.Exists(result.SavedArtifactsDirectory));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "10-probe-prompt.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "20-probe-response.json")));
+        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "00-input-summary.txt")));
         Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "31-analysis-prompt.txt")));
         Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "01-request-context.txt")));
         var combinedPrompts = await File.ReadAllTextAsync(Path.Combine(result.SavedArtifactsDirectory!, "all-prompts.txt"));
-        Assert.Contains("===== PROBE PROMPT", combinedPrompts);
+        Assert.Contains("===== INPUT SUMMARY", combinedPrompts);
+        Assert.Contains("===== ANALYSIS PROMPT", combinedPrompts);
         var requestContext = await File.ReadAllTextAsync(Path.Combine(result.SavedArtifactsDirectory!, "01-request-context.txt"));
         Assert.Contains("deck_name: Atraxa Test Deck", requestContext);
         Assert.Contains("strategy_notes:", requestContext);
@@ -1167,17 +1067,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": ["Sol Ring"]
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["consistency"],
@@ -1209,17 +1105,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": []
-}
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses"],
@@ -1230,29 +1122,32 @@ Commander
         Assert.Contains("Would this deck benefit from a dedicated stax package?", result.AnalysisPromptText);
         Assert.Contains("1. What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
         Assert.Contains("2. Would this deck benefit from a dedicated stax package?", result.AnalysisPromptText);
-        Assert.Contains("The deck_profile.question_answers array must contain one entry for every requested question", result.AnalysisPromptText);
+        Assert.Contains("question_answers array must contain one entry per question", result.AnalysisPromptText);
     }
 
     [Fact]
-    public async Task BuildAsync_DoesNotIncludeStrategyOrMetaNotes_InProbePrompt()
+    public async Task BuildAsync_IncludesStrategyAndMetaNotes_InAnalysisPrompt()
     {
         var service = CreateService();
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
-1 Sol Ring
+            1 Sol Ring
 1 Arcane Signet
 """,
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"],
             StrategyNotes = "Use the graveyard as a second hand.",
             MetaNotes = "Expect graveyard hate and fast combo."
         });
 
-        Assert.DoesNotContain("strategy_notes:", result.ProbePromptText);
-        Assert.DoesNotContain("meta_notes:", result.ProbePromptText);
+        Assert.Contains("strategy_notes:", result.AnalysisPromptText);
+        Assert.Contains("meta_notes:", result.AnalysisPromptText);
     }
 
     /// <summary>
@@ -1265,17 +1160,13 @@ Commander
 
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
+            WorkflowStep = 2,
             DeckSource = """
 Commander
 1 Atraxa, Praetors' Voice
 
 1 Sol Ring
 1 Arcane Signet
-""",
-            ProbeResponseJson = """
-{
-  "unknown_cards": []
-}
 """,
             TargetCommanderBracket = "Upgraded",
             FreeformQuestion = "How does this deck compare to a typical Atraxa superfriends build?"

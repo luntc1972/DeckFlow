@@ -7,7 +7,6 @@ public sealed class ChatGptDeckRequest
     private string _deckName = string.Empty;
     private string _strategyNotes = string.Empty;
     private string _metaNotes = string.Empty;
-    private string _probeResponseJson = string.Empty;
     private string _deckProfileJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private List<string> _selectedAnalysisQuestions = [];
@@ -51,12 +50,6 @@ public sealed class ChatGptDeckRequest
     {
         get => _metaNotes;
         set => _metaNotes = value ?? string.Empty;
-    }
-
-    public string ProbeResponseJson
-    {
-        get => _probeResponseJson;
-        set => _probeResponseJson = value ?? string.Empty;
     }
 
     public string DeckProfileJson

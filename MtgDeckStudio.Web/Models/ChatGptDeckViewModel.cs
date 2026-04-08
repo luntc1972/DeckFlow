@@ -6,15 +6,11 @@ public sealed class ChatGptDeckViewModel
 
     public ChatGptDeckRequest Request { get; init; } = new();
 
-    public IReadOnlyList<ScryfallSetOption> AvailableSets { get; init; } = Array.Empty<ScryfallSetOption>();
-
     public string? ErrorMessage { get; init; }
 
     public string? InputSummary { get; init; }
 
-    public string? ProbePromptText { get; init; }
-
-    public string? ProbeResponseSchemaJson { get; init; }
+    public string? SuggestedChatTitle { get; init; }
 
     public string? ReferenceText { get; init; }
 

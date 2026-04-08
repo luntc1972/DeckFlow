@@ -274,15 +274,14 @@ public sealed class DeckControllerTests
 
         var result = await controller.ChatGptPackets(new ChatGptDeckRequest
         {
-            WorkflowStep = 3,
+            WorkflowStep = 2,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
-            ProbeResponseJson = "{\"unknown_cards\":[]}"
         });
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
         Assert.Equal("Choose a target Commander bracket before generating the analysis packet.", model.ErrorMessage);
-        Assert.Equal(3, model.Request.WorkflowStep);
+        Assert.Equal(2, model.Request.WorkflowStep);
     }
 
     [Fact]
@@ -308,16 +307,15 @@ public sealed class DeckControllerTests
 
         var result = await controller.ChatGptPackets(new ChatGptDeckRequest
         {
-            WorkflowStep = 3,
+            WorkflowStep = 2,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
-            ProbeResponseJson = "{\"unknown_cards\":[]}",
             TargetCommanderBracket = "Upgraded"
         });
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
         Assert.Equal("Select at least one analysis question before generating the analysis packet.", model.ErrorMessage);
-        Assert.Equal(3, model.Request.WorkflowStep);
+        Assert.Equal(2, model.Request.WorkflowStep);
     }
 
     [Fact]
@@ -343,9 +341,8 @@ public sealed class DeckControllerTests
 
         var result = await controller.ChatGptPackets(new ChatGptDeckRequest
         {
-            WorkflowStep = 4,
+            WorkflowStep = 3,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
-            ProbeResponseJson = "{\"unknown_cards\":[]}",
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["consistency"],
             DeckProfileJson = "{\"game_plan\":\"midrange\"}"
@@ -354,7 +351,7 @@ public sealed class DeckControllerTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
         Assert.Equal("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.", model.ErrorMessage);
-        Assert.Equal(4, model.Request.WorkflowStep);
+        Assert.Equal(3, model.Request.WorkflowStep);
     }
 
     [Fact]
@@ -381,9 +378,8 @@ public sealed class DeckControllerTests
 
         var request = new ChatGptDeckRequest
         {
-            WorkflowStep = 4,
+            WorkflowStep = 3,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
-            ProbeResponseJson = "{\"unknown_cards\":[]}",
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["consistency", "strengths-weaknesses", "budget-upgrades"],
             BudgetUpgradeAmount = "75",
@@ -444,8 +440,7 @@ public sealed class DeckControllerTests
             LastRequest = request;
             return Task.FromResult(new ChatGptDeckPacketResult(
                 "summary",
-                "probe",
-                "{}",
+                "Test Deck | AI Deck Analysis",
                 "{}",
                 "reference",
                 "analysis",

@@ -1,14 +1,14 @@
 # MTG Deck Studio
 
-MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides a multi-step ChatGPT prompt-building workflow, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
+MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides a ChatGPT prompt-building workflow, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
 
-**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis prompts, Commander Spellbook combo integration, and cache-backed category suggestions.
+**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
 ## Highlights
 - `MtgDeckStudio.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, card lookup, commander category browsing, and category suggestions.
 - `MtgDeckStudio.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
-- The ChatGPT Packets page is the primary analysis workflow: it produces a structured probe prompt, resolves unknown cards via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
+- The ChatGPT Packets page is the primary analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
 - The Moxfield Tag Exporter browser extension exports deck tags from moxfield.com into Archidekt or Moxfield bulk-edit format.
 
@@ -29,27 +29,17 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 
 ## ChatGPT Packets Workflow
 
-The ChatGPT Packets page (`/Deck/ChatGptPackets`) guides you through a multi-step prompt-building flow. Each step produces text to send to ChatGPT and tells you what to paste back.
+The ChatGPT Packets page (`/Deck/ChatGptPackets`) guides you through a 3-step prompt-building flow. Each step produces text to send to ChatGPT and tells you what to paste back.
 
 ### Workflow layout modes
 Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expert**. They present the same underlying steps with different amounts of context and guidance text.
 
-### Step 1 — Probe
-Paste a public **Moxfield** or **Archidekt** deck URL, or paste deck export text directly. The page generates a probe prompt that:
-- Includes the full decklist with set code, collector number, and DFC front-face names on every line.
-- Annotates the commander line with `[Commander]`.
+### Step 1 — Deck Setup
+Paste a public **Moxfield** or **Archidekt** deck URL, or paste deck export text directly. The service:
 - Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports), then validates the inferred commander against Scryfall before continuing.
 - Rejects inferred commanders that are not legal by the workflow rules: legendary creature, legendary Vehicle, or a planeswalker whose oracle text says it can be your commander.
-- Returns commander-validation fields in the probe JSON schema (`commander_status`, `commander_name`, `commander_reason`) alongside `unknown_cards`.
-- Embeds a suggested ChatGPT conversation title so the chat is named before the analysis starts.
-- Asks ChatGPT to identify any card names it is uncertain about and return them as JSON.
 
-Paste the JSON response from ChatGPT into the **Probe response JSON** field.
-
-### Step 2 — Deck Profile
-Send the provided deck-profile schema to ChatGPT with the deck. ChatGPT fills in the schema (game plan, primary axes, speed, strengths, weaknesses, weak slots, synergy tags). Paste the completed `deck_profile` JSON back in.
-
-### Step 3 — Analysis Packet
+### Step 2 — Analysis
 Configure the analysis:
 
 | Setting | Purpose |
@@ -64,21 +54,24 @@ Configure the analysis:
 | **Protected cards** | Cards that must appear in every generated deck version. |
 
 Click **Generate Analysis Packet** to build the reference data and analysis prompt. The service:
-- Resolves unknown cards from the probe response via Scryfall (`POST /cards/collection` in batches of 75).
+- Resolves all deck cards via Scryfall (`POST /cards/collection` in batches of 75) to supply authoritative Oracle text.
 - Fetches official mechanic rules text from the WOTC rules page for any keyword mechanics found on resolved cards.
 - Fetches the Commander banned list.
 - Queries the Commander Spellbook API if combo questions are selected.
 - Fires the banned-list fetch, set-packet fetch, and Spellbook combo lookup concurrently to minimize wait time.
+- Generates a suggested ChatGPT conversation title displayed in the UI with a copy button.
 
-### Step 4 — Set Upgrade (optional)
-Select one or more recent MTG sets. The page generates a set-upgrade prompt that references the deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts and traps called out per set.
+The generated prompt uses `##` section headings (DECK CONTEXT, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to help ChatGPT's attention on long prompts.
+
+### Step 3 — Set Upgrade (optional)
+Select one or more recent MTG sets. The page generates a set-upgrade prompt that references the deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts and traps called out per set. The set dropdown loads asynchronously from `/api/set-options` so the page renders immediately.
 
 ### Artifact saving
 Check **Save artifacts to disk** to write all generated prompts and reference files to:
 ```
 Documents\MTG Deck Studio\ChatGPT Packets\<commander-name>\<timestamp>\
 ```
-Files saved: `input-summary.txt`, `probe-prompt.txt`, `probe-schema.json`, `reference.txt`, `analysis.txt`, `deck-profile-schema.json`, `set-upgrade-prompt.txt` (when applicable).
+Files saved: `input-summary.txt`, `reference.txt`, `analysis.txt`, `deck-profile-schema.json`, `set-upgrade-prompt.txt` (when applicable).
 
 ---
 
@@ -204,11 +197,12 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 ---
 
 ## Scryfall usage
-- Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, and unknown-card resolution in the ChatGPT Packets workflow.
+- Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the ChatGPT Packets workflow, and async set catalog loading.
 - All Scryfall clients send a real `User-Agent`, an explicit `Accept` header, and use `https`.
 - Card lookup uses `POST /cards/collection` in batches of 75 identifiers.
 - The Card Lookup page is capped at 100 non-empty input lines per submission (at most two Scryfall requests).
-- Unknown-card resolution in the ChatGPT workflow uses the same batch endpoint; results are cached per session.
+- The ChatGPT workflow uses the same batch endpoint to resolve authoritative Oracle text for all deck cards.
+- The set catalog is fetched via `GET /sets` and cached in memory for 6 hours; the web UI loads it asynchronously via `/api/set-options`.
 
 ---
 

@@ -347,8 +347,7 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
                 InputSummary = result.InputSummary,
-                ProbePromptText = result.ProbePromptText,
-                ProbeResponseSchemaJson = result.ProbeResponseSchemaJson,
+                SuggestedChatTitle = result.SuggestedChatTitle,
                 ReferenceText = result.ReferenceText,
                 AnalysisPromptText = result.AnalysisPromptText,
                 DeckProfileSchemaJson = result.DeckProfileSchemaJson,
@@ -365,16 +364,6 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
                 ErrorMessage = exception.Message,
-                ProbeResponseSchemaJson = """
-{
-  "commander_status": "valid",
-  "commander_name": "Card Name",
-  "commander_reason": "",
-  "unknown_cards": [
-    "Card Name"
-  ]
-}
-""",
             });
         }
         catch (HttpRequestException exception)
