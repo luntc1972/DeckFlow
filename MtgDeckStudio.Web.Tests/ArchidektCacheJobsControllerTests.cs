@@ -1,0 +1,135 @@
+using MtgDeckStudio.Web.Controllers.Api;
+using MtgDeckStudio.Web.Models.Api;
+using MtgDeckStudio.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+using Xunit;
+
+namespace MtgDeckStudio.Web.Tests;
+
+public sealed class ArchidektCacheJobsControllerTests
+{
+    [Fact]
+    public async Task StartAsync_ReturnsAccepted_WithJobPayload()
+    {
+        var job = new ArchidektCacheJobStatus(
+            Guid.NewGuid(),
+            ArchidektCacheJobState.Queued,
+            600,
+            DateTimeOffset.UtcNow,
+            null,
+            null,
+            0,
+            0,
+            null);
+        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(job, startedNewJob: true))
+        {
+            Url = new FakeUrlHelper()
+        };
+
+        var response = await controller.StartAsync(new ArchidektCacheJobStartRequest
+        {
+            DurationSeconds = 600
+        }, CancellationToken.None);
+
+        var accepted = Assert.IsType<AcceptedAtActionResult>(response.Result);
+        var payload = Assert.IsType<ArchidektCacheJobEnqueueResponse>(accepted.Value);
+        Assert.Equal(job.JobId, payload.JobId);
+        Assert.True(payload.StartedNewJob);
+        Assert.Equal("Queued", payload.State);
+    }
+
+    [Fact]
+    public async Task StartAsync_ReturnsBadRequest_WhenDurationInvalid()
+    {
+        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(null, startedNewJob: false));
+
+        var response = await controller.StartAsync(new ArchidektCacheJobStartRequest
+        {
+            DurationSeconds = 0
+        }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(response.Result);
+    }
+
+    [Fact]
+    public void GetByIdAsync_ReturnsStatus_WhenJobExists()
+    {
+        var job = new ArchidektCacheJobStatus(
+            Guid.NewGuid(),
+            ArchidektCacheJobState.Succeeded,
+            600,
+            DateTimeOffset.UtcNow.AddMinutes(-10),
+            DateTimeOffset.UtcNow.AddMinutes(-10),
+            DateTimeOffset.UtcNow,
+            25,
+            18,
+            null);
+        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(job, startedNewJob: false));
+
+        var response = controller.GetByIdAsync(job.JobId);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<ArchidektCacheJobStatusResponse>(ok.Value);
+        Assert.Equal(25, payload.DecksProcessed);
+        Assert.Equal(18, payload.AdditionalDecksFound);
+        Assert.Equal("Succeeded", payload.State);
+    }
+
+    [Fact]
+    public void GetByIdAsync_ReturnsNotFound_WhenJobMissing()
+    {
+        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(null, startedNewJob: false));
+
+        var response = controller.GetByIdAsync(Guid.NewGuid());
+
+        Assert.IsType<NotFoundResult>(response.Result);
+    }
+
+    private sealed class FakeArchidektCacheJobService : IArchidektCacheJobService
+    {
+        private readonly ArchidektCacheJobStatus? _job;
+        private readonly bool _startedNewJob;
+
+        public FakeArchidektCacheJobService(ArchidektCacheJobStatus? job, bool startedNewJob)
+        {
+            _job = job;
+            _startedNewJob = startedNewJob;
+        }
+
+        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+        {
+            if (_job is null)
+            {
+                throw new InvalidOperationException("No fake job was configured.");
+            }
+
+            return Task.FromResult(new ArchidektCacheJobEnqueueResult(_job, _startedNewJob));
+        }
+
+        public ArchidektCacheJobStatus? GetJob(Guid jobId)
+            => _job?.JobId == jobId ? _job : null;
+
+        public ArchidektCacheJobStatus? GetActiveJob()
+            => _job;
+    }
+
+    private sealed class FakeUrlHelper : IUrlHelper
+    {
+        public ActionContext ActionContext => new();
+
+        public string? Action(UrlActionContext actionContext) => null;
+
+        public string? Content(string? contentPath) => contentPath;
+
+        public bool IsLocalUrl(string? url) => true;
+
+        public string? Link(string? routeName, object? values) => null;
+
+        public string? RouteUrl(UrlRouteContext routeContext) => null;
+
+        public string? ActionLink(string? action, string? controller, object? values, string? protocol, string? host, string? fragment)
+            => values is not null
+                ? $"/api/archidekt-cache-jobs/{values.GetType().GetProperty("jobId")?.GetValue(values)}"
+                : "/api/archidekt-cache-jobs";
+    }
+}

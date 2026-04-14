@@ -95,7 +95,7 @@ Do not omit any fields from the schema.
 
         <label class="chatgpt-question-option">
             <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
-            <span>Save generated prompts, pasted JSON responses, and hidden additional context to disk under <code>Documents/MTG Deck Studio/ChatGPT Packets</code></span>
+            <span>Save generated prompts, pasted JSON responses, and hidden additional context to disk under <code>Documents/MTG Deck Studio/ChatGPT Analysis</code></span>
         </label>
 
         <label class="field">
@@ -372,7 +372,7 @@ Do not omit any fields from the schema.
             <div>
                 <p class="chatgpt-step-eyebrow">Step 3</p>
                 <h2>Paste the deck profile JSON and view the analysis results</h2>
-                <p>Paste the fenced <code>deck_profile</code> JSON block or raw JSON payload returned from ChatGPT.</p>
+                <p>Paste the fenced <code>deck_profile</code> JSON block or raw JSON payload returned from ChatGPT. You can use a saved JSON file here directly without filling out Steps 1 and 2 again.</p>
             </div>
             <span class="chatgpt-step-badge">Review results</span>
         </div>

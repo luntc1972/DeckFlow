@@ -69,6 +69,9 @@ public class Program
         builder.Services.AddScoped<IChatGptDeckPacketService, ChatGptDeckPacketService>();
         builder.Services.AddScoped<IChatGptDeckComparisonService, ChatGptDeckComparisonService>();
         builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
+        builder.Services.AddSingleton<ArchidektCacheJobService>();
+        builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ArchidektCacheJobService>());
         builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
         builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
         builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();

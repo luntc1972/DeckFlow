@@ -677,22 +677,22 @@ const validateChatGptPacketsStep = (form, step) => {
     const selectedBudgetQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked').length;
     const selectedCategoryQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="add-categories"]:checked, input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked').length;
     const decklistExportFormat = (_p = (_o = form.querySelector('select[name="DecklistExportFormat"]')) === null || _o === void 0 ? void 0 : _o.value.trim()) !== null && _p !== void 0 ? _p : '';
-    if (!deckSource) {
+    if (step < 3 && !deckSource) {
         return 'Paste a deck URL or deck export before generating ChatGPT packets.';
     }
-    if (step >= 2 && !targetCommanderBracket) {
+    if (step === 2 && !targetCommanderBracket) {
         return 'Choose the target Commander bracket before generating the analysis packet.';
     }
-    if (step >= 2 && form.querySelectorAll('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
+    if (step === 2 && form.querySelectorAll('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
         return 'Select at least one analysis question before generating the analysis packet.';
     }
-    if (step >= 2 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
+    if (step === 2 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
         return 'Enter a card name for the selected card-specific analysis questions.';
     }
-    if (step >= 2 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
+    if (step === 2 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
         return 'Enter a budget amount for the selected budget upgrade question.';
     }
-    if (step >= 2 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
+    if (step === 2 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
         return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
     }
     if (step >= 3 && !deckProfileJson) {

@@ -362,6 +362,43 @@ Commander
         Assert.Equal("The submitted ChatGPT response did not contain a valid deck_profile payload.", exception.Message);
     }
 
+    [Fact]
+    public async Task BuildAsync_RendersAnalysisResponse_FromDeckProfileJsonWithoutDeckSource()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (_, _) => throw new InvalidOperationException("Scryfall lookup should not run for saved Step 3 JSON."));
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckProfileJson = """
+{
+  "deck_profile": {
+    "format": "Commander",
+    "commander": "Atraxa, Praetors' Voice",
+    "game_plan": "Midrange value",
+    "primary_axes": ["counters", "value"],
+    "speed": "medium",
+    "strengths": ["Resilient board presence"],
+    "weaknesses": ["Mana base is slow"],
+    "deck_needs": [],
+    "weak_slots": [],
+    "synergy_tags": ["proliferate"],
+    "question_answers": [],
+    "deck_versions": []
+  }
+}
+"""
+        });
+
+        Assert.NotNull(result.AnalysisResponse);
+        Assert.Equal("Atraxa, Praetors' Voice", result.AnalysisResponse!.Commander);
+        Assert.Contains("Commander: Atraxa, Praetors' Voice", result.InputSummary);
+        Assert.Equal("Atraxa, Praetors' Voice | AI Deck Analysis", result.SuggestedChatTitle);
+        Assert.Null(result.AnalysisPromptText);
+        Assert.Null(result.ReferenceText);
+    }
+
     /// <summary>
     /// Requires a card name when the selected questions are card-specific.
     /// </summary>

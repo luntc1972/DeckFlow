@@ -8,7 +8,7 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 - `MtgDeckStudio.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
 - `MtgDeckStudio.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
-- The ChatGPT Packets page is the primary analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
+- The ChatGPT Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
 - The Moxfield Tag Exporter browser extension exports deck tags from moxfield.com into Archidekt or Moxfield bulk-edit format.
 
@@ -27,9 +27,9 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 
 ---
 
-## ChatGPT Packets Workflow
+## ChatGPT Analysis Workflow
 
-The ChatGPT Packets page (`/Deck/ChatGptPackets`) guides you through a 4-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, and Step 4 optionally generates a set-upgrade prompt using that parsed profile.
+The ChatGPT Analysis page (`/Deck/ChatGptPackets`) guides you through a 4-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, and Step 4 optionally generates a set-upgrade prompt using that parsed profile.
 
 ### Workflow layout modes
 Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expert**. They present the same underlying steps with different amounts of context and guidance text.
@@ -64,7 +64,7 @@ Click **Generate Analysis Packet** to build the reference data and analysis prom
 The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to keep long prompts structured.
 
 ### Step 3 — Analysis Results
-Paste the fenced `deck_profile` JSON block or raw JSON payload returned from ChatGPT. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
+Paste the fenced `deck_profile` JSON block or raw JSON payload returned from ChatGPT. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
 - Format and commander
 - Game plan, speed, primary axes, and synergy tags
 - Strengths, weaknesses, deck needs, and weak slots
@@ -79,7 +79,7 @@ Select one or more recent MTG sets, or paste a condensed set packet override. Th
 ### Artifact saving
 Check **Save artifacts to disk** to write all generated prompts and reference files to:
 ```
-Documents\MTG Deck Studio\ChatGPT Packets\<commander-name>\<timestamp>\
+Documents\MTG Deck Studio\ChatGPT Analysis\<commander-name>\<timestamp>\
 ```
 Files saved: `input-summary.txt`, `reference.txt`, `analysis.txt`, `deck-profile-schema.json`, `set-upgrade-prompt.txt` (when applicable). The pasted Step 3 analysis summary is rendered from the submitted JSON and is not saved as a separate artifact.
 
@@ -158,6 +158,8 @@ Paste ChatGPT's JSON response back into the form. The page parses the `deck_comp
 - Recommended-for notes per deck
 - Confidence notes (when ChatGPT flags uncertainty)
 
+If you continue asking follow-up questions in the same ChatGPT thread, use `32-comparison-follow-up-prompt.txt` to have ChatGPT revise the readable comparison and regenerate the full `deck_comparison` JSON block.
+
 ### Artifact saving
 Check **Save artifacts to disk** to write generated files to:
 ```
@@ -203,6 +205,7 @@ The Commander Categories page shows the Archidekt tags that appear most often on
 - Run `dotnet run --project MtgDeckStudio.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
 - The CLI runs a dedicated cache session that respects rate limits via Polly, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The web cache service reuses the same session logic for on-demand refreshes from the MVC UI.
+- The AI Category Suggestions page can start a 10-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
 - Basic card type categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are filtered out of cache suggestions.
 
 ---
@@ -234,6 +237,27 @@ Content-Type: application/json
 }
 ```
 
+### Archidekt cache background jobs
+Start a background harvest:
+```
+POST /api/archidekt-cache-jobs
+Content-Type: application/json
+
+{
+  "durationSeconds": 600
+}
+```
+
+Poll a specific job:
+```
+GET /api/archidekt-cache-jobs/{jobId}
+```
+
+Get the currently active job, if any:
+```
+GET /api/archidekt-cache-jobs/active
+```
+
 ### cURL examples
 ```bash
 curl -X POST http://localhost:5000/api/suggestions/card \
@@ -248,7 +272,7 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 ---
 
 ## Scryfall usage
-- Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the ChatGPT Packets workflow, and async set catalog loading.
+- Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the ChatGPT Analysis workflow, and async set catalog loading.
 - All Scryfall clients send a real `User-Agent`, an explicit `Accept` header, and use `https`.
 - Card lookup uses `POST /cards/collection` in batches of 75 identifiers.
 - The Card Lookup page is capped at 100 non-empty input lines per submission (at most two Scryfall requests).

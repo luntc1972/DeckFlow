@@ -94,7 +94,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             ? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "MTG Deck Studio",
-                "ChatGPT Packets")
+                "ChatGPT Analysis")
             : Path.GetFullPath(chatGptArtifactsPath);
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
@@ -112,6 +112,27 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         ArgumentNullException.ThrowIfNull(request);
         var overallStopwatch = Stopwatch.StartNew();
         var timings = new List<(string Label, long Ms, string? Detail)>();
+
+        if (request.WorkflowStep == 3
+            && string.IsNullOrWhiteSpace(request.DeckSource)
+            && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
+        {
+            var analysisResponse = ParseAnalysisResponse(request.DeckProfileJson);
+            var timingSummary = BuildTimingSummary(overallStopwatch, timings);
+            return new ChatGptDeckPacketResult(
+                InputSummary: BuildAnalysisSummaryFromSavedJson(analysisResponse),
+                SuggestedChatTitle: BuildSuggestedChatTitle(request, analysisResponse.Commander),
+                DeckProfileSchemaJson: BuildDeckProfileSchemaJson(
+                    string.IsNullOrWhiteSpace(analysisResponse.Commander) ? null : analysisResponse.Commander,
+                    string.IsNullOrWhiteSpace(analysisResponse.Format) ? request.Format : analysisResponse.Format,
+                    analysisResponse.DeckVersions.Count > 0),
+                ReferenceText: null,
+                AnalysisPromptText: null,
+                SetUpgradePromptText: null,
+                SavedArtifactsDirectory: null,
+                TimingSummary: timingSummary,
+                AnalysisResponse: analysisResponse);
+        }
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))
         {
@@ -717,6 +738,39 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 : "Commander Deck";
 
         return $"{primaryName} | AI Deck Analysis";
+    }
+
+    private static string BuildAnalysisSummaryFromSavedJson(ChatGptDeckAnalysisResponse analysisResponse)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"Format: {NormalizeSingleLine(analysisResponse.Format, "Commander")}");
+
+        if (!string.IsNullOrWhiteSpace(analysisResponse.Commander))
+        {
+            builder.AppendLine($"Commander: {analysisResponse.Commander.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(analysisResponse.GamePlan))
+        {
+            builder.AppendLine($"Game plan: {analysisResponse.GamePlan.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(analysisResponse.Speed))
+        {
+            builder.AppendLine($"Speed: {analysisResponse.Speed.Trim()}");
+        }
+
+        if (analysisResponse.PrimaryAxes.Count > 0)
+        {
+            builder.AppendLine($"Primary axes: {string.Join(", ", analysisResponse.PrimaryAxes)}");
+        }
+
+        if (analysisResponse.SynergyTags.Count > 0)
+        {
+            builder.AppendLine($"Synergy tags: {string.Join(", ", analysisResponse.SynergyTags)}");
+        }
+
+        return builder.ToString().TrimEnd();
     }
 
     /// <summary>

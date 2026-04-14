@@ -13,10 +13,12 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private const int HarvestDeckCount = 20;
     private readonly string _artifactsPath;
     private readonly string _databasePath;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly SemaphoreSlim _schemaGate = new(1, 1);
+    private readonly SemaphoreSlim _sweepGate = new(1, 1);
     private readonly CategoryKnowledgeRepository _repository;
     private readonly ArchidektApiDeckImporter _archidektImporter;
     private readonly ArchidektRecentDecksImporter _recentDeckImporter;
+    private volatile bool _schemaReady;
 
     /// <summary>
     /// Initializes the knowledge store for the web app environment.
@@ -41,16 +43,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
-
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            return await _repository.GetCategoriesAsync(cardName, cancellationToken);
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCategoriesAsync(cardName, cancellationToken);
     }
 
     /// <summary>
@@ -68,15 +62,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             return;
         }
 
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        await EnsureSchemaReadyAsync(cancellationToken);
+        await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
     }
 
     /// <summary>
@@ -87,18 +74,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await EnsureSchemaReadyAsync(cancellationToken);
+        await _sweepGate.WaitAsync(cancellationToken);
         try
         {
             Directory.CreateDirectory(_artifactsPath);
-            await _repository.EnsureSchemaAsync(cancellationToken);
             var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
             var result = await session.RunAsync(TimeSpan.FromSeconds(durationSeconds), queueBatchSize: 5, fetchBatchSize: HarvestDeckCount, cancellationToken: cancellationToken);
             return result.DecksProcessed;
         }
         finally
         {
-            _gate.Release();
+            _sweepGate.Release();
         }
     }
 
@@ -110,15 +97,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            return await _repository.GetCategoryRowsForCardAsync(cardName, boardFilter, cancellationToken);
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCategoryRowsForCardAsync(cardName, boardFilter, cancellationToken);
     }
 
     /// <summary>
@@ -127,15 +107,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            return await _repository.GetCardDeckTotalsAsync(cardName, boardFilter, cancellationToken);
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCardDeckTotalsAsync(cardName, boardFilter, cancellationToken);
     }
 
     /// <summary>
@@ -144,6 +117,42 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
     {
+        if (!_schemaReady)
+        {
+            return GetProcessedDeckCountCoreAsync(cancellationToken);
+        }
+
         return _repository.GetProcessedDeckCountAsync(cancellationToken);
+    }
+
+    private async Task<int> GetProcessedDeckCountCoreAsync(CancellationToken cancellationToken)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetProcessedDeckCountAsync(cancellationToken);
+    }
+
+    private async Task EnsureSchemaReadyAsync(CancellationToken cancellationToken)
+    {
+        if (_schemaReady)
+        {
+            return;
+        }
+
+        await _schemaGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_schemaReady)
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(_artifactsPath);
+            await _repository.EnsureSchemaAsync(cancellationToken);
+            _schemaReady = true;
+        }
+        finally
+        {
+            _schemaGate.Release();
+        }
     }
 }

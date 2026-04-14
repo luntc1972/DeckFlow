@@ -124,3 +124,27 @@ public sealed class MechanicLookupApiResponse
     /// </summary>
     public string? NotFoundMessage { get; init; }
 }
+
+public sealed class ArchidektCacheJobStartRequest
+{
+    public int DurationSeconds { get; init; }
+}
+
+public class ArchidektCacheJobStatusResponse
+{
+    public Guid JobId { get; init; }
+    public string State { get; init; } = string.Empty;
+    public int DurationSeconds { get; init; }
+    public DateTimeOffset RequestedUtc { get; init; }
+    public DateTimeOffset? StartedUtc { get; init; }
+    public DateTimeOffset? CompletedUtc { get; init; }
+    public int DecksProcessed { get; init; }
+    public int AdditionalDecksFound { get; init; }
+    public string? ErrorMessage { get; init; }
+}
+
+public sealed class ArchidektCacheJobEnqueueResponse : ArchidektCacheJobStatusResponse
+{
+    public bool StartedNewJob { get; init; }
+    public string StatusUrl { get; init; } = string.Empty;
+}
