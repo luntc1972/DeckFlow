@@ -123,7 +123,29 @@ public sealed class EdhTop16Client : IEdhTop16Client
     }
 
     private static DateOnly? ParseDate(string? value)
-        => DateOnly.TryParse(value, out var parsed) ? parsed : null;
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (DateOnly.TryParse(value, out var parsedDateOnly))
+        {
+            return parsedDateOnly;
+        }
+
+        if (DateTimeOffset.TryParse(value, out var parsedDateTimeOffset))
+        {
+            return DateOnly.FromDateTime(parsedDateTimeOffset.UtcDateTime);
+        }
+
+        if (DateTime.TryParse(value, out var parsedDateTime))
+        {
+            return DateOnly.FromDateTime(parsedDateTime);
+        }
+
+        return null;
+    }
 
     private static EdhTop16Entry MapEntry(EdhTop16EntryNode node)
         => new()

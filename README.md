@@ -9,7 +9,7 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 - `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
 - `MtgDeckStudio.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
 - The ChatGPT Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
-- The cEDH Meta Gap page compares a submitted deck against 1 to 5 EDH Top 16 reference lists for the same commander, generates a strict `meta_gap` ChatGPT prompt, and renders the returned JSON as a readable upgrade path.
+- The cEDH Meta Gap page compares a submitted deck against 1 to 3 EDH Top 16 reference lists for the same commander, resolves canonical card names through Scryfall, injects Commander Spellbook combo references, generates a structured `meta_gap` ChatGPT prompt, and renders the returned JSON as a readable upgrade path.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
 - The Moxfield Tag Exporter browser extension exports deck tags from moxfield.com into Archidekt or Moxfield bulk-edit format.
 
@@ -185,15 +185,37 @@ Paste a public Moxfield or Archidekt URL, or paste deck export text directly. Yo
 - Minimum event size
 - Maximum standing
 
-The service parses the submitted deck, resolves the commander, fetches matching EDH Top 16 entries, and sorts them newest-first before display.
+The service parses the submitted deck, removes sideboard and maybeboard cards, resolves the commander, fetches matching EDH Top 16 entries, and sorts them newest-first before display.
 
 ### Step 2 — Generate Meta-Gap Prompt
-Select 1 to 5 EDH Top 16 reference decks and generate the prompt. The service builds:
+Select 1 to 3 EDH Top 16 reference decks and generate the prompt. The service builds:
 
 - `30-meta-gap-prompt.txt`
 - `31-meta-gap-schema.json`
 
-The prompt requires ChatGPT to return a single fenced `json` block whose top-level object is `meta_gap`, with no extra prose.
+While building the prompt, the service also:
+
+- Resolves submitted-deck and reference-deck card names through Scryfall so alternate print names and reskins are converted to canonical Oracle names where possible.
+- Normalizes split and multi-face names to the base/front name for prompt display.
+- Queries Commander Spellbook for your deck and for each selected reference deck, then injects combo summaries into the prompt.
+- Caps the reference-deck count at 3 to keep the prompt size reasonable once decklists and combo references are included.
+
+The prompt is structured with clear sections:
+
+- `ROLE`
+- `EVIDENCE PRIORITY`
+- `RULES`
+- `INPUT DATA`
+- `ANALYSIS TASK`
+- `OUTPUT CONTRACT`
+- `JSON SHAPE`
+
+ChatGPT is instructed to:
+
+- Write a concise human-readable meta-gap summary first.
+- Then return a fenced `json` block whose top-level object is `meta_gap`.
+- Prefer the supplied Commander Spellbook combo evidence over weaker inferred combo reads when they conflict.
+- Fill every field, using empty strings, zero values, `false`, or empty arrays when evidence is missing.
 
 ### Step 3 — Paste Returned JSON
 Paste the raw JSON or fenced `json` block back into the page. The shared JSON extractor accepts fenced responses and ignores surrounding prose or extra trailing fence noise before parsing the payload. The page renders:

@@ -2,8 +2,11 @@ using System.Text;
 using System.Text.Json;
 using MtgDeckStudio.Core.Integration;
 using MtgDeckStudio.Core.Models;
+using MtgDeckStudio.Core.Normalization;
 using MtgDeckStudio.Core.Parsing;
 using MtgDeckStudio.Web.Models;
+using RestSharp;
+using System.Net;
 
 namespace MtgDeckStudio.Web.Services;
 
@@ -24,6 +27,7 @@ public sealed record ChatGptCedhMetaGapResult(
 public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 {
     private const int FetchCount = 48;
+    private const int ScryfallBatchSize = 75;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -35,6 +39,9 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     private readonly MoxfieldParser _moxfieldParser;
     private readonly ArchidektParser _archidektParser;
     private readonly IEdhTop16Client _edhTop16Client;
+    private readonly ICommanderSpellbookService _commanderSpellbookService;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly string _artifactsPath;
 
     public ChatGptCedhMetaGapService(
@@ -42,13 +49,21 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
-        IEdhTop16Client edhTop16Client)
+        IEdhTop16Client edhTop16Client,
+        ICommanderSpellbookService commanderSpellbookService,
+        RestClient? scryfallRestClient = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
     {
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
         _moxfieldParser = moxfieldParser;
         _archidektParser = archidektParser;
         _edhTop16Client = edhTop16Client;
+        _commanderSpellbookService = commanderSpellbookService;
+        var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
+        _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
+        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
         _artifactsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "MTG Deck Studio",
@@ -109,7 +124,29 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         if (request.WorkflowStep >= 2)
         {
             var selectedEntries = ResolveSelectedEntries(request.SelectedReferenceIndexes, fetchedEntries);
-            promptText = BuildPrompt(resolvedCommanderName, loadedDeck.PlayableEntries, selectedEntries, schemaJson);
+            var oracleNameMap = await ResolveOracleNameMapAsync(loadedDeck.PlayableEntries, selectedEntries, cancellationToken).ConfigureAwait(false);
+            var normalizedMyDeckEntries = NormalizeDeckEntriesForPromptAndCombos(loadedDeck.PlayableEntries, oracleNameMap);
+            var normalizedReferenceDecks = selectedEntries
+                .Select(entry => BuildReferenceDeckEntries(resolvedCommanderName, entry, oracleNameMap))
+                .ToList();
+
+            var myDeckComboTask = _commanderSpellbookService.FindCombosAsync(normalizedMyDeckEntries, cancellationToken);
+            var referenceComboTasks = selectedEntries
+                .Select((entry, index) => _commanderSpellbookService.FindCombosAsync(
+                    normalizedReferenceDecks[index],
+                    cancellationToken))
+                .ToList();
+
+            await Task.WhenAll(referenceComboTasks.Prepend(myDeckComboTask)).ConfigureAwait(false);
+
+            promptText = BuildPrompt(
+                resolvedCommanderName,
+                normalizedMyDeckEntries,
+                myDeckComboTask.Result,
+                selectedEntries,
+                referenceComboTasks.Select(task => task.Result).ToList(),
+                oracleNameMap,
+                schemaJson);
         }
 
         string? savedArtifactsDirectory = null;
@@ -146,9 +183,9 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             throw new InvalidOperationException("Select at least 1 EDH Top 16 reference deck before generating the prompt.");
         }
 
-        if (distinctIndexes.Count > 5)
+        if (distinctIndexes.Count > 3)
         {
-            throw new InvalidOperationException("Select no more than 5 EDH Top 16 reference decks before generating the prompt.");
+            throw new InvalidOperationException("Select no more than 3 EDH Top 16 reference decks before generating the prompt.");
         }
 
         return distinctIndexes.Select(index => fetchedEntries[index]).ToList();
@@ -259,18 +296,30 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     private static string BuildPrompt(
         string commanderName,
         IReadOnlyList<DeckEntry> myDeckEntries,
+        CommanderSpellbookResult? myDeckCombos,
         IReadOnlyList<EdhTop16Entry> selectedEntries,
+        IReadOnlyList<CommanderSpellbookResult?> referenceDeckCombos,
+        IReadOnlyDictionary<string, string> oracleNameMap,
         string schemaJson)
     {
         var refCount = selectedEntries.Count;
         var builder = new StringBuilder();
-        builder.AppendLine($"Title this chat: {commanderName} | cEDH Meta Gap Analysis");
+        builder.AppendLine($"Title this chat: {commanderName} | cEDH Meta Gap");
         builder.AppendLine();
-        builder.AppendLine($"You are a cEDH deck optimization analyst. Compare MY_DECK against {refCount} REF deck(s). Read every supplied decklist before answering.");
+        builder.AppendLine("ROLE:");
+        builder.AppendLine("You are a cEDH deck optimization analyst.");
+        builder.AppendLine($"Compare MY_DECK against {refCount} REF deck(s).");
         builder.AppendLine();
 
-        // Strict rules
-        builder.AppendLine("STRICT RULES:");
+        builder.AppendLine("EVIDENCE PRIORITY:");
+        builder.AppendLine("1. Use the supplied decklists as the primary evidence.");
+        builder.AppendLine("2. Use the supplied Commander Spellbook combo sections as verified combo evidence.");
+        builder.AppendLine("3. Only infer patterns that are strongly supported by the supplied cards.");
+        builder.AppendLine("4. If Commander Spellbook evidence and deck-reading inference conflict, prefer the Commander Spellbook evidence.");
+        builder.AppendLine();
+
+        builder.AppendLine("RULES:");
+        builder.AppendLine("- Read every supplied decklist before answering.");
         builder.AppendLine("- Base every conclusion ONLY on observable card overlap and deck construction.");
         builder.AppendLine("- Do NOT assume combo lines unless supported by card presence in the lists.");
         builder.AppendLine("- Cite specific card names as evidence.");
@@ -279,9 +328,11 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("- Do NOT invent card text or interactions.");
         builder.AppendLine();
 
-        // Decklists
+        builder.AppendLine("INPUT DATA:");
         builder.AppendLine($"MY_DECK ({commanderName}):");
-        builder.AppendLine(BuildCompactDecklist(myDeckEntries));
+        builder.AppendLine(BuildCompactDecklist(myDeckEntries, oracleNameMap));
+        builder.AppendLine();
+        builder.AppendLine(BuildComboReferenceText("MY_DECK", myDeckCombos));
         builder.AppendLine();
 
         for (var index = 0; index < refCount; index++)
@@ -301,12 +352,16 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             }
 
             builder.AppendLine("):");
-            builder.AppendLine(BuildCompactRefDecklist(entry));
+            builder.AppendLine(BuildCompactRefDecklist(entry, oracleNameMap));
+            builder.AppendLine();
+
+            var comboResult = index < referenceDeckCombos.Count ? referenceDeckCombos[index] : null;
+            builder.AppendLine(BuildComboReferenceText($"R{index + 1}", comboResult));
             builder.AppendLine();
         }
 
-        // 8 analysis sections
         builder.AppendLine("ANALYSIS TASK:");
+        builder.AppendLine("Use the input data above and complete every section below.");
         builder.AppendLine();
 
         builder.AppendLine("1. WIN CONDITIONS");
@@ -355,24 +410,182 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("- Assign a 1-10 cEDH readiness score with 2-sentence justification.");
         builder.AppendLine();
 
-        // Output format
-        builder.AppendLine("OUTPUT:");
-        builder.AppendLine("Return a single fenced ```json block only. No prose before or after.");
-        builder.AppendLine("Top-level object must be meta_gap. Fill every field.");
-        builder.AppendLine("Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
-        builder.AppendLine("Keep all detail/why text concise and evidence-based.");
-        builder.AppendLine("Populate consistency and meta_positioning as free-text summaries in meta_summary and optimization_path.");
+        builder.AppendLine("OUTPUT CONTRACT:");
+        builder.AppendLine("- First, provide a concise human-readable meta gap summary.");
+        builder.AppendLine("- Then return a fenced ```json block whose top-level object is meta_gap.");
+        builder.AppendLine("- The prose summary must come before the JSON block.");
+        builder.AppendLine("- Fill every field in meta_gap.");
+        builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
+        builder.AppendLine("- Keep all detail and justification concise, specific, and evidence-based.");
+        builder.AppendLine("- Put the consistency/redundancy summary and meta-positioning summary into meta_summary and optimization_path.");
+        builder.AppendLine("- Do not add any extra sections after the JSON block.");
+        builder.AppendLine();
+        builder.AppendLine("JSON SHAPE:");
         builder.AppendLine("Use this exact shape:");
         builder.AppendLine(schemaJson);
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildCompactDecklist(IReadOnlyList<DeckEntry> deckEntries)
+    private async Task<IReadOnlyDictionary<string, string>> ResolveOracleNameMapAsync(
+        IReadOnlyList<DeckEntry> myDeckEntries,
+        IReadOnlyList<EdhTop16Entry> selectedEntries,
+        CancellationToken cancellationToken)
+    {
+        var uniqueNames = myDeckEntries
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+            .Select(entry => entry.Name.Trim())
+            .Concat(selectedEntries
+                .SelectMany(entry => entry.MainDeck)
+                .Where(card => !string.IsNullOrWhiteSpace(card.Name))
+                .Select(card => card.Name.Trim()))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var chunk in Chunk(uniqueNames, ScryfallBatchSize))
+        {
+            var request = new RestRequest("cards/collection", Method.Post)
+                .AddJsonBody(new
+                {
+                    identifiers = chunk.Select(name => new { name }).ToArray()
+                });
+
+            var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+            {
+                throw new HttpRequestException(
+                    $"Scryfall card reference lookup failed while building the cEDH meta-gap prompt with HTTP {(int)response.StatusCode}.",
+                    null,
+                    response.StatusCode);
+            }
+
+            foreach (var card in response.Data.Data)
+            {
+                foreach (var submittedName in chunk.Where(name => string.Equals(name, card.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    oracleNameMap[submittedName] = card.Name;
+                }
+            }
+
+            var unresolvedNames = chunk
+                .Where(name => !oracleNameMap.ContainsKey(name))
+                .ToList();
+
+            foreach (var unresolvedName in unresolvedNames)
+            {
+                var fallbackCard = await SearchFallbackCardAsync(unresolvedName, cancellationToken).ConfigureAwait(false);
+                if (fallbackCard is null)
+                {
+                    continue;
+                }
+
+                oracleNameMap[unresolvedName] = fallbackCard.Name;
+            }
+        }
+
+        return oracleNameMap;
+    }
+
+    private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+    {
+        var normalizedName = cardName.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return null;
+        }
+
+        var request = new RestRequest("cards/search", Method.Get);
+        request.AddQueryParameter("q", $"!\"{normalizedName}\"");
+        request.AddQueryParameter("unique", "cards");
+        request.AddQueryParameter("order", "name");
+
+        var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
+        if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 300)
+        {
+            return response.Data?.Data.FirstOrDefault();
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        throw new HttpRequestException(
+            $"Scryfall fallback lookup failed while resolving {cardName} with HTTP {(int)response.StatusCode}.",
+            null,
+            response.StatusCode);
+    }
+
+    private static IReadOnlyList<DeckEntry> NormalizeDeckEntriesForPromptAndCombos(
+        IReadOnlyList<DeckEntry> deckEntries,
+        IReadOnlyDictionary<string, string> oracleNameMap)
+    {
+        return deckEntries
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+            .Select(entry =>
+            {
+                var resolvedName = ResolvePromptCardName(entry.Name, oracleNameMap);
+                return new DeckEntry
+                {
+                    Name = resolvedName,
+                    NormalizedName = CardNormalizer.Normalize(resolvedName),
+                    Quantity = entry.Quantity,
+                    Board = entry.Board
+                };
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<DeckEntry> BuildReferenceDeckEntries(string commanderName, EdhTop16Entry entry, IReadOnlyDictionary<string, string> oracleNameMap)
+    {
+        var entries = new List<DeckEntry>();
+        if (!string.IsNullOrWhiteSpace(commanderName))
+        {
+            var resolvedCommanderName = ResolvePromptCardName(commanderName, oracleNameMap);
+            entries.Add(new DeckEntry
+            {
+                Name = resolvedCommanderName,
+                NormalizedName = CardNormalizer.Normalize(resolvedCommanderName),
+                Quantity = 1,
+                Board = "commander"
+            });
+        }
+
+        foreach (var card in entry.MainDeck.Where(card => !string.IsNullOrWhiteSpace(card.Name)))
+        {
+            var resolvedName = ResolvePromptCardName(card.Name, oracleNameMap);
+            entries.Add(new DeckEntry
+            {
+                Name = resolvedName,
+                NormalizedName = CardNormalizer.Normalize(resolvedName),
+                Quantity = 1,
+                Board = "mainboard"
+            });
+        }
+
+        return entries;
+    }
+
+    private static string BuildCompactDecklist(IReadOnlyList<DeckEntry> deckEntries, IReadOnlyDictionary<string, string>? oracleNameMap = null)
     {
         var builder = new StringBuilder();
-        foreach (var entry in deckEntries
-                     .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
+        var normalizedEntries = deckEntries
+            .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+            .GroupBy(
+                entry => CardNormalizer.Normalize(entry.Name),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => new
+            {
+                Quantity = group.Sum(entry => entry.Quantity),
+                Name = group
+                    .Select(entry => ResolvePromptCardName(entry.Name, oracleNameMap))
+                    .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? string.Empty
+            })
+            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in normalizedEntries)
         {
             builder.Append(entry.Quantity);
             builder.Append(' ');
@@ -382,12 +595,109 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildCompactRefDecklist(EdhTop16Entry entry)
+    private static string BuildCompactRefDecklist(EdhTop16Entry entry, IReadOnlyDictionary<string, string>? oracleNameMap = null)
     {
         var builder = new StringBuilder();
-        foreach (var card in entry.MainDeck.OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase))
+        var normalizedCards = entry.MainDeck
+            .Where(card => !string.IsNullOrWhiteSpace(card.Name))
+            .GroupBy(
+                card => CardNormalizer.Normalize(card.Name),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => ResolvePromptCardName(group.First().Name, oracleNameMap))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var cardName in normalizedCards)
         {
-            builder.AppendLine(card.Name);
+            builder.AppendLine(cardName);
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string GetBaseCardDisplayName(string? cardName)
+    {
+        if (string.IsNullOrWhiteSpace(cardName))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = cardName.Trim();
+        var splitSeparators = new[] { " // ", " / " };
+        foreach (var separator in splitSeparators)
+        {
+            var splitIndex = trimmed.IndexOf(separator, StringComparison.Ordinal);
+            if (splitIndex >= 0)
+            {
+                return trimmed[..splitIndex].Trim();
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static string ResolvePromptCardName(string? cardName, IReadOnlyDictionary<string, string>? oracleNameMap)
+    {
+        if (string.IsNullOrWhiteSpace(cardName))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = cardName.Trim();
+        if (oracleNameMap is not null && oracleNameMap.TryGetValue(trimmed, out var resolvedName) && !string.IsNullOrWhiteSpace(resolvedName))
+        {
+            return GetBaseCardDisplayName(resolvedName);
+        }
+
+        return GetBaseCardDisplayName(trimmed);
+    }
+
+    private static IEnumerable<List<string>> Chunk(IReadOnlyList<string> source, int size)
+    {
+        for (var index = 0; index < source.Count; index += size)
+        {
+            yield return source.Skip(index).Take(size).ToList();
+        }
+    }
+
+    private static string BuildComboReferenceText(string label, CommanderSpellbookResult? result)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"Commander Spellbook combos for {label}:");
+
+        if (result is null || (result.IncludedCombos.Count == 0 && result.AlmostIncludedCombos.Count == 0))
+        {
+            builder.AppendLine("(none found)");
+            return builder.ToString().TrimEnd();
+        }
+
+        if (result.IncludedCombos.Count > 0)
+        {
+            builder.AppendLine($"Complete combos: {result.IncludedCombos.Count}");
+            for (var i = 0; i < result.IncludedCombos.Count; i++)
+            {
+                var combo = result.IncludedCombos[i];
+                builder.AppendLine($"{i + 1}. Cards: {string.Join(" + ", combo.CardNames)}");
+                builder.AppendLine($"   Result: {string.Join(", ", combo.Results)}");
+            }
+        }
+        else
+        {
+            builder.AppendLine("Complete combos: 0");
+        }
+
+        if (result.AlmostIncludedCombos.Count > 0)
+        {
+            builder.AppendLine($"Near-combos: {result.AlmostIncludedCombos.Count}");
+            for (var i = 0; i < result.AlmostIncludedCombos.Count; i++)
+            {
+                var combo = result.AlmostIncludedCombos[i];
+                builder.AppendLine($"{i + 1}. Missing: {combo.MissingCard} | Have: {string.Join(" + ", combo.CardsInDeck)}");
+                builder.AppendLine($"   Result: {string.Join(", ", combo.Results)}");
+            }
+        }
+        else
+        {
+            builder.AppendLine("Near-combos: 0");
         }
 
         return builder.ToString().TrimEnd();

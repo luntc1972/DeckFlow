@@ -4,11 +4,22 @@
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
     var selectedReferenceIndexes = Model.Request.SelectedReferenceIndexes ?? new List<int>();
     const int pageSize = 10;
+
+    static string FormatTimePeriodLabel(MtgDeckStudio.Web.Models.CedhMetaTimePeriod value) => value switch
+    {
+        MtgDeckStudio.Web.Models.CedhMetaTimePeriod.ONE_MONTH => "One Month",
+        MtgDeckStudio.Web.Models.CedhMetaTimePeriod.THREE_MONTHS => "Three Months",
+        MtgDeckStudio.Web.Models.CedhMetaTimePeriod.SIX_MONTHS => "Six Months",
+        MtgDeckStudio.Web.Models.CedhMetaTimePeriod.ONE_YEAR => "One Year",
+        MtgDeckStudio.Web.Models.CedhMetaTimePeriod.ALL_TIME => "All Time",
+        MtgDeckStudio.Web.Models.CedhMetaTimePeriod.POST_BAN => "Post-Ban",
+        _ => value.ToString().Replace('_', ' ')
+    };
 }
 
 <section class="hero">
     <h1>cEDH Meta Gap</h1>
-    <p class="lede">Compare your deck against 1 to 5 EDH Top 16 reference lists for the same commander, generate a strict ChatGPT prompt, and paste the returned <code>meta_gap</code> JSON back here for a readable upgrade path.</p>
+    <p class="lede">Compare your deck against 1 to 3 EDH Top 16 reference lists for the same commander, generate a strict ChatGPT prompt, and paste the returned <code>meta_gap</code> JSON back here for a readable upgrade path.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -20,7 +31,7 @@
 }
 
 <div class="info-banner">
-    Step 1 fetches EDH Top 16 reference decks, Step 2 generates the ChatGPT prompt from 1 to 5 selected lists, and Step 3 renders the returned <code>meta_gap</code> JSON.
+    Step 1 fetches EDH Top 16 reference decks, Step 2 generates the ChatGPT prompt from 1 to 3 selected lists, and Step 3 renders the returned <code>meta_gap</code> JSON.
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
@@ -88,7 +99,7 @@
                     <select name="TimePeriod">
                         @foreach (var option in Enum.GetValues<MtgDeckStudio.Web.Models.CedhMetaTimePeriod>())
                         {
-                            <option value="@option" selected="@(Model.Request.TimePeriod == option)">@option.ToString().Replace('_', ' ')</option>
+                            <option value="@option" selected="@(Model.Request.TimePeriod == option)">@FormatTimePeriodLabel(option)</option>
                         }
                     </select>
                 </label>
@@ -133,8 +144,8 @@
         <div class="chatgpt-step-heading">
             <div>
                 <p class="chatgpt-step-eyebrow">Step 2</p>
-                <h2>Select 1 to 5 reference decks and generate the prompt</h2>
-                <p>Choose 1 to 5 EDH Top 16 entries, build the prompt, then paste it into ChatGPT and request the fenced <code>meta_gap</code> JSON block.</p>
+                <h2>Select 1 to 3 reference decks and generate the prompt</h2>
+                <p>Choose 1 to 3 EDH Top 16 entries, build the prompt, then paste it into ChatGPT and request a readable response followed by the fenced <code>meta_gap</code> JSON block.</p>
             </div>
             <span class="chatgpt-step-badge">Prompt output</span>
         </div>
@@ -160,18 +171,17 @@
                 <div class="panel-heading">
                     <div>
                         <h3>EDH Top 16 References</h3>
-                        <p>Sorted by newest tournament first. Select 1 to 5 decks. The client enforces the limit before submit.</p>
+                        <p>Sorted by newest tournament first. Select 1 to 3 decks. The client enforces the limit before submit.</p>
                     </div>
                 </div>
 
                 <div class="table-wrapper">
-                    <table data-chatgpt-cedh-reference-table>
+                    <table class="conflicts-table" data-chatgpt-cedh-reference-table>
                         <thead>
                         <tr>
                             <th>Select</th>
                             <th>#</th>
                             <th>Player</th>
-                            <th>Tournament</th>
                             <th>Date</th>
                             <th>Participants</th>
                             <th>Finish</th>
@@ -195,7 +205,6 @@
                                 </td>
                                 <td>@(index + 1)</td>
                                 <td>@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
-                                <td>@(string.IsNullOrWhiteSpace(entry.TournamentName) ? "Unknown" : entry.TournamentName)</td>
                                 <td>@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
                                 <td>@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
                                 <td>@entry.Standing</td>
@@ -232,11 +241,11 @@
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
-                <li>Select 1 to 5 reference decks.</li>
+                <li>Select 1 to 3 reference decks.</li>
                 <li>Click <code>Generate Meta Gap Prompt</code>.</li>
                 <li>Copy <code>30-meta-gap-prompt.txt</code>.</li>
                 <li>Paste it into ChatGPT.</li>
-                <li>Have ChatGPT return only the fenced <code>```json</code> block or raw JSON whose top-level object is <code>meta_gap</code>, with no extra prose.</li>
+                <li>Have ChatGPT respond with a readable meta-gap summary first, then a fenced <code>```json</code> block whose top-level object is <code>meta_gap</code>.</li>
                 <li>Paste that JSON into Step 3.</li>
             </ol>
         </div>
@@ -251,7 +260,7 @@
                 <div class="panel-heading">
                     <div>
                         <h3>30-meta-gap-prompt.txt</h3>
-                        <p>Paste this into ChatGPT to get the final <code>meta_gap</code> JSON-only response.</p>
+                        <p>Paste this into ChatGPT to get a readable meta-gap summary followed by the final <code>meta_gap</code> JSON.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-prompt-output">Copy</button>
                 </div>
@@ -285,7 +294,7 @@
             <div>
                 <p class="chatgpt-step-eyebrow">Step 3</p>
                 <h2>Paste the returned meta-gap JSON</h2>
-                <p>Paste only the fenced JSON block or raw JSON payload that contains the top-level <code>meta_gap</code> object.</p>
+                <p>Paste the fenced JSON block or raw JSON payload that contains the top-level <code>meta_gap</code> object. Extra prose above it is fine.</p>
             </div>
             <span class="chatgpt-step-badge">Final step</span>
         </div>

@@ -35,7 +35,7 @@ public sealed class EdhTop16ClientTests
                               "player": { "name": "Alice" },
                               "tournament": {
                                 "name": "Rocky Mountain Showdown",
-                                "tournamentDate": "2026-04-10",
+                                "tournamentDate": "2026-04-10T13:45:00.000Z",
                                 "size": 84,
                                 "TID": "abc123"
                               },
