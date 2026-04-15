@@ -313,7 +313,7 @@
         }
     };
     const normalizeArchidektCacheJobResponse = (payload) => {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
         if (!payload) {
             return null;
         }
@@ -332,10 +332,10 @@
             requestedUtc,
             startedUtc: (_g = (_f = payload.startedUtc) !== null && _f !== void 0 ? _f : payload.StartedUtc) !== null && _g !== void 0 ? _g : null,
             completedUtc: (_j = (_h = payload.completedUtc) !== null && _h !== void 0 ? _h : payload.CompletedUtc) !== null && _j !== void 0 ? _j : null,
-            decksProcessed: (_k = payload.decksProcessed) !== null && _k !== void 0 ? _k : (_l = payload.DecksProcessed) !== null && _l !== void 0 ? _l : 0,
-            additionalDecksFound: payload.additionalDecksFound ?? payload.AdditionalDecksFound ?? 0,
-            errorMessage: payload.errorMessage ?? payload.ErrorMessage ?? null,
-            startedNewJob: payload.startedNewJob ?? payload.StartedNewJob
+            decksProcessed: (_l = (_k = payload.decksProcessed) !== null && _k !== void 0 ? _k : payload.DecksProcessed) !== null && _l !== void 0 ? _l : 0,
+            additionalDecksFound: (_o = (_m = payload.additionalDecksFound) !== null && _m !== void 0 ? _m : payload.AdditionalDecksFound) !== null && _o !== void 0 ? _o : 0,
+            errorMessage: (_q = (_p = payload.errorMessage) !== null && _p !== void 0 ? _p : payload.ErrorMessage) !== null && _q !== void 0 ? _q : null,
+            startedNewJob: (_r = payload.startedNewJob) !== null && _r !== void 0 ? _r : payload.StartedNewJob
         };
     };
     const notifyJobCompletion = (job) => {
@@ -465,7 +465,7 @@
         });
         document.querySelectorAll('[data-archidekt-cache-start]').forEach(button => {
             button.addEventListener('click', async () => {
-                var _a, _b, _c, _d, _e;
+                var _a, _b, _c, _d, _e, _f;
                 archidektCacheJobResolveVersion += 1;
                 const existingRecord = readArchidektCacheJobRecord();
                 if (archidektCacheJobStartPending
@@ -503,11 +503,11 @@
                     try {
                         payload = await response.json();
                     }
-                    catch (_f) {
+                    catch (_g) {
                         payload = null;
                     }
                     if (!response.ok) {
-                        const message = (_d = (_c = (_b = payload === null || payload === void 0 ? void 0 : payload.message) !== null && _b !== void 0 ? _b : payload === null || payload === void 0 ? void 0 : payload.Message) !== null && _c !== void 0 ? _c : payload === null || payload === void 0 ? void 0 : payload.errorMessage) !== null && _d !== void 0 ? _d : 'Unable to start the Archidekt category harvest.';
+                        const message = (_d = (_c = (_b = payload === null || payload === void 0 ? void 0 : payload.Message) !== null && _b !== void 0 ? _b : payload === null || payload === void 0 ? void 0 : payload.Message) !== null && _c !== void 0 ? _c : payload === null || payload === void 0 ? void 0 : payload.errorMessage) !== null && _d !== void 0 ? _d : 'Unable to start the Archidekt category harvest.';
                         const activeJobFound = await resolveActiveArchidektCacheJob(activeUrl);
                         if (!activeJobFound) {
                             writePendingStart(false);
@@ -522,7 +522,7 @@
                         throw new Error('Archidekt category harvest returned an empty response.');
                     }
                     const job = normalizeArchidektCacheJobResponse(payload);
-                    const statusUrl = (_c = (_b = job === null || job === void 0 ? void 0 : job.statusUrl) !== null && _b !== void 0 ? _b : response.headers.get('Location')) !== null && _c !== void 0 ? _c : ((job === null || job === void 0 ? void 0 : job.jobId) ? `${statusBaseUrl}/${job.jobId}` : null);
+                    const statusUrl = (_f = (_e = job === null || job === void 0 ? void 0 : job.statusUrl) !== null && _e !== void 0 ? _e : response.headers.get('Location')) !== null && _f !== void 0 ? _f : ((job === null || job === void 0 ? void 0 : job.jobId) ? `${statusBaseUrl}/${job.jobId}` : null);
                     writePendingStart(false);
                     archidektCacheJobLocked = true;
                     if (!job || !statusUrl) {

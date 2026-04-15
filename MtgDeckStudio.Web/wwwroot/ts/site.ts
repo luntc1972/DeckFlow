@@ -609,8 +609,8 @@
             payload = null;
           }
 
-          if (!response.ok) {
-            const message = payload?.message ?? payload?.Message ?? payload?.errorMessage ?? 'Unable to start the Archidekt category harvest.';
+            if (!response.ok) {
+                const message = payload?.Message ?? payload?.Message ?? payload?.errorMessage ?? 'Unable to start the Archidekt category harvest.';
             const activeJobFound = await resolveActiveArchidektCacheJob(activeUrl);
             if (!activeJobFound) {
               writePendingStart(false);
