@@ -22,8 +22,8 @@ scripts/
 tasks/
 
 # Test projects (Dockerfile only copies what it needs; this is belt-and-suspenders)
-MtgDeckStudio.Core.Tests/
-MtgDeckStudio.Web.Tests/
+DeckFlow.Core.Tests/
+DeckFlow.Web.Tests/
 
 # Artifacts directory — should be a volume at runtime, not baked into the image
 artifacts/

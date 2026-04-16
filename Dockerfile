@@ -1,4 +1,4 @@
-# Multi-stage build for MtgDeckStudio.Web (.NET 10).
+# Multi-stage build for DeckFlow.Web (.NET 10).
 # Usage:
 #   docker build -t mtg-deck-studio .
 #   docker run --rm -p 8080:8080 -v mtg_data:/data mtg-deck-studio
@@ -13,19 +13,19 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy csproj files first so dotnet restore is cached separately from the source copy.
-COPY MtgDeckStudio.sln .
-COPY MtgDeckStudio.Core/MtgDeckStudio.Core.csproj MtgDeckStudio.Core/
-COPY MtgDeckStudio.Web/MtgDeckStudio.Web.csproj MtgDeckStudio.Web/
-COPY MtgDeckStudio.CLI/MtgDeckStudio.CLI.csproj MtgDeckStudio.CLI/
-COPY MtgDeckStudio.Core.Tests/MtgDeckStudio.Core.Tests.csproj MtgDeckStudio.Core.Tests/
-COPY MtgDeckStudio.Web.Tests/MtgDeckStudio.Web.Tests.csproj MtgDeckStudio.Web.Tests/
-RUN dotnet restore MtgDeckStudio.Web/MtgDeckStudio.Web.csproj
+COPY DeckFlow.sln .
+COPY DeckFlow.Core/DeckFlow.Core.csproj DeckFlow.Core/
+COPY DeckFlow.Web/DeckFlow.Web.csproj DeckFlow.Web/
+COPY DeckFlow.CLI/DeckFlow.CLI.csproj DeckFlow.CLI/
+COPY DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj DeckFlow.Core.Tests/
+COPY DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj DeckFlow.Web.Tests/
+RUN dotnet restore DeckFlow.Web/DeckFlow.Web.csproj
 
 # Copy the rest of the source.
-COPY MtgDeckStudio.Core/ MtgDeckStudio.Core/
-COPY MtgDeckStudio.Web/ MtgDeckStudio.Web/
+COPY DeckFlow.Core/ DeckFlow.Core/
+COPY DeckFlow.Web/ DeckFlow.Web/
 
-RUN dotnet publish MtgDeckStudio.Web/MtgDeckStudio.Web.csproj \
+RUN dotnet publish DeckFlow.Web/DeckFlow.Web.csproj \
     -c Release \
     -o /app/publish \
     --no-restore \
@@ -47,4 +47,4 @@ EXPOSE 8080
 VOLUME ["/data"]
 
 # Resolve ASPNETCORE_URLS at container start so $PORT (set by Render/Fly Launch) wins when provided.
-ENTRYPOINT ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-8080} exec dotnet MtgDeckStudio.Web.dll"]
+ENTRYPOINT ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-8080} exec dotnet DeckFlow.Web.dll"]

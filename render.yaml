@@ -1,4 +1,4 @@
-# Render blueprint for MtgDeckStudio.Web.
+# Render blueprint for DeckFlow.Web.
 # Create the service by pushing this file to the repo root and clicking "New > Blueprint"
 # in the Render dashboard, then selecting the repo. Render builds from the Dockerfile.
 #

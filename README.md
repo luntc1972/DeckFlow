@@ -5,26 +5,26 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 **Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
 ## Highlights
-- `MtgDeckStudio.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
-- `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
-- `MtgDeckStudio.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
+- `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
+- `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
+- `DeckFlow.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
 - The ChatGPT Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
 - The cEDH Meta Gap page compares a submitted deck against 1 to 3 EDH Top 16 reference lists for the same commander, resolves canonical card names through Scryfall, injects Commander Spellbook combo references, generates a structured `meta_gap` ChatGPT prompt, and renders the returned JSON as a readable upgrade path.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
 - The Moxfield Tag Exporter browser extension exports deck tags from moxfield.com into Archidekt or Moxfield bulk-edit format.
 
 ## Getting Started
-1. Restore/build: `dotnet build MtgDeckStudio.sln`
-2. Run the web app: `dotnet run --project MtgDeckStudio.Web`
-3. Use the CLI to compare or harvest decks: `dotnet run --project MtgDeckStudio.CLI -- --help`
+1. Restore/build: `dotnet build DeckFlow.sln`
+2. Run the web app: `dotnet run --project DeckFlow.Web`
+3. Use the CLI to compare or harvest decks: `dotnet run --project DeckFlow.CLI -- --help`
 
 ### Helper scripts
-- `scripts/run-web.sh` — bash wrapper that rebuilds `MtgDeckStudio.Web` and launches it on `http://localhost:5173` with no browser auto-launch.
+- `scripts/run-web.sh` — bash wrapper that rebuilds `DeckFlow.Web` and launches it on `http://localhost:5173` with no browser auto-launch.
 - `scripts/run-web.ps1` — PowerShell equivalent for Windows terminals.
 
 ### IIS publish
-- Publish the web app with `dotnet publish MtgDeckStudio.Web/MtgDeckStudio.Web.csproj /p:PublishProfile=IIS-LocalFolder`
-- The publish output goes to `MtgDeckStudio.Web/bin/Release/net10.0/publish/iis-local/`
+- Publish the web app with `dotnet publish DeckFlow.Web/DeckFlow.Web.csproj /p:PublishProfile=IIS-LocalFolder`
+- The publish output goes to `DeckFlow.Web/bin/Release/net10.0/publish/iis-local/`
 - The .NET SDK generates `web.config` during publish; there is no checked-in `web.config`
 - In IIS, create an application such as `/mtgdeckstudio` that points at that publish folder
 - Install the ASP.NET Core Hosting Bundle on the IIS machine
@@ -303,7 +303,7 @@ The page also exposes a background Archidekt harvest button so the local categor
 ---
 
 ## Archidekt category cache
-- Run `dotnet run --project MtgDeckStudio.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
+- Run `dotnet run --project DeckFlow.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
 - The CLI runs a dedicated cache session that respects rate limits via Polly, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The web cache service reuses the same session logic for on-demand refreshes from the MVC UI.
 - The AI Category Suggestions page can start a 5-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
@@ -386,18 +386,18 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 - Scryfall enforces a soft cap of 10 requests per second at the Cloudflare edge (no proactive `X-RateLimit-*` headers on 200 responses; only `Retry-After` on 429).
 - `ChatGptDeckPacketService` throttles all Scryfall calls to ~110ms apart (≈9 req/s) via a process-wide semaphore so batched collection lookups plus per-card fallback searches stay under the cap.
 - On a 429 the wrapper reads `Retry-After` and retries once if the cooldown is ≤5 seconds; longer cooldowns surface as a friendly "Scryfall returned HTTP 429. Try again shortly." error instead of being misattributed to card/commander validation.
-- The CLI ships a diagnostic `scryfall-probe` command that calls Scryfall and dumps status, headers, and body — useful for reproducing rate-limit responses. Example: `dotnet run --project MtgDeckStudio.CLI -- scryfall-probe --endpoint random --repeat 25` (intentionally triggers 429).
+- The CLI ships a diagnostic `scryfall-probe` command that calls Scryfall and dumps status, headers, and body — useful for reproducing rate-limit responses. Example: `dotnet run --project DeckFlow.CLI -- scryfall-probe --endpoint random --repeat 25` (intentionally triggers 429).
 
 ---
 
 ## CLI usage examples
 ```bash
-dotnet run --project MtgDeckStudio.CLI -- compare \
+dotnet run --project DeckFlow.CLI -- compare \
   --moxfield my.deck --archidekt other.deck --out diff.txt
 
-dotnet run --project MtgDeckStudio.CLI -- archidekt-cache --minutes 10
+dotnet run --project DeckFlow.CLI -- archidekt-cache --minutes 10
 
-dotnet run --project MtgDeckStudio.CLI -- category-find \
+dotnet run --project DeckFlow.CLI -- category-find \
   --card "Guardian Project" --cache-seconds 20
 ```
 
@@ -414,7 +414,7 @@ See [`browser-extensions/moxfield-tag-exporter/README.md`](browser-extensions/mo
 ---
 
 ## Architecture
-- Core logic is isolated in `MtgDeckStudio.Core` (diff engine, export helpers, parsers, integration clients, knowledge store).
+- Core logic is isolated in `DeckFlow.Core` (diff engine, export helpers, parsers, integration clients, knowledge store).
 - Web and CLI layers orchestrate requests and rely on DI to resolve shared services.
 - Importers for Archidekt and Moxfield implement typed interfaces (`IMoxfieldDeckImporter`, `IArchidektDeckImporter`) for easy test substitution.
 - `ChatGptDeckPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.

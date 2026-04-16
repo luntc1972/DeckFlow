@@ -1,4 +1,4 @@
-# Fly.io configuration for MtgDeckStudio.Web.
+# Fly.io configuration for DeckFlow.Web.
 # Prereqs: `fly launch --no-deploy` once (or `fly apps create mtg-deck-studio`), then:
 #   fly volumes create mtg_data --size 1 --region sea
 #   fly deploy
