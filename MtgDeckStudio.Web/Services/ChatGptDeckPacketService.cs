@@ -38,7 +38,8 @@ public sealed record ChatGptDeckPacketResult(
     string? SetUpgradePromptText,
     string? SavedArtifactsDirectory,
     string? TimingSummary,
-    ChatGptDeckAnalysisResponse? AnalysisResponse = null);
+    ChatGptDeckAnalysisResponse? AnalysisResponse = null,
+    ChatGptSetUpgradeResponse? SetUpgradeResponse = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompts plus supporting reference data for ChatGPT.
@@ -97,9 +98,72 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 "ChatGPT Analysis")
             : Path.GetFullPath(chatGptArtifactsPath);
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
-        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
-        _executeNamedAsync = executeNamedAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCard>(request, cancellationToken));
+        _executeCollectionAsync = executeCollectionAsync
+            ?? ((request, cancellationToken) => ExecuteScryfallWithThrottleAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
+        _executeSearchAsync = executeSearchAsync
+            ?? ((request, cancellationToken) => ExecuteScryfallWithThrottleAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
+        _executeNamedAsync = executeNamedAsync
+            ?? ((request, cancellationToken) => ExecuteScryfallWithThrottleAsync(token => client.ExecuteAsync<ScryfallCard>(request, token), cancellationToken));
+    }
+
+    // Keep under Scryfall's 10 req/sec cap with a small safety margin (≈ 9 req/sec).
+    private static readonly TimeSpan ScryfallMinInterval = TimeSpan.FromMilliseconds(110);
+    // Honor Retry-After up to this cap; longer cooldowns fall through and surface as a rate-limit error.
+    private static readonly TimeSpan ScryfallRetryAfterCap = TimeSpan.FromSeconds(5);
+    private static readonly SemaphoreSlim ScryfallThrottle = new(1, 1);
+    private static DateTime _lastScryfallCallUtc = DateTime.MinValue;
+
+    private static async Task<RestResponse<T>> ExecuteScryfallWithThrottleAsync<T>(
+        Func<CancellationToken, Task<RestResponse<T>>> execute,
+        CancellationToken cancellationToken)
+    {
+        var response = await ExecuteScryfallThrottledOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+        if ((int)response.StatusCode != 429)
+        {
+            return response;
+        }
+
+        var retryAfter = ReadRetryAfter(response);
+        if (retryAfter is null || retryAfter.Value > ScryfallRetryAfterCap)
+        {
+            return response;
+        }
+
+        await Task.Delay(retryAfter.Value, cancellationToken).ConfigureAwait(false);
+        return await ExecuteScryfallThrottledOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<RestResponse<T>> ExecuteScryfallThrottledOnceAsync<T>(
+        Func<CancellationToken, Task<RestResponse<T>>> execute,
+        CancellationToken cancellationToken)
+    {
+        await ScryfallThrottle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var elapsedSinceLast = DateTime.UtcNow - _lastScryfallCallUtc;
+            if (elapsedSinceLast < ScryfallMinInterval)
+            {
+                await Task.Delay(ScryfallMinInterval - elapsedSinceLast, cancellationToken).ConfigureAwait(false);
+            }
+
+            var result = await execute(cancellationToken).ConfigureAwait(false);
+            _lastScryfallCallUtc = DateTime.UtcNow;
+            return result;
+        }
+        finally
+        {
+            ScryfallThrottle.Release();
+        }
+    }
+
+    private static TimeSpan? ReadRetryAfter<T>(RestResponse<T> response)
+    {
+        var header = response.Headers?.FirstOrDefault(h => string.Equals(h.Name, "Retry-After", StringComparison.OrdinalIgnoreCase));
+        if (header?.Value is string raw && int.TryParse(raw, out var seconds) && seconds >= 0)
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+        return null;
     }
 
     /// <summary>
@@ -118,20 +182,79 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
             var savedAnalysisResponse = ParseAnalysisResponse(request.DeckProfileJson);
+            var savedDeckProfileSchemaJson = BuildDeckProfileSchemaJson(
+                string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander) ? null : savedAnalysisResponse.Commander,
+                string.IsNullOrWhiteSpace(savedAnalysisResponse.Format) ? request.Format : savedAnalysisResponse.Format,
+                savedAnalysisResponse.DeckVersions.Count > 0);
+            string? savedArtifactsDirectoryForStep3 = null;
+            if (request.SaveArtifactsToDisk)
+            {
+                savedArtifactsDirectoryForStep3 = await SaveArtifactsAsync(
+                    request,
+                    string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander) ? null : savedAnalysisResponse.Commander,
+                    BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
+                    referenceText: null,
+                    analysisPromptText: null,
+                    savedDeckProfileSchemaJson,
+                    setUpgradePromptText: null,
+                    cancellationToken).ConfigureAwait(false);
+            }
             var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
             return new ChatGptDeckPacketResult(
                 InputSummary: BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
                 SuggestedChatTitle: BuildSuggestedChatTitle(request, savedAnalysisResponse.Commander),
-                DeckProfileSchemaJson: BuildDeckProfileSchemaJson(
-                    string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander) ? null : savedAnalysisResponse.Commander,
-                    string.IsNullOrWhiteSpace(savedAnalysisResponse.Format) ? request.Format : savedAnalysisResponse.Format,
-                    savedAnalysisResponse.DeckVersions.Count > 0),
+                DeckProfileSchemaJson: savedDeckProfileSchemaJson,
                 ReferenceText: null,
                 AnalysisPromptText: null,
                 SetUpgradePromptText: null,
-                SavedArtifactsDirectory: null,
+                SavedArtifactsDirectory: savedArtifactsDirectoryForStep3,
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse);
+        }
+
+        if (request.WorkflowStep == 5
+            && string.IsNullOrWhiteSpace(request.DeckSource)
+            && !string.IsNullOrWhiteSpace(request.SetUpgradeResponseJson))
+        {
+            var savedSetUpgradeResponse = ParseSetUpgradeResponse(request.SetUpgradeResponseJson);
+            var savedAnalysisResponse = string.IsNullOrWhiteSpace(request.DeckProfileJson)
+                ? null
+                : ParseAnalysisResponse(request.DeckProfileJson);
+            var step5Commander = savedAnalysisResponse is null || string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander)
+                ? null
+                : savedAnalysisResponse.Commander;
+            var step5DeckProfileSchemaJson = BuildDeckProfileSchemaJson(
+                step5Commander,
+                savedAnalysisResponse is null || string.IsNullOrWhiteSpace(savedAnalysisResponse.Format) ? request.Format : savedAnalysisResponse.Format,
+                (savedAnalysisResponse?.DeckVersions.Count ?? 0) > 0);
+            var step5InputSummary = savedAnalysisResponse is null
+                ? string.Empty
+                : BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse);
+            string? savedArtifactsDirectoryForStep5 = null;
+            if (request.SaveArtifactsToDisk)
+            {
+                savedArtifactsDirectoryForStep5 = await SaveArtifactsAsync(
+                    request,
+                    step5Commander,
+                    step5InputSummary,
+                    referenceText: null,
+                    analysisPromptText: null,
+                    step5DeckProfileSchemaJson,
+                    setUpgradePromptText: null,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
+            return new ChatGptDeckPacketResult(
+                InputSummary: step5InputSummary,
+                SuggestedChatTitle: BuildSuggestedChatTitle(request, savedAnalysisResponse?.Commander),
+                DeckProfileSchemaJson: step5DeckProfileSchemaJson,
+                ReferenceText: null,
+                AnalysisPromptText: null,
+                SetUpgradePromptText: null,
+                SavedArtifactsDirectory: savedArtifactsDirectoryForStep5,
+                TimingSummary: savedTimingSummary,
+                AnalysisResponse: savedAnalysisResponse,
+                SetUpgradeResponse: savedSetUpgradeResponse);
         }
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))
@@ -257,10 +380,16 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         string? setUpgradePromptText = null;
         string? savedArtifactsDirectory = null;
         ChatGptDeckAnalysisResponse? analysisResponse = null;
+        ChatGptSetUpgradeResponse? setUpgradeResponse = null;
 
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
             analysisResponse = ParseAnalysisResponse(request.DeckProfileJson);
+        }
+
+        if (request.WorkflowStep >= 5 && !string.IsNullOrWhiteSpace(request.SetUpgradeResponseJson))
+        {
+            setUpgradeResponse = ParseSetUpgradeResponse(request.SetUpgradeResponseJson);
         }
 
         var deckProfileText = string.IsNullOrWhiteSpace(request.DeckProfileJson)
@@ -270,7 +399,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var wantsAnalysisPacket = request.WorkflowStep == 2;
         var wantsSetUpgradeOnly = request.WorkflowStep < 2
             && (!string.IsNullOrWhiteSpace(request.DeckProfileJson) || !string.IsNullOrWhiteSpace(request.SetPacketText));
-        var wantsSetUpgradePacket = request.WorkflowStep >= 4 || wantsSetUpgradeOnly;
+        var wantsSetUpgradePacket = request.WorkflowStep == 4 || wantsSetUpgradeOnly;
 
         if (wantsAnalysisPacket && CommanderBracketCatalog.Find(request.TargetCommanderBracket) is null)
         {
@@ -418,7 +547,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             setUpgradePromptText,
             savedArtifactsDirectory,
             timingSummary,
-            analysisResponse);
+            analysisResponse,
+            setUpgradeResponse);
     }
 
     internal static ChatGptDeckAnalysisResponse ParseAnalysisResponse(string input)
@@ -490,6 +620,54 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             || response.SynergyTags.Count > 0
             || response.QuestionAnswers.Count > 0
             || response.DeckVersions.Count > 0;
+
+    internal static ChatGptSetUpgradeResponse ParseSetUpgradeResponse(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            throw new InvalidOperationException("Paste the set_upgrade_report JSON returned from ChatGPT into Step 5.");
+        }
+
+        var json = ChatGptJsonTextFormatterService.ExtractJsonPayload(input);
+        using var document = JsonDocument.Parse(json);
+
+        JsonElement payload = document.RootElement;
+        if (payload.ValueKind == JsonValueKind.Object
+            && payload.TryGetProperty("set_upgrade_report", out var reportElement))
+        {
+            payload = reportElement;
+        }
+
+        if (payload.ValueKind != JsonValueKind.Object || !LooksLikeSetUpgradeReport(payload))
+        {
+            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid set_upgrade_report payload.");
+        }
+
+        var result = JsonSerializer.Deserialize<ChatGptSetUpgradeResponse>(payload.GetRawText(), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (result is null || !HasMeaningfulSetUpgradeContent(result))
+        {
+            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid set_upgrade_report payload.");
+        }
+
+        return result;
+    }
+
+    private static bool LooksLikeSetUpgradeReport(JsonElement payload)
+    {
+        string[] knownProperties = ["sets", "final_shortlist"];
+        return knownProperties.Any(propertyName => payload.TryGetProperty(propertyName, out _));
+    }
+
+    private static bool HasMeaningfulSetUpgradeContent(ChatGptSetUpgradeResponse response)
+        => response.Sets.Count > 0
+            || (response.FinalShortlist is not null
+                && (response.FinalShortlist.MustTest.Count > 0
+                    || response.FinalShortlist.Optional.Count > 0
+                    || response.FinalShortlist.Skip.Count > 0));
 
     /// <summary>
     /// Loads deck entries from a public URL or pasted export text.
@@ -1013,7 +1191,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         builder.AppendLine();
         builder.AppendLine("D. After the full analysis, return a JSON object named deck_profile matching the schema below.");
-        builder.AppendLine("   Return it inside a ```json fenced code block so it can be copied cleanly.");
+        builder.AppendLine("   You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine("   The question_answers array must contain one entry per question, in the same order as the numbered list above.");
         builder.AppendLine("   Do not omit any question. If there are 8 questions, return exactly 8 question_answers entries numbered 1 through 8.");
         builder.AppendLine("   The JSON question_answers entries must mirror the readable Requested Question Answers section one-for-one.");
@@ -1153,7 +1331,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("B. Final cross-set ranked shortlist with must-test, optional, and skip.");
         builder.AppendLine("   For every recommended add or cut, explain the reasoning briefly and connect it to the deck profile.");
         builder.AppendLine();
-        builder.AppendLine("C. Return a complete set_upgrade_report JSON in a fenced ```json code block matching the schema at the end of this prompt.");
+        builder.AppendLine("C. Return a complete set_upgrade_report JSON matching the schema at the end of this prompt. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine();
         builder.AppendLine("D. Return a second fenced code block tagged as ```text named discussion_summary.txt.");
         builder.AppendLine("   Include the per-set analysis in condensed form, final recommendations, reasoning behind key adds and cuts, and direct answers to the analysis questions — a standalone notes document.");
@@ -1444,6 +1622,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             request.AddQueryParameter("include_multilingual", "true");
 
             var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
+            ThrowIfUpstreamUnavailable(response.StatusCode);
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 continue;
@@ -1461,12 +1640,25 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var namedRequest = new RestRequest("cards/named", Method.Get);
         namedRequest.AddQueryParameter("fuzzy", cardName);
         var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
+        ThrowIfUpstreamUnavailable(namedResponse.StatusCode);
         if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
         {
             return namedResponse.Data;
         }
 
         return null;
+    }
+
+    private static void ThrowIfUpstreamUnavailable(System.Net.HttpStatusCode statusCode)
+    {
+        var code = (int)statusCode;
+        if (code == 429 || code >= 500)
+        {
+            throw new HttpRequestException(
+                $"Scryfall returned HTTP {code}.",
+                inner: null,
+                statusCode: statusCode);
+        }
     }
 
     private static string NormalizeLookupName(string cardName)
@@ -1665,7 +1857,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         var responseSections = new List<(string FileName, string Label, string? Content)>
         {
-            ("40-deck-profile.json", "DECK PROFILE JSON", request.DeckProfileJson)
+            ("40-deck-profile.json", "DECK PROFILE JSON", request.DeckProfileJson),
+            ("51-set-upgrade-response.json", "SET UPGRADE RESPONSE JSON", request.SetUpgradeResponseJson)
         };
 
         foreach (var section in promptSections.Where(section => !string.IsNullOrWhiteSpace(section.Content)))

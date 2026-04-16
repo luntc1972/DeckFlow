@@ -1,7 +1,7 @@
 @model MtgDeckStudio.Web.Models.ChatGptDeckViewModel
 @{
     ViewData["Title"] = "ChatGPT Analysis";
-    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 4);
+    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
     var commanderBrackets = MtgDeckStudio.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = MtgDeckStudio.Web.Models.AnalysisQuestionCatalog.Buckets;
     var analysisFollowUpPrompt = """
@@ -82,6 +82,7 @@ Do not omit any fields from the schema.
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Analysis</button>
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Analysis Results</button>
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Set Upgrades (Optional)</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-5" aria-controls="chatgpt-step-panel-5" aria-selected="false" tabindex="-1" data-chatgpt-show-step="5">Step 5: Set Upgrade Results (Optional)</button>
     </div>
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
@@ -596,6 +597,163 @@ Do not omit any fields from the schema.
         }
         <div class="chatgpt-step-footer">
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back: Analysis Results</button>
+            <button type="button" class="run-button" data-chatgpt-next-step="5">Next: Set Upgrade Results</button>
+        </div>
+    </section>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-5" aria-labelledby="chatgpt-step-tab-5" data-chatgpt-step="5">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 5</p>
+                <h2>Paste the set-upgrade JSON and view the results</h2>
+                <p>Paste the fenced <code>set_upgrade_report</code> JSON block or raw JSON payload returned from ChatGPT. You can use a saved JSON file here directly without filling out earlier steps.</p>
+            </div>
+            <span class="chatgpt-step-badge">Review results</span>
+        </div>
+
+        <label class="field">
+            <span>Set upgrade report JSON</span>
+            <textarea name="SetUpgradeResponseJson" spellcheck="false">@Model.Request.SetUpgradeResponseJson</textarea>
+            <small class="sync-column__hint">Paste the fenced <code>```json</code> block or the raw JSON payload. Surrounding prose (like the <code>discussion_summary.txt</code> text block) is safe to include.</small>
+        </label>
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-submit-step="5">Render Set Upgrade Results</button>
+        </div>
+
+        @if (Model.SetUpgradeResponse is not null)
+        {
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor>
+                <h3>Set Upgrade Results</h3>
+                <div class="stack">
+                    @foreach (var set in Model.SetUpgradeResponse.Sets)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>
+                                @if (!string.IsNullOrWhiteSpace(set.SetName))
+                                {
+                                    @set.SetName
+                                    @if (!string.IsNullOrWhiteSpace(set.SetCode))
+                                    {
+                                        <text> (@set.SetCode)</text>
+                                    }
+                                }
+                                else if (!string.IsNullOrWhiteSpace(set.SetCode))
+                                {
+                                    @set.SetCode
+                                }
+                                else
+                                {
+                                    <text>Set</text>
+                                }
+                            </h4>
+
+                            @if (set.TopAdds.Count > 0)
+                            {
+                                <section class="result-panel nested-panel">
+                                    <h5>Top Adds</h5>
+                                    @foreach (var add in set.TopAdds)
+                                    {
+                                        <div class="result-panel nested-panel" style="margin-bottom:0.5rem">
+                                            <p><strong>@add.Card</strong></p>
+                                            @if (!string.IsNullOrWhiteSpace(add.Reason))
+                                            {
+                                                <p>@add.Reason</p>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(add.SuggestedCut))
+                                            {
+                                                <p><strong>Suggested cut:</strong> @add.SuggestedCut</p>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(add.CutReason))
+                                            {
+                                                <p><small>@add.CutReason</small></p>
+                                            }
+                                        </div>
+                                    }
+                                </section>
+                            }
+
+                            @if (set.Traps.Count > 0)
+                            {
+                                <section class="result-panel nested-panel">
+                                    <h5>Traps</h5>
+                                    <ul>
+                                        @foreach (var trap in set.Traps)
+                                        {
+                                            <li><strong>@trap.Card</strong>@(string.IsNullOrWhiteSpace(trap.Reason) ? null : $" — {trap.Reason}")</li>
+                                        }
+                                    </ul>
+                                </section>
+                            }
+
+                            @if (set.SpeculativeTests.Count > 0)
+                            {
+                                <section class="result-panel nested-panel">
+                                    <h5>Speculative Tests</h5>
+                                    <ul>
+                                        @foreach (var spec in set.SpeculativeTests)
+                                        {
+                                            <li><strong>@spec.Card</strong>@(string.IsNullOrWhiteSpace(spec.Reason) ? null : $" — {spec.Reason}")</li>
+                                        }
+                                    </ul>
+                                </section>
+                            }
+                        </section>
+                    }
+
+                    @if (Model.SetUpgradeResponse.FinalShortlist is not null
+                         && (Model.SetUpgradeResponse.FinalShortlist.MustTest.Count > 0
+                             || Model.SetUpgradeResponse.FinalShortlist.Optional.Count > 0
+                             || Model.SetUpgradeResponse.FinalShortlist.Skip.Count > 0))
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Final Shortlist</h4>
+                            <div class="sync-columns">
+                                @if (Model.SetUpgradeResponse.FinalShortlist.MustTest.Count > 0)
+                                {
+                                    <section class="result-panel nested-panel">
+                                        <h5>Must Test</h5>
+                                        <ul>
+                                            @foreach (var card in Model.SetUpgradeResponse.FinalShortlist.MustTest)
+                                            {
+                                                <li>@card</li>
+                                            }
+                                        </ul>
+                                    </section>
+                                }
+                                @if (Model.SetUpgradeResponse.FinalShortlist.Optional.Count > 0)
+                                {
+                                    <section class="result-panel nested-panel">
+                                        <h5>Optional</h5>
+                                        <ul>
+                                            @foreach (var card in Model.SetUpgradeResponse.FinalShortlist.Optional)
+                                            {
+                                                <li>@card</li>
+                                            }
+                                        </ul>
+                                    </section>
+                                }
+                                @if (Model.SetUpgradeResponse.FinalShortlist.Skip.Count > 0)
+                                {
+                                    <section class="result-panel nested-panel">
+                                        <h5>Skip</h5>
+                                        <ul>
+                                            @foreach (var card in Model.SetUpgradeResponse.FinalShortlist.Skip)
+                                            {
+                                                <li>@card</li>
+                                            }
+                                        </ul>
+                                    </section>
+                                }
+                            </div>
+                        </section>
+                    }
+                </div>
+            </section>
+        }
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-chatgpt-show-step="4">Back: Set Upgrades</button>
         </div>
     </section>
 </form>

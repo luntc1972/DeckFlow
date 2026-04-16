@@ -603,7 +603,7 @@ const attachDeckSyncPersistence = () => {
 };
 const parseChatGptStep = (value) => {
     const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
-    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
+    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 5 ? 1 : parsedValue;
 };
 const chatGptUiModeStorageKey = 'decksync-chatgpt-ui-mode';
 const parseChatGptUiMode = (value) => {
@@ -665,7 +665,7 @@ const applyChatGptUiMode = (form, mode) => {
     });
 };
 const validateChatGptPacketsStep = (form, step) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
     const deckSource = (_b = (_a = form.querySelector('textarea[name="DeckSource"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
     const deckProfileJson = (_d = (_c = form.querySelector('textarea[name="DeckProfileJson"]')) === null || _c === void 0 ? void 0 : _c.value.trim()) !== null && _d !== void 0 ? _d : '';
     const targetCommanderBracket = (_f = (_e = form.querySelector('select[name="TargetCommanderBracket"]')) === null || _e === void 0 ? void 0 : _e.value.trim()) !== null && _f !== void 0 ? _f : '';
@@ -695,15 +695,24 @@ const validateChatGptPacketsStep = (form, step) => {
     if (step === 2 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
         return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
     }
-    if (step >= 3 && !deckProfileJson) {
+    if (step === 3 && !deckProfileJson) {
         return 'Paste the deck_profile JSON returned from ChatGPT before rendering the analysis summary.';
     }
-    if (step >= 4) {
+    if (step === 4) {
+        if (!deckSource) {
+            return 'Paste a deck in Step 1 before generating the set upgrade packet.';
+        }
         if (!setPacketText && selectedSetCodes.length > 1) {
             return 'Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.';
         }
         if (!setPacketText && selectedSetCodes.length === 0) {
             return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
+        }
+    }
+    if (step === 5) {
+        const setUpgradeResponseJson = (_r = (_q = form.querySelector('textarea[name="SetUpgradeResponseJson"]')) === null || _q === void 0 ? void 0 : _q.value.trim()) !== null && _r !== void 0 ? _r : '';
+        if (!setUpgradeResponseJson) {
+            return 'Paste the set_upgrade_report JSON returned from ChatGPT before rendering the set upgrade results.';
         }
     }
     return null;

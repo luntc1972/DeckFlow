@@ -51,6 +51,10 @@ var categoryFindSecondsOption = new Option<int>("--cache-seconds", () => 20);
 var categoryFindTimeoutOption = new Option<int>("--timeout", () => 600);
 var cardLookupCommand = new Command("card-lookup", "Lookup a single card via Scryfall and show the printed text.");
 var cardLookupNameOption = new Option<string>("--name") { IsRequired = true };
+var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
+var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
+var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
+var scryfallProbeRepeatOption = new Option<int>("--repeat", () => 1) { Description = "How many times to call the endpoint back-to-back (use to force 429)." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -78,6 +82,9 @@ categoryFindCommand.AddOption(categoryFindCardOption);
 categoryFindCommand.AddOption(categoryFindSecondsOption);
 categoryFindCommand.AddOption(categoryFindTimeoutOption);
 cardLookupCommand.AddOption(cardLookupNameOption);
+scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
+scryfallProbeCommand.AddOption(scryfallProbeNameOption);
+scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -123,6 +130,7 @@ rootCommand.AddCommand(archidektHarvestRecentCommand);
 rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
+rootCommand.AddCommand(scryfallProbeCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -164,5 +172,10 @@ cardLookupCommand.SetHandler((string cardName) =>
 {
     Environment.ExitCode = CommandRunners.RunCardLookupAsync(cardName).GetAwaiter().GetResult();
 }, cardLookupNameOption);
+
+scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
+{
+    Environment.ExitCode = CommandRunners.RunScryfallProbeAsync(endpoint, cardName, repeat).GetAwaiter().GetResult();
+}, scryfallProbeEndpointOption, scryfallProbeNameOption, scryfallProbeRepeatOption);
 
 return await rootCommand.InvokeAsync(args);

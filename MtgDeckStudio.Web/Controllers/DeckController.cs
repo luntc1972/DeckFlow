@@ -371,6 +371,7 @@ public sealed class DeckController : Controller
                 SavedArtifactsDirectory = result.SavedArtifactsDirectory,
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
+                SetUpgradeResponse = result.SetUpgradeResponse,
             });
         }
         catch (InvalidOperationException exception)

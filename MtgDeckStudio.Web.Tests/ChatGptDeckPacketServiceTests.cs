@@ -399,6 +399,75 @@ Commander
         Assert.Null(result.ReferenceText);
     }
 
+    [Fact]
+    public async Task BuildAsync_RendersSetUpgradeResponse_FromResponseJsonWithoutDeckSource()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (_, _) => throw new InvalidOperationException("Scryfall lookup should not run for saved Step 5 JSON."));
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 5,
+            SetUpgradeResponseJson = """
+```json
+{
+  "set_upgrade_report": {
+    "sets": [
+      {
+        "set_code": "ABC",
+        "set_name": "Alpha Beta Core",
+        "top_adds": [
+          { "card": "New Ramp", "reason": "Faster turn 2", "suggested_cut": "Old Ramp", "cut_reason": "Slower" }
+        ],
+        "traps": [
+          { "card": "Shiny Trap", "reason": "Looks great, under-delivers" }
+        ],
+        "speculative_tests": [
+          { "card": "Unproven Card", "reason": "Worth testing" }
+        ]
+      }
+    ],
+    "final_shortlist": {
+      "must_test": ["New Ramp"],
+      "optional": ["Unproven Card"],
+      "skip": ["Shiny Trap"]
+    }
+  }
+}
+```
+"""
+        });
+
+        Assert.NotNull(result.SetUpgradeResponse);
+        Assert.Single(result.SetUpgradeResponse!.Sets);
+        var set = result.SetUpgradeResponse.Sets[0];
+        Assert.Equal("ABC", set.SetCode);
+        Assert.Equal("Alpha Beta Core", set.SetName);
+        Assert.Single(set.TopAdds);
+        Assert.Equal("New Ramp", set.TopAdds[0].Card);
+        Assert.Equal("Old Ramp", set.TopAdds[0].SuggestedCut);
+        Assert.Single(set.Traps);
+        Assert.Single(set.SpeculativeTests);
+        Assert.NotNull(result.SetUpgradeResponse.FinalShortlist);
+        Assert.Contains("New Ramp", result.SetUpgradeResponse.FinalShortlist!.MustTest);
+        Assert.Contains("Shiny Trap", result.SetUpgradeResponse.FinalShortlist.Skip);
+        Assert.Null(result.SetUpgradePromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_Throws_WhenSetUpgradeJsonIsMissingReport()
+    {
+        var service = CreateService();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 5,
+            SetUpgradeResponseJson = "{ \"unrelated\": 123 }"
+        }));
+
+        Assert.Contains("set_upgrade_report", exception.Message);
+    }
+
     /// <summary>
     /// Requires a card name when the selected questions are card-specific.
     /// </summary>

@@ -175,7 +175,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
         Assert.Contains("Compare MY_DECK against 2 REF deck(s).", result.PromptText);
         Assert.Contains("Use the supplied decklists as the primary evidence.", result.PromptText);
         Assert.Contains("If Commander Spellbook evidence and deck-reading inference conflict, prefer the Commander Spellbook evidence.", result.PromptText);
-        Assert.Contains("- Then return a fenced ```json block whose top-level object is meta_gap.", result.PromptText);
+        Assert.Contains("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap.", result.PromptText);
         Assert.Contains("- Fill every field in meta_gap.", result.PromptText);
         Assert.Contains("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.", result.PromptText);
         Assert.Contains("1 Llanowar Elves", result.PromptText);

@@ -668,10 +668,10 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("A. Readable comparison — one subsection per axis above, then a concise side-by-side summary.");
         builder.AppendLine("B. Five concrete cards or packages that best explain the gap between the two decks, with one sentence of reasoning each.");
         builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
-        builder.AppendLine("D. A fenced ```json block whose top-level object is named deck_comparison.");
+        builder.AppendLine("D. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
         builder.AppendLine();
         builder.AppendLine("JSON requirements:");
-        builder.AppendLine("- Return valid JSON only inside the fenced block.");
+        builder.AppendLine("- Return valid JSON only inside the fenced ```json code block.");
         builder.AppendLine("- Do not include comments in the JSON.");
         builder.AppendLine("- Do not omit required fields.");
         builder.AppendLine("- Use arrays instead of prose where appropriate.");
@@ -737,7 +737,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("## OUTPUT FORMAT");
         builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
         builder.AppendLine("- Include a revised verdict.");
-        builder.AppendLine("- Then regenerate the full fenced ```json block with the top-level object named deck_comparison.");
+        builder.AppendLine("- Then regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
         builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
         builder.AppendLine();
         builder.AppendLine("```json");

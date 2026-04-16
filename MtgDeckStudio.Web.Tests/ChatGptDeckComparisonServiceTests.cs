@@ -107,7 +107,7 @@ Deck
         Assert.Contains("Treat the supplied decklists, commander names, bracket selections, combo findings, and derived comparison context as the source of truth.", result.ComparisonPromptText);
         Assert.Contains("If a conclusion is not well-supported by the provided deck contents, say that explicitly instead of guessing.", result.ComparisonPromptText);
         Assert.Contains("When uncertain, mark the statement as low-confidence and add the reason to confidence_notes.", result.ComparisonPromptText);
-        Assert.Contains("Return valid JSON only inside the fenced block.", result.ComparisonPromptText);
+        Assert.Contains("Return valid JSON only inside the fenced ```json code block.", result.ComparisonPromptText);
         Assert.Contains("Do not omit required fields.", result.ComparisonPromptText);
         Assert.Contains("Name: Atraxa Blink", result.ComparisonPromptText);
         Assert.Contains("Commander: Atraxa, Praetors' Voice", result.ComparisonPromptText);

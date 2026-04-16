@@ -136,4 +136,12 @@ public sealed class ChatGptDeckRequest
         get => _setUpgradeFocus;
         set => _setUpgradeFocus = value ?? string.Empty;
     }
+
+    private string _setUpgradeResponseJson = string.Empty;
+
+    public string SetUpgradeResponseJson
+    {
+        get => _setUpgradeResponseJson;
+        set => _setUpgradeResponseJson = value ?? string.Empty;
+    }
 }

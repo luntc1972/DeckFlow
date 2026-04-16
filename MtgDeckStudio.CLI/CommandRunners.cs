@@ -475,6 +475,105 @@ internal static class CommandRunners
         }
     }
 
+    public static async Task<int> RunScryfallProbeAsync(string endpoint, string? cardName, int repeat)
+    {
+        try
+        {
+            var client = new RestClient(new RestClientOptions
+            {
+                BaseUrl = new Uri("https://api.scryfall.com"),
+                ThrowOnAnyError = false,
+            });
+
+            client.AddDefaultHeader("User-Agent", "MtgDeckStudio.CLI/1.0 (+https://github.com/luntc1972/MtgDeckStudio)");
+            client.AddDefaultHeader("Accept", "application/json;q=0.9,*/*;q=0.8");
+
+            var iterations = Math.Max(1, repeat);
+            for (var index = 0; index < iterations; index++)
+            {
+                var request = BuildProbeRequest(endpoint, cardName);
+                var start = DateTime.UtcNow;
+                var response = await client.ExecuteAsync(request);
+                var elapsed = DateTime.UtcNow - start;
+
+                Console.WriteLine($"=== Probe #{index + 1}/{iterations} ===");
+                Console.WriteLine($"URL: {client.Options.BaseUrl}{request.Resource}");
+                Console.WriteLine($"Status: {(int)response.StatusCode} {response.StatusCode}");
+                Console.WriteLine($"Elapsed: {elapsed.TotalMilliseconds:F0} ms");
+
+                Console.WriteLine("Response headers:");
+                if (response.Headers is not null)
+                {
+                    foreach (var header in response.Headers.OrderBy(h => h.Name, StringComparer.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"  {header.Name}: {header.Value}");
+                    }
+                }
+
+                Console.WriteLine("Rate-limit-relevant headers (extracted):");
+                PrintHeaderIfPresent(response, "Retry-After");
+                PrintHeaderIfPresent(response, "X-RateLimit-Limit");
+                PrintHeaderIfPresent(response, "X-RateLimit-Remaining");
+                PrintHeaderIfPresent(response, "X-RateLimit-Reset");
+                PrintHeaderIfPresent(response, "RateLimit-Limit");
+                PrintHeaderIfPresent(response, "RateLimit-Remaining");
+                PrintHeaderIfPresent(response, "RateLimit-Reset");
+
+                var body = response.Content ?? string.Empty;
+                var bodyPreview = body.Length > 800 ? body[..800] + $"... [truncated, total {body.Length} chars]" : body;
+                Console.WriteLine("Body:");
+                Console.WriteLine(bodyPreview);
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    private static RestRequest BuildProbeRequest(string endpoint, string? cardName)
+    {
+        var mode = endpoint.ToLowerInvariant();
+        switch (mode)
+        {
+            case "named":
+            {
+                var request = new RestRequest("cards/named", Method.Get);
+                request.AddQueryParameter("exact", cardName ?? "Sol Ring");
+                return request;
+            }
+            case "search":
+            {
+                var request = new RestRequest("cards/search", Method.Get);
+                request.AddQueryParameter("q", cardName ?? "Sol Ring");
+                return request;
+            }
+            case "random":
+            {
+                return new RestRequest("cards/random", Method.Get);
+            }
+            default:
+            {
+                var request = new RestRequest("cards/named", Method.Get);
+                request.AddQueryParameter("exact", cardName ?? "Sol Ring");
+                return request;
+            }
+        }
+    }
+
+    private static void PrintHeaderIfPresent(RestResponse response, string headerName)
+    {
+        var value = response.Headers?.FirstOrDefault(h => string.Equals(h.Name, headerName, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (value is not null)
+        {
+            Console.WriteLine($"  {headerName}: {value}");
+        }
+    }
+
     private static void PrintCard(ScryfallCardDto card)
     {
         Console.WriteLine(card.Name);

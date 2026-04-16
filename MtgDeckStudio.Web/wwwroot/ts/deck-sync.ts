@@ -766,7 +766,7 @@ const attachDeckSyncPersistence = (): void => {
 
 const parseChatGptStep = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
-  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
+  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 5 ? 1 : parsedValue;
 };
 
 type ChatGptUiMode = 'guided' | 'focused' | 'expert';
@@ -887,17 +887,28 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
     return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
   }
 
-  if (step >= 3 && !deckProfileJson) {
+  if (step === 3 && !deckProfileJson) {
     return 'Paste the deck_profile JSON returned from ChatGPT before rendering the analysis summary.';
   }
 
-  if (step >= 4) {
+  if (step === 4) {
+    if (!deckSource) {
+      return 'Paste a deck in Step 1 before generating the set upgrade packet.';
+    }
+
     if (!setPacketText && selectedSetCodes.length > 1) {
       return 'Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.';
     }
 
     if (!setPacketText && selectedSetCodes.length === 0) {
       return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
+    }
+  }
+
+  if (step === 5) {
+    const setUpgradeResponseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="SetUpgradeResponseJson"]')?.value.trim() ?? '';
+    if (!setUpgradeResponseJson) {
+      return 'Paste the set_upgrade_report JSON returned from ChatGPT before rendering the set upgrade results.';
     }
   }
 
