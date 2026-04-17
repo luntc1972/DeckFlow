@@ -56,7 +56,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
-    private readonly string _chatGptArtifactsPath;
+    private readonly ChatGptPacketArtifactStore _artifactStore;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
@@ -91,7 +91,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         _scryfallSetService = scryfallSetService;
         _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<ChatGptDeckPacketService>.Instance;
-        _chatGptArtifactsPath = ResolveChatGptArtifactsPath(chatGptArtifactsPath);
+        _artifactStore = new ChatGptPacketArtifactStore(ResolveChatGptArtifactsPath(chatGptArtifactsPath));
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsync
             ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
@@ -134,7 +134,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         if (!string.IsNullOrWhiteSpace(request.ImportArtifactsPath))
         {
-            ImportSavedArtifacts(request);
+            _artifactStore.LoadInto(request);
             // Do not re-import on downstream branches (e.g., artifact save) that read the request again.
             request.ImportArtifactsPath = string.Empty;
         }
@@ -513,64 +513,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             setUpgradeResponse);
     }
 
-    private void ImportSavedArtifacts(ChatGptDeckRequest request)
-    {
-        var path = request.ImportArtifactsPath.Trim();
-        var fullPath = Path.IsPathRooted(path)
-            ? Path.GetFullPath(path)
-            : Path.GetFullPath(Path.Combine(_chatGptArtifactsPath, path));
-
-        var artifactsRoot = Path.GetFullPath(_chatGptArtifactsPath);
-        var isUnderArtifactsRoot = fullPath.StartsWith(
-            artifactsRoot + Path.DirectorySeparatorChar,
-            StringComparison.OrdinalIgnoreCase)
-            || string.Equals(fullPath, artifactsRoot, StringComparison.OrdinalIgnoreCase);
-        if (!isUnderArtifactsRoot)
-        {
-            throw new InvalidOperationException(
-                $"Import folder must be under the ChatGPT Analysis artifacts directory ({artifactsRoot}).");
-        }
-
-        if (!Directory.Exists(fullPath))
-        {
-            throw new InvalidOperationException($"Import folder not found: {fullPath}");
-        }
-
-        var deckProfilePath = Path.Combine(fullPath, "40-deck-profile.json");
-        var setUpgradeResponsePath = Path.Combine(fullPath, "51-set-upgrade-response.json");
-
-        var loadedDeckProfile = false;
-        if (File.Exists(deckProfilePath))
-        {
-            var deckProfileContent = File.ReadAllText(deckProfilePath);
-            if (!string.IsNullOrWhiteSpace(deckProfileContent))
-            {
-                request.DeckProfileJson = deckProfileContent;
-                loadedDeckProfile = true;
-            }
-        }
-
-        var loadedSetUpgrade = false;
-        if (File.Exists(setUpgradeResponsePath))
-        {
-            var setUpgradeContent = File.ReadAllText(setUpgradeResponsePath);
-            if (!string.IsNullOrWhiteSpace(setUpgradeContent))
-            {
-                request.SetUpgradeResponseJson = setUpgradeContent;
-                loadedSetUpgrade = true;
-            }
-        }
-
-        if (!loadedDeckProfile && !loadedSetUpgrade)
-        {
-            throw new InvalidOperationException(
-                $"Import folder did not contain 40-deck-profile.json or 51-set-upgrade-response.json: {fullPath}");
-        }
-
-        // Advance the workflow step so the matching standalone short-circuit fires.
-        request.DeckSource = string.Empty;
-        request.WorkflowStep = loadedSetUpgrade ? 5 : 3;
-    }
 
     /// <summary>
     /// Loads deck entries from a public URL or pasted export text.
@@ -1721,7 +1663,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return trimmed.Trim();
     }
 
-    private async Task<string> SaveArtifactsAsync(
+    private Task<string> SaveArtifactsAsync(
         ChatGptDeckRequest request,
         string? commanderName,
         string inputSummary,
@@ -1730,76 +1672,16 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         string deckProfileSchemaJson,
         string? setUpgradePromptText,
         CancellationToken cancellationToken)
-    {
-        var commanderSegment = CreateSafePathSegment(commanderName, "unknown-commander");
-        var timestampSegment = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var outputDirectory = Path.Combine(_chatGptArtifactsPath, commanderSegment, timestampSegment);
-        Directory.CreateDirectory(outputDirectory);
-
-        var promptSections = new List<(string FileName, string Label, string? Content)>
-        {
-            ("01-request-context.txt", "REQUEST CONTEXT", BuildRequestContextText(request, commanderName)),
-            ("00-input-summary.txt", "INPUT SUMMARY", inputSummary),
-            ("30-reference.txt", "REFERENCE TEXT", referenceText),
-            ("31-analysis-prompt.txt", "ANALYSIS PROMPT", analysisPromptText),
-            ("41-deck-profile-schema.json", "DECK PROFILE JSON SCHEMA", deckProfileSchemaJson),
-            ("50-set-upgrade-prompt.txt", "SET UPGRADE PROMPT", setUpgradePromptText)
-        };
-
-        var responseSections = new List<(string FileName, string Label, string? Content)>
-        {
-            ("40-deck-profile.json", "DECK PROFILE JSON", request.DeckProfileJson),
-            ("51-set-upgrade-response.json", "SET UPGRADE RESPONSE JSON", request.SetUpgradeResponseJson)
-        };
-
-        foreach (var section in promptSections.Where(section => !string.IsNullOrWhiteSpace(section.Content)))
-        {
-            await File.WriteAllTextAsync(
-                Path.Combine(outputDirectory, section.FileName),
-                section.Content!.Trim() + Environment.NewLine,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        foreach (var section in responseSections.Where(section => !string.IsNullOrWhiteSpace(section.Content)))
-        {
-            await File.WriteAllTextAsync(
-                Path.Combine(outputDirectory, section.FileName),
-                ExtractJsonObject(section.Content!).Trim() + Environment.NewLine,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        await File.WriteAllTextAsync(
-            Path.Combine(outputDirectory, "all-prompts.txt"),
-            BuildCombinedArtifactText(promptSections),
-            cancellationToken).ConfigureAwait(false);
-        await File.WriteAllTextAsync(
-            Path.Combine(outputDirectory, "all-responses.txt"),
-            BuildCombinedArtifactText(responseSections),
-            cancellationToken).ConfigureAwait(false);
-
-        return outputDirectory;
-    }
-
-    private static string BuildCombinedArtifactText(IEnumerable<(string FileName, string Label, string? Content)> sections)
-    {
-        var builder = new StringBuilder();
-        foreach (var section in sections.Where(section => !string.IsNullOrWhiteSpace(section.Content)))
-        {
-            builder.AppendLine($"===== {section.Label} ({section.FileName}) =====");
-            builder.AppendLine(section.Content!.Trim());
-            builder.AppendLine();
-        }
-
-        return builder.ToString().TrimEnd() + Environment.NewLine;
-    }
-
-    private static string CreateSafePathSegment(string? value, string fallback)
-    {
-        var candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = new string(candidate.Select(character => invalidChars.Contains(character) ? '-' : character).ToArray());
-        return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized.Replace(' ', '-').ToLowerInvariant();
-    }
+        => _artifactStore.SaveAsync(
+            request,
+            commanderName,
+            inputSummary,
+            requestContextText: BuildRequestContextText(request, commanderName),
+            referenceText,
+            analysisPromptText,
+            deckProfileSchemaJson,
+            setUpgradePromptText,
+            cancellationToken);
 
     private static string BuildRequestContextText(ChatGptDeckRequest request, string? commanderName)
     {
