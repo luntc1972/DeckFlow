@@ -27,6 +27,16 @@
         "content.css"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "deckflow-bridge.js"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }
