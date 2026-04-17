@@ -68,6 +68,7 @@ public class Program
         builder.Services.AddSingleton<IScryfallSetService, ScryfallSetService>();
         builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
         builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
+        builder.Services.AddSingleton<IChatGptArtifactsDirectory, ChatGptArtifactsDirectory>();
         builder.Services.AddScoped<IChatGptDeckPacketService, ChatGptDeckPacketService>();
         builder.Services.AddScoped<IChatGptDeckComparisonService, ChatGptDeckComparisonService>();
         builder.Services.AddScoped<IChatGptCedhMetaGapService, ChatGptCedhMetaGapService>();

@@ -1301,8 +1301,51 @@ const bootstrapDeckSync = () => {
     attachChatGptComparisonWorkflow();
     attachChatGptCedhWorkflow();
     loadSetOptionsAsync();
+    loadSavedSessionsAsync();
     attachToolNav();
     attachConvertForm();
+};
+const loadSavedSessionsAsync = () => {
+    const panel = document.querySelector('[data-saved-sessions-url]');
+    const select = document.querySelector('[data-saved-sessions-select]');
+    const pathInput = document.querySelector('[data-chatgpt-import-path]');
+    if (!panel || !select || !pathInput)
+        return;
+    const url = panel.dataset.savedSessionsUrl;
+    if (!url)
+        return;
+    fetch(url)
+        .then(response => {
+        if (!response.ok)
+            throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+        .then(sessions => {
+        var _a;
+        select.innerHTML = '';
+        const blankOption = document.createElement('option');
+        blankOption.value = '';
+        blankOption.textContent = sessions.length === 0 ? 'No saved sessions' : '— Pick a saved session —';
+        select.appendChild(blankOption);
+        for (const session of sessions) {
+            const option = document.createElement('option');
+            option.value = session.relativePath;
+            const created = new Date(session.createdUtc);
+            option.textContent = `${session.commander} · ${session.timestamp}  (${created.toLocaleString()})`;
+            select.appendChild(option);
+        }
+        if (sessions.length === 0) {
+            (_a = document.querySelector('[data-saved-sessions-empty]')) === null || _a === void 0 ? void 0 : _a.removeAttribute('hidden');
+        }
+    })
+        .catch(() => {
+        select.innerHTML = '<option value="">Could not load saved sessions</option>';
+    });
+    select.addEventListener('change', () => {
+        if (select.value) {
+            pathInput.value = select.value;
+        }
+    });
 };
 const attachToolNav = () => {
     const nav = document.querySelector('[data-tool-nav]');
