@@ -9,11 +9,17 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 internal static class ScryfallThrottle
 {
-    // Keep under Scryfall's 10 req/sec cap with a small safety margin (≈ 9 req/sec).
-    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(110);
+    // Scryfall asks for 50-100ms between requests. We pace at 200ms (~5 req/sec) to leave
+    // plenty of headroom for Cloudflare's burst detection, which is stricter than the published
+    // 10 req/sec ceiling. Packet build still completes fast: for a 100-card deck the collection
+    // batch + a handful of fallback searches is < 3 seconds of pacing total.
+    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(200);
 
-    // Honor Retry-After up to this cap; longer cooldowns fall through and surface as a rate-limit error.
-    private static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(5);
+    // Honor Retry-After up to this cap before giving up. Extending to 30s means a single burst
+    // that hits 429 with a 30-60s cooldown will recover without the user seeing a failed build,
+    // at the cost of one request sometimes taking up to 30s. Acceptable tradeoff for "packet
+    // build completes" vs "packet build fails with try-again-shortly".
+    private static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(30);
 
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static DateTime _lastCallUtc = DateTime.MinValue;
