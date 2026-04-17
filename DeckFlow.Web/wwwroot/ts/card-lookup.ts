@@ -57,7 +57,187 @@ const hideLookupSuggestionPanel = (panel: HTMLElement): void => {
   panel.replaceChildren();
 };
 
-const initializeCardLookupForm = (): void => {
+const attachLookaheadInput = (
+  input: HTMLInputElement,
+  panel: HTMLDivElement,
+  minChars: number,
+  onPick: (name: string) => void
+): void => {
+  const fetchSuggestions = async (): Promise<void> => {
+    const query = input.value.trim();
+    if (query.length < minChars) {
+      hideLookupSuggestionPanel(panel);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        hideLookupSuggestionPanel(panel);
+        return;
+      }
+
+      const names: string[] = await response.json();
+      panel.replaceChildren();
+      if (names.length === 0) {
+        hideLookupSuggestionPanel(panel);
+        return;
+      }
+
+      names.forEach(name => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'autocomplete-option';
+        option.textContent = name;
+        option.addEventListener('mousedown', event => {
+          event.preventDefault();
+          input.value = name;
+          hideLookupSuggestionPanel(panel);
+          onPick(name);
+        });
+        panel.appendChild(option);
+      });
+      panel.classList.remove('hidden');
+    } catch {
+      hideLookupSuggestionPanel(panel);
+    }
+  };
+
+  const debounced = debounceCardLookupSearch(fetchSuggestions, 250);
+  input.addEventListener('input', debounced);
+  input.addEventListener('focus', debounced);
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
+      return;
+    }
+
+    hideLookupSuggestionPanel(panel);
+  });
+};
+
+const initializeSingleCardMode = (): void => {
+  const input = document.querySelector<HTMLInputElement>('[data-card-lookup-single-input]');
+  const submitButton = document.querySelector<HTMLButtonElement>('[data-card-lookup-single-submit]');
+  const clearButton = document.querySelector<HTMLButtonElement>('[data-card-lookup-single-clear]');
+  const errorBanner = document.querySelector<HTMLElement>('[data-card-lookup-single-error]');
+  const resultPanel = document.querySelector<HTMLElement>('[data-card-lookup-single-result]');
+  const resultTextarea = document.querySelector<HTMLTextAreaElement>('[data-card-lookup-single-output]');
+  const resultLabel = document.querySelector<HTMLElement>('[data-card-lookup-single-name-label]');
+  const anchor = input?.parentElement;
+  if (!input || !submitButton || !errorBanner || !resultPanel || !resultTextarea || !resultLabel || !anchor) {
+    return;
+  }
+
+  const suggestionPanel = createLookupSuggestionPanel(anchor);
+
+  const showError = (message: string): void => {
+    errorBanner.textContent = message;
+    errorBanner.classList.remove('hidden');
+    resultPanel.classList.add('hidden');
+  };
+
+  const clearError = (): void => {
+    errorBanner.textContent = '';
+    errorBanner.classList.add('hidden');
+  };
+
+  const showResult = (name: string, verifiedText: string): void => {
+    clearError();
+    resultLabel.textContent = name;
+    resultTextarea.value = verifiedText;
+    resultPanel.classList.remove('hidden');
+  };
+
+  const runLookup = async (name: string): Promise<void> => {
+    const query = name.trim();
+    if (!query) {
+      showError('Enter a card name first.');
+      return;
+    }
+
+    submitButton.disabled = true;
+    clearError();
+    try {
+      const response = await fetch(`/card-lookup/single?name=${encodeURIComponent(query)}`);
+      const payload = await response.json().catch(() => null) as { verifiedText?: string; message?: string } | null;
+      if (!response.ok) {
+        showError(payload?.message ?? 'Scryfall could not be reached right now. Try again shortly.');
+        return;
+      }
+
+      if (!payload?.verifiedText) {
+        showError('No card details were returned.');
+        return;
+      }
+
+      showResult(query, payload.verifiedText);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Lookup failed.');
+    } finally {
+      submitButton.disabled = false;
+    }
+  };
+
+  attachLookaheadInput(input, suggestionPanel, 4, name => {
+    input.value = name;
+    runLookup(name);
+  });
+
+  submitButton.addEventListener('click', () => {
+    runLookup(input.value);
+  });
+
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runLookup(input.value);
+    }
+  });
+
+  clearButton?.addEventListener('click', () => {
+    input.value = '';
+    resultPanel.classList.add('hidden');
+    resultTextarea.value = '';
+    clearError();
+    hideLookupSuggestionPanel(suggestionPanel);
+    input.focus();
+  });
+};
+
+const initializeModePicker = (): void => {
+  const picker = document.querySelector<HTMLElement>('[data-card-lookup-mode-picker]');
+  if (!picker) {
+    return;
+  }
+
+  const panels = Array.from(document.querySelectorAll<HTMLElement>('[data-card-lookup-mode-panel]'));
+  const buttons = Array.from(picker.querySelectorAll<HTMLButtonElement>('[data-card-lookup-mode-button]'));
+
+  const activate = (mode: string): void => {
+    buttons.forEach(button => {
+      const active = button.dataset.cardLookupModeButton === mode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    panels.forEach(panel => {
+      const active = panel.dataset.cardLookupModePanel === mode;
+      panel.classList.toggle('hidden', !active);
+    });
+  };
+
+  buttons.forEach(button => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.cardLookupModeButton;
+      if (mode) {
+        activate(mode);
+      }
+    });
+  });
+
+  activate('single');
+};
+
+const initializeCardListMode = (): void => {
   const form = document.querySelector<HTMLFormElement>('form[data-cache-key="card-lookup"]');
   if (!form) {
     return;
@@ -67,7 +247,6 @@ const initializeCardLookupForm = (): void => {
   const counter = document.querySelector<HTMLElement>('[data-verify-lines-count]');
   const validationMessage = document.querySelector<HTMLElement>('[data-verify-lines-error]');
   const submitButtons = form.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
-  const downloadButton = form.querySelector<HTMLButtonElement>('button[formaction]');
   const buildLinesButton = form.querySelector<HTMLButtonElement>('[data-card-lookup-build-lines]');
   const addLineButton = form.querySelector<HTMLButtonElement>('[data-card-lookup-add-line]');
   const lineEditor = form.querySelector<HTMLElement>('[data-card-lookup-line-editor]');
@@ -108,59 +287,6 @@ const initializeCardLookupForm = (): void => {
     updateUi();
   };
 
-  const attachLookupSearch = (input: HTMLInputElement, panel: HTMLDivElement): void => {
-    const fetchSuggestions = async (): Promise<void> => {
-      const query = input.value.trim();
-      if (query.length < 2) {
-        hideLookupSuggestionPanel(panel);
-        return;
-      }
-
-      try {
-        const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
-        if (!response.ok) {
-          hideLookupSuggestionPanel(panel);
-          return;
-        }
-
-        const names: string[] = await response.json();
-        panel.replaceChildren();
-        if (names.length === 0) {
-          hideLookupSuggestionPanel(panel);
-          return;
-        }
-
-        names.forEach(name => {
-          const option = document.createElement('button');
-          option.type = 'button';
-          option.className = 'autocomplete-option';
-          option.textContent = name;
-          option.addEventListener('mousedown', event => {
-            event.preventDefault();
-            input.value = name;
-            hideLookupSuggestionPanel(panel);
-            syncTextareaFromEditor();
-          });
-          panel.appendChild(option);
-        });
-        panel.classList.remove('hidden');
-      } catch {
-        hideLookupSuggestionPanel(panel);
-      }
-    };
-
-    const debounced = debounceCardLookupSearch(fetchSuggestions, 250);
-    input.addEventListener('input', debounced);
-    input.addEventListener('focus', debounced);
-    document.addEventListener('click', event => {
-      if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
-        return;
-      }
-
-      hideLookupSuggestionPanel(panel);
-    });
-  };
-
   const createLookupLineRow = (line: ParsedLookupLine): HTMLElement => {
     const row = document.createElement('div');
     row.className = 'card-lookup-line-row';
@@ -185,7 +311,10 @@ const initializeCardLookupForm = (): void => {
     cardInput.className = 'card-lookup-line-row__name';
     cardInputShell.appendChild(cardInput);
     const suggestionPanel = createLookupSuggestionPanel(cardInputShell);
-    attachLookupSearch(cardInput, suggestionPanel);
+    attachLookaheadInput(cardInput, suggestionPanel, 2, name => {
+      cardInput.value = name;
+      syncTextareaFromEditor();
+    });
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
@@ -234,15 +363,21 @@ const initializeCardLookupForm = (): void => {
     lineEditor.appendChild(createLookupLineRow({ quantity: '', cardName: '' }));
     addLineButton.classList.remove('hidden');
   });
-  downloadButton?.addEventListener('click', () => {
+  form.addEventListener('submit', () => {
     window.setTimeout(() => {
       window.hideBusyIndicator?.();
-    }, 300);
+    }, 400);
   });
   if (textArea.value.trim().length > 0) {
     rebuildLineEditor();
   }
   updateUi();
+};
+
+const initializeCardLookupForm = (): void => {
+  initializeModePicker();
+  initializeSingleCardMode();
+  initializeCardListMode();
 };
 
 if (document.readyState === 'loading') {

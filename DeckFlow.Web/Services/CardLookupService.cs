@@ -34,17 +34,20 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>> _executeRulingsAsync;
 
     public ScryfallCardLookupService(
         RestClient? restClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsync = null)
     {
         var client = restClient ?? ScryfallRestClientFactory.Create();
         _executeAsync = executeAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
         _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
         _executeNamedAsync = executeNamedAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCard>(request, token), cancellationToken));
+        _executeRulingsAsync = executeRulingsAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallRulingsResponse>(request, token), cancellationToken));
     }
 
     public async Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
@@ -99,12 +102,15 @@ public sealed class ScryfallCardLookupService : ICardLookupService
 
         var verifiedOutputs = new List<string>(parsedLines.Count);
         var missingLines = new List<string>();
+        var rulingsByCardId = new Dictionary<string, IReadOnlyList<ScryfallRuling>>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var parsedLine in parsedLines)
         {
             var normalizedInput = NormalizeName(parsedLine.CardName);
             if (resolvedCards.TryGetValue(normalizedInput, out var card))
             {
-                verifiedOutputs.Add(FormatCard(card, parsedLine.Quantity));
+                var rulings = await GetCachedRulingsAsync(card, rulingsByCardId, cancellationToken).ConfigureAwait(false);
+                verifiedOutputs.Add(FormatCard(card, parsedLine.Quantity, rulings));
                 continue;
             }
 
@@ -121,7 +127,8 @@ public sealed class ScryfallCardLookupService : ICardLookupService
 
                 if (fallbackCard is not null)
                 {
-                    verifiedOutputs.Add(FormatCard(fallbackCard, parsedLine.Quantity));
+                    var rulings = await GetCachedRulingsAsync(fallbackCard, rulingsByCardId, cancellationToken).ConfigureAwait(false);
+                    verifiedOutputs.Add(FormatCard(fallbackCard, parsedLine.Quantity, rulings));
                     continue;
                 }
             }
@@ -130,6 +137,38 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         }
 
         return new CardLookupResult(verifiedOutputs, missingLines);
+    }
+
+    private async Task<IReadOnlyList<ScryfallRuling>> GetCachedRulingsAsync(
+        ScryfallCard card,
+        Dictionary<string, IReadOnlyList<ScryfallRuling>> cache,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(card.Id))
+        {
+            return Array.Empty<ScryfallRuling>();
+        }
+
+        if (cache.TryGetValue(card.Id, out var cached))
+        {
+            return cached;
+        }
+
+        var fetched = await FetchRulingsAsync(card.Id, cancellationToken).ConfigureAwait(false);
+        cache[card.Id] = fetched;
+        return fetched;
+    }
+
+    private async Task<IReadOnlyList<ScryfallRuling>> FetchRulingsAsync(string cardId, CancellationToken cancellationToken)
+    {
+        var request = new RestRequest($"cards/{cardId}/rulings", Method.Get);
+        var response = await _executeRulingsAsync(request, cancellationToken).ConfigureAwait(false);
+        if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+        {
+            return Array.Empty<ScryfallRuling>();
+        }
+
+        return response.Data.Data ?? (IReadOnlyList<ScryfallRuling>)Array.Empty<ScryfallRuling>();
     }
 
     private static IEnumerable<List<string>> Chunk(IReadOnlyList<string> values, int size)
@@ -196,7 +235,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         return null;
     }
 
-    private static string FormatCard(ScryfallCard card, int? quantity)
+    private static string FormatCard(ScryfallCard card, int? quantity, IReadOnlyList<ScryfallRuling> rulings)
     {
         var sections = new List<string>();
         sections.Add(quantity.HasValue ? $"{quantity.Value} {card.Name}" : card.Name);
@@ -216,6 +255,22 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         if (!string.IsNullOrWhiteSpace(card.Power) && !string.IsNullOrWhiteSpace(card.Toughness))
         {
             sections.Add($"{card.Power}/{card.Toughness}");
+        }
+
+        if (rulings.Count > 0)
+        {
+            sections.Add(string.Empty);
+            sections.Add("Rulings:");
+            foreach (var ruling in rulings)
+            {
+                if (string.IsNullOrWhiteSpace(ruling.Comment))
+                {
+                    continue;
+                }
+
+                var datePrefix = string.IsNullOrWhiteSpace(ruling.PublishedAt) ? string.Empty : $"({ruling.PublishedAt}) ";
+                sections.Add($"- {datePrefix}{ruling.Comment}");
+            }
         }
 
         return string.Join(Environment.NewLine, sections);

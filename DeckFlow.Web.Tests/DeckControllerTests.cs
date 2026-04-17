@@ -201,7 +201,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.CardLookup(new CardLookupRequest());
+        var result = await controller.DownloadCardLookup(new CardLookupRequest());
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CardLookupViewModel>(view.Model);
@@ -231,7 +231,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.CardLookup(new CardLookupRequest
+        var result = await controller.DownloadCardLookup(new CardLookupRequest
         {
             CardList = "Sol Ring"
         });
@@ -264,7 +264,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.CardLookup(new CardLookupRequest
+        var result = await controller.DownloadCardLookup(new CardLookupRequest
         {
             CardList = "Sol Ring"
         });

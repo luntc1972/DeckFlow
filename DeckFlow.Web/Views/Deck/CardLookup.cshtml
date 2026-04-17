@@ -1,86 +1,98 @@
 @model DeckFlow.Web.Models.CardLookupViewModel
 @{
-    var hasVerified = !string.IsNullOrWhiteSpace(Model.VerifiedText);
-    var hasMissing = !string.IsNullOrWhiteSpace(Model.MissingText);
     ViewData["Title"] = "Card Lookup";
 }
 
 <section class="hero">
     <h1>Card Lookup</h1>
-    <p class="lede">Paste one card per line, submit, and get back the full Scryfall text for each match plus any cards that could not be found.</p>
+    <p class="lede">Look up a single card's Oracle text and WOTC rulings, or paste a list (desktop) and download the full Scryfall text as <code>.txt</code> or <code>.json</code>.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
-<div class="warning-banner">
-    Optional leading quantities such as <code>1 Sol Ring</code> are allowed and will be preserved in the verified output.
-</div>
-
-<div class="info-banner">
-    Scryfall live lookups are capped at 100 cards per submission and sent in collection batches to reduce request volume.
-</div>
-
 <div class="error-banner @(string.IsNullOrWhiteSpace(Model.ErrorMessage) ? "hidden" : string.Empty)" role="alert">
     @Model.ErrorMessage
 </div>
 
-<form method="post" action="@Url.Content("~/card-lookup")" class="deck-form" data-cache-key="card-lookup" data-busy-title="Looking up cards" data-busy-message="Checking submitted card names against Scryfall." data-busy-hold-final-step="true">
-    @Html.AntiForgeryToken()
+<div class="toolbar card-lookup-mode-picker desktop-only" role="group" aria-label="Card lookup mode" data-card-lookup-mode-picker>
+    <button type="button" class="clear-cache-button is-active" data-card-lookup-mode-button="single" aria-pressed="true">Single Card</button>
+    <button type="button" class="clear-cache-button" data-card-lookup-mode-button="list" aria-pressed="false">Card List (download)</button>
+</div>
+
+<section class="card-lookup-mode-panel" data-card-lookup-mode-panel="single">
+    <div class="warning-banner">
+        Start typing a card name (4+ characters) to see Scryfall suggestions. Picking one runs the lookup.
+    </div>
+
     <div class="field-grid">
-        <label class="field">
-            <span>Card list</span>
-            <textarea name="CardList" spellcheck="false" placeholder="Sol Ring&#10;Arcane Signet&#10;1 Guardian Project">@Model.Request.CardList</textarea>
-        </label>
-    </div>
-    <div class="mode-note card-lookup-editor-note desktop-only">
-        <div>
-            <strong>Optional line editor</strong>
-            <div>Convert the pasted text into editable rows with Scryfall look-ahead on each card-name field. Edits sync back into the textarea above.</div>
-        </div>
-        <div class="card-lookup-editor-actions">
-            <button type="button" class="clear-cache-button" data-card-lookup-build-lines>Convert To Editable Lines</button>
-            <button type="button" class="clear-cache-button hidden" data-card-lookup-add-line>Add Line</button>
+        <div class="field">
+            <label for="card-lookup-single-name">Card name</label>
+            <div class="autocomplete-anchor">
+                <input id="card-lookup-single-name" type="text" spellcheck="false" autocomplete="off"
+                       placeholder="e.g. Sol Ring" data-card-lookup-single-input />
+            </div>
         </div>
     </div>
-    <div class="card-lookup-line-editor hidden desktop-only" data-card-lookup-line-editor></div>
-    <div class="mode-note">
-        <span data-verify-lines-count>0/100 lines</span>
-    </div>
-    <div class="error-banner hidden" role="alert" data-verify-lines-error></div>
+
     <div class="toolbar">
-        <button type="submit" class="run-button">Lookup Cards</button>
-        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/card-lookup")">Clear</button>
-        <button type="submit" class="clear-cache-button" formaction="@Url.Content("~/card-lookup/download")">Download .txt</button>
+        <button type="button" class="run-button" data-card-lookup-single-submit>Look Up</button>
+        <button type="button" class="clear-cache-button" data-card-lookup-single-clear>Clear</button>
     </div>
-</form>
 
-@if (hasVerified || hasMissing)
-{
-    <section class="stack">
-        <section class="result-panel @(hasVerified ? string.Empty : "hidden")">
-            <div class="panel-heading">
-                <div>
-                    <h2>Verified Cards</h2>
-                    <p>@Model.FoundCount card(s) confirmed by Scryfall.</p>
-                </div>
-                <button type="button" class="copy-button" data-copy-target="verified-cards-output">Copy</button>
-            </div>
-            <textarea id="verified-cards-output" readonly spellcheck="false">@Model.VerifiedText</textarea>
-        </section>
+    <div class="error-banner hidden" role="alert" data-card-lookup-single-error></div>
 
-        <section class="result-panel @(hasMissing ? string.Empty : "hidden")">
-            <div class="panel-heading">
-                <div>
-                    <h2>Cards With Errors</h2>
-                    <p>@Model.MissingCount line(s) could not be found and are marked with an error prefix.</p>
-                </div>
-                <button type="button" class="copy-button" data-copy-target="missing-cards-output">Copy</button>
+    <section class="result-panel hidden" data-card-lookup-single-result>
+        <div class="panel-heading">
+            <div>
+                <h2>Card</h2>
+                <p data-card-lookup-single-name-label></p>
             </div>
-            <textarea id="missing-cards-output" readonly spellcheck="false">@Model.MissingText</textarea>
-        </section>
+            <button type="button" class="copy-button" data-copy-target="card-lookup-single-output">Copy</button>
+        </div>
+        <textarea id="card-lookup-single-output" readonly spellcheck="false" data-card-lookup-single-output></textarea>
     </section>
-}
+</section>
+
+<section class="card-lookup-mode-panel desktop-only hidden" data-card-lookup-mode-panel="list">
+    <div class="warning-banner">
+        Optional leading quantities such as <code>1 Sol Ring</code> are allowed and will be preserved in the downloaded output.
+    </div>
+
+    <div class="info-banner">
+        Scryfall live lookups are capped at 100 cards per submission and sent in collection batches to reduce request volume.
+    </div>
+
+    <form method="post" action="@Url.Content("~/card-lookup/download")" class="deck-form" data-cache-key="card-lookup" data-busy-title="Looking up cards" data-busy-message="Checking submitted card names against Scryfall." data-busy-hold-final-step="true">
+        @Html.AntiForgeryToken()
+        <div class="field-grid">
+            <label class="field">
+                <span>Card list</span>
+                <textarea name="CardList" spellcheck="false" placeholder="Sol Ring&#10;Arcane Signet&#10;1 Guardian Project">@Model.Request.CardList</textarea>
+            </label>
+        </div>
+        <div class="mode-note card-lookup-editor-note">
+            <div>
+                <strong>Optional line editor</strong>
+                <div>Convert the pasted text into editable rows with Scryfall look-ahead on each card-name field. Edits sync back into the textarea above.</div>
+            </div>
+            <div class="card-lookup-editor-actions">
+                <button type="button" class="clear-cache-button" data-card-lookup-build-lines>Convert To Editable Lines</button>
+                <button type="button" class="clear-cache-button hidden" data-card-lookup-add-line>Add Line</button>
+            </div>
+        </div>
+        <div class="card-lookup-line-editor hidden" data-card-lookup-line-editor></div>
+        <div class="mode-note">
+            <span data-verify-lines-count>0/100 lines</span>
+        </div>
+        <div class="error-banner hidden" role="alert" data-verify-lines-error></div>
+        <div class="toolbar">
+            <button type="submit" class="run-button" formaction="@Url.Content("~/card-lookup/download")">Download .txt</button>
+            <button type="submit" class="clear-cache-button" formaction="@Url.Content("~/card-lookup/download-json")">Download .json</button>
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/card-lookup")">Clear</button>
+        </div>
+    </form>
+</section>
 
 @section Scripts {
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
