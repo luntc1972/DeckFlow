@@ -954,6 +954,26 @@ select {
   padding: 0.5rem 0;
 }
 
+/* Copy-button clipboard feedback: flashes green on success, red on failure. */
+.copy-button.is-copied {
+  background: #2f855a;
+  border-color: #2f855a;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.copy-button.is-copy-failed {
+  background: #c53030;
+  border-color: #c53030;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+/* Workflow step tabs: show a check prefix when that step has parsed data. */
+.chatgpt-step-tab.is-complete::before {
+  content: "\2713 ";
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .run-button,
 .copy-button {
   border: 1px solid var(--accent);

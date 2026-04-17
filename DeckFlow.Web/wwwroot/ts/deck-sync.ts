@@ -223,9 +223,14 @@ const setTemporaryButtonText = (button: HTMLElement, text: string, durationMs = 
   const originalText = button.dataset.copyOriginalText ?? button.textContent?.trim() ?? 'Copy';
   button.dataset.copyOriginalText = originalText;
   button.textContent = text;
+  const state = text === 'Copied' ? 'is-copied' : text === 'Copy failed' ? 'is-copy-failed' : null;
+  if (state) {
+    button.classList.add(state);
+  }
 
   window.setTimeout(() => {
     button.textContent = originalText;
+    button.classList.remove('is-copied', 'is-copy-failed');
   }, durationMs);
 };
 

@@ -47,10 +47,16 @@
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
 
+    @{
+        var cedhStep1Complete = Model.FetchedEntries.Count > 0 || !string.IsNullOrWhiteSpace(Model.ResolvedCommanderName);
+        var cedhStep2Complete = !string.IsNullOrWhiteSpace(Model.PromptText);
+        var cedhStep3Complete = Model.AnalysisResponse is not null;
+        string CedhTabClass(bool complete) => complete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+    }
     <div class="chatgpt-step-nav" role="tablist" aria-label="cEDH meta-gap workflow steps">
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-cedh-step-tab-1" aria-controls="chatgpt-cedh-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="1">Step 1: Fetch Decks</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-cedh-step-tab-2" aria-controls="chatgpt-cedh-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="2">Step 2: Generate Prompt</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-cedh-step-tab-3" aria-controls="chatgpt-cedh-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="3">Step 3: Paste JSON</button>
+        <button type="button" class="@CedhTabClass(cedhStep1Complete)" role="tab" id="chatgpt-cedh-step-tab-1" aria-controls="chatgpt-cedh-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="1">Step 1: Fetch Reference Decks</button>
+        <button type="button" class="@CedhTabClass(cedhStep2Complete)" role="tab" id="chatgpt-cedh-step-tab-2" aria-controls="chatgpt-cedh-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="2">Step 2: Build Meta Gap Prompt</button>
+        <button type="button" class="@CedhTabClass(cedhStep3Complete)" role="tab" id="chatgpt-cedh-step-tab-3" aria-controls="chatgpt-cedh-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="3">Step 3: Meta Gap Results</button>
     </div>
 
     <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-1" aria-labelledby="chatgpt-cedh-step-tab-1" data-chatgpt-cedh-step="1">
@@ -65,7 +71,7 @@
 
         <label class="chatgpt-question-option desktop-only">
             <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
-            <span>Save prompt artifacts to disk under <code>Documents/MTG Deck Studio/ChatGPT cEDH Meta Gap</code></span>
+            <span>Save artifacts to disk under <code>Documents/MTG Deck Studio/ChatGPT cEDH Meta Gap</code></span>
         </label>
 
         <div class="sync-columns">
