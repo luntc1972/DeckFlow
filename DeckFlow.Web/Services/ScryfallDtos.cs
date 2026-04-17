@@ -49,7 +49,21 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("set")] string? SetCode,
     [property: JsonPropertyName("set_name")] string? SetName,
     [property: JsonPropertyName("collector_number")] string? CollectorNumber,
-    [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null);
+    [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null,
+    [property: JsonPropertyName("id")] string? Id = null);
+
+/// <summary>
+/// Container for a Scryfall rulings list response.
+/// </summary>
+public sealed record ScryfallRulingsResponse(List<ScryfallRuling> Data);
+
+/// <summary>
+/// Represents a single Scryfall ruling (WOTC-sourced clarification).
+/// </summary>
+public sealed record ScryfallRuling(
+    [property: JsonPropertyName("published_at")] string? PublishedAt,
+    [property: JsonPropertyName("source")] string? Source,
+    [property: JsonPropertyName("comment")] string? Comment);
 
 public sealed record ScryfallCardFace(
     [property: JsonPropertyName("name")] string Name,

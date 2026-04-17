@@ -294,7 +294,12 @@ For same-system comparisons, column labels update dynamically to reflect the sou
 
 ## Card Lookup
 
-The Card Lookup page (`/Deck/CardLookup`) accepts up to 100 card names and returns printing details (set code, collector number, mana cost, type line) from Scryfall via `POST /cards/collection` in batches of 75. Unknown names are reported clearly. Cards can be edited inline before submitting.
+The Card Lookup page (`/card-lookup`) has two modes:
+
+- **Single Card** (default; the only mode visible on mobile) — type a card name, get live Scryfall suggestions once you've entered 4+ characters, and picking a suggestion (or pressing Look Up) renders that card's Oracle text plus WOTC rulings inline via `GET /card-lookup/single`.
+- **Card List** (desktop-only) — paste up to 100 card names and download the full Scryfall output as `.txt` (`POST /card-lookup/download`) or structured `.json` (`POST /card-lookup/download-json`). The inline line editor with per-row autocomplete is still available for editing before downloading.
+
+Under the hood all modes use the same `ICardLookupService`: the card collection is fetched via `POST /cards/collection` in batches of 75, and rulings are fetched per-card via `GET /cards/{id}/rulings`.
 
 ---
 
@@ -400,7 +405,7 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 - Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the ChatGPT Analysis workflow, and async set catalog loading.
 - All Scryfall clients send a real `User-Agent`, an explicit `Accept` header, and use `https`.
 - Card lookup uses `POST /cards/collection` in batches of 75 identifiers.
-- The Card Lookup page is capped at 100 non-empty input lines per submission (at most two Scryfall requests).
+- The Card Lookup page is capped at 100 non-empty input lines per submission (at most two `cards/collection` requests plus one `cards/{id}/rulings` request per unique resolved card, all throttled).
 - The ChatGPT workflow uses the same batch endpoint to resolve authoritative Oracle text for all deck cards.
 - The set catalog is fetched via `GET /sets` and cached in memory for 6 hours; the web UI loads it asynchronously via `/api/set-options`.
 

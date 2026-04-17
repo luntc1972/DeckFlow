@@ -292,17 +292,6 @@ public sealed class DeckController : Controller
         return await RenderDiffAsync(request);
     }
 
-    [HttpPost("/card-lookup")]
-    [ValidateAntiForgeryToken]
-    /// <summary>
-    /// Looks up a pasted card list against Scryfall and renders returned text.
-    /// </summary>
-    /// <param name="request">Card verification request.</param>
-    public async Task<IActionResult> CardLookup(CardLookupRequest request)
-    {
-        return await RenderCardLookupAsync(request, downloadFile: false);
-    }
-
     [HttpPost("/card-lookup/download")]
     [ValidateAntiForgeryToken]
     /// <summary>
@@ -311,7 +300,51 @@ public sealed class DeckController : Controller
     /// <param name="request">Card verification request.</param>
     public async Task<IActionResult> DownloadCardLookup(CardLookupRequest request)
     {
-        return await RenderCardLookupAsync(request, downloadFile: true);
+        return await DownloadCardLookupAsync(request, CardLookupDownloadFormat.Text);
+    }
+
+    [HttpPost("/card-lookup/download-json")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Verifies a pasted card list and returns the output as a downloadable JSON file.
+    /// </summary>
+    /// <param name="request">Card verification request.</param>
+    public async Task<IActionResult> DownloadCardLookupJson(CardLookupRequest request)
+    {
+        return await DownloadCardLookupAsync(request, CardLookupDownloadFormat.Json);
+    }
+
+    [HttpGet("/card-lookup/single")]
+    /// <summary>
+    /// Looks up a single card by name and returns the formatted Oracle/rulings text as JSON.
+    /// </summary>
+    /// <param name="name">Card name.</param>
+    public async Task<IActionResult> SingleCardLookup(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "A card name is required." });
+        }
+
+        try
+        {
+            var result = await _cardLookupService.LookupAsync(name, HttpContext.RequestAborted);
+            var verified = result.VerifiedOutputs.FirstOrDefault();
+            if (string.IsNullOrEmpty(verified))
+            {
+                return NotFound(new { message = $"Scryfall could not find \"{name}\"." });
+            }
+
+            return Json(new { verifiedText = verified });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Single-card lookup failed for {CardName}.", name);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
     }
 
     [HttpPost("/mechanic-lookup")]
@@ -576,11 +609,11 @@ public sealed class DeckController : Controller
     }
 
     /// <summary>
-    /// Verifies a pasted card list and either renders the page or returns a text download.
+    /// Verifies a pasted card list and returns the result as either a text or JSON file download.
     /// </summary>
     /// <param name="request">Card verification request.</param>
-    /// <param name="downloadFile">Whether the result should be returned as a file.</param>
-    private async Task<IActionResult> RenderCardLookupAsync(CardLookupRequest request, bool downloadFile)
+    /// <param name="format">Download format (text or JSON).</param>
+    private async Task<IActionResult> DownloadCardLookupAsync(CardLookupRequest request, CardLookupDownloadFormat format)
     {
         request ??= new CardLookupRequest();
         if (string.IsNullOrWhiteSpace(request.CardList))
@@ -596,22 +629,19 @@ public sealed class DeckController : Controller
         try
         {
             var result = await _cardLookupService.LookupAsync(request.CardList, HttpContext.RequestAborted);
-            if (downloadFile)
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+            if (format == CardLookupDownloadFormat.Json)
             {
-                var output = BuildVerificationFile(result);
-                var fileName = $"verified-cards-{DateTime.UtcNow:yyyyMMdd-HHmmss}.txt";
-                return File(System.Text.Encoding.UTF8.GetBytes(output), "text/plain; charset=utf-8", fileName);
+                var json = JsonSerializer.Serialize(new
+                {
+                    verifiedOutputs = result.VerifiedOutputs,
+                    missingLines = result.MissingLines,
+                }, new JsonSerializerOptions { WriteIndented = true });
+                return File(System.Text.Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", $"verified-cards-{timestamp}.json");
             }
 
-            return View("CardLookup", new CardLookupViewModel
-            {
-                ActiveTab = DeckPageTab.CardLookup,
-                Request = request,
-                VerifiedText = string.Join(System.Environment.NewLine + System.Environment.NewLine, result.VerifiedOutputs),
-                MissingText = string.Join(Environment.NewLine, result.MissingLines),
-                FoundCount = result.VerifiedOutputs.Count,
-                MissingCount = result.MissingLines.Count,
-            });
+            var output = BuildVerificationFile(result);
+            return File(System.Text.Encoding.UTF8.GetBytes(output), "text/plain; charset=utf-8", $"verified-cards-{timestamp}.txt");
         }
         catch (InvalidOperationException exception)
         {
@@ -651,6 +681,12 @@ public sealed class DeckController : Controller
         lines.Add("Cards With Errors");
         lines.AddRange(result.MissingLines.Count == 0 ? ["(none)"] : result.MissingLines);
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private enum CardLookupDownloadFormat
+    {
+        Text,
+        Json,
     }
 
     [HttpPost("/suggest-categories")]
