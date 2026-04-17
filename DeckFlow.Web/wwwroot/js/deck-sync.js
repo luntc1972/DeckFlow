@@ -375,13 +375,50 @@ const persistFormState = (form) => {
     }
     const state = serializePersistedFormFields(form);
     storageAvailable.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(state));
+    storageAvailable.setItem(`${formStateStoragePrefix}${key}:savedAt`, Date.now().toString());
 };
 const clearPersistedFormState = (form) => {
+    var _a;
     const key = form.getAttribute('data-cache-key');
     if (!key || !storageAvailable) {
         return;
     }
     storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+    storageAvailable.removeItem(`${formStateStoragePrefix}${key}:savedAt`);
+    (_a = form.querySelector('[data-cache-pill]')) === null || _a === void 0 ? void 0 : _a.remove();
+};
+const formatCacheAge = (savedAtMs) => {
+    const elapsedMs = Date.now() - savedAtMs;
+    if (elapsedMs < 60000)
+        return 'just now';
+    const minutes = Math.floor(elapsedMs / 60000);
+    if (minutes < 60)
+        return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24)
+        return `${hours} hr ago`;
+    return `${Math.floor(hours / 24)} day ago`;
+};
+const showCachePill = (form, savedAtMs) => {
+    if (form.querySelector('[data-cache-pill]'))
+        return;
+    const pill = document.createElement('div');
+    pill.className = 'cache-pill';
+    pill.setAttribute('data-cache-pill', '');
+    pill.setAttribute('role', 'status');
+    const label = document.createElement('span');
+    label.textContent = `Restored from cache · ${formatCacheAge(savedAtMs)}`;
+    const resetButton = document.createElement('button');
+    resetButton.type = 'button';
+    resetButton.className = 'cache-pill__reset';
+    resetButton.textContent = 'Reset';
+    resetButton.addEventListener('click', () => {
+        clearPersistedFormState(form);
+        form.reset();
+    });
+    pill.appendChild(label);
+    pill.appendChild(resetButton);
+    form.insertBefore(pill, form.firstChild);
 };
 const hydrateFormState = (form) => {
     const key = form.getAttribute('data-cache-key');
@@ -395,9 +432,15 @@ const hydrateFormState = (form) => {
     try {
         const state = JSON.parse(json);
         restoreFormFields(form, state);
+        const savedAtRaw = storageAvailable.getItem(`${formStateStoragePrefix}${key}:savedAt`);
+        const savedAtMs = savedAtRaw ? parseInt(savedAtRaw, 10) : NaN;
+        if (Number.isFinite(savedAtMs)) {
+            showCachePill(form, savedAtMs);
+        }
     }
     catch (_a) {
         storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+        storageAvailable.removeItem(`${formStateStoragePrefix}${key}:savedAt`);
     }
 };
 const attachGenericPersistedForms = () => {
