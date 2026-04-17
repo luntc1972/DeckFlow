@@ -68,7 +68,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         _artifactsPath = string.IsNullOrWhiteSpace(artifactsPath)
             ? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "MTG Deck Studio",
+                "DeckFlow",
                 "ChatGPT Deck Comparison")
             : Path.GetFullPath(artifactsPath);
 

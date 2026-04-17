@@ -10,11 +10,11 @@
   let archidektCacheJobResolveVersion = 0;
   let archidektCacheJobRecordMemory: ArchidektCacheJobRecord | null = null;
   let suppressPageSnapshotPersistence = false;
-  const themeStorageKey = 'mtg-deck-studio-theme';
+  const themeStorageKey = 'deckflow-theme';
   const themeCookieMaxAgeSeconds = 60 * 60 * 24 * 365;
-  const archidektCacheJobStorageKey = 'mtg-deck-studio-archidekt-cache-job';
-  const archidektCacheJobDismissedKey = 'mtg-deck-studio-archidekt-cache-job-dismissed';
-  const archidektCacheJobPendingKey = 'mtg-deck-studio-archidekt-cache-job-pending';
+  const archidektCacheJobStorageKey = 'deckflow-archidekt-cache-job';
+  const archidektCacheJobDismissedKey = 'deckflow-archidekt-cache-job-dismissed';
+  const archidektCacheJobPendingKey = 'deckflow-archidekt-cache-job-pending';
   const pageSnapshotStoragePrefix = 'decksync-page-snapshot-';
   const tabNavigationKey = 'decksync-tab-navigation';
   const archidektCacheJobPollIntervalMs = 5000;

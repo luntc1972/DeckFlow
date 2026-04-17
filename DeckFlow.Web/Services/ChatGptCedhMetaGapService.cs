@@ -66,7 +66,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
         _artifactsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "MTG Deck Studio",
+            "DeckFlow",
             "ChatGPT cEDH Meta Gap");
     }
 
