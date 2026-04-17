@@ -10,6 +10,7 @@ using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
