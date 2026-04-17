@@ -23,10 +23,8 @@ public sealed class ArchidektCacheJobsControllerTests
             0,
             0,
             null);
-        var controller = CreateController(new FakeArchidektCacheJobService(job, startedNewJob: true))
-        {
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(new FakeArchidektCacheJobService(job, startedNewJob: true));
+        controller.Url = new FakeUrlHelper();
 
         var response = await controller.StartAsync(new ArchidektCacheJobStartRequest
         {
