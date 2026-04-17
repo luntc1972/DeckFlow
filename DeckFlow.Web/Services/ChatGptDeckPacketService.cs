@@ -39,7 +39,8 @@ public sealed record ChatGptDeckPacketResult(
     string? SavedArtifactsDirectory,
     string? TimingSummary,
     ChatGptDeckAnalysisResponse? AnalysisResponse = null,
-    ChatGptSetUpgradeResponse? SetUpgradeResponse = null);
+    ChatGptSetUpgradeResponse? SetUpgradeResponse = null,
+    string? ImportWarning = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompts plus supporting reference data for ChatGPT.
@@ -510,7 +511,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             savedArtifactsDirectory,
             timingSummary,
             analysisResponse,
-            setUpgradeResponse);
+            setUpgradeResponse,
+            ImportWarning: _lastImportNotice);
     }
 
 
@@ -519,13 +521,22 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     /// </summary>
     /// <param name="deckSource">Deck URL or pasted export text.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>
+    /// Warning surfaced to the UI when the Moxfield fallback (Commander Spellbook) was used.
+    /// Set during LoadDeckEntriesAsync, read during BuildAsync, cleared per call.
+    /// </summary>
+    private string? _lastImportNotice;
+
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
     {
+        _lastImportNotice = null;
         if (Uri.TryCreate(deckSource.Trim(), UriKind.Absolute, out var uri))
         {
             if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
             {
-                return await _moxfieldDeckImporter.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
+                var result = await _moxfieldDeckImporter.ImportWithSourceAsync(deckSource, cancellationToken).ConfigureAwait(false);
+                _lastImportNotice = result.FallbackNotice;
+                return result.Entries;
             }
 
             if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))

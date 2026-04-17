@@ -27,4 +27,6 @@ public sealed class ChatGptDeckViewModel
     public ChatGptDeckAnalysisResponse? AnalysisResponse { get; init; }
 
     public ChatGptSetUpgradeResponse? SetUpgradeResponse { get; init; }
+
+    public string? ImportWarning { get; init; }
 }

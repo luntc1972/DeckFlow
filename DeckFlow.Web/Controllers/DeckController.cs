@@ -391,6 +391,7 @@ public sealed class DeckController : Controller
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
+                ImportWarning = result.ImportWarning,
             });
         }
         catch (InvalidOperationException exception)
