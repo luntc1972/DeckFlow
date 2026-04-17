@@ -28,6 +28,22 @@
         <a class="run-button" href="https://chat.magicjudges.org/mtgrules/" target="_blank" rel="noopener noreferrer">Open Judge Chat &rarr;</a>
     </div>
 
+    <details class="judge-howto">
+        <summary>First time using IRC? How to use this chat &rarr;</summary>
+        <ol class="judge-howto__steps">
+            <li><strong>Open the chat</strong> — the button above loads <code>chat.magicjudges.org/mtgrules</code>, which embeds the Kiwi IRC web client with the channel <code>#magicjudges-rules</code> already selected and a random MTG-themed nickname already filled in (e.g. <em>Sphinx7</em>). No signup, email, or download required.</li>
+            <li><strong>Click "Start" on the connect screen.</strong> You can keep the auto-generated nickname or type a different one. Leave the password field blank — the channel does not require registration.</li>
+            <li><strong>You're in.</strong> You'll see a two-pane layout: a channel/user list on the left, and the chat on the right. Quiet periods are normal — the channel isn't always buzzing.</li>
+            <li><strong>Ask your question</strong> in the text box at the bottom of the chat area and press <kbd>Enter</kbd> to send. Keep the whole question in one message ("Can I respond to X with Y?") instead of pinging first — judges prefer to see the full question.</li>
+            <li><strong>Reference cards cleanly</strong> by typing <code>!CardName</code> (e.g. <code>!Sol Ring</code>) on its own line first. The channel bot will paste the card's Oracle text so judges can see exactly what you're asking about. If you arrived here from Card Lookup, the <em>Suggested opening message</em> above already includes this for you.</li>
+            <li><strong>Wait 1–5 minutes.</strong> It's a volunteer channel; answers come with Comprehensive Rules citations. If nobody replies, it's not personal — try again at a different time, or fall back to the ChatGPT helper below for a quick (fallible) second opinion.</li>
+        </ol>
+        <p class="judge-howto__fallback">
+            <strong>Chat won't load?</strong> The hosting page occasionally warns <em>"This service may be unavailable due to an upstream outage."</em>
+            Try connecting directly via <a href="https://web.libera.chat/#magicjudges-rules" target="_blank" rel="noopener noreferrer">web.libera.chat/#magicjudges-rules</a> — same channel, no extra gateway.
+        </p>
+    </details>
+
     @if (!string.IsNullOrWhiteSpace(prefilledName))
     {
         <div class="judge-suggested">
