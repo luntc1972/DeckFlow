@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using DeckFlow.Core.Integration;
@@ -47,6 +48,23 @@ public class Program
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
         builder.Services.AddMemoryCache();
+
+        // Honor X-Forwarded-* headers from the reverse proxy (e.g. Render, Fly, Azure App Service)
+        // so request.Scheme reflects the browser's https scheme, not the http hop from proxy to app.
+        // Without this, SameOriginRequestValidator sees scheme=http while Origin=https and rejects the request.
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                | ForwardedHeaders.XForwardedProto
+                | ForwardedHeaders.XForwardedHost;
+            // Render assigns dynamic proxy IPs we can't enumerate; clear the defaults so forwarded
+            // headers from any upstream are honored. Acceptable here because DeckFlow does not
+            // authenticate requests, so spoofing a scheme only grants the same access unauth'd
+            // callers already have.
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(options =>
         {
@@ -91,6 +109,11 @@ public class Program
         builder.Services.AddTransient<ArchidektParser>();
 
         var app = builder.Build();
+
+        // Must run before any middleware that reads request.Scheme/Host (HttpsRedirection,
+        // security headers, SameOriginRequestValidator in controllers) so those see the
+        // browser's original scheme/host, not the proxy hop.
+        app.UseForwardedHeaders();
 
         // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())
