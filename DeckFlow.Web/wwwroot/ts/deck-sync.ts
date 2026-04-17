@@ -55,6 +55,295 @@ const panelConfigs: PanelConfig[] = [
   },
 ];
 
+type MoxfieldImportTask = {
+  url: string;
+  applyImportedText: (deckText: string) => void;
+};
+
+type ExtensionBridgeSuccessResponse = {
+  source: 'deckflow-extension';
+  type: 'deckflow-moxfield-import-response';
+  requestId: string;
+  ok: true;
+  deckText: string;
+  deckName?: string | null;
+  cardCount?: number;
+  sourceUrl?: string | null;
+};
+
+type ExtensionBridgeErrorResponse = {
+  source: 'deckflow-extension';
+  type: 'deckflow-moxfield-import-response';
+  requestId: string;
+  ok: false;
+  error: string;
+};
+
+type ExtensionBridgePingResponse = {
+  source: 'deckflow-extension';
+  type: 'deckflow-extension-ping-response';
+  requestId: string;
+};
+
+type ExtensionBridgeResponse = ExtensionBridgeSuccessResponse | ExtensionBridgeErrorResponse | ExtensionBridgePingResponse;
+
+const MoxfieldExtensionPromptDismissKey = 'deckflow-moxfield-extension-dismissed';
+const moxfieldUrlPattern = /^https?:\/\/(?:www\.)?moxfield\.com\/decks\/[^/?#\s]+\/?$/i;
+let extensionRequestCounter = 0;
+
+const isSingleMoxfieldDeckUrl = (value: string): boolean => moxfieldUrlPattern.test(value.trim());
+
+const createExtensionRequestId = (): string => {
+  extensionRequestCounter += 1;
+  return `deckflow-extension-${extensionRequestCounter}`;
+};
+
+const getExtensionInstallUrl = (): string => document.body.dataset.deckflowExtensionInstallUrl ?? '/extension-install.html';
+
+const isMobileBrowser = (): boolean => {
+  const userAgentData = (navigator as any).userAgentData as { mobile?: boolean } | undefined;
+  if (typeof userAgentData?.mobile === 'boolean') {
+    return userAgentData.mobile;
+  }
+
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+};
+
+const postExtensionBridgeRequest = async (type: 'deckflow-extension-ping' | 'deckflow-moxfield-import', payload: Record<string, unknown>, timeoutMs = 2500): Promise<ExtensionBridgeResponse> => {
+  const requestId = createExtensionRequestId();
+
+  return await new Promise<ExtensionBridgeResponse>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      reject(new Error('Timed out waiting for the DeckFlow browser extension.'));
+    }, timeoutMs);
+
+    const handleMessage = (event: MessageEvent<ExtensionBridgeResponse>): void => {
+      if (event.source !== window) {
+        return;
+      }
+
+      const message = event.data;
+      if (!message || message.source !== 'deckflow-extension' || message.requestId !== requestId) {
+        return;
+      }
+
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('message', handleMessage);
+      resolve(message);
+    };
+
+    window.addEventListener('message', handleMessage);
+    window.postMessage({ source: 'deckflow-web', type, requestId, ...payload }, window.location.origin);
+  });
+};
+
+const isDeckFlowExtensionAvailable = async (): Promise<boolean> => {
+  try {
+    const response = await postExtensionBridgeRequest('deckflow-extension-ping', {}, 1200);
+    return response.type === 'deckflow-extension-ping-response';
+  } catch {
+    return false;
+  }
+};
+
+const importMoxfieldDeckTextViaExtension = async (url: string): Promise<string> => {
+  const response = await postExtensionBridgeRequest('deckflow-moxfield-import', { deckUrl: url }, 6000);
+  if (response.type !== 'deckflow-moxfield-import-response') {
+    throw new Error('The browser extension returned an unexpected response.');
+  }
+
+  if (!response.ok) {
+    throw new Error(response.error || 'The browser extension could not import this Moxfield deck.');
+  }
+
+  return response.deckText;
+};
+
+const promptToInstallMoxfieldExtension = (): boolean => {
+  if (isMobileBrowser()) {
+    return false;
+  }
+
+  if (window.sessionStorage.getItem(MoxfieldExtensionPromptDismissKey) === '1') {
+    return false;
+  }
+
+  const shouldOpenInstallPage = window.confirm(
+    'Moxfield often blocks server-side URL imports. Install the optional DeckFlow browser extension now? Click OK for install instructions, or Cancel to continue without it.'
+  );
+
+  if (shouldOpenInstallPage) {
+    window.open(getExtensionInstallUrl(), '_blank', 'noopener');
+  } else {
+    window.sessionStorage.setItem(MoxfieldExtensionPromptDismissKey, '1');
+  }
+
+  return shouldOpenInstallPage;
+};
+
+const resubmitFormBypassingExtension = (form: HTMLFormElement, submitter: HTMLElement | null): void => {
+  form.dataset.extensionBridgeBypass = 'true';
+  if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) {
+    form.requestSubmit(submitter);
+    return;
+  }
+
+  form.requestSubmit();
+};
+
+const createSelectBackedImportTask = (
+  urlInput: HTMLInputElement,
+  textInput: HTMLTextAreaElement,
+  sourceSelect: HTMLSelectElement
+): MoxfieldImportTask | null => {
+  if (sourceSelect.value !== DeckInputSource.PublicUrl || !isSingleMoxfieldDeckUrl(urlInput.value)) {
+    return null;
+  }
+
+  return {
+    url: urlInput.value.trim(),
+    applyImportedText: (deckText: string) => {
+      textInput.value = deckText;
+      urlInput.value = '';
+      sourceSelect.value = DeckInputSource.PasteText;
+      sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
+};
+
+const createTextareaImportTask = (sourceInput: HTMLTextAreaElement): MoxfieldImportTask | null => {
+  if (!isSingleMoxfieldDeckUrl(sourceInput.value)) {
+    return null;
+  }
+
+  return {
+    url: sourceInput.value.trim(),
+    applyImportedText: (deckText: string) => {
+      sourceInput.value = deckText;
+    }
+  };
+};
+
+const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[] => {
+  const cacheKey = form.dataset.cacheKey;
+  if (!cacheKey) {
+    return [];
+  }
+
+  if (cacheKey === 'deck-sync') {
+    const tasks: MoxfieldImportTask[] = [];
+    const direction = form.querySelector<HTMLSelectElement>('select[name="Direction"]')?.value ?? 'MoxfieldToArchidekt';
+    const leftUsesMoxfield = direction !== 'ArchidektToArchidekt';
+    const rightUsesMoxfield = direction === 'MoxfieldToMoxfield';
+
+    if (leftUsesMoxfield) {
+      const leftTask = createSelectBackedImportTask(
+        form.querySelector<HTMLInputElement>('input[name="MoxfieldUrl"]')!,
+        form.querySelector<HTMLTextAreaElement>('textarea[name="MoxfieldText"]')!,
+        form.querySelector<HTMLSelectElement>('select[name="MoxfieldInputSource"]')!
+      );
+      if (leftTask) {
+        tasks.push(leftTask);
+      }
+    }
+
+    if (rightUsesMoxfield) {
+      const rightTask = createSelectBackedImportTask(
+        form.querySelector<HTMLInputElement>('input[name="ArchidektUrl"]')!,
+        form.querySelector<HTMLTextAreaElement>('textarea[name="ArchidektText"]')!,
+        form.querySelector<HTMLSelectElement>('select[name="ArchidektInputSource"]')!
+      );
+      if (rightTask) {
+        tasks.push(rightTask);
+      }
+    }
+
+    return tasks;
+  }
+
+  if (cacheKey === 'deck-convert') {
+    const sourceFormat = form.querySelector<HTMLSelectElement>('select[name="SourceFormat"]')?.value;
+    if (sourceFormat !== 'Moxfield') {
+      return [];
+    }
+
+    const task = createSelectBackedImportTask(
+      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
+      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
+      form.querySelector<HTMLSelectElement>('select[name="InputSource"]')!
+    );
+    return task ? [task] : [];
+  }
+
+  if (cacheKey === 'chatgpt-packets') {
+    const task = createSelectBackedImportTask(
+      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
+      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
+      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
+    );
+    return task ? [task] : [];
+  }
+
+  if (cacheKey === 'chatgpt-deck-comparison') {
+    return [
+      createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckASource"]')!),
+      createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckBSource"]')!)
+    ].filter((task): task is MoxfieldImportTask => task !== null);
+  }
+
+  if (cacheKey === 'chatgpt-cedh-meta-gap') {
+    const task = createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')!);
+    return task ? [task] : [];
+  }
+
+  return [];
+};
+
+const attachMoxfieldExtensionImport = (): void => {
+  document.addEventListener('submit', async event => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    if (form.dataset.extensionBridgeBypass === 'true') {
+      delete form.dataset.extensionBridgeBypass;
+      return;
+    }
+
+    const tasks = collectMoxfieldImportTasks(form);
+    if (tasks.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+    const extensionAvailable = await isDeckFlowExtensionAvailable();
+
+    if (!extensionAvailable) {
+      const openedInstallPage = promptToInstallMoxfieldExtension();
+      if (!openedInstallPage) {
+        resubmitFormBypassingExtension(form, submitter);
+      }
+
+      return;
+    }
+
+    try {
+      for (const task of tasks) {
+        const deckText = await importMoxfieldDeckTextViaExtension(task.url);
+        task.applyImportedText(deckText);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(`DeckFlow could not import this Moxfield URL through the browser extension. The original form submission will continue.\n\n${message}`);
+    }
+
+    resubmitFormBypassingExtension(form, submitter);
+  }, true);
+};
+
 const updateSyncInputModeUi = (): void => {
   panelConfigs.forEach(config => {
     const select = document.querySelector<HTMLSelectElement>(`select[name="${config.selectName}"]`);
@@ -1597,6 +1886,7 @@ const bootstrapDeckSync = (): void => {
   attachChatGptPacketsWorkflow();
   attachChatGptComparisonWorkflow();
   attachChatGptCedhWorkflow();
+  attachMoxfieldExtensionImport();
   loadSetOptionsAsync();
   loadSavedSessionsAsync();
   attachToolNav();
