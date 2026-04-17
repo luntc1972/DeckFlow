@@ -16,7 +16,7 @@
         ("site-planeswalker-dark.css", "Planeswalker Dark"),
         ("site-commander-table.css", "Commander Table"),
     };
-    const string themeCookieName = "mtg-deck-studio-theme";
+    const string themeCookieName = "deckflow-theme";
     const string defaultThemeFileName = "site.css";
     var selectedThemeFileName = Context?.Request.Cookies.TryGetValue(themeCookieName, out var cookieTheme) == true
         && Array.Exists(themeOptions, option => string.Equals(option.FileName, cookieTheme, StringComparison.OrdinalIgnoreCase))
@@ -30,7 +30,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - MTG Deck Studio</title>
+    <title>@ViewData["Title"] - DeckFlow</title>
     <link id="theme-stylesheet" rel="stylesheet" href="@selectedThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" data-cookie-name="@themeCookieName" />
     <style>
         .page-frame {

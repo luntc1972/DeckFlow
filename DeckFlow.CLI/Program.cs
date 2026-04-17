@@ -101,7 +101,7 @@ compareCommand.SetHandler(context =>
         parseResult.GetValueForOption(resolveConflictsOption)).GetAwaiter().GetResult();
 });
 
-var rootCommand = new RootCommand("MTG Deck Studio");
+var rootCommand = new RootCommand("DeckFlow");
 var cacheFlagOption = new Option<bool>("--archidekt-cache", "Run an Archidekt category cache sweep for the requested duration.");
 var cacheMinutesOption = new Option<int>("--minutes", () => 0) { Description = "Duration in minutes when using --archidekt-cache." };
 var cacheSecondsOption = new Option<int>("--seconds", () => 0) { Description = "Duration in seconds when using --archidekt-cache." };
@@ -112,7 +112,7 @@ rootCommand.SetHandler(async (bool runCache, int minutes, int seconds) =>
 {
     if (!runCache)
     {
-        Console.WriteLine("MTG Deck Studio CLI. Use --help to see available commands or specify --archidekt-cache.");
+        Console.WriteLine("DeckFlow CLI. Use --help to see available commands or specify --archidekt-cache.");
         Environment.ExitCode = 0;
         return;
     }

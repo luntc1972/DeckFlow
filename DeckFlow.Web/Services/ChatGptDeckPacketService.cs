@@ -116,7 +116,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "MTG Deck Studio",
+            "DeckFlow",
             "ChatGPT Analysis");
     }
 

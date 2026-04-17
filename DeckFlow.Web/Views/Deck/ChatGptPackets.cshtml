@@ -80,7 +80,7 @@ Do not omit any fields from the schema.
 
     <details class="result-panel chatgpt-import-panel desktop-only" data-saved-sessions-url="@Url.Content("~/api/saved-sessions")">
         <summary>Import saved session from folder</summary>
-        <p>Pick a previously saved session from the dropdown, or paste a path to a folder under <code>Documents\MTG Deck Studio\ChatGPT Analysis</code>. The saved <code>40-deck-profile.json</code> and <code>51-set-upgrade-response.json</code> are loaded and rendered.</p>
+        <p>Pick a previously saved session from the dropdown, or paste a path to a folder under <code>Documents\DeckFlow\ChatGPT Analysis</code>. The saved <code>40-deck-profile.json</code> and <code>51-set-upgrade-response.json</code> are loaded and rendered.</p>
         <label class="field">
             <span>Saved sessions</span>
             <select data-saved-sessions-select>
@@ -125,7 +125,7 @@ Do not omit any fields from the schema.
 
         <label class="chatgpt-question-option desktop-only">
             <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
-            <span>Save artifacts to disk under <code>Documents/MTG Deck Studio/ChatGPT Analysis</code></span>
+            <span>Save artifacts to disk under <code>Documents/DeckFlow/ChatGPT Analysis</code></span>
         </label>
 
         <label class="field">

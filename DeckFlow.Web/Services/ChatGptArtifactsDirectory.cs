@@ -59,7 +59,7 @@ public sealed class ChatGptArtifactsDirectory : IChatGptArtifactsDirectory
 
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "MTG Deck Studio",
+            "DeckFlow",
             "ChatGPT Analysis");
     }
 }
