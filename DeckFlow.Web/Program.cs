@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
@@ -83,6 +84,7 @@ public class Program
         builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
         builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
         builder.Services.AddScoped<IDeckConvertService, DeckConvertService>();
+        builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
         builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
         builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
         builder.Services.AddTransient<MoxfieldParser>();

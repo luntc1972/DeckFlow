@@ -33,66 +33,6 @@ Do not omit any fields from the schema.
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
-<style>
-    .chatgpt-page-toolbar {
-        justify-content: flex-end;
-    }
-
-    .chatgpt-layout-picker {
-        display: inline-flex;
-        flex: 0 0 auto;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-    }
-
-    .chatgpt-layout-picker__label {
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        color: var(--muted);
-    }
-
-    .chatgpt-layout-picker__segments {
-        display: inline-flex;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        overflow: hidden;
-        background: var(--panel, transparent);
-    }
-
-    .chatgpt-layout-segment {
-        appearance: none;
-        border: 0;
-        border-left: 1px solid var(--line);
-        padding: 0.28rem 0.7rem;
-        font-size: 0.78rem;
-        font-weight: 500;
-        background: transparent;
-        color: var(--ink, inherit);
-        cursor: pointer;
-        line-height: 1.1;
-    }
-
-    .chatgpt-layout-segment:first-child {
-        border-left: 0;
-    }
-
-    .chatgpt-layout-segment:hover,
-    .chatgpt-layout-segment:focus-visible {
-        background: rgba(43, 108, 176, 0.08);
-    }
-
-    .chatgpt-layout-picker .chatgpt-layout-segment.is-active {
-        background: rgba(43, 108, 176, 0.15);
-        color: var(--accent-strong, var(--accent));
-        font-weight: 600;
-    }
-</style>
-
 @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
 {
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
@@ -373,7 +313,7 @@ Do not omit any fields from the schema.
                                     <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
                                     <span>
                                         Include card versions (set code &amp; collector number) for retained cards
-                                        <small class="sync-column__hint" style="display:block;margin-top:0.2rem">When checked, the original deck's set code and collector number are provided to ChatGPT so it can preserve the exact printing for any card kept in a generated deck version.</small>
+                                        <small class="sync-column__hint sync-column__hint--block">When checked, the original deck's set code and collector number are provided to ChatGPT so it can preserve the exact printing for any card kept in a generated deck version.</small>
                                     </span>
                                 </label>
                                 <label class="field hidden" data-preferred-categories-field>
@@ -579,7 +519,7 @@ Do not omit any fields from the schema.
                             <h4>Question Answers</h4>
                             @foreach (var qa in Model.AnalysisResponse.QuestionAnswers)
                             {
-                                <div class="result-panel nested-panel" style="margin-bottom:0.5rem">
+                                <div class="result-panel nested-panel nested-panel--compact">
                                     <p><strong>Q@(qa.QuestionNumber): @qa.Question</strong></p>
                                     <p>@qa.Answer</p>
                                     @if (!string.IsNullOrWhiteSpace(qa.Basis))
@@ -597,7 +537,7 @@ Do not omit any fields from the schema.
                             <h4>Deck Versions</h4>
                             @foreach (var version in Model.AnalysisResponse.DeckVersions)
                             {
-                                <details class="result-panel nested-panel" style="margin-bottom:0.5rem">
+                                <details class="result-panel nested-panel nested-panel--compact">
                                     <summary>@version.VersionName</summary>
                                     @if (version.CardsAdded.Count > 0)
                                     {
@@ -758,7 +698,7 @@ Do not omit any fields from the schema.
                                     <h5>Top Adds</h5>
                                     @foreach (var add in set.TopAdds)
                                     {
-                                        <div class="result-panel nested-panel" style="margin-bottom:0.5rem">
+                                        <div class="result-panel nested-panel nested-panel--compact">
                                             <p><strong>@add.Card</strong></p>
                                             @if (!string.IsNullOrWhiteSpace(add.Reason))
                                             {

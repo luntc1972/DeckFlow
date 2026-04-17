@@ -3,66 +3,6 @@
     ViewData["Title"] = "Home";
 }
 
-<style>
-    .hub-lede {
-        margin: 1rem 0 0.5rem;
-        color: var(--muted);
-        font-size: 0.95rem;
-    }
-
-    .hub-group {
-        margin-top: 1.5rem;
-    }
-
-    .hub-group__title {
-        margin: 0 0 0.6rem;
-        font-size: 0.85rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--muted);
-    }
-
-    .hub-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-        gap: 1rem;
-    }
-
-    .hub-card {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        padding: 1rem 1.1rem;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--panel);
-        color: inherit;
-        text-decoration: none;
-        transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
-    }
-
-    .hub-card:hover,
-    .hub-card:focus-visible {
-        border-color: var(--accent-strong, var(--line));
-        transform: translateY(-1px);
-        box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08);
-    }
-
-    .hub-card__title {
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
-    }
-
-    .hub-card__description {
-        margin: 0;
-        font-size: 0.85rem;
-        color: var(--muted);
-        line-height: 1.35;
-    }
-</style>
-
 @await Html.PartialAsync("_DeckToolTabs", Model)
 
 <p class="hub-lede">Personal Magic: The Gathering deck tooling — analysis, sync, reference, and categories.</p>

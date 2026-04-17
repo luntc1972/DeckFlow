@@ -1,8 +1,7 @@
 using DeckFlow.Core.Diffing;
-using DeckFlow.Core.Filtering;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
-using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Services;
@@ -30,25 +29,15 @@ public sealed record DeckSyncResult(DeckDiff Diff, LoadedDecks LoadedDecks);
 /// </summary>
 public sealed class DeckSyncService : IDeckSyncService
 {
-    private const int RequiredDeckSize = 100;
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
 
     /// <summary>
-    /// Creates a new instance that relies on the provided importers and parsers.
+    /// Creates a new instance that relies on the shared deck loader.
     /// </summary>
-    public DeckSyncService(
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser)
+    /// <param name="deckEntryLoader">Shared loader used to parse and validate decks.</param>
+    public DeckSyncService(IDeckEntryLoader deckEntryLoader)
     {
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _deckEntryLoader = deckEntryLoader;
     }
 
     /// <summary>
@@ -64,8 +53,8 @@ public sealed class DeckSyncService : IDeckSyncService
             await LoadLeftEntriesAsync(request, cancellationToken).ConfigureAwait(false),
             await LoadRightEntriesAsync(request, cancellationToken).ConfigureAwait(false));
 
-        ValidateDeckSize(DeckSyncSupport.GetLeftPanelSystem(request.Direction), loadedDecks.MoxfieldEntries);
-        ValidateDeckSize(DeckSyncSupport.GetRightPanelSystem(request.Direction), loadedDecks.ArchidektEntries);
+        _deckEntryLoader.ValidateCommanderDeckSize(DeckSyncSupport.GetLeftPanelSystem(request.Direction), loadedDecks.MoxfieldEntries);
+        _deckEntryLoader.ValidateCommanderDeckSize(DeckSyncSupport.GetRightPanelSystem(request.Direction), loadedDecks.ArchidektEntries);
 
         var diff = new DiffEngine(request.Mode).Compare(
             DeckSyncSupport.GetSourceEntries(request.Direction, loadedDecks),
@@ -81,11 +70,13 @@ public sealed class DeckSyncService : IDeckSyncService
     /// <param name="cancellationToken">Cancellation token.</param>
     private Task<List<DeckEntry>> LoadLeftEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
-        return LoadEntriesAsync(
-            DeckSyncSupport.GetLeftPanelSystem(request.Direction),
-            request.MoxfieldInputSource,
-            request.MoxfieldUrl ?? string.Empty,
-            request.MoxfieldText ?? string.Empty,
+        var systemName = DeckSyncSupport.GetLeftPanelSystem(request.Direction);
+        return _deckEntryLoader.LoadAsync(
+            new DeckLoadRequest(
+                GetPlatform(systemName),
+                request.MoxfieldInputSource == DeckInputSource.PublicUrl ? DeckInputKind.PublicUrl : DeckInputKind.PastedText,
+                request.MoxfieldInputSource == DeckInputSource.PublicUrl ? request.MoxfieldUrl ?? string.Empty : request.MoxfieldText ?? string.Empty,
+                ExcludeMaybeboard: string.Equals(systemName, "Moxfield", StringComparison.OrdinalIgnoreCase)),
             cancellationToken);
     }
 
@@ -96,52 +87,25 @@ public sealed class DeckSyncService : IDeckSyncService
     /// <param name="cancellationToken">Cancellation token.</param>
     private Task<List<DeckEntry>> LoadRightEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
-        return LoadEntriesAsync(
-            DeckSyncSupport.GetRightPanelSystem(request.Direction),
-            request.ArchidektInputSource,
-            request.ArchidektUrl ?? string.Empty,
-            request.ArchidektText ?? string.Empty,
+        var systemName = DeckSyncSupport.GetRightPanelSystem(request.Direction);
+        return _deckEntryLoader.LoadAsync(
+            new DeckLoadRequest(
+                GetPlatform(systemName),
+                request.ArchidektInputSource == DeckInputSource.PublicUrl ? DeckInputKind.PublicUrl : DeckInputKind.PastedText,
+                request.ArchidektInputSource == DeckInputSource.PublicUrl ? request.ArchidektUrl ?? string.Empty : request.ArchidektText ?? string.Empty,
+                ExcludeMaybeboard: string.Equals(systemName, "Moxfield", StringComparison.OrdinalIgnoreCase)),
             cancellationToken);
     }
 
     /// <summary>
-    /// Loads entries from either supported deck system by URL import or pasted-text parsing.
+    /// Maps a display system name to the shared deck platform enum.
     /// </summary>
-    /// <param name="systemName">Deck system being loaded.</param>
-    /// <param name="inputSource">Whether the input is a public URL or pasted text.</param>
-    /// <param name="url">URL to import when the input source is public URL.</param>
-    /// <param name="text">Pasted deck text when the input source is text.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task<List<DeckEntry>> LoadEntriesAsync(string systemName, DeckInputSource inputSource, string url, string text, CancellationToken cancellationToken)
+    /// <param name="systemName">Display name from the compare workflow.</param>
+    /// <returns>The corresponding deck platform.</returns>
+    private static DeckPlatform GetPlatform(string systemName)
     {
-        var isMoxfield = string.Equals(systemName, "Moxfield", StringComparison.OrdinalIgnoreCase);
-        var entries = inputSource == DeckInputSource.PublicUrl
-            ? isMoxfield
-                ? await _moxfieldDeckImporter.ImportAsync(url, cancellationToken).ConfigureAwait(false)
-                : await _archidektDeckImporter.ImportAsync(url, cancellationToken).ConfigureAwait(false)
-            : isMoxfield
-                ? _moxfieldParser.ParseText(text)
-                : _archidektParser.ParseText(text);
-
-        return isMoxfield
-            ? DeckEntryFilter.ExcludeMaybeboard(entries)
-            : entries;
-    }
-
-    /// <summary>
-    /// Ensures the submitted deck has exactly 100 cards across commander and mainboard sections.
-    /// </summary>
-    /// <param name="systemName">Display name for the deck source.</param>
-    /// <param name="entries">Parsed deck entries.</param>
-    private static void ValidateDeckSize(string systemName, IReadOnlyList<DeckEntry> entries)
-    {
-        var count = entries
-            .Where(entry => !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
-            .Sum(entry => entry.Quantity);
-
-        if (count != RequiredDeckSize)
-        {
-            throw new InvalidOperationException($"{systemName} deck must contain exactly {RequiredDeckSize} cards across commander and mainboard. Found {count}.");
-        }
+        return string.Equals(systemName, "Archidekt", StringComparison.OrdinalIgnoreCase)
+            ? DeckPlatform.Archidekt
+            : DeckPlatform.Moxfield;
     }
 }
