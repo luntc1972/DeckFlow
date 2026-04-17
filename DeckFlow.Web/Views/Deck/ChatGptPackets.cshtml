@@ -33,6 +33,66 @@ Do not omit any fields from the schema.
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
+<style>
+    .chatgpt-page-toolbar {
+        justify-content: flex-end;
+    }
+
+    .chatgpt-layout-picker {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .chatgpt-layout-picker__label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+    }
+
+    .chatgpt-layout-picker__segments {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--panel, transparent);
+    }
+
+    .chatgpt-layout-segment {
+        appearance: none;
+        border: 0;
+        border-left: 1px solid var(--line);
+        padding: 0.28rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: transparent;
+        color: var(--ink, inherit);
+        cursor: pointer;
+        line-height: 1.1;
+    }
+
+    .chatgpt-layout-segment:first-child {
+        border-left: 0;
+    }
+
+    .chatgpt-layout-segment:hover,
+    .chatgpt-layout-segment:focus-visible {
+        background: rgba(43, 108, 176, 0.08);
+    }
+
+    .chatgpt-layout-picker .chatgpt-layout-segment.is-active {
+        background: rgba(43, 108, 176, 0.15);
+        color: var(--accent-strong, var(--accent));
+        font-weight: 600;
+    }
+</style>
+
 @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
 {
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
@@ -65,18 +125,14 @@ Do not omit any fields from the schema.
 <div class="error-banner hidden" data-chatgpt-validation-error role="alert"></div>
 
 <div class="toolbar chatgpt-page-toolbar desktop-only">
-    <div class="chatgpt-layout-picker" data-chatgpt-ui-mode-picker>
-        <div class="chatgpt-layout-picker__copy">
-            <strong>Workflow layouts</strong>
-            <span>Try different levels of guidance without changing the underlying prompt flow.</span>
-        </div>
-        <div class="chatgpt-layout-picker__actions">
-            <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="guided">Full workflow</button>
-            <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="focused">Compact workflow</button>
-            <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="expert">Advanced workflow</button>
+    <div class="chatgpt-layout-picker" role="group" aria-label="Workflow layout" data-chatgpt-ui-mode-picker>
+        <span class="chatgpt-layout-picker__label">Layout</span>
+        <div class="chatgpt-layout-picker__segments">
+            <button type="button" class="chatgpt-layout-segment" data-chatgpt-ui-mode-button="guided" title="Full workflow — all guidance text">Full</button>
+            <button type="button" class="chatgpt-layout-segment" data-chatgpt-ui-mode-button="focused" title="Compact workflow — reduced guidance">Compact</button>
+            <button type="button" class="chatgpt-layout-segment" data-chatgpt-ui-mode-button="expert" title="Advanced workflow — minimal guidance">Advanced</button>
         </div>
     </div>
-
 </div>
 
 <form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
