@@ -95,12 +95,10 @@
       return;
     }
 
-    const updateVisibility = (): void => {
-      const shouldShow = window.scrollY > 120;
-      button.classList.toggle('is-visible', shouldShow);
-      button.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
-      button.tabIndex = shouldShow ? 0 : -1;
-    };
+    // Always visible — no scroll-driven show/hide.
+    button.classList.add('is-visible');
+    button.setAttribute('aria-hidden', 'false');
+    button.tabIndex = 0;
 
     button.addEventListener('click', () => {
       window.scrollTo({
@@ -108,9 +106,6 @@
         behavior: 'smooth'
       });
     });
-
-    window.addEventListener('scroll', updateVisibility, { passive: true });
-    updateVisibility();
   };
 
   const attachThemePicker = (): void => {
@@ -622,13 +617,59 @@
     }
   };
 
+  // Wires the top-nav group dropdowns (Analyze, Build, Reference, Categories).
+  // Lives in site.ts so every page — including the landing hub that doesn't load
+  // deck-sync.js — gets working dropdowns.
+  const attachToolNav = (): void => {
+    const nav = document.querySelector<HTMLElement>('[data-tool-nav]');
+    if (!nav) return;
+
+    const closeAllGroups = (): void => {
+      nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(group => {
+        group.classList.remove('is-open');
+        group.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
+      });
+    };
+
+    nav.querySelectorAll<HTMLButtonElement>('[data-tool-nav-trigger]').forEach(trigger => {
+      trigger.addEventListener('click', () => {
+        const group = trigger.closest<HTMLElement>('[data-tool-nav-group]');
+        if (!group) return;
+        const isOpen = group.classList.contains('is-open');
+        closeAllGroups();
+        if (!isOpen) {
+          group.classList.add('is-open');
+          trigger.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+
+    nav.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
+      link.addEventListener('click', closeAllGroups);
+    });
+
+    document.addEventListener('click', event => {
+      if (!nav.contains(event.target as Node)) {
+        closeAllGroups();
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        closeAllGroups();
+      }
+    });
+  };
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
   document.addEventListener('DOMContentLoaded', attachArchidektCacheJobUi);
+  document.addEventListener('DOMContentLoaded', attachToolNav);
   if (document.readyState !== 'loading') {
     attachBackToTop();
     attachThemePicker();
     attachArchidektCacheJobUi();
+    attachToolNav();
   }
 })();
