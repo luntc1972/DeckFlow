@@ -154,6 +154,7 @@
     </style>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="page-shell">
         <div class="page-frame">
             <header class="page-header">
@@ -167,13 +168,14 @@
                     </select>
                 </div>
             </header>
-            <main role="main" class="content-shell">
+            <main role="main" id="main-content" class="content-shell">
                 <div class="global-job-notice hidden" data-global-job-notice>
                     <p class="global-job-notice__text" data-global-job-notice-text></p>
                     <button type="button" class="global-job-notice__close" data-global-job-notice-dismiss aria-label="Dismiss background job notice">Dismiss</button>
                 </div>
                 @RenderBody()
             </main>
+            <div class="sr-only" role="status" aria-live="polite" data-copy-announcer></div>
         </div>
     </div>
     <button type="button" id="back-to-top-button" class="back-to-top-button" aria-label="Back to top" title="Back to top">

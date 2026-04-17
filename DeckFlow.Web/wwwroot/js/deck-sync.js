@@ -159,6 +159,14 @@ const copyElementValue = async (targetId) => {
     }
     await navigator.clipboard.writeText(text);
 };
+const announceToScreenReader = (message) => {
+    const announcer = document.querySelector('[data-copy-announcer]');
+    if (!announcer)
+        return;
+    // Clearing then setting re-triggers the announcement for repeat copies.
+    announcer.textContent = '';
+    window.setTimeout(() => { announcer.textContent = message; }, 50);
+};
 const setTemporaryButtonText = (button, text, durationMs = 1800) => {
     var _a, _b, _c;
     const originalText = (_c = (_a = button.dataset.copyOriginalText) !== null && _a !== void 0 ? _a : (_b = button.textContent) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c !== void 0 ? _c : 'Copy';
@@ -167,6 +175,7 @@ const setTemporaryButtonText = (button, text, durationMs = 1800) => {
     const state = text === 'Copied' ? 'is-copied' : text === 'Copy failed' ? 'is-copy-failed' : null;
     if (state) {
         button.classList.add(state);
+        announceToScreenReader(text);
     }
     window.setTimeout(() => {
         button.textContent = originalText;

@@ -219,6 +219,14 @@ const copyElementValue = async (targetId: string): Promise<void> => {
   await navigator.clipboard.writeText(text);
 };
 
+const announceToScreenReader = (message: string): void => {
+  const announcer = document.querySelector<HTMLElement>('[data-copy-announcer]');
+  if (!announcer) return;
+  // Clearing then setting re-triggers the announcement for repeat copies.
+  announcer.textContent = '';
+  window.setTimeout(() => { announcer.textContent = message; }, 50);
+};
+
 const setTemporaryButtonText = (button: HTMLElement, text: string, durationMs = 1800): void => {
   const originalText = button.dataset.copyOriginalText ?? button.textContent?.trim() ?? 'Copy';
   button.dataset.copyOriginalText = originalText;
@@ -226,6 +234,7 @@ const setTemporaryButtonText = (button: HTMLElement, text: string, durationMs = 
   const state = text === 'Copied' ? 'is-copied' : text === 'Copy failed' ? 'is-copy-failed' : null;
   if (state) {
     button.classList.add(state);
+    announceToScreenReader(text);
   }
 
   window.setTimeout(() => {
