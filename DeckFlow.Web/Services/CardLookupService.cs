@@ -257,20 +257,24 @@ public sealed class ScryfallCardLookupService : ICardLookupService
             sections.Add($"{card.Power}/{card.Toughness}");
         }
 
-        if (rulings.Count > 0)
+        sections.Add(string.Empty);
+        sections.Add("Rulings:");
+        var printedRuling = false;
+        foreach (var ruling in rulings)
         {
-            sections.Add(string.Empty);
-            sections.Add("Rulings:");
-            foreach (var ruling in rulings)
+            if (string.IsNullOrWhiteSpace(ruling.Comment))
             {
-                if (string.IsNullOrWhiteSpace(ruling.Comment))
-                {
-                    continue;
-                }
-
-                var datePrefix = string.IsNullOrWhiteSpace(ruling.PublishedAt) ? string.Empty : $"({ruling.PublishedAt}) ";
-                sections.Add($"- {datePrefix}{ruling.Comment}");
+                continue;
             }
+
+            var datePrefix = string.IsNullOrWhiteSpace(ruling.PublishedAt) ? string.Empty : $"({ruling.PublishedAt}) ";
+            sections.Add($"- {datePrefix}{ruling.Comment}");
+            printedRuling = true;
+        }
+
+        if (!printedRuling)
+        {
+            sections.Add("No rulings on record for this card.");
         }
 
         return string.Join(Environment.NewLine, sections);
