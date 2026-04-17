@@ -24,7 +24,7 @@
             Build
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.Sync ? "is-active" : string.Empty)" href="@Url.Content("~/")">Deck Sync</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.Sync ? "is-active" : string.Empty)" href="@Url.Content("~/sync")">Deck Sync</a>
             <a class="tool-nav__link @(Model == DeckPageTab.Convert ? "is-active" : string.Empty)" href="@Url.Content("~/convert")">Convert Deck</a>
         </div>
     </div>

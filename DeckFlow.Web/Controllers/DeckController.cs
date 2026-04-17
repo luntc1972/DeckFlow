@@ -65,6 +65,15 @@ public sealed class DeckController : Controller
 
     [HttpGet("/")]
     /// <summary>
+    /// Renders the landing hub listing every tool in the app.
+    /// </summary>
+    public IActionResult Home()
+    {
+        return View("Home", DeckPageTab.Home);
+    }
+
+    [HttpGet("/sync")]
+    /// <summary>
     /// Renders the deck sync view with default tab state.
     /// </summary>
     public IActionResult Index()
@@ -272,7 +281,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/")]
+    [HttpPost("/sync")]
     [ValidateAntiForgeryToken]
     /// <summary>
     /// Handles the deck sync POST to generate a diff report.
