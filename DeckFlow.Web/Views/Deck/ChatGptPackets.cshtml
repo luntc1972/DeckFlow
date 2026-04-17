@@ -90,12 +90,20 @@ Do not omit any fields from the schema.
         </div>
     </details>
 
+    @{
+        var step1Complete = !string.IsNullOrWhiteSpace(Model.Request.DeckSource);
+        var step2Complete = !string.IsNullOrWhiteSpace(Model.AnalysisPromptText);
+        var step3Complete = Model.AnalysisResponse is not null;
+        var step4Complete = !string.IsNullOrWhiteSpace(Model.SetUpgradePromptText);
+        var step5Complete = Model.SetUpgradeResponse is not null;
+        string StepTabClass(bool complete) => complete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+    }
     <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-1" aria-controls="chatgpt-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-show-step="1">Step 1: Deck Setup</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Analysis</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Analysis Results</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Set Upgrades (Optional)</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-5" aria-controls="chatgpt-step-panel-5" aria-selected="false" tabindex="-1" data-chatgpt-show-step="5">Step 5: Set Upgrade Results (Optional)</button>
+        <button type="button" class="@StepTabClass(step1Complete)" role="tab" id="chatgpt-step-tab-1" aria-controls="chatgpt-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-show-step="1">Step 1: Deck</button>
+        <button type="button" class="@StepTabClass(step2Complete)" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Build Analysis Prompt</button>
+        <button type="button" class="@StepTabClass(step3Complete)" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Analysis Results</button>
+        <button type="button" class="@StepTabClass(step4Complete)" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Build Set Upgrade Prompt</button>
+        <button type="button" class="@StepTabClass(step5Complete)" role="tab" id="chatgpt-step-tab-5" aria-controls="chatgpt-step-panel-5" aria-selected="false" tabindex="-1" data-chatgpt-show-step="5">Step 5: Set Upgrade Results</button>
     </div>
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
@@ -109,7 +117,7 @@ Do not omit any fields from the schema.
 
         <label class="chatgpt-question-option desktop-only">
             <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
-            <span>Save generated prompts, pasted JSON responses, and hidden additional context to disk under <code>Documents/MTG Deck Studio/ChatGPT Analysis</code></span>
+            <span>Save artifacts to disk under <code>Documents/MTG Deck Studio/ChatGPT Analysis</code></span>
         </label>
 
         <label class="field">

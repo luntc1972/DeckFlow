@@ -164,8 +164,13 @@ const setTemporaryButtonText = (button, text, durationMs = 1800) => {
     const originalText = (_c = (_a = button.dataset.copyOriginalText) !== null && _a !== void 0 ? _a : (_b = button.textContent) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c !== void 0 ? _c : 'Copy';
     button.dataset.copyOriginalText = originalText;
     button.textContent = text;
+    const state = text === 'Copied' ? 'is-copied' : text === 'Copy failed' ? 'is-copy-failed' : null;
+    if (state) {
+        button.classList.add(state);
+    }
     window.setTimeout(() => {
         button.textContent = originalText;
+        button.classList.remove('is-copied', 'is-copy-failed');
     }, durationMs);
 };
 const attachActionButtons = () => {

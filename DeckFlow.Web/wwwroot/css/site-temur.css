@@ -1065,3 +1065,23 @@ pre {
   min-height: auto;
   padding: 0.5rem 0;
 }
+
+/* Copy-button clipboard feedback. */
+.copy-button.is-copied {
+  background: #2f855a;
+  border-color: #2f855a;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.copy-button.is-copy-failed {
+  background: #c53030;
+  border-color: #c53030;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+/* Workflow step tabs: check prefix when complete. */
+.chatgpt-step-tab.is-complete::before {
+  content: "\2713 ";
+  color: var(--accent);
+  font-weight: 700;
+}
