@@ -1544,15 +1544,19 @@ const attachToolNav = (): void => {
   const nav = document.querySelector<HTMLElement>('[data-tool-nav]');
   if (!nav) return;
 
+  const closeAllGroups = (): void => {
+    nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(g => {
+      g.classList.remove('is-open');
+      g.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
+    });
+  };
+
   nav.querySelectorAll<HTMLButtonElement>('[data-tool-nav-trigger]').forEach(trigger => {
     trigger.addEventListener('click', () => {
       const group = trigger.closest<HTMLElement>('[data-tool-nav-group]');
       if (!group) return;
       const isOpen = group.classList.contains('is-open');
-      nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(g => {
-        g.classList.remove('is-open');
-        g.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
-      });
+      closeAllGroups();
       if (!isOpen) {
         group.classList.add('is-open');
         trigger.setAttribute('aria-expanded', 'true');
@@ -1560,12 +1564,21 @@ const attachToolNav = (): void => {
     });
   });
 
+  // Close the dropdown when a link inside it is clicked so the menu doesn't linger while navigating.
+  nav.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
+    link.addEventListener('click', closeAllGroups);
+  });
+
   document.addEventListener('click', event => {
     if (!nav.contains(event.target as Node)) {
-      nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(g => {
-        g.classList.remove('is-open');
-        g.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
-      });
+      closeAllGroups();
+    }
+  });
+
+  // Close on Escape for keyboard users and as a safety net on mobile.
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeAllGroups();
     }
   });
 };
