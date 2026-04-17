@@ -29,6 +29,7 @@ public sealed class DeckController : Controller
     private readonly IChatGptDeckComparisonService _chatGptDeckComparisonService;
     private readonly IChatGptCedhMetaGapService _chatGptCedhMetaGapService;
     private readonly IScryfallSetService _scryfallSetService;
+    private readonly IChatGptArtifactsDirectory _chatGptArtifactsDirectory;
     private readonly ILogger<DeckController> _logger;
 
     /// <summary>
@@ -45,6 +46,7 @@ public sealed class DeckController : Controller
         IChatGptDeckComparisonService chatGptDeckComparisonService,
         IChatGptCedhMetaGapService chatGptCedhMetaGapService,
         IScryfallSetService scryfallSetService,
+        IChatGptArtifactsDirectory chatGptArtifactsDirectory,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
@@ -57,6 +59,7 @@ public sealed class DeckController : Controller
         _chatGptDeckComparisonService = chatGptDeckComparisonService;
         _chatGptCedhMetaGapService = chatGptCedhMetaGapService;
         _scryfallSetService = scryfallSetService;
+        _chatGptArtifactsDirectory = chatGptArtifactsDirectory;
         _logger = logger;
     }
 
@@ -156,6 +159,22 @@ public sealed class DeckController : Controller
     {
         var sets = await TryGetSetOptionsAsync();
         return Json(sets.Select(s => new { s.Code, s.DisplayLabel }));
+    }
+
+    [HttpGet("/api/saved-sessions")]
+    /// <summary>
+    /// Returns ChatGPT Analysis artifact folders that can be imported. Newest first.
+    /// </summary>
+    public IActionResult GetSavedSessions()
+    {
+        var sessions = _chatGptArtifactsDirectory.EnumerateSessions();
+        return Json(sessions.Select(s => new
+        {
+            relativePath = s.RelativePath,
+            commander = s.Commander,
+            timestamp = s.Timestamp,
+            createdUtc = s.CreatedUtc
+        }));
     }
 
     [HttpGet("/convert")]

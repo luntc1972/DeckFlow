@@ -1593,8 +1593,60 @@ const bootstrapDeckSync = (): void => {
   attachChatGptComparisonWorkflow();
   attachChatGptCedhWorkflow();
   loadSetOptionsAsync();
+  loadSavedSessionsAsync();
   attachToolNav();
   attachConvertForm();
+};
+
+interface SavedSession {
+  relativePath: string;
+  commander: string;
+  timestamp: string;
+  createdUtc: string;
+}
+
+const loadSavedSessionsAsync = (): void => {
+  const panel = document.querySelector<HTMLElement>('[data-saved-sessions-url]');
+  const select = document.querySelector<HTMLSelectElement>('[data-saved-sessions-select]');
+  const pathInput = document.querySelector<HTMLInputElement>('[data-chatgpt-import-path]');
+  if (!panel || !select || !pathInput) return;
+
+  const url = panel.dataset.savedSessionsUrl;
+  if (!url) return;
+
+  fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json() as Promise<SavedSession[]>;
+    })
+    .then(sessions => {
+      select.innerHTML = '';
+      const blankOption = document.createElement('option');
+      blankOption.value = '';
+      blankOption.textContent = sessions.length === 0 ? 'No saved sessions' : '— Pick a saved session —';
+      select.appendChild(blankOption);
+
+      for (const session of sessions) {
+        const option = document.createElement('option');
+        option.value = session.relativePath;
+        const created = new Date(session.createdUtc);
+        option.textContent = `${session.commander} · ${session.timestamp}  (${created.toLocaleString()})`;
+        select.appendChild(option);
+      }
+
+      if (sessions.length === 0) {
+        document.querySelector<HTMLElement>('[data-saved-sessions-empty]')?.removeAttribute('hidden');
+      }
+    })
+    .catch(() => {
+      select.innerHTML = '<option value="">Could not load saved sessions</option>';
+    });
+
+  select.addEventListener('change', () => {
+    if (select.value) {
+      pathInput.value = select.value;
+    }
+  });
 };
 
 const attachToolNav = (): void => {

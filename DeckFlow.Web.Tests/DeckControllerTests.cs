@@ -30,6 +30,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance);
 
         var result = controller.ChatGptCedhMetaGap();
@@ -68,6 +69,7 @@ public sealed class DeckControllerTests
                 null,
                 null)),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -103,6 +105,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new ThrowingChatGptCedhMetaGapService(new HttpRequestException("Too many requests", null, HttpStatusCode.TooManyRequests)),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -157,6 +160,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -188,6 +192,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -217,6 +222,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -249,6 +255,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -281,6 +288,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -315,6 +323,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -344,6 +353,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -378,6 +388,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -412,6 +423,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -447,6 +459,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -485,6 +498,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -530,6 +544,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance);
 
         var result = controller.ChatGptDeckComparison();
@@ -553,6 +568,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -591,6 +607,7 @@ public sealed class DeckControllerTests
             new FakeChatGptDeckComparisonService(),
             new FakeChatGptCedhMetaGapService(),
             new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -742,6 +759,12 @@ public sealed class DeckControllerTests
 
         public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, IReadOnlyList<string>? commanderColorIdentity = null, CancellationToken cancellationToken = default)
             => Task.FromResult(string.Empty);
+    }
+
+    private sealed class FakeChatGptArtifactsDirectory : IChatGptArtifactsDirectory
+    {
+        public string RootPath => Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", "ChatGPT Analysis");
+        public IReadOnlyList<SavedSession> EnumerateSessions() => Array.Empty<SavedSession>();
     }
 
     private sealed class ThrowingCardSearchService : ICardSearchService
