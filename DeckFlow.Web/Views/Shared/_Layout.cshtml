@@ -33,6 +33,10 @@
     <title>@ViewData["Title"] - DeckFlow</title>
     <link id="theme-stylesheet" rel="stylesheet" href="@selectedThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" data-cookie-name="@themeCookieName" />
     <style>
+        .page-shell {
+            padding-top: 0.75rem;
+        }
+
         .page-frame {
             position: relative;
             max-width: 1120px;
@@ -40,19 +44,32 @@
         }
 
         .page-header {
-            position: absolute;
-            top: 0;
-            right: 0;
-            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.2rem 0 0.4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-brand {
+            display: inline-flex;
+            align-items: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            color: var(--accent-strong, inherit);
+            text-decoration: none;
+        }
+
+        .page-brand:hover,
+        .page-brand:focus-visible {
+            text-decoration: underline;
         }
 
         .content-shell {
             max-width: none;
             margin: 0;
-        }
-
-        .hero {
-            padding-right: 13.5rem;
         }
 
         .theme-picker {
@@ -130,25 +147,9 @@
         }
 
         @@media (max-width: 900px) {
-            .page-header {
-                position: static;
-                margin-bottom: 0.75rem;
-            }
-
-            .hero {
-                padding-right: 0;
-            }
-
-            .theme-picker {
-                width: 100%;
-                justify-content: space-between;
-            }
-
             .theme-picker__select {
                 min-width: 0;
-                max-width: none;
-                width: auto;
-                flex: 1 1 auto;
+                max-width: 9rem;
             }
         }
     </style>
@@ -158,6 +159,7 @@
     <div class="page-shell">
         <div class="page-frame">
             <header class="page-header">
+                <a class="page-brand" href="@Url.Content("~/")" aria-label="DeckFlow home">DeckFlow</a>
                 <div class="theme-picker">
                     <label class="theme-picker__label" for="theme-picker">Theme</label>
                     <select id="theme-picker" class="theme-picker__select">

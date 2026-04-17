@@ -261,7 +261,7 @@ Files saved: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-sche
 
 ## Deck Sync
 
-The Deck Sync page (`/Deck/DeckSync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
+The Deck Sync page (`/sync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
 
 Supported sync directions:
 

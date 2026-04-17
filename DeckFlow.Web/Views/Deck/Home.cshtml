@@ -1,0 +1,128 @@
+@model DeckFlow.Web.Models.DeckPageTab
+@{
+    ViewData["Title"] = "Home";
+}
+
+<style>
+    .hub-lede {
+        margin: 1rem 0 0.5rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+    }
+
+    .hub-group {
+        margin-top: 1.5rem;
+    }
+
+    .hub-group__title {
+        margin: 0 0 0.6rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .hub-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+        gap: 1rem;
+    }
+
+    .hub-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .hub-card:hover,
+    .hub-card:focus-visible {
+        border-color: var(--accent-strong, var(--line));
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08);
+    }
+
+    .hub-card__title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .hub-card__description {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--muted);
+        line-height: 1.35;
+    }
+</style>
+
+@await Html.PartialAsync("_DeckToolTabs", Model)
+
+<p class="hub-lede">Personal Magic: The Gathering deck tooling — analysis, sync, reference, and categories.</p>
+
+<section class="hub-group" aria-labelledby="hub-group-analyze">
+    <h2 id="hub-group-analyze" class="hub-group__title">Analyze</h2>
+    <div class="hub-grid">
+        <a class="hub-card" href="@Url.Content("~/chatgpt-packets")">
+            <h3 class="hub-card__title">ChatGPT Analysis</h3>
+            <p class="hub-card__description">Five-step workflow to generate a full analysis prompt for your deck and render the structured response.</p>
+        </a>
+        <a class="hub-card" href="@Url.Content("~/chatgpt-deck-comparison")">
+            <h3 class="hub-card__title">Deck Comparison</h3>
+            <p class="hub-card__description">Side-by-side comparison of two decks with a ChatGPT-authored breakdown of strengths, weaknesses, and trade-offs.</p>
+        </a>
+        <a class="hub-card" href="@Url.Content("~/chatgpt-cedh-meta-gap")">
+            <h3 class="hub-card__title">cEDH Meta Gap</h3>
+            <p class="hub-card__description">Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.</p>
+        </a>
+    </div>
+</section>
+
+<section class="hub-group" aria-labelledby="hub-group-build">
+    <h2 id="hub-group-build" class="hub-group__title">Build</h2>
+    <div class="hub-grid">
+        <a class="hub-card" href="@Url.Content("~/sync")">
+            <h3 class="hub-card__title">Deck Sync</h3>
+            <p class="hub-card__description">Reconcile a Moxfield deck against an Archidekt deck (either direction) and generate add/cut text for the target.</p>
+        </a>
+        <a class="hub-card" href="@Url.Content("~/convert")">
+            <h3 class="hub-card__title">Convert Deck</h3>
+            <p class="hub-card__description">Convert deck export text or a public URL between Moxfield and Archidekt formats.</p>
+        </a>
+    </div>
+</section>
+
+<section class="hub-group" aria-labelledby="hub-group-reference">
+    <h2 id="hub-group-reference" class="hub-group__title">Reference</h2>
+    <div class="hub-grid">
+        <a class="hub-card" href="@Url.Content("~/card-lookup")">
+            <h3 class="hub-card__title">Card Lookup</h3>
+            <p class="hub-card__description">Paste a card list and resolve authoritative Scryfall data (Oracle text, printings, legalities).</p>
+        </a>
+        <a class="hub-card" href="@Url.Content("~/mechanic-lookup")">
+            <h3 class="hub-card__title">Mechanic Rules</h3>
+            <p class="hub-card__description">Look up official WOTC rules text for keyword mechanics found in your deck.</p>
+        </a>
+    </div>
+</section>
+
+<section class="hub-group" aria-labelledby="hub-group-categories">
+    <h2 id="hub-group-categories" class="hub-group__title">Categories</h2>
+    <div class="hub-grid">
+        <a class="hub-card" href="@Url.Content("~/suggest-categories")">
+            <h3 class="hub-card__title">AI Category Suggestions</h3>
+            <p class="hub-card__description">Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.</p>
+        </a>
+        <a class="hub-card" href="@Url.Content("~/commander-categories")">
+            <h3 class="hub-card__title">Category Reference</h3>
+            <p class="hub-card__description">Browse the category knowledge base the suggestion engine draws on.</p>
+        </a>
+    </div>
+</section>

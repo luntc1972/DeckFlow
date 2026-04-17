@@ -11,4 +11,5 @@ public enum DeckPageTab
     Convert = 7,
     ChatGptDeckComparison = 8,
     ChatGptCedhMetaGap = 9,
+    Home = 10,
 }
