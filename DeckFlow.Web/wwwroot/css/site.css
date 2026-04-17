@@ -1241,3 +1241,49 @@ pre {
   opacity: 0.97;
 }
 
+.judge-howto {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--jeskai-blue-bg);
+}
+
+.judge-howto > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent, #3a82f7);
+}
+
+.judge-howto[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.judge-howto__steps {
+  margin: 0.5rem 0 0.75rem 1.25rem;
+  padding: 0;
+  line-height: 1.55;
+}
+
+.judge-howto__steps li {
+  margin-bottom: 0.55rem;
+}
+
+.judge-howto__steps kbd {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg, #fff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+.judge-howto__fallback {
+  margin: 0.25rem 0 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+
