@@ -482,6 +482,7 @@ const persistFormState = (form: HTMLFormElement): void => {
 
   const state = serializePersistedFormFields(form);
   storageAvailable.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(state));
+  storageAvailable.setItem(`${formStateStoragePrefix}${key}:savedAt`, Date.now().toString());
 };
 
 const clearPersistedFormState = (form: HTMLFormElement): void => {
@@ -491,6 +492,42 @@ const clearPersistedFormState = (form: HTMLFormElement): void => {
   }
 
   storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+  storageAvailable.removeItem(`${formStateStoragePrefix}${key}:savedAt`);
+  form.querySelector<HTMLElement>('[data-cache-pill]')?.remove();
+};
+
+const formatCacheAge = (savedAtMs: number): string => {
+  const elapsedMs = Date.now() - savedAtMs;
+  if (elapsedMs < 60_000) return 'just now';
+  const minutes = Math.floor(elapsedMs / 60_000);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  return `${Math.floor(hours / 24)} day ago`;
+};
+
+const showCachePill = (form: HTMLFormElement, savedAtMs: number): void => {
+  if (form.querySelector('[data-cache-pill]')) return;
+  const pill = document.createElement('div');
+  pill.className = 'cache-pill';
+  pill.setAttribute('data-cache-pill', '');
+  pill.setAttribute('role', 'status');
+
+  const label = document.createElement('span');
+  label.textContent = `Restored from cache · ${formatCacheAge(savedAtMs)}`;
+
+  const resetButton = document.createElement('button');
+  resetButton.type = 'button';
+  resetButton.className = 'cache-pill__reset';
+  resetButton.textContent = 'Reset';
+  resetButton.addEventListener('click', () => {
+    clearPersistedFormState(form);
+    form.reset();
+  });
+
+  pill.appendChild(label);
+  pill.appendChild(resetButton);
+  form.insertBefore(pill, form.firstChild);
 };
 
 const hydrateFormState = (form: HTMLFormElement): void => {
@@ -507,8 +544,14 @@ const hydrateFormState = (form: HTMLFormElement): void => {
   try {
     const state = JSON.parse(json) as Record<string, string[]>;
     restoreFormFields(form, state);
+    const savedAtRaw = storageAvailable.getItem(`${formStateStoragePrefix}${key}:savedAt`);
+    const savedAtMs = savedAtRaw ? parseInt(savedAtRaw, 10) : NaN;
+    if (Number.isFinite(savedAtMs)) {
+      showCachePill(form, savedAtMs);
+    }
   } catch {
     storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+    storageAvailable.removeItem(`${formStateStoragePrefix}${key}:savedAt`);
   }
 };
 

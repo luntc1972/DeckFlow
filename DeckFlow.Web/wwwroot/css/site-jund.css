@@ -1143,3 +1143,31 @@ pre {
   color: var(--accent);
   font-weight: 700;
 }
+/* Cache pill. */
+.cache-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--info, #eef3f8);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.cache-pill__reset {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.cache-pill__reset:hover,
+.cache-pill__reset:focus-visible {
+  color: var(--ink);
+}
