@@ -42,6 +42,11 @@ Do not omit any fields from the schema.
     Follow the steps in order. Each step tells you what to paste into ChatGPT and what to paste back into this page.
 </div>
 
+@if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
+{
+    <div class="warning-banner" role="status">@Model.ImportWarning</div>
+}
+
 @if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
 {
     <div class="info-banner chatgpt-global-note">

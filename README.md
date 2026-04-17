@@ -1,8 +1,8 @@
-# MTG Deck Studio
+# DeckFlow
 
-MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
+DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
 
-**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
 ## Highlights
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
@@ -26,9 +26,15 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 - Publish the web app with `dotnet publish DeckFlow.Web/DeckFlow.Web.csproj /p:PublishProfile=IIS-LocalFolder`
 - The publish output goes to `DeckFlow.Web/bin/Release/net10.0/publish/iis-local/`
 - The .NET SDK generates `web.config` during publish; there is no checked-in `web.config`
-- In IIS, create an application such as `/mtgdeckstudio` that points at that publish folder
+- In IIS, create an application such as `/deckflow` that points at that publish folder
 - Install the ASP.NET Core Hosting Bundle on the IIS machine
 - The checked-in views and scripts are path-base safe, so links and API calls stay under the IIS application path instead of jumping to `/`
+
+### Deploying to cloud hosts (Render, Fly, etc.)
+- A `Dockerfile`, `fly.toml`, and `render.yaml` ship at the repo root for one-command builds on Fly.io or Render.
+- Set `MTG_DATA_DIR=/data` and mount a persistent volume there. Both the SQLite category-knowledge DB and the ChatGPT Analysis artifact folder get redirected under that single directory.
+- The Dockerfile's entrypoint resolves `$PORT` at container start so platforms that inject a dynamic port (Render) work without changes.
+- **Moxfield URL caveat.** Moxfield's Cloudflare edge blocks requests from datacenter IP ranges with HTTP 403/5xx. When that happens, DeckFlow automatically falls back to Commander Spellbook's public `card-list-from-url` endpoint (which accepts the same Moxfield URL) and loads the deck from there instead. The UI surfaces a warning banner noting that card printings, set codes, collector numbers, author tags/categories, and sideboard/maybeboard entries are not available through the fallback. For full metadata, users should copy the Moxfield deck export text and paste it into the deck input directly — that path continues to work from anywhere.
 
 ---
 
