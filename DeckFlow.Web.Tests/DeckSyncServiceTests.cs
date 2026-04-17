@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
@@ -24,10 +25,11 @@ public sealed class DeckSyncServiceTests
     public async Task CompareDecksAsync_ThrowsWhenMoxfieldDeckIsNot100Cards()
     {
         var service = new DeckSyncService(
+            new DeckEntryLoader(
             new FakeMoxfieldDeckImporter(CreateDeckEntries(99)),
             new FakeArchidektDeckImporter(CreateDeckEntries(100)),
             new MoxfieldParser(),
-            new ArchidektParser());
+            new ArchidektParser()));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CompareDecksAsync(
             new DeckDiffRequest
@@ -49,10 +51,11 @@ public sealed class DeckSyncServiceTests
     public async Task CompareDecksAsync_AllowsExactly100Cards()
     {
         var service = new DeckSyncService(
+            new DeckEntryLoader(
             new FakeMoxfieldDeckImporter(CreateDeckEntries(100)),
             new FakeArchidektDeckImporter(CreateDeckEntries(100)),
             new MoxfieldParser(),
-            new ArchidektParser());
+            new ArchidektParser()));
 
         var result = await service.CompareDecksAsync(
             new DeckDiffRequest
@@ -74,10 +77,11 @@ public sealed class DeckSyncServiceTests
     public async Task CompareDecksAsync_AllowsMoxfieldToMoxfieldComparisons()
     {
         var service = new DeckSyncService(
+            new DeckEntryLoader(
             new FakeMoxfieldDeckImporter(url => CreateDeckEntries(url.Contains("source", StringComparison.OrdinalIgnoreCase) ? 100 : 100)),
             new FakeArchidektDeckImporter(url => CreateDeckEntries(99)),
             new MoxfieldParser(),
-            new ArchidektParser());
+            new ArchidektParser()));
 
         var result = await service.CompareDecksAsync(
             new DeckDiffRequest
@@ -100,10 +104,11 @@ public sealed class DeckSyncServiceTests
     public async Task CompareDecksAsync_AllowsArchidektToArchidektComparisons()
     {
         var service = new DeckSyncService(
+            new DeckEntryLoader(
             new FakeMoxfieldDeckImporter(url => CreateDeckEntries(99)),
             new FakeArchidektDeckImporter(url => CreateDeckEntries(url.Contains("source", StringComparison.OrdinalIgnoreCase) ? 100 : 100)),
             new MoxfieldParser(),
-            new ArchidektParser());
+            new ArchidektParser()));
 
         var result = await service.CompareDecksAsync(
             new DeckDiffRequest

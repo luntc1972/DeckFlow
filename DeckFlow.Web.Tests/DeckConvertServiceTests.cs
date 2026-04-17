@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
@@ -199,10 +200,11 @@ public sealed class DeckConvertServiceTests
         System.Action? onCollectionCall = null)
     {
         return new DeckConvertService(
+            new DeckEntryLoader(
             new FakeMoxfieldDeckImporter(moxfieldEntries ?? []),
             new FakeArchidektDeckImporter(archidektEntries ?? []),
             new MoxfieldParser(),
-            new ArchidektParser(),
+            new ArchidektParser()),
             executeCollectionAsync: (_, _) =>
             {
                 onCollectionCall?.Invoke();

@@ -1,9 +1,7 @@
 using DeckFlow.Core.Exporting;
-using DeckFlow.Core.Filtering;
-using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
-using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using RestSharp;
 
@@ -32,27 +30,21 @@ public sealed class DeckConvertService : IDeckConvertService
 {
     private const int CollectionBatchSize = 75;
 
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
 
     /// <summary>
-    /// Creates the convert service with the importers and parsers it needs.
+    /// Creates the convert service with the shared deck loader and Scryfall lookup support it needs.
     /// </summary>
+    /// <param name="deckEntryLoader">Shared loader used to parse and import deck inputs.</param>
+    /// <param name="restClient">Optional Scryfall client override used for tests.</param>
+    /// <param name="executeCollectionAsync">Optional Scryfall collection executor override.</param>
     public DeckConvertService(
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IDeckEntryLoader deckEntryLoader,
         RestClient? restClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null)
     {
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _deckEntryLoader = deckEntryLoader;
         var client = restClient ?? ScryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsync ?? ((request, ct) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), ct));
     }
@@ -65,18 +57,13 @@ public sealed class DeckConvertService : IDeckConvertService
         var isMoxfield = string.Equals(request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase);
         var isTargetArchidekt = string.Equals(request.TargetFormat, "Archidekt", StringComparison.OrdinalIgnoreCase);
 
-        IReadOnlyList<DeckEntry> entries = request.InputSource == DeckInputSource.PublicUrl
-            ? isMoxfield
-                ? await _moxfieldDeckImporter.ImportAsync(request.DeckUrl ?? string.Empty, cancellationToken).ConfigureAwait(false)
-                : await _archidektDeckImporter.ImportAsync(request.DeckUrl ?? string.Empty, cancellationToken).ConfigureAwait(false)
-            : isMoxfield
-                ? _moxfieldParser.ParseText(request.DeckText ?? string.Empty)
-                : _archidektParser.ParseText(request.DeckText ?? string.Empty);
-
-        if (isMoxfield)
-        {
-            entries = DeckEntryFilter.ExcludeMaybeboard(entries);
-        }
+        IReadOnlyList<DeckEntry> entries = await _deckEntryLoader.LoadAsync(
+            new DeckLoadRequest(
+                isMoxfield ? DeckPlatform.Moxfield : DeckPlatform.Archidekt,
+                request.InputSource == DeckInputSource.PublicUrl ? DeckInputKind.PublicUrl : DeckInputKind.PastedText,
+                request.InputSource == DeckInputSource.PublicUrl ? request.DeckUrl ?? string.Empty : request.DeckText ?? string.Empty,
+                ExcludeMaybeboard: isMoxfield),
+            cancellationToken).ConfigureAwait(false);
 
         var commanderMissing = false;
         if (isMoxfield)

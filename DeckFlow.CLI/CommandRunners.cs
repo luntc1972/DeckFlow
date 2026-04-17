@@ -4,9 +4,9 @@ using System.Net;
 using System.Text.Json.Serialization;
 using DeckFlow.Core.Diffing;
 using DeckFlow.Core.Exporting;
-using DeckFlow.Core.Filtering;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
@@ -19,14 +19,28 @@ namespace DeckFlow.CLI;
 
 internal static class CommandRunners
 {
+    /// <summary>
+    /// Compares two decks and writes the resulting import artifacts.
+    /// </summary>
+    /// <param name="moxfield">Optional local file for the left-side deck input.</param>
+    /// <param name="moxfieldUrl">Optional URL for the left-side deck input.</param>
+    /// <param name="archidekt">Optional local file for the right-side deck input.</param>
+    /// <param name="archidektUrl">Optional URL for the right-side deck input.</param>
+    /// <param name="output">Destination path for the delta import file.</param>
+    /// <param name="mode">Diff matching mode.</param>
+    /// <param name="direction">Source and target direction for the compare.</param>
+    /// <param name="dryRun">Whether output should be printed instead of written.</param>
+    /// <param name="resolveConflicts">Whether printing conflicts should be resolved interactively.</param>
+    /// <returns>Process exit code.</returns>
     public static async Task<int> RunCompareAsync(FileInfo? moxfield, string? moxfieldUrl, FileInfo? archidekt, string? archidektUrl, FileInfo output, MatchMode mode, SyncDirection direction, bool dryRun, bool resolveConflicts)
     {
         try
         {
-            var moxfieldEntries = DeckEntryFilter.ExcludeMaybeboard(await LoadMoxfieldEntriesAsync(moxfield, moxfieldUrl));
-            var archidektEntries = await LoadArchidektEntriesAsync(archidekt, archidektUrl);
-            ValidateDeckSize("Moxfield", moxfieldEntries);
-            ValidateDeckSize("Archidekt", archidektEntries);
+            var deckEntryLoader = CreateDeckEntryLoader();
+            var moxfieldEntries = await LoadMoxfieldEntriesAsync(moxfield, moxfieldUrl, deckEntryLoader);
+            var archidektEntries = await LoadArchidektEntriesAsync(archidekt, archidektUrl, deckEntryLoader);
+            deckEntryLoader.ValidateCommanderDeckSize("Moxfield", moxfieldEntries);
+            deckEntryLoader.ValidateCommanderDeckSize("Archidekt", archidektEntries);
             var sourceEntries = direction == SyncDirection.MoxfieldToArchidekt ? moxfieldEntries : archidektEntries;
             var targetEntries = direction == SyncDirection.MoxfieldToArchidekt ? archidektEntries : moxfieldEntries;
             var sourceSystem = direction == SyncDirection.MoxfieldToArchidekt ? "Moxfield" : "Archidekt";
@@ -78,8 +92,17 @@ internal static class CommandRunners
         }
     }
 
-    public static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(FileInfo? file, string? url)
+    /// <summary>
+    /// Loads Moxfield entries from either a local file or a public URL.
+    /// </summary>
+    /// <param name="file">Optional local deck file.</param>
+    /// <param name="url">Optional public Moxfield URL.</param>
+    /// <param name="deckEntryLoader">Shared deck loader.</param>
+    /// <returns>The loaded deck entries.</returns>
+    public static async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(FileInfo? file, string? url, IDeckEntryLoader? deckEntryLoader = null)
     {
+        deckEntryLoader ??= CreateDeckEntryLoader();
+
         if (file is not null && !string.IsNullOrWhiteSpace(url))
         {
             throw new InvalidOperationException("Specify either --moxfield or --moxfield-url, not both.");
@@ -87,19 +110,30 @@ internal static class CommandRunners
 
         if (file is not null)
         {
-            return new MoxfieldParser().ParseFile(file.FullName);
+            return await deckEntryLoader.LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Moxfield, DeckInputKind.FilePath, file.FullName, ExcludeMaybeboard: true));
         }
 
         if (!string.IsNullOrWhiteSpace(url))
         {
-            return await new MoxfieldApiDeckImporter().ImportAsync(url);
+            return await deckEntryLoader.LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Moxfield, DeckInputKind.PublicUrl, url, ExcludeMaybeboard: true));
         }
 
         throw new InvalidOperationException("Either --moxfield or --moxfield-url is required.");
     }
 
-    public static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(FileInfo? file, string? url)
+    /// <summary>
+    /// Loads Archidekt entries from either a local file or a public URL.
+    /// </summary>
+    /// <param name="file">Optional local deck file.</param>
+    /// <param name="url">Optional public Archidekt URL.</param>
+    /// <param name="deckEntryLoader">Shared deck loader.</param>
+    /// <returns>The loaded deck entries.</returns>
+    public static async Task<List<DeckEntry>> LoadArchidektEntriesAsync(FileInfo? file, string? url, IDeckEntryLoader? deckEntryLoader = null)
     {
+        deckEntryLoader ??= CreateDeckEntryLoader();
+
         if (file is not null && !string.IsNullOrWhiteSpace(url))
         {
             throw new InvalidOperationException("Specify either --archidekt or --archidekt-url, not both.");
@@ -107,28 +141,27 @@ internal static class CommandRunners
 
         if (file is not null)
         {
-            return new ArchidektParser().ParseFile(file.FullName);
+            return await deckEntryLoader.LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Archidekt, DeckInputKind.FilePath, file.FullName));
         }
 
         if (!string.IsNullOrWhiteSpace(url))
         {
-            return await new ArchidektApiDeckImporter().ImportAsync(url);
+            return await deckEntryLoader.LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Archidekt, DeckInputKind.PublicUrl, url));
         }
 
         throw new InvalidOperationException("Either --archidekt or --archidekt-url is required.");
     }
 
+    /// <summary>
+    /// Validates that a deck contains the expected Commander card count.
+    /// </summary>
+    /// <param name="systemName">Display name used in error messages.</param>
+    /// <param name="entries">Deck entries to validate.</param>
     public static void ValidateDeckSize(string systemName, IReadOnlyList<DeckEntry> entries)
     {
-        const int requiredDeckSize = 100;
-        var count = entries
-            .Where(entry => !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
-            .Sum(entry => entry.Quantity);
-
-        if (count != requiredDeckSize)
-        {
-            throw new InvalidOperationException($"{systemName} deck must contain exactly {requiredDeckSize} cards across commander and mainboard. Found {count}.");
-        }
+        CreateDeckEntryLoader().ValidateCommanderDeckSize(systemName, entries);
     }
 
     public static IEnumerable<PrintingConflict> ResolveConflicts(IReadOnlyList<PrintingConflict> conflicts, string sourceSystem, string targetSystem)
@@ -221,11 +254,18 @@ internal static class CommandRunners
         return 0;
     }
 
+    /// <summary>
+    /// Exports a public Moxfield deck as text.
+    /// </summary>
+    /// <param name="url">Public Moxfield deck URL.</param>
+    /// <param name="output">Destination text file.</param>
+    /// <returns>Process exit code.</returns>
     public static async Task<int> RunExportMoxfieldAsync(string url, FileInfo output)
     {
         try
         {
-            var entries = await new MoxfieldApiDeckImporter().ImportAsync(url);
+            var entries = await CreateDeckEntryLoader().LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Moxfield, DeckInputKind.PublicUrl, url, ExcludeMaybeboard: true));
             Directory.CreateDirectory(output.DirectoryName ?? Directory.GetCurrentDirectory());
             MoxfieldTextExporter.WriteFile(entries, output.FullName);
             Console.WriteLine($"Wrote Moxfield deck file: {output.FullName}");
@@ -238,11 +278,18 @@ internal static class CommandRunners
         }
     }
 
+    /// <summary>
+    /// Fetches an Archidekt deck and prints category totals by quantity.
+    /// </summary>
+    /// <param name="url">Public Archidekt deck URL.</param>
+    /// <param name="output">Optional destination file for the report.</param>
+    /// <returns>Process exit code.</returns>
     public static async Task<int> RunArchidektCategoriesAsync(string url, FileInfo? output)
     {
         try
         {
-            var entries = await new ArchidektApiDeckImporter().ImportAsync(url);
+            var entries = await CreateDeckEntryLoader().LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Archidekt, DeckInputKind.PublicUrl, url));
             var text = CategoryCountReporter.ToText(entries);
 
             Console.WriteLine(text);
@@ -263,11 +310,19 @@ internal static class CommandRunners
         }
     }
 
+    /// <summary>
+    /// Fetches an Archidekt deck and prints the cards found in a specific category.
+    /// </summary>
+    /// <param name="url">Public Archidekt deck URL.</param>
+    /// <param name="category">Category to filter by.</param>
+    /// <param name="output">Optional destination file for the report.</param>
+    /// <returns>Process exit code.</returns>
     public static async Task<int> RunArchidektCategoryCardsAsync(string url, string category, FileInfo? output)
     {
         try
         {
-            var entries = await new ArchidektApiDeckImporter().ImportAsync(url);
+            var entries = await CreateDeckEntryLoader().LoadAsync(
+                new DeckLoadRequest(DeckPlatform.Archidekt, DeckInputKind.PublicUrl, url));
             var text = CategoryCardReporter.ToText(entries, category);
 
             Console.WriteLine(text);
@@ -595,6 +650,17 @@ internal static class CommandRunners
             Console.WriteLine($"{card.Power}/{card.Toughness}");
         }
     }
+
+    /// <summary>
+    /// Creates the shared deck loader used by the CLI commands.
+    /// </summary>
+    /// <returns>A deck loader configured with the CLI's concrete importers and parsers.</returns>
+    private static IDeckEntryLoader CreateDeckEntryLoader()
+        => new DeckEntryLoader(
+            new MoxfieldApiDeckImporter(),
+            new ArchidektApiDeckImporter(),
+            new MoxfieldParser(),
+            new ArchidektParser());
 
     private record ScryfallCardDto(
         string Name,
