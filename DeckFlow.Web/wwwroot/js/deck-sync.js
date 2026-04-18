@@ -502,6 +502,7 @@ const registerBusyIndicator = () => {
     });
 };
 const formStateStoragePrefix = 'decksync-form-state-';
+const antiForgeryFieldName = '__RequestVerificationToken';
 const storageAvailable = (() => {
     try {
         const testKey = '__decksync_test_key__';
@@ -518,6 +519,9 @@ const serializePersistedFormFields = (form) => {
     const formData = new FormData(form);
     formData.forEach((value, key) => {
         if (typeof value !== 'string') {
+            return;
+        }
+        if (key === antiForgeryFieldName) {
             return;
         }
         if (!state[key]) {
@@ -544,6 +548,9 @@ const serializeFormFields = (form) => {
 };
 const restoreFormFields = (form, data) => {
     form.querySelectorAll('[name]').forEach(element => {
+        if (element.name === antiForgeryFieldName) {
+            return;
+        }
         const values = data[element.name];
         if (!values || values.length === 0) {
             return;

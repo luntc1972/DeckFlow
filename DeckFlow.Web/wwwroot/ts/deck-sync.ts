@@ -690,6 +690,7 @@ const registerBusyIndicator = (): void => {
 };
 
 const formStateStoragePrefix = 'decksync-form-state-';
+const antiForgeryFieldName = '__RequestVerificationToken';
 const storageAvailable = (() => {
   try {
     const testKey = '__decksync_test_key__';
@@ -707,6 +708,10 @@ const serializePersistedFormFields = (form: HTMLFormElement): Record<string, str
 
   formData.forEach((value, key) => {
     if (typeof value !== 'string') {
+      return;
+    }
+
+    if (key === antiForgeryFieldName) {
       return;
     }
 
@@ -741,6 +746,10 @@ const serializeFormFields = (form: HTMLFormElement): Record<string, string> => {
 
 const restoreFormFields = (form: HTMLFormElement, data: Record<string, string[]>) => {
   form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name]').forEach(element => {
+    if (element.name === antiForgeryFieldName) {
+      return;
+    }
+
     const values = data[element.name];
     if (!values || values.length === 0) {
       return;
