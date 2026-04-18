@@ -68,6 +68,14 @@
   font-size: 0.78rem;
 }
 
+.run-button,
+.copy-button,
+.clear-cache-button,
+.global-job-notice__close {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .run-button:disabled,
 .run-button[aria-disabled="true"],
 .clear-cache-button:disabled,
