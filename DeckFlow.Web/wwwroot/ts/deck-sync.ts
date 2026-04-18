@@ -690,7 +690,6 @@ const registerBusyIndicator = (): void => {
 };
 
 const formStateStoragePrefix = 'decksync-form-state-';
-const tabNavigationKey = 'decksync-tab-navigation';
 const storageAvailable = (() => {
   try {
     const testKey = '__decksync_test_key__';
@@ -855,20 +854,18 @@ const attachGenericPersistedForms = (): void => {
   }
 
   const forms = Array.from(document.querySelectorAll<HTMLFormElement>('form[data-cache-key]'));
-  const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
 
   forms.forEach(form => {
     if (form.id === 'deck-sync-form') {
       return;
     }
 
-    if (restoredFromTabs) {
-      hydrateFormState(form);
-    }
+    hydrateFormState(form);
 
     const persist = () => persistFormState(form);
     form.addEventListener('input', persist);
     form.addEventListener('change', persist);
+    window.addEventListener('pagehide', persist);
 
         const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
         clearButton?.addEventListener('click', () => {
@@ -884,16 +881,11 @@ const attachGenericPersistedForms = (): void => {
     });
   });
 
-  document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
+  document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link, .page-brand, .hub-card').forEach(link => {
     link.addEventListener('click', () => {
       forms.forEach(form => persistFormState(form));
-      storageAvailable.setItem(tabNavigationKey, '1');
     });
   });
-
-  if (restoredFromTabs) {
-    storageAvailable.removeItem(tabNavigationKey);
-  }
 };
 
 const clearDeckSyncUi = (): void => {
@@ -1074,10 +1066,7 @@ const attachDeckSyncPersistence = (): void => {
     return;
   }
 
-  const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
-  if (restoredFromTabs) {
-    hydrateFormState(form);
-  }
+  hydrateFormState(form);
 
   updateSyncInputModeUi();
   updateSyncDirectionUi();
@@ -1085,6 +1074,7 @@ const attachDeckSyncPersistence = (): void => {
   const handler = () => persistFormState(form);
   form.addEventListener('input', handler);
   form.addEventListener('change', handler);
+  window.addEventListener('pagehide', handler);
   form.addEventListener('submit', event => {
     handler();
     event.preventDefault();
@@ -1107,10 +1097,9 @@ const attachDeckSyncPersistence = (): void => {
     updateSyncDirectionUi();
   });
 
-  document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
+  document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link, .page-brand, .hub-card').forEach(link => {
     link.addEventListener('click', () => {
       persistFormState(form);
-      storageAvailable.setItem(tabNavigationKey, '1');
     });
   });
 };
