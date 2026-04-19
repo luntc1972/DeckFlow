@@ -19,7 +19,7 @@
                 <section class="result-panel">
                     <h2>Current status</h2>
                     <p>The extension is not published to the Chrome Web Store yet, so the current install path is <strong>Load unpacked</strong>.</p>
-                    <p>The DeckFlow bridge is intentionally limited to <code>localhost</code> and <code>127.0.0.1</code> so the extension does not inject into unrelated sites.</p>
+                    <p>The DeckFlow bridge now uses an allowed-origins list in the extension settings. Add each DeckFlow origin you trust there before using browser-side Moxfield imports.</p>
                 </section>
 
                 <section class="result-panel">
@@ -31,6 +31,8 @@
                         <li>Turn on <strong>Developer mode</strong>.</li>
                         <li>Click <strong>Load unpacked</strong>.</li>
                         <li>Select the <code>browser-extensions/moxfield-tag-exporter</code> folder.</li>
+                        <li>Open the extension details page, then open <strong>Extension options</strong>.</li>
+                        <li>Add your DeckFlow origin, such as <code>https://deckflow.example.com</code> or <code>https://mybox.local:7173</code>.</li>
                         <li>Return to DeckFlow and submit the Moxfield URL again.</li>
                     </ol>
                 </section>
@@ -38,7 +40,7 @@
                 <section class="result-panel">
                     <h2>What it does</h2>
                     <p>The extension fetches the Moxfield deck in the browser, converts it to Moxfield bulk-edit text, and passes that text back to DeckFlow so the normal import flow can continue.</p>
-                    <p>If you self-host DeckFlow on a different origin, update the extension manifest's bridge matches before loading it.</p>
+                    <p>The extension injects broadly, but it only responds to origins you explicitly allow in extension options.</p>
                 </section>
             </main>
         </div>

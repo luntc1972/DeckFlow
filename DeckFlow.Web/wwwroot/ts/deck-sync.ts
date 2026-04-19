@@ -77,12 +77,15 @@ type ExtensionBridgeErrorResponse = {
   requestId: string;
   ok: false;
   error: string;
+  optionsUrl?: string;
 };
 
 type ExtensionBridgePingResponse = {
   source: 'deckflow-extension';
   type: 'deckflow-extension-ping-response';
   requestId: string;
+  allowed?: boolean;
+  optionsUrl?: string;
 };
 
 type ExtensionBridgeResponse = ExtensionBridgeSuccessResponse | ExtensionBridgeErrorResponse | ExtensionBridgePingResponse;
@@ -138,12 +141,26 @@ const postExtensionBridgeRequest = async (type: 'deckflow-extension-ping' | 'dec
   });
 };
 
-const isDeckFlowExtensionAvailable = async (): Promise<boolean> => {
+type DeckFlowExtensionStatus = {
+  installed: boolean;
+  allowed: boolean;
+  optionsUrl?: string;
+};
+
+const getDeckFlowExtensionStatus = async (): Promise<DeckFlowExtensionStatus> => {
   try {
     const response = await postExtensionBridgeRequest('deckflow-extension-ping', {}, 1200);
-    return response.type === 'deckflow-extension-ping-response';
+    if (response.type !== 'deckflow-extension-ping-response') {
+      return { installed: true, allowed: false };
+    }
+
+    return {
+      installed: true,
+      allowed: response.allowed !== false,
+      optionsUrl: response.optionsUrl
+    };
   } catch {
-    return false;
+    return { installed: false, allowed: false };
   }
 };
 
@@ -180,6 +197,18 @@ const promptToInstallMoxfieldExtension = (): boolean => {
   }
 
   return shouldOpenInstallPage;
+};
+
+const promptToConfigureMoxfieldExtensionOrigin = (optionsUrl?: string): boolean => {
+  const shouldOpenOptions = window.confirm(
+    `The DeckFlow extension is installed, but ${window.location.origin} is not allowed yet. Open the extension options to allow this origin?`
+  );
+
+  if (shouldOpenOptions && optionsUrl) {
+    window.open(optionsUrl, '_blank', 'noopener');
+  }
+
+  return shouldOpenOptions;
 };
 
 const resubmitFormBypassingExtension = (form: HTMLFormElement, submitter: HTMLElement | null): void => {
@@ -319,11 +348,20 @@ const attachMoxfieldExtensionImport = (): void => {
 
     event.preventDefault();
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-    const extensionAvailable = await isDeckFlowExtensionAvailable();
+    const extensionStatus = await getDeckFlowExtensionStatus();
 
-    if (!extensionAvailable) {
+    if (!extensionStatus.installed) {
       const openedInstallPage = promptToInstallMoxfieldExtension();
       if (!openedInstallPage) {
+        resubmitFormBypassingExtension(form, submitter);
+      }
+
+      return;
+    }
+
+    if (!extensionStatus.allowed) {
+      const openedOptions = promptToConfigureMoxfieldExtensionOrigin(extensionStatus.optionsUrl);
+      if (!openedOptions) {
         resubmitFormBypassingExtension(form, submitter);
       }
 
@@ -337,7 +375,15 @@ const attachMoxfieldExtensionImport = (): void => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      window.alert(`DeckFlow could not import this Moxfield URL through the browser extension. The original form submission will continue.\n\n${message}`);
+      const optionsUrl = error && typeof error === 'object' && 'optionsUrl' in error
+        ? String((error as { optionsUrl?: string }).optionsUrl ?? '')
+        : '';
+
+      if (optionsUrl && /not allowed/i.test(message)) {
+        promptToConfigureMoxfieldExtensionOrigin(optionsUrl);
+      } else {
+        window.alert(`DeckFlow could not import this Moxfield URL through the browser extension. The original form submission will continue.\n\n${message}`);
+      }
     }
 
     resubmitFormBypassingExtension(form, submitter);

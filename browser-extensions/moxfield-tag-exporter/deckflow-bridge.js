@@ -1,6 +1,13 @@
 (function () {
   'use strict';
 
+  const allowedOriginsStorageKey = 'deckflowAllowedOrigins';
+  const defaultAllowedOrigins = [
+    'http://localhost',
+    'https://localhost',
+    'http://127.0.0.1',
+    'https://127.0.0.1'
+  ];
   const pageBridgeEnabled = document.body?.dataset.deckflowExtensionBridge === 'enabled'
     || document.documentElement?.dataset.deckflowExtensionBridge === 'enabled';
 
@@ -19,7 +26,8 @@
     }
 
     if (message.type === 'deckflow-extension-ping') {
-      postBridgeMessage('deckflow-extension-ping-response', message.requestId, {});
+      const access = await getOriginAccess();
+      postBridgeMessage('deckflow-extension-ping-response', message.requestId, access);
       return;
     }
 
@@ -28,6 +36,11 @@
     }
 
     try {
+      const access = await getOriginAccess();
+      if (!access.allowed) {
+        throw createOriginNotAllowedError(access.optionsUrl);
+      }
+
       const deckId = getDeckIdFromUrl(message.deckUrl);
       if (!deckId) {
         throw new Error('The submitted URL is not a valid public Moxfield deck link.');
@@ -49,10 +62,39 @@
     } catch (error) {
       postBridgeMessage('deckflow-moxfield-import-response', message.requestId, {
         ok: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        optionsUrl: error && typeof error === 'object' && 'optionsUrl' in error ? error.optionsUrl : undefined
       });
     }
   });
+
+  async function getOriginAccess() {
+    const allowedOrigins = await loadAllowedOrigins();
+    return {
+      allowed: allowedOrigins.includes(window.location.origin),
+      optionsUrl: chrome.runtime.getURL(`options.html?origin=${encodeURIComponent(window.location.origin)}`)
+    };
+  }
+
+  async function loadAllowedOrigins() {
+    const result = await chrome.storage.sync.get(allowedOriginsStorageKey);
+    const configured = Array.isArray(result[allowedOriginsStorageKey]) ? result[allowedOriginsStorageKey] : [];
+    const normalized = configured
+      .map(normalizeOrigin)
+      .filter(Boolean);
+
+    if (normalized.length > 0) {
+      return Array.from(new Set(normalized));
+    }
+
+    return defaultAllowedOrigins;
+  }
+
+  function createOriginNotAllowedError(optionsUrl) {
+    const error = new Error(`This DeckFlow origin is not allowed in the extension yet. Add ${window.location.origin} in the extension options and try again.`);
+    error.optionsUrl = optionsUrl;
+    return error;
+  }
 
   function postBridgeMessage(type, requestId, payload) {
     window.postMessage({
@@ -61,6 +103,14 @@
       requestId,
       ...payload
     }, window.location.origin);
+  }
+
+  function normalizeOrigin(value) {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return '';
+    }
   }
 
   function getDeckIdFromUrl(url) {

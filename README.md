@@ -48,15 +48,16 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 - Set `MTG_DATA_DIR=/data` and mount a persistent volume there. Both the SQLite category-knowledge DB and the ChatGPT Analysis artifact folder get redirected under that single directory.
 - The Dockerfile's entrypoint resolves `$PORT` at container start so platforms that inject a dynamic port (Render) work without changes.
 - **Moxfield URL caveat.** Moxfield's Cloudflare edge blocks requests from datacenter IP ranges with HTTP 403/5xx. When that happens, DeckFlow automatically falls back to Commander Spellbook's public `card-list-from-url` endpoint (which accepts the same Moxfield URL) and loads the deck from there instead. The UI surfaces a warning banner noting that card printings, set codes, collector numbers, author tags/categories, and sideboard/maybeboard entries are not available through the fallback. For full metadata, users should copy the Moxfield deck export text and paste it into the deck input directly — that path continues to work from anywhere.
-- **Optional browser-extension path.** The web UI now detects Moxfield deck URLs before submit. If the optional DeckFlow browser extension is installed, the browser fetches the Moxfield deck directly, converts it to Moxfield bulk-edit text, and submits that text through the existing form flow. If the extension is not installed, DeckFlow can prompt the user with an install page (`/extension-install.html`). Browsers do not allow the site to silently install the extension. Mobile browsers are left on the normal server/fallback path and are not prompted for the extension.
+- **Optional browser-extension path.** The web UI now detects Moxfield deck URLs before submit. If the optional DeckFlow browser extension is installed and the current DeckFlow origin is allowed in extension settings, the browser fetches the Moxfield deck directly, converts it to Moxfield bulk-edit text, and submits that text through the existing form flow. If the extension is not installed, DeckFlow can prompt the user with an install page (`/extension-install.html`). Browsers do not allow the site to silently install the extension. Mobile browsers are left on the normal server/fallback path and are not prompted for the extension.
 
 ### Browser extension install
 - Extension folder: `browser-extensions/moxfield-tag-exporter`
 - Current install mode: unpacked extension via `chrome://extensions` or `edge://extensions`
-- Security default: the DeckFlow bridge content script only matches `localhost` and `127.0.0.1` so the extension does not inject into arbitrary sites
+- Security default: the DeckFlow bridge only responds on origins the user explicitly allows in extension options
 - The extension contains:
   - `content.js` for exporting directly on `moxfield.com/decks/*`
   - `deckflow-bridge.js` for the optional DeckFlow web-app bridge
+  - `options.html` / `options.js` for managing the allowed DeckFlow origin list
   - `background.js` for cross-origin Moxfield API requests
 
 ---
