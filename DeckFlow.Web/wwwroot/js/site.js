@@ -242,6 +242,21 @@
                 : 'Run 5-Minute Archidekt Harvest';
         });
     };
+    const getArchidektCacheJobLockUntilUtc = (job) => {
+        var _a;
+        const startedAtMs = Date.parse((_a = job.startedUtc) !== null && _a !== void 0 ? _a : job.requestedUtc);
+        const requestedAtMs = Date.parse(job.requestedUtc);
+        const baseMs = Number.isFinite(startedAtMs) ? startedAtMs : requestedAtMs;
+        return new Date(baseMs + (job.durationSeconds * 1000)).toISOString();
+    };
+    const isArchidektCacheJobLockActive = (record) => {
+        if (!record || (record.state !== 'Queued' && record.state !== 'Running') || !record.lockUntilUtc) {
+            return false;
+        }
+        const lockUntilMs = Date.parse(record.lockUntilUtc);
+        return Number.isFinite(lockUntilMs) && lockUntilMs > Date.now();
+    };
+    const shouldRetainArchidektCacheJobLock = () => archidektCacheJobStartPending || isArchidektCacheJobLockActive(readArchidektCacheJobRecord());
     const buildJobMessage = (job) => {
         switch (job.state) {
             case 'Queued':
@@ -303,6 +318,7 @@
             jobId: job.jobId,
             statusUrl,
             state: job.state,
+            lockUntilUtc: getArchidektCacheJobLockUntilUtc(job),
             completionNotified
         });
         setPageJobStatus(message);
@@ -337,6 +353,11 @@
             });
             if (!response.ok) {
                 if (response.status === 404) {
+                    if (isArchidektCacheJobLockActive(record)) {
+                        archidektCacheJobLocked = true;
+                        updateArchidektCacheButtons(true);
+                        return;
+                    }
                     writeArchidektCacheJobRecord(null);
                     archidektCacheJobLocked = false;
                     updateArchidektCacheButtons(false);
@@ -367,6 +388,16 @@
                 return false;
             }
             if (response.status === 404) {
+                if (shouldRetainArchidektCacheJobLock()) {
+                    archidektCacheJobLocked = true;
+                    updateArchidektCacheButtons(true);
+                    window.setTimeout(() => {
+                        if (version === archidektCacheJobResolveVersion) {
+                            void resolveActiveArchidektCacheJob(activeUrl, version);
+                        }
+                    }, 1000);
+                    return false;
+                }
                 writePendingStart(false);
                 writeArchidektCacheJobRecord(null);
                 archidektCacheJobLocked = false;
@@ -467,21 +498,22 @@
                     }
                     const job = normalizeArchidektCacheJobResponse(payload);
                     const statusUrl = (_f = (_e = job === null || job === void 0 ? void 0 : job.statusUrl) !== null && _e !== void 0 ? _e : response.headers.get('Location')) !== null && _f !== void 0 ? _f : ((job === null || job === void 0 ? void 0 : job.jobId) ? `${statusBaseUrl}/${job.jobId}` : null);
-                    writePendingStart(false);
-                    archidektCacheJobLocked = true;
                     if (!job || !statusUrl) {
+                        archidektCacheJobLocked = true;
                         setPageJobStatus('Archidekt category harvest is queued and will start shortly.');
                         setGlobalJobNotice('Archidekt category harvest is queued and will start shortly.');
                         updateArchidektCacheButtons(true);
                         void resolveActiveArchidektCacheJob(activeUrl);
                         return;
                     }
+                    writePendingStart(false);
+                    archidektCacheJobLocked = true;
                     writeDismissedJobId(null);
                     applyJobStatus(job, statusUrl);
                 }
                 catch (error) {
                     const activeJobFound = await resolveActiveArchidektCacheJob(activeUrl);
-                    if (!activeJobFound) {
+                    if (!activeJobFound && !shouldRetainArchidektCacheJobLock()) {
                         writePendingStart(false);
                         archidektCacheJobLocked = false;
                         const message = error instanceof Error ? error.message : 'Unable to start the Archidekt category harvest.';
