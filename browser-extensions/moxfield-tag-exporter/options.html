@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeckFlow Bridge Origins</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      background: #f4f6f8;
+      color: #1f2933;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    .panel {
+      background: #ffffff;
+      border: 1px solid #d5dce3;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 1.75rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      box-sizing: border-box;
+      padding: 12px;
+      border: 1px solid #b7c2cd;
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    .recommended-origin {
+      margin: 12px 0;
+      padding: 12px;
+      border-radius: 8px;
+      background: #eef6ff;
+      border: 1px solid #c6dcf5;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: #1d4ed8;
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 1.25rem;
+      color: #14532d;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel">
+      <h1>Allowed DeckFlow Origins</h1>
+      <p>Add one DeckFlow origin per line. The bridge will only respond on these origins.</p>
+      <div class="recommended-origin" id="recommended-origin" hidden>
+        Recommended current origin: <code id="recommended-origin-value"></code>
+      </div>
+      <textarea id="allowed-origins" spellcheck="false" aria-label="Allowed DeckFlow origins"></textarea>
+      <div class="actions">
+        <button type="button" class="primary" id="save-button">Save</button>
+        <button type="button" class="secondary" id="add-recommended-button" hidden>Add Recommended Origin</button>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>
