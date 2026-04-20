@@ -426,8 +426,22 @@ Commander
       }
     ],
     "final_shortlist": {
-      "must_test": ["New Ramp"],
-      "optional": ["Unproven Card"],
+      "must_test": [
+        {
+          "card": "New Ramp",
+          "reason": "Immediate upgrade for early acceleration.",
+          "suggested_cut": "Old Ramp",
+          "cut_reason": "Costs more mana for less burst."
+        }
+      ],
+      "optional": [
+        {
+          "card": "Unproven Card",
+          "reason": "High upside if the table slows down.",
+          "suggested_cut": "Flex Slot",
+          "cut_reason": "Lowest-impact filler when testing."
+        }
+      ],
       "skip": ["Shiny Trap"]
     }
   }
@@ -447,7 +461,7 @@ Commander
         Assert.Single(set.Traps);
         Assert.Single(set.SpeculativeTests);
         Assert.NotNull(result.SetUpgradeResponse.FinalShortlist);
-        Assert.Contains("New Ramp", result.SetUpgradeResponse.FinalShortlist!.MustTest);
+        Assert.Contains(result.SetUpgradeResponse.FinalShortlist!.MustTest, entry => entry.Card == "New Ramp");
         Assert.Contains("Shiny Trap", result.SetUpgradeResponse.FinalShortlist.Skip);
         Assert.Null(result.SetUpgradePromptText);
     }
@@ -961,7 +975,8 @@ Commander
         Assert.Contains("Per-set analysis", result.SetUpgradePromptText);
         Assert.Contains("Top adds from that set", result.SetUpgradePromptText);
         Assert.Contains("Suggested removals for each add", result.SetUpgradePromptText);
-        Assert.Contains("explain the reasoning briefly", result.SetUpgradePromptText);
+        Assert.Contains("must_test: cards you would actively slot in", result.SetUpgradePromptText);
+        Assert.Contains("suggested card to cut", result.SetUpgradePromptText);
         Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
         Assert.Contains("```json", result.SetUpgradePromptText);
         Assert.Contains("\"final_shortlist\"", result.SetUpgradePromptText);
