@@ -11,9 +11,9 @@
   --accent-strong: #36511f;
 
   --jeskai-blue-bg: #ecf1e0;
-  --jeskai-red: #3d2c3e;
-  --jeskai-red-soft: #5a4a5b;
-  --jeskai-red-bg: #e8e3ea;
+  --jeskai-red: #271828;
+  --jeskai-red-soft: #433443;
+  --jeskai-red-bg: #d2c6d4;
   --jeskai-white: #eff0e5;
 
   --warning: #eee1b4;
@@ -24,8 +24,8 @@
   --panel-inferred-bg: #eef1df;
   --panel-live-border: #4b6e2a;
   --panel-live-bg: #ecf1e0;
-  --panel-edhrec-border: #3d2c3e;
-  --panel-edhrec-bg: #e8e3ea;
+  --panel-edhrec-border: #271828;
+  --panel-edhrec-bg: #d2c6d4;
   --panel-retry-border: #747966;
   --panel-retry-bg: #ebeedd;
   --panel-summary-border: #55783d;
