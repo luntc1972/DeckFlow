@@ -120,7 +120,13 @@ internal static class ChatGptResponseParsers
     private static bool HasMeaningfulSetUpgradeContent(ChatGptSetUpgradeResponse response)
         => response.Sets.Count > 0
             || (response.FinalShortlist is not null
-                && (response.FinalShortlist.MustTest.Count > 0
-                    || response.FinalShortlist.Optional.Count > 0
-                    || response.FinalShortlist.Skip.Count > 0));
+                && (response.FinalShortlist.MustTest.Any(HasMeaningfulTopAdd)
+                    || response.FinalShortlist.Optional.Any(HasMeaningfulTopAdd)
+                    || response.FinalShortlist.Skip.Any(card => !string.IsNullOrWhiteSpace(card))));
+
+    private static bool HasMeaningfulTopAdd(ChatGptSetUpgradeTopAdd add)
+        => !string.IsNullOrWhiteSpace(add.Card)
+            || !string.IsNullOrWhiteSpace(add.Reason)
+            || !string.IsNullOrWhiteSpace(add.SuggestedCut)
+            || !string.IsNullOrWhiteSpace(add.CutReason);
 }

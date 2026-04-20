@@ -56,10 +56,10 @@ public sealed class ChatGptSetUpgradeCardNote
 public sealed class ChatGptSetUpgradeShortlist
 {
     [JsonPropertyName("must_test")]
-    public IReadOnlyList<string> MustTest { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<ChatGptSetUpgradeTopAdd> MustTest { get; init; } = Array.Empty<ChatGptSetUpgradeTopAdd>();
 
     [JsonPropertyName("optional")]
-    public IReadOnlyList<string> Optional { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<ChatGptSetUpgradeTopAdd> Optional { get; init; } = Array.Empty<ChatGptSetUpgradeTopAdd>();
 
     [JsonPropertyName("skip")]
     public IReadOnlyList<string> Skip { get; init; } = Array.Empty<string>();
