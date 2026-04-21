@@ -1,3 +1,7 @@
+interface Window {
+  attachCardAutocomplete?: (input: HTMLInputElement) => void;
+}
+
 const debounceCardSearch = (fn: () => void, delay: number) => {
   let timer: number | undefined;
   return () => {
@@ -81,11 +85,12 @@ const renderCardSuggestions = (list: string[], input: HTMLInputElement, panel: H
   panel.classList.remove('hidden');
 };
 
-const attachCardSearch = (): void => {
-  const input = document.querySelector<HTMLInputElement>('input[name="CardName"]');
-  if (!input) {
+const attachCardAutocomplete = (input: HTMLInputElement): void => {
+  if (input.dataset.cardAutocompleteAttached === 'true') {
     return;
   }
+
+  input.dataset.cardAutocompleteAttached = 'true';
   const panel = getOrCreateSuggestionPanel(input);
 
   const fetchSuggestions = async (): Promise<void> => {
@@ -133,4 +138,14 @@ const attachCardSearch = (): void => {
   });
 };
 
+const attachCardSearch = (): void => {
+  const input = document.querySelector<HTMLInputElement>('input[name="CardName"]');
+  if (!input) {
+    return;
+  }
+
+  attachCardAutocomplete(input);
+};
+
+window.attachCardAutocomplete = attachCardAutocomplete;
 document.addEventListener('DOMContentLoaded', attachCardSearch);

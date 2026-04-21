@@ -143,7 +143,7 @@ Questions are grouped into collapsible buckets. Buckets with pre-selected questi
 | **Optimization & Upgrades** | Cuts for strength, budget upgrades (requires amount), missing staples, faster/competitive, board-wipe resilience |
 | **Meta & Matchups** | Performance vs. archetypes, pod weaknesses, tech options, hate pieces |
 | **Play Pattern & Decision Making** | Ideal opening hand, tutor priorities, when to cast the commander, common misplays |
-| **Specific Card-Level Questions** | Card worth including (requires card name), better alternatives (requires card name), weakest card, too many high-CMC cards |
+| **Specific Card-Level Questions** | Card worth including and better alternatives can each target multiple card names, and every `[card]` question is emitted once per card you add; also includes weakest card and too many high-CMC cards |
 | **Advanced / Expert-Level** | Turn clock, disruption vulnerability, keepable hand percentage, redundancy, mana-base optimization |
 | **Combo Analysis (Commander Spellbook)** | Combos already in the deck, combos one card away within the color identity — both use live Commander Spellbook API data injected into the prompt |
 | **Deck Versioning & Upgrade Paths** | Bracket 2/3/4/5 version, 3 named upgrade paths, assign categories, update categories |

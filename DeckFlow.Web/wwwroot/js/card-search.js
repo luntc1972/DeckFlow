@@ -68,11 +68,11 @@ const renderCardSuggestions = (list, input, panel) => {
     });
     panel.classList.remove('hidden');
 };
-const attachCardSearch = () => {
-    const input = document.querySelector('input[name="CardName"]');
-    if (!input) {
+const attachCardAutocomplete = (input) => {
+    if (input.dataset.cardAutocompleteAttached === 'true') {
         return;
     }
+    input.dataset.cardAutocompleteAttached = 'true';
     const panel = getOrCreateSuggestionPanel(input);
     const fetchSuggestions = async () => {
         var _a, _b;
@@ -116,4 +116,12 @@ const attachCardSearch = () => {
         hideSuggestionPanel(panel);
     });
 };
+const attachCardSearch = () => {
+    const input = document.querySelector('input[name="CardName"]');
+    if (!input) {
+        return;
+    }
+    attachCardAutocomplete(input);
+};
+window.attachCardAutocomplete = attachCardAutocomplete;
 document.addEventListener('DOMContentLoaded', attachCardSearch);
