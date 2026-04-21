@@ -37,6 +37,16 @@ type DeckSyncApiResponse = {
 
 type DeckSyncSystem = 'Moxfield' | 'Archidekt';
 
+interface Window {
+  attachLookaheadInput?: (
+    input: HTMLInputElement,
+    panel: HTMLDivElement,
+    minChars: number,
+    onPick: (name: string) => void
+  ) => void;
+  createLookupSuggestionPanel?: (anchor: HTMLElement) => HTMLDivElement;
+}
+
 const panelConfigs: PanelConfig[] = [
   {
     selectName: 'MoxfieldInputSource',
@@ -784,9 +794,232 @@ const serializeFormFields = (form: HTMLFormElement): Record<string, string> => {
   return state;
 };
 
+const cardPickerFieldName = 'CardSpecificQuestionCardNames';
+
+const getCardPickerRowsContainer = (container: HTMLElement): HTMLElement | null =>
+  container.querySelector<HTMLElement>('[data-card-picker-rows]');
+
+const getCardPickerRows = (container: HTMLElement): HTMLElement[] =>
+  Array.from(container.querySelectorAll<HTMLElement>('[data-card-picker-row]'));
+
+const cardPickerSvgNamespace = 'http://www.w3.org/2000/svg';
+
+const createCardPickerIcon = (lineCoordinates: Array<[string, string, string, string]>): SVGSVGElement => {
+  const icon = document.createElementNS(cardPickerSvgNamespace, 'svg');
+  icon.setAttribute('width', '16');
+  icon.setAttribute('height', '16');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('fill', 'none');
+  icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '2');
+  icon.setAttribute('stroke-linecap', 'round');
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-hidden', 'true');
+
+  lineCoordinates.forEach(([x1, y1, x2, y2]) => {
+    const line = document.createElementNS(cardPickerSvgNamespace, 'line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    icon.appendChild(line);
+  });
+
+  return icon;
+};
+
+const syncCardPickerRemoveButtons = (container: HTMLElement): void => {
+  const rowsContainer = getCardPickerRowsContainer(container);
+  if (!rowsContainer) {
+    return;
+  }
+
+  Array.from(rowsContainer.children).forEach((child, index) => {
+    if (!(child instanceof HTMLElement) || !child.hasAttribute('data-card-picker-row')) {
+      return;
+    }
+
+    const removeButton = child.querySelector<HTMLButtonElement>('[data-card-picker-remove]');
+    if (!removeButton) {
+      return;
+    }
+
+    if (index === 0) {
+      removeButton.hidden = true;
+      removeButton.classList.add('hidden');
+      return;
+    }
+
+    removeButton.hidden = false;
+    removeButton.classList.remove('hidden');
+  });
+};
+
+const createCardPickerRow = (value = ''): HTMLDivElement => {
+  const row = document.createElement('div');
+  row.className = 'card-picker__row';
+  row.setAttribute('data-card-picker-row', '');
+
+  const inputShell = document.createElement('div');
+  inputShell.className = 'autocomplete-anchor card-picker__input-shell';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.name = cardPickerFieldName;
+  input.value = value;
+  input.className = 'card-picker__input';
+  input.autocomplete = 'off';
+  input.setAttribute('data-card-picker-input', '');
+  inputShell.appendChild(input);
+
+  const addButton = document.createElement('button');
+  addButton.type = 'button';
+  addButton.className = 'card-picker__add';
+  addButton.setAttribute('data-card-picker-add', '');
+  addButton.setAttribute('aria-label', 'Add another card');
+  addButton.appendChild(
+    createCardPickerIcon([
+      ['12', '5', '12', '19'],
+      ['5', '12', '19', '12']
+    ])
+  );
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'card-picker__remove hidden';
+  removeButton.setAttribute('data-card-picker-remove', '');
+  removeButton.setAttribute('aria-label', 'Remove this card');
+  removeButton.hidden = true;
+  removeButton.appendChild(createCardPickerIcon([['5', '12', '19', '12']]));
+
+  row.append(inputShell, addButton, removeButton);
+  return row;
+};
+
+const attachCardPickerRow = (container: HTMLElement, row: HTMLElement): void => {
+  const rowsContainer = getCardPickerRowsContainer(container);
+  const form = container.closest('form');
+  const addButton = row.querySelector<HTMLButtonElement>('[data-card-picker-add]');
+  const input = row.querySelector<HTMLInputElement>('[data-card-picker-input]');
+  const inputShell = row.querySelector<HTMLElement>('.card-picker__input-shell');
+  const removeButton = row.querySelector<HTMLButtonElement>('[data-card-picker-remove]');
+
+  if (rowsContainer) {
+    const isFirstRow = row === rowsContainer.firstElementChild;
+    if (isFirstRow) {
+      removeButton?.classList.add('hidden');
+      if (removeButton) {
+        removeButton.hidden = true;
+      }
+    } else {
+      removeButton?.classList.remove('hidden');
+      if (removeButton) {
+        removeButton.hidden = false;
+      }
+    }
+  }
+
+  if (row.dataset.cardPickerAttached === 'true') {
+    return;
+  }
+
+  row.dataset.cardPickerAttached = 'true';
+
+  if (input && inputShell instanceof HTMLElement) {
+    let suggestionPanel = inputShell.querySelector<HTMLDivElement>('.autocomplete-panel');
+    if (!suggestionPanel) {
+      suggestionPanel = window.createLookupSuggestionPanel?.(inputShell) ?? null;
+    }
+
+    if (suggestionPanel) {
+      window.attachLookaheadInput?.(input, suggestionPanel, 2, pickedName => {
+        input.value = pickedName;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+  }
+
+  addButton?.addEventListener('click', () => {
+    const currentRowsContainer = getCardPickerRowsContainer(container);
+    if (!currentRowsContainer) {
+      return;
+    }
+
+    const newRow = createCardPickerRow();
+    currentRowsContainer.appendChild(newRow);
+    attachCardPickerRow(container, newRow);
+    syncCardPickerRemoveButtons(container);
+    form && persistFormState(form);
+    newRow.querySelector<HTMLInputElement>('[data-card-picker-input]')?.focus();
+  });
+
+  removeButton?.addEventListener('click', () => {
+    const currentRowsContainer = getCardPickerRowsContainer(container);
+    if (!currentRowsContainer || row === currentRowsContainer.firstElementChild) {
+      syncCardPickerRemoveButtons(container);
+      return;
+    }
+
+    row.remove();
+
+    if (currentRowsContainer.querySelectorAll('[data-card-picker-row]').length === 0) {
+      const replacementRow = createCardPickerRow();
+      currentRowsContainer.appendChild(replacementRow);
+      attachCardPickerRow(container, replacementRow);
+    }
+
+    syncCardPickerRemoveButtons(container);
+    form && persistFormState(form);
+  });
+};
+
+const attachCardPicker = (form: HTMLFormElement): void => {
+  form.querySelectorAll<HTMLElement>('[data-card-picker]').forEach(container => {
+    const rowsContainer = getCardPickerRowsContainer(container);
+    if (!rowsContainer) {
+      return;
+    }
+
+    if (rowsContainer.querySelectorAll('[data-card-picker-row]').length === 0) {
+      rowsContainer.appendChild(createCardPickerRow());
+    }
+
+    getCardPickerRows(container).forEach(row => attachCardPickerRow(container, row));
+    syncCardPickerRemoveButtons(container);
+  });
+};
+
+const restoreCardPickerFields = (form: HTMLFormElement, data: Record<string, string[]>): void => {
+  const container = form.querySelector<HTMLElement>('[data-card-picker]');
+  if (!container) {
+    return;
+  }
+
+  const rowsContainer = getCardPickerRowsContainer(container);
+  if (!rowsContainer) {
+    return;
+  }
+
+  const values = data[cardPickerFieldName];
+  if (!values || values.length === 0) {
+    return;
+  }
+
+  rowsContainer.replaceChildren();
+  values.forEach(value => {
+    rowsContainer.appendChild(createCardPickerRow(value));
+  });
+};
+
 const restoreFormFields = (form: HTMLFormElement, data: Record<string, string[]>) => {
+  restoreCardPickerFields(form, data);
+
   form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name]').forEach(element => {
     if (element.name === antiForgeryFieldName) {
+      return;
+    }
+
+    if (element.name === cardPickerFieldName) {
       return;
     }
 
@@ -1245,7 +1478,11 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
     : form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')?.value.trim() ?? '';
   const deckProfileJson = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckProfileJson"]')?.value.trim() ?? '';
   const targetCommanderBracket = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]')?.value.trim() ?? '';
-  const cardSpecificQuestionCardName = form.querySelector<HTMLInputElement>('input[name="CardSpecificQuestionCardName"]')?.value.trim() ?? '';
+  const cardSpecificQuestionCardNames = Array.from(
+    form.querySelectorAll<HTMLInputElement>(`input[name="${cardPickerFieldName}"]`)
+  )
+    .map(input => input.value.trim())
+    .filter(value => value.length > 0);
   const budgetUpgradeAmount = form.querySelector<HTMLInputElement>('input[name="BudgetUpgradeAmount"]')?.value.trim() ?? '';
   const setPacketText = form.querySelector<HTMLTextAreaElement>('textarea[name="SetPacketText"]')?.value.trim() ?? '';
   const selectedSetCodes = Array.from(
@@ -1274,8 +1511,8 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
     return 'Select at least one analysis question before generating the analysis packet.';
   }
 
-  if (step === 2 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
-    return 'Enter a card name for the selected card-specific analysis questions.';
+  if (step === 2 && selectedCardSpecificQuestions > 0 && cardSpecificQuestionCardNames.length === 0) {
+    return 'Enter at least one card name for the selected card-specific analysis questions.';
   }
 
   if (step === 2 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
@@ -1519,6 +1756,7 @@ const attachChatGptPacketsWorkflow = (): void => {
   const initialUiMode = parseChatGptUiMode(storageAvailable?.getItem(chatGptUiModeStorageKey));
   attachQuestionBucketSelection(form);
   attachBucketToggles(form);
+  attachCardPicker(form);
 
   const bracketSelect = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]');
   bracketSelect?.addEventListener('change', () => syncVersioningBracketOptions(form));

@@ -378,9 +378,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         if (wantsAnalysisPacket
             && selectedQuestions.Any(questionId => questionId is "card-worth-it" or "better-alternatives")
-            && string.IsNullOrWhiteSpace(request.CardSpecificQuestionCardName))
+            && request.CardSpecificQuestionCardNames.Count == 0)
         {
-            throw new InvalidOperationException("Enter a card name for the selected card-specific analysis questions.");
+            throw new InvalidOperationException("Enter at least one card name for the selected card-specific analysis questions.");
         }
 
         if (wantsAnalysisPacket
@@ -888,7 +888,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
-        var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardName, request.BudgetUpgradeAmount);
+        var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardNames, request.BudgetUpgradeAmount);
         var allRequestedQuestions = selectedQuestions.ToList();
         if (!string.IsNullOrWhiteSpace(request.FreeformQuestion))
         {
@@ -1722,7 +1722,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
         builder.AppendLine($"include_sideboard_in_analysis: {request.IncludeSideboardInAnalysis}");
         builder.AppendLine($"include_maybeboard_in_analysis: {request.IncludeMaybeboardInAnalysis}");
-        builder.AppendLine($"card_specific_question_card_name: {NormalizeSingleLine(request.CardSpecificQuestionCardName, string.Empty)}");
+        builder.AppendLine("card_specific_question_card_names:");
+        foreach (var cardName in request.CardSpecificQuestionCardNames)
+        {
+            builder.AppendLine($"- {NormalizeSingleLine(cardName, string.Empty)}");
+        }
         builder.AppendLine($"budget_upgrade_amount: {NormalizeSingleLine(request.BudgetUpgradeAmount, string.Empty)}");
         builder.AppendLine("selected_analysis_questions:");
         foreach (var questionId in AnalysisQuestionCatalog.NormalizeSelections(request.SelectedAnalysisQuestions))

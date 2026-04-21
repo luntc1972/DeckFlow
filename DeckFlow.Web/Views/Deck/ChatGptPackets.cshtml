@@ -294,11 +294,54 @@ Do not omit any fields from the schema.
                             }
                             @if (bucket.Id == "card-level")
                             {
-                                <label class="field chatgpt-card-specific-field hidden" data-card-specific-question-field>
-                                    <span>Card name for card-specific questions</span>
-                                    <input type="text" name="CardSpecificQuestionCardName" value="@Model.Request.CardSpecificQuestionCardName" />
-                                    <small class="sync-column__hint">This is used when you select "Is [card] worth including?" or "What are better alternatives to [card]?"</small>
-                                </label>
+                                <div class="field chatgpt-card-specific-field hidden" data-card-specific-question-field data-card-picker>
+                                    <span class="field-label">Card names for card-specific questions</span>
+                                    <div class="card-picker__rows" data-card-picker-rows>
+                                        @if (Model.Request.CardSpecificQuestionCardNames.Count == 0)
+                                        {
+                                            <div class="card-picker__row" data-card-picker-row>
+                                                <div class="autocomplete-anchor card-picker__input-shell">
+                                                    <input type="text" name="CardSpecificQuestionCardNames" value="" class="card-picker__input" autocomplete="off" data-card-picker-input />
+                                                </div>
+                                                <button type="button" class="card-picker__add" data-card-picker-add aria-label="Add another card">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" role="img" aria-hidden="true">
+                                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                                    </svg>
+                                                </button>
+                                                <button type="button" class="card-picker__remove hidden" data-card-picker-remove aria-label="Remove this card" hidden>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" role="img" aria-hidden="true">
+                                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            @for (var i = 0; i < Model.Request.CardSpecificQuestionCardNames.Count; i++)
+                                            {
+                                                var isFirst = i == 0;
+                                                <div class="card-picker__row" data-card-picker-row>
+                                                    <div class="autocomplete-anchor card-picker__input-shell">
+                                                        <input type="text" name="CardSpecificQuestionCardNames" value="@Model.Request.CardSpecificQuestionCardNames[i]" class="card-picker__input" autocomplete="off" data-card-picker-input />
+                                                    </div>
+                                                    <button type="button" class="card-picker__add" data-card-picker-add aria-label="Add another card">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" role="img" aria-hidden="true">
+                                                            <line x1="12" y1="5" x2="12" y2="19" />
+                                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                                        </svg>
+                                                    </button>
+                                                    <button type="button" class="card-picker__remove @(isFirst ? "hidden" : "")" data-card-picker-remove aria-label="Remove this card" @(isFirst ? "hidden" : null)>
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" role="img" aria-hidden="true">
+                                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                    <small class="sync-column__hint">Used when you select "Is [card] worth including?" or "What are better alternatives to [card]?" Questions with <code>[card]</code> are emitted once per card you list here.</small>
+                                </div>
                             }
                             @if (bucket.Id == "deck-versioning")
                             {
@@ -821,5 +864,6 @@ Do not omit any fields from the schema.
 </form>
 
 @section Scripts {
+    <script src="~/js/card-lookup.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 }

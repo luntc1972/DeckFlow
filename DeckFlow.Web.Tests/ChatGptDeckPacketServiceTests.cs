@@ -93,7 +93,7 @@ Commander
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses", "consistency", "card-worth-it"],
-            CardSpecificQuestionCardName = "Sol Ring"
+            CardSpecificQuestionCardNames = ["Sol Ring"]
         });
 
         Assert.NotNull(result.ReferenceText);
@@ -502,7 +502,7 @@ Commander
             SelectedAnalysisQuestions = ["card-worth-it"]
         }));
 
-        Assert.Equal("Enter a card name for the selected card-specific analysis questions.", exception.Message);
+        Assert.Equal("Enter at least one card name for the selected card-specific analysis questions.", exception.Message);
     }
 
     /// <summary>
@@ -552,6 +552,36 @@ Commander
 
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("What are the best upgrades under $50 budget?", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ExpandsCardPlaceholderQuestions_ForEveryProvidedCard()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["card-worth-it", "better-alternatives", "strengths-weaknesses"],
+            CardSpecificQuestionCardNames = ["Sol Ring", "Arcane Signet", "Swords to Plowshares"]
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("1. What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
+        Assert.Contains("2. Is Sol Ring worth including in this deck?", result.AnalysisPromptText);
+        Assert.Contains("3. Is Arcane Signet worth including in this deck?", result.AnalysisPromptText);
+        Assert.Contains("4. Is Swords to Plowshares worth including in this deck?", result.AnalysisPromptText);
+        Assert.Contains("5. What are better alternatives to Sol Ring?", result.AnalysisPromptText);
+        Assert.Contains("6. What are better alternatives to Arcane Signet?", result.AnalysisPromptText);
+        Assert.Contains("7. What are better alternatives to Swords to Plowshares?", result.AnalysisPromptText);
     }
 
     [Fact]
@@ -1252,7 +1282,7 @@ Commander
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses"],
-            CardSpecificQuestionCardName = "Sol Ring",
+            CardSpecificQuestionCardNames = ["Sol Ring"],
             Format = "Commander",
             DeckName = "Atraxa Test Deck",
             StrategyNotes = "Play value engines and counters.",
@@ -1274,7 +1304,8 @@ Commander
         Assert.Contains("Play value engines and counters.", requestContext);
         Assert.Contains("meta_notes:", requestContext);
         Assert.Contains("Mid-power pods with removal.", requestContext);
-        Assert.Contains("card_specific_question_card_name: Sol Ring", requestContext);
+        Assert.Contains("card_specific_question_card_names:", requestContext);
+        Assert.Contains("- Sol Ring", requestContext);
     }
 
     [Fact]
@@ -1298,7 +1329,7 @@ Commander
             SelectedSetCodes = null!,
             StrategyNotes = null!,
             MetaNotes = null!,
-            CardSpecificQuestionCardName = null!,
+            CardSpecificQuestionCardNames = null!,
             SaveArtifactsToDisk = true
         });
 

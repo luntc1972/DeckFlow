@@ -1,3 +1,13 @@
+interface Window {
+  attachLookaheadInput?: (
+    input: HTMLInputElement,
+    panel: HTMLDivElement,
+    minChars: number,
+    onPick: (name: string) => void
+  ) => void;
+  createLookupSuggestionPanel?: (anchor: HTMLElement) => HTMLDivElement;
+}
+
 const countNonEmptyLines = (value: string): number =>
   value
     .split(/\r?\n/)
@@ -385,6 +395,9 @@ const initializeCardLookupForm = (): void => {
   initializeSingleCardMode();
   initializeCardListMode();
 };
+
+window.attachLookaheadInput = attachLookaheadInput;
+window.createLookupSuggestionPanel = createLookupSuggestionPanel;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeCardLookupForm);

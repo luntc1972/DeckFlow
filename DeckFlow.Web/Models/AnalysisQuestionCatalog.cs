@@ -185,7 +185,7 @@ public static class AnalysisQuestionCatalog
     /// <param name="selections">Selected question IDs.</param>
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections)
     {
-        return ResolveTexts(selections, null, null);
+        return ResolveTexts(selections, (IEnumerable<string>?)null, null);
     }
 
     /// <summary>
@@ -195,7 +195,7 @@ public static class AnalysisQuestionCatalog
     /// <param name="cardName">Card name for card-specific questions.</param>
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, string? cardName)
     {
-        return ResolveTexts(selections, cardName, null);
+        return ResolveTexts(selections, cardName is null ? null : [cardName], null);
     }
 
     /// <summary>
@@ -206,17 +206,50 @@ public static class AnalysisQuestionCatalog
     /// <param name="budgetAmount">Budget amount for budget-upgrade questions.</param>
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, string? cardName, string? budgetAmount)
     {
+        return ResolveTexts(selections, cardName is null ? null : [cardName], budgetAmount);
+    }
+
+    /// <summary>
+    /// Resolves selected IDs to their question text using card-name and budget placeholders.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
+    /// <param name="cardNames">Card names for card-specific questions.</param>
+    /// <param name="budgetAmount">Budget amount for budget-upgrade questions.</param>
+    public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, IEnumerable<string>? cardNames, string? budgetAmount)
+    {
         var selectedSet = NormalizeSelections(selections)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var normalizedCardName = string.IsNullOrWhiteSpace(cardName) ? "[card]" : cardName.Trim();
-        var normalizedBudgetAmount = string.IsNullOrWhiteSpace(budgetAmount) ? "$X" : $"${budgetAmount.Trim()}";
-
-        return AllQuestions
-            .Where(question => selectedSet.Contains(question.Id))
-            .Select(question => question.Text
-                .Replace("[card]", normalizedCardName, StringComparison.Ordinal)
-                .Replace("$X", normalizedBudgetAmount, StringComparison.Ordinal))
+        var normalizedCardNames = (cardNames ?? Array.Empty<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        if (normalizedCardNames.Count == 0)
+        {
+            normalizedCardNames.Add("[card]");
+        }
+
+        var normalizedBudgetAmount = string.IsNullOrWhiteSpace(budgetAmount) ? "$X" : $"${budgetAmount.Trim()}";
+        var resolved = new List<string>();
+
+        foreach (var question in AllQuestions.Where(question => selectedSet.Contains(question.Id)))
+        {
+            var budgetResolvedText = question.Text.Replace("$X", normalizedBudgetAmount, StringComparison.Ordinal);
+            if (budgetResolvedText.Contains("[card]", StringComparison.Ordinal))
+            {
+                foreach (var normalizedCardName in normalizedCardNames)
+                {
+                    resolved.Add(budgetResolvedText.Replace("[card]", normalizedCardName, StringComparison.Ordinal));
+                }
+
+                continue;
+            }
+
+            resolved.Add(budgetResolvedText);
+        }
+
+        return resolved;
     }
 
     /// <summary>

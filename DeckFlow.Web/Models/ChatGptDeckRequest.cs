@@ -11,7 +11,7 @@ public sealed class ChatGptDeckRequest
     private string _deckProfileJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private List<string> _selectedAnalysisQuestions = [];
-    private string _cardSpecificQuestionCardName = string.Empty;
+    private List<string> _cardSpecificQuestionCardNames = new();
     private string _budgetUpgradeAmount = string.Empty;
     private List<string> _selectedSetCodes = [];
     private string _setPacketText = string.Empty;
@@ -102,10 +102,16 @@ public sealed class ChatGptDeckRequest
         set => _selectedAnalysisQuestions = value ?? [];
     }
 
-    public string CardSpecificQuestionCardName
+    public List<string> CardSpecificQuestionCardNames
     {
-        get => _cardSpecificQuestionCardName;
-        set => _cardSpecificQuestionCardName = value ?? string.Empty;
+        get => _cardSpecificQuestionCardNames;
+        set => _cardSpecificQuestionCardNames = value is null
+            ? new List<string>()
+            : value
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
     }
 
     public string BudgetUpgradeAmount

@@ -329,6 +329,8 @@ const initializeCardLookupForm = () => {
     initializeSingleCardMode();
     initializeCardListMode();
 };
+window.attachLookaheadInput = attachLookaheadInput;
+window.createLookupSuggestionPanel = createLookupSuggestionPanel;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeCardLookupForm);
 }

@@ -567,9 +567,192 @@ const serializeFormFields = (form) => {
     });
     return state;
 };
+const cardPickerFieldName = 'CardSpecificQuestionCardNames';
+const getCardPickerRowsContainer = (container) => container.querySelector('[data-card-picker-rows]');
+const getCardPickerRows = (container) => Array.from(container.querySelectorAll('[data-card-picker-row]'));
+const cardPickerSvgNamespace = 'http://www.w3.org/2000/svg';
+const createCardPickerIcon = (lineCoordinates) => {
+    const icon = document.createElementNS(cardPickerSvgNamespace, 'svg');
+    icon.setAttribute('width', '16');
+    icon.setAttribute('height', '16');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('stroke', 'currentColor');
+    icon.setAttribute('stroke-width', '2');
+    icon.setAttribute('stroke-linecap', 'round');
+    icon.setAttribute('role', 'img');
+    icon.setAttribute('aria-hidden', 'true');
+    lineCoordinates.forEach(([x1, y1, x2, y2]) => {
+        const line = document.createElementNS(cardPickerSvgNamespace, 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        icon.appendChild(line);
+    });
+    return icon;
+};
+const syncCardPickerRemoveButtons = (container) => {
+    const rowsContainer = getCardPickerRowsContainer(container);
+    if (!rowsContainer) {
+        return;
+    }
+    Array.from(rowsContainer.children).forEach((child, index) => {
+        if (!(child instanceof HTMLElement) || !child.hasAttribute('data-card-picker-row')) {
+            return;
+        }
+        const removeButton = child.querySelector('[data-card-picker-remove]');
+        if (!removeButton) {
+            return;
+        }
+        if (index === 0) {
+            removeButton.hidden = true;
+            removeButton.classList.add('hidden');
+            return;
+        }
+        removeButton.hidden = false;
+        removeButton.classList.remove('hidden');
+    });
+};
+const createCardPickerRow = (value = '') => {
+    const row = document.createElement('div');
+    row.className = 'card-picker__row';
+    row.setAttribute('data-card-picker-row', '');
+    const inputShell = document.createElement('div');
+    inputShell.className = 'autocomplete-anchor card-picker__input-shell';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = cardPickerFieldName;
+    input.value = value;
+    input.className = 'card-picker__input';
+    input.autocomplete = 'off';
+    input.setAttribute('data-card-picker-input', '');
+    inputShell.appendChild(input);
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'card-picker__add';
+    addButton.setAttribute('data-card-picker-add', '');
+    addButton.setAttribute('aria-label', 'Add another card');
+    addButton.appendChild(createCardPickerIcon([
+        ['12', '5', '12', '19'],
+        ['5', '12', '19', '12']
+    ]));
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'card-picker__remove hidden';
+    removeButton.setAttribute('data-card-picker-remove', '');
+    removeButton.setAttribute('aria-label', 'Remove this card');
+    removeButton.hidden = true;
+    removeButton.appendChild(createCardPickerIcon([['5', '12', '19', '12']]));
+    row.append(inputShell, addButton, removeButton);
+    return row;
+};
+const attachCardPickerRow = (container, row) => {
+    var _a, _b, _c;
+    const rowsContainer = getCardPickerRowsContainer(container);
+    const form = container.closest('form');
+    const addButton = row.querySelector('[data-card-picker-add]');
+    const input = row.querySelector('[data-card-picker-input]');
+    const inputShell = row.querySelector('.card-picker__input-shell');
+    const removeButton = row.querySelector('[data-card-picker-remove]');
+    if (rowsContainer) {
+        const isFirstRow = row === rowsContainer.firstElementChild;
+        if (isFirstRow) {
+            removeButton === null || removeButton === void 0 ? void 0 : removeButton.classList.add('hidden');
+            if (removeButton) {
+                removeButton.hidden = true;
+            }
+        }
+        else {
+            removeButton === null || removeButton === void 0 ? void 0 : removeButton.classList.remove('hidden');
+            if (removeButton) {
+                removeButton.hidden = false;
+            }
+        }
+    }
+    if (row.dataset.cardPickerAttached === 'true') {
+        return;
+    }
+    row.dataset.cardPickerAttached = 'true';
+    if (input && inputShell instanceof HTMLElement) {
+        let suggestionPanel = inputShell.querySelector('.autocomplete-panel');
+        if (!suggestionPanel) {
+            suggestionPanel = (_b = (_a = window.createLookupSuggestionPanel) === null || _a === void 0 ? void 0 : _a.call(window, inputShell)) !== null && _b !== void 0 ? _b : null;
+        }
+        if (suggestionPanel) {
+            (_c = window.attachLookaheadInput) === null || _c === void 0 ? void 0 : _c.call(window, input, suggestionPanel, 2, pickedName => {
+                input.value = pickedName;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+    }
+    addButton === null || addButton === void 0 ? void 0 : addButton.addEventListener('click', () => {
+        var _a;
+        const currentRowsContainer = getCardPickerRowsContainer(container);
+        if (!currentRowsContainer) {
+            return;
+        }
+        const newRow = createCardPickerRow();
+        currentRowsContainer.appendChild(newRow);
+        attachCardPickerRow(container, newRow);
+        syncCardPickerRemoveButtons(container);
+        form && persistFormState(form);
+        (_a = newRow.querySelector('[data-card-picker-input]')) === null || _a === void 0 ? void 0 : _a.focus();
+    });
+    removeButton === null || removeButton === void 0 ? void 0 : removeButton.addEventListener('click', () => {
+        const currentRowsContainer = getCardPickerRowsContainer(container);
+        if (!currentRowsContainer || row === currentRowsContainer.firstElementChild) {
+            syncCardPickerRemoveButtons(container);
+            return;
+        }
+        row.remove();
+        if (currentRowsContainer.querySelectorAll('[data-card-picker-row]').length === 0) {
+            const replacementRow = createCardPickerRow();
+            currentRowsContainer.appendChild(replacementRow);
+            attachCardPickerRow(container, replacementRow);
+        }
+        syncCardPickerRemoveButtons(container);
+        form && persistFormState(form);
+    });
+};
+const attachCardPicker = (form) => {
+    form.querySelectorAll('[data-card-picker]').forEach(container => {
+        const rowsContainer = getCardPickerRowsContainer(container);
+        if (!rowsContainer) {
+            return;
+        }
+        if (rowsContainer.querySelectorAll('[data-card-picker-row]').length === 0) {
+            rowsContainer.appendChild(createCardPickerRow());
+        }
+        getCardPickerRows(container).forEach(row => attachCardPickerRow(container, row));
+        syncCardPickerRemoveButtons(container);
+    });
+};
+const restoreCardPickerFields = (form, data) => {
+    const container = form.querySelector('[data-card-picker]');
+    if (!container) {
+        return;
+    }
+    const rowsContainer = getCardPickerRowsContainer(container);
+    if (!rowsContainer) {
+        return;
+    }
+    const values = data[cardPickerFieldName];
+    if (!values || values.length === 0) {
+        return;
+    }
+    rowsContainer.replaceChildren();
+    values.forEach(value => {
+        rowsContainer.appendChild(createCardPickerRow(value));
+    });
+};
 const restoreFormFields = (form, data) => {
+    restoreCardPickerFields(form, data);
     form.querySelectorAll('[name]').forEach(element => {
         if (element.name === antiForgeryFieldName) {
+            return;
+        }
+        if (element.name === cardPickerFieldName) {
             return;
         }
         const values = data[element.name];
@@ -938,7 +1121,7 @@ const applyChatGptUiMode = (form, mode) => {
     });
 };
 const validateChatGptPacketsStep = (form, step) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
     const importArtifactsPath = (_b = (_a = form.querySelector('input[name="ImportArtifactsPath"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
     if (importArtifactsPath) {
         // When importing a saved artifacts folder, the server rehydrates DeckProfileJson / SetUpgradeResponseJson —
@@ -951,14 +1134,16 @@ const validateChatGptPacketsStep = (form, step) => {
         : (_h = (_g = form.querySelector('textarea[name="DeckText"]')) === null || _g === void 0 ? void 0 : _g.value.trim()) !== null && _h !== void 0 ? _h : '';
     const deckProfileJson = (_k = (_j = form.querySelector('textarea[name="DeckProfileJson"]')) === null || _j === void 0 ? void 0 : _j.value.trim()) !== null && _k !== void 0 ? _k : '';
     const targetCommanderBracket = (_m = (_l = form.querySelector('select[name="TargetCommanderBracket"]')) === null || _l === void 0 ? void 0 : _l.value.trim()) !== null && _m !== void 0 ? _m : '';
-    const cardSpecificQuestionCardName = (_p = (_o = form.querySelector('input[name="CardSpecificQuestionCardName"]')) === null || _o === void 0 ? void 0 : _o.value.trim()) !== null && _p !== void 0 ? _p : '';
-    const budgetUpgradeAmount = (_r = (_q = form.querySelector('input[name="BudgetUpgradeAmount"]')) === null || _q === void 0 ? void 0 : _q.value.trim()) !== null && _r !== void 0 ? _r : '';
-    const setPacketText = (_t = (_s = form.querySelector('textarea[name="SetPacketText"]')) === null || _s === void 0 ? void 0 : _s.value.trim()) !== null && _t !== void 0 ? _t : '';
+    const cardSpecificQuestionCardNames = Array.from(form.querySelectorAll(`input[name="${cardPickerFieldName}"]`))
+        .map(input => input.value.trim())
+        .filter(value => value.length > 0);
+    const budgetUpgradeAmount = (_p = (_o = form.querySelector('input[name="BudgetUpgradeAmount"]')) === null || _o === void 0 ? void 0 : _o.value.trim()) !== null && _p !== void 0 ? _p : '';
+    const setPacketText = (_r = (_q = form.querySelector('textarea[name="SetPacketText"]')) === null || _q === void 0 ? void 0 : _q.value.trim()) !== null && _r !== void 0 ? _r : '';
     const selectedSetCodes = Array.from(form.querySelectorAll('select[name="SelectedSetCodes"] option:checked'));
     const selectedCardSpecificQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked').length;
     const selectedBudgetQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked').length;
     const selectedCategoryQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="add-categories"]:checked, input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked').length;
-    const decklistExportFormat = (_v = (_u = form.querySelector('select[name="DecklistExportFormat"]')) === null || _u === void 0 ? void 0 : _u.value.trim()) !== null && _v !== void 0 ? _v : '';
+    const decklistExportFormat = (_t = (_s = form.querySelector('select[name="DecklistExportFormat"]')) === null || _s === void 0 ? void 0 : _s.value.trim()) !== null && _t !== void 0 ? _t : '';
     if (step < 3 && !deckSource) {
         return 'Paste a deck URL or deck export before generating ChatGPT packets.';
     }
@@ -968,8 +1153,8 @@ const validateChatGptPacketsStep = (form, step) => {
     if (step === 2 && form.querySelectorAll('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
         return 'Select at least one analysis question before generating the analysis packet.';
     }
-    if (step === 2 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
-        return 'Enter a card name for the selected card-specific analysis questions.';
+    if (step === 2 && selectedCardSpecificQuestions > 0 && cardSpecificQuestionCardNames.length === 0) {
+        return 'Enter at least one card name for the selected card-specific analysis questions.';
     }
     if (step === 2 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
         return 'Enter a budget amount for the selected budget upgrade question.';
@@ -992,7 +1177,7 @@ const validateChatGptPacketsStep = (form, step) => {
         }
     }
     if (step === 5) {
-        const setUpgradeResponseJson = (_x = (_w = form.querySelector('textarea[name="SetUpgradeResponseJson"]')) === null || _w === void 0 ? void 0 : _w.value.trim()) !== null && _x !== void 0 ? _x : '';
+        const setUpgradeResponseJson = (_v = (_u = form.querySelector('textarea[name="SetUpgradeResponseJson"]')) === null || _u === void 0 ? void 0 : _u.value.trim()) !== null && _v !== void 0 ? _v : '';
         if (!setUpgradeResponseJson) {
             return 'Paste the set_upgrade_report JSON returned from ChatGPT before rendering the set upgrade results.';
         }
@@ -1173,6 +1358,7 @@ const attachChatGptPacketsWorkflow = () => {
     const initialUiMode = parseChatGptUiMode(storageAvailable === null || storageAvailable === void 0 ? void 0 : storageAvailable.getItem(chatGptUiModeStorageKey));
     attachQuestionBucketSelection(form);
     attachBucketToggles(form);
+    attachCardPicker(form);
     const bracketSelect = form.querySelector('select[name="TargetCommanderBracket"]');
     bracketSelect === null || bracketSelect === void 0 ? void 0 : bracketSelect.addEventListener('change', () => syncVersioningBracketOptions(form));
     syncVersioningBracketOptions(form);
