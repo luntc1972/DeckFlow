@@ -50,6 +50,9 @@
         <div class="page-frame">
             <header class="page-header">
                 <a class="page-brand" href="@Url.Content("~/")" aria-label="DeckFlow home">DeckFlow</a>
+                <nav class="page-nav" aria-label="Primary">
+                    <a class="page-nav__link" href="@Url.Content("~/help")">Help</a>
+                </nav>
                 <div class="theme-picker">
                     <label class="theme-picker__label" for="theme-picker">Theme</label>
                     <select id="theme-picker" class="theme-picker__select">
@@ -67,6 +70,9 @@
                 </div>
                 @RenderBody()
             </main>
+            <footer class="page-footer">
+                <a class="page-footer__link" href="@Url.Content("~/about")">About</a>
+            </footer>
             <div class="sr-only" role="status" aria-live="polite" data-copy-announcer></div>
         </div>
     </div>
