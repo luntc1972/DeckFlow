@@ -1,0 +1,27 @@
+@model DeckFlow.Web.Models.AboutViewModel
+@{
+    ViewData["Title"] = "About";
+}
+
+<section class="about-page">
+    <h1>DeckFlow</h1>
+    <p class="about-page__tagline">@Model.Tagline</p>
+
+    <dl class="about-page__meta">
+        <dt>Version</dt>
+        <dd>@Model.Version</dd>
+        <dt>Source code</dt>
+        <dd><a href="@Model.RepositoryUrl" target="_blank" rel="noopener noreferrer">@Model.RepositoryUrl</a></dd>
+    </dl>
+
+    <h2>Built with data from</h2>
+    <ul class="about-page__credits">
+        @foreach (var credit in Model.Credits)
+        {
+            <li>
+                <a href="@credit.Url" target="_blank" rel="noopener noreferrer">@credit.Name</a>
+                — @credit.Description
+            </li>
+        }
+    </ul>
+</section>
