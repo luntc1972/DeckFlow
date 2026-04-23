@@ -48,6 +48,8 @@ public class Program
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
         builder.Services.AddMemoryCache();
+        builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
+        builder.Services.AddSingleton<IVersionService, VersionService>();
 
         // Honor X-Forwarded-* headers from the reverse proxy (e.g. Render, Fly, Azure App Service)
         // so request.Scheme reflects the browser's https scheme, not the http hop from proxy to app.
