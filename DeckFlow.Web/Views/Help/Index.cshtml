@@ -1,0 +1,19 @@
+@model IReadOnlyList<DeckFlow.Web.Models.HelpTopic>
+@{
+    ViewData["Title"] = "Help";
+}
+
+<section class="help-index">
+    <h1>Help</h1>
+    <p>User guides for each DeckFlow feature.</p>
+
+    <ul class="help-index__list">
+        @foreach (var topic in Model)
+        {
+            <li class="help-index__item">
+                <a class="help-index__link" href="@Url.Content($"~/help/{topic.Slug}")">@topic.Title</a>
+                <span class="help-index__summary">@topic.Summary</span>
+            </li>
+        }
+    </ul>
+</section>

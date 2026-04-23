@@ -1,0 +1,14 @@
+@model DeckFlow.Web.Models.HelpTopic
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<nav class="help-breadcrumb" aria-label="Breadcrumb">
+    <a href="@Url.Content("~/help")">Help</a>
+    <span aria-hidden="true">›</span>
+    <span>@Model.Title</span>
+</nav>
+
+<article class="help-prose">
+    @Html.Raw(Model.HtmlContent)
+</article>
