@@ -96,8 +96,7 @@
       return;
     }
 
-    // Always visible — no scroll-driven show/hide.
-    button.classList.add('is-visible');
+    // Keep the control available across the full page, including near the footer.
     button.setAttribute('aria-hidden', 'false');
     button.tabIndex = 0;
 
@@ -107,6 +106,8 @@
         behavior: 'smooth'
       });
     });
+
+    button.classList.add('is-visible');
   };
 
   const attachThemePicker = (): void => {
