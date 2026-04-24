@@ -33,3 +33,80 @@
   --panel-fallback-border: #b3a080;
   --panel-fallback-bg: #f3ead7;
 }
+
+body {
+  background:
+    linear-gradient(180deg, rgba(178, 56, 30, 0.08) 0, rgba(178, 56, 30, 0) 9rem),
+    linear-gradient(180deg, #f8f1e7 0, var(--bg) 14rem);
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--accent);
+}
+
+.page-header {
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 2px solid rgba(178, 56, 30, 0.18);
+}
+
+.page-brand,
+.page-nav__link {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice {
+  border-radius: 6px;
+  border-color: rgba(178, 56, 30, 0.18);
+  box-shadow: 0 10px 24px rgba(88, 40, 23, 0.08);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(178, 56, 30, 0.2);
+  background: #fffdf9;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #c94b28 0, #972f18 100%);
+  border-color: var(--accent-strong);
+  box-shadow: 0 10px 22px rgba(141, 42, 21, 0.18);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #d85834 0, #a6371d 100%);
+}
+
+.page-footer__link--cta {
+  border-color: rgba(178, 56, 30, 0.28);
+  background: rgba(178, 56, 30, 0.06);
+}
+
+.page-footer__link--cta:hover,
+.page-footer__link--cta:focus {
+  background: var(--accent);
+  color: #fff7f1;
+  text-decoration: none;
+}

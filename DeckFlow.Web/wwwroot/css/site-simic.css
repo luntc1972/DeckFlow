@@ -33,3 +33,71 @@
   --panel-fallback-border: #9eb3b5;
   --panel-fallback-bg: #e8eeef;
 }
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(76, 164, 130, 0.12) 0, rgba(76, 164, 130, 0) 24rem),
+    linear-gradient(180deg, #edf5f6 0, var(--bg) 14rem);
+}
+
+a {
+  color: #1e6f7c;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #134d56;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(76, 164, 130, 0.18);
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice {
+  border-color: rgba(76, 164, 130, 0.18);
+  background: rgba(246, 251, 251, 0.88);
+  box-shadow: 0 10px 28px rgba(20, 61, 67, 0.08);
+  backdrop-filter: blur(4px);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(76, 164, 130, 0.18);
+  background: rgba(252, 255, 255, 0.9);
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #36a16f 0, #217552 100%);
+  border-color: #217552;
+  box-shadow: 0 10px 24px rgba(33, 117, 82, 0.18);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #43ad7a 0, #2a8560 100%);
+}
+
+.tool-nav__trigger,
+.chatgpt-step-tab,
+.clear-cache-button,
+.swap-direction-button {
+  background: rgba(240, 248, 248, 0.9);
+}

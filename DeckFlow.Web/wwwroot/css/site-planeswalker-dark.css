@@ -1172,3 +1172,52 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+body {
+  background:
+    linear-gradient(180deg, rgba(77, 143, 204, 0.1) 0, rgba(77, 143, 204, 0) 8rem),
+    linear-gradient(180deg, #202538 0, var(--bg) 14rem);
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #b9d8f2;
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(106, 170, 224, 0.14);
+  box-shadow: 0 12px 30px rgba(8, 11, 18, 0.34);
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(106, 170, 224, 0.16);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(106, 170, 224, 0.16);
+  background: #1f2534;
+}
+
+.run-button,
+.copy-button {
+  box-shadow: 0 10px 24px rgba(77, 143, 204, 0.2);
+}

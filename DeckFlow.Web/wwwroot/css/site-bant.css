@@ -1170,3 +1170,67 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+body {
+  background:
+    linear-gradient(180deg, rgba(47, 111, 163, 0.08) 0, rgba(47, 111, 163, 0) 10rem),
+    linear-gradient(180deg, #f5f8f5 0, var(--bg) 14rem);
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--accent);
+}
+
+.page-header {
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 2px solid rgba(47, 111, 163, 0.16);
+}
+
+.page-brand,
+.page-nav__link {
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice {
+  border-radius: 6px;
+  border-color: rgba(47, 111, 163, 0.16);
+  box-shadow: 0 10px 26px rgba(31, 58, 78, 0.06);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(47, 111, 163, 0.2);
+  background: #fcfefd;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #3d7db0 0, #2a6086 100%);
+  border-color: var(--accent-strong);
+  box-shadow: 0 10px 22px rgba(35, 86, 125, 0.16);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #4a89bb 0, #316b93 100%);
+}

@@ -1171,3 +1171,119 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+body {
+  background:
+    linear-gradient(180deg, rgba(244, 240, 232, 0.06) 0, rgba(244, 240, 232, 0) 4rem),
+    linear-gradient(180deg, rgba(134, 163, 90, 0.08) 4rem, rgba(134, 163, 90, 0) 10rem),
+    linear-gradient(180deg, #0b0d07 0, var(--bg) 14rem);
+}
+
+a {
+  color: var(--abzan-bone);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--accent-strong);
+}
+
+.page-header {
+  padding-bottom: 0.7rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(244, 240, 232, 0.14);
+}
+
+.page-brand,
+.page-nav__link {
+  color: var(--abzan-bone);
+  letter-spacing: 0.03em;
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(244, 240, 232, 0.12);
+  box-shadow: 0 14px 34px rgba(3, 4, 2, 0.34);
+}
+
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.tool-nav__trigger {
+  background: #181d13;
+}
+
+.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active,
+.clear-cache-button:hover {
+  background: rgba(163, 199, 118, 0.16);
+}
+
+.chatgpt-step-tab {
+  background: #1b2115;
+}
+
+.chatgpt-step-tab.is-active {
+  background: #202817;
+  color: var(--abzan-bone);
+}
+
+.live-search-panel {
+  border-left: 4px solid var(--accent);
+}
+
+.edhrec-panel,
+.page-footer__link--cta {
+  border-left: 4px solid var(--abzan-charcoal-soft);
+}
+
+.summary-panel {
+  border-left: 4px solid var(--accent-strong);
+}
+
+.page-footer__link--cta {
+  border-top: 1px solid rgba(244, 240, 232, 0.14);
+  border-right: 1px solid rgba(244, 240, 232, 0.14);
+  border-bottom: 1px solid rgba(244, 240, 232, 0.14);
+  color: var(--abzan-bone);
+  background: rgba(244, 240, 232, 0.04);
+}
+
+.page-footer__link--cta:hover,
+.page-footer__link--cta:focus {
+  background: var(--accent);
+  color: #081005;
+  text-decoration: none;
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(244, 240, 232, 0.14);
+  background: #11150d;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #92b464 0, #6f8c49 100%);
+  border-color: var(--accent-strong);
+  color: #091005;
+  box-shadow: 0 10px 24px rgba(134, 163, 90, 0.22);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #a4c877 0, #7f9f58 100%);
+}

@@ -1174,3 +1174,69 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(180, 74, 82, 0.12) 0, rgba(180, 74, 82, 0) 22rem),
+    linear-gradient(180deg, #201d2a 0, var(--bg) 15rem);
+}
+
+a {
+  color: #e39aa3;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #f2c6cb;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(209, 102, 112, 0.18);
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(209, 102, 112, 0.14);
+  box-shadow: 0 14px 34px rgba(10, 8, 16, 0.34);
+}
+
+.warning-banner,
+.edhrec-panel {
+  border-left: 4px solid var(--grixis-red);
+}
+
+.info-banner,
+.live-search-panel {
+  border-left: 4px solid var(--grixis-blue);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(209, 102, 112, 0.16);
+  background: #1f212d;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #c85b64 0, #9f4048 100%);
+  border-color: var(--accent-strong);
+  box-shadow: 0 10px 24px rgba(180, 74, 82, 0.22);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #d56b74 0, #ae4d56 100%);
+}

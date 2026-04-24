@@ -1172,3 +1172,96 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
+  background: rgba(47, 124, 124, 0.14);
+}
+
+.chatgpt-step-tab {
+  background: #213131;
+}
+
+.chatgpt-step-tab.is-active {
+  background: #1b2b2f;
+}
+
+.clear-cache-button:hover {
+  background: rgba(47, 124, 124, 0.14);
+}
+
+.back-to-top-button {
+  background: #213131;
+}
+
+.tool-nav__trigger,
+.tool-nav__link:hover,
+.autocomplete-option:hover,
+.autocomplete-option:focus-visible {
+  background: #213131;
+}
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(47, 124, 124, 0.12) 0, rgba(47, 124, 124, 0) 24rem),
+    linear-gradient(180deg, #182221 0, var(--bg) 15rem);
+}
+
+a {
+  color: #7dc4ba;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #b5e3dc;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(79, 155, 147, 0.18);
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(79, 155, 147, 0.14);
+  box-shadow: 0 14px 34px rgba(8, 14, 13, 0.34);
+}
+
+.edhrec-panel,
+.summary-panel {
+  border-left: 4px solid var(--sultai-jade);
+}
+
+.live-search-panel,
+.info-banner {
+  border-left: 4px solid var(--accent);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(79, 155, 147, 0.16);
+  background: #1a2222;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #3f8f87 0, #2b675f 100%);
+  border-color: var(--accent-strong);
+  box-shadow: 0 10px 24px rgba(47, 124, 124, 0.22);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #4b9b93 0, #35756c 100%);
+}

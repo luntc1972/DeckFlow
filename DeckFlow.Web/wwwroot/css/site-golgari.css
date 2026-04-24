@@ -2,41 +2,95 @@
 @import url('site.css');
 
 :root {
-  --bg: #080c08;
-  --panel: #121812;
-  --ink: #6fb93c;
-  --muted: #577043;
-  --line: #1e2a1e;
-  --accent: #5da030;
-  --accent-strong: #3e7a1d;
+  --bg: #0b0f0a;
+  --panel: #151c14;
+  --ink: #e3ead8;
+  --muted: #9daa93;
+  --line: #33402d;
+  --accent: #6ba83a;
+  --accent-strong: #4d7f28;
 
-  --panel-soft-bg: #121812;
-  --jeskai-red: #6fb93c;
-  --jeskai-red-soft: #4a8028;
-  --jeskai-red-bg: #1a2614;
-  --jeskai-white: #141b14;
+  --panel-soft-bg: #182016;
+  --jeskai-red: #94c75f;
+  --jeskai-red-soft: #b7d88d;
+  --jeskai-red-bg: #202a18;
+  --jeskai-white: #1a2118;
 
-  --warning: #c9a44a;
-  --error: #d85a30;
-  --info: #141b14;
+  --warning: #44381e;
+  --error: #c86e45;
+  --info: #182018;
 
-  --panel-inferred-border: #3a4a2e;
-  --panel-inferred-bg: #141b14;
-  --panel-live-border: #5da030;
-  --panel-live-bg: #1a2614;
-  --panel-edhrec-border: #6fb93c;
-  --panel-edhrec-bg: #1a2614;
-  --panel-retry-border: #2e3a22;
-  --panel-retry-bg: #121612;
-  --panel-summary-border: #4a7a2e;
-  --panel-summary-bg: #1a2214;
-  --panel-fallback-border: #33452a;
-  --panel-fallback-bg: #141a14;
+  --panel-inferred-border: #596550;
+  --panel-inferred-bg: #171d16;
+  --panel-live-border: #6ba83a;
+  --panel-live-bg: #202a18;
+  --panel-edhrec-border: #7d8f58;
+  --panel-edhrec-bg: #1c2318;
+  --panel-retry-border: #4c5943;
+  --panel-retry-bg: #141914;
+  --panel-summary-border: #607c43;
+  --panel-summary-bg: #192015;
+  --panel-fallback-border: #495645;
+  --panel-fallback-bg: #151a14;
+}
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(107, 168, 58, 0.12) 0, rgba(107, 168, 58, 0) 24rem),
+    linear-gradient(180deg, #11170f 0, var(--bg) 14rem);
+}
+
+a {
+  color: #a8d67a;
+}
+
+a:hover,
+a:focus-visible {
+  color: #d8efbf;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(148, 199, 95, 0.2);
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(148, 199, 95, 0.14);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
 
 textarea,
 input,
 select {
-  background: var(--panel);
+  background: #121811;
   color: var(--ink);
+  border-color: #41513a;
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: #829077;
+}
+
+.run-button,
+.copy-button {
+  box-shadow: 0 10px 24px rgba(77, 127, 40, 0.28);
+}
+
+.back-to-top-button:hover {
+  background: linear-gradient(180deg, #76b241 0, #547f2d 100%);
 }

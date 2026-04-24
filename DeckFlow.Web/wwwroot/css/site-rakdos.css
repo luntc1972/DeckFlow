@@ -1,42 +1,223 @@
-/* Guild theme: Rakdos (BR) — black pit lit by blood-red lanterns. */
+/* Guild theme: Rakdos (BR) — velvet-black stage with crimson neon. */
 @import url('site.css');
 
 :root {
-  --bg: #0a0606;
-  --panel: #1a0f10;
-  --ink: #e24545;
-  --muted: #9a5555;
-  --line: #3d1a1a;
-  --accent: #d63030;
-  --accent-strong: #a62020;
+  --bg: #12090c;
+  --panel: #211316;
+  --ink: #f1e6e3;
+  --muted: #ba9e98;
+  --line: #4e2b31;
+  --accent: #d13b47;
+  --accent-strong: #a92434;
 
-  --panel-soft-bg: #1a0f10;
-  --jeskai-red: #e24545;
-  --jeskai-red-soft: #b83838;
-  --jeskai-red-bg: #2a1414;
-  --jeskai-white: #1f1212;
+  --panel-soft-bg: #2a171b;
+  --jeskai-red: #ef6a74;
+  --jeskai-red-soft: #f0a0a7;
+  --jeskai-red-bg: #34181d;
+  --jeskai-white: #2a191c;
 
-  --warning: #d68a4a;
-  --error: #ff5a5a;
-  --info: #2a1414;
+  --warning: #5a3020;
+  --error: #ef5a66;
+  --info: #27161d;
 
-  --panel-inferred-border: #5a2222;
-  --panel-inferred-bg: #1f1212;
-  --panel-live-border: #d63030;
-  --panel-live-bg: #2a1414;
-  --panel-edhrec-border: #e24545;
-  --panel-edhrec-bg: #2a1414;
-  --panel-retry-border: #4a2525;
-  --panel-retry-bg: #1d1010;
-  --panel-summary-border: #7a3030;
-  --panel-summary-bg: #251414;
-  --panel-fallback-border: #3a1f1f;
-  --panel-fallback-bg: #1c1010;
+  --panel-inferred-border: #6c4750;
+  --panel-inferred-bg: #28171c;
+  --panel-live-border: #d13b47;
+  --panel-live-bg: #34181d;
+  --panel-edhrec-border: #8a4d57;
+  --panel-edhrec-bg: #2d171c;
+  --panel-retry-border: #5f3f44;
+  --panel-retry-bg: #241417;
+  --panel-summary-border: #7b5962;
+  --panel-summary-bg: #2a181d;
+  --panel-fallback-border: #55363b;
+  --panel-fallback-bg: #221316;
+}
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(209, 59, 71, 0.16) 0, rgba(209, 59, 71, 0) 28rem),
+    linear-gradient(180deg, #1a0d11 0, var(--bg) 16rem);
+}
+
+a {
+  color: #ff9ea4;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #ffd0d3;
+}
+
+.page-header {
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(239, 106, 116, 0.28);
+}
+
+.page-brand,
+.page-nav__link {
+  color: #ffe6e7;
+}
+
+.theme-picker {
+  border-color: rgba(239, 106, 116, 0.2);
+  background: rgba(33, 19, 22, 0.94);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+.deck-form,
+.result-panel,
+.warning-banner,
+.error-banner,
+.info-banner,
+.timing-summary,
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(239, 106, 116, 0.16);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.warning-banner,
+.info-banner,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.chatgpt-layout-picker,
+.timing-summary,
+.busy-indicator__card {
+  background: rgba(42, 23, 27, 0.96);
+}
+
+.error-banner {
+  color: #fff4f4;
+}
+
+.page-footer {
+  border-top: 1px solid rgba(239, 106, 116, 0.24);
+}
+
+.page-footer__link--cta {
+  border-color: rgba(239, 106, 116, 0.36);
+  color: #ffb7bc;
+  background: rgba(209, 59, 71, 0.08);
+}
+
+.page-footer__link--cta:hover,
+.page-footer__link--cta:focus {
+  background: var(--accent);
+  color: #fff5f5;
+  text-decoration: none;
+}
+
+.field span,
+.mode-picker span,
+.panel-heading p,
+.warning-banner,
+summary,
+.sync-column__hint,
+.busy-indicator__progress,
+.chatgpt-layout-picker__copy,
+.chatgpt-question-picker__header p,
+.hub-card__description,
+.about-page__tagline {
+  color: var(--muted);
 }
 
 textarea,
 input,
 select {
-  background: var(--panel);
+  border-color: #613840;
+  background: #190e11;
   color: var(--ink);
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: #9e7c78;
+}
+
+.tool-nav__trigger,
+.chatgpt-step-tab,
+.chatgpt-question-bucket__toggle,
+.clear-cache-button,
+.swap-direction-button {
+  border-color: #613840;
+  background: #241417;
+  color: var(--ink);
+}
+
+.tool-nav__group.is-active .tool-nav__trigger,
+.chatgpt-step-tab.is-active,
+.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
+  border-color: var(--accent);
+  background: rgba(209, 59, 71, 0.14);
+  color: #ffd6d9;
+}
+
+.run-button,
+.copy-button {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, #df4b57 0, #b12c3c 100%);
+  color: #fff6f6;
+  box-shadow: 0 10px 24px rgba(169, 36, 52, 0.32);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #ea5a65 0, #c33545 100%);
+}
+
+.clear-cache-button:hover,
+.swap-direction-button:hover {
+  border-color: var(--accent);
+  background: rgba(209, 59, 71, 0.14);
+  color: #ffd6d9;
+}
+
+.cache-pill {
+  border-color: #613840;
+  background: rgba(42, 23, 27, 0.96);
+}
+
+.cache-pill__reset {
+  color: #ff9ea4;
+}
+
+.cache-pill__reset:hover,
+.cache-pill__reset:focus-visible {
+  color: #fff0f0;
+}
+
+.back-to-top-button {
+  border-color: rgba(239, 106, 116, 0.22);
+  background: linear-gradient(180deg, #ce3a47 0, #98202e 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
+.back-to-top-button:hover {
+  background: linear-gradient(180deg, #e34a57 0, #b32737 100%);
+}
+
+.back-to-top-button:focus-visible {
+  outline: 2px solid #ffd6d9;
+}
+
+.busy-indicator {
+  background: rgba(11, 5, 7, 0.48);
+}
+
+.busy-indicator__spinner {
+  border-color: rgba(241, 230, 227, 0.14);
+  border-top-color: var(--accent);
 }

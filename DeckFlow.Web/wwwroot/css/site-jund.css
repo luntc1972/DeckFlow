@@ -1172,3 +1172,30 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
+  background: rgba(138, 76, 53, 0.14);
+}
+
+.chatgpt-step-tab {
+  background: #2d241e;
+}
+
+.chatgpt-step-tab.is-active {
+  background: #35261f;
+}
+
+.clear-cache-button:hover {
+  background: rgba(138, 76, 53, 0.14);
+}
+
+.back-to-top-button {
+  background: #35261f;
+}
+
+.tool-nav__trigger,
+.tool-nav__link:hover,
+.autocomplete-option:hover,
+.autocomplete-option:focus-visible {
+  background: #2d241e;
+}
