@@ -7,6 +7,24 @@ End-user documentation is served by the running web app at `/help` (feature guid
 
 **Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
+## User Feedback
+
+A public **Feedback** form is linked in the site footer (`/Feedback`). Submissions are stored in a SQLite database (`feedback.db`) at `$MTG_DATA_DIR/feedback.db` (falls back to `./artifacts/feedback.db` in development).
+
+An admin page at `/Admin/Feedback` displays submissions with filters for status and type, and lets you mark items Read, Archive, or Delete them.
+
+### Admin configuration
+
+Set these environment variables (via `fly secrets set ...` on Fly.io or the Render env var UI):
+
+- `FEEDBACK_ADMIN_USER` — basic auth username for `/Admin/Feedback`.
+- `FEEDBACK_ADMIN_PASSWORD` — basic auth password.
+- `FEEDBACK_IP_SALT` (optional) — salt for hashing submitter IPs. If unset, a random 32-byte salt is generated on first run and persisted alongside `feedback.db`.
+
+If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedback` returns **503 Service Unavailable**. The public `/Feedback` form continues to accept submissions.
+
+Public submissions are rate-limited to 5 per hour per IP.
+
 ## Highlights
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
