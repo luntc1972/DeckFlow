@@ -40,6 +40,7 @@ type SingleCardMechanicRule = {
 };
 
 type SingleCardLookupPayload = {
+  cardName?: string;
   verifiedText?: string;
   mechanicRules?: SingleCardMechanicRule[];
   message?: string;
@@ -197,6 +198,7 @@ const initializeSingleCardMode = (): void => {
     errorBanner.textContent = message;
     errorBanner.classList.remove('hidden');
     resultPanel.classList.add('hidden');
+    clearMechanics();
   };
 
   const clearError = (): void => {
@@ -297,7 +299,7 @@ const initializeSingleCardMode = (): void => {
         return;
       }
 
-      showResult(query, payload.verifiedText, payload.mechanicRules ?? []);
+      showResult(payload.cardName?.trim() || query, payload.verifiedText, payload.mechanicRules ?? []);
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Lookup failed.');
     } finally {

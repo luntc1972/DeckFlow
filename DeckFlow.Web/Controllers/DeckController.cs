@@ -381,6 +381,7 @@ public sealed class DeckController : Controller
 
             return Json(new
             {
+                cardName = result.CardName,
                 verifiedText = result.VerifiedText,
                 mechanicRules
             });
