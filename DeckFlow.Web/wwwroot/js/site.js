@@ -52,8 +52,7 @@
         if (!(button instanceof HTMLButtonElement)) {
             return;
         }
-        // Always visible — no scroll-driven show/hide.
-        button.classList.add('is-visible');
+        // Keep the control available across the full page, including near the footer.
         button.setAttribute('aria-hidden', 'false');
         button.tabIndex = 0;
         button.addEventListener('click', () => {
@@ -62,6 +61,7 @@
                 behavior: 'smooth'
             });
         });
+        button.classList.add('is-visible');
     };
     const attachThemePicker = () => {
         var _a, _b, _c, _d;
