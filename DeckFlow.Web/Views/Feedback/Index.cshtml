@@ -1,0 +1,46 @@
+@model DeckFlow.Web.Models.FeedbackSubmission
+@{
+    ViewData["Title"] = "Feedback";
+    var success = TempData["FeedbackSuccess"] as bool? ?? false;
+}
+
+<section class="feedback-page">
+    <div class="feedback-panel" style="background: var(--panel); border: 1px solid var(--line);">
+        <h1>Send feedback</h1>
+        <p>Report a bug, suggest a feature, or just share a thought. Email is optional.</p>
+
+        @if (success)
+        {
+            <div class="feedback-banner feedback-banner--success" role="status">
+                Thanks — your feedback was received.
+            </div>
+        }
+
+        <form method="post" asp-action="Index" asp-antiforgery="true" class="feedback-form" novalidate>
+            <div class="feedback-field">
+                <label asp-for="Type">Type</label>
+                <select asp-for="Type" asp-items="Html.GetEnumSelectList<DeckFlow.Web.Models.FeedbackType>()"></select>
+                <span asp-validation-for="Type" class="feedback-error"></span>
+            </div>
+
+            <div class="feedback-field">
+                <label asp-for="Message">Message</label>
+                <textarea asp-for="Message" rows="8" maxlength="4000" minlength="10" required></textarea>
+                <span asp-validation-for="Message" class="feedback-error"></span>
+            </div>
+
+            <div class="feedback-field">
+                <label asp-for="Email">Email (optional)</label>
+                <input asp-for="Email" type="email" maxlength="200" autocomplete="email" />
+                <span asp-validation-for="Email" class="feedback-error"></span>
+            </div>
+
+            <div class="feedback-honeypot" aria-hidden="true">
+                <label for="Website">Website</label>
+                <input type="text" name="Website" id="Website" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <button type="submit" class="feedback-submit">Send</button>
+        </form>
+    </div>
+</section>

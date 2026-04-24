@@ -510,3 +510,32 @@
 .help-prose th {
     background: var(--panel-soft-bg, transparent);
 }
+/* Feedback page */
+.feedback-page { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+.feedback-panel { padding: 1.5rem; border-radius: 8px; }
+.feedback-form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
+.feedback-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.feedback-field label { font-weight: 600; }
+.feedback-field input, .feedback-field select, .feedback-field textarea {
+    background: var(--panel);
+    color: var(--ink, inherit);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.5rem;
+    font: inherit;
+}
+.feedback-submit {
+    align-self: flex-start;
+    background: var(--accent-strong, #3a7);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.feedback-submit:hover { filter: brightness(1.1); }
+.feedback-error { color: var(--accent-strong, #c55); font-size: 0.875rem; }
+.feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+.feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
+.feedback-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
