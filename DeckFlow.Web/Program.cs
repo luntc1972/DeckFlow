@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -50,6 +52,7 @@ public class Program
         builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
         builder.Services.AddSingleton<IVersionService, VersionService>();
+        builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
 
         // Honor X-Forwarded-* headers from the reverse proxy (e.g. Render, Fly, Azure App Service)
         // so request.Scheme reflects the browser's https scheme, not the http hop from proxy to app.
@@ -65,6 +68,24 @@ public class Program
             // callers already have.
             options.KnownIPNetworks.Clear();
             options.KnownProxies.Clear();
+        });
+
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.AddPolicy("feedback-submit", httpContext =>
+            {
+                var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromHours(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    });
+            });
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         });
 
         builder.Services.AddEndpointsApiExplorer();
@@ -141,6 +162,12 @@ public class Program
         }
 
         app.UseAuthorization();
+
+        app.UseRateLimiter();
+
+        app.UseWhen(
+            ctx => ctx.Request.Path.StartsWithSegments("/Admin"),
+            branch => branch.UseMiddleware<BasicAuthMiddleware>("DeckFlow Admin"));
 
         app.MapControllers();
         app.MapDefaultControllerRoute();
