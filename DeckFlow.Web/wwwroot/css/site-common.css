@@ -539,3 +539,25 @@
 .feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
 .feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
 .feedback-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Admin feedback */
+.admin-feedback { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+.admin-feedback-filters { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.admin-feedback-filter {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--accent-strong, inherit);
+}
+.admin-feedback-filter.active { background: var(--accent-strong); color: #fff; }
+.admin-feedback-table { width: 100%; border-collapse: collapse; }
+.admin-feedback-table th, .admin-feedback-table td { padding: 0.5rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.admin-feedback-pagination { margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center; }
+.admin-feedback-empty { margin: 2rem 0; font-style: italic; }
+.type-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: var(--panel); border: 1px solid var(--line); }
+.detail-grid { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+.detail-grid dt { font-weight: 600; }
+.detail-message { white-space: pre-wrap; word-wrap: break-word; background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; }
+.detail-actions { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.detail-actions button.danger { background: #c33; color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }

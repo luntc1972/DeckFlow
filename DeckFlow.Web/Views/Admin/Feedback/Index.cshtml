@@ -1,0 +1,97 @@
+@model DeckFlow.Web.Controllers.Admin.AdminFeedbackListViewModel
+@using DeckFlow.Web.Models
+@{
+    ViewData["Title"] = "Admin — Feedback";
+    var actionMessage = TempData["AdminFeedbackAction"] as string;
+}
+
+<section class="admin-feedback">
+    <h1>Feedback</h1>
+
+    @if (!string.IsNullOrEmpty(actionMessage))
+    {
+        <div class="feedback-banner feedback-banner--success">@actionMessage</div>
+    }
+
+    <div class="admin-feedback-filters">
+        @{
+            FeedbackStatus?[] statuses = new FeedbackStatus?[] { FeedbackStatus.New, FeedbackStatus.Read, FeedbackStatus.Archived, null };
+        }
+        @foreach (var s in statuses)
+        {
+            var label = s.HasValue ? s.Value.ToString() : "All";
+            var count = s.HasValue ? Model.CountsByStatus.GetValueOrDefault(s.Value, 0) : Model.CountsByStatus.Values.Sum();
+            var active = (Model.StatusFilter == s) ? "active" : "";
+            <a class="admin-feedback-filter @active" asp-action="Index" asp-route-status="@(s?.ToString())" asp-route-type="@Model.TypeFilter">
+                @label (@count)
+            </a>
+        }
+
+        <form method="get" asp-action="Index" class="admin-feedback-type">
+            <input type="hidden" name="status" value="@Model.StatusFilter" />
+            <label for="typeSelect">Type:</label>
+            <select id="typeSelect" name="type" onchange="this.form.submit()">
+                <option value="">All</option>
+                @foreach (var t in Enum.GetValues<FeedbackType>())
+                {
+                    <option value="@t" selected="@(Model.TypeFilter == t)">@t</option>
+                }
+            </select>
+        </form>
+    </div>
+
+    @if (Model.Items.Count == 0)
+    {
+        <p class="admin-feedback-empty">No feedback in this view.</p>
+    }
+    else
+    {
+        <table class="admin-feedback-table">
+            <thead>
+                <tr>
+                    <th>Created (UTC)</th>
+                    <th>Type</th>
+                    <th>Message</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.Items)
+            {
+                var preview = item.Message.Length > 80 ? item.Message.Substring(0, 80) + "…" : item.Message;
+                <tr>
+                    <td><time datetime="@item.CreatedUtc.ToString("o")" title="@item.CreatedUtc.ToLocalTime()">@item.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</time></td>
+                    <td><span class="type-badge type-@item.Type.ToString().ToLower()">@item.Type</span></td>
+                    <td>@preview</td>
+                    <td>@item.Email</td>
+                    <td>@item.Status</td>
+                    <td>
+                        <a asp-action="Detail" asp-route-id="@item.Id">View</a>
+                        @if (item.Status != FeedbackStatus.Archived)
+                        {
+                            <form method="post" asp-action="Apply" asp-route-id="@item.Id" asp-route-op="archive" style="display:inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit">Archive</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+
+        <nav class="admin-feedback-pagination">
+            @if (Model.Page > 1)
+            {
+                <a asp-action="Index" asp-route-status="@(Model.StatusFilter?.ToString())" asp-route-type="@Model.TypeFilter" asp-route-page="@(Model.Page - 1)">Prev</a>
+            }
+            <span>Page @Model.Page of @Model.TotalPages</span>
+            @if (Model.Page < Model.TotalPages)
+            {
+                <a asp-action="Index" asp-route-status="@(Model.StatusFilter?.ToString())" asp-route-type="@Model.TypeFilter" asp-route-page="@(Model.Page + 1)">Next</a>
+            }
+        </nav>
+    }
+</section>
