@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -307,6 +308,70 @@ public sealed class DeckControllerTests
         var text = System.Text.Encoding.UTF8.GetString(fileResult.FileContents);
         Assert.Contains("Verified Cards", text);
         Assert.Contains("Sol Ring", text);
+    }
+
+    [Fact]
+    public async Task SingleCardLookup_ReturnsMechanicRules_WhenCardHasDetectedMechanics()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new SuccessfulSingleCardLookupService(),
+            new SuccessfulMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptCedhMetaGapService(),
+            new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.SingleCardLookup("Monastery Swiftspear");
+
+        var json = Assert.IsType<JsonResult>(result);
+        var payload = json.Value!;
+        var verifiedText = payload.GetType().GetProperty("verifiedText")?.GetValue(payload) as string;
+        var mechanicRules = payload.GetType().GetProperty("mechanicRules")?.GetValue(payload) as System.Collections.IEnumerable;
+        Assert.Equal("Monastery Swiftspear", verifiedText);
+        Assert.NotNull(mechanicRules);
+        Assert.Single(mechanicRules!.Cast<object>());
+    }
+
+    [Fact]
+    public async Task SingleCardLookup_ReturnsNotFound_WhenCardMissing()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptCedhMetaGapService(),
+            new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.SingleCardLookup("Missing Card");
+
+        var notFound = Assert.IsType<NotFoundObjectResult>(result);
+        var message = notFound.Value?.GetType().GetProperty("message")?.GetValue(notFound.Value) as string;
+        Assert.Equal("Scryfall could not find \"Missing Card\".", message);
     }
 
     [Fact]
@@ -787,6 +852,9 @@ public sealed class DeckControllerTests
     {
         public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
             => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<SingleCardLookupResult?>(null);
     }
 
     private sealed class ThrowingCardLookupService : ICardLookupService
@@ -800,12 +868,27 @@ public sealed class DeckControllerTests
 
         public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
             => Task.FromException<CardLookupResult>(_exception);
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromException<SingleCardLookupResult?>(_exception);
     }
 
     private sealed class SuccessfulCardLookupService : ICardLookupService
     {
         public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
             => Task.FromResult(new CardLookupResult(new[] { "Sol Ring" }, Array.Empty<string>()));
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Sol Ring", Array.Empty<string>()));
+    }
+
+    private sealed class SuccessfulSingleCardLookupService : ICardLookupService
+    {
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Monastery Swiftspear", new[] { "Prowess" }));
     }
 
     private sealed class FakeCategorySuggestionService : ICategorySuggestionService
