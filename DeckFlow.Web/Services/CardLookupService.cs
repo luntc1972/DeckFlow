@@ -16,12 +16,22 @@ public interface ICardLookupService
     /// Looks up the provided card list using Scryfall.
     /// </summary>
     Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Looks up a single card and returns its formatted text plus detected mechanics.
+    /// </summary>
+    Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
 /// Returns the results of a card lookup.
 /// </summary>
 public sealed record CardLookupResult(IReadOnlyList<string> VerifiedOutputs, IReadOnlyList<string> MissingLines);
+
+/// <summary>
+/// Returns the result of a single-card lookup, including detected mechanics from Scryfall keywords and Oracle text.
+/// </summary>
+public sealed record SingleCardLookupResult(string VerifiedText, IReadOnlyList<string> Mechanics);
 
 /// <summary>
 /// Looks up card lists via Scryfall's collection endpoint.
@@ -31,6 +41,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     private const int CollectionBatchSize = 75;
     private const int MaxCardsPerSubmission = 100;
     private static readonly Regex QuantityPrefixRegex = new(@"^(?<quantity>\d+)\s+(?<name>.+)$", RegexOptions.Compiled);
+    private static readonly Regex AbilityWordRegex = new(@"^(?<term>[A-Za-z][A-Za-z' -]{1,40})\s+—\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
@@ -137,6 +148,55 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         }
 
         return new CardLookupResult(verifiedOutputs, missingLines);
+    }
+
+    public async Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+    {
+        var trimmedName = cardName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmedName))
+        {
+            throw new InvalidOperationException("A card name is required.");
+        }
+
+        var request = new RestRequest("cards/collection", Method.Post);
+        request.AddJsonBody(new
+        {
+            identifiers = new[] { new { name = trimmedName } }
+        });
+
+        var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
+        if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+        {
+            throw new HttpRequestException(
+                $"Scryfall search returned HTTP {(int)response.StatusCode}.",
+                null,
+                response.StatusCode);
+        }
+
+        var resolvedCard = response.Data.Data.FirstOrDefault(card => !string.IsNullOrWhiteSpace(card.Name));
+        if (resolvedCard is null)
+        {
+            var notFound = response.Data.NotFound?.Any(identifier =>
+                string.Equals(NormalizeName(identifier.Name ?? string.Empty), NormalizeName(trimmedName), StringComparison.OrdinalIgnoreCase))
+                ?? true;
+
+            if (notFound)
+            {
+                resolvedCard = await SearchFallbackCardAsync(trimmedName, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        if (resolvedCard is null)
+        {
+            return null;
+        }
+
+        var rulings = await GetCachedRulingsAsync(resolvedCard, new Dictionary<string, IReadOnlyList<ScryfallRuling>>(StringComparer.OrdinalIgnoreCase), cancellationToken).ConfigureAwait(false);
+        var mechanics = ExtractMechanicNames(resolvedCard)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new SingleCardLookupResult(FormatCard(resolvedCard, null, rulings), mechanics);
     }
 
     private async Task<IReadOnlyList<ScryfallRuling>> GetCachedRulingsAsync(
@@ -278,6 +338,51 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         }
 
         return string.Join(Environment.NewLine, sections);
+    }
+
+    private static IEnumerable<string> ExtractMechanicNames(ScryfallCard card)
+    {
+        foreach (var keyword in card.Keywords ?? Array.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                yield return keyword.Trim();
+            }
+        }
+
+        foreach (var oracleText in EnumerateOracleText(card))
+        {
+            foreach (var line in oracleText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    continue;
+                }
+
+                var abilityWordMatch = AbilityWordRegex.Match(trimmedLine);
+                if (abilityWordMatch.Success)
+                {
+                    yield return abilityWordMatch.Groups["term"].Value.Trim();
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumerateOracleText(ScryfallCard card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.OracleText))
+        {
+            yield return card.OracleText;
+        }
+
+        foreach (var face in card.CardFaces ?? Array.Empty<ScryfallCardFace>())
+        {
+            if (!string.IsNullOrWhiteSpace(face.OracleText))
+            {
+                yield return face.OracleText;
+            }
+        }
     }
 
     private static List<ParsedCardLine> ParseLines(string cardList)

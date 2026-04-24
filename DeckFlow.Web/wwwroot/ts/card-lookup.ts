@@ -31,6 +31,20 @@ type ParsedLookupLine = {
   cardName: string;
 };
 
+type SingleCardMechanicRule = {
+  mechanicName?: string;
+  ruleReference?: string;
+  matchType?: string;
+  rulesText?: string;
+  summaryText?: string;
+};
+
+type SingleCardLookupPayload = {
+  verifiedText?: string;
+  mechanicRules?: SingleCardMechanicRule[];
+  message?: string;
+};
+
 const parseLookupLine = (line: string): ParsedLookupLine => {
   const trimmed = line.trim();
   const match = trimmed.match(/^(\d+)\s+(.+)$/);
@@ -65,6 +79,42 @@ const createLookupSuggestionPanel = (anchor: HTMLElement): HTMLDivElement => {
 const hideLookupSuggestionPanel = (panel: HTMLElement): void => {
   panel.classList.add('hidden');
   panel.replaceChildren();
+};
+
+const attachDynamicCopyButton = (button: HTMLButtonElement): void => {
+  button.addEventListener('click', async () => {
+    const targetId = button.dataset.copyTarget;
+    if (!targetId) {
+      return;
+    }
+
+    const target = document.getElementById(targetId) as HTMLTextAreaElement | HTMLInputElement | HTMLElement | null;
+    if (!target) {
+      button.textContent = 'Copy failed';
+      return;
+    }
+
+    const text = 'value' in target && typeof target.value === 'string'
+      ? target.value
+      : target.textContent ?? '';
+
+    const originalText = button.dataset.copyOriginalText ?? button.textContent?.trim() ?? 'Copy';
+    button.dataset.copyOriginalText = originalText;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = 'Copied';
+      button.classList.add('is-copied');
+    } catch {
+      button.textContent = 'Copy failed';
+      button.classList.add('is-copy-failed');
+    }
+
+    window.setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('is-copied', 'is-copy-failed');
+    }, 1800);
+  });
 };
 
 const attachLookaheadInput = (
@@ -133,8 +183,11 @@ const initializeSingleCardMode = (): void => {
   const resultPanel = document.querySelector<HTMLElement>('[data-card-lookup-single-result]');
   const resultTextarea = document.querySelector<HTMLTextAreaElement>('[data-card-lookup-single-output]');
   const resultLabel = document.querySelector<HTMLElement>('[data-card-lookup-single-name-label]');
+  const mechanicsPanel = document.querySelector<HTMLElement>('[data-card-lookup-single-mechanics-panel]');
+  const mechanicsLabel = document.querySelector<HTMLElement>('[data-card-lookup-single-mechanics-label]');
+  const mechanicsContainer = document.querySelector<HTMLElement>('[data-card-lookup-single-mechanics]');
   const anchor = input?.parentElement;
-  if (!input || !submitButton || !errorBanner || !resultPanel || !resultTextarea || !resultLabel || !anchor) {
+  if (!input || !submitButton || !errorBanner || !resultPanel || !resultTextarea || !resultLabel || !mechanicsPanel || !mechanicsLabel || !mechanicsContainer || !anchor) {
     return;
   }
 
@@ -151,14 +204,72 @@ const initializeSingleCardMode = (): void => {
     errorBanner.classList.add('hidden');
   };
 
+  const clearMechanics = (): void => {
+    mechanicsContainer.replaceChildren();
+    mechanicsLabel.textContent = '';
+    mechanicsPanel.classList.add('hidden');
+  };
+
   const askJudgeLink = document.querySelector<HTMLAnchorElement>('[data-card-lookup-ask-judge-link]');
   const askJudgeBaseHref = askJudgeLink?.getAttribute('href') ?? '/judge-questions';
 
-  const showResult = (name: string, verifiedText: string): void => {
+  const showResult = (name: string, verifiedText: string, mechanicRules: SingleCardMechanicRule[]): void => {
     clearError();
     resultLabel.textContent = name;
     resultTextarea.value = verifiedText;
     resultPanel.classList.remove('hidden');
+    clearMechanics();
+    const visibleMechanics = mechanicRules.filter(rule => rule.rulesText && rule.mechanicName);
+    if (visibleMechanics.length > 0) {
+      mechanicsLabel.textContent = `${visibleMechanics.length} official rules entr${visibleMechanics.length === 1 ? 'y' : 'ies'} found on this card.`;
+      const items = visibleMechanics.map((rule, index) => {
+        const wrapper = document.createElement('article');
+        wrapper.className = 'card-lookup-mechanic';
+
+        const heading = document.createElement('div');
+        heading.className = 'panel-heading';
+
+        const headingText = document.createElement('div');
+        const title = document.createElement('h3');
+        title.textContent = rule.mechanicName ?? 'Mechanic';
+        const meta = document.createElement('p');
+        meta.textContent = [rule.matchType, rule.ruleReference].filter(Boolean).join(' · ');
+        headingText.append(title, meta);
+
+        const textareaId = `card-lookup-single-mechanic-${index}`;
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'copy-button';
+        copyButton.setAttribute('data-copy-target', textareaId);
+        copyButton.textContent = 'Copy';
+        attachDynamicCopyButton(copyButton);
+        heading.append(headingText, copyButton);
+
+        wrapper.appendChild(heading);
+
+        if (rule.summaryText) {
+          const summary = document.createElement('p');
+          summary.className = 'card-lookup-mechanic__summary';
+          summary.textContent = rule.summaryText;
+          wrapper.appendChild(summary);
+        }
+
+        const rules = document.createElement('textarea');
+        rules.id = textareaId;
+        rules.readOnly = true;
+        rules.spellcheck = false;
+        rules.value = rule.rulesText ?? '';
+        wrapper.appendChild(rules);
+        return wrapper;
+      });
+
+      const list = document.createElement('div');
+      list.className = 'card-lookup-mechanics-list';
+      list.append(...items);
+      mechanicsContainer.appendChild(list);
+      mechanicsPanel.classList.remove('hidden');
+    }
+
     if (askJudgeLink) {
       askJudgeLink.href = `${askJudgeBaseHref}?card=${encodeURIComponent(name)}`;
     }
@@ -175,7 +286,7 @@ const initializeSingleCardMode = (): void => {
     clearError();
     try {
       const response = await fetch(`/card-lookup/single?name=${encodeURIComponent(query)}`);
-      const payload = await response.json().catch(() => null) as { verifiedText?: string; message?: string } | null;
+      const payload = await response.json().catch(() => null) as SingleCardLookupPayload | null;
       if (!response.ok) {
         showError(payload?.message ?? 'Scryfall could not be reached right now. Try again shortly.');
         return;
@@ -186,7 +297,7 @@ const initializeSingleCardMode = (): void => {
         return;
       }
 
-      showResult(query, payload.verifiedText);
+      showResult(query, payload.verifiedText, payload.mechanicRules ?? []);
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Lookup failed.');
     } finally {
@@ -214,6 +325,7 @@ const initializeSingleCardMode = (): void => {
     input.value = '';
     resultPanel.classList.add('hidden');
     resultTextarea.value = '';
+    clearMechanics();
     clearError();
     hideLookupSuggestionPanel(suggestionPanel);
     input.focus();

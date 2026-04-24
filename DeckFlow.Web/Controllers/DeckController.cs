@@ -344,14 +344,46 @@ public sealed class DeckController : Controller
 
         try
         {
-            var result = await _cardLookupService.LookupAsync(name, HttpContext.RequestAborted);
-            var verified = result.VerifiedOutputs.FirstOrDefault();
-            if (string.IsNullOrEmpty(verified))
+            var result = await _cardLookupService.LookupSingleAsync(name, HttpContext.RequestAborted);
+            if (result is null || string.IsNullOrEmpty(result.VerifiedText))
             {
                 return NotFound(new { message = $"Scryfall could not find \"{name}\"." });
             }
 
-            return Json(new { verifiedText = verified });
+            var mechanicRules = new List<object>();
+            foreach (var mechanic in result.Mechanics)
+            {
+                MechanicLookupResult mechanicResult;
+                try
+                {
+                    mechanicResult = await _mechanicLookupService.LookupAsync(mechanic, HttpContext.RequestAborted);
+                }
+                catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+                {
+                    _logger.LogInformation(exception, "Keyword rules lookup failed for {Mechanic} during single-card lookup.", mechanic);
+                    continue;
+                }
+
+                if (!mechanicResult.Found || string.IsNullOrWhiteSpace(mechanicResult.RulesText))
+                {
+                    continue;
+                }
+
+                mechanicRules.Add(new
+                {
+                    mechanicName = mechanicResult.MechanicName ?? mechanic,
+                    ruleReference = mechanicResult.RuleReference,
+                    matchType = mechanicResult.MatchType,
+                    rulesText = mechanicResult.RulesText,
+                    summaryText = mechanicResult.SummaryText
+                });
+            }
+
+            return Json(new
+            {
+                verifiedText = result.VerifiedText,
+                mechanicRules
+            });
         }
         catch (HttpRequestException exception)
         {

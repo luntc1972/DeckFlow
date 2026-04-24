@@ -115,6 +115,42 @@ public sealed class CardLookupServiceTests
     }
 
     [Fact]
+    public async Task LookupSingleAsync_ReturnsDetectedMechanics_FromKeywordsAndAbilityWords()
+    {
+        var service = new ScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
+                new[]
+                {
+                        new ScryfallCard(
+                            "Monastery Swiftspear",
+                            "{R}",
+                            "Creature — Human Monk",
+                        "Haste\nProwess\nLandfall — Draw a card.",
+                        "1",
+                        "2",
+                        new[] { "Haste", "Prowess" },
+                            null,
+                            "ktk",
+                            "Khans of Tarkir",
+                            "118",
+                            Id: "swiftspear-1")
+                },
+                Array.Empty<ScryfallCollectionIdentifier>(),
+                request)),
+            executeRulingsAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallRulingsResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallRulingsResponse([])
+            }));
+
+        var result = await service.LookupSingleAsync("Monastery Swiftspear");
+
+        Assert.NotNull(result);
+        Assert.Contains("Monastery Swiftspear", result!.VerifiedText);
+        Assert.Equal(new[] { "Haste", "Prowess", "Landfall" }, result.Mechanics);
+    }
+
+    [Fact]
     public async Task LookupAsync_UsesPlainSearchFallback_ForAlternatePrintedNames()
     {
         var searchQueries = new List<string>();
