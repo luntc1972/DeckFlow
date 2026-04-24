@@ -337,8 +337,10 @@ public sealed class DeckControllerTests
 
         var json = Assert.IsType<JsonResult>(result);
         var payload = json.Value!;
+        var cardName = payload.GetType().GetProperty("cardName")?.GetValue(payload) as string;
         var verifiedText = payload.GetType().GetProperty("verifiedText")?.GetValue(payload) as string;
         var mechanicRules = payload.GetType().GetProperty("mechanicRules")?.GetValue(payload) as System.Collections.IEnumerable;
+        Assert.Equal("Monastery Swiftspear", cardName);
         Assert.Equal("Monastery Swiftspear", verifiedText);
         Assert.NotNull(mechanicRules);
         Assert.Single(mechanicRules!.Cast<object>());
@@ -372,6 +374,98 @@ public sealed class DeckControllerTests
         var notFound = Assert.IsType<NotFoundObjectResult>(result);
         var message = notFound.Value?.GetType().GetProperty("message")?.GetValue(notFound.Value) as string;
         Assert.Equal("Scryfall could not find \"Missing Card\".", message);
+    }
+
+    [Fact]
+    public async Task SingleCardLookup_UsesResolvedCardName_WhenLookupFallsBackToAlternatePrintedName()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new AlternateNameSingleCardLookupService(),
+            new SuccessfulMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptCedhMetaGapService(),
+            new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.SingleCardLookup("Pastor da Selva");
+
+        var json = Assert.IsType<JsonResult>(result);
+        var payload = json.Value!;
+        var cardName = payload.GetType().GetProperty("cardName")?.GetValue(payload) as string;
+        Assert.Equal("Ancient Greenwarden", cardName);
+    }
+
+    [Fact]
+    public async Task SingleCardLookup_Continues_WhenOneMechanicLookupFails()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new MultiMechanicSingleCardLookupService(),
+            new PartiallyFailingMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptCedhMetaGapService(),
+            new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.SingleCardLookup("Monastery Swiftspear");
+
+        var json = Assert.IsType<JsonResult>(result);
+        var payload = json.Value!;
+        var mechanicRules = payload.GetType().GetProperty("mechanicRules")?.GetValue(payload) as System.Collections.IEnumerable;
+        Assert.NotNull(mechanicRules);
+        Assert.Single(mechanicRules!.Cast<object>());
+    }
+
+    [Fact]
+    public async Task SingleCardLookup_ReturnsServiceUnavailable_WhenScryfallFails()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptCedhMetaGapService(),
+            new FakeScryfallSetService(),
+            new FakeChatGptArtifactsDirectory(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.SingleCardLookup("Sol Ring");
+
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, status.StatusCode);
     }
 
     [Fact]
@@ -879,7 +973,7 @@ public sealed class DeckControllerTests
             => Task.FromResult(new CardLookupResult(new[] { "Sol Ring" }, Array.Empty<string>()));
 
         public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
-            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Sol Ring", Array.Empty<string>()));
+            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Sol Ring", "Sol Ring", Array.Empty<string>()));
     }
 
     private sealed class SuccessfulSingleCardLookupService : ICardLookupService
@@ -888,7 +982,25 @@ public sealed class DeckControllerTests
             => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
 
         public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
-            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Monastery Swiftspear", new[] { "Prowess" }));
+            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Monastery Swiftspear", "Monastery Swiftspear", new[] { "Prowess" }));
+    }
+
+    private sealed class AlternateNameSingleCardLookupService : ICardLookupService
+    {
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Ancient Greenwarden", "Ancient Greenwarden", new[] { "Landfall" }));
+    }
+
+    private sealed class MultiMechanicSingleCardLookupService : ICardLookupService
+    {
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Monastery Swiftspear", "Monastery Swiftspear", new[] { "Prowess", "Landfall" }));
     }
 
     private sealed class FakeCategorySuggestionService : ICategorySuggestionService
@@ -916,5 +1028,22 @@ public sealed class DeckControllerTests
                 "A keyword ability that causes a creature to get +1/+1 whenever its controller casts a noncreature spell.",
                 "https://magic.wizards.com/en/rules",
                 "https://media.wizards.com/2026/downloads/MagicCompRules%2020260227.txt"));
+    }
+
+    private sealed class PartiallyFailingMechanicLookupService : IMechanicLookupService
+    {
+        public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
+            => mechanicName == "Landfall"
+                ? Task.FromException<MechanicLookupResult>(new HttpRequestException("Rules source unavailable."))
+                : Task.FromResult(new MechanicLookupResult(
+                    mechanicName,
+                    true,
+                    mechanicName,
+                    "702.108",
+                    "Exact rules section",
+                    $"{mechanicName} rules text",
+                    null,
+                    "https://magic.wizards.com/en/rules",
+                    "https://media.wizards.com/2026/downloads/MagicCompRules%2020260227.txt"));
     }
 }

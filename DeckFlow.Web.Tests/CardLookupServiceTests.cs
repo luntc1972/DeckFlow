@@ -146,8 +146,36 @@ public sealed class CardLookupServiceTests
         var result = await service.LookupSingleAsync("Monastery Swiftspear");
 
         Assert.NotNull(result);
-        Assert.Contains("Monastery Swiftspear", result!.VerifiedText);
+        Assert.Equal("Monastery Swiftspear", result!.CardName);
+        Assert.Contains("Monastery Swiftspear", result.VerifiedText);
         Assert.Equal(new[] { "Haste", "Prowess", "Landfall" }, result.Mechanics);
+    }
+
+    [Fact]
+    public async Task LookupSingleAsync_ReturnsResolvedCardName_WhenFallbackSearchFindsAlternatePrintedName()
+    {
+        var service = new ScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
+                Array.Empty<ScryfallCard>(),
+                [new ScryfallCollectionIdentifier("Pastor da Selva")],
+                request)),
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallSearchResponse(
+                    [new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, null, "sld", "Secret Lair Drop", "2059")])
+            }),
+            executeRulingsAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallRulingsResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallRulingsResponse([])
+            }));
+
+        var result = await service.LookupSingleAsync("Pastor da Selva");
+
+        Assert.NotNull(result);
+        Assert.Equal("Ancient Greenwarden", result!.CardName);
+        Assert.Contains("Ancient Greenwarden", result.VerifiedText);
     }
 
     [Fact]

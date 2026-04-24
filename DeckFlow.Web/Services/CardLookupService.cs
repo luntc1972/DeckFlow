@@ -29,9 +29,9 @@ public interface ICardLookupService
 public sealed record CardLookupResult(IReadOnlyList<string> VerifiedOutputs, IReadOnlyList<string> MissingLines);
 
 /// <summary>
-/// Returns the result of a single-card lookup, including detected mechanics from Scryfall keywords and Oracle text.
+/// Returns the result of a single-card lookup, including the resolved card name and detected mechanics.
 /// </summary>
-public sealed record SingleCardLookupResult(string VerifiedText, IReadOnlyList<string> Mechanics);
+public sealed record SingleCardLookupResult(string CardName, string VerifiedText, IReadOnlyList<string> Mechanics);
 
 /// <summary>
 /// Looks up card lists via Scryfall's collection endpoint.
@@ -196,7 +196,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return new SingleCardLookupResult(FormatCard(resolvedCard, null, rulings), mechanics);
+        return new SingleCardLookupResult(resolvedCard.Name, FormatCard(resolvedCard, null, rulings), mechanics);
     }
 
     private async Task<IReadOnlyList<ScryfallRuling>> GetCachedRulingsAsync(

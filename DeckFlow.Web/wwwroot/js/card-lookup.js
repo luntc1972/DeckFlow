@@ -145,6 +145,7 @@ const initializeSingleCardMode = () => {
         errorBanner.textContent = message;
         errorBanner.classList.remove('hidden');
         resultPanel.classList.add('hidden');
+        clearMechanics();
     };
     const clearError = () => {
         errorBanner.textContent = '';
@@ -212,7 +213,7 @@ const initializeSingleCardMode = () => {
         }
     };
     const runLookup = async (name) => {
-        var _a, _b;
+        var _a, _b, _c;
         const query = name.trim();
         if (!query) {
             showError('Enter a card name first.');
@@ -231,7 +232,7 @@ const initializeSingleCardMode = () => {
                 showError('No card details were returned.');
                 return;
             }
-            showResult(query, payload.verifiedText, (_b = payload.mechanicRules) !== null && _b !== void 0 ? _b : []);
+            showResult(((_b = payload.cardName) === null || _b === void 0 ? void 0 : _b.trim()) || query, payload.verifiedText, (_c = payload.mechanicRules) !== null && _c !== void 0 ? _c : []);
         }
         catch (error) {
             showError(error instanceof Error ? error.message : 'Lookup failed.');
