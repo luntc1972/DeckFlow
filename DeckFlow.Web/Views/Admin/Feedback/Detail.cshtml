@@ -1,0 +1,45 @@
+@model DeckFlow.Web.Models.FeedbackItem
+@{
+    ViewData["Title"] = $"Feedback #{Model.Id}";
+}
+
+<section class="admin-feedback-detail" style="background: var(--panel); border: 1px solid var(--line); padding: 1.5rem; border-radius: 8px; max-width: 800px; margin: 2rem auto;">
+    <p><a asp-action="Index">← Back to list</a></p>
+
+    <h1>Feedback #@Model.Id</h1>
+    <dl class="detail-grid">
+        <dt>Created (UTC)</dt><dd>@Model.CreatedUtc.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+        <dt>Type</dt><dd>@Model.Type</dd>
+        <dt>Status</dt><dd>@Model.Status</dd>
+        <dt>Email</dt><dd>@(Model.Email ?? "(none)")</dd>
+        <dt>Page URL</dt><dd>@(Model.PageUrl ?? "(none)")</dd>
+        <dt>User agent</dt><dd>@(Model.UserAgent ?? "(none)")</dd>
+        <dt>IP hash</dt><dd><code>@(Model.IpHash ?? "(none)")</code></dd>
+        <dt>App version</dt><dd>@(Model.AppVersion ?? "(none)")</dd>
+    </dl>
+
+    <h2>Message</h2>
+    <pre class="detail-message">@Model.Message</pre>
+
+    <div class="detail-actions">
+        @if (Model.Status == DeckFlow.Web.Models.FeedbackStatus.New)
+        {
+            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead" style="display:inline">
+                @Html.AntiForgeryToken()
+                <button type="submit">Mark Read</button>
+            </form>
+        }
+        @if (Model.Status != DeckFlow.Web.Models.FeedbackStatus.Archived)
+        {
+            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive" style="display:inline">
+                @Html.AntiForgeryToken()
+                <button type="submit">Archive</button>
+            </form>
+        }
+        <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" style="display:inline"
+              onsubmit="return confirm('Delete feedback #@Model.Id permanently?');">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="danger">Delete</button>
+        </form>
+    </div>
+</section>
