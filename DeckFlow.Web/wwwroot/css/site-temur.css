@@ -1170,3 +1170,110 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+body {
+  background:
+    linear-gradient(180deg, rgba(193, 90, 61, 0.08) 0, rgba(193, 90, 61, 0) 4rem),
+    linear-gradient(180deg, rgba(47, 123, 103, 0.1) 4rem, rgba(47, 123, 103, 0) 10rem),
+    linear-gradient(180deg, #eef4f1 0, var(--bg) 12rem);
+}
+
+a {
+  color: #356f9a;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #255f4f;
+}
+
+.page-header {
+  padding-bottom: 0.7rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 2px solid rgba(53, 111, 154, 0.18);
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice {
+  border-radius: 8px;
+  border-color: rgba(95, 110, 109, 0.22);
+  box-shadow: 0 10px 28px rgba(40, 52, 51, 0.07);
+}
+
+.warning-banner,
+.info-banner,
+.timing-summary,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field {
+  background: #f2f6f3;
+}
+
+.info-banner,
+.live-search-panel {
+  border-left: 4px solid #356f9a;
+}
+
+.warning-banner,
+.edhrec-panel {
+  border-left: 4px solid var(--temur-red);
+}
+
+.summary-panel {
+  border-left: 4px solid var(--accent);
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(95, 110, 109, 0.24);
+  background: #fbfcfb;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #3b806e 0, #2a6254 100%);
+  border-color: var(--accent-strong);
+  box-shadow: 0 10px 24px rgba(37, 95, 79, 0.18);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #4a8e7a 0, #326d5c 100%);
+}
+
+.page-footer__link--cta {
+  border-color: rgba(193, 90, 61, 0.35);
+  color: var(--temur-red);
+  background: rgba(193, 90, 61, 0.08);
+}
+
+.page-footer__link--cta:hover,
+.page-footer__link--cta:focus {
+  background: var(--temur-red);
+  color: #fff7f3;
+  text-decoration: none;
+}
+
+.tool-nav__group.is-active .tool-nav__trigger,
+.chatgpt-step-tab.is-active {
+  border-color: var(--temur-red);
+  color: var(--temur-red);
+  background: rgba(193, 90, 61, 0.12);
+}
+
+.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active,
+.clear-cache-button:hover {
+  background: rgba(53, 111, 154, 0.12);
+}

@@ -1171,3 +1171,75 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+body {
+  background:
+    linear-gradient(180deg, rgba(95, 159, 227, 0.12) 0, rgba(95, 159, 227, 0) 7rem),
+    linear-gradient(180deg, #0c1118 0, var(--bg) 14rem);
+}
+
+a {
+  color: #b8d6fb;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+  color: #edf5ff;
+}
+
+.page-header {
+  padding-bottom: 0.7rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(134, 183, 238, 0.2);
+}
+
+.page-brand,
+.page-nav__link {
+  letter-spacing: 0.03em;
+}
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice,
+.busy-indicator__card {
+  border-color: rgba(134, 183, 238, 0.16);
+  box-shadow: 0 14px 34px rgba(5, 8, 12, 0.36);
+}
+
+.deck-form,
+.result-panel,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic {
+  border-radius: 6px;
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(134, 183, 238, 0.18);
+  background: #0d131b;
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #70acef 0, #4d84c8 100%);
+  color: #071019;
+  box-shadow: 0 10px 24px rgba(95, 159, 227, 0.22);
+}
+
+.run-button:hover,
+.copy-button:hover {
+  background: linear-gradient(180deg, #83b9f3 0, #5c92d3 100%);
+}
