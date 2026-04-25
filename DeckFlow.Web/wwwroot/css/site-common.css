@@ -741,11 +741,11 @@
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
   }
-}
 
-.card-lookup-grid__oracle .panel-heading {
-  align-items: center;
-  gap: 1rem;
+  .card-lookup-grid__oracle .panel-heading {
+    align-items: center;
+    gap: 1rem;
+  }
 }
 
 /* df-select — ARIA 1.2 combobox enhancement of native <select data-df-select> */
