@@ -243,6 +243,106 @@ public sealed class ScryfallSetServiceTests
         Assert.DoesNotContain("not%3Areprint", resource);
     }
 
+    [Fact]
+    public async Task BuildSetPacketAsync_AddsReprintFilterNoteWhenFilterApplies()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("cmm", "Commander Masters", "2025-01-01", "commander", 350, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (request, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("New Commander Card", "{2}{G}", "Creature", "When this creature enters, draw a card.", "3", "3", [], ["G"], "cmm", "Commander Masters", "1")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["cmm"]);
+
+        Assert.Contains("Commander/precon sets are filtered to first-print cards only (reprints excluded).", packet);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_OmitsReprintFilterNoteForExpansionOnly()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("blb", "Bloomburrow", "2024-08-01", "expansion", 280, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (request, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Bloom Card", "{1}{G}", "Creature", "Draw a card.", "2", "2", [], ["G"], "blb", "Bloomburrow", "1")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["blb"]);
+
+        Assert.DoesNotContain("first-print cards only", packet);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_AddsReprintFilterNoteWhenAnySetTriggersFilter()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("cmm", "Commander Masters", "2025-01-01", "commander", 350, Digital: false),
+                        new ScryfallSet("blb", "Bloomburrow", "2024-08-01", "expansion", 280, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (request, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Test Card", "{1}{G}", "Creature", "Draw a card.", "2", "2", [], ["G"], (request.Resource ?? string.Empty).Contains("cmm", StringComparison.OrdinalIgnoreCase) ? "cmm" : "blb", "Test", "1")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["cmm", "blb"]);
+
+        Assert.Contains("Commander/precon sets are filtered to first-print cards only (reprints excluded).", packet);
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)

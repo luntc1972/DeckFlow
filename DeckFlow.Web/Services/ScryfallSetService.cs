@@ -99,11 +99,16 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         var knownSets = await GetSetsAsync(cancellationToken).ConfigureAwait(false);
         var cardsBySet = new List<(ScryfallSetOption Set, IReadOnlyList<ScryfallCard> Cards, int LegalCardCount)>();
         var mechanicNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var reprintFilterApplied = false;
 
         foreach (var setCode in normalizedCodes)
         {
             var set = knownSets.FirstOrDefault(option => string.Equals(option.Code, setCode, StringComparison.OrdinalIgnoreCase))
                 ?? new ScryfallSetOption(setCode, setCode.ToUpperInvariant(), null);
+            if (set.SetType is not null && PreconSetTypes.Contains(set.SetType))
+            {
+                reprintFilterApplied = true;
+            }
             var cards = await FetchCardsForSetAsync(setCode, set.SetType, cancellationToken).ConfigureAwait(false);
             if (normalizedCommanderIdentity.Count > 0)
             {
@@ -143,6 +148,10 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         builder.AppendLine("- This is a compact candidate packet, not a full set dump.");
         builder.AppendLine($"- Each set is trimmed to the top {MaxCardsPerSetPacket} color-legal candidate cards by heuristic relevance.");
         builder.AppendLine("- Basic lands and low-signal generic mana-fixing cards are excluded to keep the prompt small enough to send reliably.");
+        if (reprintFilterApplied)
+        {
+            builder.AppendLine("- Commander/precon sets are filtered to first-print cards only (reprints excluded).");
+        }
         builder.AppendLine();
         builder.AppendLine("mechanics:");
         var mechanics = await BuildMechanicLinesAsync(mechanicNames, cancellationToken).ConfigureAwait(false);
