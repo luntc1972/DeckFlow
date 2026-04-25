@@ -3,7 +3,8 @@ namespace DeckFlow.Web.Models;
 public sealed record ScryfallSetOption(
     string Code,
     string Name,
-    string? ReleasedAt)
+    string? ReleasedAt,
+    string? SetType = null)
 {
     public string DisplayLabel
         => string.IsNullOrWhiteSpace(ReleasedAt)
