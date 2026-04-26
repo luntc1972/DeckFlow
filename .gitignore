@@ -13,3 +13,4 @@ DeckFlow.Web/wwwroot/extensions/*.zip
 /.codex
 docs/superpowers/
 
+.planning/
