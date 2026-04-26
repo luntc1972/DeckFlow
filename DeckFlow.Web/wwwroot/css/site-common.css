@@ -328,6 +328,12 @@
   }
 }
 
+@media (max-width: 768px) {
+  .page-nav {
+    gap: 0.5rem;
+  }
+}
+
 /* Primary nav (Help link in header) */
 .page-nav {
     display: flex;
@@ -386,6 +392,20 @@
     .page-footer {
         padding-right: 5rem;
     }
+}
+
+@media (max-width: 600px) {
+  .card-picker__add,
+  .card-picker__remove {
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0.25rem;
+  }
+
+  .copy-button--icon {
+    width: 2rem;
+    height: 2rem;
+  }
 }
 
 /* About page — themed panel */
