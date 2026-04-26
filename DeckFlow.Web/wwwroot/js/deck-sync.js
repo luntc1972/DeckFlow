@@ -1341,6 +1341,32 @@ const loadSetOptionsAsync = () => {
         return;
     }
     const selectedCodes = new Set(((_b = select.dataset.selectedCodes) !== null && _b !== void 0 ? _b : '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean));
+    const SET_TYPE_LABELS = {
+        expansion: 'Expansion',
+        core: 'Core',
+        masters: 'Masters',
+        commander: 'Commander',
+        draft_innovation: 'Draft Innovation',
+        token: 'Token',
+        promo: 'Promo',
+        funny: 'Funny'
+    };
+    const SET_TYPE_ORDER = [
+        'expansion',
+        'core',
+        'masters',
+        'commander',
+        'draft_innovation',
+        'token',
+        'promo',
+        'funny'
+    ];
+    const prettifySetType = (value) => value
+        .split('_')
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+    const getSetTypeLabel = (value) => { var _a; return (_a = SET_TYPE_LABELS[value]) !== null && _a !== void 0 ? _a : prettifySetType(value); };
     fetch(setOptionsUrl)
         .then(response => {
         if (!response.ok) {
@@ -1349,16 +1375,88 @@ const loadSetOptionsAsync = () => {
         return response.json();
     })
         .then(sets => {
+        var _a, _b, _c, _d;
         select.innerHTML = '';
+        const groupedSets = new Map();
+        const otherSets = [];
+        const unknownGroups = new Map();
         for (const set of sets) {
-            const option = document.createElement('option');
-            option.value = set.code;
-            option.textContent = set.displayLabel;
-            if (selectedCodes.has(set.code.toLowerCase())) {
-                option.selected = true;
+            const setType = (_b = (_a = set.setType) === null || _a === void 0 ? void 0 : _a.trim().toLowerCase()) !== null && _b !== void 0 ? _b : '';
+            if (!setType) {
+                otherSets.push(set);
+                continue;
             }
-            select.appendChild(option);
+            if (SET_TYPE_LABELS[setType]) {
+                const existing = groupedSets.get(setType);
+                if (existing) {
+                    existing.push(set);
+                }
+                else {
+                    groupedSets.set(setType, [set]);
+                }
+                continue;
+            }
+            const existing = unknownGroups.get(setType);
+            if (existing) {
+                existing.push(set);
+            }
+            else {
+                unknownGroups.set(setType, [set]);
+            }
         }
+        for (const setType of SET_TYPE_ORDER) {
+            const group = groupedSets.get(setType);
+            if (!group || group.length === 0) {
+                continue;
+            }
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = getSetTypeLabel(setType);
+            for (const set of group) {
+                const option = document.createElement('option');
+                option.value = set.code;
+                option.textContent = set.displayLabel;
+                if (selectedCodes.has(set.code.toLowerCase())) {
+                    option.selected = true;
+                }
+                optgroup.appendChild(option);
+            }
+            select.appendChild(optgroup);
+        }
+        Array.from(unknownGroups.entries())
+            .sort(([leftKey, leftSets], [rightKey, rightSets]) => {
+            const leftLabel = getSetTypeLabel(leftKey);
+            const rightLabel = getSetTypeLabel(rightKey);
+            return leftLabel.localeCompare(rightLabel) || leftKey.localeCompare(rightKey);
+        })
+            .forEach(([setType, group]) => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = getSetTypeLabel(setType);
+            for (const set of group) {
+                const option = document.createElement('option');
+                option.value = set.code;
+                option.textContent = set.displayLabel;
+                if (selectedCodes.has(set.code.toLowerCase())) {
+                    option.selected = true;
+                }
+                optgroup.appendChild(option);
+            }
+            select.appendChild(optgroup);
+        });
+        if (otherSets.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = 'Other';
+            for (const set of otherSets) {
+                const option = document.createElement('option');
+                option.value = set.code;
+                option.textContent = set.displayLabel;
+                if (selectedCodes.has(set.code.toLowerCase())) {
+                    option.selected = true;
+                }
+                optgroup.appendChild(option);
+            }
+            select.appendChild(optgroup);
+        }
+        (_d = (_c = window.DeckFlow) === null || _c === void 0 ? void 0 : _c.refreshDfSelect) === null || _d === void 0 ? void 0 : _d.call(_c, select);
     })
         .catch(() => {
         const errorHint = document.querySelector('[data-set-options-error]');
@@ -1742,7 +1840,7 @@ const loadSavedSessionsAsync = () => {
         return response.json();
     })
         .then(sessions => {
-        var _a;
+        var _a, _b, _c;
         select.innerHTML = '';
         const blankOption = document.createElement('option');
         blankOption.value = '';
@@ -1755,8 +1853,9 @@ const loadSavedSessionsAsync = () => {
             option.textContent = `${session.commander} · ${session.timestamp}  (${created.toLocaleString()})`;
             select.appendChild(option);
         }
+        (_b = (_a = window.DeckFlow) === null || _a === void 0 ? void 0 : _a.refreshDfSelect) === null || _b === void 0 ? void 0 : _b.call(_a, select);
         if (sessions.length === 0) {
-            (_a = document.querySelector('[data-saved-sessions-empty]')) === null || _a === void 0 ? void 0 : _a.removeAttribute('hidden');
+            (_c = document.querySelector('[data-saved-sessions-empty]')) === null || _c === void 0 ? void 0 : _c.removeAttribute('hidden');
         }
     })
         .catch(() => {

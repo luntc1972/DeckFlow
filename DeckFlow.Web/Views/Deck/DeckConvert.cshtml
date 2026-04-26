@@ -28,21 +28,21 @@
     <div class="toolbar">
         <label class="mode-picker">
             <span>Convert from</span>
-            <select name="SourceFormat" data-convert-source>
+            <select name="SourceFormat" data-convert-source data-df-select>
                 <option value="Moxfield" selected="@(string.Equals(Model.Request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
                 <option value="Archidekt" selected="@(string.Equals(Model.Request.SourceFormat, "Archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
             </select>
         </label>
         <label class="mode-picker">
             <span>Convert to</span>
-            <select name="TargetFormat">
+            <select name="TargetFormat" data-df-select>
                 <option value="Archidekt" selected="@(string.Equals(Model.Request.TargetFormat, "Archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
                 <option value="Moxfield" selected="@(string.Equals(Model.Request.TargetFormat, "Moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
             </select>
         </label>
         <label class="mode-picker">
             <span>Input method</span>
-            <select name="InputSource">
+            <select name="InputSource" data-df-select>
                 <option value="PasteText" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText)">Paste text</option>
                 <option value="PublicUrl" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl)">Public deck URL</option>
             </select>

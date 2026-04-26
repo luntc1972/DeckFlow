@@ -47,7 +47,7 @@
         <div class="direction-group">
             <label class="mode-picker">
                 <span>Sync direction</span>
-                <select name="Direction">
+                <select name="Direction" data-df-select>
                     <option value="@SyncDirection.MoxfieldToArchidekt" selected="@(direction == SyncDirection.MoxfieldToArchidekt)">Moxfield to Archidekt</option>
                     <option value="@SyncDirection.ArchidektToMoxfield" selected="@(direction == SyncDirection.ArchidektToMoxfield)">Archidekt to Moxfield</option>
                     <option value="@SyncDirection.MoxfieldToMoxfield" selected="@(direction == SyncDirection.MoxfieldToMoxfield)">Moxfield to Moxfield</option>
@@ -57,14 +57,14 @@
         </div>
         <label class="mode-picker">
             <span>Match mode</span>
-            <select name="Mode">
+            <select name="Mode" data-df-select>
                 <option value="@MatchMode.Loose" selected="@(Model.Request.Mode == MatchMode.Loose)">Loose</option>
                 <option value="@MatchMode.Strict" selected="@(Model.Request.Mode == MatchMode.Strict)">Strict</option>
             </select>
         </label>
         <label class="mode-picker">
             <span>Category sync</span>
-            <select name="CategorySyncMode">
+            <select name="CategorySyncMode" data-df-select>
                 <option value="@CategorySyncMode.TargetCategories" data-sync-role="category-mode-target" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.TargetCategories)">Use target @targetLabelKind</option>
                 <option value="@CategorySyncMode.SourceTags" data-sync-role="category-mode-source" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.SourceTags)">Use source @sourceLabelKind</option>
                 <option value="@CategorySyncMode.Combined" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.Combined)">Combine both</option>
@@ -89,7 +89,7 @@
             <p class="sync-column__description" data-sync-role="moxfield-description">Provide the @leftSystem export or public URL for this deck.</p>
             <label class="field">
                 <span>Input method</span>
-                <select name="MoxfieldInputSource">
+                <select name="MoxfieldInputSource" data-df-select>
                     <option value="@DeckInputSource.PasteText" selected="@(moxfieldInputSource == DeckInputSource.PasteText)">Paste text</option>
                     <option value="@DeckInputSource.PublicUrl" selected="@(moxfieldInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
                 </select>
@@ -124,7 +124,7 @@
             <p class="sync-column__description" data-sync-role="archidekt-description">Provide the @rightSystem export or public URL for this deck.</p>
             <label class="field">
                 <span>Input method</span>
-                <select name="ArchidektInputSource">
+                <select name="ArchidektInputSource" data-df-select>
                     <option value="@DeckInputSource.PasteText" selected="@(archidektInputSource == DeckInputSource.PasteText)">Paste text</option>
                     <option value="@DeckInputSource.PublicUrl" selected="@(archidektInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
                 </select>

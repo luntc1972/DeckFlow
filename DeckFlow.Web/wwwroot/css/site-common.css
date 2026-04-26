@@ -747,3 +747,186 @@
   align-items: center;
   gap: 1rem;
 }
+
+/* df-select — ARIA 1.2 combobox enhancement of native <select data-df-select> */
+.df-select {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.theme-picker .df-select {
+  min-width: 6.75rem;
+  max-width: 8rem;
+}
+
+.df-select__native {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.df-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  inline-size: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.df-select__trigger::after {
+  content: '▾';
+  font-size: 0.75em;
+  opacity: 0.6;
+}
+
+.df-select__trigger:hover,
+.df-select.is-open .df-select__trigger,
+.df-select__trigger:focus-visible {
+  background: var(--panel);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.df-select.is-open .df-select__trigger {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+  position: relative;
+  z-index: 101;
+}
+
+.df-select__listbox {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(28rem, 100vw - 2rem);
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 8px 8px 8px;
+}
+
+/* Search-mode popup container: panel takes the absolute-positioned role
+   so the listbox can render in normal flow inside it. */
+.df-select__panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(28rem, 100vw - 2rem);
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 8px 8px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.df-select__panel[hidden] {
+  display: none !important;
+}
+
+.df-select__listbox[hidden] {
+  display: none !important;
+}
+
+/* Listbox sits in flow inside the panel; panel owns the border/positioning. */
+.df-select__listbox--search {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+/* Search input at top of panel — full width, padded, with a single
+   bottom border separating it from the option list. */
+.df-select__search {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-soft-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.df-select__search:focus-visible {
+  background: var(--panel);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.df-select__search::placeholder {
+  color: var(--muted);
+}
+
+.df-select__group {
+  padding: 0.4rem 0.9rem 0.2rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.df-select__option {
+  padding: 0.55rem 0.9rem;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.df-select__option[hidden] {
+  display: none;
+}
+
+.df-select__option:hover,
+.df-select__option.is-highlighted,
+.df-select__option.is-selected {
+  background: var(--panel-soft-bg);
+  color: var(--accent);
+}
+
+.df-select__option.is-disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.df-select__option.is-disabled:hover {
+  background: transparent;
+  color: var(--muted);
+}

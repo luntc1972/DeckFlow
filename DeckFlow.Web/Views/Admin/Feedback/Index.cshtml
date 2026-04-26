@@ -30,7 +30,7 @@
         <form method="get" asp-action="Index" class="admin-feedback-type">
             <input type="hidden" name="status" value="@Model.StatusFilter" />
             <label for="typeSelect">Type:</label>
-            <select id="typeSelect" name="type" onchange="this.form.submit()">
+            <select id="typeSelect" name="type" onchange="this.form.submit()" data-df-select>
                 <option value="">All</option>
                 @foreach (var t in Enum.GetValues<FeedbackType>())
                 {

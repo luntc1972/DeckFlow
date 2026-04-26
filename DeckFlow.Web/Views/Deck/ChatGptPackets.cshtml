@@ -84,7 +84,7 @@ Do not omit any fields from the schema.
         <p>Pick a previously saved session from the dropdown, or paste a path to a folder under <code>Documents\DeckFlow\ChatGPT Analysis</code>. The saved <code>40-deck-profile.json</code> and <code>51-set-upgrade-response.json</code> are loaded and rendered.</p>
         <label class="field">
             <span>Saved sessions</span>
-            <select data-saved-sessions-select>
+            <select data-saved-sessions-select data-df-select>
                 <option value="">Loading saved sessions…</option>
             </select>
             <small class="sync-column__hint" data-saved-sessions-empty hidden>No saved sessions found. Enable "Save artifacts to disk" on a future run to populate this list.</small>
@@ -132,7 +132,7 @@ Do not omit any fields from the schema.
         <div class="sync-column__body">
             <label class="field">
                 <span>Input method</span>
-                <select name="DeckInputSource">
+                <select name="DeckInputSource" data-df-select>
                     <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText)">Paste text</option>
                     <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl)">Use public deck URL</option>
                 </select>
@@ -200,7 +200,7 @@ Do not omit any fields from the schema.
 
         <label class="field">
             <span>Target Commander bracket <small>(required)</small></span>
-            <select name="TargetCommanderBracket" required aria-required="true">
+            <select name="TargetCommanderBracket" required aria-required="true" data-df-select>
                 <option value="">Select a target bracket (required)</option>
                 @foreach (var bracket in commanderBrackets)
                 {
@@ -347,7 +347,7 @@ Do not omit any fields from the schema.
                             {
                                 <label class="field">
                                     <span>Decklist export format <small>(required for category questions)</small></span>
-                                    <select name="DecklistExportFormat">
+                                    <select name="DecklistExportFormat" data-df-select>
                                         <option value="" selected="@(string.IsNullOrEmpty(Model.Request.DecklistExportFormat))">Select export format</option>
                                         <option value="moxfield" selected="@(string.Equals(Model.Request.DecklistExportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
                                         <option value="archidekt" selected="@(string.Equals(Model.Request.DecklistExportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
@@ -644,14 +644,14 @@ Do not omit any fields from the schema.
         </div>
         <label class="field">
             <span>Select one set to generate a compact set packet</span>
-            <select name="SelectedSetCodes" size="12" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes.Take(1))">
+            <select name="SelectedSetCodes" data-df-select="search" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes.Take(1))">
             </select>
             <small class="sync-column__hint">Choose a single set here. The tool generates a compact candidate packet instead of a full set dump to keep the ChatGPT prompt sendable.</small>
             <small class="sync-column__hint hidden" data-set-options-error>The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
         </label>
         <label class="field">
             <span>Set upgrade focus</span>
-            <select name="SetUpgradeFocus">
+            <select name="SetUpgradeFocus" data-df-select>
                 <option value="" selected="@(string.IsNullOrEmpty(Model.Request.SetUpgradeFocus))">Best additions (default)</option>
                 <option value="lateral-moves" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "lateral-moves", StringComparison.OrdinalIgnoreCase))">Lateral moves — same role, different card</option>
                 <option value="strict-upgrades" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "strict-upgrades", StringComparison.OrdinalIgnoreCase))">Strict upgrades — clearly better than what I have</option>
