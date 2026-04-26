@@ -1739,25 +1739,138 @@ const loadSetOptionsAsync = (): void => {
   const selectedCodes = new Set(
     (select.dataset.selectedCodes ?? '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean)
   );
+  type SetOptionResponse = {
+    code: string;
+    displayLabel: string;
+    setType?: string | null;
+  };
+
+  const SET_TYPE_LABELS: Record<string, string> = {
+    expansion: 'Expansion',
+    core: 'Core',
+    masters: 'Masters',
+    commander: 'Commander',
+    draft_innovation: 'Draft Innovation',
+    token: 'Token',
+    promo: 'Promo',
+    funny: 'Funny'
+  };
+
+  const SET_TYPE_ORDER = [
+    'expansion',
+    'core',
+    'masters',
+    'commander',
+    'draft_innovation',
+    'token',
+    'promo',
+    'funny'
+  ];
+
+  const prettifySetType = (value: string): string => value
+    .split('_')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+
+  const getSetTypeLabel = (value: string): string => SET_TYPE_LABELS[value] ?? prettifySetType(value);
 
   fetch(setOptionsUrl)
     .then(response => {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      return response.json() as Promise<Array<{ code: string; displayLabel: string }>>;
+      return response.json() as Promise<SetOptionResponse[]>;
     })
     .then(sets => {
       select.innerHTML = '';
+
+      const groupedSets = new Map<string, SetOptionResponse[]>();
+      const otherSets: SetOptionResponse[] = [];
+      const unknownGroups = new Map<string, SetOptionResponse[]>();
+
       for (const set of sets) {
-        const option = document.createElement('option');
-        option.value = set.code;
-        option.textContent = set.displayLabel;
-        if (selectedCodes.has(set.code.toLowerCase())) {
-          option.selected = true;
+        const setType = set.setType?.trim().toLowerCase() ?? '';
+        if (!setType) {
+          otherSets.push(set);
+          continue;
         }
-        select.appendChild(option);
+
+        if (SET_TYPE_LABELS[setType]) {
+          const existing = groupedSets.get(setType);
+          if (existing) {
+            existing.push(set);
+          } else {
+            groupedSets.set(setType, [set]);
+          }
+          continue;
+        }
+
+        const existing = unknownGroups.get(setType);
+        if (existing) {
+          existing.push(set);
+        } else {
+          unknownGroups.set(setType, [set]);
+        }
       }
+
+      for (const setType of SET_TYPE_ORDER) {
+        const group = groupedSets.get(setType);
+        if (!group || group.length === 0) {
+          continue;
+        }
+
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = getSetTypeLabel(setType);
+        for (const set of group) {
+          const option = document.createElement('option');
+          option.value = set.code;
+          option.textContent = set.displayLabel;
+          if (selectedCodes.has(set.code.toLowerCase())) {
+            option.selected = true;
+          }
+          optgroup.appendChild(option);
+        }
+        select.appendChild(optgroup);
+      }
+
+      Array.from(unknownGroups.entries())
+        .sort(([leftKey, leftSets], [rightKey, rightSets]) => {
+          const leftLabel = getSetTypeLabel(leftKey);
+          const rightLabel = getSetTypeLabel(rightKey);
+          return leftLabel.localeCompare(rightLabel) || leftKey.localeCompare(rightKey);
+        })
+        .forEach(([setType, group]) => {
+          const optgroup = document.createElement('optgroup');
+          optgroup.label = getSetTypeLabel(setType);
+          for (const set of group) {
+            const option = document.createElement('option');
+            option.value = set.code;
+            option.textContent = set.displayLabel;
+            if (selectedCodes.has(set.code.toLowerCase())) {
+              option.selected = true;
+            }
+            optgroup.appendChild(option);
+          }
+          select.appendChild(optgroup);
+        });
+
+      if (otherSets.length > 0) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = 'Other';
+        for (const set of otherSets) {
+          const option = document.createElement('option');
+          option.value = set.code;
+          option.textContent = set.displayLabel;
+          if (selectedCodes.has(set.code.toLowerCase())) {
+            option.selected = true;
+          }
+          optgroup.appendChild(option);
+        }
+        select.appendChild(optgroup);
+      }
+
+      window.DeckFlow?.refreshDfSelect?.(select);
     })
     .catch(() => {
       const errorHint = document.querySelector<HTMLElement>('[data-set-options-error]');
@@ -2225,6 +2338,8 @@ const loadSavedSessionsAsync = (): void => {
         option.textContent = `${session.commander} · ${session.timestamp}  (${created.toLocaleString()})`;
         select.appendChild(option);
       }
+
+      window.DeckFlow?.refreshDfSelect?.(select);
 
       if (sessions.length === 0) {
         document.querySelector<HTMLElement>('[data-saved-sessions-empty]')?.removeAttribute('hidden');

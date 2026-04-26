@@ -510,7 +510,7 @@ See [`browser-extensions/deckflow-bridge/README.md`](browser-extensions/deckflow
 - The back-to-top button stays hidden while the page is already near the top and appears only after the user scrolls down.
 
 ### Visual themes
-A persistent theme picker in the shared layout lets users switch between visual themes. The selection is stored in `localStorage` and applied on page load. Available themes:
+A persistent theme picker in the shared layout lets users switch between visual themes. The selection is stored in `localStorage` and applied on page load. The shared layout now enhances that native select with an ARIA combobox button/listbox while preserving the original form control for form posts and keyboard fallback. Available themes:
 - **Default** — the base site stylesheet
 - **Abzan (WBG)**, **Bant (GWU)**, **Esper (WUB)**, **Grixis (UBR)**, **Jeskai (URW)**, **Jund (BRG)**, **Mardu (RWB)**, **Naya (RGW)**, **Sultai (BGU)**, **Temur (GUR)** — color-shard/wedge-inspired palettes
 - **Nyx** — enchantment-themed dark palette

@@ -19,7 +19,7 @@
         <form method="post" asp-action="Index" asp-antiforgery="true" class="feedback-form" novalidate>
             <div class="feedback-field">
                 <label asp-for="Type">Type</label>
-                <select asp-for="Type" asp-items="Html.GetEnumSelectList<DeckFlow.Web.Models.FeedbackType>()"></select>
+                <select asp-for="Type" asp-items="Html.GetEnumSelectList<DeckFlow.Web.Models.FeedbackType>()" data-df-select></select>
                 <span asp-validation-for="Type" class="feedback-error"></span>
             </div>
 

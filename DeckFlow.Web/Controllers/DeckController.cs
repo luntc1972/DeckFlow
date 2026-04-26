@@ -183,7 +183,7 @@ public sealed class DeckController : Controller
     public async Task<IActionResult> GetSetOptions()
     {
         var sets = await TryGetSetOptionsAsync();
-        return Json(sets.Select(s => new { s.Code, s.DisplayLabel }));
+        return Json(sets.Select(s => new { s.Code, s.DisplayLabel, s.SetType }));
     }
 
     [HttpGet("/api/saved-sessions")]

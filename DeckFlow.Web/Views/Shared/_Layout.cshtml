@@ -55,7 +55,7 @@
                 </nav>
                 <div class="theme-picker">
                     <label class="theme-picker__label" for="theme-picker">Theme</label>
-                    <select id="theme-picker" class="theme-picker__select">
+                    <select id="theme-picker" class="theme-picker__select" data-df-select>
                         @foreach (var themeOption in themeOptions)
                         {
                             <option value="@themeOption.FileName" data-theme-href="@Url.Content($"~/css/{themeOption.FileName}")" selected="@(themeOption.FileName == selectedThemeFileName ? "selected" : null)">@themeOption.Label</option>
@@ -85,6 +85,7 @@
         </svg>
     </button>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/df-select.js" asp-append-version="true"></script>
     @RenderSection("Scripts", required: false)
 </body>
 </html>

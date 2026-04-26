@@ -107,7 +107,7 @@
 
                 <label class="field">
                     <span>Time period</span>
-                    <select name="TimePeriod">
+                    <select name="TimePeriod" data-df-select>
                         @foreach (var option in Enum.GetValues<DeckFlow.Web.Models.CedhMetaTimePeriod>())
                         {
                             <option value="@option" selected="@(Model.Request.TimePeriod == option)">@FormatTimePeriodLabel(option)</option>
@@ -117,7 +117,7 @@
 
                 <label class="field">
                     <span>Sort by</span>
-                    <select name="SortBy">
+                    <select name="SortBy" data-df-select>
                         <option value="TOP" selected="@(Model.Request.SortBy == DeckFlow.Web.Models.CedhMetaSortBy.TOP)">Top Performing</option>
                         <option value="NEW" selected="@(Model.Request.SortBy == DeckFlow.Web.Models.CedhMetaSortBy.NEW)">Recent</option>
                     </select>
@@ -125,7 +125,7 @@
 
                 <label class="field">
                     <span>Minimum event size</span>
-                    <select name="MinEventSize">
+                    <select name="MinEventSize" data-df-select>
                         @foreach (var sizeOption in new[] { (0, "All Events"), (16, "16+ Players"), (30, "30+ Players"), (50, "50+ Players"), (100, "100+ Players"), (250, "250+ Players") })
                         {
                             <option value="@sizeOption.Item1" selected="@(Model.Request.MinEventSize == sizeOption.Item1)">@sizeOption.Item2</option>
@@ -135,7 +135,7 @@
 
                 <label class="field">
                     <span>Maximum standing</span>
-                    <select name="MaxStanding">
+                    <select name="MaxStanding" data-df-select>
                         @foreach (var standingOption in new[] { ((int?)null, "All Players"), ((int?)16, "Top 16"), ((int?)4, "Top 4"), ((int?)1, "Winner") })
                         {
                             <option value="@(standingOption.Item1?.ToString() ?? string.Empty)" selected="@(Model.Request.MaxStanding == standingOption.Item1)">@standingOption.Item2</option>

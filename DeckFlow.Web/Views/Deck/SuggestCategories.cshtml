@@ -36,7 +36,7 @@
     <div class="toolbar">
         <label class="mode-picker">
             <span>Lookup mode</span>
-            <select name="Mode" required data-default-value="@CategorySuggestionMode.All">
+            <select name="Mode" required data-default-value="@CategorySuggestionMode.All" data-df-select>
                 <option value="@CategorySuggestionMode.All" selected="@(suggestionMode == CategorySuggestionMode.All)">All sources</option>
                 <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData)">Use cached data</option>
                 <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck)">Use reference deck</option>
@@ -84,7 +84,7 @@
     <div class="reference-controls @(suggestionMode == CategorySuggestionMode.ReferenceDeck ? string.Empty : "hidden")">
         <label class="mode-picker">
             <span>Reference deck input</span>
-            <select name="ArchidektInputSource" required data-default-value="@DeckInputSource.PublicUrl">
+            <select name="ArchidektInputSource" required data-default-value="@DeckInputSource.PublicUrl" data-df-select>
                 <option value="@DeckInputSource.PublicUrl" selected="@(suggestionInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
                 <option value="@DeckInputSource.PasteText" selected="@(suggestionInputSource == DeckInputSource.PasteText)">Paste text</option>
             </select>
