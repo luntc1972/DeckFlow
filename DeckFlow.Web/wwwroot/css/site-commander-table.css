@@ -11,11 +11,15 @@
   --table-warm-deep: #ece6d8; /* slightly darker parchment */
   --mythic-gold: #c5a55a;
   --mythic-gold-bg: #fdf8ec;
+  --theme-secondary: var(--mythic-gold);
+  --theme-secondary-soft: #d8bd75;
+  --theme-secondary-bg: var(--mythic-gold-bg);
+  --theme-surface: var(--table-warm);
   --warning: #fff4d6;
   --error: #8b2020;
   --info: #e8f0e0;
 
-  /* semantic panel tokens — warm-adjusted */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #a09070;
   --panel-inferred-bg: #f5f0e8;
   --panel-live-border: #5a8a5a;

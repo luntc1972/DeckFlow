@@ -11,10 +11,14 @@
   --accent-strong: #4d7f28;
 
   --panel-soft-bg: #182016;
-  --jeskai-red: #94c75f;
-  --jeskai-red-soft: #b7d88d;
-  --jeskai-red-bg: #202a18;
-  --jeskai-white: #1a2118;
+  --golgari-moss: #94c75f;
+  --theme-secondary: var(--golgari-moss);
+  --golgari-moss-soft: #b7d88d;
+  --theme-secondary-soft: var(--golgari-moss-soft);
+  --golgari-moss-bg: #202a18;
+  --theme-secondary-bg: var(--golgari-moss-bg);
+  --golgari-rot-surface: #1a2118;
+  --theme-surface: var(--golgari-rot-surface);
 
   --warning: #44381e;
   --error: #c86e45;

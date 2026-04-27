@@ -12,11 +12,15 @@
   --esper-obsidian-bg: #0b1017;
   --esper-blue-bg: #0f1b2d;
   --esper-ivory: #f5f6f8;     /* Esper white / cathedral porcelain */
+  --theme-secondary: var(--esper-obsidian-soft);
+  --theme-secondary-soft: #738094;
+  --theme-secondary-bg: var(--esper-obsidian-bg);
+  --theme-surface: var(--esper-ivory);
   --warning: #3b3320;
   --error: #a84c57;
   --info: #0f1b2d;
 
-  /* semantic panel tokens — tuned for dark Esper surfaces */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #65788f;
   --panel-inferred-bg: #101720;
   --panel-live-border: #5f9fe3;

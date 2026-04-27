@@ -11,10 +11,14 @@
   --accent-strong: #285938;
 
   --panel-soft-bg: #ebf3ed;
-  --jeskai-red: #caa858;
-  --jeskai-red-soft: #dec184;
-  --jeskai-red-bg: #f8f0dc;
-  --jeskai-white: #f4f1e7;
+  --selesnya-gold: #caa858;
+  --theme-secondary: var(--selesnya-gold);
+  --selesnya-gold-soft: #dec184;
+  --theme-secondary-soft: var(--selesnya-gold-soft);
+  --selesnya-gold-bg: #f8f0dc;
+  --theme-secondary-bg: var(--selesnya-gold-bg);
+  --selesnya-cream: #f4f1e7;
+  --theme-surface: var(--selesnya-cream);
 
   --warning: #f1e6bd;
   --error: #a24a2a;

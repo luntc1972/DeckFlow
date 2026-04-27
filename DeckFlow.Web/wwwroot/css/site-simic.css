@@ -1,34 +1,38 @@
-/* Guild theme: Simic (GU) — biomancy teal with spring green buttons. */
+/* Guild theme: Simic (GU) — blue biomancy labs with adaptive green growth. */
 @import url('site.css');
 
 :root {
-  --bg: #e6eff0;
-  --panel: #f6fafa;
-  --ink: #14262a;
-  --muted: #4a6469;
-  --line: #bacdd0;
-  --accent: #2e8a47;
-  --accent-strong: #1f6432;
+  --bg: #e3eef1;
+  --panel: #f7fbfc;
+  --ink: #102a31;
+  --muted: #496870;
+  --line: #b7cdd4;
+  --accent: #1f7891;
+  --accent-strong: #15586b;
 
-  --panel-soft-bg: #e3eff2;
-  --jeskai-red: #2e8a47;
-  --jeskai-red-soft: #7bbea0;
-  --jeskai-red-bg: #e2f2ea;
-  --jeskai-white: #ecf3f2;
+  --panel-soft-bg: #e1eff4;
+  --simic-growth: #2f9a62;
+  --theme-secondary: var(--simic-growth);
+  --simic-growth-soft: #74c69d;
+  --theme-secondary-soft: var(--simic-growth-soft);
+  --simic-growth-bg: #e0f4ea;
+  --theme-secondary-bg: var(--simic-growth-bg);
+  --simic-lab-surface: #e8f4f7;
+  --theme-surface: var(--simic-lab-surface);
 
   --warning: #eee2b3;
   --error: #8d3b32;
-  --info: #e2eef0;
+  --info: #dff0f5;
 
   --panel-inferred-border: #6f8a8f;
   --panel-inferred-bg: #e6eff0;
-  --panel-live-border: #2e8a47;
-  --panel-live-bg: #e2f2ea;
-  --panel-edhrec-border: #4ca482;
-  --panel-edhrec-bg: #e2f2ea;
+  --panel-live-border: var(--accent);
+  --panel-live-bg: #dff0f5;
+  --panel-edhrec-border: var(--simic-growth);
+  --panel-edhrec-bg: var(--simic-growth-bg);
   --panel-retry-border: #73888c;
   --panel-retry-bg: #e6edee;
-  --panel-summary-border: #428878;
+  --panel-summary-border: #2f8f76;
   --panel-summary-bg: #e3f0ea;
   --panel-fallback-border: #9eb3b5;
   --panel-fallback-bg: #e8eeef;
@@ -36,24 +40,14 @@
 
 body {
   background:
-    radial-gradient(circle at top center, rgba(76, 164, 130, 0.12) 0, rgba(76, 164, 130, 0) 24rem),
-    linear-gradient(180deg, #edf5f6 0, var(--bg) 14rem);
+    radial-gradient(circle at top center, rgba(31, 120, 145, 0.14) 0, rgba(31, 120, 145, 0) 24rem),
+    radial-gradient(circle at 80% 6rem, rgba(47, 154, 98, 0.10) 0, rgba(47, 154, 98, 0) 18rem),
+    linear-gradient(180deg, #edf7fa 0, var(--bg) 14rem);
 }
 
-a {
-  color: #1e6f7c;
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 0.14em;
-}
-
-a:hover,
-a:focus-visible {
-  color: #134d56;
-}
-
-.page-header {
-  border-bottom: 1px solid rgba(76, 164, 130, 0.18);
-}
+a { color: #1e6f7c; text-decoration-thickness: 1.5px; text-underline-offset: 0.14em; }
+a:hover, a:focus-visible { color: #134d56; }
+.page-header { border-bottom: 1px solid rgba(31, 120, 145, 0.20); }
 
 .theme-picker,
 .deck-form,
@@ -70,34 +64,27 @@ a:focus-visible {
 .help-index,
 .help-topic,
 .global-job-notice {
-  border-color: rgba(76, 164, 130, 0.18);
-  background: rgba(246, 251, 251, 0.88);
+  border-color: rgba(31, 120, 145, 0.18);
+  background: rgba(247, 251, 252, 0.90);
   box-shadow: 0 10px 28px rgba(20, 61, 67, 0.08);
   backdrop-filter: blur(4px);
 }
 
-textarea,
-input,
-select {
-  border-color: rgba(76, 164, 130, 0.18);
-  background: rgba(252, 255, 255, 0.9);
+.chatgpt-step-badge {
+  border-color: var(--simic-growth-soft);
+  background: var(--simic-growth-bg);
+  color: var(--simic-growth);
 }
+
+.chatgpt-step-eyebrow,
+.tool-nav__link.is-active { color: var(--accent); }
 
 .run-button,
 .copy-button {
-  background: linear-gradient(180deg, #36a16f 0, #217552 100%);
-  border-color: #217552;
-  box-shadow: 0 10px 24px rgba(33, 117, 82, 0.18);
+  background: linear-gradient(180deg, #2d91a8 0, #1e687d 100%);
+  border-color: var(--accent-strong);
+  box-shadow: 0 10px 24px rgba(30, 104, 125, 0.18);
 }
 
 .run-button:hover,
-.copy-button:hover {
-  background: linear-gradient(180deg, #43ad7a 0, #2a8560 100%);
-}
-
-.tool-nav__trigger,
-.chatgpt-step-tab,
-.clear-cache-button,
-.swap-direction-button {
-  background: rgba(240, 248, 248, 0.9);
-}
+.copy-button:hover { background: linear-gradient(180deg, #36a0b7 0, #23758c 100%); }

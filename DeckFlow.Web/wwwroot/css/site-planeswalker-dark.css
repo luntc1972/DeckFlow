@@ -12,8 +12,12 @@
   --info: #1e2d44;
   --mythic-gold: #c9a84c;
   --mythic-gold-bg: #2a2418;
+  --theme-secondary: var(--mythic-gold);
+  --theme-secondary-soft: #e0c66f;
+  --theme-secondary-bg: var(--mythic-gold-bg);
+  --theme-surface: #1e2436;
 
-  /* semantic panel tokens — dark-adjusted */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #4a5e78;
   --panel-inferred-bg: #1e2638;
   --panel-live-border: #3d6590;

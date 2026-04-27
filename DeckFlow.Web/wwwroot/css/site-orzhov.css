@@ -1,35 +1,89 @@
-/* Guild theme: Orzhov (WB) — stark whites, slate greys, and obsidian. */
+/* Guild theme: Orzhov (WB) — marble tithe halls, black ink, and old gold. */
 @import url('site.css');
 
 :root {
-  --bg: #f0f0f0;
-  --panel: #fafafa;
-  --ink: #0a0a0a;
-  --muted: #5c5c5c;
-  --line: #b0b0b0;
-  --accent: #2a2a2a;
-  --accent-strong: #000000;
+  --bg: #ebe7df;
+  --panel: #fbfaf6;
+  --ink: #161412;
+  --muted: #645f57;
+  --line: #c4b8a3;
+  --accent: #2b2724;
+  --accent-strong: #0f0d0c;
 
-  --panel-soft-bg: #e8e8e8;
-  --jeskai-red: #0a0a0a;
-  --jeskai-red-soft: #3a3a3a;
-  --jeskai-red-bg: #d0d0d0;
-  --jeskai-white: #f4f4f4;
+  --panel-soft-bg: #f0ece4;
+  --orzhov-gold: #b9933d;
+  --theme-secondary: var(--orzhov-gold);
+  --orzhov-gold-soft: #d0b36f;
+  --theme-secondary-soft: var(--orzhov-gold-soft);
+  --orzhov-gold-bg: #f1e6ca;
+  --theme-secondary-bg: var(--orzhov-gold-bg);
+  --orzhov-marble: #f6f3ec;
+  --theme-surface: var(--orzhov-marble);
 
-  --warning: #d4d4d4;
-  --error: #3a3a3a;
-  --info: #ebebeb;
+  --warning: #eadbb8;
+  --error: #5d2f2f;
+  --info: #f0ece4;
 
-  --panel-inferred-border: #7a7a7a;
-  --panel-inferred-bg: #ebebeb;
-  --panel-live-border: #2a2a2a;
-  --panel-live-bg: #e0e0e0;
-  --panel-edhrec-border: #0a0a0a;
-  --panel-edhrec-bg: #d0d0d0;
-  --panel-retry-border: #6a6a6a;
-  --panel-retry-bg: #e5e5e5;
-  --panel-summary-border: #555555;
-  --panel-summary-bg: #e3e3e3;
-  --panel-fallback-border: #909090;
-  --panel-fallback-bg: #eaeaea;
+  --panel-inferred-border: #8a8173;
+  --panel-inferred-bg: #f1eee8;
+  --panel-live-border: #2b2724;
+  --panel-live-bg: #e9e3d8;
+  --panel-edhrec-border: var(--orzhov-gold);
+  --panel-edhrec-bg: var(--orzhov-gold-bg);
+  --panel-retry-border: #7b7265;
+  --panel-retry-bg: #eee9df;
+  --panel-summary-border: #8f7334;
+  --panel-summary-bg: #f0e7d2;
+  --panel-fallback-border: #a79c8b;
+  --panel-fallback-bg: #f2eee6;
 }
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(185, 147, 61, 0.13) 0, rgba(185, 147, 61, 0) 24rem),
+    linear-gradient(180deg, #faf7ef 0, var(--bg) 14rem);
+}
+
+.page-header { border-bottom: 1px solid rgba(185, 147, 61, 0.22); }
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice {
+  border-color: rgba(185, 147, 61, 0.18);
+  box-shadow: 0 10px 24px rgba(43, 39, 36, 0.08);
+}
+
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field { background: var(--orzhov-marble); }
+
+.chatgpt-step-badge,
+.page-footer__link--cta {
+  border-color: var(--orzhov-gold);
+  background: var(--orzhov-gold-bg);
+  color: #5f4718;
+}
+
+.run-button,
+.copy-button {
+  border-color: var(--accent-strong);
+  background: linear-gradient(180deg, #3a3530 0, #171514 100%);
+  color: #fffaf0;
+  box-shadow: 0 10px 22px rgba(43, 39, 36, 0.16);
+}
+
+.run-button:hover,
+.copy-button:hover { background: linear-gradient(180deg, #4a423a 0, #211e1b 100%); }

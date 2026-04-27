@@ -12,8 +12,12 @@
   --info: #1a3034;
   --sultai-jade: #5f8f61;
   --sultai-jade-bg: #1f2b23;
+  --theme-secondary: var(--sultai-jade);
+  --theme-secondary-soft: #76a477;
+  --theme-secondary-bg: var(--sultai-jade-bg);
+  --theme-surface: #1b2525;
 
-  /* semantic panel tokens — dark-adjusted */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #46605e;
   --panel-inferred-bg: #1a2323;
   --panel-live-border: #2f6b7a;

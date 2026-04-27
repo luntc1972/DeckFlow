@@ -1,35 +1,95 @@
-/* Guild theme: Gruul (RG) — forest green canopy with red war paint. */
+/* Guild theme: Gruul (RG) — mossy wilds, broken stone, and red war paint. */
 @import url('site.css');
 
 :root {
-  --bg: #dbe8cf;
-  --panel: #b5d09a;
-  --ink: #1b2a14;
-  --muted: #4e6340;
-  --line: #7fa263;
-  --accent: #b53122;
-  --accent-strong: #8a2417;
+  --bg: #d7e3c4;
+  --panel: #eef4e4;
+  --ink: #1d2715;
+  --muted: #556246;
+  --line: #8da66d;
+  --accent: #b73a24;
+  --accent-strong: #812817;
 
-  --panel-soft-bg: #b5d09a;
-  --jeskai-red: #b53122;
-  --jeskai-red-soft: #d26a5c;
-  --jeskai-red-bg: #f4d8d0;
-  --jeskai-white: #e4eed8;
+  --panel-soft-bg: #dfeacb;
+  --gruul-red: #b73a24;
+  --theme-secondary: var(--gruul-red);
+  --gruul-red-soft: #d66c4f;
+  --theme-secondary-soft: var(--gruul-red-soft);
+  --gruul-red-bg: #f5ddd3;
+  --theme-secondary-bg: var(--gruul-red-bg);
+  --gruul-green: #557b32;
+  --gruul-green-bg: #dce8c8;
+  --gruul-canopy-surface: #e5edd7;
+  --theme-surface: var(--gruul-canopy-surface);
 
-  --warning: #f0dba3;
-  --error: #b53122;
-  --info: #cfe0bd;
+  --warning: #ead79c;
+  --error: var(--gruul-red);
+  --info: var(--gruul-green-bg);
 
   --panel-inferred-border: #6a8a4a;
-  --panel-inferred-bg: #c3d6ab;
-  --panel-live-border: #b53122;
-  --panel-live-bg: #f4d8d0;
-  --panel-edhrec-border: #4e7a2e;
-  --panel-edhrec-bg: #cfe0bd;
+  --panel-inferred-bg: #dfe8cc;
+  --panel-live-border: var(--gruul-red);
+  --panel-live-bg: var(--gruul-red-bg);
+  --panel-edhrec-border: var(--gruul-green);
+  --panel-edhrec-bg: var(--gruul-green-bg);
   --panel-retry-border: #6a7d50;
-  --panel-retry-bg: #c8d9b6;
+  --panel-retry-bg: #dfe8cc;
   --panel-summary-border: #3d5f25;
-  --panel-summary-bg: #c5d9a8;
+  --panel-summary-bg: #d8e6bf;
   --panel-fallback-border: #7a9460;
-  --panel-fallback-bg: #cadbb8;
+  --panel-fallback-bg: #dee9ce;
 }
+
+body {
+  background:
+    radial-gradient(circle at top center, rgba(183, 58, 36, 0.12) 0, rgba(183, 58, 36, 0) 22rem),
+    radial-gradient(circle at 15% 8rem, rgba(85, 123, 50, 0.18) 0, rgba(85, 123, 50, 0) 24rem),
+    linear-gradient(180deg, #edf2df 0, var(--bg) 14rem);
+}
+
+.page-header { border-bottom: 2px solid rgba(183, 58, 36, 0.18); }
+
+.theme-picker,
+.deck-form,
+.result-panel,
+.warning-banner,
+.info-banner,
+.timing-summary,
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.hub-card,
+.about-page,
+.help-index,
+.help-topic,
+.global-job-notice {
+  border-color: rgba(85, 123, 50, 0.20);
+  box-shadow: 0 10px 24px rgba(45, 62, 28, 0.08);
+}
+
+.chatgpt-layout-picker,
+.chatgpt-instructions,
+.chatgpt-context-note,
+.chatgpt-card-specific-field,
+.tool-nav__trigger { background: var(--gruul-canopy-surface); }
+
+.chatgpt-step-eyebrow,
+.chatgpt-step-badge { color: var(--gruul-red); }
+
+.chatgpt-step-badge {
+  border-color: var(--gruul-red-soft);
+  background: var(--gruul-red-bg);
+}
+
+.run-button,
+.copy-button {
+  background: linear-gradient(180deg, #c5482d 0, #912a18 100%);
+  border-color: var(--accent-strong);
+  color: #fff8f1;
+  box-shadow: 0 10px 24px rgba(129, 40, 23, 0.20);
+}
+
+.run-button:hover,
+.copy-button:hover { background: linear-gradient(180deg, #d25738 0, #a3331f 100%); }
+.back-to-top-button { background: var(--accent-strong); }

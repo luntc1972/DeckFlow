@@ -11,10 +11,14 @@
   --accent-strong: #a92434;
 
   --panel-soft-bg: #2a171b;
-  --jeskai-red: #ef6a74;
-  --jeskai-red-soft: #f0a0a7;
-  --jeskai-red-bg: #34181d;
-  --jeskai-white: #2a191c;
+  --rakdos-neon: #ef6a74;
+  --theme-secondary: var(--rakdos-neon);
+  --rakdos-neon-soft: #f0a0a7;
+  --theme-secondary-soft: var(--rakdos-neon-soft);
+  --rakdos-neon-bg: #34181d;
+  --theme-secondary-bg: var(--rakdos-neon-bg);
+  --rakdos-stage-surface: #2a191c;
+  --theme-surface: var(--rakdos-stage-surface);
 
   --warning: #5a3020;
   --error: #ef5a66;

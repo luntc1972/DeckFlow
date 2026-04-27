@@ -12,11 +12,15 @@
   --bant-green-bg: #edf6ee;
   --bant-blue-bg: #edf4f9;
   --bant-white: #f6f4ed;    /* Bant white / cathedral stone */
+  --theme-secondary: var(--bant-green);
+  --theme-secondary-soft: var(--bant-green-soft);
+  --theme-secondary-bg: var(--bant-green-bg);
+  --theme-surface: var(--bant-white);
   --warning: #fef3d0;
   --error: #a94438;
   --info: #e6f0ec;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #7b95a6;
   --panel-inferred-bg: #eef4f7;
   --panel-live-border: #2f6fa3;

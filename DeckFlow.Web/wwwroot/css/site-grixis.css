@@ -14,8 +14,12 @@
   --grixis-red-bg: #2b2024;
   --grixis-blue: #5f8fd4;
   --grixis-blue-bg: #1d2537;
+  --theme-secondary: var(--grixis-red);
+  --theme-secondary-soft: #d16670;
+  --theme-secondary-bg: var(--grixis-red-bg);
+  --theme-surface: #202432;
 
-  /* semantic panel tokens — dark-adjusted */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #52566d;
   --panel-inferred-bg: #1f2230;
   --panel-live-border: #5f8fd4;

@@ -12,11 +12,15 @@
   --mardu-obsidian-bg: #f1ecea;
   --mardu-red-bg: #f8ece9;
   --mardu-bone: #f6f1e8;     /* Mardu white / war camp parchment */
+  --theme-secondary: var(--mardu-obsidian);
+  --theme-secondary-soft: var(--mardu-obsidian-soft);
+  --theme-secondary-bg: var(--mardu-obsidian-bg);
+  --theme-surface: var(--mardu-bone);
   --warning: #f4e3c4;
   --error: #a33b32;
   --info: #efe8e2;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #9a8a82;
   --panel-inferred-bg: #f4efeb;
   --panel-live-border: #b24633;
