@@ -11,10 +11,14 @@
   --accent-strong: #8d2a15;
 
   --panel-soft-bg: #fbe8e0;
-  --jeskai-red: #c9a646;
-  --jeskai-red-soft: #dcbd72;
-  --jeskai-red-bg: #f7eecf;
-  --jeskai-white: #f8f1e0;
+  --boros-gold: #c9a646;
+  --theme-secondary: var(--boros-gold);
+  --boros-gold-soft: #dcbd72;
+  --theme-secondary-soft: var(--boros-gold-soft);
+  --boros-gold-bg: #f7eecf;
+  --theme-secondary-bg: var(--boros-gold-bg);
+  --boros-sunlit: #f8f1e0;
+  --theme-surface: var(--boros-sunlit);
 
   --warning: #f6dcad;
   --error: #b2381e;

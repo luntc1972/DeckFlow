@@ -11,10 +11,14 @@
   --accent-strong: #265dba;
 
   --panel-soft-bg: #151d33;
-  --jeskai-red: #79aef3;
-  --jeskai-red-soft: #aacbf8;
-  --jeskai-red-bg: #182540;
-  --jeskai-white: #172033;
+  --dimir-cobalt: #79aef3;
+  --theme-secondary: var(--dimir-cobalt);
+  --dimir-cobalt-soft: #aacbf8;
+  --theme-secondary-soft: var(--dimir-cobalt-soft);
+  --dimir-cobalt-bg: #182540;
+  --theme-secondary-bg: var(--dimir-cobalt-bg);
+  --dimir-shadow-surface: #172033;
+  --theme-surface: var(--dimir-shadow-surface);
 
   --warning: #3f3520;
   --error: #d86a72;

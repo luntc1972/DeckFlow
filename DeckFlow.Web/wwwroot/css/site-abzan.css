@@ -12,11 +12,15 @@
   --abzan-charcoal-bg: #0d1008;
   --abzan-sand-bg: #172013;
   --abzan-bone: #f4f0e8;       /* Abzan white / sun-bleached bone */
+  --theme-secondary: var(--abzan-charcoal-soft);
+  --theme-secondary-soft: #737b6d;
+  --theme-secondary-bg: var(--abzan-charcoal-bg);
+  --theme-surface: var(--abzan-bone);
   --warning: #3a321d;
   --error: #9a4a3f;
   --info: #151b12;
 
-  /* semantic panel tokens — tuned for dark Abzan surfaces */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #6b7461;
   --panel-inferred-bg: #141710;
   --panel-live-border: #86a35a;

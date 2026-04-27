@@ -12,11 +12,15 @@
   --naya-green-bg: #eef4e6;
   --naya-sun-bg: #faf1e3;
   --naya-bone: #f7f3e9;      /* Naya white / shrine limestone */
+  --theme-secondary: var(--naya-green);
+  --theme-secondary-soft: var(--naya-green-soft);
+  --theme-secondary-bg: var(--naya-green-bg);
+  --theme-surface: var(--naya-bone);
   --warning: #f5e5ba;
   --error: #b04d34;
   --info: #f1ece0;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #a18a6f;
   --panel-inferred-bg: #f5efe5;
   --panel-live-border: #b85b38;

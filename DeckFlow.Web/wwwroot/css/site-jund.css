@@ -12,8 +12,12 @@
   --info: #2a241e;
   --jund-green: #607246;
   --jund-green-bg: #25281d;
+  --theme-secondary: var(--jund-green);
+  --theme-secondary-soft: #7d8f5d;
+  --theme-secondary-bg: var(--jund-green-bg);
+  --theme-surface: #251f1b;
 
-  /* semantic panel tokens — dark-adjusted */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #6a5446;
   --panel-inferred-bg: #241f1b;
   --panel-live-border: #8a4c35;

@@ -10,11 +10,15 @@
   --nyx-gold: #d4af6e;        /* constellation gold */
   --nyx-gold-bg: #231e14;
   --nyx-surface: #241f38;     /* slightly lighter than panel */
+  --theme-secondary: var(--nyx-gold);
+  --theme-secondary-soft: #e1c58f;
+  --theme-secondary-bg: var(--nyx-gold-bg);
+  --theme-surface: var(--nyx-surface);
   --warning: #332a18;
   --error: #b83c3c;
   --info: #1a1e38;
 
-  /* semantic panel tokens — nyx-adjusted */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #5a4e78;
   --panel-inferred-bg: #1e1a30;
   --panel-live-border: #6a58a0;

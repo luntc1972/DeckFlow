@@ -11,10 +11,14 @@
   --accent-strong: #9a2f16;
 
   --panel-soft-bg: #e6eefa;
-  --jeskai-red: #c73f1f;
-  --jeskai-red-soft: #e68047;
-  --jeskai-red-bg: #fbe8d8;
-  --jeskai-white: #eff2f7;
+  --izzet-red: #c73f1f;
+  --theme-secondary: var(--izzet-red);
+  --izzet-red-soft: #e68047;
+  --theme-secondary-soft: var(--izzet-red-soft);
+  --izzet-red-bg: #fbe8d8;
+  --theme-secondary-bg: var(--izzet-red-bg);
+  --izzet-lab-surface: #eff2f7;
+  --theme-surface: var(--izzet-lab-surface);
 
   --warning: #f8dab0;
   --error: #c73f1f;

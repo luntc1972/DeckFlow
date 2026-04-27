@@ -7,16 +7,16 @@
   --line: #c4c9d6;
   --accent: #2b6cb0;          /* Jeskai blue — monastery sky */
   --accent-strong: #1e4f82;
-  --jeskai-red: #b83a2e;      /* Jeskai red — dragon fire */
-  --jeskai-red-soft: #d4574a;
-  --jeskai-red-bg: #fdf0ee;
+  --theme-secondary: #b83a2e;      /* Jeskai red — dragon fire */
+  --theme-secondary-soft: #d4574a;
+  --theme-secondary-bg: #fdf0ee;
   --panel-soft-bg: #edf3fa;
-  --jeskai-white: #f5f3ee;    /* Jeskai white — monastery stone */
+  --theme-surface: #f5f3ee;        /* Jeskai white — monastery stone */
   --warning: #fef3d0;
   --error: #b83a2e;
   --info: #e4eef8;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
+  /* semantic panel tokens — tuned to this theme palette */
   --panel-inferred-border: #7a8da6;
   --panel-inferred-bg: #edf2f8;
   --panel-live-border: #2b6cb0;
@@ -259,7 +259,7 @@ summary:focus-visible,
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: var(--theme-surface);
 }
 
 .chatgpt-layout-picker__copy {
@@ -318,7 +318,7 @@ summary:focus-visible,
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--jeskai-red);
+  color: var(--theme-secondary);
 }
 
 .chatgpt-step-heading h2 {
@@ -333,9 +333,9 @@ summary:focus-visible,
   white-space: nowrap;
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid var(--jeskai-red-soft);
-  background: var(--jeskai-red-bg);
-  color: var(--jeskai-red);
+  border: 1px solid var(--theme-secondary-soft);
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -345,7 +345,7 @@ summary:focus-visible,
   padding: 0.95rem 1rem;
   border: 1px dashed var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: var(--theme-surface);
 }
 
 .chatgpt-instructions strong {
@@ -383,7 +383,7 @@ summary:focus-visible,
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-instructions {
   padding: 0.7rem 0.8rem;
-  background: var(--jeskai-white);
+  background: var(--theme-surface);
 }
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-heading {
@@ -446,7 +446,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: var(--theme-surface);
   color: var(--muted);
 }
 
@@ -482,7 +482,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: var(--theme-surface);
 }
 
 .chatgpt-question-bucket__label,
