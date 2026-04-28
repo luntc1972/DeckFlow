@@ -9,7 +9,7 @@ End-user documentation is served by the running web app at `/help` (feature guid
 
 ## User Feedback
 
-A public **Feedback** form is linked in the site footer (`/feedback`). Submissions are stored in a SQLite database (`feedback.db`) at `$MTG_DATA_DIR/feedback.db` (falls back to `./artifacts/feedback.db` in development).
+A public **Feedback** form is linked in the site footer (`/feedback`). Submissions are stored through DeckFlow's relational storage provider. SQLite is the default and stores `feedback.db` at `$MTG_DATA_DIR/feedback.db` (falling back to `./artifacts/feedback.db` in development). Postgres can be enabled with the database environment variables below.
 
 An admin page at `/Admin/Feedback` displays submissions with filters for status and type, and lets you mark items Read, Archive, or Delete them.
 
@@ -19,11 +19,28 @@ Set these environment variables (via `fly secrets set ...` on Fly.io or the Rend
 
 - `FEEDBACK_ADMIN_USER` — basic auth username for `/Admin/Feedback`.
 - `FEEDBACK_ADMIN_PASSWORD` — basic auth password.
-- `FEEDBACK_IP_SALT` (optional) — salt for hashing submitter IPs. If unset, a random 32-byte salt is generated on first run and persisted alongside `feedback.db`.
+- `FEEDBACK_IP_SALT` (optional) — salt for hashing submitter IPs. If unset, a random 32-byte salt is generated on first run and persisted in the feedback metadata table.
 
 If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedback` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
 
 Public submissions are rate-limited to 5 per hour per IP.
+
+### Database storage
+
+Feedback and category knowledge/cache storage can use either SQLite or Postgres.
+
+SQLite is the zero-config default:
+
+- unset `DECKFLOW_DATABASE_PROVIDER`, or set `DECKFLOW_DATABASE_PROVIDER=Sqlite`
+- optional `DECKFLOW_DATABASE_CONNECTION_STRING`
+- if no SQLite connection string is set, DeckFlow stores `feedback.db` and `category-knowledge.db` under `MTG_DATA_DIR`, falling back to `../artifacts`
+
+Postgres is intended for hosted deployments where local files should not be the source of truth:
+
+- `DECKFLOW_DATABASE_PROVIDER=Postgres`
+- `DECKFLOW_DATABASE_CONNECTION_STRING=<Postgres connection string>`
+
+DeckFlow creates its feedback and category/cache tables and indexes automatically on first use. You only need to provide the Postgres database, user, and connection string.
 
 ## Highlights
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
@@ -67,7 +84,9 @@ Public submissions are rate-limited to 5 per hour per IP.
 
 ### Deploying to cloud hosts (Render, Fly, etc.)
 - A `Dockerfile`, `fly.toml`, and `render.yaml` ship at the repo root for one-command builds on Fly.io or Render.
-- Set `MTG_DATA_DIR=/data` and mount a persistent volume there. Both the SQLite category-knowledge DB and the ChatGPT Analysis artifact folder get redirected under that single directory.
+- For durable feedback and category cache storage without a persistent disk, configure Postgres with `DECKFLOW_DATABASE_PROVIDER=Postgres` and `DECKFLOW_DATABASE_CONNECTION_STRING=<Postgres connection string>`.
+- If you keep the default SQLite provider in a cloud host, set `MTG_DATA_DIR=/data` and mount a persistent volume there so `feedback.db` and `category-knowledge.db` survive deploys/restarts.
+- ChatGPT artifact folders are still filesystem-backed. Set `MTG_DATA_DIR=/data` and mount a persistent volume if saved ChatGPT sessions need to survive deploys/restarts.
 - The Dockerfile's entrypoint resolves `$PORT` at container start so platforms that inject a dynamic port (Render) work without changes.
 - **Moxfield URL caveat.** Moxfield's Cloudflare edge blocks requests from datacenter IP ranges with HTTP 403/5xx. When that happens, DeckFlow automatically falls back to Commander Spellbook's public `card-list-from-url` endpoint (which accepts the same Moxfield URL) and loads the deck from there instead. The UI surfaces a warning banner noting that card printings, set codes, collector numbers, author tags/categories, and sideboard/maybeboard entries are not available through the fallback. For full metadata, users should copy the Moxfield deck export text and paste it into the deck input directly — that path continues to work from anywhere.
 - **Optional browser-extension path.** The web UI now detects Moxfield deck URLs before submit. If the optional DeckFlow Bridge extension is installed and the current DeckFlow origin is allowed in extension settings, the browser fetches the Moxfield deck directly and submits it through the existing form flow. If the extension is not installed, DeckFlow can prompt the user with the included install page (`/extension-install.html`), which now serves a downloadable ZIP from `/extensions/deckflow-bridge.zip`. Browsers do not allow the site to silently install the extension. Mobile browsers are left on the normal server/fallback path and are not prompted for the extension.
@@ -502,7 +521,7 @@ See [`browser-extensions/deckflow-bridge/README.md`](browser-extensions/deckflow
 - `ChatGptDeckPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
 - `ChatGptDeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured ChatGPT prompts with a JSON output schema.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
-- `CategoryKnowledgeStore` persists observations to SQLite (`artifacts/category-knowledge.db`) and is shared between the web app and CLI.
+- `CategoryKnowledgeStore` persists observations through the configured relational provider. SQLite stores `artifacts/category-knowledge.db` by default; Postgres can be selected with `DECKFLOW_DATABASE_PROVIDER=Postgres`.
 
 ---
 

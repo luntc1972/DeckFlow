@@ -1,36 +1,39 @@
 using System.Data;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
+using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models;
-using Microsoft.Data.Sqlite;
 
 namespace DeckFlow.Web.Services;
 
 public sealed class FeedbackStore : IFeedbackStore
 {
-    private readonly string _connectionString;
+    private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
     private string? _ipSalt;
 
     public FeedbackStore(string databasePath)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath))
     {
-        if (string.IsNullOrWhiteSpace(databasePath))
-        {
-            throw new ArgumentException("Database path required", nameof(databasePath));
-        }
+    }
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(databasePath));
-        if (!string.IsNullOrEmpty(directory))
+    public FeedbackStore(RelationalDatabaseConnection connectionInfo)
+    {
+        _connectionInfo = connectionInfo;
+        if (_connectionInfo.IsSqlite)
         {
-            Directory.CreateDirectory(directory);
+            var directory = Path.GetDirectoryName(Path.GetFullPath(ExtractSqlitePath(_connectionInfo.ConnectionString)));
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
         }
-
-        _connectionString = $"Data Source={databasePath}";
     }
 
     public FeedbackStore(IWebHostEnvironment environment)
-        : this(ResolveDatabasePath(environment))
+        : this(DeckFlowDatabaseConnectionFactory.CreateFeedbackConnection(environment))
     {
     }
 
@@ -43,21 +46,17 @@ public sealed class FeedbackStore : IFeedbackStore
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = """
-            INSERT INTO feedback (created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status)
-            VALUES ($created, $type, $message, $email, $pageUrl, $userAgent, $ipHash, $appVersion, $status);
-            SELECT last_insert_rowid();
-            """;
+        command.CommandText = _connectionInfo.Dialect.FeedbackInsertReturningIdSql;
 
-        command.Parameters.AddWithValue("$created", DateTime.UtcNow.ToString("O"));
-        command.Parameters.AddWithValue("$type", submission.Type.ToString());
-        command.Parameters.AddWithValue("$message", submission.Message);
-        command.Parameters.AddWithValue("$email", (object?)submission.Email ?? DBNull.Value);
-        command.Parameters.AddWithValue("$pageUrl", (object?)Truncate(context.PageUrl, 500) ?? DBNull.Value);
-        command.Parameters.AddWithValue("$userAgent", (object?)Truncate(context.UserAgent, 500) ?? DBNull.Value);
-        command.Parameters.AddWithValue("$ipHash", (object?)HashIpInternal(context.Ip) ?? DBNull.Value);
-        command.Parameters.AddWithValue("$appVersion", (object?)context.AppVersion ?? DBNull.Value);
-        command.Parameters.AddWithValue("$status", FeedbackStatus.New.ToString());
+        AddParameter(command, "@created", _connectionInfo.IsPostgres ? DateTime.UtcNow : DateTime.UtcNow.ToString("O"));
+        AddParameter(command, "@type", submission.Type.ToString());
+        AddParameter(command, "@message", submission.Message);
+        AddParameter(command, "@email", (object?)submission.Email);
+        AddParameter(command, "@pageUrl", (object?)Truncate(context.PageUrl, 500));
+        AddParameter(command, "@userAgent", (object?)Truncate(context.UserAgent, 500));
+        AddParameter(command, "@ipHash", (object?)HashIpInternal(context.Ip));
+        AddParameter(command, "@appVersion", (object?)context.AppVersion);
+        AddParameter(command, "@status", FeedbackStatus.New.ToString());
 
         var idObj = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt64(idObj);
@@ -69,8 +68,8 @@ public sealed class FeedbackStore : IFeedbackStore
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status FROM feedback WHERE id = $id";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status FROM feedback WHERE id = @id";
+        AddParameter(command, "@id", id);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -96,11 +95,11 @@ public sealed class FeedbackStore : IFeedbackStore
             SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status
             FROM feedback
             {where}
-            ORDER BY datetime(created_utc) DESC, id DESC
-            LIMIT $limit OFFSET $offset
+            ORDER BY {_connectionInfo.Dialect.FeedbackOrderByClause}
+            LIMIT @limit OFFSET @offset
             """;
-        command.Parameters.AddWithValue("$limit", pageSize);
-        command.Parameters.AddWithValue("$offset", (page - 1) * pageSize);
+        AddParameter(command, "@limit", pageSize);
+        AddParameter(command, "@offset", (page - 1) * pageSize);
 
         var results = new List<FeedbackItem>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -153,9 +152,9 @@ public sealed class FeedbackStore : IFeedbackStore
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE feedback SET status = $status WHERE id = $id";
-        command.Parameters.AddWithValue("$status", status.ToString());
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "UPDATE feedback SET status = @status WHERE id = @id";
+        AddParameter(command, "@status", status.ToString());
+        AddParameter(command, "@id", id);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -164,8 +163,8 @@ public sealed class FeedbackStore : IFeedbackStore
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM feedback WHERE id = $id";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "DELETE FROM feedback WHERE id = @id";
+        AddParameter(command, "@id", id);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -183,19 +182,19 @@ public sealed class FeedbackStore : IFeedbackStore
         return Convert.ToHexString(bytes);
     }
 
-    private static string BuildWhereClause(FeedbackStatus? status, FeedbackType? type, SqliteCommand command)
+    private static string BuildWhereClause(FeedbackStatus? status, FeedbackType? type, DbCommand command)
     {
         var clauses = new List<string>();
         if (status.HasValue)
         {
-            clauses.Add("status = $status");
-            command.Parameters.AddWithValue("$status", status.Value.ToString());
+            clauses.Add("status = @status");
+            AddParameter(command, "@status", status.Value.ToString());
         }
 
         if (type.HasValue)
         {
-            clauses.Add("type = $type");
-            command.Parameters.AddWithValue("$type", type.Value.ToString());
+            clauses.Add("type = @type");
+            AddParameter(command, "@type", type.Value.ToString());
         }
 
         return clauses.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", clauses);
@@ -204,11 +203,19 @@ public sealed class FeedbackStore : IFeedbackStore
     private static string? Truncate(string? value, int max) =>
         string.IsNullOrEmpty(value) ? value : value.Length <= max ? value : value.Substring(0, max);
 
-    private static FeedbackItem ReadItem(SqliteDataReader reader)
+    private static FeedbackItem ReadItem(DbDataReader reader)
     {
+        var createdUtc = reader.GetValue(1) switch
+        {
+            DateTime dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
+            DateTimeOffset dto => dto.UtcDateTime,
+            string text => DateTime.Parse(text, null, System.Globalization.DateTimeStyles.RoundtripKind),
+            var other => Convert.ToDateTime(other)
+        };
+
         return new FeedbackItem(
             Id: reader.GetInt64(0),
-            CreatedUtc: DateTime.Parse(reader.GetString(1), null, System.Globalization.DateTimeStyles.RoundtripKind),
+            CreatedUtc: createdUtc,
             Type: Enum.Parse<FeedbackType>(reader.GetString(2)),
             Message: reader.GetString(3),
             Email: reader.IsDBNull(4) ? null : reader.GetString(4),
@@ -219,9 +226,9 @@ public sealed class FeedbackStore : IFeedbackStore
             Status: Enum.Parse<FeedbackStatus>(reader.GetString(9)));
     }
 
-    private async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+    private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
-        var connection = new SqliteConnection(_connectionString);
+        var connection = _connectionInfo.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         return connection;
     }
@@ -246,8 +253,8 @@ public sealed class FeedbackStore : IFeedbackStore
             {
                 create.CommandText = """
                     CREATE TABLE IF NOT EXISTS feedback (
-                      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                      created_utc  TEXT    NOT NULL,
+                      id           __ID_COLUMN_TYPE__,
+                      created_utc  __CREATED_UTC_COLUMN_TYPE__ NOT NULL,
                       type         TEXT    NOT NULL,
                       message      TEXT    NOT NULL,
                       email        TEXT    NULL,
@@ -263,6 +270,9 @@ public sealed class FeedbackStore : IFeedbackStore
                       value TEXT NOT NULL
                     );
                     """;
+                create.CommandText = create.CommandText
+                    .Replace("__ID_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackIdColumnType, StringComparison.Ordinal)
+                    .Replace("__CREATED_UTC_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackCreatedUtcColumnType, StringComparison.Ordinal);
                 await create.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -275,7 +285,7 @@ public sealed class FeedbackStore : IFeedbackStore
         }
     }
 
-    private static async Task<string> ResolveSaltAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task<string> ResolveSaltAsync(DbConnection connection, CancellationToken cancellationToken)
     {
         var envSalt = Environment.GetEnvironmentVariable("FEEDBACK_IP_SALT");
         if (!string.IsNullOrWhiteSpace(envSalt))
@@ -296,18 +306,23 @@ public sealed class FeedbackStore : IFeedbackStore
         var bytes = RandomNumberGenerator.GetBytes(32);
         var generated = Convert.ToHexString(bytes);
         await using var insert = connection.CreateCommand();
-        insert.CommandText = "INSERT INTO feedback_meta (key, value) VALUES ('ip_salt', $value)";
-        insert.Parameters.AddWithValue("$value", generated);
+        insert.CommandText = "INSERT INTO feedback_meta (key, value) VALUES ('ip_salt', @value)";
+        AddParameter(insert, "@value", generated);
         await insert.ExecuteNonQueryAsync(cancellationToken);
         return generated;
     }
 
-    private static string ResolveDatabasePath(IWebHostEnvironment environment)
+    private static void AddParameter(DbCommand command, string name, object? value)
     {
-        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
-        var root = !string.IsNullOrWhiteSpace(dataDir)
-            ? Path.GetFullPath(dataDir)
-            : Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
-        return Path.Combine(root, "feedback.db");
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value ?? DBNull.Value;
+        command.Parameters.Add(parameter);
+    }
+
+    private static string ExtractSqlitePath(string connectionString)
+    {
+        var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(connectionString);
+        return Path.GetFullPath(builder.DataSource);
     }
 }
