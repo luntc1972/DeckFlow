@@ -5,8 +5,11 @@ namespace DeckFlow.Web.Tests;
 
 internal sealed class StubHttpMessageHandler : HttpMessageHandler
 {
+    /// <summary>Immutable snapshot of a recorded HTTP request. Safe to read after the request is disposed.</summary>
+    public record RecordedRequest(Uri? RequestUri, string Method);
+
     private readonly Queue<HttpResponseMessage> _responses = new();
-    public IList<HttpRequestMessage> RecordedRequests { get; } = new List<HttpRequestMessage>();
+    public IList<RecordedRequest> RecordedRequests { get; } = new List<RecordedRequest>();
     public int CallCount => RecordedRequests.Count;
     public Exception? NextException { get; set; }
 
@@ -15,7 +18,7 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        RecordedRequests.Add(request);
+        RecordedRequests.Add(new RecordedRequest(request.RequestUri, request.Method.Method));
 
         if (NextException is not null)
         {
