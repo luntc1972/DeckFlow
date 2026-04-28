@@ -4,6 +4,7 @@ using System.Threading;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Core.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Services;
@@ -12,6 +13,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
     private readonly string _artifactsPath;
+    private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly string _databasePath;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private readonly SemaphoreSlim _sweepGate = new(1, 1);
@@ -26,9 +28,12 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="environment">Web host environment for locating artifacts.</param>
     public CategoryKnowledgeStore(IWebHostEnvironment environment)
     {
+        _connectionInfo = DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment);
         _artifactsPath = ResolveArtifactsPath(environment);
-        _databasePath = Path.Combine(_artifactsPath, "category-knowledge.db");
-        _repository = new CategoryKnowledgeRepository(_databasePath);
+        _databasePath = _connectionInfo.IsSqlite
+            ? Path.Combine(_artifactsPath, "category-knowledge.db")
+            : string.Empty;
+        _repository = new CategoryKnowledgeRepository(_connectionInfo);
         _archidektImporter = new ArchidektApiDeckImporter();
         _recentDeckImporter = new ArchidektRecentDecksImporter();
     }
@@ -157,7 +162,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 return;
             }
 
-            Directory.CreateDirectory(_artifactsPath);
+            if (_connectionInfo.IsSqlite)
+            {
+                Directory.CreateDirectory(_artifactsPath);
+            }
             await _repository.EnsureSchemaAsync(cancellationToken);
             _schemaReady = true;
         }
