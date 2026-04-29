@@ -468,10 +468,10 @@ public sealed class CategoryKnowledgeRepository
         await connection.OpenAsync(cancellationToken);
 
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT EXISTS(SELECT 1 FROM card_category_observations WHERE source = @source);";
+        command.CommandText = "SELECT COUNT(1) FROM card_category_observations WHERE source = @source;";
         AddParameter(command, "@source", source);
-        var result = (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
-        return result == 1L;
+        var result = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
+        return result > 0L;
     }
 
     /// <summary>
