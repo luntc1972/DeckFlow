@@ -42,6 +42,8 @@ Postgres is intended for hosted deployments where local files should not be the 
 
 DeckFlow creates its feedback and category/cache tables and indexes automatically on first use. You only need to provide the Postgres database, user, and connection string.
 
+`DECKFLOW_DATABASE_CONNECTION_STRING` accepts either Npgsql key=value form (`Host=...;Username=...;Password=...;Database=...`) or a libpq URI (`postgresql://user:pass@host:port/db`, the default format Render and most managed Postgres providers hand out). URIs are normalized internally; URL-encoded passwords and `?sslmode=require` query params are honored.
+
 ### Postgres integration tests
 
 By default, `dotnet test` skips Postgres integration tests because they require Docker.

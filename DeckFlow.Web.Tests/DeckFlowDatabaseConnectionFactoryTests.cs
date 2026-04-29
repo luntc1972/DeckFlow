@@ -2,6 +2,7 @@ using DeckFlow.Core.Storage;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using Npgsql;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -60,6 +61,36 @@ public sealed class DeckFlowDatabaseConnectionFactoryTests
             Assert.Equal(RelationalDatabaseProvider.Postgres, feedbackConnection.Provider);
             Assert.Equal(RelationalDatabaseProvider.Postgres, categoryConnection.Provider);
             Assert.Equal(feedbackConnection.ConnectionString, categoryConnection.ConnectionString);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", providerOriginal);
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", connectionOriginal);
+        }
+    }
+
+    [Fact]
+    public void CreateFeedbackConnection_Postgres_NormalizesRenderDatabaseUri()
+    {
+        var providerOriginal = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER");
+        var connectionOriginal = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", "Postgres");
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", "postgresql://u:p%40w0rd%21@host:5433/db?sslmode=require&application_name=foo");
+
+            var environment = new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), "deckflow-content-" + Guid.NewGuid().ToString("N")));
+            var connection = DeckFlowDatabaseConnectionFactory.CreateFeedbackConnection(environment);
+            var builder = new NpgsqlConnectionStringBuilder(connection.ConnectionString);
+
+            Assert.Equal(RelationalDatabaseProvider.Postgres, connection.Provider);
+            Assert.Equal("host", builder.Host);
+            Assert.Equal("u", builder.Username);
+            Assert.Equal("p@w0rd!", builder.Password);
+            Assert.Equal("db", builder.Database);
+            Assert.Equal(5433, builder.Port);
+            Assert.Equal(SslMode.Require, builder.SslMode);
         }
         finally
         {
