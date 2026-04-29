@@ -14,7 +14,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private const int HarvestDeckCount = 20;
     private readonly string _artifactsPath;
     private readonly RelationalDatabaseConnection _connectionInfo;
-    private readonly string _databasePath;
+    private readonly string? _databasePath;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private readonly SemaphoreSlim _sweepGate = new(1, 1);
     private readonly CategoryKnowledgeRepository _repository;
@@ -32,7 +32,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _artifactsPath = ResolveArtifactsPath(environment);
         _databasePath = _connectionInfo.IsSqlite
             ? Path.Combine(_artifactsPath, "category-knowledge.db")
-            : string.Empty;
+            : null;
         _repository = new CategoryKnowledgeRepository(_connectionInfo);
         _archidektImporter = new ArchidektApiDeckImporter();
         _recentDeckImporter = new ArchidektRecentDecksImporter();
@@ -49,7 +49,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
     }
 
-    public string DatabasePath => _databasePath;
+    public string? DatabasePath => _databasePath;
 
     /// <summary>
     /// Gets cached categories for a given card from the repository.
