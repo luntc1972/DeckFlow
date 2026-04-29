@@ -229,11 +229,16 @@ public class Program
             app.MapControllers();
             app.MapDefaultControllerRoute();
 
+            static bool IsAutoBrowserDisabled()
+            {
+                var raw = Environment.GetEnvironmentVariable("DECKFLOW_DISABLE_AUTO_BROWSER")
+                    ?? Environment.GetEnvironmentVariable("MTGDECKSTUDIO_DISABLE_AUTO_BROWSER");
+
+                return string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase);
+            }
+
             if (app.Environment.IsDevelopment()
-                && !string.Equals(
-                    Environment.GetEnvironmentVariable("MTGDECKSTUDIO_DISABLE_AUTO_BROWSER"),
-                    "true",
-                    StringComparison.OrdinalIgnoreCase))
+                && !IsAutoBrowserDisabled())
             {
                 app.Lifetime.ApplicationStarted.Register(() =>
                 {
