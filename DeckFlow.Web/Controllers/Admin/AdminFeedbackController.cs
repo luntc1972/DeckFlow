@@ -4,6 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Admin;
 
+public enum AdminFeedbackOp
+{
+    MarkRead,
+    Archive,
+    Delete,
+}
+
 public sealed class AdminFeedbackListViewModel
 {
     public IReadOnlyList<FeedbackItem> Items { get; init; } = Array.Empty<FeedbackItem>();
@@ -60,24 +67,29 @@ public sealed class AdminFeedbackController : Controller
 
     [HttpPost("{id:long}/{op}")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Apply(long id, string op)
+    public async Task<IActionResult> Apply(long id, AdminFeedbackOp op)
     {
-        switch (op?.ToLowerInvariant())
+        if (!ModelState.IsValid)
         {
-            case "markread":
+            return BadRequest();
+        }
+
+        switch (op)
+        {
+            case AdminFeedbackOp.MarkRead:
                 await _store.UpdateStatusAsync(id, FeedbackStatus.Read);
                 break;
-            case "archive":
+            case AdminFeedbackOp.Archive:
                 await _store.UpdateStatusAsync(id, FeedbackStatus.Archived);
                 break;
-            case "delete":
+            case AdminFeedbackOp.Delete:
                 await _store.DeleteAsync(id);
                 break;
             default:
                 return BadRequest();
         }
 
-        TempData["AdminFeedbackAction"] = $"{op} applied to #{id}";
+        TempData["AdminFeedbackAction"] = $"{op.ToString().ToLowerInvariant()} applied to #{id}";
         return RedirectToAction(nameof(Index));
     }
 }

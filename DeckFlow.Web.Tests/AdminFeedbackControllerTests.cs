@@ -51,7 +51,7 @@ public sealed class AdminFeedbackControllerTests
         var store = new FakeStore();
         store.Items.Add(NewItem(3, FeedbackStatus.New, FeedbackType.Bug));
         var controller = Build(store);
-        var result = await controller.Apply(3, "markRead");
+        var result = await controller.Apply(3, AdminFeedbackOp.MarkRead);
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal("Index", redirect.ActionName);
         Assert.Single(store.StatusUpdates);
@@ -64,7 +64,7 @@ public sealed class AdminFeedbackControllerTests
         var store = new FakeStore();
         store.Items.Add(NewItem(4, FeedbackStatus.New, FeedbackType.Bug));
         var controller = Build(store);
-        await controller.Apply(4, "archive");
+        await controller.Apply(4, AdminFeedbackOp.Archive);
         Assert.Equal((4L, FeedbackStatus.Archived), store.StatusUpdates[0]);
     }
 
@@ -74,15 +74,16 @@ public sealed class AdminFeedbackControllerTests
         var store = new FakeStore();
         store.Items.Add(NewItem(5, FeedbackStatus.Read, FeedbackType.Bug));
         var controller = Build(store);
-        await controller.Apply(5, "delete");
+        await controller.Apply(5, AdminFeedbackOp.Delete);
         Assert.Contains(5L, store.Deletes);
     }
 
     [Fact]
-    public async Task Apply_UnknownOp_Returns400()
+    public async Task Apply_InvalidModelState_Returns400()
     {
         var controller = Build(new FakeStore());
-        var result = await controller.Apply(1, "bogus");
+        controller.ModelState.AddModelError("op", "Invalid op value.");
+        var result = await controller.Apply(1, default);
         Assert.IsType<BadRequestResult>(result);
     }
 
