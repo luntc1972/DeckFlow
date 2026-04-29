@@ -360,8 +360,8 @@ public sealed class CategoryKnowledgeRepository
                 VALUES (@source, @cardName, @normalizedCardName, @category, @board, @deckCount, @quantity, @lastSeenUtc)
                 ON CONFLICT(source, normalized_card_name, category, board)
                 DO UPDATE SET
-                    count = count + excluded.count,
-                    deck_count = deck_count + excluded.deck_count,
+                    count = card_category_observations.count + excluded.count,
+                    deck_count = card_category_observations.deck_count + excluded.deck_count,
                     card_name = excluded.card_name,
                     last_seen_utc = excluded.last_seen_utc
                 """;
@@ -399,7 +399,7 @@ public sealed class CategoryKnowledgeRepository
             VALUES (@source, @cardName, @normalizedCardName, @board, @deckCount, @lastSeenUtc)
             ON CONFLICT(source, normalized_card_name, board)
             DO UPDATE SET
-                deck_count = deck_count + excluded.deck_count,
+                deck_count = card_deck_totals.deck_count + excluded.deck_count,
                 card_name = excluded.card_name,
                 last_seen_utc = excluded.last_seen_utc;
             """;
