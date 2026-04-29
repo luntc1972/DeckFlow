@@ -24,7 +24,7 @@ public sealed class FeedbackStore : IFeedbackStore
         _connectionInfo = connectionInfo;
         if (_connectionInfo.IsSqlite)
         {
-            var directory = Path.GetDirectoryName(Path.GetFullPath(ExtractSqlitePath(_connectionInfo.ConnectionString)));
+            var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
@@ -48,15 +48,15 @@ public sealed class FeedbackStore : IFeedbackStore
         await using var command = connection.CreateCommand();
         command.CommandText = _connectionInfo.Dialect.FeedbackInsertReturningIdSql;
 
-        AddParameter(command, "@created", _connectionInfo.IsPostgres ? DateTime.UtcNow : DateTime.UtcNow.ToString("O"));
-        AddParameter(command, "@type", submission.Type.ToString());
-        AddParameter(command, "@message", submission.Message);
-        AddParameter(command, "@email", (object?)submission.Email);
-        AddParameter(command, "@pageUrl", (object?)Truncate(context.PageUrl, 500));
-        AddParameter(command, "@userAgent", (object?)Truncate(context.UserAgent, 500));
-        AddParameter(command, "@ipHash", (object?)HashIpInternal(context.Ip));
-        AddParameter(command, "@appVersion", (object?)context.AppVersion);
-        AddParameter(command, "@status", FeedbackStatus.New.ToString());
+        RelationalDatabaseConnection.AddParameter(command, "@created", _connectionInfo.IsPostgres ? DateTime.UtcNow : DateTime.UtcNow.ToString("O"));
+        RelationalDatabaseConnection.AddParameter(command, "@type", submission.Type.ToString());
+        RelationalDatabaseConnection.AddParameter(command, "@message", submission.Message);
+        RelationalDatabaseConnection.AddParameter(command, "@email", (object?)submission.Email);
+        RelationalDatabaseConnection.AddParameter(command, "@pageUrl", (object?)Truncate(context.PageUrl, 500));
+        RelationalDatabaseConnection.AddParameter(command, "@userAgent", (object?)Truncate(context.UserAgent, 500));
+        RelationalDatabaseConnection.AddParameter(command, "@ipHash", (object?)HashIpInternal(context.Ip));
+        RelationalDatabaseConnection.AddParameter(command, "@appVersion", (object?)context.AppVersion);
+        RelationalDatabaseConnection.AddParameter(command, "@status", FeedbackStatus.New.ToString());
 
         var idObj = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt64(idObj);
@@ -69,7 +69,7 @@ public sealed class FeedbackStore : IFeedbackStore
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status FROM feedback WHERE id = @id";
-        AddParameter(command, "@id", id);
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -98,8 +98,8 @@ public sealed class FeedbackStore : IFeedbackStore
             ORDER BY {_connectionInfo.Dialect.FeedbackOrderByClause}
             LIMIT @limit OFFSET @offset
             """;
-        AddParameter(command, "@limit", pageSize);
-        AddParameter(command, "@offset", (page - 1) * pageSize);
+        RelationalDatabaseConnection.AddParameter(command, "@limit", pageSize);
+        RelationalDatabaseConnection.AddParameter(command, "@offset", (page - 1) * pageSize);
 
         var results = new List<FeedbackItem>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -153,8 +153,8 @@ public sealed class FeedbackStore : IFeedbackStore
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE feedback SET status = @status WHERE id = @id";
-        AddParameter(command, "@status", status.ToString());
-        AddParameter(command, "@id", id);
+        RelationalDatabaseConnection.AddParameter(command, "@status", status.ToString());
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -164,7 +164,7 @@ public sealed class FeedbackStore : IFeedbackStore
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM feedback WHERE id = @id";
-        AddParameter(command, "@id", id);
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -188,13 +188,13 @@ public sealed class FeedbackStore : IFeedbackStore
         if (status.HasValue)
         {
             clauses.Add("status = @status");
-            AddParameter(command, "@status", status.Value.ToString());
+            RelationalDatabaseConnection.AddParameter(command, "@status", status.Value.ToString());
         }
 
         if (type.HasValue)
         {
             clauses.Add("type = @type");
-            AddParameter(command, "@type", type.Value.ToString());
+            RelationalDatabaseConnection.AddParameter(command, "@type", type.Value.ToString());
         }
 
         return clauses.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", clauses);
@@ -307,22 +307,8 @@ public sealed class FeedbackStore : IFeedbackStore
         var generated = Convert.ToHexString(bytes);
         await using var insert = connection.CreateCommand();
         insert.CommandText = "INSERT INTO feedback_meta (key, value) VALUES ('ip_salt', @value)";
-        AddParameter(insert, "@value", generated);
+        RelationalDatabaseConnection.AddParameter(insert, "@value", generated);
         await insert.ExecuteNonQueryAsync(cancellationToken);
         return generated;
-    }
-
-    private static void AddParameter(DbCommand command, string name, object? value)
-    {
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = name;
-        parameter.Value = value ?? DBNull.Value;
-        command.Parameters.Add(parameter);
-    }
-
-    private static string ExtractSqlitePath(string connectionString)
-    {
-        var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(connectionString);
-        return Path.GetFullPath(builder.DataSource);
     }
 }

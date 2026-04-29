@@ -27,6 +27,7 @@ public sealed class CategoryKnowledgeStoreTests
             var store = CreateStore("/repo/content-root");
             var expectedRoot = Path.GetFullPath(tempDir);
 
+            Assert.NotNull(store.DatabasePath);
             Assert.StartsWith(expectedRoot, store.DatabasePath, StringComparison.OrdinalIgnoreCase);
             Assert.EndsWith("category-knowledge.db", store.DatabasePath, StringComparison.OrdinalIgnoreCase);
         }
@@ -48,6 +49,7 @@ public sealed class CategoryKnowledgeStoreTests
             var contentRoot = Path.Combine(Path.GetTempPath(), "deckflow-content-" + Guid.NewGuid().ToString("N"));
             var store = CreateStore(contentRoot);
 
+            Assert.NotNull(store.DatabasePath);
             Assert.Contains("artifacts", store.DatabasePath, StringComparison.OrdinalIgnoreCase);
             Assert.EndsWith("category-knowledge.db", store.DatabasePath, StringComparison.OrdinalIgnoreCase);
         }
