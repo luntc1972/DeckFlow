@@ -88,6 +88,7 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
         };
 
         await repo.ReplaceSourceRowsAsync(source, rows, board: "mainboard", deckCount: 7);
+        await repo.PersistCardDeckTotalsAsync(source, "Sol Ring", board: "mainboard", deckCountIncrement: 7);
 
         Assert.True(await repo.HasSourceDataAsync(source));
 
