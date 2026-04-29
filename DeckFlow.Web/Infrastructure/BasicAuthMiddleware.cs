@@ -1,17 +1,20 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Infrastructure;
 
 public sealed class BasicAuthMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<BasicAuthMiddleware> _logger;
     private readonly string _realm;
 
-    public BasicAuthMiddleware(RequestDelegate next, string realm)
+    public BasicAuthMiddleware(RequestDelegate next, ILogger<BasicAuthMiddleware> logger, string realm)
     {
         _next = next;
+        _logger = logger;
         _realm = realm;
     }
 
@@ -30,7 +33,7 @@ public sealed class BasicAuthMiddleware
         var header = context.Request.Headers["Authorization"].ToString();
         if (string.IsNullOrEmpty(header) || !header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
         {
-            Challenge(context);
+            Challenge(context, "missing or non-Basic Authorization header");
             return;
         }
 
@@ -41,14 +44,14 @@ public sealed class BasicAuthMiddleware
         }
         catch (FormatException)
         {
-            Challenge(context);
+            Challenge(context, "malformed base64 in Authorization header");
             return;
         }
 
         var separator = decoded.IndexOf(':');
         if (separator <= 0)
         {
-            Challenge(context);
+            Challenge(context, "malformed credentials in Authorization header");
             return;
         }
 
@@ -57,15 +60,17 @@ public sealed class BasicAuthMiddleware
 
         if (!FixedTimeEquals(suppliedUser, user) || !FixedTimeEquals(suppliedPass, password))
         {
-            Challenge(context);
+            Challenge(context, "invalid credentials");
             return;
         }
 
         await _next(context);
     }
 
-    private void Challenge(HttpContext context)
+    private void Challenge(HttpContext context, string reason)
     {
+        var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        _logger.LogWarning("Admin basic-auth challenge issued: {Reason} from {RemoteIp}", reason, remoteIp);
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.Headers["WWW-Authenticate"] = $"Basic realm=\"{_realm}\", charset=\"UTF-8\"";
     }
