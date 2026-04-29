@@ -11,7 +11,7 @@ namespace DeckFlow.Web.Services;
 public sealed class HelpContentService : IHelpContentService
 {
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
 
     private readonly string _root;
     private readonly Lazy<IReadOnlyList<HelpTopic>> _all;
