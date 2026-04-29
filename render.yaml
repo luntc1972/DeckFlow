@@ -1,15 +1,23 @@
-# Render blueprint for DeckFlow.Web.
-# Create the service by pushing this file to the repo root and clicking "New > Blueprint"
-# in the Render dashboard, then selecting the repo. Render builds from the Dockerfile.
+# Render blueprint for DeckFlow.
 #
-# The attached disk mounts at /data. Both the SQLite knowledge DB and ChatGPT Analysis
-# artifacts are redirected under that path via MTG_DATA_DIR.
+# This file is IaC-only. The running DeckFlow service was created standalone in
+# the dashboard, not via blueprint, so changes here do NOT sync to it. Use the
+# dashboard (or Render MCP) to update the live service. Keep this file accurate
+# so the stack can be re-provisioned cleanly via "New > Blueprint".
+#
+# Postgres DB ('deckflow') is provisioned separately and connected by pasting
+# its Internal Database URL into DECKFLOW_DATABASE_CONNECTION_STRING in the
+# dashboard. Schema auto-creates on first DB call (CREATE TABLE IF NOT EXISTS).
+#
+# The /data disk still backs ChatGPT artifact files; only relational data
+# moved to Postgres.
 
 services:
   - type: web
-    name: mtg-deck-studio
+    name: deckflow
     runtime: docker
-    plan: starter
+    plan: free
+    region: oregon
     dockerfilePath: ./Dockerfile
     autoDeploy: true
     envVars:
@@ -17,8 +25,16 @@ services:
         value: Production
       - key: MTG_DATA_DIR
         value: /data
+      - key: DECKFLOW_DATABASE_PROVIDER
+        value: Postgres
+      - key: DECKFLOW_DATABASE_CONNECTION_STRING
+        sync: false
+      - key: FEEDBACK_ADMIN_USER
+        sync: false
+      - key: FEEDBACK_ADMIN_PASSWORD
+        sync: false
     disk:
-      name: mtg-data
+      name: deckflow-data
       mountPath: /data
       sizeGB: 1
     healthCheckPath: /
