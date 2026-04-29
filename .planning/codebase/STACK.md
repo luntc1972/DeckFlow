@@ -1,93 +1,95 @@
 # Technology Stack
 
-**Analysis Date:** 2026-04-26
+**Analysis Date:** 2026-04-29
 
 ## Languages
 
 **Primary:**
-- C# 13 (net10.0) - All server-side logic across DeckFlow.Core, DeckFlow.Web, DeckFlow.CLI, and test projects
-- TypeScript 6.x - Client-side interactivity compiled via `tsc` into `wwwroot/js/`
+- C# 12 / .NET 10 - All server-side projects (`DeckFlow.Core`, `DeckFlow.Web`, `DeckFlow.CLI`, plus tests). `<TargetFramework>net10.0</TargetFramework>` and `<Nullable>enable</Nullable>` set in every csproj.
+- TypeScript 6.x (compiles to ES2017) - Browser-side scripts in `DeckFlow.Web/wwwroot/ts/**/*.ts`, output to `wwwroot/js/`. Configured by `DeckFlow.Web/tsconfig.json` (`strict: true`, `module: "none"`).
 
 **Secondary:**
-- JavaScript (ES2017 target) - Compiled output from TypeScript; also used directly in browser extension (`browser-extensions/deckflow-bridge/`)
-- HTML/CSS/Razor - View layer in `DeckFlow.Web/Views/` and `wwwroot/`
+- JavaScript (ES module) - Browser extension `browser-extensions/deckflow-bridge/{background.js,deckflow-bridge.js,options.js}` (Manifest V3, no build step).
+- Razor (`.cshtml`) - MVC views under `DeckFlow.Web/Views/{About,Admin,Commander,Deck,Feedback,Help,Shared}/`.
+- HTML / CSS - `DeckFlow.Web/wwwroot/css/`, `wwwroot/extension-install.html`.
+- Markdown - In-app help (`DeckFlow.Web/Help/**/*.md` copied to output via `<Content>` item) and prompt templates (`prompt-templates/deck-comparison/`).
+- PowerShell + Bash - Run scripts in `scripts/run-web.ps1` and `scripts/run-web.sh`.
 
 ## Runtime
 
 **Environment:**
-- .NET 10.0 (all four projects target `net10.0`)
-- Node.js 20.x (required at build time for TypeScript compilation; installed in Docker via NodeSource)
+- .NET 10 ASP.NET Core (Kestrel) - Web host bootstrapped in `DeckFlow.Web/Program.cs`.
+- Container base images (production): `mcr.microsoft.com/dotnet/sdk:10.0` (build) and `mcr.microsoft.com/dotnet/aspnet:10.0` (runtime), see `Dockerfile`.
+- Node.js 20 (build-time only) - Installed in Docker build stage to compile TypeScript via the `CompileTypeScriptAssets` MSBuild target in `DeckFlow.Web/DeckFlow.Web.csproj`.
 
 **Package Manager:**
-- NuGet for .NET packages; lockfile: none (standard restore)
-- npm for TypeScript — `DeckFlow.Web/package.json`, `package-lock.json`
-- `Directory.Build.props` clears NuGet fallback folders for portability across Windows/WSL/Linux
+- NuGet for .NET dependencies - Restore portable settings in `Directory.Build.props` (clears `RestoreFallbackFolders` to avoid Visual Studio shared cache leakage in WSL).
+- npm for TypeScript build tooling - `DeckFlow.Web/package.json`, `package-lock.json` (root + `DeckFlow.Web/`).
 
 ## Frameworks
 
 **Core:**
-- ASP.NET Core MVC 10 (`Microsoft.NET.Sdk.Web`) - MVC + Razor Views, Web API controllers, middleware pipeline
-
-**Build/Dev:**
-- `Microsoft.TypeScript.MSBuild` 5.2.2 — triggers `tsc` via MSBuild `CompileTypeScriptAssets` target
-- `Swashbuckle.AspNetCore` 7.0.0 — Swagger/OpenAPI UI, enabled in Development only (`/swagger`)
-- `System.CommandLine` 2.0.0-beta4 — CLI argument parsing in `DeckFlow.CLI`
-- Docker multi-stage build (`Dockerfile` at repo root) — sdk:10.0 build stage, aspnet:10.0 runtime stage
+- ASP.NET Core MVC 10.0 - Controllers + Razor views (`Microsoft.NET.Sdk.Web` SDK in `DeckFlow.Web.csproj`).
+- Swashbuckle.AspNetCore 7.0.0 - Swagger UI exposed at `/swagger` in Development (registered in `DeckFlow.Web/Program.cs:148-163`).
+- Microsoft.AspNetCore.RateLimiting (built-in) - Fixed window rate limiter on feedback submit (5/hr per IP), `DeckFlow.Web/Program.cs:130-146`.
+- System.CommandLine 2.0.0-beta4.22272.1 - CLI parsing in `DeckFlow.CLI` (`Program.cs`, `CommandRunners.cs`).
 
 **Testing:**
-- xunit 2.9.3 — test framework for both `DeckFlow.Core.Tests` and `DeckFlow.Web.Tests`
-- xunit.runner.visualstudio 3.1.4 — VS / dotnet test integration
-- Microsoft.NET.Test.Sdk 17.14.1
-- coverlet.collector 6.0.4 — code coverage (Core.Tests only)
+- xUnit 2.9.3 - Both test projects (`DeckFlow.Core.Tests`, `DeckFlow.Web.Tests`).
+- xunit.runner.visualstudio 3.1.4 - VS test discovery.
+- Microsoft.NET.Test.Sdk 17.14.1 - Test SDK.
+- RichardSzalay.MockHttp 7.0.0 - HTTP mocking, used in `DeckFlow.Web.Tests` (e.g., `CommanderSpellbookServiceTests`).
+- coverlet.collector 6.0.4 - Code coverage in `DeckFlow.Core.Tests`.
+
+**Build/Dev:**
+- TypeScript 6.0.2 (npm) plus `Microsoft.TypeScript.MSBuild` 5.2.2 - TS compiles in MSBuild `BeforeTargets="Build"` target in `DeckFlow.Web.csproj`.
+- ESLint 10.2.0 (devDependency in `DeckFlow.Web/package.json`) - Not wired into MSBuild.
+- MSBuild custom target `ZipDeckFlowBridge` - Zips `browser-extensions/deckflow-bridge/` to `wwwroot/extensions/deckflow-bridge.zip` on every `Build`/`Publish`.
 
 ## Key Dependencies
 
 **Critical:**
-- `RestSharp` 114.0.0 — HTTP client used throughout Core and Web for all external API calls (Scryfall, Archidekt, Moxfield, EDHREC, EdhTop16)
-- `Microsoft.Data.Sqlite` 10.0.0 — SQLite storage for category knowledge DB (used in both Core and Web)
-- `Polly` 8.1.0 — resilience/retry policies in `DeckFlow.Core`
-- `Markdig` 0.38.0 — Markdown-to-HTML rendering for Help content pages in `DeckFlow.Web`
+- RestSharp 114.0.0 - Single HTTP client abstraction for all upstream calls, used by every `DeckFlow.Web/Services/*Service.cs` and `DeckFlow.Core/Integration/*ApiDeckImporter.cs`.
+- Polly 8.x - Resilience pipelines registered as named `ResiliencePipeline<RestResponse>` (banlist, spellbook, tagger, tagger-post, scryfall) in `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs`. Services resolve via `ResiliencePipelineProvider<string>`. `DeckFlow.Core/Integration/ArchidektApiDeckImporter.cs` still uses legacy Polly `AsyncRetryPolicy` directly.
+- Markdig 0.38.0 - Help-content Markdown rendering (`HelpContentService.cs`).
+- Microsoft.Extensions.Caching.Memory (built-in via `AddMemoryCache()`) - Cache layer for ban list, search results, session cache, etc.
 
 **Infrastructure:**
-- `Serilog.AspNetCore` 9.0.0 — structured logging host integration
-- `Serilog.Sinks.Console` 6.0.0 — console sink (Development only)
-- `Serilog.Sinks.File` 6.0.0 / 7.0.0 — rolling file sink, 14-day retention (`DeckFlow.Web/logs/`, `DeckFlow.CLI`)
-- `Microsoft.Extensions.Logging.Abstractions` 10.0.0 — logging interfaces in Core
-- `System.Threading.RateLimiting` — built-in .NET rate limiter used for feedback-submit endpoint (5 req/hr per IP)
+- Microsoft.Data.Sqlite 10.0.0 - Default storage for `feedback.db` and `category-knowledge.db` under `MTG_DATA_DIR`.
+- Npgsql 10.0.0 - Optional Postgres provider (toggled via `DECKFLOW_DATABASE_PROVIDER=Postgres`).
+- Serilog.AspNetCore 9.0.0 + Serilog.Sinks.Console 6.0.0 + Serilog.Sinks.File 6.0.0 - Structured logging, configured in `DeckFlow.Web/Program.cs:34-47`. Logs roll daily to `logs/web-.log` (14-file retention).
+- Serilog 4.2.0 + Serilog.Sinks.File 7.0.0 - Used directly by `DeckFlow.CLI`.
+- Microsoft.Extensions.Logging.Abstractions 10.0.0 - Used in `DeckFlow.Core` (no Serilog dependency in core).
 
 ## Configuration
 
-**Environment Variables:**
-- `MTG_DATA_DIR` — base directory for SQLite knowledge DB and ChatGPT artifacts (defaults to `./` locally, `/data` in Docker/Fly)
-- `FEEDBACK_ADMIN_USER` / `FEEDBACK_ADMIN_PASSWORD` — Basic Auth credentials for `/Admin` routes
-- `FEEDBACK_IP_SALT` — salt for IP address hashing in feedback store
-- `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER` — set `true` to suppress dev auto-browser launch
-- `ASPNETCORE_ENVIRONMENT` — `Development` or `Production`
-- `PORT` — overrides default listen port (8080) in Docker entrypoint
-
-**Config Files:**
-- `DeckFlow.Web/appsettings.json` — Logging levels only; no secrets
-- `DeckFlow.Web/appsettings.Development.json` — dev overrides
-- `DeckFlow.Web/tsconfig.json` — TypeScript: target es2017, no modules, strict mode, out to `wwwroot/js/`
-- `Directory.Build.props` — NuGet fallback folder suppression (cross-platform portability)
-- `fly.toml` — Fly.io deployment config (app: `mtg-deck-studio`, region: sea, shared-cpu-1x, 512MB)
+**Environment:**
+- Configured via environment variables; no `.env` file present in repo.
+- Required for production: `ASPNETCORE_ENVIRONMENT=Production`, `MTG_DATA_DIR=/data`, `PORT` (Render/Fly inject).
+- Optional: `DECKFLOW_DATABASE_PROVIDER` (`Sqlite`|`Postgres`), `DECKFLOW_DATABASE_CONNECTION_STRING`, `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD`, `FEEDBACK_IP_SALT`, `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER`.
+- App-level: `DeckFlow.Web/appsettings.json` (logging defaults, allowed hosts) and `appsettings.Development.json` (logging override).
+- `DeckFlow.Web/Properties/launchSettings.json` - Local dev URLs `http://localhost:5173` / `https://localhost:7173`.
 
 **Build:**
-- MSBuild `CompileTypeScriptAssets` target runs `tsc` before every build
-- MSBuild `ZipDeckFlowBridge` target packages browser extension into `wwwroot/extensions/deckflow-bridge.zip`
-- `TypeScriptCompileBlocked=true` suppresses the default TS MSBuild behavior; custom target controls it
+- `Directory.Build.props` - Clears NuGet fallback folders.
+- `DeckFlow.sln` - Solution file referencing all 5 projects.
+- `DeckFlow.Web/tsconfig.json` - Strict TS config.
+- `Dockerfile` - Multi-stage build (sdk:10.0 -> aspnet:10.0).
+- `render.yaml` - Render Blueprint (Docker, starter plan, `/data` disk, `mtg-deck-studio` service name).
+- `fly.toml` - Fly.io app `mtg-deck-studio`, Seattle region, shared-cpu-1x/512MB, `/data` mount.
 
 ## Platform Requirements
 
 **Development:**
-- WSL2 or Windows; .NET 10 SDK; Node.js 20 (for `npm install typescript`)
-- Visual Studio or `dotnet` CLI
+- .NET 10 SDK.
+- Node.js (any recent version) + npm install once in `DeckFlow.Web/` to populate `node_modules/typescript` for the MSBuild TypeScript target.
+- Cross-platform: WSL2, Linux, and Windows are all first-class targets. `Directory.Build.props` exists specifically because Windows VS shared NuGet cache breaks WSL restores.
+- IIS Express + IIS profiles defined for Windows-only Visual Studio runs (`launchSettings.json`).
 
 **Production:**
-- Fly.io (configured); Docker container, aspnet:10.0 runtime image
-- Persistent volume mounted at `/data` for SQLite DB and artifact storage
-- Reverse proxy terminates TLS; app listens on HTTP port 8080; `UseForwardedHeaders` enabled
+- Containerized .NET 10 on Linux. Listens on `${PORT:-8080}` over HTTP behind a TLS-terminating reverse proxy (Render or Fly). `UseForwardedHeaders` honors `X-Forwarded-{For,Proto,Host}` so HTTPS redirection and `SameOriginRequestValidator` see the browser's scheme.
+- Persistent disk mounted at `/data` (Render `mtg-data` 1 GB; Fly `mtg_data` volume) holds SQLite DBs and ChatGPT artifacts.
 
 ---
 
-*Stack analysis: 2026-04-26*
+*Stack analysis: 2026-04-29*
