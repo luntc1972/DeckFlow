@@ -42,6 +42,18 @@ Postgres is intended for hosted deployments where local files should not be the 
 
 DeckFlow creates its feedback and category/cache tables and indexes automatically on first use. You only need to provide the Postgres database, user, and connection string.
 
+### Postgres integration tests
+
+By default, `dotnet test` skips Postgres integration tests because they require Docker.
+
+To run them:
+
+1. Ensure Docker (Desktop on Windows/macOS, daemon on Linux) is running and reachable from the test process. On WSL, enable Docker Desktop's WSL integration.
+2. Set the env var: `DECKFLOW_POSTGRES_TESTS=1`
+3. Run: `dotnet test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter "FullyQualifiedName~PostgresStorageTests"`
+
+Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the tests against the live database, and dispose the container at the end.
+
 ## Highlights
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
