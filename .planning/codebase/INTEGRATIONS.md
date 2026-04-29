@@ -1,165 +1,150 @@
 # External Integrations
 
-**Analysis Date:** 2026-04-26
+**Analysis Date:** 2026-04-29
 
 ## APIs & External Services
 
-**MTG Card Data — Scryfall:**
-- Service: Scryfall REST API — card search, bulk card lookup by ID, named card lookup, rulings, sets, Tagger tags
-- Base URL: `https://api.scryfall.com` (`DeckFlow.Web/Services/ScryfallRestClientFactory.cs`)
-- Tagger URL: `https://tagger.scryfall.com` (`DeckFlow.Web/Services/ScryfallTaggerService.cs`)
-- SDK/Client: RestSharp `RestClient` via `ScryfallRestClientFactory.Create()`
-- Auth: None (public API); User-Agent: `DeckFlow/1.0 (+https://github.com/luntc1972/DeckFlow)`
-- Rate limiting: `ScryfallThrottle.cs` enforces per-request throttle; Polly retries in Core
-- Endpoints used: `cards/collection` (POST), `cards/search`, `cards/named`, `cards/{id}/rulings`, `sets/*`
-- Consumers: `ScryfallCardSearchService`, `ScryfallCardLookupService`, `ScryfallCommanderSearchService`, `ScryfallSetService`, `ScryfallTaggerService`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, `ChatGptDeckPacketService`
+**Card data (Scryfall):**
+- `https://api.scryfall.com/` - Card lookup, search, set listings.
+  - Named HttpClient: `"scryfall-rest"` registered in `DeckFlow.Web/Program.cs:75-80`.
+  - Wrapper: `DeckFlow.Web/Services/ScryfallRestClientFactory.cs` (`IScryfallRestClientFactory`) issues `RestClient` over the named `HttpClient`.
+  - Throttle: `DeckFlow.Web/Services/ScryfallThrottle.cs` - Process-wide `SemaphoreSlim` enforcing 200ms pacing and 429 retry; wraps every Scryfall call.
+  - Resilience pipeline: `"scryfall"` in `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs` (30s total timeout outermost, retry x2 on 5xx only - 429 deferred to throttle).
+  - Consumers: `ScryfallCardLookupService.cs`, `ScryfallCardSearchService.cs`, `ScryfallCommanderSearchService.cs`, `ScryfallSetService.cs`, `ScryfallTaggerService.cs` (set/number resolution), and `ChatGptDeckPacketService.cs` (batched in `ScryfallBatchSize = 75` chunks).
+  - Auth: None. User-Agent `DeckFlow/1.0 (+https://github.com/luntc1972/DeckFlow)`.
 
-**MTG Deck Platform — Moxfield:**
-- Service: Moxfield private API — deck import by deck ID
-- Base URL: `https://api.moxfield.com/v2/decks/all/{deckId}` (`DeckFlow.Core/Integration/MoxfieldApiUrl.cs`)
-- SDK/Client: RestSharp in `DeckFlow.Core/Integration/MoxfieldApiDeckImporter.cs`
-- Auth: None for public decks; private decks require browser session cookie relayed via browser extension
-- Headers: `Referer: https://moxfield.com/`
-- Consumer: `MoxfieldApiDeckImporter` (registered as `IMoxfieldDeckImporter`)
+- `https://tagger.scryfall.com/` - Community oracle/functional tag GraphQL endpoint (CSRF-protected).
+  - Typed HttpClient: `ScryfallTaggerHttpClient` registered in `DeckFlow.Web/Program.cs:85-98`.
+  - Primary handler: `SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, PooledConnectionLifetime = 5min }`. CSRF tokens are explicitly replayed via headers (no `CookieContainer`).
+  - Session cache: `DeckFlow.Web/Services/TaggerSessionCache.cs` (`ITaggerSessionCache`) with 270s TTL (30s buffer below the 5-min handler lifetime).
+  - Pipelines: `"tagger"` (GET path - retry x3 exponential+jitter, 8s timeout, CB 50%/30s) and `"tagger-post"` (POST path, no retry because GraphQL POST is non-idempotent).
+  - Consumer: `DeckFlow.Web/Services/ScryfallTaggerService.cs` (`IScryfallTaggerService`).
 
-**MTG Deck Platform — Archidekt:**
-- Service: Archidekt REST API — deck import, recent decks via websocket endpoint
-- Base URL: `https://archidekt.com` / `https://websockets.archidekt.com` (`DeckFlow.Core/Integration/`)
-- Deck URL pattern: `https://archidekt.com/api/decks/{deckId}/`
-- SDK/Client: RestSharp in `DeckFlow.Core/Integration/ArchidektApiDeckImporter.cs` and `ArchidektRecentDecksImporter.cs`
-- Auth: None; `Referer: https://archidekt.com/` header
-- Consumer: `ArchidektApiDeckImporter` (registered as `IArchidektDeckImporter`), `ArchidektCacheJobService` (background service polling recent decks)
+**Commander metadata:**
+- `https://mtgcommander.net/index.php/banned-list/` - HTML scrape of the official Commander banned list.
+  - Named HttpClient: `"commander-banlist"` (`DeckFlow.Web/Program.cs:63-67`).
+  - Pipeline: `"banlist"` - retry x2 (200ms constant), 5s attempt timeout, no circuit breaker.
+  - Consumer: `DeckFlow.Web/Services/CommanderBanListService.cs` (6 hr in-memory cache).
 
-**Commander Combo Lookup — Commander Spellbook:**
-- Service: Commander Spellbook GraphQL-style REST API — combo lookup by card list
-- URL: `https://backend.commanderspellbook.com/find-my-combos` (`DeckFlow.Web/Services/CommanderSpellbookService.cs`)
-- Also used as intermediary: `https://backend.commanderspellbook.com/card-list-from-url` (Moxfield import path)
-- SDK/Client: `HttpClient` (raw) in `CommanderSpellbookService`; RestSharp for card-list-from-url in `MoxfieldApiDeckImporter`
-- Auth: None
+- `https://backend.commanderspellbook.com/` - Combo lookup + Moxfield deck fallback.
+  - Named HttpClient: `"commander-spellbook"` (`DeckFlow.Web/Program.cs:69-73`).
+  - Pipeline: `"spellbook"` - retry x3 exponential+jitter, 10s timeout, CB 50%/30s.
+  - Endpoints used: `find-my-combos` (combo search) and `card-list-from-url` (Moxfield fallback when Moxfield blocks the cloud egress IP).
+  - Consumer: `DeckFlow.Web/Services/CommanderSpellbookService.cs`. Fallback callsite: `DeckFlow.Core/Integration/MoxfieldApiDeckImporter.cs:FetchViaCommanderSpellbookAsync`.
 
-**EDH Card Data — EDHREC:**
-- Service: EDHREC JSON data — card recommendations by card slug
-- Base URL: `https://json.edhrec.com` (`DeckFlow.Core/Integration/EdhrecCardLookup.cs`)
-- URL pattern: `https://json.edhrec.com/pages/cards/{slug}.json`
-- SDK/Client: RestSharp in `EdhrecCardLookup`
-- Auth: None; `Referer: https://edhrec.com/`
+- `https://edhtop16.com/api/graphql` - cEDH tournament results GraphQL.
+  - Direct `RestClient` (no named factory) in `DeckFlow.Web/Services/EdhTop16Client.cs:21`. Endpoint hardcoded; injectable `executeAsync` for tests.
+  - Consumer: `DeckFlow.Web/Services/ChatGptCedhMetaGapService.cs`.
 
-**EDH Tournament Data — EdhTop16:**
-- Service: EdhTop16 GraphQL API — commander tournament meta data
-- URL: `https://edhtop16.com/api/graphql` (`DeckFlow.Web/Services/EdhTop16Client.cs`)
-- SDK/Client: RestSharp in `EdhTop16Client`
-- Auth: None; POST with GraphQL query body
+- `https://json.edhrec.com/pages/cards/` - EDHREC card lookup JSON.
+  - Consumer: `DeckFlow.Core/Integration/EdhrecCardLookup.cs` (used by `CategorySuggestionService` for the EdhrecCategories source).
 
-**Commander Rules — MTGCommander.net:**
-- Service: Commander ban list scraping
-- URL: `https://mtgcommander.net/index.php/banned-list/` (`DeckFlow.Web/Services/CommanderBanListService.cs`)
-- SDK/Client: Raw `HttpClient`; result cached in `IMemoryCache`
-- Auth: None
+- `https://magic.wizards.com/en/rules` - Wizards of the Coast Comprehensive Rules HTML page.
+  - Consumer: `DeckFlow.Web/Services/MechanicLookupService.cs` (`WotcMechanicLookupService`). Resolves the link to the Comprehensive Rules text file and caches the document for 6 hr.
 
-**Official Rules — Wizards of the Coast:**
-- Service: WotC comprehensive rules document scraping for mechanic lookup
-- URL: `https://magic.wizards.com/en/rules` (`DeckFlow.Web/Services/MechanicLookupService.cs`)
-- SDK/Client: RestSharp
-- Auth: None; result cached in `IMemoryCache` with key `wotc-mechanic-rules-document`
+**Deck import sources:**
+- `https://api.moxfield.com/v2/decks/all/` - Moxfield deck JSON.
+  - Consumer: `DeckFlow.Core/Integration/MoxfieldApiDeckImporter.cs` (`IMoxfieldDeckImporter`).
+  - Falls back to Commander Spellbook `card-list-from-url` when Moxfield returns cloud-edge block (e.g., 403/429 on cloud IPs).
+  - Browser-extension fallback: `browser-extensions/deckflow-bridge/` (Manifest V3) reads the user's logged-in Moxfield session client-side.
 
-**ChatGPT / OpenAI (indirect):**
-- Integration is prompt-generation only — DeckFlow generates structured text packets for users to paste into ChatGPT
-- No direct API calls; no OpenAI SDK; no API key required
-- Artifacts: JSON/text packets written to `MTG_DATA_DIR` directory by `ChatGptArtifactsDirectory`, `ChatGptPacketArtifactStore`
-- Services: `ChatGptDeckPacketService`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, `ChatGptResponseParsers`
+- `https://archidekt.com/api/decks/` - Archidekt deck JSON.
+  - Consumer: `DeckFlow.Core/Integration/ArchidektApiDeckImporter.cs` (legacy Polly `AsyncRetryPolicy` - not migrated to v8 named pipelines yet; retry x6, exponential backoff with jitter).
+  - Recent-decks importer: `DeckFlow.Core/Integration/ArchidektRecentDecksImporter.cs` used by `CategoryKnowledgeStore` to harvest 20 decks per sweep.
+  - URL helpers: `ArchidektApiUrl.cs`, `MoxfieldApiUrl.cs`.
 
 ## Data Storage
 
 **Databases:**
-- SQLite — local file-based database for category knowledge and deck queue
-  - File location: `{MTG_DATA_DIR}/category-knowledge.db` (env-driven path)
-  - Dev artifact: `artifacts/category-knowledge.db`
-  - Client: `Microsoft.Data.Sqlite` (direct ADO.NET, no ORM)
-  - Schema managed by: `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs` (inline DDL with migrations)
-  - Tables: `card_category_observations`, `card_deck_totals`, deck queue columns
-  - Used by: `CategoryKnowledgeStore` (Web), `CategoryKnowledgeRepository` (Core)
+- Primary: SQLite (default).
+  - Files: `${MTG_DATA_DIR}/feedback.db` (admin feedback) and `${MTG_DATA_DIR}/category-knowledge.db` (Archidekt-harvested category labels).
+  - Client: `Microsoft.Data.Sqlite` 10.0.0.
+  - Connection factory: `DeckFlow.Web/Services/DeckFlowDatabaseConnectionFactory.cs`.
+- Optional: Postgres.
+  - Selected via `DECKFLOW_DATABASE_PROVIDER=Postgres` + `DECKFLOW_DATABASE_CONNECTION_STRING`.
+  - Client: `Npgsql` 10.0.0.
+  - Dialect abstraction: `DeckFlow.Core/Storage/{IRelationalDialect.cs,SqliteRelationalDialect.cs,PostgresRelationalDialect.cs}` and `RelationalDatabaseConnection.cs`.
+  - Repositories: `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs`, `DeckFlow.Web/Services/FeedbackStore.cs`, `DeckFlow.Web/Services/CategoryKnowledgeStore.cs`.
+- Startup validation: `Program.cs:ValidateDatabaseConnectionsAsync` runs `CountAsync` and `GetProcessedDeckCountAsync` on Production startup so misconfigured DBs fail fast.
 
 **File Storage:**
-- Local filesystem only — ChatGPT artifact JSON/text files persisted under `MTG_DATA_DIR`
-- Fly.io persistent volume (`mtg_data`) mounted at `/data` keeps DB and artifacts across restarts
-- Help content: Markdown files in `DeckFlow.Web/Help/` copied to output; served via `HelpContentService`
+- Local filesystem under `MTG_DATA_DIR` (production: `/data` mount on Render disk or Fly volume).
+  - ChatGPT artifacts: `DeckFlow.Web/Services/ChatGptArtifactsDirectory.cs` and `ChatGptPacketArtifactStore.cs`.
+  - Held-content includes generated prompts, deck-comparison packets, set-upgrade results.
+- Markdown help content shipped from `DeckFlow.Web/Help/**/*.md` (`PreserveNewest` copy-to-output).
+- Browser extension zip: `DeckFlow.Web/wwwroot/extensions/deckflow-bridge.zip` produced by `ZipDeckFlowBridge` MSBuild target.
+- Logs: `DeckFlow.Web/logs/web-YYYYMMDD.log` (Serilog file sink, daily rolling, 14 retained).
 
 **Caching:**
-- `IMemoryCache` (ASP.NET Core in-memory) — card search results, commander ban list, spellbook results, WotC rules document
-- Services explicitly call `TryGetValue` / `Set` on `IMemoryCache`; no distributed cache
+- In-process `IMemoryCache` (`AddMemoryCache()` in `Program.cs:56`).
+  - Used by `CommanderBanListService` (6 hr), `WotcMechanicLookupService` (6 hr), `ScryfallCommanderSearchService`, etc.
+- `TaggerSessionCache` (singleton) - Custom 270s TTL session/CSRF cache for the Tagger flow.
+- Background harvest worker: `ArchidektCacheJobService` (`AddHostedService`) periodically populates `category-knowledge.db`.
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- No user authentication — application is public with no login
-- Admin routes (`/Admin`) protected by HTTP Basic Auth middleware
-  - Implementation: `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs`
-  - Credentials sourced from `FEEDBACK_ADMIN_USER` / `FEEDBACK_ADMIN_PASSWORD` environment variables
-
-**Request Integrity:**
-- `SameOriginRequestValidator` (`DeckFlow.Web/Infrastructure/`) validates `Origin` header for state-mutating requests
-- `UseForwardedHeaders` middleware ensures correct scheme/host behind Fly.io/Render proxy
-- Security headers applied via `UseDeckFlowSecurityHeaders()` (`SecurityHeadersApplicationBuilderExtensions.cs`)
-- Rate limiter on `feedback-submit` policy: 5 requests/hour per IP (`Program.cs`)
+- No third-party identity provider. The application is unauthenticated for end users.
+- Admin endpoints (`/Admin/**`): HTTP Basic auth via `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs`.
+  - Credentials sourced from `FEEDBACK_ADMIN_USER` / `FEEDBACK_ADMIN_PASSWORD` environment variables.
+  - Returns 503 when env vars are missing (so admin is "off" by default).
+  - Constant-time compare via `CryptographicOperations.FixedTimeEquals`.
+- CSRF / origin enforcement: `DeckFlow.Web/Security/SameOriginRequestValidator.cs` validates `Origin`/`Referer` header matches request scheme+host+port for browser callers. Non-browser callers (no Origin/Referer) are allowed.
+- Forwarded headers: `app.UseForwardedHeaders()` runs before HTTPS redirection so the validator sees the public HTTPS scheme behind Render/Fly proxies (`KnownIPNetworks` and `KnownProxies` are cleared because Render assigns dynamic proxy IPs).
+- Security headers: `DeckFlow.Web/Infrastructure/SecurityHeadersApplicationBuilderExtensions.cs` sets CSP `default-src 'self'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()` on every response (CSP suppressed for `/swagger`).
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None (no Sentry, Datadog, etc.)
+- None (no Sentry, App Insights, or equivalent integration).
 
 **Logs:**
-- Serilog structured logging throughout
-- Development: console + rolling file at `DeckFlow.Web/logs/web-.log`
-- Production: file only; 14-day retention
-- `UseSerilogRequestLogging()` for HTTP request logs
-- CLI: Serilog file sink only (`DeckFlow.CLI`)
+- Serilog (`Program.cs:34-47`):
+  - Console sink (active in all environments because Render captures stdout/stderr).
+  - File sink at `ContentRoot/logs/web-.log`, daily rolling, 14 file retention.
+  - `UseSerilogRequestLogging()` adds per-request log entries.
+  - `Log.Fatal` on host-startup failure; `Log.CloseAndFlush()` in `finally`.
+- `DeckFlow.CLI` writes its own Serilog file sink (`Serilog.Sinks.File` 7.0.0).
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Fly.io (primary) — app name `mtg-deck-studio`, region `sea`, shared-cpu-1x, 512MB RAM
-- Auto-stop/auto-start enabled; min 0 machines running (scales to zero)
-- Health check: `GET /` every 15s
-
-**Container:**
-- Docker multi-stage build — `Dockerfile` at repo root
-- Build image: `mcr.microsoft.com/dotnet/sdk:10.0` + Node.js 20
-- Runtime image: `mcr.microsoft.com/dotnet/aspnet:10.0`
+- Render (primary): `render.yaml` declares `type: web`, `runtime: docker`, plan `starter`, `healthCheckPath: /`, autoDeploy true. Disk `mtg-data` (1 GB) at `/data`.
+- Fly.io (alternate): `fly.toml`, region `sea`, shared-cpu-1x / 512 MB, volume `mtg_data` mounted at `/data`, `force_https=true`, `auto_stop_machines=stop`, `min_machines_running=0`. Health check `GET /` every 15s with 30s grace.
+- Both honor `${PORT}` from the platform; Dockerfile entrypoint: `ASPNETCORE_URLS=http://+:${PORT:-8080} exec dotnet DeckFlow.Web.dll`.
 
 **CI Pipeline:**
-- None detected (no GitHub Actions, no `.github/` directory)
-
-## Browser Extension
-
-**DeckFlow Bridge** (`browser-extensions/deckflow-bridge/`):
-- Manifest V3 Chrome/Edge extension
-- Purpose: relays Moxfield private deck data from user's authenticated browser session to DeckFlow server
-- Host permissions: `https://moxfield.com/*`, `https://api.moxfield.com/*`, `https://api2.moxfield.com/*`
-- Packaged automatically into `wwwroot/extensions/deckflow-bridge.zip` by MSBuild `ZipDeckFlowBridge` target
-- Served as a download from DeckFlow.Web
+- None checked into the repo (no `.github/workflows`, `azure-pipelines.yml`, `Jenkinsfile`, or similar). Render's auto-deploy triggers on `git push` per `render.yaml: autoDeploy: true`.
 
 ## Environment Configuration
 
-**Required env vars (production):**
-- `MTG_DATA_DIR` — persistent data directory (SQLite DB + artifacts)
-- `FEEDBACK_ADMIN_USER` — admin Basic Auth username
-- `FEEDBACK_ADMIN_PASSWORD` — admin Basic Auth password
-- `FEEDBACK_IP_SALT` — HMAC salt for IP hashing in feedback log
-- `ASPNETCORE_ENVIRONMENT` — set to `Production`
+**Required env vars:**
+- `ASPNETCORE_ENVIRONMENT` - `Production` for Render/Fly; `Development` enables Swagger UI and auto browser launch.
+- `MTG_DATA_DIR` - Filesystem path for SQLite DBs and ChatGPT artifacts. Defaults to `<contentRoot>/../artifacts` when unset (dev only). Production uses `/data`.
+- `PORT` - Injected by Render/Fly; consumed in the Dockerfile entrypoint.
 
 **Optional env vars:**
-- `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER=true` — suppresses dev auto-launch
-- `PORT` — overrides listen port (default 8080)
+- `DECKFLOW_DATABASE_PROVIDER` - `Sqlite` (default) or `Postgres`.
+- `DECKFLOW_DATABASE_CONNECTION_STRING` - Required when provider is Postgres; for SQLite either a `Data Source=...` string or a bare path that gets wrapped in `SqliteConnectionStringBuilder`.
+- `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD` - Enables `/Admin/**` Basic auth. Both must be non-empty or middleware returns 503.
+- `FEEDBACK_IP_SALT` - Salt for hashing IPs in `FeedbackStore` (privacy).
+- `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER` - Set to `true` to skip the Development browser auto-launch.
 
 **Secrets location:**
-- Environment variables only; no secrets files committed; `.env` files not detected in repo
+- Provided by hosting platform's secret store (Render Environment Variables, Fly secrets). No `.env` files are committed; none exist in the repo at the time of this analysis.
 
 ## Webhooks & Callbacks
 
-**Incoming:** None
+**Incoming:**
+- None. The app exposes only browser-driven UI endpoints (Razor controllers) and JSON APIs under `DeckFlow.Web/Controllers/Api/` consumed by the same UI / browser extension.
+- Health probes: `GET /` (Render `healthCheckPath`, Fly `[[http_service.checks]]`).
 
-**Outgoing:** None (all external calls are request-response polling; no webhook subscriptions)
+**Outgoing:**
+- None. All upstream traffic is request/response (no published webhooks or push subscriptions).
+
+**Browser extension surface:**
+- `browser-extensions/deckflow-bridge/manifest.json` (Manifest V3) declares host permissions for `https://moxfield.com/*`, `https://api.moxfield.com/*`, `https://api2.moxfield.com/*`. The extension fetches Moxfield deck data from the user's logged-in browser session and posts back into the DeckFlow page via content script `deckflow-bridge.js` and service worker `background.js`.
 
 ---
 
-*Integration audit: 2026-04-26*
+*Integration audit: 2026-04-29*
