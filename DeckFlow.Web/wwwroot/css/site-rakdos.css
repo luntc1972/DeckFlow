@@ -10,6 +10,9 @@
   --accent: #d13b47;
   --accent-strong: #a92434;
 
+  /* UI-VS-02: override --link so error-on-red is visually distinct from body link */
+  --link: #ff9ea4;
+
   --panel-soft-bg: #2a171b;
   --rakdos-neon: #ef6a74;
   --theme-secondary: var(--rakdos-neon);
