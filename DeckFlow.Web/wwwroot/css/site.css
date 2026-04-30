@@ -115,7 +115,7 @@ summary:focus-visible,
 
 .hero h1 {
   margin: 0 0 0.35rem;
-  font-size: 1.9rem;
+  font-size: var(--fs-2xl);
 }
 
 .lede {
@@ -157,7 +157,7 @@ summary:focus-visible,
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
   margin-bottom: 1rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -227,7 +227,7 @@ summary:focus-visible,
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   margin-left: 0.4rem;
   cursor: default;
@@ -323,7 +323,7 @@ summary:focus-visible,
 
 .chatgpt-step-eyebrow {
   margin: 0 0 0.35rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--theme-secondary);
@@ -344,7 +344,7 @@ summary:focus-visible,
   border: 1px solid var(--theme-secondary-soft);
   background: var(--theme-secondary-bg);
   color: var(--theme-secondary);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
@@ -516,7 +516,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border: 1px solid var(--line);
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.65rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
   padding: 0.2rem 0.45rem;
   line-height: 1;
@@ -595,7 +595,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border-radius: 8px;
   cursor: pointer;
   margin-bottom: 0.35rem;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .clear-cache-button:hover {
@@ -651,7 +651,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 }
 
 .busy-indicator__progress {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
   margin-top: 0.35rem;
   letter-spacing: 0.02em;
@@ -731,7 +731,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   background: var(--panel-soft-bg);
   color: var(--ink);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -780,7 +780,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.55rem 1rem;
   color: var(--ink);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   white-space: nowrap;
 }
 
@@ -898,14 +898,14 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .sync-column__header p {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
 }
 
 .sync-column__status {
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;
@@ -915,7 +915,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .sync-column__description {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -932,7 +932,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .sync-column__hint {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .field span,
@@ -999,7 +999,7 @@ select {
   border-radius: 999px;
   background: var(--info, #eef3f8);
   color: var(--ink);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .cache-pill__reset {
@@ -1139,7 +1139,7 @@ pre {
   }
 
   .hero h1 {
-    font-size: 1.5rem;
+    font-size: var(--fs-xl);
   }
 
   .chatgpt-step-nav {
@@ -1147,7 +1147,7 @@ pre {
   }
 
   .chatgpt-step-tab {
-    font-size: 0.9rem;
+    font-size: var(--fs-base);
     padding: 0.4rem 0.6rem;
   }
 }
@@ -1199,7 +1199,7 @@ pre {
   align-items: center;
   margin: 1.5rem 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   text-align: center;
 }
 
@@ -1260,7 +1260,7 @@ pre {
 .judge-howto__fallback {
   margin: 0.25rem 0 0 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .deckflow-bridge-hint {
@@ -1290,7 +1290,7 @@ pre {
 }
 
 .deckflow-bridge-hint__details-link {
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   color: var(--muted);
   text-decoration: underline;
 }
@@ -1308,7 +1308,7 @@ pre {
 .deckflow-bridge-hint__fallback {
   margin: 0.25rem 0 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .moxfield-bulkedit-hint {
