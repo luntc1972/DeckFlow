@@ -71,7 +71,7 @@
                         <a asp-action="Detail" asp-route-id="@item.Id">View</a>
                         @if (item.Status != FeedbackStatus.Archived)
                         {
-                            <form method="post" asp-action="Apply" asp-route-id="@item.Id" asp-route-op="archive" style="display:inline">
+                            <form method="post" asp-action="Apply" asp-route-id="@item.Id" asp-route-op="archive" class="admin-action-form">
                                 @Html.AntiForgeryToken()
                                 <button type="submit">Archive</button>
                             </form>
