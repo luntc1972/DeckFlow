@@ -29,7 +29,7 @@ Address Visual Hierarchy gap on the home hub (Visuals 3/4) and inline-style usag
 Wins flagged in Copywriting (3/4) and Experience Design (3/4) pillars.
 
 - [x] **UX-01**: Replace generic "Submit" verb in `_MoxfieldBulkEditHint.cshtml` with action-specific copy that mirrors the actual button label ("Run Compare" or "Look Up")
-- [ ] **UX-02**: Add submit busy-state to `/feedback` form — disable button + spinner while POSTing so users know the click registered
+- [x] **UX-02**: Add submit busy-state to `/feedback` form — disable button + spinner while POSTing so users know the click registered
 - [x] **UX-03**: Reconcile voice mismatch between page `<title>` (verb-noun) and `<h1>` (noun-only) on the Feedback page — pick one convention and align
 
 ### Tech-Debt Cleanup (TD)
@@ -106,7 +106,7 @@ Mapping from REQ-ID to roadmap phase. Populated during roadmap creation.
 | UI-LH-01 | Phase 2 | Complete |
 | UI-LH-02 | Phase 2 | Complete |
 | UX-01 | Phase 2 | Complete |
-| UX-02 | Phase 2 | Pending |
+| UX-02 | Phase 2 | Complete |
 | UX-03 | Phase 2 | Complete |
 | TD-01 | Phase 3 | Pending |
 | TD-02 | Phase 3 | Pending |
@@ -122,4 +122,4 @@ Mapping from REQ-ID to roadmap phase. Populated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-30*
-*Last updated: 2026-04-30 — traceability mapped to 4-phase roadmap*
+*Last updated: 2026-04-30 — UX-02 closed by Phase 02 Plan 03 (see `.planning/phases/02-layout-hierarchy-ux-copy/02-03-SUMMARY.md`)*
