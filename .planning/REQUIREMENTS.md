@@ -21,16 +21,16 @@ Address the lowest-scoring audit pillars (Color 2/4, Typography 2/4) by hardenin
 
 Address Visual Hierarchy gap on the home hub (Visuals 3/4) and inline-style usage flagged by audit.
 
-- [ ] **UI-LH-01**: Promote a primary focal action on the home hub — single hero CTA above the grid OR `.hub-card--primary` modifier on one card per group, chosen to drive ChatGPT Analysis as the headline workflow
-- [ ] **UI-LH-02**: Move inline `style=` attributes from `Feedback/Index.cshtml` and `AdminFeedback/{Index,Detail}.cshtml` into named CSS classes (`.feedback-panel`, `.admin-feedback-detail`, `.admin-action-form`)
+- [x] **UI-LH-01**: Promote a primary focal action on the home hub — single hero CTA above the grid OR `.hub-card--primary` modifier on one card per group, chosen to drive ChatGPT Analysis as the headline workflow
+- [x] **UI-LH-02**: Move inline `style=` attributes from `Feedback/Index.cshtml` and `AdminFeedback/{Index,Detail}.cshtml` into named CSS classes (`.feedback-panel`, `.admin-feedback-detail`, `.admin-action-form`)
 
 ### Copy & UX (UX)
 
 Wins flagged in Copywriting (3/4) and Experience Design (3/4) pillars.
 
-- [ ] **UX-01**: Replace generic "Submit" verb in `_MoxfieldBulkEditHint.cshtml` with action-specific copy that mirrors the actual button label ("Run Compare" or "Look Up")
+- [x] **UX-01**: Replace generic "Submit" verb in `_MoxfieldBulkEditHint.cshtml` with action-specific copy that mirrors the actual button label ("Run Compare" or "Look Up")
 - [ ] **UX-02**: Add submit busy-state to `/feedback` form — disable button + spinner while POSTing so users know the click registered
-- [ ] **UX-03**: Reconcile voice mismatch between page `<title>` (verb-noun) and `<h1>` (noun-only) on the Feedback page — pick one convention and align
+- [x] **UX-03**: Reconcile voice mismatch between page `<title>` (verb-noun) and `<h1>` (noun-only) on the Feedback page — pick one convention and align
 
 ### Tech-Debt Cleanup (TD)
 
@@ -103,11 +103,11 @@ Mapping from REQ-ID to roadmap phase. Populated during roadmap creation.
 | UI-VS-02 | Phase 1 | Pending |
 | UI-VS-03 | Phase 1 | Pending |
 | UI-VS-04 | Phase 1 | Pending |
-| UI-LH-01 | Phase 2 | Pending |
-| UI-LH-02 | Phase 2 | Pending |
-| UX-01 | Phase 2 | Pending |
+| UI-LH-01 | Phase 2 | Complete |
+| UI-LH-02 | Phase 2 | Complete |
+| UX-01 | Phase 2 | Complete |
 | UX-02 | Phase 2 | Pending |
-| UX-03 | Phase 2 | Pending |
+| UX-03 | Phase 2 | Complete |
 | TD-01 | Phase 3 | Pending |
 | TD-02 | Phase 3 | Pending |
 | TD-03 | Phase 3 | Pending |

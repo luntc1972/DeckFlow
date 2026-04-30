@@ -59,7 +59,7 @@ Experience Design (3/4) pillars.
 **UI hint**: yes
 Plans:
 - [x] 02-01-PLAN.md — site-common.css: hub hero + .hub-card--primary + amend .feedback-panel + new .admin-feedback-detail + new .admin-action-form + .feedback-submit--busy spinner (UI-LH-01, UI-LH-02, UX-02)
-- [ ] 02-02-PLAN.md — Razor markup: Home.cshtml hero + 3 .hub-card--primary; Feedback/Index.cshtml voice fix + inline-style removal; AdminFeedback Index/Detail inline-style removal; _MoxfieldBulkEditHint verb param + 6 call-site updates (UI-LH-01, UI-LH-02, UX-01, UX-03)
+- [x] 02-02-PLAN.md — Razor markup: Home.cshtml hero + 3 .hub-card--primary; Feedback/Index.cshtml voice fix + inline-style removal; AdminFeedback Index/Detail inline-style removal; _MoxfieldBulkEditHint verb param + 6 call-site updates (UI-LH-01, UI-LH-02, UX-01, UX-03)
 - [ ] 02-03-PLAN.md — feedback.ts new module + @section Scripts wiring + manual checkpoint for slow-network busy state (UX-02)
 
 ### Phase 3: Tech-Debt Cleanup
@@ -98,7 +98,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Visual System Tokens | 3/3 | Complete | 2026-04-30 |
-| 2. Layout, Hierarchy & UX Copy | 1/3 | In progress | - |
+| 2. Layout, Hierarchy & UX Copy | 2/3 | In progress | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
 | 4. Security & Bug Fixes | 0/TBD | Not started | - |
 
