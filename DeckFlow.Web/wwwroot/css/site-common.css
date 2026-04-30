@@ -377,7 +377,7 @@
 }
 .page-footer__link--cta {
     padding: 0.35rem 0.9rem;
-    border: 1px solid var(--accent-strong);
+    border: 1px solid var(--cta-border);
     border-radius: 999px;
     color: var(--accent-strong);
     background: transparent;
@@ -578,8 +578,8 @@
 }
 .feedback-submit {
     align-self: flex-start;
-    background: var(--accent-strong, #3a7);
-    color: #fff;
+    background: var(--accent-strong);
+    color: var(--on-accent);
     border: none;
     padding: 0.6rem 1.1rem;
     border-radius: 4px;
@@ -587,7 +587,7 @@
     font-weight: 600;
 }
 .feedback-submit:hover { filter: brightness(1.1); }
-.feedback-error { color: var(--accent-strong, #c55); font-size: var(--fs-sm); }
+.feedback-error { color: var(--danger); font-size: var(--fs-sm); }
 .feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
 .feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
 .feedback-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
@@ -602,7 +602,7 @@
     text-decoration: none;
     color: var(--accent-strong, inherit);
 }
-.admin-feedback-filter.active { background: var(--accent-strong); color: #fff; }
+.admin-feedback-filter.active { background: var(--link); color: var(--on-accent); }
 .admin-feedback-table { width: 100%; border-collapse: collapse; }
 .admin-feedback-table th, .admin-feedback-table td { padding: 0.5rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .admin-feedback-pagination { margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center; }
@@ -612,7 +612,7 @@
 .detail-grid dt { font-weight: 600; }
 .detail-message { white-space: pre-wrap; word-wrap: break-word; background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; }
 .detail-actions { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.detail-actions button.danger { background: #c33; color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
+.detail-actions button.danger { background: var(--danger); color: var(--on-accent); border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
 
 /* ============================================================
    Card Lookup readability redesign (shared across all themes)
@@ -742,7 +742,7 @@
 
 .copy-button.copy-button--icon.is-copied,
 .copy-button.copy-button--icon.is-copy-failed {
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .card-lookup-grid {
