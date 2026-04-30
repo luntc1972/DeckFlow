@@ -3,7 +3,7 @@
     ViewData["Title"] = $"Feedback #{Model.Id}";
 }
 
-<section class="admin-feedback-detail" style="background: var(--panel); border: 1px solid var(--line); padding: 1.5rem; border-radius: 8px; max-width: 800px; margin: 2rem auto;">
+<section class="admin-feedback-detail">
     <p><a asp-action="Index">← Back to list</a></p>
 
     <h1>Feedback #@Model.Id</h1>
@@ -24,19 +24,19 @@
     <div class="detail-actions">
         @if (Model.Status == DeckFlow.Web.Models.FeedbackStatus.New)
         {
-            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead" style="display:inline">
+            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead" class="admin-action-form">
                 @Html.AntiForgeryToken()
                 <button type="submit">Mark Read</button>
             </form>
         }
         @if (Model.Status != DeckFlow.Web.Models.FeedbackStatus.Archived)
         {
-            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive" style="display:inline">
+            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive" class="admin-action-form">
                 @Html.AntiForgeryToken()
                 <button type="submit">Archive</button>
             </form>
         }
-        <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" style="display:inline"
+        <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" class="admin-action-form"
               onsubmit="return confirm('Delete feedback #@Model.Id permanently?');">
             @Html.AntiForgeryToken()
             <button type="submit" class="danger">Delete</button>
