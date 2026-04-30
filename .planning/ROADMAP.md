@@ -55,8 +55,12 @@ Experience Design (3/4) pillars.
   3. The Moxfield bulk-edit hint copy (`_MoxfieldBulkEditHint.cshtml`) uses an action-specific verb that matches the form's actual submit button label — no generic "Submit".
   4. Submitting the public `/feedback` form on a slow connection visibly disables the button and shows a spinner/busy indicator until the server responds; double-submit is prevented.
   5. The Feedback page `<title>` and `<h1>` use the same voice convention (verb-noun OR noun-only) as the rest of the site.
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+Plans:
+- [ ] 02-01-PLAN.md — site-common.css: hub hero + .hub-card--primary + amend .feedback-panel + new .admin-feedback-detail + new .admin-action-form + .feedback-submit--busy spinner (UI-LH-01, UI-LH-02, UX-02)
+- [ ] 02-02-PLAN.md — Razor markup: Home.cshtml hero + 3 .hub-card--primary; Feedback/Index.cshtml voice fix + inline-style removal; AdminFeedback Index/Detail inline-style removal; _MoxfieldBulkEditHint verb param + 6 call-site updates (UI-LH-01, UI-LH-02, UX-01, UX-03)
+- [ ] 02-03-PLAN.md — feedback.ts new module + @section Scripts wiring + manual checkpoint for slow-network busy state (UX-02)
 
 ### Phase 3: Tech-Debt Cleanup
 **Goal**: Remove test-only types from the production assembly, standardize
