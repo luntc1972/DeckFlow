@@ -93,7 +93,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Visual System Tokens | 0/3 | Not started | - |
+| 1. Visual System Tokens | 3/3 | Complete | 2026-04-30 |
 | 2. Layout, Hierarchy & UX Copy | 0/TBD | Not started | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
 | 4. Security & Bug Fixes | 0/TBD | Not started | - |
