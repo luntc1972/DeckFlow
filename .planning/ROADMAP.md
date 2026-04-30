@@ -38,7 +38,7 @@ Typography (2/4) audit scores.
   5. Live deckflow.gg classic theme renders identically to pre-migration on the home, /feedback, /help, /about, and DeckSync pages — token migration is invisible to a casual user.
 **Plans**: 3 plans
 Plans:
-- [ ] 01-01-PLAN.md — Type scale tokens in site.css :root + replace font-size literals across site.css and site-common.css (UI-VS-01)
+- [x] 01-01-PLAN.md — Type scale tokens in site.css :root + replace font-size literals across site.css and site-common.css (UI-VS-01)
 - [ ] 01-02-PLAN.md — Semantic color tokens (--link, --danger, --cta-border, --focus) + hex literal hoist + rewire .feedback-error / .admin-feedback-filter / focus / CTA / link consumers (UI-VS-02, UI-VS-03)
 - [ ] 01-03-PLAN.md — Propagate tokens to all 25 :root files: 11 non-importer forks get explicit token block, importers inherit, Rakdos --link override for error-vs-link disambiguation, manual smoke-check checkpoint (UI-VS-04)
 
