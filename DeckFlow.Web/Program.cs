@@ -231,8 +231,7 @@ public class Program
 
             static bool IsAutoBrowserDisabled()
             {
-                var raw = Environment.GetEnvironmentVariable("DECKFLOW_DISABLE_AUTO_BROWSER")
-                    ?? Environment.GetEnvironmentVariable("MTGDECKSTUDIO_DISABLE_AUTO_BROWSER");
+                var raw = Environment.GetEnvironmentVariable("DECKFLOW_DISABLE_AUTO_BROWSER");
 
                 return string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase);
             }

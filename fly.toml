@@ -1,12 +1,13 @@
 # Fly.io configuration for DeckFlow.Web.
-# Prereqs: `fly launch --no-deploy` once (or `fly apps create mtg-deck-studio`), then:
-#   fly volumes create mtg_data --size 1 --region sea
+# Prereqs: `fly launch --no-deploy` once (or `fly apps create deckflow`), then:
+#   fly volumes create deckflow_data --size 1 --region sea
 #   fly deploy
 #
-# The volume gets mounted at /data, which MTG_DATA_DIR points to, so both the
-# SQLite knowledge DB and ChatGPT Analysis artifacts persist across restarts.
+# The volume gets mounted at /data, which MTG_DATA_DIR points to, so ChatGPT
+# Analysis artifacts persist across restarts. (Relational data lives in Postgres
+# when DECKFLOW_DATABASE_PROVIDER=Postgres; otherwise SQLite files share /data.)
 
-app = "mtg-deck-studio"
+app = "deckflow"
 primary_region = "sea"
 
 [build]
@@ -17,7 +18,7 @@ primary_region = "sea"
   MTG_DATA_DIR = "/data"
 
 [[mounts]]
-  source = "mtg_data"
+  source = "deckflow_data"
   destination = "/data"
 
 [http_service]
