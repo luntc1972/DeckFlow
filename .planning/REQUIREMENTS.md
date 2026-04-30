@@ -99,27 +99,27 @@ Mapping from REQ-ID to roadmap phase. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-VS-01 | TBD | Pending |
-| UI-VS-02 | TBD | Pending |
-| UI-VS-03 | TBD | Pending |
-| UI-VS-04 | TBD | Pending |
-| UI-LH-01 | TBD | Pending |
-| UI-LH-02 | TBD | Pending |
-| UX-01 | TBD | Pending |
-| UX-02 | TBD | Pending |
-| UX-03 | TBD | Pending |
-| TD-01 | TBD | Pending |
-| TD-02 | TBD | Pending |
-| TD-03 | TBD | Pending |
-| TD-04 | TBD | Pending |
-| BUG-01 | TBD | Pending |
-| BUG-02 | TBD | Pending |
+| UI-VS-01 | Phase 1 | Pending |
+| UI-VS-02 | Phase 1 | Pending |
+| UI-VS-03 | Phase 1 | Pending |
+| UI-VS-04 | Phase 1 | Pending |
+| UI-LH-01 | Phase 2 | Pending |
+| UI-LH-02 | Phase 2 | Pending |
+| UX-01 | Phase 2 | Pending |
+| UX-02 | Phase 2 | Pending |
+| UX-03 | Phase 2 | Pending |
+| TD-01 | Phase 3 | Pending |
+| TD-02 | Phase 3 | Pending |
+| TD-03 | Phase 3 | Pending |
+| TD-04 | Phase 3 | Pending |
+| BUG-01 | Phase 4 | Pending |
+| BUG-02 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 15 ⚠ (will be 0 after roadmap)
+- Mapped to phases: 15
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-30*
-*Last updated: 2026-04-30 after initialization*
+*Last updated: 2026-04-30 — traceability mapped to 4-phase roadmap*
