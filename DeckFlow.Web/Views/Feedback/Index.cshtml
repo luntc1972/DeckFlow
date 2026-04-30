@@ -1,12 +1,12 @@
 @model DeckFlow.Web.Models.FeedbackSubmission
 @{
-    ViewData["Title"] = "Feedback";
+    ViewData["Title"] = "Send Feedback";
     var success = TempData["FeedbackSuccess"] as bool? ?? false;
 }
 
 <section class="feedback-page">
-    <div class="feedback-panel" style="background: var(--panel); border: 1px solid var(--line);">
-        <h1>Send feedback</h1>
+    <div class="feedback-panel">
+        <h1>Send Feedback</h1>
         <p>Report a bug, suggest a feature, or just share a thought. Email is optional.</p>
 
         @if (success)
@@ -40,7 +40,7 @@
                 <input type="text" name="Website" id="Website" tabindex="-1" autocomplete="off" />
             </div>
 
-            <button type="submit" class="feedback-submit">Send</button>
+            <button type="submit" class="feedback-submit">Send Feedback</button>
         </form>
     </div>
 </section>
