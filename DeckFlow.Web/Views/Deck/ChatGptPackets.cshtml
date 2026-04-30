@@ -147,7 +147,7 @@ Do not omit any fields from the schema.
                 <span>Deck export text</span>
                 <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
                 <small class="sync-column__hint">Required. Paste deck export text directly.</small>
-                @await Html.PartialAsync("_MoxfieldBulkEditHint")
+                @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Analysis")
             </label>
         </div>
         <div class="toolbar chatgpt-step-actions">

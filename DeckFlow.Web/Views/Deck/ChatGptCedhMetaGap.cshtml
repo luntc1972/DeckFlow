@@ -96,7 +96,7 @@
                     <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt URL, or raw deck export text.</small>
                 </label>
                 @await Html.PartialAsync("_DeckFlowBridgeHint")
-                @await Html.PartialAsync("_MoxfieldBulkEditHint")
+                @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Gap Analysis")
             </section>
 
             <section class="sync-column sync-column--archidekt">
