@@ -29,6 +29,14 @@
   --panel-summary-bg: #edf5f0;
   --panel-fallback-border: #9aa4b6;
   --panel-fallback-bg: #f2f4f8;
+
+  /* type scale (UI-VS-01) */
+  --fs-xs:   0.75rem;
+  --fs-sm:   0.85rem;
+  --fs-base: 0.95rem;
+  --fs-lg:   1.05rem;
+  --fs-xl:   1.5rem;
+  --fs-2xl:  1.9rem;
 }
 
 * {
