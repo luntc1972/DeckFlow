@@ -36,7 +36,11 @@ Typography (2/4) audit scores.
   3. No standalone hex literal (`#fff`, `#3a82f7`, `#c53030`, `#2f855a`, `#2b6cb0`, `#b83a2e`) survives outside a `:root` declaration in `site.css` or `site-common.css`; each is reachable as a named token from guild themes.
   4. All 25 guild theme files declare or inherit the new tokens; spot-checking three contrasting themes (Rakdos red, Selesnya green-white, Dimir blue-black) shows tokens resolve cleanly with no fallback bleed.
   5. Live deckflow.gg classic theme renders identically to pre-migration on the home, /feedback, /help, /about, and DeckSync pages — token migration is invisible to a casual user.
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Type scale tokens in site.css :root + replace font-size literals across site.css and site-common.css (UI-VS-01)
+- [ ] 01-02-PLAN.md — Semantic color tokens (--link, --danger, --cta-border, --focus) + hex literal hoist + rewire .feedback-error / .admin-feedback-filter / focus / CTA / link consumers (UI-VS-02, UI-VS-03)
+- [ ] 01-03-PLAN.md — Propagate tokens to all 25 :root files: 11 non-importer forks get explicit token block, importers inherit, Rakdos --link override for error-vs-link disambiguation, manual smoke-check checkpoint (UI-VS-04)
 
 ### Phase 2: Layout, Hierarchy & UX Copy
 **Goal**: Home hub has an unmistakable headline action, all flagged inline
@@ -89,7 +93,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Visual System Tokens | 0/TBD | Not started | - |
+| 1. Visual System Tokens | 0/3 | Not started | - |
 | 2. Layout, Hierarchy & UX Copy | 0/TBD | Not started | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
 | 4. Security & Bug Fixes | 0/TBD | Not started | - |
