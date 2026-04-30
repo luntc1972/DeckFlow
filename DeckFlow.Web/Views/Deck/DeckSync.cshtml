@@ -109,7 +109,7 @@
                     <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target").</small>
                     @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
-                        @await Html.PartialAsync("_MoxfieldBulkEditHint")
+                        @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Sync")
                     }
                 </label>
             </div>
@@ -144,7 +144,7 @@
                     <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source").</small>
                     @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
-                        @await Html.PartialAsync("_MoxfieldBulkEditHint")
+                        @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Sync")
                     }
                 </label>
             </div>

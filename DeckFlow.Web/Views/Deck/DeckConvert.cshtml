@@ -64,7 +64,7 @@
         <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
         @if (isMoxfieldSource)
         {
-            @await Html.PartialAsync("_MoxfieldBulkEditHint")
+            @await Html.PartialAsync("_MoxfieldBulkEditHint", "Convert")
         }
     </label>
 

@@ -1,4 +1,8 @@
-@* _MoxfieldBulkEditHint *@
+@* _MoxfieldBulkEditHint — accepts a verb string matching the host page's submit button label (e.g., "Run Sync"). Falls back to "Submit" if no model arg provided. *@
+@model string
+@{
+    var verb = string.IsNullOrWhiteSpace(Model) ? "Submit" : Model;
+}
 <details class="moxfield-bulkedit-hint">
     <summary>Want your Moxfield tags and categories to come through? Use Bulk Edit &rarr;</summary>
     <div class="moxfield-bulkedit-hint__body">
@@ -6,7 +10,7 @@
         <ol class="moxfield-bulkedit-hint__steps">
             <li><strong>Open your deck</strong> on <a href="https://www.moxfield.com" target="_blank" rel="noopener noreferrer">moxfield.com</a>.</li>
             <li><strong>Click Bulk Edit.</strong> The <em>Main Deck</em> tab opens by default, with each card formatted like <code>1 Card Name (set) cn #Tag #Other</code>.</li>
-            <li><strong>Copy the Main Deck contents</strong> and paste them into the text field here. Submit — tags are preserved end-to-end.</li>
+            <li><strong>Copy the Main Deck contents</strong> and paste them into the text field here. @verb — tags are preserved end-to-end.</li>
         </ol>
     </div>
 </details>
