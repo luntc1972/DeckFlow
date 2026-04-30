@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: shipped
-stopped_at: "Phase 02 SHIPPED — 13 commits pushed to origin/main (754f606..ed2f4f9); Render auto-deploy in flight"
-last_updated: "2026-04-30T23:20:00.000Z"
-last_activity: 2026-04-30 -- Phase 02 SHIPPED to origin/main; Render auto-deploys from main; awaiting live parity walk on deckflow.gg
+status: shipped-verified
+stopped_at: "Phase 02 fully closed — SC #5 live parity walk PASS on https://www.deckflow.gg; ready for Phase 03 (tech-debt cleanup) discuss-phase"
+last_updated: "2026-04-30T23:30:00.000Z"
+last_activity: 2026-04-30 -- Phase 02 live parity walk PASS (12/12 markers on deckflow.gg: hub hero + 3 primary cards + feedback voice + feedback.js wired + zero inline styles); milestone v1.0 progress 50% with 2 phases shipped
 progress:
   total_phases: 4
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 02 — layout-hierarchy-ux-copy (SHIPPED — pending live deckflow.gg walk for SC #5 parity)
+**Current focus:** Phase 02 SHIPPED & VERIFIED LIVE; next up Phase 03 — tech-debt-cleanup (no CONTEXT.md yet — needs /gsd-discuss-phase 03)
 
 ## Current Position
 
-Phase: 02 (layout-hierarchy-ux-copy) — SHIPPED to origin/main
-Plan: 3 of 3 — All plans verified, all 5 requirements complete
-Status: Phase 02 SHIPPED — 13 commits pushed (754f606..ed2f4f9); Render auto-deploy in progress
-Last activity: 2026-04-30 -- git push origin main succeeded; awaiting live deckflow.gg parity walk for SC #5 sign-off
+Phase: 02 (layout-hierarchy-ux-copy) — SHIPPED & LIVE-VERIFIED
+Plan: 3 of 3 — All plans verified, all 5 requirements complete, SC #5 parity walk PASS
+Status: Phase 02 fully closed; Render deploy live on https://www.deckflow.gg with all Phase 02 markers
+Last activity: 2026-04-30 -- live parity walk PASS (12/12 markers); ready for Phase 03 tech-debt cleanup
 
 Progress: [█████░░░░░] 50%
 
@@ -85,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30 17:20 MDT
-Stopped at: Phase 02 SHIPPED to origin/main (754f606..ed2f4f9); Render auto-deploy in flight; awaiting live deckflow.gg parity walk
-Resume file: .planning/phases/02-layout-hierarchy-ux-copy/02-VERIFICATION.md
+Last session: 2026-04-30 17:30 MDT
+Stopped at: Phase 02 SHIPPED & live-verified on deckflow.gg (12/12 markers PASS); next is /gsd-discuss-phase 03 to gather tech-debt cleanup context (Phase 03 dir does not exist yet)
+Resume file: .planning/ROADMAP.md (Phase 03 row)
