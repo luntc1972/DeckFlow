@@ -191,6 +191,60 @@
   line-height: 1.35;
 }
 
+.hub-hero {
+  display: block;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--cta-border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: inherit;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.hub-hero:hover,
+.hub-hero:focus-visible {
+  border-color: var(--accent-strong, var(--line));
+  box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08);
+}
+
+.hub-hero__eyebrow {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.hub-hero__title {
+  display: block;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--ink);
+}
+
+.hub-hero__description {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.hub-card--primary {
+  border-color: var(--cta-border);
+}
+
+.hub-card--primary:hover,
+.hub-card--primary:focus-visible {
+  border-color: var(--accent-strong, var(--cta-border));
+}
+
 .chatgpt-page-toolbar {
   align-items: stretch;
   justify-content: flex-end;
