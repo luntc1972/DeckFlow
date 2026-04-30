@@ -33,6 +33,32 @@
   --panel-summary-bg: #f5efea;
   --panel-fallback-border: #ab9e97;
   --panel-fallback-bg: #f6f2ef;
+
+  /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
+  --fs-xs:   0.75rem;
+  --fs-sm:   0.85rem;
+  --fs-base: 0.95rem;
+  --fs-lg:   1.05rem;
+  --fs-xl:   1.5rem;
+  --fs-2xl:  1.9rem;
+
+  /* semantic color tokens (UI-VS-02) — defaults track each theme's --accent */
+  --link:        var(--accent);
+  --danger:      #c53030;
+  --cta-border:  var(--accent);
+  --focus:       var(--accent);
+
+  /* hoisted hex tokens (UI-VS-03) */
+  --on-accent:       #fff;
+  --accent-default:  #3a82f7;
+  --bg-default:      var(--bg);
+  --info-default:    var(--info);
+  --success:         #2f855a;
+  --error-strong:    #c53030;
+  --gold-warning:    #c8a040;
+  --line-cool:       #8aaac8;
+  --line-cool-soft:  #b0b8c8;
+  --line-warm-soft:  #a8c8b8;
 }
 
 * {
