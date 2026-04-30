@@ -32,18 +32,21 @@ created: 2026-04-30
 
 ## Spacing Scale
 
-Project uses `rem` with `html { font-size: 15px }`. All values below map to multiples of 4px.
+Project uses `rem` with `html { font-size: 15px }` (Phase 01 baseline). All values below are quarter-rem steps for grid consistency. Pixel equivalents are listed for reference only — the contract is the rem value, not a 4-pixel grid.
 
 | Label | rem | px equiv | Usage in this phase |
 |-------|-----|----------|---------------------|
-| xs | 0.25rem | ~4px | Icon gaps, inline element separation |
-| sm | 0.5rem | ~8px | Tight internal padding, filter gaps |
-| md | 1rem | ~15px | Default card padding, grid gap |
-| lg | 1.5rem | ~23px | Hero band padding-block, panel padding |
-| xl | 2rem | ~30px | Page-level top margin (admin-feedback, feedback-page) |
-| 2xl | 3rem | ~45px | Page bottom padding |
+| xs | 0.25rem | 3.75px | Icon gaps, inline element separation |
+| sm | 0.5rem | 7.5px | Tight internal padding, filter gaps |
+| md | 1rem | 15px | Default card padding, grid gap |
+| lg | 1.5rem | 22.5px | Hero band padding-block, panel padding |
+| xl | 2rem | 30px | Page-level top margin (admin-feedback, feedback-page) |
+| 2xl | 3rem | 45px | Page bottom padding |
 
-**Exceptions**: none for this phase.
+**Exceptions** (carry-through from existing code, do not deviate):
+- `.hub-card` padding-x: `1.1rem` ≈ 16.5px — preserves established hub-card visual rhythm
+- `.hub-hero__eyebrow` margin-bottom: `0.35rem` ≈ 5.25px — tight eyebrow-to-title spacing
+- `.hub-hero__title` margin-bottom: `0.35rem` ≈ 5.25px — same tight spacing inside hero stack
 
 **Key measurements derived from existing code** (do not deviate):
 - `.hub-card` padding: `1rem 1.1rem` — carry through unchanged
@@ -63,13 +66,14 @@ Project uses `rem` with `html { font-size: 15px }`. All values below map to mult
 
 | Role | CSS Token | Approx px | Weight | Line Height | Usage in this phase |
 |------|-----------|-----------|--------|-------------|---------------------|
+| Eyebrow | `--fs-xs` | ~11px | 600 | 1.2 | `.hub-hero__eyebrow` uppercase kicker |
 | Body | `--fs-base` | ~14px | 400 | 1.5 | Card descriptions, form labels, panel body copy |
-| Label/Meta | `--fs-sm` | ~13px | 600 | 1.35 | Hub group titles (uppercase), `.hub-card__description` |
-| Card title | `--fs-base` | ~14px | 600 | 1.2 | `.hub-card__title`, hero CTA title |
-| Hero heading | `--fs-xl` | ~23px | 700 | 1.2 | `.hub-hero` primary label |
+| Label/Meta | `--fs-sm` | ~13px | 600 | 1.35 | Hub group titles (uppercase), `.hub-card__description`, `.hub-hero__description` |
+| Card title | `--fs-base` | ~14px | 600 | 1.2 | `.hub-card__title` |
+| Hero heading | `--fs-xl` | ~23px | 700 | 1.2 | `.hub-hero__title` primary label |
 | Page heading | `--fs-2xl` | ~29px | 700 | 1.2 | `<h1>` on feedback page (inherited from `.hero h1`) |
 
-**Weights declared for this phase**: 400 (normal body) and 600/700 (semibold/bold headings). No new weights.
+**Weights consumed (no additions)**: 400 (body), 600 (eyebrows / hub titles / card titles), 700 (hero title, page h1). All three weights already exist in `site.css`; this phase introduces none.
 
 **Existing type patterns to preserve**:
 - `.hub-group__title`: `--fs-sm`, weight 600, uppercase, letter-spacing 0.08em, color `--muted`
@@ -178,9 +182,10 @@ BEM modifier on existing `.hub-card`. Single visual signal: accent border on all
 **No size change. No background tint. No badge.** (locked by D-03)
 
 **Apply to** (locked by D-02):
-- Analyze group: `ChatGPT Analysis` card (`~/chatgpt-packets`) — NOTE: this card stays in the grid even though it is also the hero CTA. The hero is additive.
+- Analyze group: `Deck Comparison` card (`~/chatgpt-deck-comparison`) — ChatGPT Analysis remains a regular card in the Analyze grid; the hero band above is its dedicated promotion (per D-02 + D-01 "both layers ship").
 - Build group: `Deck Sync` card (`~/sync`)
 - Reference group: `Card Lookup` card (`~/card-lookup`)
+- Categories group: **no `.hub-card--primary`** — the page-level hero band serves as the focal point; per-group promotion is intentionally bounded to the three workflow groups (D-01 "both layers ship" + Phase 02 scope).
 
 ### 3. `.feedback-panel` — Inline Style Migration (UI-LH-02)
 
@@ -389,19 +394,19 @@ Existing rule in site.css: `a:focus-visible, button:focus-visible, ...` → `out
 
 These are the machine-verifiable gates the executor must satisfy:
 
-1. **Hub hierarchy**: `Home.cshtml` contains exactly one `.hub-hero` element placed before the first `.hub-group`. Exactly one `.hub-card--primary` per group (3 total: ChatGPT Analysis in Analyze, Deck Sync in Build, Card Lookup in Reference).
+1. **Hub hierarchy**: `Home.cshtml` contains exactly one `.hub-hero` element placed before the first `.hub-group`. Exactly one `.hub-card--primary` per workflow group (3 total: Deck Comparison in Analyze, Deck Sync in Build, Card Lookup in Reference). Categories group has zero `.hub-card--primary` by design.
 
 2. **Zero inline styles**: `grep -c 'style=' Feedback/Index.cshtml AdminFeedback/Index.cshtml AdminFeedback/Detail.cshtml` must equal 0 across all three files.
 
 3. **CSS location**: grep for `.hub-hero`, `.hub-card--primary`, `.admin-action-form`, `.feedback-submit--busy` must find definitions only in `site-common.css`, never in `site.css`.
 
-4. **No new `:root` tokens**: `diff` of `site.css :root` block before and after this phase must show zero additions.
+4. **No new `:root` tokens**: `diff` of `site.css :root` block before and after this phase must show zero additions. Baseline = Phase 01 end-state token inventory in `.planning/phases/01-visual-system-tokens/01-03-PLAN.md` (20 tokens across type-scale, semantic-color, hex-hoist groups).
 
 5. **Verb-noun titles**: `Feedback/Index.cshtml` `ViewData["Title"]` must equal `"Send Feedback — DeckFlow"` and `<h1>` must contain `Send Feedback`.
 
 6. **Partial verb param**: `_MoxfieldBulkEditHint.cshtml` must contain `@Model` in step 3 text; all 5 call sites must pass a string argument.
 
-7. **Busy state functional**: submitting feedback form on slow connection disables submit button and adds `.feedback-submit--busy` class before server response. Form POST completes normally. No spinner on JS-disabled browsers.
+7. **Busy state functional** *(manual verify only — items 1–6 above are grep-machine-checkable; item 7 requires browser verification on a throttled connection)*: submitting feedback form on slow connection disables submit button and adds `.feedback-submit--busy` class before server response. Form POST completes normally. No spinner on JS-disabled browsers.
 
 ---
 
@@ -416,14 +421,14 @@ These are the machine-verifiable gates the executor must satisfy:
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** APPROVED 2026-04-30
 
 ---
 
