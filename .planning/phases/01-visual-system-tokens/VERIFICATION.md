@@ -1,8 +1,9 @@
 ---
 phase: 01-visual-system-tokens
 verified: 2026-04-30T18:44:00Z
+live_signoff: 2026-04-30T19:42:00Z
 status: passed
-score: 5/5 must-haves verified (criterion 5 split: local PASS, live-deploy DEFERRED per ROADMAP)
+score: 5/5 must-haves verified (criterion 5 fully closed: local PASS + live deckflow.gg PASS post-deploy of 33cfdee)
 overrides_applied: 0
 re_verification:
   previous_status: none
@@ -29,9 +30,9 @@ re_verification:
 | 2   | UI-VS-02: 4 semantic color tokens; `.feedback-error` → `--danger`; `.admin-feedback-filter.active` → `--link` | VERIFIED | site.css `:root` declares `--link: var(--accent)`, `--danger: #c53030`, `--cta-border: var(--accent)`, `--focus: var(--accent)`. site-common.css:590 `.feedback-error { color: var(--danger); }`. site-common.css:605 `.admin-feedback-filter.active { background: var(--link); color: var(--on-accent); }`. |
 | 3   | UI-VS-03: All standalone hex literals outside `:root` in site.css + site-common.css hoisted to named tokens | VERIFIED | awk-based scan (skip `:root` body, search non-root rules for `#[0-9a-fA-F]{3,6}`) → **0 matches** in both files. `var(--x, #literal)` fallback patterns outside `:root` → **0**. 10 hex-hoist tokens in `:root`: `--on-accent #fff`, `--accent-default #3a82f7`, `--bg-default #fff`, `--info-default #eef3f8`, `--success #2f855a`, `--error-strong #c53030`, `--gold-warning #c8a040`, `--line-cool #8aaac8`, `--line-cool-soft #b0b8c8`, `--line-warm-soft #a8c8b8`. |
 | 4   | UI-VS-04: All 25 `:root`-declaring CSS files reach the new tokens; Rakdos `--link` override | VERIFIED | 22 guild theme files (site-*.css minus site-common/site-commander-table/site-mobile). 11 non-importers (abzan, bant, esper, grixis, jeskai, jund, mardu, naya, nyx, planeswalker-dark, sultai) each declare `--fs-base`, `--link`, `--danger`, `--on-accent` (verified per-file: `fs-base=1 link=1 danger=1 on-accent=1` for all 11). 11 importer themes use `@import url('site.css')` (azorius, boros, dimir, golgari, gruul, izzet, orzhov, rakdos, selesnya, simic, temur). 9 "clean" importers have **0 new-token shadows**. site-rakdos.css:14 `--link: #ff9ea4;` override present. |
-| 5   | Classic theme renders pixel-identical pre/post migration; user signs off on smoke check | VERIFIED (local) / DEFERRED (live-site) | Local smoke check on `/`, `/feedback`, `/help`, `/about`, `/sync` across classic + Rakdos + Selesnya + Dimir — user-confirmed APPROVED 2026-04-30 ~12:30pm MDT (per 01-03-SUMMARY). Live-deckflow.gg parity sign-off explicitly deferred to post-Render-deploy per ROADMAP SC #5 wording. |
+| 5   | Classic theme renders pixel-identical pre/post migration; user signs off on smoke check | VERIFIED | Local smoke check (classic + Rakdos + Selesnya + Dimir on `/`, `/feedback`, `/help`, `/about`, `/sync`) APPROVED 2026-04-30 ~12:30pm MDT (per 01-03-SUMMARY). Live deckflow.gg parity walk APPROVED 2026-04-30 ~1:42pm MDT post-deploy of commit 33cfdee. |
 
-**Score:** 5/5 truths verified (criterion 5 local-pass; live-deploy step is post-merge, outside this verification scope per ROADMAP wording).
+**Score:** 5/5 truths verified (criterion 5 local + live both PASS; live walk approved 2026-04-30 1:42pm MDT after deploy of 33cfdee).
 
 ### Required Artifacts
 
@@ -81,7 +82,7 @@ No orphaned requirements for Phase 01.
 
 ### Human Verification Required
 
-None outstanding for this verification. Local smoke check on classic + Rakdos + Selesnya + Dimir was approved 2026-04-30 ~12:30pm MDT. Live-deckflow.gg parity walk is a post-deploy step per ROADMAP SC #5 wording — surfaced for the orchestrator/user to schedule after Render auto-deploys main, but does not block phase acceptance.
+None outstanding. Local smoke check approved 2026-04-30 ~12:30pm MDT (classic + Rakdos + Selesnya + Dimir). Live deckflow.gg parity walk approved 2026-04-30 ~1:42pm MDT post-deploy of commit 33cfdee.
 
 ### Gaps Summary
 
@@ -92,10 +93,11 @@ No blocking gaps. Every ROADMAP success criterion verified against the codebase:
 - Rakdos `--link: #ff9ea4` override committed (Plan 01-03 commit `2c193c6`)
 - Build clean (0 warnings, 0 errors)
 - Local smoke check user-approved
+- Live deckflow.gg parity walk user-approved post-deploy of 33cfdee
 
 **Phase 01 goal achievement: YES.**
 
-**Recommendation: ACCEPT.** Live-site post-deploy parity walk is a routine post-merge follow-up (per ROADMAP SC #5), not a phase blocker.
+**Recommendation: ACCEPT.** All 5 success criteria fully verified — local + live.
 
 ---
 
