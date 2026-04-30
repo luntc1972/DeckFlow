@@ -301,7 +301,7 @@ attachFeedbackBusyState():
 
 | Element | Before | After | Source |
 |---------|--------|-------|--------|
-| Feedback `<title>` | `Feedback` | `Send Feedback — DeckFlow` | D-06; UX-03 |
+| Feedback `<title>` | `Feedback` | `Send Feedback` | D-06; UX-03 |
 | Feedback `<h1>` | `Send feedback` (lowercase f) | `Send Feedback` | D-05; UX-03 (capitalize to match title) |
 | Feedback submit button | `Send` | `Send Feedback` | D-05 verb-noun convention |
 | Feedback submit busy text | (none) | `Sending…` | D-09 |
@@ -402,7 +402,7 @@ These are the machine-verifiable gates the executor must satisfy:
 
 4. **No new `:root` tokens**: `diff` of `site.css :root` block before and after this phase must show zero additions. Baseline = Phase 01 end-state token inventory in `.planning/phases/01-visual-system-tokens/01-03-PLAN.md` (20 tokens across type-scale, semantic-color, hex-hoist groups).
 
-5. **Verb-noun titles**: `Feedback/Index.cshtml` `ViewData["Title"]` must equal `"Send Feedback — DeckFlow"` and `<h1>` must contain `Send Feedback`.
+5. **Verb-noun titles**: `Feedback/Index.cshtml` `ViewData["Title"]` must equal `"Send Feedback"` (rendered HTML title becomes `Send Feedback - DeckFlow` via the shared `_Layout.cshtml` title template at line 43; em-dash claim in earlier draft was incorrect) and `<h1>` must contain `Send Feedback`.
 
 6. **Partial verb param**: `_MoxfieldBulkEditHint.cshtml` must contain `@Model` in step 3 text; all 5 call sites must pass a string argument.
 
@@ -429,6 +429,7 @@ These are the machine-verifiable gates the executor must satisfy:
 - [x] Dimension 6 Registry Safety: PASS
 
 **Approval:** APPROVED 2026-04-30
+**Revision:** title-template-reconciled 2026-04-30 — ViewData literal corrected to match `_Layout.cshtml` title template (no em-dash)
 
 ---
 
