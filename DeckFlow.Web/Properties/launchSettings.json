@@ -36,7 +36,7 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iis": {
-      "applicationUrl": "http://localhost/mtgdeckstudio",
+      "applicationUrl": "http://localhost/deckflow",
       "sslPort": 0
     },
     "iisExpress": {
