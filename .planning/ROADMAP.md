@@ -16,7 +16,7 @@ parallelize freely.
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Visual System Tokens** — Type scale, semantic color tokens, hex literal hoist, propagate across all 25 guild themes
+- [x] **Phase 1: Visual System Tokens** — Type scale, semantic color tokens, hex literal hoist, propagate across all 25 guild themes
 - [ ] **Phase 2: Layout, Hierarchy & UX Copy** — Promote primary hub CTA, kill inline styles, fix copy/voice mismatches and feedback busy-state
 - [ ] **Phase 3: Tech-Debt Cleanup** — Move test-only types out of prod assembly, single-ctor services, drop generated JS from git, tighten forwarded-headers CIDR
 - [ ] **Phase 4: Security & Bug Fixes** — Per-IP rate-limit on /Admin/*, fix Scryfall Tagger 404
@@ -39,8 +39,8 @@ Typography (2/4) audit scores.
 **Plans**: 3 plans
 Plans:
 - [x] 01-01-PLAN.md — Type scale tokens in site.css :root + replace font-size literals across site.css and site-common.css (UI-VS-01)
-- [ ] 01-02-PLAN.md — Semantic color tokens (--link, --danger, --cta-border, --focus) + hex literal hoist + rewire .feedback-error / .admin-feedback-filter / focus / CTA / link consumers (UI-VS-02, UI-VS-03)
-- [ ] 01-03-PLAN.md — Propagate tokens to all 25 :root files: 11 non-importer forks get explicit token block, importers inherit, Rakdos --link override for error-vs-link disambiguation, manual smoke-check checkpoint (UI-VS-04)
+- [x] 01-02-PLAN.md — Semantic color tokens (--link, --danger, --cta-border, --focus) + hex literal hoist + rewire .feedback-error / .admin-feedback-filter / focus / CTA / link consumers (UI-VS-02, UI-VS-03)
+- [x] 01-03-PLAN.md — Propagate tokens to all 25 :root files: 11 non-importer forks get explicit token block, importers inherit, Rakdos --link override for error-vs-link disambiguation, manual smoke-check checkpoint (UI-VS-04)
 
 ### Phase 2: Layout, Hierarchy & UX Copy
 **Goal**: Home hub has an unmistakable headline action, all flagged inline
