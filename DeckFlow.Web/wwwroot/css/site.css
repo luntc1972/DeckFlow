@@ -92,7 +92,7 @@ body {
   z-index: 1000;
   padding: 0.5rem 0.9rem;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 0 0 8px 8px;
   text-decoration: none;
   font-weight: 600;
@@ -101,7 +101,7 @@ body {
 
 .skip-link:focus {
   top: 0;
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -113,7 +113,7 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 [role="tab"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -158,11 +158,11 @@ summary:focus-visible,
 
 .warning-banner {
   background: var(--warning);
-  border-color: #c8a040;
+  border-color: var(--gold-warning);
 }
 
 .info-banner {
-  border: 1px solid #8aaac8;
+  border: 1px solid var(--line-cool);
   border-radius: 10px;
   background: var(--info);
   color: var(--ink);
@@ -227,7 +227,7 @@ summary:focus-visible,
 }
 
 .error-banner {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--error);
 }
 
@@ -244,7 +244,7 @@ summary:focus-visible,
   height: 1.2rem;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--fs-xs);
   font-weight: 600;
   margin-left: 0.4rem;
@@ -595,7 +595,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .swap-direction-button:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .run-button.disabled,
@@ -713,7 +713,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .back-to-top-icon path {
   fill: none;
-  stroke: #fff;
+  stroke: var(--on-accent);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -724,7 +724,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 }
 
 .back-to-top-button:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--on-accent);
   outline-offset: 2px;
 }
 
@@ -901,11 +901,11 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 }
 
 .sync-column--moxfield {
-  border-color: #b0b8c8;
+  border-color: var(--line-cool-soft);
 }
 
 .sync-column--archidekt {
-  border-color: #a8c8b8;
+  border-color: var(--line-warm-soft);
 }
 
 .sync-column__header {
@@ -975,7 +975,7 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem 0.85rem;
-  background: #fff;
+  background: var(--bg-default);
 }
 
 .field textarea {
@@ -1015,7 +1015,7 @@ select {
   padding: 0.35rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--info, #eef3f8);
+  background: var(--info);
   color: var(--ink);
   font-size: var(--fs-sm);
 }
@@ -1023,7 +1023,7 @@ select {
 .cache-pill__reset {
   background: transparent;
   border: none;
-  color: var(--accent);
+  color: var(--link);
   padding: 0;
   font: inherit;
   cursor: pointer;
@@ -1037,14 +1037,14 @@ select {
 
 /* Copy-button clipboard feedback: flashes green on success, red on failure. */
 .copy-button.is-copied {
-  background: #2f855a;
-  border-color: #2f855a;
+  background: var(--success);
+  border-color: var(--success);
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
 .copy-button.is-copy-failed {
-  background: #c53030;
-  border-color: #c53030;
+  background: var(--danger);
+  border-color: var(--danger);
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
@@ -1057,11 +1057,11 @@ select {
 
 .run-button,
 .copy-button {
-  border: 1px solid var(--accent);
+  border: 1px solid var(--cta-border);
   border-radius: 8px;
   padding: 0.6rem 0.9rem;
   cursor: pointer;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
   margin-bottom: 0.35rem;
 }
@@ -1177,14 +1177,14 @@ pre {
 }
 
 .card-lookup-mode-picker [data-card-lookup-mode-button].is-active {
-  background: var(--accent, #3a82f7);
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
   border-color: transparent;
 }
 
 /* Ask a Judge page */
 .judge-primary {
-  border-left: 4px solid var(--accent, #3a82f7);
+  border-left: 4px solid var(--accent);
 }
 
 .judge-tips {
@@ -1247,7 +1247,7 @@ pre {
 .judge-howto > summary {
   cursor: pointer;
   font-weight: 600;
-  color: var(--accent, #3a82f7);
+  color: var(--link);
 }
 
 .judge-howto[open] > summary {
@@ -1270,7 +1270,7 @@ pre {
   border: 1px solid var(--line);
   border-bottom-width: 2px;
   border-radius: 4px;
-  background: var(--bg, #fff);
+  background: var(--bg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85em;
 }
@@ -1292,7 +1292,7 @@ pre {
   cursor: pointer;
   padding: 0.85rem 1rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--link);
 }
 
 .deckflow-bridge-hint__body {
@@ -1340,7 +1340,7 @@ pre {
   cursor: pointer;
   padding: 0.85rem 1rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--link);
 }
 
 .moxfield-bulkedit-hint__body {
