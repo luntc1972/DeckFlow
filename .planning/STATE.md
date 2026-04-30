@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verified
-stopped_at: "Phase 02 VERIFICATION PASS; ready for /gsd-ship"
-last_updated: "2026-04-30T23:13:00.000Z"
-last_activity: 2026-04-30 -- Phase 02 VERIFICATION PASS (5/5 success criteria, 7/7 UI-SPEC gates, build clean); ready for /gsd-ship
+status: shipped
+stopped_at: "Phase 02 SHIPPED — 13 commits pushed to origin/main (754f606..ed2f4f9); Render auto-deploy in flight"
+last_updated: "2026-04-30T23:20:00.000Z"
+last_activity: 2026-04-30 -- Phase 02 SHIPPED to origin/main; Render auto-deploys from main; awaiting live parity walk on deckflow.gg
 progress:
   total_phases: 4
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 02 — layout-hierarchy-ux-copy (CODE-COMPLETE — awaiting verifier)
+**Current focus:** Phase 02 — layout-hierarchy-ux-copy (SHIPPED — pending live deckflow.gg walk for SC #5 parity)
 
 ## Current Position
 
-Phase: 02 (layout-hierarchy-ux-copy) — ALL PLANS COMPLETE (3/3)
-Plan: 3 of 3 — Plan 02-03 closed with UX-02 smoke check APPROVED
-Status: Phase 02 VERIFIED — PASS (5/5 success criteria, 7/7 gates, 0 errors / 0 warnings); ready for /gsd-ship
-Last activity: 2026-04-30 -- Phase 02 plans 1-3 complete; UX-02 manual smoke check APPROVED (commits: 5c11b00 feedback.ts, 3a8b20f @section Scripts wiring, plus Plan 02-03 metadata commit)
+Phase: 02 (layout-hierarchy-ux-copy) — SHIPPED to origin/main
+Plan: 3 of 3 — All plans verified, all 5 requirements complete
+Status: Phase 02 SHIPPED — 13 commits pushed (754f606..ed2f4f9); Render auto-deploy in progress
+Last activity: 2026-04-30 -- git push origin main succeeded; awaiting live deckflow.gg parity walk for SC #5 sign-off
 
 Progress: [█████░░░░░] 50%
 
@@ -85,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30 17:13 MDT
-Stopped at: Phase 02 VERIFICATION PASS; ready for /gsd-ship
+Last session: 2026-04-30 17:20 MDT
+Stopped at: Phase 02 SHIPPED to origin/main (754f606..ed2f4f9); Render auto-deploy in flight; awaiting live deckflow.gg parity walk
 Resume file: .planning/phases/02-layout-hierarchy-ux-copy/02-VERIFICATION.md
