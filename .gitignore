@@ -13,7 +13,5 @@ DeckFlow.Web/wwwroot/extensions/*.zip
 /.codex
 docs/superpowers/
 
-.planning/
-
 # Probe scratch files
 *_probe.json
