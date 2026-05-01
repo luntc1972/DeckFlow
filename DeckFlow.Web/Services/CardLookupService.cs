@@ -50,17 +50,18 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>> _executeRulingsAsync;
 
-    private ScryfallCardLookupService(
+    internal ScryfallCardLookupService(
         IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipeline<RestResponse> scryfallPipeline,
-        RestClient? restClientOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsyncOverride)
+        ResiliencePipelineProvider<string> pipelineProvider,
+        RestClient? restClientOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsyncOverride = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
-        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
+        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
@@ -86,38 +87,6 @@ public sealed class ScryfallCardLookupService : ICardLookupService
                     async pollyCt => await client.ExecuteAsync<ScryfallRulingsResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
-    }
-
-    public ScryfallCardLookupService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider)
-        : this(
-            scryfallRestClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
-            null,
-            null,
-            null,
-            null,
-            null)
-    {
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-    }
-
-    internal ScryfallCardLookupService(
-        RestClient? restClient = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsync = null)
-        : this(
-            NullScryfallRestClientFactory.Instance,
-            ResiliencePipeline<RestResponse>.Empty,
-            restClient,
-            executeAsync,
-            executeSearchAsync,
-            executeNamedAsync,
-            executeRulingsAsync)
-    {
     }
 
     public async Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)

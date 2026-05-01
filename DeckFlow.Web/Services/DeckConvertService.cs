@@ -36,19 +36,17 @@ public sealed class DeckConvertService : IDeckConvertService
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
 
-    /// <summary>
-    /// Creates the convert service with the shared deck loader and Scryfall lookup support it needs.
-    /// </summary>
-    private DeckConvertService(
+    internal DeckConvertService(
         IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipeline<RestResponse> scryfallPipeline,
+        ResiliencePipelineProvider<string> pipelineProvider,
         IDeckEntryLoader deckEntryLoader,
-        RestClient? restClientOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride)
+        RestClient? restClientOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
-        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _deckEntryLoader = deckEntryLoader;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
@@ -57,33 +55,6 @@ public sealed class DeckConvertService : IDeckConvertService
                     async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
-    }
-
-    public DeckConvertService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IDeckEntryLoader deckEntryLoader)
-        : this(
-            scryfallRestClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
-            deckEntryLoader,
-            null,
-            null)
-    {
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-    }
-
-    internal DeckConvertService(
-        IDeckEntryLoader deckEntryLoader,
-        RestClient? restClient = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null)
-        : this(
-            NullScryfallRestClientFactory.Instance,
-            ResiliencePipeline<RestResponse>.Empty,
-            deckEntryLoader,
-            restClient,
-            executeCollectionAsync)
-    {
     }
 
     /// <inheritdoc/>

@@ -47,27 +47,28 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly string _artifactsPath;
 
-    private ChatGptCedhMetaGapService(
+    internal ChatGptCedhMetaGapService(
         IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipeline<RestResponse> scryfallPipeline,
+        ResiliencePipelineProvider<string> pipelineProvider,
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         IEdhTop16Client edhTop16Client,
         ICommanderSpellbookService commanderSpellbookService,
-        RestClient? restClientOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride)
+        RestClient? restClientOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
         ArgumentNullException.ThrowIfNull(archidektDeckImporter);
         ArgumentNullException.ThrowIfNull(moxfieldParser);
         ArgumentNullException.ThrowIfNull(archidektParser);
         ArgumentNullException.ThrowIfNull(edhTop16Client);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
-        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
         _moxfieldParser = moxfieldParser;
@@ -91,56 +92,6 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "DeckFlow",
             "ChatGPT cEDH Meta Gap");
-    }
-
-    public ChatGptCedhMetaGapService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        IEdhTop16Client edhTop16Client,
-        ICommanderSpellbookService commanderSpellbookService)
-        : this(
-            scryfallRestClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            edhTop16Client,
-            commanderSpellbookService,
-            null,
-            null,
-            null)
-    {
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-    }
-
-    internal ChatGptCedhMetaGapService(
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        IEdhTop16Client edhTop16Client,
-        ICommanderSpellbookService commanderSpellbookService,
-        RestClient? scryfallRestClient = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
-        : this(
-            NullScryfallRestClientFactory.Instance,
-            ResiliencePipeline<RestResponse>.Empty,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            edhTop16Client,
-            commanderSpellbookService,
-            scryfallRestClient,
-            executeCollectionAsync,
-            executeSearchAsync)
-    {
     }
 
     public async Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default)

@@ -49,29 +49,30 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private readonly string _artifactsPath;
     private readonly ILogger<ChatGptDeckComparisonService> _logger;
 
-    private ChatGptDeckComparisonService(
+    internal ChatGptDeckComparisonService(
         IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipeline<RestResponse> scryfallPipeline,
+        ResiliencePipelineProvider<string> pipelineProvider,
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         ICommanderSpellbookService commanderSpellbookService,
         IWebHostEnvironment environment,
-        ILogger<ChatGptDeckComparisonService>? logger,
-        string? artifactsPath,
-        RestClient? restClientOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride)
+        ILogger<ChatGptDeckComparisonService>? logger = null,
+        string? artifactsPath = null,
+        RestClient? restClientOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
         ArgumentNullException.ThrowIfNull(archidektDeckImporter);
         ArgumentNullException.ThrowIfNull(moxfieldParser);
         ArgumentNullException.ThrowIfNull(archidektParser);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(environment);
-        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
         _moxfieldParser = moxfieldParser;
@@ -98,64 +99,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
-    }
-
-    public ChatGptDeckComparisonService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        ICommanderSpellbookService commanderSpellbookService,
-        IWebHostEnvironment environment,
-        ILogger<ChatGptDeckComparisonService>? logger = null,
-        string? artifactsPath = null)
-        : this(
-            scryfallRestClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            commanderSpellbookService,
-            environment,
-            logger,
-            artifactsPath,
-            null,
-            null,
-            null)
-    {
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-    }
-
-    internal ChatGptDeckComparisonService(
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        ICommanderSpellbookService commanderSpellbookService,
-        IWebHostEnvironment environment,
-        ILogger<ChatGptDeckComparisonService>? logger = null,
-        RestClient? scryfallRestClient = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        string? artifactsPath = null)
-        : this(
-            NullScryfallRestClientFactory.Instance,
-            ResiliencePipeline<RestResponse>.Empty,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            commanderSpellbookService,
-            environment,
-            logger,
-            artifactsPath,
-            scryfallRestClient,
-            executeCollectionAsync,
-            executeSearchAsync)
-    {
     }
 
     public async Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default)

@@ -4,7 +4,10 @@ using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Polly.Registry;
 using Serilog;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
@@ -161,19 +164,75 @@ public class Program
                     options.IncludeXmlComments(xmlPath);
                 }
             });
-            builder.Services.AddSingleton<ICommanderSearchService, ScryfallCommanderSearchService>();
-            builder.Services.AddSingleton<ICardSearchService, ScryfallCardSearchService>();
-            builder.Services.AddSingleton<ICardLookupService, ScryfallCardLookupService>();
+            builder.Services.AddSingleton<ICommanderSearchService>(sp =>
+                new ScryfallCommanderSearchService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMemoryCache>()));
+            builder.Services.AddSingleton<ICardSearchService>(sp =>
+                new ScryfallCardSearchService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMemoryCache>()));
+            builder.Services.AddSingleton<ICardLookupService>(sp =>
+                new ScryfallCardLookupService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>()));
             builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
-            builder.Services.AddSingleton<ICommanderBanListService, CommanderBanListService>();
-            builder.Services.AddSingleton<ICommanderSpellbookService, CommanderSpellbookService>();
-            builder.Services.AddSingleton<IScryfallSetService, ScryfallSetService>();
+            builder.Services.AddSingleton<ICommanderBanListService>(sp =>
+                new CommanderBanListService(
+                    sp.GetRequiredService<IHttpClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMemoryCache>()));
+            builder.Services.AddSingleton<ICommanderSpellbookService>(sp =>
+                new CommanderSpellbookService(
+                    sp.GetRequiredService<IHttpClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMemoryCache>(),
+                    sp.GetService<ILogger<CommanderSpellbookService>>()));
+            builder.Services.AddSingleton<IScryfallSetService>(sp =>
+                new ScryfallSetService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMemoryCache>(),
+                    sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
             builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
             builder.Services.AddSingleton<IChatGptArtifactsDirectory, ChatGptArtifactsDirectory>();
-            builder.Services.AddScoped<IChatGptDeckPacketService, ChatGptDeckPacketService>();
-            builder.Services.AddScoped<IChatGptDeckComparisonService, ChatGptDeckComparisonService>();
-            builder.Services.AddScoped<IChatGptCedhMetaGapService, ChatGptCedhMetaGapService>();
+            builder.Services.AddScoped<IChatGptDeckPacketService>(sp =>
+                new ChatGptDeckPacketService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
+                    sp.GetRequiredService<IArchidektDeckImporter>(),
+                    sp.GetRequiredService<MoxfieldParser>(),
+                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IMechanicLookupService>(),
+                    sp.GetRequiredService<ICommanderBanListService>(),
+                    sp.GetRequiredService<IScryfallSetService>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetService<ILogger<ChatGptDeckPacketService>>()));
+            builder.Services.AddScoped<IChatGptDeckComparisonService>(sp =>
+                new ChatGptDeckComparisonService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
+                    sp.GetRequiredService<IArchidektDeckImporter>(),
+                    sp.GetRequiredService<MoxfieldParser>(),
+                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetRequiredService<IWebHostEnvironment>(),
+                    sp.GetService<ILogger<ChatGptDeckComparisonService>>()));
+            builder.Services.AddScoped<IChatGptCedhMetaGapService>(sp =>
+                new ChatGptCedhMetaGapService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
+                    sp.GetRequiredService<IArchidektDeckImporter>(),
+                    sp.GetRequiredService<MoxfieldParser>(),
+                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IEdhTop16Client>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>()));
             builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
             builder.Services.AddSingleton<ArchidektCacheJobService>();
             builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
@@ -181,7 +240,11 @@ public class Program
             builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
             builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
             builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
-            builder.Services.AddScoped<IDeckConvertService, DeckConvertService>();
+            builder.Services.AddScoped<IDeckConvertService>(sp =>
+                new DeckConvertService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IDeckEntryLoader>()));
             builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
             builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
             builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
