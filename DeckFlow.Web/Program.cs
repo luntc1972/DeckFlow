@@ -106,6 +106,8 @@ public partial class Program
 
             // CSRF + cookie session store for the Tagger flow (D-07, HIGH-2: 270s TTL).
             builder.Services.AddSingleton<ITaggerSessionCache, TaggerSessionCache>();
+            // BUG-02 / D-02: in-memory per-IP brute-force throttle for /Admin basic-auth (10 attempts / 15min).
+            builder.Services.AddSingleton<IAdminBruteForceTracker, AdminBruteForceTracker>();
 
             // IScryfallRestClientFactory - defined in Task 4 with static back-compat shim;
             // full IHttpClientFactory wiring lands in Task 10.
@@ -339,15 +341,23 @@ public partial class Program
     }
 
     /// <summary>
-    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4,
-    /// retrieved 2026-04-30). Reads the immediate-peer IP directly. Render's edge collapses
-    /// all production traffic to a single partition - acceptable at DeckFlow's
-    /// expected feedback volume (well under 5/hr globally). Forwarded-header spoofing
-    /// cannot rotate this key. See DeckFlow.Web.Tests/Security/ForwardedHeadersOptionsTests.cs
-    /// for the invariant.
+    /// Shared peer-IP partition-key formatter (BUG-02 / D-05). Reads Connection.RemoteIpAddress
+    /// directly (Path B-rawpeer per Phase 03 TD-04). Forwarded-header spoofing cannot rotate.
+    /// </summary>
+    internal static string DerivePeerIpKey(HttpContext context, string prefix)
+        => prefix + ":" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
+    /// <summary>
+    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4).
     /// </summary>
     internal static string DeriveFeedbackPartitionKey(HttpContext context)
-        => "peer:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+        => DerivePeerIpKey(context, "peer");
+
+    /// <summary>
+    /// Partition key for the /Admin basic-auth brute-force tracker (BUG-02 / D-05).
+    /// </summary>
+    internal static string DeriveAdminPartitionKey(HttpContext context)
+        => DerivePeerIpKey(context, "admin");
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {
