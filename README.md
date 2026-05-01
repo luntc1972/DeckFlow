@@ -25,6 +25,20 @@ If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedb
 
 Public submissions are rate-limited to 5 per hour per IP.
 
+### Feedback rate-limit identity (forwarded-headers hardening)
+
+The feedback-submit rate-limit policy in `DeckFlow.Web/Program.cs` derives its
+partition key from the immediate-peer IP rather than the `X-Forwarded-For`-derived
+value. Render does not publish enumerable inbound proxy CIDRs (verified
+2026-04-30 via `render.com/docs/inbound-ip-rules` and
+`feedback.render.com/features/p/send-the-correct-xforwardedfor`), so we tightened
+the consumer (rate-limit partition) instead of the upstream trust list. Spoofing
+`X-Forwarded-For` cannot rotate the partition key.
+
+All Render-fronted traffic shares one rate-limit partition (Render's edge IP).
+The 5/hr feedback limit is sized for global load; revisit if legitimate feedback
+volume approaches this threshold.
+
 ### Database storage
 
 Feedback and category knowledge/cache storage can use either SQLite or Postgres.
