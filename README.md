@@ -25,6 +25,8 @@ If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedb
 
 Public submissions are rate-limited to 5 per hour per IP.
 
+**Admin brute-force throttle (BUG-02):** Failed basic-auth attempts on `/Admin/*` are throttled per peer IP — 10 attempts per 15-minute window. The 11th attempt from the same IP returns HTTP 429 with a `Retry-After` header (seconds until the window resets). Successful auth does not count toward the limit; the existing per-challenge warning log continues to fire.
+
 ### Feedback rate-limit identity (forwarded-headers hardening)
 
 The feedback-submit rate-limit policy in `DeckFlow.Web/Program.cs` derives its
