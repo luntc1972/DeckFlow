@@ -1,14 +1,14 @@
 ---
 phase: 03-tech-debt-cleanup
 verified: 2026-05-01T09:06:00-06:00
-status: human_needed
-score: 4/4 must-haves verified locally; SC #4 awaits post-deploy spoof curl
+status: passed
+score: 4/4 must-haves verified locally + post-deploy spoof curl PASS (2 × 429 of 6 in /tmp/td04-prod-curl.log) — see 03-HUMAN-UAT.md
 overrides_applied: 0
 re_verification: null
 human_verification:
-  - test: "Spoofed X-Forwarded-For curl loop against /feedback/submit on live deckflow.gg"
+  - test: "Spoofed X-Forwarded-For curl loop against /Feedback on live deckflow.gg"
     expected: "After 5 successful POSTs from same upstream peer, server returns 429 even when X-Forwarded-For is rotated each request"
-    why_human: "Requires push to origin/main → Render auto-deploy → live HTTP probe; cannot be exercised locally because the partition key uses the immediate-peer IP and Kestrel-on-localhost dev is single-peer by definition"
+    result: "PASS — 2 × 429 + 4 × 200 in 6-request run; spoofed X-Forwarded-For did NOT rotate the partition key (otherwise we would have seen 0 × 429). Documented in 03-HUMAN-UAT.md."
 ---
 
 # Phase 03: Tech-Debt Cleanup — Verification Report
