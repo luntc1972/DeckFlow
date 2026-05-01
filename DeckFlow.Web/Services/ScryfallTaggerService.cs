@@ -3,11 +3,13 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
 using Polly.Registry;
 using RestSharp;
+using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Web.Services;
 
@@ -30,6 +32,9 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
 {
     private static readonly string TaggerQuery =
         "query($set:String!,$number:String!){card:cardBySet(set:$set,number:$number){taggings{tag{name type slug}weight status}}}";
+    private const int MaxProbeAttempts = 5;                                              // D-11
+    private static readonly TimeSpan PositiveCacheDuration = TimeSpan.FromHours(24);     // D-12
+    private static readonly TimeSpan NegativeCacheDuration = TimeSpan.FromHours(1);      // D-12 negative
 
     private readonly IScryfallRestClientFactory _scryfallRestClientFactory;
     private readonly IScryfallTaggerHttpClient _taggerHttpClient;
@@ -37,6 +42,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     private readonly ResiliencePipeline<RestResponse> _scryfallPipeline;
     private readonly ResiliencePipeline<RestResponse> _taggerPipeline;
     private readonly ResiliencePipeline<RestResponse> _taggerPostPipeline;
+    private readonly IMemoryCache _memoryCache;
     private readonly ILogger<ScryfallTaggerService> _logger;
 
     /// <summary>
@@ -55,18 +61,21 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
         IScryfallTaggerHttpClient taggerHttpClient,
         ITaggerSessionCache taggerSessionCache,
         ResiliencePipelineProvider<string> pipelineProvider,
+        IMemoryCache memoryCache,
         ILogger<ScryfallTaggerService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(taggerHttpClient);
         ArgumentNullException.ThrowIfNull(taggerSessionCache);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
+        ArgumentNullException.ThrowIfNull(memoryCache);
         _scryfallRestClientFactory = scryfallRestClientFactory;
         _taggerHttpClient = taggerHttpClient;
         _taggerSessionCache = taggerSessionCache;
         _scryfallPipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall");
         _taggerPipeline = pipelineProvider.GetPipeline<RestResponse>("tagger");
         _taggerPostPipeline = pipelineProvider.GetPipeline<RestResponse>("tagger-post");
+        _memoryCache = memoryCache;
         _logger = logger ?? NullLogger<ScryfallTaggerService>.Instance;
     }
 
@@ -117,34 +126,69 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
         return await QueryTaggerGraphQlAsync(set, collectorNumber, session, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Calls the Scryfall REST API to resolve a card name into its default set code and collector number.
-    /// </summary>
     private async Task<(string Set, string CollectorNumber)> ResolveCardPrintingAsync(string cardName, CancellationToken cancellationToken)
     {
-        var scryfallClient = _scryfallRestClientFactory.Create();
-        var request = new RestRequest("cards/named", Method.Get);
-        request.AddQueryParameter("exact", cardName);
+        var cacheKey = $"tagger-printing:{CardNormalizer.Normalize(cardName)}";
 
-        var response = await ScryfallThrottle.ExecuteAsync(
+        if (_memoryCache.TryGetValue<(string Set, string Number)?>(cacheKey, out var cached))
+        {
+            return cached ?? (string.Empty, string.Empty);
+        }
+
+        var scryfallClient = _scryfallRestClientFactory.Create();
+        var searchRequest = new RestRequest("cards/search", Method.Get);
+        searchRequest.AddQueryParameter("q", $"!\"{cardName}\"");
+        searchRequest.AddQueryParameter("unique", "prints");
+
+        var searchResponse = await ScryfallThrottle.ExecuteAsync(
             ct => _scryfallPipeline.ExecuteAsync(
-                async pollyCt => await scryfallClient.ExecuteAsync(request, pollyCt).ConfigureAwait(false),
+                async pollyCt => await scryfallClient.ExecuteAsync(searchRequest, pollyCt).ConfigureAwait(false),
                 ct).AsTask(),
             cancellationToken).ConfigureAwait(false);
 
-        if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
+        if (!searchResponse.IsSuccessful || string.IsNullOrEmpty(searchResponse.Content))
         {
-            _logger.LogWarning("Scryfall card lookup failed for {CardName}: {Status}", cardName, response.StatusCode);
+            _memoryCache.Set(cacheKey, (((string, string)?)null), NegativeCacheDuration);
+            _logger.LogWarning("Scryfall printings search failed for {CardName}: {Status}", cardName, searchResponse.StatusCode);
             return (string.Empty, string.Empty);
         }
 
-        using var document = JsonDocument.Parse(response.Content);
-        var root = document.RootElement;
+        using var document = JsonDocument.Parse(searchResponse.Content);
+        if (!document.RootElement.TryGetProperty("data", out var dataArray)
+            || dataArray.ValueKind != JsonValueKind.Array
+            || dataArray.GetArrayLength() == 0)
+        {
+            _memoryCache.Set(cacheKey, (((string, string)?)null), NegativeCacheDuration);
+            _logger.LogWarning("Scryfall printings search returned no data for {CardName}", cardName);
+            return (string.Empty, string.Empty);
+        }
 
-        var set = root.TryGetProperty("set", out var setProp) ? setProp.GetString() ?? string.Empty : string.Empty;
-        var number = root.TryGetProperty("collector_number", out var numProp) ? numProp.GetString() ?? string.Empty : string.Empty;
+        var taggerRestClient = new RestClient(_taggerHttpClient.Inner);
+        var probesAttempted = 0;
+        foreach (var printing in dataArray.EnumerateArray())
+        {
+            if (probesAttempted >= MaxProbeAttempts) break;
 
-        return (set, number);
+            var set = printing.TryGetProperty("set", out var setProp) ? setProp.GetString() ?? string.Empty : string.Empty;
+            var number = printing.TryGetProperty("collector_number", out var numProp) ? numProp.GetString() ?? string.Empty : string.Empty;
+            if (string.IsNullOrEmpty(set) || string.IsNullOrEmpty(number)) continue;
+
+            probesAttempted++;
+            var probe = new RestRequest($"card/{set}/{number}", Method.Head);
+            var probeResponse = await _taggerPipeline.ExecuteAsync(
+                async ct => await taggerRestClient.ExecuteAsync(probe, ct).ConfigureAwait(false),
+                cancellationToken).ConfigureAwait(false);
+
+            if ((int)probeResponse.StatusCode == 200)
+            {
+                _memoryCache.Set(cacheKey, ((string, string)?)(set, number), PositiveCacheDuration);
+                return (set, number);
+            }
+        }
+
+        _memoryCache.Set(cacheKey, (((string, string)?)null), NegativeCacheDuration);
+        _logger.LogWarning("Tagger has no indexed printing for {CardName} after {Attempts} probes", cardName, probesAttempted);
+        return (string.Empty, string.Empty);
     }
 
     /// <summary>
