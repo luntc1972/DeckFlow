@@ -92,7 +92,10 @@ this milestone's quality bar.
   1. Repeated failed basic-auth attempts against `/Admin/*` from a single IP are throttled by ASP.NET Core rate-limiting middleware; the existing warning log on each challenge still fires, and legitimate admin sessions are unaffected.
   2. The AI Category Suggestions page in `ScryfallTagger` mode either returns real tagger data for a known card (e.g. "Sol Ring") or surfaces a clear graceful-fallback message — it no longer silently returns HTTP 200 with empty suggestions.
   3. ChatGPT-paste workflow, deck reconcile, and category suggestion flows produce the same prompt artifacts on deckflow.gg as before — the security and bug fixes do not regress the core value pipeline.
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 04-01-PLAN.md — BUG-02 admin brute-force throttle: AdminBruteForceTracker singleton + BasicAuthMiddleware throttle hook + DerivePeerIpKey shared helper + unit/integration tests + README admin/operations note (BUG-02)
+- [ ] 04-02-PLAN.md — BUG-01 Tagger printings iteration: replace ResolveCardPrintingAsync with /cards/search + 5-cap HEAD probe + IMemoryCache (24hr positive / 1hr negative) + ScryfallTaggerServiceTests update + 5 new test cases + 04-HUMAN-UAT.md aggregation (BUG-01, SC #3)
 
 ## Progress
 
@@ -105,7 +108,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | 1. Visual System Tokens | 3/3 | Complete | 2026-04-30 |
 | 2. Layout, Hierarchy & UX Copy | 3/3 | Code-complete (awaiting verifier) | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
-| 4. Security & Bug Fixes | 0/TBD | Not started | - |
+| 4. Security & Bug Fixes | 0/2 | Not started | - |
 
 ## Coverage
 
