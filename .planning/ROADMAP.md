@@ -70,11 +70,16 @@ on UI work.
 **Depends on**: Nothing (independent of CSS/UI; can run in parallel with Phase 1 or Phase 2)
 **Requirements**: TD-01, TD-02, TD-03, TD-04
 **Success Criteria** (what must be TRUE):
-  1. `NullHttpClientFactory` and `NullScryfallRestClientFactory` no longer exist in `DeckFlow.Web/Services/Http/`; equivalents live in `DeckFlow.Web.Tests/TestDoubles/` accessed via `[InternalsVisibleTo]`, and the production assembly's public surface no longer exposes test-only types.
+  1. `NullHttpClientFactory` and `NullScryfallRestClientFactory` no longer exist in the production assembly (deletion, not migration — per CONTEXT D-01: the existing `Fake*` family in `DeckFlow.Web.Tests/TestDoubles/` already serves actual test scenarios; the `Null*` factories are pure orphans once TD-02 collapses the test-compat ctors that referenced them). The production assembly's public surface no longer exposes test-only types.
   2. Services under `DeckFlow.Web/Services/` expose exactly one constructor each; tests that previously required a "test-compat" ctor route through a named test-helper factory in the test project. `dotnet build` is clean and existing test suite (where runnable) passes.
   3. `DeckFlow.Web/wwwroot/js/*.js` files are no longer tracked in git; `.gitignore` excludes them; the existing `tsc` MSBuild step still produces them at build time and the deployed site continues to load JS correctly.
   4. `ForwardedHeadersOptions.KnownIPNetworks` in `Program.cs` is restricted to Render's documented CIDR ranges (with a code comment citing the source); a request from a non-Render upstream cannot spoof `X-Forwarded-For` to dodge the feedback rate limiter.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 03-01-PLAN.md — TD-02 single-ctor collapse: 10 services + new TestServiceFactory in DeckFlow.Web.Tests/TestDoubles + Program.cs DI factory delegates (Wave 1)
+- [ ] 03-02-PLAN.md — TD-01 delete NullHttpClientFactory.cs and NullScryfallRestClientFactory.cs orphans (Wave 2, depends on 03-01)
+- [ ] 03-03-PLAN.md — TD-03 untrack wwwroot/js/*.js + .gitignore glob + README local-dev TS toolchain section (Wave 1)
+- [ ] 03-04-PLAN.md — TD-04 ForwardedHeadersOptions Render CIDR research + Production-only restriction with cited source (Wave 1)
 
 ### Phase 4: Security & Bug Fixes
 **Goal**: Per-IP rate-limit protects `/Admin/*` from basic-auth brute-force,
