@@ -94,8 +94,8 @@ this milestone's quality bar.
   3. ChatGPT-paste workflow, deck reconcile, and category suggestion flows produce the same prompt artifacts on deckflow.gg as before — the security and bug fixes do not regress the core value pipeline.
 **Plans**: 2 plans
 Plans:
-- [ ] 04-01-PLAN.md — BUG-02 admin brute-force throttle: AdminBruteForceTracker singleton + BasicAuthMiddleware throttle hook + DerivePeerIpKey shared helper + unit/integration tests + README admin/operations note (BUG-02)
-- [ ] 04-02-PLAN.md — BUG-01 Tagger printings iteration: replace ResolveCardPrintingAsync with /cards/search + 5-cap HEAD probe + IMemoryCache (24hr positive / 1hr negative) + ScryfallTaggerServiceTests update + 5 new test cases + 04-HUMAN-UAT.md aggregation (BUG-01, SC #3)
+- [x] 04-01-PLAN.md — BUG-02 admin brute-force throttle: AdminBruteForceTracker singleton + BasicAuthMiddleware throttle hook + DerivePeerIpKey shared helper + unit/integration tests + README admin/operations note (BUG-02)
+- [x] 04-02-PLAN.md — BUG-01 Tagger printings iteration: replace ResolveCardPrintingAsync with /cards/search + 5-cap HEAD probe + IMemoryCache (24hr positive / 1hr negative) + ScryfallTaggerServiceTests update + 5 new test cases + 04-HUMAN-UAT.md aggregation (BUG-01, SC #3)
 
 ## Progress
 
