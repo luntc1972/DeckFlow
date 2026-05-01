@@ -199,7 +199,14 @@ public partial class Program
                     sp.GetRequiredService<IMemoryCache>(),
                     sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
-            builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
+            builder.Services.AddSingleton<IScryfallTaggerService>(sp =>
+                new ScryfallTaggerService(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<IScryfallTaggerHttpClient>(),
+                    sp.GetRequiredService<ITaggerSessionCache>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IMemoryCache>(),
+                    sp.GetService<ILogger<ScryfallTaggerService>>()));
             builder.Services.AddSingleton<IChatGptArtifactsDirectory, ChatGptArtifactsDirectory>();
             builder.Services.AddScoped<IChatGptDeckPacketService>(sp =>
                 new ChatGptDeckPacketService(
