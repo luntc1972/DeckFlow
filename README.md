@@ -76,6 +76,28 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `scripts/run-web.sh` — bash wrapper that rebuilds `DeckFlow.Web` and launches it on `http://localhost:5173` with no browser auto-launch.
 - `scripts/run-web.ps1` — PowerShell equivalent for Windows terminals.
 
+### Local development TypeScript toolchain
+
+Browser-side scripts under `DeckFlow.Web/wwwroot/ts/` compile to
+`DeckFlow.Web/wwwroot/js/` via the `CompileTypeScriptAssets` MSBuild target
+(BeforeTargets="Build") in `DeckFlow.Web.csproj`. The compiled `.js` files
+are NOT tracked in git — `dotnet build` regenerates them every time.
+
+First-time setup on a new dev machine:
+
+```
+cd DeckFlow.Web
+npm install typescript
+```
+
+This populates `DeckFlow.Web/node_modules/typescript/` so the MSBuild target
+can invoke `node ./node_modules/typescript/bin/tsc -p tsconfig.json`. The
+Render production build does the equivalent in its Docker stage
+(`RUN npm install typescript`), so deployments are unaffected.
+
+If `dotnet build DeckFlow.Web` reports a missing `tsc`, run the
+`npm install typescript` step above and rebuild.
+
 ### UI styling
 - `DeckFlow.Web/wwwroot/css/site-common.css` contains shared shell and view-level styles that apply regardless of the selected color theme.
 - `DeckFlow.Web/wwwroot/css/site*.css` files remain responsible for theme palettes and component styling.
