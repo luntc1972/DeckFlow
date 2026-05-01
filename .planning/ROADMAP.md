@@ -77,9 +77,9 @@ on UI work.
 **Plans**: 4 plans
 Plans:
 - [x] 03-01-PLAN.md — TD-02 single-ctor collapse: 10 services + new TestServiceFactory in DeckFlow.Web.Tests/TestDoubles + Program.cs DI factory delegates (Wave 1)
-- [ ] 03-02-PLAN.md — TD-01 delete NullHttpClientFactory.cs and NullScryfallRestClientFactory.cs orphans (Wave 2, depends on 03-01)
+- [x] 03-02-PLAN.md — TD-01 delete NullHttpClientFactory.cs and NullScryfallRestClientFactory.cs orphans (Wave 2, depends on 03-01)
 - [x] 03-03-PLAN.md — TD-03 untrack wwwroot/js/*.js + .gitignore glob + README local-dev TS toolchain section (Wave 1)
-- [ ] 03-04-PLAN.md — TD-04 ForwardedHeadersOptions Render CIDR research + Production-only restriction with cited source (Wave 1)
+- [x] 03-04-PLAN.md — TD-04 ForwardedHeadersOptions Render CIDR research + Production-only restriction with cited source (Wave 1)
 
 ### Phase 4: Security & Bug Fixes
 **Goal**: Per-IP rate-limit protects `/Admin/*` from basic-auth brute-force,
