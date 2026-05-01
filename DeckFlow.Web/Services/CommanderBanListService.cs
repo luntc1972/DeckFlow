@@ -5,7 +5,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Polly;
 using Polly.Registry;
 using RestSharp;
-using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web.Services;
 
@@ -34,62 +33,19 @@ public sealed partial class CommanderBanListService : ICommanderBanListService
     private readonly IMemoryCache _memoryCache;
     private readonly Func<CancellationToken, Task<string>> _fetchPageAsync;
 
-    /// <summary>
-    /// Private ctor accepting a pre-resolved Polly pipeline. Used by both the production
-    /// ctor (which resolves the pipeline from <see cref="ResiliencePipelineProvider{TKey}"/>)
-    /// and the test-compat overload (which passes <see cref="ResiliencePipeline{T}.Empty"/>
-    /// because tests always supply <paramref name="fetchPageAsync"/> and never exercise the
-    /// HTTP/pipeline path).
-    /// </summary>
-    private CommanderBanListService(
-        IHttpClientFactory httpClientFactory,
-        ResiliencePipeline<RestResponse> pipeline,
-        IMemoryCache memoryCache,
-        Func<CancellationToken, Task<string>>? fetchPageAsync)
-    {
-        ArgumentNullException.ThrowIfNull(httpClientFactory);
-        ArgumentNullException.ThrowIfNull(memoryCache);
-        _httpClientFactory = httpClientFactory;
-        _resiliencePipeline = pipeline ?? ResiliencePipeline<RestResponse>.Empty;
-        _memoryCache = memoryCache;
-        _fetchPageAsync = fetchPageAsync ?? FetchPageAsync;
-    }
-
-    /// <summary>
-    /// Production ctor - DI resolves the named "banlist" pipeline from
-    /// <see cref="ResiliencePipelineProvider{TKey}"/> per D-05/B2 (no keyed-services attribute).
-    /// </summary>
-    public CommanderBanListService(
+    internal CommanderBanListService(
         IHttpClientFactory httpClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
         IMemoryCache memoryCache,
         Func<CancellationToken, Task<string>>? fetchPageAsync = null)
-        : this(
-            httpClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("banlist") ?? ResiliencePipeline<RestResponse>.Empty,
-            memoryCache,
-            fetchPageAsync)
     {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
-    }
-
-    /// <summary>
-    /// Internal test-compat ctor preserving the legacy (memoryCache, fetchOverride) signature
-    /// used by CommanderBanListServiceTests.GetBannedCardsAsync_CachesResults. Existing tests
-    /// always supply <paramref name="fetchPageAsync"/>, so the production HTTP/pipeline path
-    /// is short-circuited. Internal per pre-existing AssemblyInfo InternalsVisibleTo for
-    /// DeckFlow.Web.Tests - public would create a DI ctor-resolution ambiguity at startup.
-    /// Uses <see cref="ResiliencePipeline{T}.Empty"/> directly per MEDIUM-4 - no custom provider.
-    /// </summary>
-    internal CommanderBanListService(
-        IMemoryCache memoryCache,
-        Func<CancellationToken, Task<string>>? fetchPageAsync)
-        : this(
-            NullHttpClientFactory.Instance,
-            ResiliencePipeline<RestResponse>.Empty,
-            memoryCache,
-            fetchPageAsync)
-    {
+        ArgumentNullException.ThrowIfNull(memoryCache);
+        _httpClientFactory = httpClientFactory;
+        _resiliencePipeline = pipelineProvider.GetPipeline<RestResponse>("banlist") ?? ResiliencePipeline<RestResponse>.Empty;
+        _memoryCache = memoryCache;
+        _fetchPageAsync = fetchPageAsync ?? FetchPageAsync;
     }
 
     /// <summary>

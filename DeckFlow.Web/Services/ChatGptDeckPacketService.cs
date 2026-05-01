@@ -69,12 +69,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
     private readonly ILogger<ChatGptDeckPacketService> _logger;
 
-    /// <summary>
-    /// Creates the ChatGPT packet service with the importers, lookup services, and persistence settings it needs.
-    /// </summary>
-    private ChatGptDeckPacketService(
+    internal ChatGptDeckPacketService(
         IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipeline<RestResponse> scryfallPipeline,
+        ResiliencePipelineProvider<string> pipelineProvider,
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
@@ -83,14 +80,15 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
         ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckPacketService>? logger,
-        string? chatGptArtifactsPath,
-        RestClient? restClientOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride)
+        ILogger<ChatGptDeckPacketService>? logger = null,
+        string? chatGptArtifactsPath = null,
+        RestClient? restClientOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
         ArgumentNullException.ThrowIfNull(archidektDeckImporter);
         ArgumentNullException.ThrowIfNull(moxfieldParser);
@@ -99,7 +97,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         ArgumentNullException.ThrowIfNull(commanderBanListService);
         ArgumentNullException.ThrowIfNull(scryfallSetService);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
-        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
         _moxfieldParser = moxfieldParser;
@@ -123,75 +121,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
                 async pollyCt => await client.ExecuteAsync<ScryfallCard>(request, pollyCt).ConfigureAwait(false),
                 token).AsTask(), cancellationToken));
-    }
-
-    public ChatGptDeckPacketService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        IMechanicLookupService mechanicLookupService,
-        ICommanderBanListService commanderBanListService,
-        IScryfallSetService scryfallSetService,
-        ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckPacketService>? logger = null,
-        string? chatGptArtifactsPath = null)
-        : this(
-            scryfallRestClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            mechanicLookupService,
-            commanderBanListService,
-            scryfallSetService,
-            commanderSpellbookService,
-            logger,
-            chatGptArtifactsPath,
-            null,
-            null,
-            null,
-            null)
-    {
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-    }
-
-    internal ChatGptDeckPacketService(
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        IMechanicLookupService mechanicLookupService,
-        ICommanderBanListService commanderBanListService,
-        IScryfallSetService scryfallSetService,
-        ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckPacketService>? logger = null,
-        RestClient? scryfallRestClient = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
-        string? chatGptArtifactsPath = null)
-        : this(
-            NullScryfallRestClientFactory.Instance,
-            ResiliencePipeline<RestResponse>.Empty,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            mechanicLookupService,
-            commanderBanListService,
-            scryfallSetService,
-            commanderSpellbookService,
-            logger,
-            chatGptArtifactsPath,
-            scryfallRestClient,
-            executeCollectionAsync,
-            executeSearchAsync,
-            executeNamedAsync)
-    {
     }
 
     private static string ResolveChatGptArtifactsPath(string? explicitPath)

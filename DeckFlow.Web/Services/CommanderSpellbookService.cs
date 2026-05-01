@@ -64,42 +64,21 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
     private readonly ILogger<CommanderSpellbookService> _logger;
     private readonly Func<string, CancellationToken, Task<string?>> _postJsonAsync;
 
-    /// <summary>
-    /// Private ctor accepting a pre-resolved Polly pipeline.
-    /// </summary>
-    private CommanderSpellbookService(
-        IHttpClientFactory httpClientFactory,
-        ResiliencePipeline<RestResponse> pipeline,
-        IMemoryCache memoryCache,
-        ILogger<CommanderSpellbookService>? logger,
-        Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
-    {
-        ArgumentNullException.ThrowIfNull(httpClientFactory);
-        ArgumentNullException.ThrowIfNull(memoryCache);
-        _httpClientFactory = httpClientFactory;
-        _resiliencePipeline = pipeline ?? ResiliencePipeline<RestResponse>.Empty;
-        _memoryCache = memoryCache;
-        _logger = logger ?? NullLogger<CommanderSpellbookService>.Instance;
-        _postJsonAsync = postJsonAsync ?? PostJsonAsync;
-    }
-
-    /// <summary>
-    /// Creates a service that calls the live Commander Spellbook API.
-    /// </summary>
-    public CommanderSpellbookService(
+    internal CommanderSpellbookService(
         IHttpClientFactory httpClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
         IMemoryCache memoryCache,
         ILogger<CommanderSpellbookService>? logger = null,
         Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
-        : this(
-            httpClientFactory,
-            pipelineProvider?.GetPipeline<RestResponse>("spellbook") ?? ResiliencePipeline<RestResponse>.Empty,
-            memoryCache,
-            logger,
-            postJsonAsync)
     {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
+        ArgumentNullException.ThrowIfNull(memoryCache);
+        _httpClientFactory = httpClientFactory;
+        _resiliencePipeline = pipelineProvider.GetPipeline<RestResponse>("spellbook") ?? ResiliencePipeline<RestResponse>.Empty;
+        _memoryCache = memoryCache;
+        _logger = logger ?? NullLogger<CommanderSpellbookService>.Instance;
+        _postJsonAsync = postJsonAsync ?? PostJsonAsync;
     }
 
     /// <inheritdoc/>
