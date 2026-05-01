@@ -1436,7 +1436,7 @@ Commander
     {
         var rootPath = contentRootPath ?? Path.Combine(Path.GetTempPath(), "DeckFlowTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(rootPath);
-        return new ChatGptDeckPacketService(
+        return TestServiceFactory.CreateChatGptDeckPacketService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
             new MoxfieldParser(),

@@ -364,7 +364,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
         FakeScryfallResolver? scryfallResolver = null)
     {
         var resolver = scryfallResolver ?? new FakeScryfallResolver();
-        return new(
+        return TestServiceFactory.CreateChatGptCedhMetaGapService(
             moxfieldDeckImporter,
             archidektDeckImporter,
             new MoxfieldParser(),

@@ -32,7 +32,7 @@ public sealed class CommanderBanListServiceTests
     public async Task GetBannedCardsAsync_CachesResults()
     {
         var fetchCount = 0;
-        var service = new CommanderBanListService(
+        var service = TestServiceFactory.CreateCommanderBanListService(
             new MemoryCache(new MemoryCacheOptions()),
             _ =>
             {

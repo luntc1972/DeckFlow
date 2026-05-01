@@ -55,7 +55,7 @@ public sealed class CardLookupIntegrationTests
             return;
         }
 
-        var service = new ScryfallCardLookupService();
+        var service = TestServiceFactory.CreateScryfallCardLookupService();
 
         var result = await service.LookupAsync("Pastor da Selva");
 

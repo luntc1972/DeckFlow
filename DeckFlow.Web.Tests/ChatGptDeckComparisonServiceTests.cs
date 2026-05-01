@@ -312,7 +312,7 @@ Deck
         var contentRootPath = rootPath ?? Path.Combine(Path.GetTempPath(), "DeckFlowComparisonTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(contentRootPath);
 
-        return new ChatGptDeckComparisonService(
+        return TestServiceFactory.CreateChatGptDeckComparisonService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
             new MoxfieldParser(),

@@ -35,7 +35,7 @@ public sealed class ScryfallCommanderSearchServiceTests
         var cache = new MemoryCache(new MemoryCacheOptions());
         var callCount = 0;
         RestRequest? lastRequest = null;
-        var service = new ScryfallCommanderSearchService(
+        var service = TestServiceFactory.CreateScryfallCommanderSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -59,7 +59,7 @@ public sealed class ScryfallCommanderSearchServiceTests
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var callCount = 0;
-        var service = new ScryfallCommanderSearchService(
+        var service = TestServiceFactory.CreateScryfallCommanderSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -80,7 +80,7 @@ public sealed class ScryfallCommanderSearchServiceTests
     public async Task SearchAsync_ThrowsWhenResponseFails()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallCommanderSearchService(
+        var service = TestServiceFactory.CreateScryfallCommanderSearchService(
             cache,
             executeAsync: (request, _) =>
             {
