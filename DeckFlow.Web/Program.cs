@@ -21,7 +21,7 @@ namespace DeckFlow.Web;
 /// <summary>
 /// Configures and starts the DeckFlow web application.
 /// </summary>
-public class Program
+public partial class Program
 {
     /// <summary>
     /// Bootstraps the ASP.NET Core MVC app with Serilog and service registrations.
@@ -114,37 +114,37 @@ public class Program
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
 
-            // Honor X-Forwarded-* headers from the reverse proxy (e.g. Render, Fly, Azure App Service)
-            // so request.Scheme reflects the browser's https scheme, not the http hop from proxy to app.
-            // Without this, SameOriginRequestValidator sees scheme=http while Origin=https and rejects the request.
+            // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
+            // the browser's https scheme, not the http hop from proxy to app. Without this,
+            // SameOriginRequestValidator sees scheme=http while Origin=https and rejects the request.
+            //
+            // Note (TD-04, Phase 03 SC #4, retrieved 2026-04-30): Render does not publish enumerable
+            // inbound proxy CIDR ranges (verified at https://render.com/docs/inbound-ip-rules and
+            // https://feedback.render.com/features/p/send-the-correct-xforwardedfor). Rather than
+            // trust an arbitrary upstream's X-Forwarded-For value to gate the feedback rate limit,
+            // the partition key (DeriveFeedbackPartitionKey, below) reads the immediate-peer IP
+            // directly. The default loopback trust list (127.0.0.1, ::1) is preserved here for
+            // Kestrel container-internal health checks; we do NOT clear it.
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
                     | ForwardedHeaders.XForwardedProto
                     | ForwardedHeaders.XForwardedHost;
-                // Render assigns dynamic proxy IPs we can't enumerate; clear the defaults so forwarded
-                // headers from any upstream are honored. Acceptable here because DeckFlow does not
-                // authenticate requests, so spoofing a scheme only grants the same access unauth'd
-                // callers already have.
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
+                // Default loopback entries (127.0.0.1, ::1) preserved - do NOT call Clear().
             });
 
             builder.Services.AddRateLimiter(options =>
             {
                 options.AddPolicy("feedback-submit", httpContext =>
-                {
-                    var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                    return RateLimitPartition.GetFixedWindowLimiter(
-                        partitionKey,
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        DeriveFeedbackPartitionKey(httpContext),
                         _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = 5,
                             Window = TimeSpan.FromHours(1),
                             QueueLimit = 0,
                             AutoReplenishment = true,
-                        });
-                });
+                        }));
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             });
 
@@ -337,6 +337,17 @@ public class Program
             Log.CloseAndFlush();
         }
     }
+
+    /// <summary>
+    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4,
+    /// retrieved 2026-04-30). Reads the immediate-peer IP directly. Render's edge collapses
+    /// all production traffic to a single partition - acceptable at DeckFlow's
+    /// expected feedback volume (well under 5/hr globally). Forwarded-header spoofing
+    /// cannot rotate this key. See DeckFlow.Web.Tests/Security/ForwardedHeadersOptionsTests.cs
+    /// for the invariant.
+    /// </summary>
+    internal static string DeriveFeedbackPartitionKey(HttpContext context)
+        => "peer:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {
