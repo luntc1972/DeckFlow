@@ -76,7 +76,7 @@ on UI work.
   4. `ForwardedHeadersOptions.KnownIPNetworks` in `Program.cs` is restricted to Render's documented CIDR ranges (with a code comment citing the source); a request from a non-Render upstream cannot spoof `X-Forwarded-For` to dodge the feedback rate limiter.
 **Plans**: 4 plans
 Plans:
-- [ ] 03-01-PLAN.md — TD-02 single-ctor collapse: 10 services + new TestServiceFactory in DeckFlow.Web.Tests/TestDoubles + Program.cs DI factory delegates (Wave 1)
+- [x] 03-01-PLAN.md — TD-02 single-ctor collapse: 10 services + new TestServiceFactory in DeckFlow.Web.Tests/TestDoubles + Program.cs DI factory delegates (Wave 1)
 - [ ] 03-02-PLAN.md — TD-01 delete NullHttpClientFactory.cs and NullScryfallRestClientFactory.cs orphans (Wave 2, depends on 03-01)
 - [x] 03-03-PLAN.md — TD-03 untrack wwwroot/js/*.js + .gitignore glob + README local-dev TS toolchain section (Wave 1)
 - [ ] 03-04-PLAN.md — TD-04 ForwardedHeadersOptions Render CIDR research + Production-only restriction with cited source (Wave 1)
