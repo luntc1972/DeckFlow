@@ -32,9 +32,8 @@ public sealed class CommanderSpellbookServiceTests
         {
             ["commander-spellbook"] = stub
         });
-        return new CommanderSpellbookService(
+        return TestServiceFactory.CreateCommanderSpellbookService(
             factory,
-            new FakeResiliencePipelineProvider(),
             cache ?? new MemoryCache(new MemoryCacheOptions()));
     }
 

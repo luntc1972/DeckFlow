@@ -28,7 +28,7 @@ public sealed class CardSearchServiceTests
         var cache = new MemoryCache(new MemoryCacheOptions());
         var callCount = 0;
         RestRequest? lastRequest = null;
-        var service = new ScryfallCardSearchService(
+        var service = TestServiceFactory.CreateScryfallCardSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -49,7 +49,7 @@ public sealed class CardSearchServiceTests
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var callCount = 0;
-        var service = new ScryfallCardSearchService(
+        var service = TestServiceFactory.CreateScryfallCardSearchService(
             cache,
             executeAsync: (request, _) =>
             {
@@ -67,7 +67,7 @@ public sealed class CardSearchServiceTests
     public async Task SearchAsync_ThrowsWhenResponseFails()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallCardSearchService(
+        var service = TestServiceFactory.CreateScryfallCardSearchService(
             cache,
             executeAsync: (request, _) =>
             {

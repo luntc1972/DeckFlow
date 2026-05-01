@@ -12,7 +12,7 @@ public sealed class ScryfallSetServiceTests
     public async Task GetSetsAsync_ReturnsSetsOrderedByReleaseDateDescending()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -40,7 +40,7 @@ public sealed class ScryfallSetServiceTests
     public async Task GetSetsAsync_ExcludesDigitalSets()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -64,7 +64,7 @@ public sealed class ScryfallSetServiceTests
     public async Task BuildSetPacketAsync_FiltersCardsByCommanderColorIdentity()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -101,7 +101,7 @@ public sealed class ScryfallSetServiceTests
     public async Task BuildSetPacketAsync_ExcludesLowSignalLandsAndAddsSelectionNotes()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -143,7 +143,7 @@ public sealed class ScryfallSetServiceTests
     public async Task GetSetsAsync_PopulatesSetTypeFromUpstream()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -170,7 +170,7 @@ public sealed class ScryfallSetServiceTests
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var capturedSearchResources = new List<string>();
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -209,7 +209,7 @@ public sealed class ScryfallSetServiceTests
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var capturedSearchResources = new List<string>();
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -247,7 +247,7 @@ public sealed class ScryfallSetServiceTests
     public async Task BuildSetPacketAsync_AddsReprintFilterNoteWhenFilterApplies()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -280,7 +280,7 @@ public sealed class ScryfallSetServiceTests
     public async Task BuildSetPacketAsync_OmitsReprintFilterNoteForExpansionOnly()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(
@@ -313,7 +313,7 @@ public sealed class ScryfallSetServiceTests
     public async Task BuildSetPacketAsync_AddsReprintFilterNoteWhenAnySetTriggersFilter()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var service = new ScryfallSetService(
+        var service = TestServiceFactory.CreateScryfallSetService(
             cache,
             new FakeMechanicLookupService(),
             executeSetListAsync: (_, _) => Task.FromResult(

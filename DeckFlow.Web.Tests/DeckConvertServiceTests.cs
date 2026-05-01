@@ -199,7 +199,7 @@ public sealed class DeckConvertServiceTests
         RestResponse<ScryfallCollectionResponse>? collectionResponse = null,
         System.Action? onCollectionCall = null)
     {
-        return new DeckConvertService(
+        return TestServiceFactory.CreateDeckConvertService(
             new DeckEntryLoader(
             new FakeMoxfieldDeckImporter(moxfieldEntries ?? []),
             new FakeArchidektDeckImporter(archidektEntries ?? []),

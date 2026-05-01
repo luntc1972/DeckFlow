@@ -13,7 +13,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupAsync_PreservesQuantities_AndCollectsMissingLines()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
@@ -39,7 +39,7 @@ public sealed class CardLookupServiceTests
     public async Task LookupAsync_SendsCollectionRequestsInBatches()
     {
         var requestCount = 0;
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) =>
             {
                 requestCount++;
@@ -63,7 +63,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupAsync_ThrowsInvalidOperationException_WhenTooManyCardsSubmitted()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
@@ -81,7 +81,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupAsync_ThrowsHttpRequestException_WhenScryfallFails()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.ServiceUnavailable
@@ -95,7 +95,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupAsync_UsesPrintedNameFallback_WhenCollectionDoesNotResolveCard()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
                 [new ScryfallCollectionIdentifier("Fblthp, Lost on the Range")],
@@ -117,7 +117,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupSingleAsync_ReturnsDetectedMechanics_FromKeywordsAndAbilityWords()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
@@ -154,7 +154,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupSingleAsync_ReturnsResolvedCardName_WhenFallbackSearchFindsAlternatePrintedName()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
                 [new ScryfallCollectionIdentifier("Pastor da Selva")],
@@ -182,7 +182,7 @@ public sealed class CardLookupServiceTests
     public async Task LookupAsync_UsesPlainSearchFallback_ForAlternatePrintedNames()
     {
         var searchQueries = new List<string>();
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
                 [new ScryfallCollectionIdentifier("Pastor da Selva")],
@@ -219,7 +219,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupAsync_UsesNamedFuzzyFallback_WhenSearchFallbackDoesNotResolveCard()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
                 [new ScryfallCollectionIdentifier("Pastor da Selva")],
@@ -245,7 +245,7 @@ public sealed class CardLookupServiceTests
     [Fact]
     public async Task LookupAsync_MatchesCurlyApostrophesAgainstStraightApostropheResults()
     {
-        var service = new ScryfallCardLookupService(
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
