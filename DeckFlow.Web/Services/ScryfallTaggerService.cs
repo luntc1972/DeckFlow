@@ -163,9 +163,26 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
             return (string.Empty, string.Empty);
         }
 
+        static (int SortBucket, DateTimeOffset ReleasedAt) GetReleasedAtSortKey(JsonElement printing)
+        {
+            if (!printing.TryGetProperty("released_at", out var releasedAtProp))
+            {
+                return (1, DateTimeOffset.MaxValue);
+            }
+
+            var releasedAtText = releasedAtProp.GetString();
+            if (string.IsNullOrWhiteSpace(releasedAtText)
+                || !DateTimeOffset.TryParse(releasedAtText, out var releasedAt))
+            {
+                return (1, DateTimeOffset.MaxValue);
+            }
+
+            return (0, releasedAt);
+        }
+
         var taggerRestClient = new RestClient(_taggerHttpClient.Inner);
         var probesAttempted = 0;
-        foreach (var printing in dataArray.EnumerateArray())
+        foreach (var printing in dataArray.EnumerateArray().OrderBy(GetReleasedAtSortKey))
         {
             if (probesAttempted >= MaxProbeAttempts) break;
 
