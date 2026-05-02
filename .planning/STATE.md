@@ -1,36 +1,34 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Phase 5 context gathered
-last_updated: "2026-05-02T14:22:34.918Z"
-last_activity: 2026-05-02 -- Phase 05 execution started
+milestone_name: Polish & Quality
+status: complete
+stopped_at: v1.0 milestone closed
+last_updated: "2026-05-02T22:49:00.000Z"
+last_activity: 2026-05-02 — v1.0 milestone closed
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 17
-  completed_plans: 14
-  percent: 82
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-30)
+See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 05 — security-bug-fixes-v2
+**Current focus:** Planning v1.1 — run `/gsd-new-milestone`.
 
 ## Current Position
 
-Phase: 05 (security-bug-fixes-v2) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 05
-Last activity: 2026-05-02 -- Phase 05 execution started
+Milestone: v1.0 Polish & Quality — SHIPPED 2026-05-02
+Status: Awaiting next milestone
 
-Progress: [████████░░] 71% (10/14 plans complete; 4 abandoned)
+Progress: [██████████] 100% (17/17 plans complete; Phase 4 abandoned, rerouted to Phase 5)
 
 ## Performance Metrics
 
@@ -80,12 +78,15 @@ None yet.
 
 ## Deferred Items
 
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| *(none)* | | | |
+Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
+
+| Category | Item | Status | Notes |
+|----------|------|--------|-------|
+| uat_gap | 04-HUMAN-UAT.md | partial (5 pending scenarios) | Phase 04 ABANDONED — work re-shipped under Phase 05 with full live UAT (27/27 must-haves verified). Pending scenarios are stale; tracked by 04-ABANDONED.md. |
+| verification_gap | 04-VERIFICATION.md | human_needed | Phase 04 ABANDONED — superseded by Phase 05 verification (passed, 7/7 SCs, 20/20 plan-frontmatter truths). |
 
 ## Session Continuity
 
-Last session: 2026-05-02T13:31:59.759Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-security-bug-fixes-v2/05-CONTEXT.md
+Last session: 2026-05-02 — v1.0 milestone closed
+Stopped at: Awaiting v1.1 milestone definition
+Resume: run `/gsd-new-milestone`

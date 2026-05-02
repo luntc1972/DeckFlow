@@ -27,36 +27,22 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - ✓ Browser extension package (`deckflow-bridge.zip`) served from `/extensions/` — production
 - ✓ Pluggable SQLite/Postgres storage with auto-creating schema (`EnsureSchemaAsync`) — production
 - ✓ Skip-link, ARIA labelled-by, copy announcer accessibility baseline — production
+- ✓ 6-step type scale + semantic color tokens (`--link`, `--danger`, `--cta-border`, `--focus`) propagated to all 25 guild themes — v1.0 (UI-VS-01..04)
+- ✓ Hub primary-CTA + inline-style cleanup + voice-aligned page titles + `/feedback` busy-state — v1.0 (UI-LH-01..02, UX-01..03)
+- ✓ Test-only factories moved out of prod assembly + single-ctor service standardization + generated JS untracked + `ForwardedHeadersOptions` Path B-rawpeer with `CF-Connecting-IP` — v1.0 (TD-01..04)
+- ✓ Scryfall Tagger restored for cEDH staples (auto-cookie revert + Cloudflare BIC headers + `AutomaticDecompression`) — v1.0 (BUG-01)
+- ✓ Postgres-backed admin brute-force throttle with `CF-Connecting-IP` partition + same fix on `/feedback` rate-limiter — v1.0 (BUG-02 + TD-04 patch)
+- ✓ Localhost integration test regression guard for Tagger cookie-replay path — v1.0
 
 ### Active
 
-<!-- Polish & Quality milestone scope. -->
+<!-- Next milestone (v1.1) scope — populated by `/gsd-new-milestone`. -->
 
-**Visible UI improvements (from UI-REVIEW.md, 2026-04-30 audit, score 16/24)**
+(None yet — run `/gsd-new-milestone` to define v1.1.)
 
-- [ ] Define a 6-step type scale (`--fs-xs/sm/base/lg/xl/2xl`); replace 18 literal font-sizes in `site.css`
-- [ ] Split semantic color tokens (`--link`, `--danger`, `--cta-border`, `--focus`) from `--accent-strong` to fix error-text-as-link bug on red guild themes (Rakdos, Boros, Jund)
-- [ ] Pick a primary focal action on the home hub (single hero CTA above the grid OR per-group `.hub-card--primary`)
-- [ ] Move inline `style=` attributes from `Feedback/Index.cshtml` and `AdminFeedback/{Index,Detail}.cshtml` into CSS classes
-- [ ] Hoist 14+ hardcoded color literals (`#fff`, `#3a82f7`, `#c53030`, `#2f855a`, `#2b6cb0`, `#b83a2e`) in `site.css` into `:root` tokens
+**Carried over for v1.1 measurement:**
 
-**Copy & UX small wins**
-
-- [ ] `_MoxfieldBulkEditHint.cshtml` "Submit" → action-specific verb ("Run Compare" or "Look Up")
-- [ ] Feedback page submit busy-state (spinner/disabled while POSTing)
-- [ ] Voice consistency: page `<title>` vs `<h1>` (verb-noun vs noun-only — pick one)
-
-**Tractable code-quality cleanup (from CONCERNS.md)**
-
-- [ ] Move `NullHttpClientFactory` and `NullScryfallRestClientFactory` to test project + `[InternalsVisibleTo]`
-- [ ] Standardize on one constructor per service + named test-helper factory
-- [ ] Drop generated `*.js` from git tracking (TS-source-of-truth)
-- [ ] Tighten `ForwardedHeadersOptions.KnownIPNetworks` to Render's known CIDR
-
-**Quality bug fixes**
-
-- [ ] Scryfall Tagger 404 bug
-- [ ] Per-IP rate-limit on `/Admin/*` (defense against brute-force)
+- [ ] Re-score UI audit (`tasks/UI-REVIEW.md`) against the original 16/24 baseline — v1.0 success bar (≥ 20/24) was not formally re-measured before close
 
 ### Out of Scope
 
@@ -101,10 +87,11 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Recent project state**
 
-- Storage code review remediation completed (commits `526690d` and earlier)
-- Postgres URI parsing fix shipped today (commit `6bd3117`) after libpq URI vs Npgsql key=value mismatch broke first deploy
-- AdminFeedback view path fix shipped today (commit `a225e89`) — views were nested at `Views/Admin/Feedback/` not the convention `Views/AdminFeedback/`
-- 8 quick-win CONCERNS items already shipped before this milestone
+- v1.0 Polish & Quality milestone shipped 2026-05-02 (5 phases, 17 plans, 63 commits, +20,284 / -5,194 LOC)
+- Phase 4 abandoned mid-milestone after both fixes proved ineffective on prod despite passing static checks; rerouted to Phase 5 with surgical revert + corrective Postgres-backed throttle (see `04-ABANDONED.md` post-mortem)
+- Two latent root causes surfaced during Phase 5 BUG-01: Cloudflare BIC blocks Render egress IPs without browser-shaped headers, and `AutomaticDecompression` must be enabled when advertising `Accept-Encoding`
+- All 15 v1 requirements shipped; UI audit re-score against `tasks/UI-REVIEW.md` deferred to v1.1
+- Tech stack pinned: ASP.NET 10 + Razor + RestSharp/Polly v8 + Postgres on Render
 
 **User profile**
 
@@ -130,11 +117,14 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Polish & quality before refactor | Visible improvements ship faster, sustain user momentum, and the UI audit gave a concrete punch list. Refactors (DeckController, ChatGPT services) are larger and benefit from a clean baseline. | — Pending |
-| Audit re-score ≥ 20/24 as success bar | Concrete, measurable, ties milestone completion back to the same evidence that started it. Avoids "feels nicer" subjective drift. | — Pending |
-| Keep `--accent-strong` for backward compat; layer new semantic tokens on top | Mass-renaming `--accent-strong` would touch 25 theme files; aliases preserve all themes while fixing the semantic collision. | — Pending |
+| Polish & quality before refactor | Visible improvements ship faster, sustain user momentum, and the UI audit gave a concrete punch list. Refactors (DeckController, ChatGPT services) are larger and benefit from a clean baseline. | ✓ Good (v1.0 shipped on schedule, 15/15 reqs) |
+| Audit re-score ≥ 20/24 as success bar | Concrete, measurable, ties milestone completion back to the same evidence that started it. Avoids "feels nicer" subjective drift. | ⚠️ Revisit (re-score not measured at close; carry to v1.1) |
+| Keep `--accent-strong` for backward compat; layer new semantic tokens on top | Mass-renaming `--accent-strong` would touch 25 theme files; aliases preserve all themes while fixing the semantic collision. | ✓ Good (token block landed on all 25 themes; Rakdos `--link` override proves the seam) |
 | Postgres on Render (single managed instance) | Free SQLite + persistent disk works but is fragile across deploys; managed Postgres is durable, cheap (Basic-256mb $7/mo), and the storage layer was already pluggable. | ✓ Good (deployed 2026-04-30) |
-| Render Starter web tier ($7/mo) over Free | Free tier sleeps after 15min, .NET cold start ~30s gave bad UX; Starter is always-on for ~$84/yr. | — Pending (just upgraded) |
+| Render Starter web tier ($7/mo) over Free | Free tier sleeps after 15min, .NET cold start ~30s gave bad UX; Starter is always-on for ~$84/yr. | ✓ Good (no cold-start UX complaints during milestone) |
+| Phase 4 abandonment + rerouting BUG-01/BUG-02 to Phase 5 | Both Phase 4 fixes passed static checks but failed live on prod (Tagger still empty for cEDH staples, throttle still ineffective). Pressing forward would have buried the root causes. | ✓ Good (Phase 5 surfaced Cloudflare BIC + AutomaticDecompression as the actual blockers) |
+| `CF-Connecting-IP` as the partition key for both admin throttle AND `/feedback` rate-limiter | `X-Forwarded-For` was being fragmented by multi-proxy chain; spoof-resistance comes from Render Inbound IP Rules + Cloudflare CIDR allow-list, not from header trust. | ✓ Good (live UAT 10×401 + 1×429 with monotonic Retry-After 899→879) |
+| Localhost `HttpListener` integration test for Tagger cookie-replay | Static checks let `4db8b8a` ship to prod without exercising the GraphQL POST leg. Real `SocketsHttpHandler` against a stub server catches future regressions to manual cookie replay or `UseCookies=false`. | ✓ Good (2/2 pass; closes the verification gap) |
 
 ## Evolution
 
@@ -153,5 +143,11 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
+## Current State
+
+**Shipped:** v1.0 Polish & Quality (2026-05-02) — all 15 v1 requirements landed across 5 phases, 17 plans, 63 commits.
+
+**Next milestone:** TBD — run `/gsd-new-milestone` to define v1.1.
+
 ---
-*Last updated: 2026-04-30 after initialization (Polish & Quality milestone)*
+*Last updated: 2026-05-02 after v1.0 milestone*
