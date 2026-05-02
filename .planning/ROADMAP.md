@@ -20,7 +20,7 @@ parallelize freely.
 - [ ] **Phase 2: Layout, Hierarchy & UX Copy** — Promote primary hub CTA, kill inline styles, fix copy/voice mismatches and feedback busy-state
 - [ ] **Phase 3: Tech-Debt Cleanup** — Move test-only types out of prod assembly, single-ctor services, drop generated JS from git, tighten forwarded-headers CIDR
 - [~] **Phase 4: Security & Bug Fixes** — ABANDONED 2026-05-02; both fixes ineffective on prod despite static PASS. See `.planning/phases/04-security-bug-fixes/04-ABANDONED.md`. BUG-01 + BUG-02 deferred to Phase 5.
-- [ ] **Phase 5: Security & Bug Fixes v2 — Observability First** — Reopen BUG-01 (Tagger empty for cEDH staples) and BUG-02 (admin throttle ineffective) with diagnostic observability landed BEFORE behavioral fixes. Live Render log capture identifies the real failure layer; corrective fix lands ONLY after observed root cause confirmed.
+- [ ] **Phase 5: Security & Bug Fixes v2 — Surgical Revert + Corrective Throttle** — Reopen BUG-01 (Tagger empty for cEDH staples) and BUG-02 (admin throttle ineffective). BUG-01 is a surgical revert of the Tagger-specific changes from `4db8b8a` (HTTP migration replaced auto cookie management with broken manual scrape/replay; pre-migration shape works as verified by direct probe). BUG-02 remains a real architectural fix: persistent throttle state + correct partition key.
 
 ## Phase Details
 
@@ -100,18 +100,32 @@ Plans:
 - [~] 04-03-PLAN.md — ABANDONED. Sort by released_at ASC shipped + reverted; doubled down on wrong layer. (BUG-01 v2)
 - [~] 04-04-PLAN.md — ABANDONED. RFC1918 KnownNetworks + ForwardLimit=1 shipped + reverted; only peels Render hop, lands on Cloudflare edge IPs (still fragmented). (BUG-02 v2)
 
-### Phase 5: Security & Bug Fixes v2 — Observability First
-**Goal**: Reopen BUG-01 and BUG-02 with corrective approach driven by **real Render production telemetry**, not static-verification-only. Add diagnostic observability for both bugs as the FIRST landed change; let live logs identify the real failure layer; ship behavioral fixes ONLY after observed root cause matches the fix's hypothesis. Also propagate the corrective IP-derivation fix to the Phase 03 TD-04 feedback rate-limiter (same multi-proxy fragmentation flaw is latent there).
+### Phase 5: Security & Bug Fixes v2 — Surgical Revert + Corrective Throttle
+**Goal**: Restore Tagger to its pre-`4db8b8a` working shape (auto cookie management + single-printing lookup) and ship a real working admin brute-force throttle (persistent state + correct partition key). Drop the iterate-printings + sort-ASC dead code from Phase 4 (solved a non-existent problem). Propagate the corrective IP-derivation fix to Phase 03 TD-04 feedback rate-limiter. Add structured observability to Tagger flow as a forward-looking guard (not as the primary diagnostic — BUG-01's cause is already identified by git archaeology).
+
 **Depends on**: Phase 4 ABANDONED post-mortem (.planning/phases/04-security-bug-fixes/04-ABANDONED.md)
+
 **Requirements**: BUG-01, BUG-02 (re-opened from Phase 4 abandonment)
+
+**Pre-Phase Findings (already verified):**
+- Direct probe from external IP confirms: `cards/named?exact=Sol Ring` → `soc/128` → Tagger GraphQL returns 15 oracle tags. Pre-migration code path works.
+- Tagger sets exactly ONE session cookie: `_scryfall_tagger_session=...;path=/;secure;HttpOnly;SameSite=Lax`. Manual scrape SHOULD work but production-observed behavior says it doesn't — RestSharp `AddHeader("Cookie", ...)` quirk, redirect-disabled cookie-loss, or RestSharp 114 specifics suspected.
+- Cloudflare Free tier does NOT throttle per-endpoint brute-force (verified: 30/sec hammering passes through unblocked). BUG-02 needs application-layer protection.
+- Render edge LB fronts the single Starter instance with multiple internal proxy IPs (RFC1918 10.x.x.x range), and the chain is `Cloudflare → Render edge → container`. Phase 4-04's `ForwardLimit=1` + RFC1918 trust list peeled only the Render hop and landed on Cloudflare edge IPs (still fragmented). Real fix: read `CF-Connecting-IP` directly (Cloudflare-set, single IP per real client) AND gate Render inbound to Cloudflare-only via Render Inbound IP Rules so CF-Connecting-IP can't be spoofed.
+
 **Success Criteria** (what must be TRUE):
-  1. Live Render logs from a triggered Sol Ring `/suggest-categories` mode=ScryfallTagger call show distinct, parseable structured log lines for each ScryfallTaggerService step (Resolve, Session-fetch, GraphQL-POST, parse) with HTTP status, retry count, and elapsed ms — sufficient to identify which step actually fails on prod without code-side debugging.
-  2. The actual root-cause failure layer of BUG-01 on production is **named in the Phase 5 SUMMARY** with log-line evidence (e.g., "GraphQL POST returns 403 because Render egress IP is rate-limited by tagger.scryfall.com" — or whatever the real cause is). The fix that ships matches that named root cause.
-  3. After the BUG-01 fix lands and Render redeploys, a single live curl POST to `/api/suggestions/card` mode=ScryfallTagger with `Sol Ring` returns `hasTaggerCategories: true` with at least 5 oracle tags. Counterspell + Mana Crypt also return non-empty Tagger tags.
-  4. After the BUG-02 fix lands and Render redeploys, a 11-attempt curl burst against `/Admin/Feedback` from one client IP returns clean **10×401 + 1×429** with Retry-After 1..900 sec, monotonically decreasing. After 15 minutes, single curl returns 401 again (window reset). Persistence across deploy-restart is verified via 11-burst → deploy → 1 curl returns 429 (state survives restart).
-  5. The Phase 03 TD-04 feedback-submit rate-limiter is re-tested with a multi-burst from one client IP (≥10 POSTs in <60s) and produces a clean ≥1×429 response — confirming the same partition fix is propagated and Phase 03's latent fragmentation defect is closed.
-  6. README admin/operations note is restored (was reverted with Phase 4) — explicit lockout window, retry-after behavior, Cloudflare-gate-recommended note.
-**Plans**: TBD via /gsd-plan-phase 5
+  1. After the BUG-01 fix lands and Render redeploys, a single live curl POST to `/api/suggestions/card` mode=ScryfallTagger with `Sol Ring` returns `hasTaggerCategories: true` with at least 5 oracle tags. Counterspell + Mana Crypt also return non-empty Tagger tags.
+  2. The Phase 4-02 / 4-03 dead code (iterate-printings + sort-by-released_at) is removed; `ScryfallTaggerService.ResolveCardPrintingAsync` returns to single-printing lookup via `cards/named?exact=...`.
+  3. Tagger HTTP path uses auto cookie management (CookieContainer-equivalent in RestSharp, OR a non-cookie-disabled HttpClient just for Tagger). `AllowAutoRedirect` re-enabled for Tagger requests. `IMemoryCache` for the resolved (set, num) tuple is preserved (24hr positive / 1hr negative).
+  4. After the BUG-02 fix lands and Render redeploys, a 11-attempt curl burst against `/Admin/Feedback` from one client IP returns clean **10×401 + 1×429** with Retry-After 1..900 sec, monotonically decreasing. After 15 minutes, single curl returns 401 again (window reset). Persistence across deploy-restart is verified via 11-burst → deploy → 1 curl returns 429 (state survives restart). Spoofed `CF-Connecting-IP` from external attacker does NOT rotate the partition key (proved by Render Inbound IP Rules gating).
+  5. The Phase 03 TD-04 feedback-submit rate-limiter is re-tested with a multi-burst from one client IP (≥10 POSTs in <60s) and produces a clean ≥1×429 response — same partition derivation as BUG-02 (CF-Connecting-IP). Phase 03's latent fragmentation defect is closed.
+  6. Structured logging is added to ScryfallTaggerService steps (Resolve / Session-fetch / GraphQL-POST / parse) so a future regression can be diagnosed from logs without re-running git archaeology. Each step emits a distinct log template with HTTP status, elapsed ms, and step name.
+  7. README admin/operations note is restored (was reverted with Phase 4) — explicit lockout window, retry-after behavior, Cloudflare-gate requirement.
+
+**Plans**: TBD via /gsd-plan-phase 5 (anticipated 3 plans)
+- Plan 05-01: BUG-01 surgical revert — drop iterate-printings + sort-ASC, restore pre-migration cookie handling shape, add structured logging, keep IMemoryCache
+- Plan 05-02: BUG-02 corrective — read CF-Connecting-IP for partition key, configure Render Inbound IP Rules to Cloudflare-only, Postgres-backed throttle state, propagate to TD-04 feedback rate-limit, restore README note
+- Plan 05-03: (optional) integration test that exercises ScryfallTaggerService end-to-end against a stub Tagger using the actual cookie/CSRF replay path — closes the verification gap that let `4db8b8a` ship without testing the GraphQL POST leg
 
 
 
@@ -125,7 +139,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | 2. Layout, Hierarchy & UX Copy | 3/3 | Code-complete (awaiting verifier) | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
 | 4. Security & Bug Fixes | 0/2 | ABANDONED 2026-05-02 — see 04-ABANDONED.md | - |
-| 5. Security & Bug Fixes v2 — Observability First | 0/TBD | Not started | - |
+| 5. Security & Bug Fixes v2 — Surgical Revert + Corrective Throttle | 0/3 | Not started | - |
 
 ## Coverage
 
