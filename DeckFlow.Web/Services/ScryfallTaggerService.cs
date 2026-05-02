@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -25,9 +27,16 @@ public interface IScryfallTaggerService
 /// <summary>
 /// Default implementation of <see cref="IScryfallTaggerService"/>.
 /// Resolves the card via the Scryfall REST API, then queries the Tagger GraphQL endpoint for oracle tags.
+///
+/// Phase 5 BUG-01: cookies are managed automatically by the typed Tagger HttpClient's
+/// SocketsHttpHandler.CookieContainer (Program.cs). This service only manages the CSRF token
+/// (via TaggerSessionCache) and emits structured logs at every step (Tagger.Resolve,
+/// Tagger.SessionFetch, Tagger.GraphQlPost, Tagger.Parse, Tagger.Lookup, Tagger.RefreshAndRetry).
 /// </summary>
 public sealed class ScryfallTaggerService : IScryfallTaggerService
 {
+    private static readonly Uri TaggerCookieScopeUri = new("https://tagger.scryfall.com/");
+
     private static readonly string TaggerQuery =
         "query($set:String!,$number:String!){card:cardBySet(set:$set,number:$number){taggings{tag{name type slug}weight status}}}";
 
@@ -41,14 +50,15 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
 
     /// <summary>
     /// HIGH-1 loop guard — flows correctly across async/await boundaries.
-    /// Replaces the plan's [ThreadStatic] suggestion which would not survive thread hops on continuations.
+    /// Prevents the 403-retry path from recursing if the refreshed session also returns 403.
     /// </summary>
     private static readonly AsyncLocal<bool> _attemptedRefresh = new();
 
     /// <summary>
-    /// Creates a Tagger service backed by the typed Tagger HttpClient (D-06), the
-    /// IScryfallRestClientFactory for Scryfall card lookups, the named Polly v8 pipelines
-    /// (scryfall, tagger, tagger-post — D-04/D-05), and the 270s session cache (HIGH-2).
+    /// Creates a Tagger service backed by the typed Tagger HttpClient (auto-cookies via
+    /// SocketsHttpHandler.CookieContainer per Phase 5 BUG-01), the IScryfallRestClientFactory
+    /// for Scryfall card lookups, the named Polly v8 pipelines (scryfall, tagger, tagger-post),
+    /// and the 270s session cache (HIGH-2).
     /// </summary>
     public ScryfallTaggerService(
         IScryfallRestClientFactory scryfallRestClientFactory,
@@ -75,7 +85,10 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
 
-        var (set, collectorNumber) = await ResolveCardPrintingAsync(cardName.Trim(), cancellationToken).ConfigureAwait(false);
+        var stopwatch = Stopwatch.StartNew();
+        var trimmedName = cardName.Trim();
+
+        var (set, collectorNumber) = await ResolveCardPrintingAsync(trimmedName, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrEmpty(set) || string.IsNullOrEmpty(collectorNumber))
         {
             return [];
@@ -85,10 +98,9 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
         var session = _taggerSessionCache.TryGet();
         if (session is null)
         {
-            session = await FetchTaggerSessionAsync(set, collectorNumber, cancellationToken).ConfigureAwait(false);
+            session = await FetchTaggerSessionAsync(trimmedName, set, collectorNumber, cancellationToken).ConfigureAwait(false);
             if (session is null)
             {
-                _logger.LogWarning("Unable to obtain Tagger session for {CardName}.", cardName);
                 return [];
             }
             _taggerSessionCache.Set(session);
@@ -96,15 +108,16 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
         else if (_taggerSessionCache.IsApproachingExpiry())
         {
             // HIGH-2: cached session age >= 240s but TTL not yet hit. Trigger background refresh
-            // so the next request gets a fresh cookie+token while the current request still uses
+            // so the next request gets a fresh CSRF token while the current request still uses
             // the cached value. Decouples session expiry from the 5-min HandlerLifetime rotation.
+            var bgCardName = trimmedName;
             var bgSet = set;
             var bgNumber = collectorNumber;
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    var refreshed = await FetchTaggerSessionAsync(bgSet, bgNumber, CancellationToken.None).ConfigureAwait(false);
+                    var refreshed = await FetchTaggerSessionAsync(bgCardName, bgSet, bgNumber, CancellationToken.None).ConfigureAwait(false);
                     if (refreshed is not null) _taggerSessionCache.Set(refreshed);
                 }
                 catch (Exception ex)
@@ -114,7 +127,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
             });
         }
 
-        return await QueryTaggerGraphQlAsync(set, collectorNumber, session, cancellationToken).ConfigureAwait(false);
+        return await QueryTaggerGraphQlAsync(trimmedName, set, collectorNumber, session, stopwatch, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -122,6 +135,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     /// </summary>
     private async Task<(string Set, string CollectorNumber)> ResolveCardPrintingAsync(string cardName, CancellationToken cancellationToken)
     {
+        var resolveStopwatch = Stopwatch.StartNew();
         var scryfallClient = _scryfallRestClientFactory.Create();
         var request = new RestRequest("cards/named", Method.Get);
         request.AddQueryParameter("exact", cardName);
@@ -134,7 +148,9 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
 
         if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
         {
-            _logger.LogWarning("Scryfall card lookup failed for {CardName}: {Status}", cardName, response.StatusCode);
+            _logger.LogWarning(
+                "Tagger.Resolve failed for {CardName}: HTTP {StatusCode} in {ElapsedMs}ms",
+                cardName, (int)response.StatusCode, resolveStopwatch.ElapsedMilliseconds);
             return (string.Empty, string.Empty);
         }
 
@@ -148,12 +164,13 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     }
 
     /// <summary>
-    /// Fetches a Tagger card page via the typed cookie-disabled HttpClient and extracts the
-    /// CSRF token + Set-Cookie payload. Returns a TaggerSession with CachedAt = UTC now so the
-    /// HIGH-2 age-threshold logic can decide when to background-refresh.
+    /// Fetches a Tagger card page via the typed auto-cookie HttpClient (Phase 5 BUG-01) and
+    /// extracts the CSRF token. The session cookie is captured automatically by the
+    /// SocketsHttpHandler.CookieContainer for replay on the subsequent /graphql POST.
     /// </summary>
-    private async Task<TaggerSession?> FetchTaggerSessionAsync(string set, string collectorNumber, CancellationToken cancellationToken)
+    private async Task<TaggerSession?> FetchTaggerSessionAsync(string cardName, string set, string collectorNumber, CancellationToken cancellationToken)
     {
+        var sessionStopwatch = Stopwatch.StartNew();
         var taggerRestClient = new RestClient(_taggerHttpClient.Inner);
         var pageRequest = new RestRequest($"card/{set}/{collectorNumber}", Method.Get);
 
@@ -163,66 +180,94 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
 
         if (!pageResponse.IsSuccessful || string.IsNullOrEmpty(pageResponse.Content))
         {
-            _logger.LogWarning("Tagger page fetch failed: HTTP {Status}", (int)pageResponse.StatusCode);
+            _logger.LogWarning(
+                "Tagger.SessionFetch failed for {CardName} ({Set}/{Number}): HTTP {StatusCode} in {ElapsedMs}ms; csrf={CsrfPresent} cookies={CookieCount}",
+                cardName, set, collectorNumber, (int)pageResponse.StatusCode, sessionStopwatch.ElapsedMilliseconds, false, CountTaggerCookies());
             return null;
         }
 
         var token = ScryfallTaggerParsers.TryExtractCsrfToken(pageResponse.Content);
-        if (string.IsNullOrEmpty(token)) return null;
+        if (string.IsNullOrEmpty(token))
+        {
+            _logger.LogWarning(
+                "Tagger.SessionFetch failed for {CardName} ({Set}/{Number}): HTTP {StatusCode} in {ElapsedMs}ms; csrf={CsrfPresent} cookies={CookieCount}",
+                cardName, set, collectorNumber, (int)pageResponse.StatusCode, sessionStopwatch.ElapsedMilliseconds, false, CountTaggerCookies());
+            return null;
+        }
 
-        var cookieHeader = BuildCookieHeader(pageResponse);
-        if (string.IsNullOrEmpty(cookieHeader)) return null;
-
-        return new TaggerSession(token, cookieHeader, DateTimeOffset.UtcNow);
-    }
-
-    private static string BuildCookieHeader(RestResponse response)
-    {
-        var setCookies = response.Headers?
-            .Where(h => h.Name is not null && h.Name.Equals("Set-Cookie", StringComparison.OrdinalIgnoreCase))
-            .Select(h => StripCookieAttributes(h.Value?.ToString() ?? string.Empty))
-            .Where(v => !string.IsNullOrEmpty(v))
-            .ToArray();
-        return setCookies is { Length: > 0 } ? string.Join("; ", setCookies) : string.Empty;
-    }
-
-    private static string StripCookieAttributes(string setCookieValue)
-    {
-        var semicolon = setCookieValue.IndexOf(';');
-        return semicolon < 0 ? setCookieValue : setCookieValue[..semicolon];
+        // Cookies are now managed automatically by SocketsHttpHandler.CookieContainer (Program.cs Tagger
+        // handler config — UseCookies=true, Phase 5 BUG-01). The session cookie set by this GET response
+        // is auto-replayed on the subsequent /graphql POST through the same typed client.
+        return new TaggerSession(token, DateTimeOffset.UtcNow);
     }
 
     /// <summary>
-    /// Posts the GraphQL query to the Tagger endpoint via the tagger-post pipeline (retry=0 because
-    /// GraphQL POST is non-idempotent — W6/Pitfall 2). On 403 invokes
+    /// Reads the live cookie count for the Tagger BaseAddress from the shared CookieContainer
+    /// owned by the SocketsHttpHandler primary handler (Program.cs). Used by the
+    /// Tagger.SessionFetch log line {CookieCount} slot. Defensive try/catch returns 0 if
+    /// the container is somehow unavailable — should never trigger in production.
+    /// </summary>
+    private int CountTaggerCookies()
+    {
+        try
+        {
+            return _taggerHttpClient.Cookies.GetCookies(TaggerCookieScopeUri).Count;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Posts the GraphQL query to the Tagger endpoint via the tagger-post pipeline (retry=0
+    /// because GraphQL POST is non-idempotent). On 403 invokes
     /// <see cref="RefreshSessionAndRetryAsync"/> to satisfy SC-2.
     /// </summary>
     private async Task<IReadOnlyList<string>> QueryTaggerGraphQlAsync(
+        string cardName,
         string set,
         string collectorNumber,
         TaggerSession session,
+        Stopwatch outerStopwatch,
         CancellationToken cancellationToken)
     {
+        var postStopwatch = Stopwatch.StartNew();
         var response = await ExecuteTaggerPostAsync(set, collectorNumber, session, cancellationToken).ConfigureAwait(false);
+        postStopwatch.Stop();
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
             // HIGH-1: 403 received - invalidate stale session, force-refresh, retry POST once.
-            return await RefreshSessionAndRetryAsync(set, collectorNumber, cancellationToken).ConfigureAwait(false);
+            return await RefreshSessionAndRetryAsync(cardName, set, collectorNumber, outerStopwatch, cancellationToken).ConfigureAwait(false);
         }
 
         if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
         {
-            _logger.LogWarning("Tagger GraphQL request failed: {Status}", response.StatusCode);
+            _logger.LogWarning(
+                "Tagger.GraphQlPost failed for {CardName} ({Set}/{Number}): HTTP {StatusCode} in {ElapsedMs}ms",
+                cardName, set, collectorNumber, (int)response.StatusCode, postStopwatch.ElapsedMilliseconds);
             return Array.Empty<string>();
         }
-        return ScryfallTaggerParsers.ParseOracleTagsFromJson(response.Content);
+
+        var tags = ScryfallTaggerParsers.ParseOracleTagsFromJson(response.Content);
+        if (tags.Count == 0)
+        {
+            _logger.LogWarning(
+                "Tagger.Parse failed for {CardName}: {Reason}",
+                cardName, "ParseOracleTagsFromJson returned empty list for 200-OK response");
+        }
+
+        _logger.LogInformation(
+            "Tagger.Lookup succeeded for {CardName} in {ElapsedMs}ms returning {TagCount} tags",
+            cardName, outerStopwatch.ElapsedMilliseconds, tags.Count);
+        return tags;
     }
 
     /// <summary>
-    /// Executes a single Tagger GraphQL POST with the supplied session credentials.
-    /// Extracted so <see cref="RefreshSessionAndRetryAsync"/> can replay the same request shape
-    /// against fresh credentials without duplicating logic.
+    /// Executes a single Tagger GraphQL POST with the supplied session credentials. The
+    /// session cookie is replayed automatically by the SocketsHttpHandler.CookieContainer
+    /// (Phase 5 BUG-01); only the CSRF header is set explicitly here.
     /// </summary>
     private async Task<RestResponse> ExecuteTaggerPostAsync(
         string set,
@@ -232,7 +277,6 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     {
         var taggerRestClient = new RestClient(_taggerHttpClient.Inner);
         var graphqlRequest = new RestRequest("graphql", Method.Post);
-        graphqlRequest.AddHeader("Cookie", session.CookieHeader);
         graphqlRequest.AddHeader("X-CSRF-Token", session.CsrfToken);
 
         var payload = JsonSerializer.Serialize(new
@@ -249,13 +293,15 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
 
     /// <summary>
     /// HIGH-1 fix: On 403 from the tagger-post pipeline, invalidates the cached session,
-    /// fetches a fresh session (new CSRF token + cookies), and retries the POST exactly once.
+    /// fetches a fresh session (new CSRF token), and retries the POST exactly once.
     /// A max-1-retry guard (_attemptedRefresh AsyncLocal) prevents infinite loops.
     /// Degrades to empty result if the retry also fails or returns 403.
     /// </summary>
     private async Task<IReadOnlyList<string>> RefreshSessionAndRetryAsync(
+        string cardName,
         string set,
         string collectorNumber,
+        Stopwatch outerStopwatch,
         CancellationToken cancellationToken)
     {
         if (_attemptedRefresh.Value)
@@ -266,11 +312,15 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
             return Array.Empty<string>();
         }
 
+        _logger.LogWarning(
+            "Tagger.RefreshAndRetry triggered for {CardName} ({Set}/{Number}) after 403",
+            cardName, set, collectorNumber);
+
         _attemptedRefresh.Value = true;
         try
         {
             _taggerSessionCache.Invalidate();
-            var freshSession = await FetchTaggerSessionAsync(set, collectorNumber, cancellationToken).ConfigureAwait(false);
+            var freshSession = await FetchTaggerSessionAsync(cardName, set, collectorNumber, cancellationToken).ConfigureAwait(false);
             if (freshSession is null)
             {
                 _logger.LogWarning("Tagger session refresh failed for {Set}/{Number}; degrading to empty", set, collectorNumber);
@@ -287,7 +337,11 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
                 return Array.Empty<string>();
             }
 
-            return ScryfallTaggerParsers.ParseOracleTagsFromJson(retryResponse.Content);
+            var tags = ScryfallTaggerParsers.ParseOracleTagsFromJson(retryResponse.Content);
+            _logger.LogInformation(
+                "Tagger.Lookup succeeded for {CardName} in {ElapsedMs}ms returning {TagCount} tags",
+                cardName, outerStopwatch.ElapsedMilliseconds, tags.Count);
+            return tags;
         }
         finally
         {
