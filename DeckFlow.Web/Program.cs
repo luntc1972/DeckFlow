@@ -120,6 +120,14 @@ public partial class Program
                 UseCookies = true,
                 AllowAutoRedirect = true,
                 CookieContainer = sp.GetRequiredService<System.Net.CookieContainer>(),
+                // Phase 5 BUG-01 follow-up #2: we advertise Accept-Encoding: gzip,deflate,br
+                // (browser-mimicking BIC bypass), so the upstream WILL compress responses.
+                // Decompression must be enabled or pageResponse.Content is binary
+                // garbage and TryExtractCsrfToken returns null (csrf=False in the
+                // Tagger.SessionFetch log).
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip
+                    | System.Net.DecompressionMethods.Deflate
+                    | System.Net.DecompressionMethods.Brotli,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             })
             .SetHandlerLifetime(TimeSpan.FromMinutes(5));
