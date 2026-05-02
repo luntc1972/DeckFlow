@@ -129,3 +129,20 @@ x-fwd=21.22.23.24 status=200
 ## Follow-Up
 
 - **Post-deploy human verification (Task 3 §how-to-verify steps 3-5) — PENDING.** After this commit reaches `origin/main` and Render redeploys, the user must run the spoofed-`X-Forwarded-For` curl loop against `https://www.deckflow.gg/feedback/submit` and confirm at least one `429`.
+
+## Phase 04 addendum (2026-05-01)
+
+Live UAT during Phase 04 BUG-02 brute-force throttle exposed a defect in the Path-B-rawpeer assumption: an 11-burst against `/Admin/Feedback` returned 6×429 + 5×401 with non-monotonic Retry-After (251 → 252 ascending), proving the partition key was fragmenting across multiple `Connection.RemoteIpAddress` values for the SAME client. Per follow-up Render docs research (2026-05-01):
+
+- Render Starter (with persistent disk attached) is guaranteed single-instance — confirmed.
+- BUT Render's edge load balancer fans out to that single instance via **multiple internal proxy IPs** (RFC1918 10.x.x.x range). Each proxy IP becomes a different `Connection.RemoteIpAddress` → different partition key → fragmented bucket.
+
+The Path-B-rawpeer choice did not anticipate this. Phase 03's local smoke test only exercised one bucket; the multi-proxy-IP behavior surfaces only under live multi-burst traffic.
+
+**Corrective fix (Phase 04 Plan 04-04):** Switched to **Path-A-with-trust** by adding RFC1918 networks to `ForwardedHeadersOptions.KnownIPNetworks` and pinning `ForwardLimit=1`. After `UseForwardedHeaders` runs, `Connection.RemoteIpAddress` is peeled to the X-Forwarded-For value Render's proxy appended (= real client IP). Spoofing is still prevented because `ForwardLimit=1` only consumes the rightmost X-FF entry, which is always written by the trusted Render edge.
+
+Net effect on TD-04: feedback-submit rate-limit (which also reads `Connection.RemoteIpAddress`) now correctly partitions by client IP cross-instance/cross-proxy. Path B-rawpeer is no longer load-bearing — `DeriveFeedbackPartitionKey` still reads `RemoteIpAddress`, but that property now resolves to the real client IP via the strengthened forwarded-headers trust list.
+
+The `DeriveFeedbackPartitionKey_IgnoresForwardedForHeader` test still passes because `ForwardedHeadersOptions` config does not run inside the unit test (it's pipeline middleware); the unit test still proves the helper reads `Connection.RemoteIpAddress` directly. The integration behavior shift is on the live pipeline only.
+
+**See:** `.planning/phases/04-security-bug-fixes/04-04-PLAN.md` and `.planning/phases/04-security-bug-fixes/04-04-SUMMARY.md`.
