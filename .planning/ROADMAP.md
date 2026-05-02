@@ -122,10 +122,11 @@ Plans:
   6. Structured logging is added to ScryfallTaggerService steps (Resolve / Session-fetch / GraphQL-POST / parse) so a future regression can be diagnosed from logs without re-running git archaeology. Each step emits a distinct log template with HTTP status, elapsed ms, and step name.
   7. README admin/operations note is restored (was reverted with Phase 4) — explicit lockout window, retry-after behavior, Cloudflare-gate requirement.
 
-**Plans**: TBD via /gsd-plan-phase 5 (anticipated 3 plans)
-- Plan 05-01: BUG-01 surgical revert — drop iterate-printings + sort-ASC, restore pre-migration cookie handling shape, add structured logging, keep IMemoryCache
-- Plan 05-02: BUG-02 corrective — read CF-Connecting-IP for partition key, configure Render Inbound IP Rules to Cloudflare-only, Postgres-backed throttle state, propagate to TD-04 feedback rate-limit, restore README note
-- Plan 05-03: (optional) integration test that exercises ScryfallTaggerService end-to-end against a stub Tagger using the actual cookie/CSRF replay path — closes the verification gap that let `4db8b8a` ship without testing the GraphQL POST leg
+**Plans**: 3 plans
+Plans:
+- [ ] 05-01-PLAN.md — BUG-01 surgical revert: flip Tagger handler to UseCookies=true + AllowAutoRedirect=true, strip BuildCookieHeader/StripCookieAttributes/manual Cookie replay, reduce TaggerSession to (CsrfToken, CachedAt), add 5 structured log templates (Tagger.Resolve/SessionFetch/GraphQlPost/Parse/Lookup + RefreshAndRetry), update ScryfallTaggerServiceTests with no-manual-Cookie + no-iterate-printings guards (BUG-01)
+- [ ] 05-02-PLAN.md — BUG-02 corrective + TD-04 propagation: AdminBruteForceTrackerStore (Postgres-backed admin_brute_force_buckets table, lazy expiry), DeriveCloudflareClientIp shared helper used by both admin + feedback partition keys, BasicAuthMiddleware throttle gate + RecordFailureAsync at Challenge, README admin-throttle operations blurb, [BLOCKING] checkpoint for Render Inbound IP Rules Cloudflare CIDR allow-list (BUG-02, TD-04)
+- [ ] 05-03-PLAN.md — Integration test regression guard: localhost HttpListener stub exercises ScryfallTaggerService full flow with real SocketsHttpHandler, asserts cookie auto-replay on GraphQL POST + meta-test asserts no-cookie when UseCookies=false. Closes Phase 4 verification gap that let 4db8b8a ship untested (BUG-01)
 
 
 
