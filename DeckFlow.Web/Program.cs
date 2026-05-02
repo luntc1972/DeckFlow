@@ -82,22 +82,41 @@ public partial class Program
                 c.DefaultRequestHeaders.Accept.ParseAdd("application/json;q=0.9,*/*;q=0.8");
             });
 
-            // Typed client for Tagger - cookie-disabled SocketsHttpHandler per D-06.
+            // Typed client for Tagger — automatic cookie handling via SocketsHttpHandler CookieContainer
+            // per Phase 5 BUG-01 fix. The session cookie set by GET /card/{set}/{num} is replayed
+            // automatically on the subsequent POST /graphql by the same handler, removing the need
+            // for manual Cookie header construction (which the pre-Phase-5 manual replay path
+            // failed to deliver under RestSharp 114 + redirect-disabled config — see 04-ABANDONED.md).
             // HandlerLifetime = 5 min. TaggerSessionCache TTL = 270s (30s below HandlerLifetime)
-            // so session expiry races handler rotation with a safety margin (HIGH-2 fix).
-            builder.Services.AddHttpClient<ScryfallTaggerHttpClient>(c =>
+            // so the cached CSRF token expires before the underlying handler+cookie pair rotates
+            // (HIGH-2 invariant — DO NOT lower the 30s margin).
+            //
+            // The CookieContainer is registered as a singleton so ScryfallTaggerHttpClient can
+            // expose it for diagnostic logging (Tagger.SessionFetch log line {CookieCount} slot).
+            // The SocketsHttpHandler factory below resolves and uses the same instance, so reads
+            // through the typed wrapper reflect the live session state.
+            builder.Services.AddSingleton<System.Net.CookieContainer>();
+            builder.Services.AddHttpClient("scryfall-tagger", c =>
             {
                 c.BaseAddress = new Uri("https://tagger.scryfall.com/");
                 c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
             })
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
             {
-                UseCookies = false,
-                AllowAutoRedirect = false,
+                UseCookies = true,
+                AllowAutoRedirect = true,
+                CookieContainer = sp.GetRequiredService<System.Net.CookieContainer>(),
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             })
             .SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
+            builder.Services.AddSingleton<ScryfallTaggerHttpClient>(sp =>
+            {
+                var factory = sp.GetRequiredService<IHttpClientFactory>();
+                var http = factory.CreateClient("scryfall-tagger");
+                var cookies = sp.GetRequiredService<System.Net.CookieContainer>();
+                return new ScryfallTaggerHttpClient(http, cookies);
+            });
             builder.Services.AddSingleton<IScryfallTaggerHttpClient>(sp => sp.GetRequiredService<ScryfallTaggerHttpClient>());
 
             // Polly v8 pipelines registered into IResiliencePipelineRegistry<string>. Services resolve
