@@ -173,6 +173,10 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
         var sessionStopwatch = Stopwatch.StartNew();
         var taggerRestClient = new RestClient(_taggerHttpClient.Inner);
         var pageRequest = new RestRequest($"card/{set}/{collectorNumber}", Method.Get);
+        // Phase 5 BUG-01 follow-up: explicit Accept for the HTML page GET so Cloudflare's
+        // BIC sees the request as browser-shaped (the GraphQL POST sets its own JSON Content-Type
+        // and doesn't need this).
+        pageRequest.AddHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
 
         var pageResponse = await _taggerPipeline.ExecuteAsync(
             async ct => await taggerRestClient.ExecuteAsync(pageRequest, ct).ConfigureAwait(false),
@@ -277,6 +281,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     {
         var taggerRestClient = new RestClient(_taggerHttpClient.Inner);
         var graphqlRequest = new RestRequest("graphql", Method.Post);
+        graphqlRequest.AddHeader("Accept", "application/json");
         graphqlRequest.AddHeader("X-CSRF-Token", session.CsrfToken);
 
         var payload = JsonSerializer.Serialize(new
