@@ -12,6 +12,15 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateFeedbackConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "feedback.db");
 
+    /// <summary>
+    /// Returns the relational connection used by AdminBruteForceTrackerStore (Phase 5 BUG-02).
+    /// In production, shares the feedback Postgres connection (single logical DB; the
+    /// admin_brute_force_buckets table sits alongside feedback). In local-dev SQLite, also
+    /// shares the feedback.db file so we don't multiply SQLite files for tiny tables.
+    /// </summary>
+    public static RelationalDatabaseConnection CreateAdminThrottleConnection(IWebHostEnvironment environment)
+        => CreateFeedbackConnection(environment);
+
     public static RelationalDatabaseConnection CreateCategoryKnowledgeConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "category-knowledge.db");
 
