@@ -6,10 +6,12 @@ using Microsoft.Extensions.Caching.Memory;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Coupled CSRF token + cookie payload captured from a Scryfall Tagger HTML page response.
-/// Both fields originate from the same upstream request and expire together (D-07).
+/// CSRF token captured from a Scryfall Tagger HTML page response. The matching session
+/// cookie set by the same upstream response is owned by the SocketsHttpHandler.CookieContainer
+/// configured in Program.cs (Phase 5 BUG-01: UseCookies=true), so it is auto-replayed by the
+/// handler on the subsequent /graphql POST. Only the CSRF token needs explicit storage.
 /// </summary>
-public sealed record TaggerSession(string CsrfToken, string CookieHeader, DateTimeOffset CachedAt);
+public sealed record TaggerSession(string CsrfToken, DateTimeOffset CachedAt);
 
 /// <summary>
 /// 270-second IMemoryCache-backed store for the Tagger CSRF token + Set-Cookie payload.
@@ -18,8 +20,9 @@ public sealed record TaggerSession(string CsrfToken, string CookieHeader, DateTi
 /// replaying a stale session against a fresh handler (HIGH-2 fix).
 /// An age-refresh threshold at 240s triggers a background re-fetch while serving the
 /// cached value so the next POST sees a fresh session without blocking the caller.
-/// Replay strategy at the call site is request.AddHeader("Cookie", payload) +
-/// request.AddHeader("X-CSRF-Token", token) — never via the .NET cookie container API (D-08).
+/// Replay strategy at the call site is request.AddHeader("X-CSRF-Token", token) only —
+/// the matching session cookie is auto-replayed by the SocketsHttpHandler.CookieContainer
+/// configured in Program.cs (Phase 5 BUG-01).
 /// </summary>
 public interface ITaggerSessionCache
 {
