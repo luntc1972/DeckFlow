@@ -5,33 +5,49 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Security;
 
+/// <summary>
+/// TD-04 invariant guard tests (Phase 3 SC #4 — UPDATED for Phase 5 CF-Connecting-IP rewrite).
+/// The Phase 3 partition key was remote-peer based; Phase 5 BUG-02 rewrites
+/// it to feedback:&lt;CF-Connecting-IP header&gt;. The X-Forwarded-For-ignored invariant
+/// (TD-04 spoof resistance) is preserved across the rewrite — this file proves it.
+/// </summary>
 public sealed class ForwardedHeadersOptionsTests
 {
     [Fact]
     public void DeriveFeedbackPartitionKey_IgnoresForwardedForHeader()
     {
-        // Arrange - forged X-Forwarded-For with immediate-peer set to a different value.
         var ctx = new DefaultHttpContext();
         ctx.Request.Headers["X-Forwarded-For"] = "1.2.3.4";
+        ctx.Request.Headers["CF-Connecting-IP"] = "10.20.30.40";
         ctx.Connection.RemoteIpAddress = IPAddress.Parse("10.0.0.1");
 
-        // Act
         var key = Program.DeriveFeedbackPartitionKey(ctx);
 
-        // Assert - forged header value MUST NOT appear; immediate-peer IP DOES appear.
         Assert.DoesNotContain("1.2.3.4", key);
-        Assert.Contains("10.0.0.1", key);
-        Assert.StartsWith("peer:", key);
+        Assert.DoesNotContain("10.0.0.1", key);
+        Assert.Equal("feedback:10.20.30.40", key);
+        Assert.StartsWith("feedback:", key);
     }
 
     [Fact]
-    public void DeriveFeedbackPartitionKey_FallsBackToUnknownWhenPeerMissing()
+    public void DeriveFeedbackPartitionKey_WithCfConnectingIpHeader_ReturnsFeedbackPlusHeaderValue()
     {
         var ctx = new DefaultHttpContext();
-        ctx.Connection.RemoteIpAddress = null;
+        ctx.Request.Headers["CF-Connecting-IP"] = "203.0.113.42";
 
         var key = Program.DeriveFeedbackPartitionKey(ctx);
 
-        Assert.Equal("peer:unknown", key);
+        Assert.Equal("feedback:203.0.113.42", key);
+    }
+
+    [Fact]
+    public void DeriveFeedbackPartitionKey_WithoutCfConnectingIpHeader_FallsBackToUnknown()
+    {
+        var ctx = new DefaultHttpContext();
+        ctx.Connection.RemoteIpAddress = IPAddress.Parse("10.0.0.1");
+
+        var key = Program.DeriveFeedbackPartitionKey(ctx);
+
+        Assert.Equal("feedback:unknown", key);
     }
 }
