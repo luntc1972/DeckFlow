@@ -154,6 +154,7 @@ public partial class Program
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
+            builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
 
             // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
             // the browser's https scheme, not the http hop from proxy to app. Without this,
@@ -380,15 +381,42 @@ public partial class Program
     }
 
     /// <summary>
-    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4,
-    /// retrieved 2026-04-30). Reads the immediate-peer IP directly. Render's edge collapses
-    /// all production traffic to a single partition - acceptable at DeckFlow's
-    /// expected feedback volume (well under 5/hr globally). Forwarded-header spoofing
-    /// cannot rotate this key. See DeckFlow.Web.Tests/Security/ForwardedHeadersOptionsTests.cs
-    /// for the invariant.
+    /// Reads the Cloudflare-injected real client IP from the CF-Connecting-IP request header
+    /// (Phase 5 BUG-02 fix). Cloudflare always sets this to the originating client IP — single
+    /// value per real client, immune to the multi-proxy fan-out that broke Phase 4's
+    /// Connection.RemoteIpAddress-based partitioning. Cannot be spoofed past Cloudflare's edge
+    /// PROVIDED Render Inbound IP Rules gate the origin to Cloudflare CIDRs (see README "Admin
+    /// throttle" operations note). Returns "unknown" and logs a warning when the header is
+    /// missing — fail-closed, all unidentifiable traffic shares one partition.
+    /// </summary>
+    internal static string DeriveCloudflareClientIp(HttpContext context)
+    {
+        var raw = context.Request.Headers["CF-Connecting-IP"].ToString();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            Log.Warning("CF-Connecting-IP missing on {Path} — falling back to 'unknown' partition. Verify Render Inbound IP Rules + Cloudflare proxy.", context.Request.Path.Value ?? "(empty)");
+            return "unknown";
+        }
+        return raw.Trim();
+    }
+
+    /// <summary>
+    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4 +
+    /// Phase 05 SC #5 corrective). Wraps DeriveCloudflareClientIp so the partition derivation
+    /// matches the admin-throttle partition derivation — single source of truth. Phase 03's
+    /// "peer:" prefix becomes "feedback:" to make the namespace explicit and disjoint from
+    /// "admin:".
     /// </summary>
     internal static string DeriveFeedbackPartitionKey(HttpContext context)
-        => "peer:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+        => "feedback:" + DeriveCloudflareClientIp(context);
+
+    /// <summary>
+    /// Partition key for the admin basic-auth brute-force throttle (BUG-02). Same CF-Connecting-IP
+    /// derivation as DeriveFeedbackPartitionKey but with "admin:" namespace prefix so admin and
+    /// feedback buckets cannot collide.
+    /// </summary>
+    internal static string DeriveAdminPartitionKey(HttpContext context)
+        => "admin:" + DeriveCloudflareClientIp(context);
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {
