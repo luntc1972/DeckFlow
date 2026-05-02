@@ -124,7 +124,7 @@ Plans:
 
 **Plans**: 3 plans
 Plans:
-- [ ] 05-01-PLAN.md — BUG-01 surgical revert: flip Tagger handler to UseCookies=true + AllowAutoRedirect=true, strip BuildCookieHeader/StripCookieAttributes/manual Cookie replay, reduce TaggerSession to (CsrfToken, CachedAt), add 5 structured log templates (Tagger.Resolve/SessionFetch/GraphQlPost/Parse/Lookup + RefreshAndRetry), update ScryfallTaggerServiceTests with no-manual-Cookie + no-iterate-printings guards (BUG-01)
+- [x] 05-01-PLAN.md — BUG-01 surgical revert: flip Tagger handler to UseCookies=true + AllowAutoRedirect=true, strip BuildCookieHeader/StripCookieAttributes/manual Cookie replay, reduce TaggerSession to (CsrfToken, CachedAt), add 5 structured log templates (Tagger.Resolve/SessionFetch/GraphQlPost/Parse/Lookup + RefreshAndRetry), update ScryfallTaggerServiceTests with no-manual-Cookie + no-iterate-printings guards (BUG-01)
 - [ ] 05-02-PLAN.md — BUG-02 corrective + TD-04 propagation: AdminBruteForceTrackerStore (Postgres-backed admin_brute_force_buckets table, lazy expiry), DeriveCloudflareClientIp shared helper used by both admin + feedback partition keys, BasicAuthMiddleware throttle gate + RecordFailureAsync at Challenge, README admin-throttle operations blurb, [BLOCKING] checkpoint for Render Inbound IP Rules Cloudflare CIDR allow-list (BUG-02, TD-04)
 - [ ] 05-03-PLAN.md — Integration test regression guard: localhost HttpListener stub exercises ScryfallTaggerService full flow with real SocketsHttpHandler, asserts cookie auto-replay on GraphQL POST + meta-test asserts no-cookie when UseCookies=false. Closes Phase 4 verification gap that let 4db8b8a ship untested (BUG-01)
 
