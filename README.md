@@ -25,19 +25,75 @@ If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedb
 
 Public submissions are rate-limited to 5 per hour per IP.
 
-### Feedback rate-limit identity (forwarded-headers hardening)
+### Feedback rate-limit identity (CF-Connecting-IP, Phase 5)
 
 The feedback-submit rate-limit policy in `DeckFlow.Web/Program.cs` derives its
-partition key from the immediate-peer IP rather than the `X-Forwarded-For`-derived
-value. Render does not publish enumerable inbound proxy CIDRs (verified
-2026-04-30 via `render.com/docs/inbound-ip-rules` and
-`feedback.render.com/features/p/send-the-correct-xforwardedfor`), so we tightened
-the consumer (rate-limit partition) instead of the upstream trust list. Spoofing
-`X-Forwarded-For` cannot rotate the partition key.
+partition key from the `CF-Connecting-IP` request header (set by Cloudflare to
+the originating client IP). The same helper, `Program.DeriveCloudflareClientIp`,
+also drives the admin brute-force throttle — single source of truth for both
+surfaces.
 
-All Render-fronted traffic shares one rate-limit partition (Render's edge IP).
-The 5/hr feedback limit is sized for global load; revisit if legitimate feedback
-volume approaches this threshold.
+Spoofing `X-Forwarded-For` cannot rotate the partition key (the helper does not
+read that header). The Phase 03 immediate-peer-IP shape (`peer:<RemoteIpAddress>`)
+was rewritten in Phase 5 because Render's edge fans inbound traffic across
+multiple proxy IPs, fragmenting per-client buckets — see Phase 5 Plan 05-02.
+
+This trust-the-header model requires that the Render container origin be
+reachable only via Cloudflare; otherwise `CF-Connecting-IP` is spoofable by a
+direct-to-origin attacker. See "Admin throttle" below for the Render Inbound IP
+Rules prerequisite — it covers both surfaces.
+
+If `CF-Connecting-IP` is missing on a request, the partition falls back to
+`feedback:unknown` (or `admin:unknown` for /Admin/* requests) and a warning is
+logged. All unidentifiable traffic shares one bucket, fail-closed.
+
+### Admin throttle (Phase 5, BUG-02)
+
+The `/Admin/*` routes (feedback console) are protected against basic-auth
+brute-force by an application-layer throttle:
+
+- **Lockout window:** 10 failed authentication attempts per client IP within a
+  15-minute fixed window. The 11th attempt returns `429 Too Many Requests` with
+  a `Retry-After` header value (seconds until window reset, in the range 1..900).
+- **Persistence:** the throttle state is stored in Postgres
+  (`admin_brute_force_buckets` table), so a deploy or container restart does NOT
+  reset accumulated failure counts. There is no brute-force amnesty window on
+  redeploy.
+- **Client IP source:** the throttle partitions on the `CF-Connecting-IP`
+  request header (same helper as the feedback rate-limit). Cloudflare always
+  sets this to the originating client IP, so the partition key is stable per
+  real client (not fragmented across the Render edge's multi-proxy IP fan-out).
+- **Successful auth does NOT increment the bucket.** Only `Challenge`-emitted
+  401s (missing/malformed/invalid credentials) count toward the throttle.
+
+#### Spoof-prevention prerequisite (REQUIRED for production)
+
+The `CF-Connecting-IP` header is trusted only because Cloudflare proxies all
+inbound traffic. To prevent an attacker from reaching Render's container origin
+directly and supplying a fake `CF-Connecting-IP` header, configure **Render Inbound IP Rules**
+to allow only Cloudflare's published CIDR ranges:
+
+- Render docs: https://render.com/docs/inbound-ip-rules
+- Cloudflare IPv4 CIDRs: https://www.cloudflare.com/ips-v4/
+- Cloudflare IPv6 CIDRs: https://www.cloudflare.com/ips-v6/
+
+Render dashboard: deckflow service → Settings → Inbound IP Rules → add the full
+Cloudflare list. Cloudflare publishes ~22 IPv4 + ~7 IPv6 CIDRs and announces
+changes on the same pages. Refresh the Render allow-list manually if Cloudflare
+publishes a CIDR change announcement.
+
+Without this configuration, `CF-Connecting-IP` is spoofable by direct-to-origin
+hits and the throttle can be evaded by rotating the header value per request.
+
+#### Operational notes
+
+- Both the admin throttle (`/Admin/*`) and the feedback-submit rate-limiter
+  (`POST /feedback`) read from the same `CF-Connecting-IP`-derived partition
+  function (`Program.DeriveCloudflareClientIp`), so the spoof-prevention
+  requirement covers both surfaces.
+- The throttle table grows lazily — one row per distinct partition key. Stale
+  rows reset themselves on the next `RecordFailureAsync` after their 15-minute
+  window has elapsed. No periodic cleanup job is required.
 
 ### Database storage
 
