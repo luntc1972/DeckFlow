@@ -10,41 +10,16 @@ public sealed class BasicAuthMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<BasicAuthMiddleware> _logger;
     private readonly string _realm;
-    private readonly IAdminBruteForceTracker _tracker;
 
-    public BasicAuthMiddleware(
-        RequestDelegate next,
-        ILogger<BasicAuthMiddleware> logger,
-        string realm,
-        IAdminBruteForceTracker tracker)
+    public BasicAuthMiddleware(RequestDelegate next, ILogger<BasicAuthMiddleware> logger, string realm)
     {
-        ArgumentNullException.ThrowIfNull(next);
-        ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(realm);
-        ArgumentNullException.ThrowIfNull(tracker);
         _next = next;
         _logger = logger;
         _realm = realm;
-        _tracker = tracker;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // BUG-02 / D-02 — throttle gate before any auth parsing.
-        var partitionKey = "admin:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-        var now = DateTimeOffset.UtcNow;
-        var (throttled, retryAfter) = _tracker.IsThrottled(partitionKey, now);
-        if (throttled)
-        {
-            var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            _logger.LogWarning(
-                "Admin basic-auth throttled: {RemoteIp} retry after {RetryAfterSeconds}s",
-                remoteIp, retryAfter);
-            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-            context.Response.Headers["Retry-After"] = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            return;
-        }
-
         var user = Environment.GetEnvironmentVariable("FEEDBACK_ADMIN_USER");
         var password = Environment.GetEnvironmentVariable("FEEDBACK_ADMIN_PASSWORD");
 
@@ -98,9 +73,6 @@ public sealed class BasicAuthMiddleware
         _logger.LogWarning("Admin basic-auth challenge issued: {Reason} from {RemoteIp}", reason, remoteIp);
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.Headers["WWW-Authenticate"] = $"Basic realm=\"{_realm}\", charset=\"UTF-8\"";
-        // BUG-02 / D-01 — count only Challenge-emitted 401s (env-var 503 path bypasses this).
-        var partitionKey = "admin:" + remoteIp;
-        _tracker.RecordFailure(partitionKey, DateTimeOffset.UtcNow);
     }
 
     private static bool FixedTimeEquals(string a, string b)

@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Net.Http;
-using System.Net;
 using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -107,8 +106,6 @@ public partial class Program
 
             // CSRF + cookie session store for the Tagger flow (D-07, HIGH-2: 270s TTL).
             builder.Services.AddSingleton<ITaggerSessionCache, TaggerSessionCache>();
-            // BUG-02 / D-02: in-memory per-IP brute-force throttle for /Admin basic-auth (10 attempts / 15min).
-            builder.Services.AddSingleton<IAdminBruteForceTracker, AdminBruteForceTracker>();
 
             // IScryfallRestClientFactory - defined in Task 4 with static back-compat shim;
             // full IHttpClientFactory wiring lands in Task 10.
@@ -127,18 +124,12 @@ public partial class Program
             // trust an arbitrary upstream's X-Forwarded-For value to gate the feedback rate limit,
             // the partition key (DeriveFeedbackPartitionKey, below) reads the immediate-peer IP
             // directly. The default loopback trust list (127.0.0.1, ::1) is preserved here for
-            // Kestrel container-internal health checks, and Render's RFC1918 proxy network is now
-            // explicitly trusted (Phase 04 BUG-02 v2) so the edge load balancer can peel XFF back
-            // to the real client IP without fragmenting the brute-force bucket across proxy IPs.
+            // Kestrel container-internal health checks; we do NOT clear it.
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
                     | ForwardedHeaders.XForwardedProto
                     | ForwardedHeaders.XForwardedHost;
-                options.ForwardLimit = 1;
-                options.KnownIPNetworks.Add(new global::System.Net.IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
-                options.KnownIPNetworks.Add(new global::System.Net.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
-                options.KnownIPNetworks.Add(new global::System.Net.IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
                 // Default loopback entries (127.0.0.1, ::1) preserved - do NOT call Clear().
             });
 
@@ -206,14 +197,7 @@ public partial class Program
                     sp.GetRequiredService<IMemoryCache>(),
                     sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
-            builder.Services.AddSingleton<IScryfallTaggerService>(sp =>
-                new ScryfallTaggerService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<IScryfallTaggerHttpClient>(),
-                    sp.GetRequiredService<ITaggerSessionCache>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMemoryCache>(),
-                    sp.GetService<ILogger<ScryfallTaggerService>>()));
+            builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
             builder.Services.AddSingleton<IChatGptArtifactsDirectory, ChatGptArtifactsDirectory>();
             builder.Services.AddScoped<IChatGptDeckPacketService>(sp =>
                 new ChatGptDeckPacketService(
@@ -355,23 +339,15 @@ public partial class Program
     }
 
     /// <summary>
-    /// Shared peer-IP partition-key formatter (BUG-02 / D-05). Reads Connection.RemoteIpAddress
-    /// directly (Path B-rawpeer per Phase 03 TD-04). Forwarded-header spoofing cannot rotate.
-    /// </summary>
-    internal static string DerivePeerIpKey(HttpContext context, string prefix)
-        => prefix + ":" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-
-    /// <summary>
-    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4).
+    /// Partition key for the feedback-submit rate limiter (TD-04 / Phase 03 SC #4,
+    /// retrieved 2026-04-30). Reads the immediate-peer IP directly. Render's edge collapses
+    /// all production traffic to a single partition - acceptable at DeckFlow's
+    /// expected feedback volume (well under 5/hr globally). Forwarded-header spoofing
+    /// cannot rotate this key. See DeckFlow.Web.Tests/Security/ForwardedHeadersOptionsTests.cs
+    /// for the invariant.
     /// </summary>
     internal static string DeriveFeedbackPartitionKey(HttpContext context)
-        => DerivePeerIpKey(context, "peer");
-
-    /// <summary>
-    /// Partition key for the /Admin basic-auth brute-force tracker (BUG-02 / D-05).
-    /// </summary>
-    internal static string DeriveAdminPartitionKey(HttpContext context)
-        => DerivePeerIpKey(context, "admin");
+        => "peer:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {
