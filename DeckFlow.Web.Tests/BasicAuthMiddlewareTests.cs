@@ -1,5 +1,6 @@
 using System.Text;
 using DeckFlow.Web.Infrastructure;
+using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -11,6 +12,12 @@ public sealed class BasicAuthMiddlewareTests
     private const string EnvUser = "FEEDBACK_ADMIN_USER";
     private const string EnvPass = "FEEDBACK_ADMIN_PASSWORD";
 
+    private static AdminBruteForceTrackerStore CreateStore(out string dbPath)
+    {
+        dbPath = Path.Combine(Path.GetTempPath(), $"admin-throttle-test-{Guid.NewGuid():N}.db");
+        return new AdminBruteForceTrackerStore(dbPath);
+    }
+
     [Fact]
     public async Task EnvVarsMissing_Returns503()
     {
@@ -18,7 +25,8 @@ public sealed class BasicAuthMiddlewareTests
         var context = new DefaultHttpContext();
         var nextCalled = false;
 
-        var middleware = new BasicAuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin");
+        var store = CreateStore(out var dbPath);
+        var middleware = new BasicAuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin", store);
         await middleware.InvokeAsync(context);
 
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
@@ -30,7 +38,8 @@ public sealed class BasicAuthMiddlewareTests
     {
         using var _ = EnvScope.Set(EnvUser, "admin", EnvPass, "secret");
         var context = new DefaultHttpContext();
-        var middleware = new BasicAuthMiddleware(_ => Task.CompletedTask, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin");
+        var store = CreateStore(out var dbPath);
+        var middleware = new BasicAuthMiddleware(_ => Task.CompletedTask, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin", store);
 
         await middleware.InvokeAsync(context);
 
@@ -45,7 +54,8 @@ public sealed class BasicAuthMiddlewareTests
         using var _ = EnvScope.Set(EnvUser, "admin", EnvPass, "secret");
         var context = new DefaultHttpContext();
         context.Request.Headers["Authorization"] = "NotBasic xxx";
-        var middleware = new BasicAuthMiddleware(_ => Task.CompletedTask, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin");
+        var store = CreateStore(out var dbPath);
+        var middleware = new BasicAuthMiddleware(_ => Task.CompletedTask, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin", store);
 
         await middleware.InvokeAsync(context);
 
@@ -59,7 +69,8 @@ public sealed class BasicAuthMiddlewareTests
         var context = new DefaultHttpContext();
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin:wrong"));
         context.Request.Headers["Authorization"] = $"Basic {encoded}";
-        var middleware = new BasicAuthMiddleware(_ => Task.CompletedTask, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin");
+        var store = CreateStore(out var dbPath);
+        var middleware = new BasicAuthMiddleware(_ => Task.CompletedTask, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin", store);
 
         await middleware.InvokeAsync(context);
 
@@ -74,7 +85,8 @@ public sealed class BasicAuthMiddlewareTests
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin:secret"));
         context.Request.Headers["Authorization"] = $"Basic {encoded}";
         var nextCalled = false;
-        var middleware = new BasicAuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin");
+        var store = CreateStore(out var dbPath);
+        var middleware = new BasicAuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, NullLogger<BasicAuthMiddleware>.Instance, "DeckFlow Admin", store);
 
         await middleware.InvokeAsync(context);
 

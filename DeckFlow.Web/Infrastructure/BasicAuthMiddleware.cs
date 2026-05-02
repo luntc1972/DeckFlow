@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -10,21 +12,51 @@ public sealed class BasicAuthMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<BasicAuthMiddleware> _logger;
     private readonly string _realm;
+    private readonly IAdminBruteForceTrackerStore _store;
 
-    public BasicAuthMiddleware(RequestDelegate next, ILogger<BasicAuthMiddleware> logger, string realm)
+    public BasicAuthMiddleware(
+        RequestDelegate next,
+        ILogger<BasicAuthMiddleware> logger,
+        string realm,
+        IAdminBruteForceTrackerStore store)
     {
+        ArgumentNullException.ThrowIfNull(next);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(realm);
+        ArgumentNullException.ThrowIfNull(store);
         _next = next;
         _logger = logger;
         _realm = realm;
+        _store = store;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // BUG-02 / Phase 5 — throttle gate BEFORE any auth parsing or env-var checks.
+        // Partition key reads CF-Connecting-IP via the shared helper used by the
+        // feedback-submit limiter — single source of truth.
+        var partitionKey = Program.DeriveAdminPartitionKey(context);
+        var nowForGate = DateTimeOffset.UtcNow;
+        var (throttled, retryAfter) = await _store.IsThrottledAsync(partitionKey, nowForGate, context.RequestAborted);
+        if (throttled)
+        {
+            var remoteIpHeader = context.Request.Headers["CF-Connecting-IP"].ToString();
+            if (string.IsNullOrWhiteSpace(remoteIpHeader)) remoteIpHeader = "unknown";
+            _logger.LogWarning(
+                "Admin basic-auth throttled: {RemoteIp} retry after {RetryAfterSeconds}s",
+                remoteIpHeader, retryAfter);
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers["Retry-After"] = retryAfter.ToString(CultureInfo.InvariantCulture);
+            return;
+        }
+
         var user = Environment.GetEnvironmentVariable("FEEDBACK_ADMIN_USER");
         var password = Environment.GetEnvironmentVariable("FEEDBACK_ADMIN_PASSWORD");
 
         if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(password))
         {
+            // Misconfigured admin — DO NOT count toward throttle (env-var path is operator
+            // error, not a brute-force attempt). Phase 4-01 invariant preserved.
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             await context.Response.WriteAsync("Admin not configured.");
             return;
@@ -33,7 +65,7 @@ public sealed class BasicAuthMiddleware
         var header = context.Request.Headers["Authorization"].ToString();
         if (string.IsNullOrEmpty(header) || !header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
         {
-            Challenge(context, "missing or non-Basic Authorization header");
+            await ChallengeAsync(context, partitionKey, "missing or non-Basic Authorization header");
             return;
         }
 
@@ -44,14 +76,14 @@ public sealed class BasicAuthMiddleware
         }
         catch (FormatException)
         {
-            Challenge(context, "malformed base64 in Authorization header");
+            await ChallengeAsync(context, partitionKey, "malformed base64 in Authorization header");
             return;
         }
 
         var separator = decoded.IndexOf(':');
         if (separator <= 0)
         {
-            Challenge(context, "malformed credentials in Authorization header");
+            await ChallengeAsync(context, partitionKey, "malformed credentials in Authorization header");
             return;
         }
 
@@ -60,19 +92,25 @@ public sealed class BasicAuthMiddleware
 
         if (!FixedTimeEquals(suppliedUser, user) || !FixedTimeEquals(suppliedPass, password))
         {
-            Challenge(context, "invalid credentials");
+            await ChallengeAsync(context, partitionKey, "invalid credentials");
             return;
         }
 
+        // Successful auth: fall through. DO NOT call RecordFailureAsync here — only
+        // ChallengeAsync-emitted 401s count toward the throttle (Phase 4-01 invariant).
         await _next(context);
     }
 
-    private void Challenge(HttpContext context, string reason)
+    private async Task ChallengeAsync(HttpContext context, string partitionKey, string reason)
     {
-        var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var remoteIp = context.Request.Headers["CF-Connecting-IP"].ToString();
+        if (string.IsNullOrWhiteSpace(remoteIp)) remoteIp = "unknown";
         _logger.LogWarning("Admin basic-auth challenge issued: {Reason} from {RemoteIp}", reason, remoteIp);
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.Headers["WWW-Authenticate"] = $"Basic realm=\"{_realm}\", charset=\"UTF-8\"";
+        // BUG-02 / Phase 5 — count only Challenge-emitted 401s. Env-var-503 path bypasses
+        // RecordFailureAsync above; successful-auth fall-through never reaches here.
+        await _store.RecordFailureAsync(partitionKey, DateTimeOffset.UtcNow, context.RequestAborted);
     }
 
     private static bool FixedTimeEquals(string a, string b)
