@@ -201,4 +201,82 @@ public sealed class ScryfallTaggerServiceTests
         Assert.NotNull(tags);
         Assert.Empty(tags);
     }
+
+    [Fact]
+    public async Task LookupOracleTagsAsync_GraphQlPost_DoesNotWriteManualCookieHeader()
+    {
+        using var scryfallMock = new MockHttpMessageHandler();
+        using var taggerMock = new MockHttpMessageHandler();
+
+        scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/named*")
+            .Respond(HttpStatusCode.OK, "application/json", ScryfallCardJson);
+
+        taggerMock
+            .When(HttpMethod.Get, "https://tagger.scryfall.com/card/lea/161")
+            .Respond(_ =>
+            {
+                var r = new HttpResponseMessage(HttpStatusCode.OK);
+                r.Content = new StringContent(TaggerCsrfHtml, System.Text.Encoding.UTF8, "text/html");
+                r.Headers.Add("Set-Cookie", "_scryfall_tagger_session=stub-cookie; Path=/; HttpOnly");
+                return r;
+            });
+
+        HttpRequestMessage? capturedPost = null;
+        taggerMock
+            .When(HttpMethod.Post, "https://tagger.scryfall.com/graphql")
+            .Respond(req =>
+            {
+                capturedPost = req;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(TaggerGraphQlJson, System.Text.Encoding.UTF8, "application/json")
+                };
+            });
+
+        var sut = CreateService(scryfallMock, taggerMock);
+        await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
+
+        Assert.NotNull(capturedPost);
+        // Service must NOT manually serialize a Cookie header. The cookie now lives in the
+        // SocketsHttpHandler's CookieContainer (Program.cs, Phase 5 BUG-01) and is auto-
+        // replayed by the handler — MockHttpMessageHandler bypasses the handler entirely,
+        // so this test verifies the service code path only. Live UAT covers cookie replay.
+        Assert.False(capturedPost!.Headers.Contains("Cookie"),
+            "ScryfallTaggerService must not write a manual Cookie header on the GraphQL POST.");
+        // X-CSRF-Token must still be set manually — that one is service-controlled.
+        Assert.True(capturedPost.Headers.Contains("X-CSRF-Token"));
+    }
+
+    [Fact]
+    public async Task LookupOracleTagsAsync_DoesNotIteratePrintings()
+    {
+        using var scryfallMock = new MockHttpMessageHandler();
+        using var taggerMock = new MockHttpMessageHandler();
+
+        var scryfallNamedRoute = scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/named*")
+            .Respond(HttpStatusCode.OK, "application/json", ScryfallCardJson);
+        scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/search*")
+            .Respond(HttpStatusCode.NotFound);
+
+        taggerMock
+            .When(HttpMethod.Get, "https://tagger.scryfall.com/card/lea/161")
+            .Respond(_ =>
+            {
+                var r = new HttpResponseMessage(HttpStatusCode.OK);
+                r.Content = new StringContent(TaggerCsrfHtml, System.Text.Encoding.UTF8, "text/html");
+                r.Headers.Add("Set-Cookie", "_scryfall_tagger_session=stub-cookie; Path=/; HttpOnly");
+                return r;
+            });
+        taggerMock
+            .When(HttpMethod.Post, "https://tagger.scryfall.com/graphql")
+            .Respond(HttpStatusCode.OK, "application/json", TaggerGraphQlJson);
+
+        var sut = CreateService(scryfallMock, taggerMock);
+        await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
+
+        Assert.Equal(1, scryfallMock.GetMatchCount(scryfallNamedRoute));
+    }
 }
