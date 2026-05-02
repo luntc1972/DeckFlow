@@ -2,16 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-05-01T19:08:11.439Z"
-last_activity: 2026-05-01 -- Phase 04 execution started
+status: phase-04-abandoned
+stopped_at: Phase 4 abandoned; both bugs deferred to Phase 5
+last_updated: "2026-05-02T12:55:00Z"
+last_activity: 2026-05-02 -- Phase 04 abandoned, code reverted to bcc1693
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 12
+  abandoned_phases: 1
+  total_plans: 14
   completed_plans: 10
-  percent: 83
+  abandoned_plans: 4
+  percent: 71
 ---
 
 # Project State
@@ -21,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 04 — security-bug-fixes
+**Current focus:** Phase 05 (next) — security-bug-fixes-v2
 
 ## Current Position
 
-Phase: 04 (security-bug-fixes) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 04
-Last activity: 2026-05-01 -- Phase 04 execution started
+Phase: 04 (security-bug-fixes) — ABANDONED 2026-05-02
+Plan: 4 of 4 (all 4 plans shipped + reverted)
+Status: Code reverted to bcc1693; both bugs deferred to Phase 5
+Last activity: 2026-05-02 -- Phase 04 abandoned, revert commit b3a8a5b staged locally
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 71% (10/14 plans complete; 4 abandoned)
 
 ## Performance Metrics
 
@@ -86,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T16:08:43.296Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-security-bug-fixes/04-CONTEXT.md
+Last session: 2026-05-02T12:55:00Z
+Stopped at: Phase 4 abandoned; revert commit b3a8a5b staged locally; awaiting user push
+Resume file: .planning/phases/04-security-bug-fixes/04-ABANDONED.md (post-mortem + Phase 5 guidance)

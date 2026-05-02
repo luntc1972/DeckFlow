@@ -19,7 +19,7 @@ parallelize freely.
 - [x] **Phase 1: Visual System Tokens** — Type scale, semantic color tokens, hex literal hoist, propagate across all 25 guild themes
 - [ ] **Phase 2: Layout, Hierarchy & UX Copy** — Promote primary hub CTA, kill inline styles, fix copy/voice mismatches and feedback busy-state
 - [ ] **Phase 3: Tech-Debt Cleanup** — Move test-only types out of prod assembly, single-ctor services, drop generated JS from git, tighten forwarded-headers CIDR
-- [ ] **Phase 4: Security & Bug Fixes** — Per-IP rate-limit on /Admin/*, fix Scryfall Tagger 404
+- [~] **Phase 4: Security & Bug Fixes** — ABANDONED 2026-05-02; both fixes ineffective on prod despite static PASS. See `.planning/phases/04-security-bug-fixes/04-ABANDONED.md`. BUG-01 + BUG-02 deferred to Phase 5.
 
 ## Phase Details
 
@@ -94,8 +94,10 @@ this milestone's quality bar.
   3. ChatGPT-paste workflow, deck reconcile, and category suggestion flows produce the same prompt artifacts on deckflow.gg as before — the security and bug fixes do not regress the core value pipeline.
 **Plans**: 2 plans
 Plans:
-- [x] 04-01-PLAN.md — BUG-02 admin brute-force throttle: AdminBruteForceTracker singleton + BasicAuthMiddleware throttle hook + DerivePeerIpKey shared helper + unit/integration tests + README admin/operations note (BUG-02)
-- [x] 04-02-PLAN.md — BUG-01 Tagger printings iteration: replace ResolveCardPrintingAsync with /cards/search + 5-cap HEAD probe + IMemoryCache (24hr positive / 1hr negative) + ScryfallTaggerServiceTests update + 5 new test cases + 04-HUMAN-UAT.md aggregation (BUG-01, SC #3)
+- [~] 04-01-PLAN.md — ABANDONED. AdminBruteForceTracker shipped + reverted; partition assumption (RemoteIpAddress stable per client) wrong on multi-proxy-IP Render edge. (BUG-02)
+- [~] 04-02-PLAN.md — ABANDONED. Iterate-printings + HEAD probe shipped + reverted; addressed page-existence layer instead of GraphQL data layer (per missed observation S3804). (BUG-01)
+- [~] 04-03-PLAN.md — ABANDONED. Sort by released_at ASC shipped + reverted; doubled down on wrong layer. (BUG-01 v2)
+- [~] 04-04-PLAN.md — ABANDONED. RFC1918 KnownNetworks + ForwardLimit=1 shipped + reverted; only peels Render hop, lands on Cloudflare edge IPs (still fragmented). (BUG-02 v2)
 
 ## Progress
 
@@ -108,7 +110,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | 1. Visual System Tokens | 3/3 | Complete | 2026-04-30 |
 | 2. Layout, Hierarchy & UX Copy | 3/3 | Code-complete (awaiting verifier) | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
-| 4. Security & Bug Fixes | 0/2 | Not started | - |
+| 4. Security & Bug Fixes | 0/2 | ABANDONED 2026-05-02 — see 04-ABANDONED.md | - |
 
 ## Coverage
 
@@ -127,8 +129,8 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | TD-02 | Phase 3 |
 | TD-03 | Phase 3 |
 | TD-04 | Phase 3 |
-| BUG-01 | Phase 4 |
-| BUG-02 | Phase 4 |
+| BUG-01 | Phase 4 (abandoned) → Phase 5 |
+| BUG-02 | Phase 4 (abandoned) → Phase 5 |
 
 **Coverage:** 15/15 v1 requirements mapped. No orphans. No duplicates.
 
