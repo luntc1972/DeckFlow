@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Net.Http;
+using System.Net;
 using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -126,12 +127,18 @@ public partial class Program
             // trust an arbitrary upstream's X-Forwarded-For value to gate the feedback rate limit,
             // the partition key (DeriveFeedbackPartitionKey, below) reads the immediate-peer IP
             // directly. The default loopback trust list (127.0.0.1, ::1) is preserved here for
-            // Kestrel container-internal health checks; we do NOT clear it.
+            // Kestrel container-internal health checks, and Render's RFC1918 proxy network is now
+            // explicitly trusted (Phase 04 BUG-02 v2) so the edge load balancer can peel XFF back
+            // to the real client IP without fragmenting the brute-force bucket across proxy IPs.
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
                     | ForwardedHeaders.XForwardedProto
                     | ForwardedHeaders.XForwardedHost;
+                options.ForwardLimit = 1;
+                options.KnownIPNetworks.Add(new global::System.Net.IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
+                options.KnownIPNetworks.Add(new global::System.Net.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
+                options.KnownIPNetworks.Add(new global::System.Net.IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
                 // Default loopback entries (127.0.0.1, ::1) preserved - do NOT call Clear().
             });
 
