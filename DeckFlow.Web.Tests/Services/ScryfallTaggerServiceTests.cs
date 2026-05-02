@@ -42,6 +42,16 @@ public sealed class ScryfallTaggerServiceTests
 ]}
 """;
 
+    private const string ScryfallSearchJson5PrintingsShuffledReleasedAt = """
+{"object":"list","total_cards":5,"has_more":false,"data":[
+  {"object":"card","name":"Sol Ring","set":"eoc","collector_number":"11","released_at":"2023-11-17"},
+  {"object":"card","name":"Sol Ring","set":"lea","collector_number":"270","released_at":"1993-08-05"},
+  {"object":"card","name":"Sol Ring","set":"dsk","collector_number":"142","released_at":"2024-09-27"},
+  {"object":"card","name":"Sol Ring","set":"m10","collector_number":"220","released_at":"2010-01-01"},
+  {"object":"card","name":"Sol Ring","set":"a25","collector_number":"1","released_at":"2018-03-16"}
+]}
+""";
+
     private const string ScryfallSearchJsonEmpty = """
 {"object":"list","total_cards":0,"has_more":false,"data":[]}
 """;
@@ -301,6 +311,49 @@ public sealed class ScryfallTaggerServiceTests
         Assert.Empty(tags);
         Assert.Equal(0, taggerMock.GetMatchCount(probe6));
         Assert.Equal(0, taggerMock.GetMatchCount(probeUnused));
+    }
+
+    [Fact]
+    public async Task LookupOracleTagsAsync_MixedAgePrintings_OldestProbedFirst()
+    {
+        using var scryfallMock = new MockHttpMessageHandler();
+        using var taggerMock = new MockHttpMessageHandler();
+
+        scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/search*")
+            .Respond(HttpStatusCode.OK, "application/json", ScryfallSearchJson5PrintingsShuffledReleasedAt);
+
+        var capturedProbePaths = new List<string>();
+
+        void RegisterProbe(string set, string number)
+        {
+            taggerMock
+                .When(HttpMethod.Head, $"https://tagger.scryfall.com/card/{set}/{number}")
+                .Respond(req =>
+                {
+                    capturedProbePaths.Add(req.RequestUri!.AbsolutePath);
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                });
+        }
+
+        RegisterProbe("eoc", "11");
+        RegisterProbe("lea", "270");
+        RegisterProbe("dsk", "142");
+        RegisterProbe("m10", "220");
+        RegisterProbe("a25", "1");
+
+        var sut = CreateService(scryfallMock, taggerMock);
+        var tags = await sut.LookupOracleTagsAsync("Sol Ring", CancellationToken.None);
+
+        Assert.Empty(tags);
+        Assert.Equal(new[]
+        {
+            "/card/lea/270",
+            "/card/m10/220",
+            "/card/a25/1",
+            "/card/eoc/11",
+            "/card/dsk/142"
+        }, capturedProbePaths);
     }
 
     [Fact]
