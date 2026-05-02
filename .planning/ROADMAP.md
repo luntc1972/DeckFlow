@@ -20,6 +20,7 @@ parallelize freely.
 - [ ] **Phase 2: Layout, Hierarchy & UX Copy** — Promote primary hub CTA, kill inline styles, fix copy/voice mismatches and feedback busy-state
 - [ ] **Phase 3: Tech-Debt Cleanup** — Move test-only types out of prod assembly, single-ctor services, drop generated JS from git, tighten forwarded-headers CIDR
 - [~] **Phase 4: Security & Bug Fixes** — ABANDONED 2026-05-02; both fixes ineffective on prod despite static PASS. See `.planning/phases/04-security-bug-fixes/04-ABANDONED.md`. BUG-01 + BUG-02 deferred to Phase 5.
+- [ ] **Phase 5: Security & Bug Fixes v2 — Observability First** — Reopen BUG-01 (Tagger empty for cEDH staples) and BUG-02 (admin throttle ineffective) with diagnostic observability landed BEFORE behavioral fixes. Live Render log capture identifies the real failure layer; corrective fix lands ONLY after observed root cause confirmed.
 
 ## Phase Details
 
@@ -99,7 +100,20 @@ Plans:
 - [~] 04-03-PLAN.md — ABANDONED. Sort by released_at ASC shipped + reverted; doubled down on wrong layer. (BUG-01 v2)
 - [~] 04-04-PLAN.md — ABANDONED. RFC1918 KnownNetworks + ForwardLimit=1 shipped + reverted; only peels Render hop, lands on Cloudflare edge IPs (still fragmented). (BUG-02 v2)
 
-## Progress
+### Phase 5: Security & Bug Fixes v2 — Observability First
+**Goal**: Reopen BUG-01 and BUG-02 with corrective approach driven by **real Render production telemetry**, not static-verification-only. Add diagnostic observability for both bugs as the FIRST landed change; let live logs identify the real failure layer; ship behavioral fixes ONLY after observed root cause matches the fix's hypothesis. Also propagate the corrective IP-derivation fix to the Phase 03 TD-04 feedback rate-limiter (same multi-proxy fragmentation flaw is latent there).
+**Depends on**: Phase 4 ABANDONED post-mortem (.planning/phases/04-security-bug-fixes/04-ABANDONED.md)
+**Requirements**: BUG-01, BUG-02 (re-opened from Phase 4 abandonment)
+**Success Criteria** (what must be TRUE):
+  1. Live Render logs from a triggered Sol Ring `/suggest-categories` mode=ScryfallTagger call show distinct, parseable structured log lines for each ScryfallTaggerService step (Resolve, Session-fetch, GraphQL-POST, parse) with HTTP status, retry count, and elapsed ms — sufficient to identify which step actually fails on prod without code-side debugging.
+  2. The actual root-cause failure layer of BUG-01 on production is **named in the Phase 5 SUMMARY** with log-line evidence (e.g., "GraphQL POST returns 403 because Render egress IP is rate-limited by tagger.scryfall.com" — or whatever the real cause is). The fix that ships matches that named root cause.
+  3. After the BUG-01 fix lands and Render redeploys, a single live curl POST to `/api/suggestions/card` mode=ScryfallTagger with `Sol Ring` returns `hasTaggerCategories: true` with at least 5 oracle tags. Counterspell + Mana Crypt also return non-empty Tagger tags.
+  4. After the BUG-02 fix lands and Render redeploys, a 11-attempt curl burst against `/Admin/Feedback` from one client IP returns clean **10×401 + 1×429** with Retry-After 1..900 sec, monotonically decreasing. After 15 minutes, single curl returns 401 again (window reset). Persistence across deploy-restart is verified via 11-burst → deploy → 1 curl returns 429 (state survives restart).
+  5. The Phase 03 TD-04 feedback-submit rate-limiter is re-tested with a multi-burst from one client IP (≥10 POSTs in <60s) and produces a clean ≥1×429 response — confirming the same partition fix is propagated and Phase 03's latent fragmentation defect is closed.
+  6. README admin/operations note is restored (was reverted with Phase 4) — explicit lockout window, retry-after behavior, Cloudflare-gate-recommended note.
+**Plans**: TBD via /gsd-plan-phase 5
+
+
 
 **Execution Order:**
 Phases 1 → 2 are sequenced (Phase 2 consumes Phase 1 tokens). Phases 3 and 4
@@ -111,6 +125,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | 2. Layout, Hierarchy & UX Copy | 3/3 | Code-complete (awaiting verifier) | - |
 | 3. Tech-Debt Cleanup | 0/TBD | Not started | - |
 | 4. Security & Bug Fixes | 0/2 | ABANDONED 2026-05-02 — see 04-ABANDONED.md | - |
+| 5. Security & Bug Fixes v2 — Observability First | 0/TBD | Not started | - |
 
 ## Coverage
 
@@ -131,6 +146,7 @@ are independent and can run in parallel with Phase 1/2 or with each other.
 | TD-04 | Phase 3 |
 | BUG-01 | Phase 4 (abandoned) → Phase 5 |
 | BUG-02 | Phase 4 (abandoned) → Phase 5 |
+| TD-04 patch | Phase 3 latent → Phase 5 SC #5 |
 
 **Coverage:** 15/15 v1 requirements mapped. No orphans. No duplicates.
 
