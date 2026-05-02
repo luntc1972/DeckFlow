@@ -8,6 +8,18 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Every supported workflow must produce output the user can paste into ChatGPT and get back a useful answer in one round-trip — without the user reformatting anything.** Visual polish, theme variety, and admin tooling all serve that core. If the prompt artifacts are wrong or missing, nothing else matters.
 
+## Current Milestone: v1.1 Admin Console
+
+**Goal:** Ship a unified `/Admin` console (sidebar shell) that lets the operator drive Archidekt harvest jobs, see usage analytics, and toggle feature flags at runtime — without leaving the browser or shipping code.
+
+**Target features:**
+- `/Admin` landing shell with sidebar nav (Feedback / Harvest / Analytics / Flags / future slots)
+- `/Admin/harvest`: run-now with duration cap, single Archidekt URL harvest, cancel, pause/resume, cron schedule, stats (total decks, cards, top commanders, recent runs, storage size, last + next run)
+- `/Admin/analytics`: per-page usage (route + day + count + unique-IP count + error rate, with daily sparkline and time-window filters)
+- `/Admin/flags`: Postgres-backed feature flags with hot reload — kill switches per page/function, Tagger off, beta-feature gates
+- BasicAuth gate (existing) carried across all admin pages
+- `/Admin/feedback` continues to work unchanged inside new shell
+
 ## Requirements
 
 ### Validated
@@ -36,17 +48,27 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ### Active
 
-<!-- Next milestone (v1.1) scope — populated by `/gsd-new-milestone`. -->
+<!-- v1.1 Admin Console — final REQ-IDs locked in REQUIREMENTS.md. -->
 
-(None yet — run `/gsd-new-milestone` to define v1.1.)
-
-**Carried over for v1.1 measurement:**
-
-- [ ] Re-score UI audit (`tasks/UI-REVIEW.md`) against the original 16/24 baseline — v1.0 success bar (≥ 20/24) was not formally re-measured before close
+- [ ] Admin landing shell with sidebar nav (Feedback / Harvest / Analytics / Flags / future slots) under existing BasicAuth
+- [ ] `/Admin/harvest` controls — run-now + duration cap, single-URL harvest, cancel, pause/resume, cron schedule
+- [ ] `/Admin/harvest` stats — total decks, total cards, top commanders, recent runs, storage size, last + next run
+- [ ] `/Admin/analytics` — per-page usage (route + day + count + unique-IP + error rate), time-window filter, daily sparkline
+- [ ] `/Admin/flags` — Postgres-backed feature flags with hot reload (page kill switches, Tagger off, beta gates)
 
 ### Out of Scope
 
 <!-- Deferred to next milestones, with reasoning. -->
+
+**Deferred from v1.1 (Admin Console):**
+
+- UI audit re-score (`tasks/UI-REVIEW.md`, 16/24 → ≥ 20/24) — split into its own UI-audit milestone; not coupled to admin tooling
+- Raw Serilog log tail / file viewer — Render dashboard already streams stdout; usage analytics gives more triage value than tail-follow
+- Multi-user admin auth (session cookie, role split) — single-operator BasicAuth is sufficient for current ops volume
+- Admin alerts / notifications — Render dashboard + manual stat checks cover ops; not blocking
+- Cache flush button, Postgres connection test, Render restart, manual artifact cleanup — not required for v1.1; future "ops actions" tile if demand surfaces
+
+**Carried from v1.0:**
 
 - DeckController god-class split — too large for a polish milestone; warrants its own dedicated refactor milestone
 - ChatGPT services extraction (`PromptBuilder`, `ScryfallReferenceResolver`, etc.) — too large; own refactor milestone
@@ -147,7 +169,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 **Shipped:** v1.0 Polish & Quality (2026-05-02) — all 15 v1 requirements landed across 5 phases, 17 plans, 63 commits.
 
-**Next milestone:** TBD — run `/gsd-new-milestone` to define v1.1.
+**Active:** v1.1 Admin Console — defining requirements and roadmap.
 
 ---
-*Last updated: 2026-05-02 after v1.0 milestone*
+*Last updated: 2026-05-02 — v1.1 Admin Console milestone opened*
