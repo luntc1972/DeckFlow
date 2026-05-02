@@ -100,6 +100,20 @@ public partial class Program
             {
                 c.BaseAddress = new Uri("https://tagger.scryfall.com/");
                 c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+                // Phase 5 BUG-01 follow-up: browser-mimicking request headers to clear
+                // Cloudflare's Browser Integrity Check on tagger.scryfall.com. The host
+                // appears to 404 requests from Render's egress IP that lack these signals,
+                // even though the same UA from a residential IP succeeds. UA stays as
+                // "DeckFlow/1.0" per Scryfall API-consumer guidelines (descriptive UA).
+                c.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+                c.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip");
+                c.DefaultRequestHeaders.AcceptEncoding.ParseAdd("deflate");
+                c.DefaultRequestHeaders.AcceptEncoding.ParseAdd("br");
+                c.DefaultRequestHeaders.Add("Sec-Fetch-Site", "none");
+                c.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "navigate");
+                c.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "document");
+                c.DefaultRequestHeaders.Add("Sec-Fetch-User", "?1");
+                c.DefaultRequestHeaders.Add("Upgrade-Insecure-Requests", "1");
             })
             .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
             {
