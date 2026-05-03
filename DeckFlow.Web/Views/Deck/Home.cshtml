@@ -1,4 +1,5 @@
 @model DeckFlow.Web.Models.DeckPageTab
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "Home";
 }
@@ -66,10 +67,13 @@
 <section class="hub-group" aria-labelledby="hub-group-categories">
     <h2 id="hub-group-categories" class="hub-group__title">Categories</h2>
     <div class="hub-grid">
-        <a class="hub-card" href="@Url.Content("~/suggest-categories")">
-            <h3 class="hub-card__title">AI Category Suggestions</h3>
-            <p class="hub-card__description">Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.</p>
-        </a>
+        @if (FlagCache.IsEnabled("feature.categories.enabled"))
+        {
+            <a class="hub-card" href="@Url.Content("~/suggest-categories")">
+                <h3 class="hub-card__title">AI Category Suggestions</h3>
+                <p class="hub-card__description">Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.</p>
+            </a>
+        }
         <a class="hub-card" href="@Url.Content("~/commander-categories")">
             <h3 class="hub-card__title">Category Reference</h3>
             <p class="hub-card__description">Browse the category knowledge base the suggestion engine draws on.</p>

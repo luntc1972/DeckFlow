@@ -1,5 +1,6 @@
 @using DeckFlow.Web.Models
 @model DeckPageTab
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 
 @{
     var analyzeActive = Model is DeckPageTab.ChatGptPackets or DeckPageTab.ChatGptDeckComparison or DeckPageTab.ChatGptCedhMetaGap;
@@ -43,7 +44,10 @@
             Categories
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
+            @if (FlagCache.IsEnabled("feature.categories.enabled"))
+            {
+                <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
+            }
             <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="@Url.Content("~/commander-categories")">Category Reference</a>
         </div>
     </div>
