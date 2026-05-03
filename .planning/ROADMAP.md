@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Polish & Quality** — Phases 1-5 (shipped 2026-05-02) — see `.planning/milestones/v1.0-ROADMAP.md`
+- 🔵 **v1.1 Admin Console** — Phases 6-8 (active)
 
 ## Phases
 
@@ -20,16 +21,89 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
-## Progress
+### v1.1 Admin Console
 
-| Phase                          | Milestone | Plans | Status                        | Completed  |
-| ------------------------------ | --------- | ----- | ----------------------------- | ---------- |
-| 1. Visual System Tokens        | v1.0      | 3/3   | Complete                      | 2026-04-30 |
-| 2. Layout, Hierarchy & UX Copy | v1.0      | 3/3   | Complete                      | 2026-04-30 |
-| 3. Tech-Debt Cleanup           | v1.0      | 4/4   | Complete                      | 2026-05-01 |
-| 4. Security & Bug Fixes        | v1.0      | 4/4   | Abandoned (rerouted to Ph. 5) | 2026-05-02 |
-| 5. Security & Bug Fixes v2     | v1.0      | 3/3   | Complete                      | 2026-05-02 |
+- [ ] **Phase 6: Admin Shell + Flags Foundation** — Layout shell, sidebar nav, antiforgery baseline, feature-flag infrastructure
+- [ ] **Phase 7: Harvest Controls + Stats** — Run-now, cancel, pause/resume, cron schedule, stats panel, run history
+- [ ] **Phase 8: Analytics** — Request metrics middleware, write-behind buffer, top-routes page, inline SVG sparklines
+
+## Phase Details
+
+### Phase 6: Admin Shell + Flags Foundation
+
+**Goal**: Operator can reach all admin sections through a neutral-themed shell and toggle feature flags from the browser — live features are protected by default-on seed rows before any user-facing flag work ships.
+
+**Depends on**: Nothing (first v1.1 phase; builds on v1.0 BasicAuth gate already in production)
+
+**Requirements**: ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04, ADMIN-05, FLAG-01, FLAG-02, FLAG-03, FLAG-04, FLAG-05
+
+**Success Criteria** (what must be TRUE):
+
+1. Visiting `https://www.deckflow.gg/Admin` prompts BasicAuth; after auth, a sidebar listing Feedback / Harvest / Analytics / Flags renders with the active page highlighted — no guild theme colors, fonts, or nav chrome visible.
+2. Clicking each sidebar link in all three major guild themes returns HTTP 200 and shows only neutral admin CSS (verified: no `--accent-strong` guild hue visible on the page).
+3. `curl https://www.deckflow.gg/Admin` without credentials returns 401 — no page content leaks.
+4. `/Admin/feedback` loads inside the new admin shell with its existing inbox and mark-read flow fully intact (no regression).
+5. Operator can disable the Tagger kill-switch flag from `/Admin/flags`, reload a card lookup page within 2 seconds, and observe that Tagger tags are absent — demonstrating hot-reload invalidation, not TTL expiry.
+
+**Plans**: TBD
+
+**UI hint**: yes
 
 ---
 
-*Next milestone:* run `/gsd-new-milestone` to plan v1.1.
+### Phase 7: Harvest Controls + Stats
+
+**Goal**: Operator can start, cancel, and schedule Archidekt harvest runs from the browser, and see current knowledge-base coverage stats — all state surviving Render redeploys.
+
+**Depends on**: Phase 6 (admin shell + antiforgery pattern established)
+
+**Requirements**: HARV-01, HARV-02, HARV-03, HARV-04, HARV-05, HARV-06, HARV-07
+
+**Success Criteria** (what must be TRUE):
+
+1. Operator clicks "Run Now" with a 15-minute cap, the page shows live job status (state, decks processed, elapsed), and Postgres `harvest_runs` shows a completed row after the run finishes — row survives a Render redeploy.
+2. Operator submits a single Archidekt deck URL; the deck is harvested and its commander appears in the top-commanders list on the stats panel.
+3. Operator clicks "Cancel" on a running job; the harvest page transitions to "Stopping" then "Failed/Cancelled" within one HTTP timeout (30s), and no torn rows appear in `category_knowledge`.
+4. Operator sets "Pause schedule" and confirms the recurring harvest does not fire at its next scheduled slot; operator resumes, and the next slot fires correctly.
+5. Stats panel at `https://www.deckflow.gg/Admin/harvest` shows: total decks (lifetime), total observations, Postgres storage size, last run timestamp, next scheduled run — all drawn from live Postgres, not in-memory.
+
+**Plans**: TBD
+
+---
+
+### Phase 8: Analytics
+
+**Goal**: Operator can see which pages are being used, how often, and whether errors are spiking — using signal-rich, low-cardinality data drawn from live traffic, with no raw IPs stored.
+
+**Depends on**: Phase 6 (admin shell); Phase 7 not required (analytics is independent of harvest)
+
+**Requirements**: ANLY-01, ANLY-02, ANLY-03, ANLY-04, ANLY-05, ANLY-06
+
+**Success Criteria** (what must be TRUE):
+
+1. After 5 minutes of live traffic, `SELECT DISTINCT route_key FROM request_metrics` returns template strings (e.g. `Deck/Index`) — not literal paths with card names or IDs — confirming no high-cardinality blow-up.
+2. `SELECT COUNT(1) FROM request_metrics WHERE route_key LIKE '/css/%' OR route_key LIKE '/js/%'` returns 0 — static assets excluded.
+3. `SELECT ip_hash FROM request_metrics LIMIT 1` returns a hash string; no `ip_raw` column exists — confirmed no PII stored.
+4. `/Admin/analytics` renders a top-routes table filterable by today / 7d / 30d, each row showing hit count, unique-IP count, error rate, and an inline SVG sparkline — no JavaScript charting library loaded.
+5. Render dashboard p95 response time does not regress vs pre-analytics baseline after the middleware deploys (write-behind channel absorbs DB I/O off the hot path).
+
+**Plans**: TBD
+
+---
+
+## Progress
+
+| Phase | Milestone | Plans | Status | Completed |
+|-------|-----------|-------|--------|-----------|
+| 1. Visual System Tokens | v1.0 | 3/3 | Complete | 2026-04-30 |
+| 2. Layout, Hierarchy & UX Copy | v1.0 | 3/3 | Complete | 2026-04-30 |
+| 3. Tech-Debt Cleanup | v1.0 | 4/4 | Complete | 2026-05-01 |
+| 4. Security & Bug Fixes | v1.0 | 4/4 | Abandoned (rerouted to Ph. 5) | 2026-05-02 |
+| 5. Security & Bug Fixes v2 | v1.0 | 3/3 | Complete | 2026-05-02 |
+| 6. Admin Shell + Flags Foundation | v1.1 | 0/? | Not started | — |
+| 7. Harvest Controls + Stats | v1.1 | 0/? | Not started | — |
+| 8. Analytics | v1.1 | 0/? | Not started | — |
+
+---
+
+*v1.1 roadmap created: 2026-05-02*
