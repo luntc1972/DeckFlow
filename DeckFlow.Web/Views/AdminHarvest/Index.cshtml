@@ -1,6 +1,126 @@
+@model DeckFlow.Web.Models.Admin.AdminHarvestViewModel
+@using DeckFlow.Web.Services.Harvest
 @{
     ViewData["Title"] = "Harvest";
+    var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
 }
-<section class="admin-harvest">
-    <p>Harvest controls coming in Phase 7. This page is a placeholder so the sidebar nav resolves.</p>
+
+<noscript>
+    <meta http-equiv="refresh" content="5" />
+</noscript>
+
+@if (!string.IsNullOrEmpty(Model.LastBanner))
+{
+    <div class="admin-banner admin-banner--success">@Model.LastBanner</div>
+}
+
+<section class="admin-harvest__panel">
+    <h2>Run Now</h2>
+    <form method="post" asp-action="RunNow" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label for="durationSeconds">Duration</label>
+        <select id="durationSeconds" name="durationSeconds">
+            @foreach (var durationSeconds in Model.DurationOptions)
+            {
+                var minutes = durationSeconds / 60;
+                <option value="@durationSeconds" selected="@(durationSeconds == 3600)">@minutes minutes</option>
+            }
+        </select>
+        <button type="submit">Run Now</button>
+    </form>
+
+    @if (Model.ActiveRun is not null)
+    {
+        <form method="post" asp-action="Cancel" asp-route-jobId="@Model.ActiveRun.Id" class="admin-action-form">
+            @Html.AntiForgeryToken()
+            <button type="submit">Cancel</button>
+        </form>
+    }
+
+    <div data-harvest-status data-state="@activeState">
+        <strong>Status:</strong> @activeState
+        @if (Model.ActiveRun is not null)
+        {
+            <span> | Decks: @Model.ActiveRun.DecksProcessed</span>
+            <span> | Started: @(Model.ActiveRun.StartedUtc?.ToString("u") ?? "Queued")</span>
+        }
+    </div>
 </section>
+
+<section class="admin-harvest__panel">
+    <h2>Single URL</h2>
+    <form method="post" asp-action="SubmitUrl" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label for="url">Archidekt URL</label>
+        <input id="url" type="url" name="url" placeholder="https://archidekt.com/decks/..." required />
+        <button type="submit">Submit</button>
+    </form>
+</section>
+
+<section class="admin-harvest__panel">
+    <h2>Schedule</h2>
+    <form method="post" asp-action="SaveSchedule" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label for="intervalHours">Interval</label>
+        <select id="intervalHours" name="intervalHours">
+            <option value="">Off</option>
+            @foreach (var intervalHours in Model.IntervalOptions)
+            {
+                <option value="@intervalHours" selected="@(Model.Schedule.IntervalHours == intervalHours)">Every @intervalHours hours</option>
+            }
+        </select>
+        <input type="hidden" name="paused" value="@(Model.Schedule.Paused.ToString().ToLowerInvariant())" />
+        <button type="submit">Save</button>
+    </form>
+
+    <form method="post" asp-action="PauseSchedule" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="paused" value="@((!Model.Schedule.Paused).ToString().ToLowerInvariant())" />
+        <button type="submit">@(Model.Schedule.Paused ? "Resume" : "Pause")</button>
+    </form>
+
+    <p>Current interval: @(Model.Schedule.IntervalHours?.ToString() ?? "Off")</p>
+    <p>Paused: @(Model.Schedule.Paused ? "Yes" : "No")</p>
+</section>
+
+<section class="admin-harvest__panel">
+    <h2>Stats</h2>
+    <div class="admin-harvest__stats-placeholder">Statistics will appear here.</div>
+    @if (Model.RecentRuns.Count == 0)
+    {
+        <p>No runs recorded yet.</p>
+    }
+    else
+    {
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Kind</th>
+                    <th>State</th>
+                    <th>Decks</th>
+                    <th>Duration</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var run in Model.RecentRuns)
+                {
+                    <tr>
+                        <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
+                        <td>@run.Kind</td>
+                        <td>@run.State</td>
+                        <td>@run.DecksProcessed</td>
+                        <td>@run.DurationSeconds</td>
+                        <td>@(run.ErrorMessage ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Scripts
+{
+    <script src="~/js/admin-harvest.js" asp-append-version="true"></script>
+}
