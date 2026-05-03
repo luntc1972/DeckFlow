@@ -26,8 +26,7 @@ public static class HarvestServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(env);
 
-        // Plan 06 in Wave 5 replaces this scaffold with the real HarvestStatsAggregator.
-        services.AddSingleton<IHarvestStatsAggregator, NullHarvestStatsAggregator>();
+        services.AddSingleton<IHarvestStatsAggregator, HarvestStatsAggregator>();
         services.AddSingleton<IHarvestRunStore, HarvestRunStore>();
         services.AddSingleton<IHarvestScheduleStore, HarvestScheduleStore>();
 
@@ -38,12 +37,5 @@ public static class HarvestServiceCollectionExtensions
         services.AddHostedService<HarvestScheduleService>();
 
         return services;
-    }
-
-    internal sealed class NullHarvestStatsAggregator : IHarvestStatsAggregator
-    {
-        public void Invalidate()
-        {
-        }
     }
 }
