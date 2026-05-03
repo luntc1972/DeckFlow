@@ -4,7 +4,7 @@ namespace DeckFlow.Web.Models.Admin;
 
 /// <summary>
 /// View model for /Admin/Harvest. Bundles the current schedule snapshot, active run,
-/// recent runs, operator banner, and placeholder stats until the later stats plan lands.
+/// recent runs, operator banner, and HARV-06 stats payload.
 /// </summary>
 public sealed record AdminHarvestViewModel
 {
@@ -23,5 +23,5 @@ public sealed record AdminHarvestViewModel
 
     public IReadOnlyList<int> DurationOptions { get; init; } = AllowedDurationSeconds;
 
-    public object? Stats { get; init; }
+    public HarvestStatsPayload? Stats { get; init; }
 }

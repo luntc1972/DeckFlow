@@ -24,6 +24,7 @@ public sealed class AdminHarvestController : Controller
     private readonly IHarvestRunStore _runStore;
     private readonly IHarvestScheduleStore _scheduleStore;
     private readonly IHarvestScheduleCache _scheduleCache;
+    private readonly IHarvestStatsAggregator _statsAggregator;
     private readonly IArchidektDeckImporter _deckImporter;
     private readonly ICategoryKnowledgeStore _categoryStore;
     private readonly IMemoryCache _memoryCache;
@@ -34,6 +35,7 @@ public sealed class AdminHarvestController : Controller
         IHarvestRunStore runStore,
         IHarvestScheduleStore scheduleStore,
         IHarvestScheduleCache scheduleCache,
+        IHarvestStatsAggregator statsAggregator,
         IArchidektDeckImporter deckImporter,
         ICategoryKnowledgeStore categoryStore,
         IMemoryCache memoryCache,
@@ -43,6 +45,7 @@ public sealed class AdminHarvestController : Controller
         ArgumentNullException.ThrowIfNull(runStore);
         ArgumentNullException.ThrowIfNull(scheduleStore);
         ArgumentNullException.ThrowIfNull(scheduleCache);
+        ArgumentNullException.ThrowIfNull(statsAggregator);
         ArgumentNullException.ThrowIfNull(deckImporter);
         ArgumentNullException.ThrowIfNull(categoryStore);
         ArgumentNullException.ThrowIfNull(memoryCache);
@@ -52,6 +55,7 @@ public sealed class AdminHarvestController : Controller
         _runStore = runStore;
         _scheduleStore = scheduleStore;
         _scheduleCache = scheduleCache;
+        _statsAggregator = statsAggregator;
         _deckImporter = deckImporter;
         _categoryStore = categoryStore;
         _memoryCache = memoryCache;
@@ -63,6 +67,20 @@ public sealed class AdminHarvestController : Controller
     {
         var activeRun = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
         var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
+        HarvestStatsPayload? stats = null;
+
+        try
+        {
+            stats = await _statsAggregator.GetAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Harvest stats aggregation failed for /Admin/Harvest.");
+        }
 
         var viewModel = new AdminHarvestViewModel
         {
@@ -70,6 +88,7 @@ public sealed class AdminHarvestController : Controller
             RecentRuns = recentRuns,
             Schedule = _scheduleCache.Snapshot(),
             LastBanner = TempData[BannerKey] as string,
+            Stats = stats,
         };
 
         return View(viewModel);

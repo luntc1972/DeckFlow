@@ -3,6 +3,20 @@
 @{
     ViewData["Title"] = "Harvest";
     var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
+
+    static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double value = bytes;
+        var unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{value:0.##} {units[unitIndex]}";
+    }
 }
 
 <noscript>
@@ -92,13 +106,66 @@
 
 <section class="admin-harvest__panel">
     <h2>Stats</h2>
-    <div class="admin-harvest__stats-placeholder">Statistics will appear here.</div>
-    @if (Model.RecentRuns.Count == 0)
+    @if (Model.Stats is null)
+    {
+        <p>Stats unavailable.</p>
+    }
+    else
+    {
+        <p>Total decks: @Model.Stats.TotalDecks (@Model.Stats.TotalDecks30d in last 30 days)</p>
+        <p>Total observations: @Model.Stats.TotalObservations</p>
+        <p>Storage size: @(Model.Stats.PostgresStorageBytes is long b ? FormatBytes(b) : "N/A")</p>
+        <p>Last successful run: @(Model.Stats.LastSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
+        <p>Next scheduled run: @(Model.Stats.NextScheduledUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Off")</p>
+
+        <h3>Top 10 Commanders</h3>
+        @if (Model.Stats.TopCommanders.Count == 0)
+        {
+            <p>No commanders recorded yet.</p>
+        }
+        else
+        {
+            <ul>
+                @foreach (var row in Model.Stats.TopCommanders)
+                {
+                    <li>@row.CommanderName - @row.DeckCount decks</li>
+                }
+            </ul>
+        }
+    }
+
+    @if (Model.Stats?.RecentRuns.Count > 0)
+    {
+        <h3>Recent Runs</h3>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Completed</th>
+                    <th>State</th>
+                    <th>Decks Processed</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var run in Model.Stats.RecentRuns)
+                {
+                    <tr>
+                        <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
+                        <td>@(run.CompletedUtc?.ToString("u") ?? "—")</td>
+                        <td>@run.State</td>
+                        <td>@run.DecksProcessed</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else if (Model.RecentRuns.Count == 0)
     {
         <p>No runs recorded yet.</p>
     }
     else
     {
+        <h3>Run Log</h3>
         <table class="admin-table">
             <thead>
                 <tr>
