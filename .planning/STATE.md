@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-05-03T20:08:54.594Z"
-last_activity: 2026-05-03 -- Phase 08 planning complete
+last_updated: "2026-05-03T20:48:48.400Z"
+last_activity: 2026-05-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 21
-  completed_plans: 16
-  percent: 76
+  completed_plans: 17
+  percent: 81
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 8 — Analytics (next; Phases 6, 7, 7.1 complete)
+**Current focus:** Phase 08 — analytics
 
 ## Current Position
 
-Phase: 8 (analytics) — NOT PLANNED
-Plan: 0 of TBD
+Phase: 08 (analytics) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-05-03 -- Phase 08 planning complete
+Last activity: 2026-05-03
 
 Progress bar: `███████░░░` 75% (3/4 phases complete in v1.1) — Phase 8 remaining
 
@@ -61,6 +61,7 @@ Progress bar: `███████░░░` 75% (3/4 phases complete in v1.1)
 | Phase 06 P05 | 4min | 2 tasks done + 1 deferred-to-prod | 2 files (both created — AdminFlagsController.cs, Views/AdminFlags/Index.cshtml) |
 | Phase 06 P06 | 2min | 1 tasks | 4 files |
 | Phase 6 P7 | 5min | 2 tasks | 2 files |
+| Phase 08-analytics P01 | 25 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Decisions affecting v1.1 work:
 - [Phase 06]: D-11 service-layer kill-switch gate at top of ScryfallTaggerService.LookupOracleTagsAsync — IFeatureFlagCache.IsEnabled("scryfall.tagger.enabled") short-circuits with Array.Empty<string>() when off; FLAG-04 satisfied.
 - [Phase ?]: [Phase 6, Plan 07]: FeatureFlagGateAttribute is the canonical reusable page kill-switch — IAsyncActionFilter resolves IFeatureFlagCache from HttpContext.RequestServices per invocation (T-06-G3 mitigation by construction); flag-off short-circuits with 503 + Retry-After: 300 + _MaintenancePage ViewResult; future page kill-switches need only attribute + seed row (zero new infrastructure)
 - [Phase ?]: [Phase 6 complete]: All 10 REQ-IDs (ADMIN-01..05 + FLAG-01..05) satisfied; FLAG-05 demo (page.help.enabled toggle on /help) verified locally via direct SQLite UPDATE + curl across 4 transitions (200 ON, 503 OFF, 200 restored, Topic ungated per D-16); production verification gate inherits the existing 06-03/06-05 deferred items (BasicAuth env-var presence)
+- [Phase ?]: IpHasher extracted as single SHA-256+salt+CF-Connecting-IP site; FeedbackStore delegates to it
+- [Phase ?]: RequestMetricsStore takes IServiceProvider? per D-14 to avoid circular DI with flusher/buffer
 
 ### Pending Todos
 
@@ -114,6 +117,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T18:48:41.257Z
+Last session: 2026-05-03T20:48:35.890Z
 Stopped at: Phase 8 context gathered
 Resume: run `/gsd-execute-phase 6` for plan 06 (ScryfallTaggerService gate at top of LookupOracleTagsAsync — D-11 service-level kill switch, FLAG-04)
