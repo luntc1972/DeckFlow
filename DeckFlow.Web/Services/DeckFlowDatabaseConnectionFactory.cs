@@ -21,6 +21,15 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateAdminThrottleConnection(IWebHostEnvironment environment)
         => CreateFeedbackConnection(environment);
 
+    /// <summary>
+    /// Returns the relational connection used by FeatureFlagStore (Phase 6, FLAG-01).
+    /// Shares the feedback Postgres connection in production (single logical DB; the
+    /// feature_flags table sits alongside feedback and admin_brute_force_buckets, per D-07).
+    /// In local-dev SQLite, also shares the feedback.db file.
+    /// </summary>
+    public static RelationalDatabaseConnection CreateFeatureFlagConnection(IWebHostEnvironment environment)
+        => CreateFeedbackConnection(environment);
+
     public static RelationalDatabaseConnection CreateCategoryKnowledgeConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "category-knowledge.db");
 
