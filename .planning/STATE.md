@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-05-03T20:48:48.400Z"
+last_updated: "2026-05-03T20:54:41.413Z"
 last_activity: 2026-05-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 21
-  completed_plans: 17
-  percent: 81
+  completed_plans: 18
+  percent: 86
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 ## Current Position
 
 Phase: 08 (analytics) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-05-03
 
@@ -62,6 +62,7 @@ Progress bar: `███████░░░` 75% (3/4 phases complete in v1.1)
 | Phase 06 P06 | 2min | 1 tasks | 4 files |
 | Phase 6 P7 | 5min | 2 tasks | 2 files |
 | Phase 08-analytics P01 | 25 | 2 tasks | 5 files |
+| Phase 08-analytics P02 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Decisions affecting v1.1 work:
 - [Phase ?]: [Phase 6 complete]: All 10 REQ-IDs (ADMIN-01..05 + FLAG-01..05) satisfied; FLAG-05 demo (page.help.enabled toggle on /help) verified locally via direct SQLite UPDATE + curl across 4 transitions (200 ON, 503 OFF, 200 restored, Topic ungated per D-16); production verification gate inherits the existing 06-03/06-05 deferred items (BasicAuth env-var presence)
 - [Phase ?]: IpHasher extracted as single SHA-256+salt+CF-Connecting-IP site; FeedbackStore delegates to it
 - [Phase ?]: RequestMetricsStore takes IServiceProvider? per D-14 to avoid circular DI with flusher/buffer
+- [Phase ?]: ShutdownDrainCeiling=2s chosen for orderly restart flush without stalling Render/Fly graceful shutdown window
+- [Phase ?]: MaybeLogDrops resets lastDropLog even when dropped==0 to advance the 60s window continuously and prevent spurious WARN bursts
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T20:48:35.890Z
+Last session: 2026-05-03T20:54:11.931Z
 Stopped at: Phase 8 context gathered
 Resume: run `/gsd-execute-phase 6` for plan 06 (ScryfallTaggerService gate at top of LookupOracleTagsAsync — D-11 service-level kill switch, FLAG-04)
