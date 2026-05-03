@@ -647,6 +647,87 @@ public sealed class CategoryKnowledgeRepository
     }
 
     /// <summary>
+    /// Marks a single deck as processed and captures its commander identity in the
+    /// same UPDATE so the harvest stats panel (Plan 06 top-10 commanders) can read
+    /// <c>deck_queue.commander_name</c> directly without joining
+    /// <c>card_category_observations</c> (Phase 7 D-17). NULL <paramref name="commanderName"/>
+    /// writes SQL NULL — the top-N query already filters <c>commander_name IS NOT NULL</c>.
+    /// </summary>
+    /// <param name="deckId">Deck ID to update.</param>
+    /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
+    /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task MarkDeckProcessedAsync(
+        string deckId,
+        string? commanderName,
+        bool skip = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        // D-17: capture commander identity in the same UPDATE that flips processed=1 so the
+        // harvest stats panel (top-10 commanders) can read deck_queue.commander_name without
+        // a join into card_category_observations.
+        command.CommandText = """
+            UPDATE deck_queue
+               SET processed = 1,
+                   skipped = @skipped,
+                   last_checked_utc = @now,
+                   commander_name = @commanderName
+             WHERE deck_id = @deckId;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+        RelationalDatabaseConnection.AddParameter(command, "@now", DateTimeOffset.UtcNow.ToString("O"));
+        RelationalDatabaseConnection.AddParameter(command, "@skipped", skip ? 1 : 0);
+        RelationalDatabaseConnection.AddParameter(command, "@commanderName", (object?)commanderName ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// B2 / D-17: idempotently records a URL-imported deck as processed with its commander name.
+    /// Mirrors the <see cref="AddDeckIdsAsync"/> UPSERT idiom but always lands processed=1
+    /// (URL flow has no queueing step) so Plan 04 SubmitUrl can ship a deck_queue row in one
+    /// round-trip and SC #2 ("commander appears in top-commanders list after URL submit") is
+    /// provable. <c>COALESCE(excluded.commander_name, deck_queue.commander_name)</c> preserves
+    /// a previously-captured name if a re-import fails to extract one.
+    /// </summary>
+    /// <param name="deckId">Archidekt deck ID validated upstream by ArchidektApiUrl.TryGetDeckId.</param>
+    /// <param name="commanderName">Commander name extracted from the imported deck, or null when extraction failed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task MarkUrlDeckProcessedAsync(
+        string deckId,
+        string? commanderName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+            VALUES (@deckId, @now, 1, 0, @now, @commanderName)
+            ON CONFLICT(deck_id) DO UPDATE
+            SET processed = 1,
+                skipped = 0,
+                last_checked_utc = excluded.last_checked_utc,
+                commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name);
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+        RelationalDatabaseConnection.AddParameter(command, "@now", now);
+        RelationalDatabaseConnection.AddParameter(command, "@commanderName", (object?)commanderName ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Marks the provided deck IDs as processed, optionally skipping them.
     /// </summary>
     /// <param name="deckIds">Deck IDs to update.</param>

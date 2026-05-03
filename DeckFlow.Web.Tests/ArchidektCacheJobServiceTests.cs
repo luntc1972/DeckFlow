@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -29,7 +31,8 @@ public sealed class ArchidektCacheJobServiceTests
         Assert.Equal(2, result.Job.DurationSeconds);
         Assert.Equal(ArchidektCacheJobState.Queued, result.Job.State);
         Assert.NotEqual(Guid.Empty, result.Job.JobId);
-        Assert.Same(result.Job, service.GetJob(result.Job.JobId));
+        // Records map structurally — content equal, not reference equal.
+        Assert.Equal(result.Job, service.GetJob(result.Job.JobId));
     }
 
     [Fact]
@@ -42,7 +45,7 @@ public sealed class ArchidektCacheJobServiceTests
 
         Assert.True(first.StartedNewJob);
         Assert.False(second.StartedNewJob);
-        Assert.Same(first.Job, second.Job);
+        Assert.Equal(first.Job.JobId, second.Job.JobId);
     }
 
     [Fact]
@@ -94,13 +97,14 @@ public sealed class ArchidektCacheJobServiceTests
         {
             RunCacheSweepResult = 7
         };
-        var service = CreateService(store);
+        var runStore = new FakeHarvestRunStore();
+        var service = CreateService(store, runStore);
 
         await service.StartAsync(CancellationToken.None);
         try
         {
             var enqueueResult = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
-            var job = await WaitForCompletedJobAsync(service, enqueueResult.Job.JobId);
+            var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
             Assert.Equal(7, job.DecksProcessed);
@@ -122,13 +126,14 @@ public sealed class ArchidektCacheJobServiceTests
         {
             RunCacheSweepException = new InvalidOperationException("cache sweep failed")
         };
-        var service = CreateService(store);
+        var runStore = new FakeHarvestRunStore();
+        var service = CreateService(store, runStore);
 
         await service.StartAsync(CancellationToken.None);
         try
         {
             var enqueueResult = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
-            var job = await WaitForCompletedJobAsync(service, enqueueResult.Job.JobId);
+            var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Failed, job.State);
             Assert.Equal("cache sweep failed", job.ErrorMessage);
@@ -147,13 +152,14 @@ public sealed class ArchidektCacheJobServiceTests
         {
             RunCacheSweepResult = 2
         };
-        var service = CreateService(store);
+        var runStore = new FakeHarvestRunStore();
+        var service = CreateService(store, runStore);
 
         await service.StartAsync(CancellationToken.None);
         try
         {
             var enqueueResult = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
-            var job = await WaitForCompletedJobAsync(service, enqueueResult.Job.JobId);
+            var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
             Assert.Null(service.GetActiveJob());
@@ -172,13 +178,14 @@ public sealed class ArchidektCacheJobServiceTests
         {
             RunCacheSweepResult = 5
         };
-        var service = CreateService(store);
+        var runStore = new FakeHarvestRunStore();
+        var service = CreateService(store, runStore);
 
         await service.StartAsync(CancellationToken.None);
         try
         {
             var first = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
-            var completed = await WaitForCompletedJobAsync(service, first.Job.JobId);
+            var completed = await WaitForTerminalJobAsync(service, runStore, first.Job.JobId);
             Assert.Equal(ArchidektCacheJobState.Succeeded, completed.State);
 
             var second = await service.EnqueueAsync(TimeSpan.FromSeconds(2));
@@ -192,10 +199,26 @@ public sealed class ArchidektCacheJobServiceTests
         }
     }
 
-    private static ArchidektCacheJobService CreateService(ICategoryKnowledgeStore? store = null)
-        => new(store ?? new FakeCategoryKnowledgeStore(), NullLogger<ArchidektCacheJobService>.Instance);
+    [Fact]
+    public async Task CancelActiveAsync_ReturnsFalseWhenNoActiveJob()
+    {
+        var service = CreateService();
+        var result = await service.CancelActiveAsync();
+        Assert.False(result);
+    }
 
-    private static async Task<ArchidektCacheJobStatus> WaitForCompletedJobAsync(ArchidektCacheJobService service, Guid jobId)
+    private static ArchidektCacheJobService CreateService(
+        ICategoryKnowledgeStore? store = null,
+        IHarvestRunStore? runStore = null)
+        => new(
+            store ?? new FakeCategoryKnowledgeStore(),
+            runStore ?? new FakeHarvestRunStore(),
+            NullLogger<ArchidektCacheJobService>.Instance);
+
+    private static async Task<ArchidektCacheJobStatus> WaitForTerminalJobAsync(
+        ArchidektCacheJobService service,
+        FakeHarvestRunStore runStore,
+        Guid jobId)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
@@ -203,13 +226,135 @@ public sealed class ArchidektCacheJobServiceTests
         {
             cts.Token.ThrowIfCancellationRequested();
 
+            // The service rebuilds status from the run store on each GetJob call. Once the
+            // background loop transitions the row to a terminal state the service no longer
+            // sees it as the "active" row, so GetJob returns null. Read directly from the
+            // fake store in that case.
             var job = service.GetJob(jobId);
-            if (job is not null && job.State is ArchidektCacheJobState.Succeeded or ArchidektCacheJobState.Failed)
+            if (job is not null && IsTerminal(job.State))
             {
                 return job;
             }
 
+            var rowFromStore = runStore.GetById(jobId);
+            if (rowFromStore is not null && IsTerminal(MapState(rowFromStore.State)))
+            {
+                return new ArchidektCacheJobStatus(
+                    rowFromStore.Id,
+                    MapState(rowFromStore.State),
+                    rowFromStore.DurationSeconds,
+                    rowFromStore.RequestedUtc,
+                    rowFromStore.StartedUtc,
+                    rowFromStore.CompletedUtc,
+                    rowFromStore.DecksProcessed,
+                    rowFromStore.AdditionalDecksFound,
+                    rowFromStore.ErrorMessage);
+            }
+
             await Task.Delay(25, cts.Token);
         }
+    }
+
+    private static bool IsTerminal(ArchidektCacheJobState state)
+        => state is ArchidektCacheJobState.Succeeded
+            or ArchidektCacheJobState.Failed
+            or ArchidektCacheJobState.Cancelled;
+
+    private static ArchidektCacheJobState MapState(HarvestRunState state)
+        => Enum.Parse<ArchidektCacheJobState>(state.ToString(), ignoreCase: false);
+
+    /// <summary>
+    /// In-memory <see cref="IHarvestRunStore"/> for unit tests. Threadsafe via
+    /// <see cref="ConcurrentDictionary{TKey,TValue}"/>; preserves the contract
+    /// the production Postgres impl exposes (active = first non-terminal row,
+    /// recent = ordered by started_utc DESC).
+    /// </summary>
+    private sealed class FakeHarvestRunStore : IHarvestRunStore
+    {
+        private readonly ConcurrentDictionary<Guid, HarvestRunRow> _rows = new();
+
+        public HarvestRunRow? GetById(Guid id) => _rows.TryGetValue(id, out var row) ? row : null;
+
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<Guid> InsertQueuedAsync(
+            HarvestRunKind kind,
+            int durationSeconds,
+            string? url,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+        {
+            var id = Guid.NewGuid();
+            _rows[id] = new HarvestRunRow(
+                id,
+                kind,
+                HarvestRunState.Queued,
+                now,
+                StartedUtc: null,
+                CompletedUtc: null,
+                durationSeconds,
+                DecksProcessed: 0,
+                AdditionalDecksFound: 0,
+                ErrorMessage: null,
+                url);
+            return Task.FromResult(id);
+        }
+
+        public Task UpdateStateAsync(
+            Guid id,
+            HarvestRunState state,
+            DateTimeOffset? startedUtc,
+            DateTimeOffset? completedUtc,
+            int decksProcessed,
+            int additionalDecksFound,
+            string? errorMessage,
+            CancellationToken cancellationToken = default)
+        {
+            _rows.AddOrUpdate(
+                id,
+                _ => throw new InvalidOperationException($"No queued row for {id}."),
+                (_, existing) => existing with
+                {
+                    State = state,
+                    StartedUtc = startedUtc ?? existing.StartedUtc,
+                    CompletedUtc = completedUtc ?? existing.CompletedUtc,
+                    DecksProcessed = decksProcessed,
+                    AdditionalDecksFound = additionalDecksFound,
+                    ErrorMessage = errorMessage
+                });
+            return Task.CompletedTask;
+        }
+
+        public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
+        {
+            HarvestRunRow? active = _rows.Values
+                .Where(r => r.State is HarvestRunState.Queued or HarvestRunState.Running or HarvestRunState.Stopping)
+                .OrderByDescending(r => r.RequestedUtc)
+                .FirstOrDefault();
+            return Task.FromResult(active);
+        }
+
+        public Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<HarvestRunRow> rows = _rows.Values
+                .OrderByDescending(r => r.StartedUtc ?? DateTimeOffset.MinValue)
+                .Take(n)
+                .ToList();
+            return Task.FromResult(rows);
+        }
+
+        public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
+        {
+            var max = _rows.Values
+                .Where(r => r.State == HarvestRunState.Succeeded)
+                .Select(r => r.CompletedUtc)
+                .Where(t => t is not null)
+                .DefaultIfEmpty(null)
+                .Max();
+            return Task.FromResult(max);
+        }
+
+        public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult((long)_rows.Values.Count(r => r.State == HarvestRunState.Succeeded));
     }
 }
