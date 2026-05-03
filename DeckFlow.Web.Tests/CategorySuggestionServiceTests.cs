@@ -173,6 +173,9 @@ public sealed class CategorySuggestionServiceTests
         public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult(_totals);
     }
