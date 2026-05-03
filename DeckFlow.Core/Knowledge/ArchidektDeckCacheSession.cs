@@ -93,7 +93,7 @@ public sealed class ArchidektDeckCacheSession
             {
                 try
                 {
-                    var cacheResult = await PersistDeckAsync(deckId, cancellationToken);
+                    var (cacheResult, commanderName) = await PersistDeckAsync(deckId, cancellationToken);
                     if (cacheResult == DeckCacheWriteResult.Added)
                     {
                         added++;
@@ -103,8 +103,9 @@ public sealed class ArchidektDeckCacheSession
                         updated++;
                     }
 
-                    _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}).", deckId, cacheResult);
-                    await _repository.MarkDecksProcessedAsync(new[] { deckId }, cancellationToken: cancellationToken);
+                    _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}) commander={Commander}.", deckId, cacheResult, commanderName ?? "(none)");
+                    // D-17: write commander_name in the same UPDATE that flips processed=1.
+                    await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, cancellationToken: cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -114,7 +115,8 @@ public sealed class ArchidektDeckCacheSession
                 {
                     skipped++;
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
-                    await _repository.MarkDecksProcessedAsync(new[] { deckId }, skip: true, cancellationToken: cancellationToken);
+                    // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
+                    await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, cancellationToken: cancellationToken);
                 }
 
                 if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
@@ -141,17 +143,30 @@ public sealed class ArchidektDeckCacheSession
     }
 
     /// <summary>
-    /// Imports a single deck and writes its categories to the repository.
+    /// Imports a single deck and writes its categories to the repository. D-17: extracts the
+    /// commander entry from the imported deck (most decks have exactly one Commander; partner
+    /// pairs return the first deterministically) and returns it alongside the write result so
+    /// <see cref="RunAsync"/> can persist <c>deck_queue.commander_name</c> in the same UPDATE
+    /// that flips <c>processed=1</c>.
     /// </summary>
     /// <param name="deckId">Deck ID to process.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task<DeckCacheWriteResult> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
+    /// <returns>Tuple of cache write result and the commander name (or null when none was found).</returns>
+    private async Task<(DeckCacheWriteResult Result, string? CommanderName)> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
     {
         var source = $"archidekt_live:{deckId}";
         var alreadyCached = await _repository.HasSourceDataAsync(source, cancellationToken);
         var entries = await _deckImporter.ImportAsync(deckId, cancellationToken);
+
+        // D-17: extract the commander entry from the imported deck. Most decks have exactly
+        // one Commander; if there are multiple (partner pairs etc.) take the first deterministically.
+        string? commanderName = entries
+            .Where(e => string.Equals(e.Category, "Commander", StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.Name)
+            .FirstOrDefault();
+
         await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
-        return alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added;
+        return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName);
     }
 }
 
