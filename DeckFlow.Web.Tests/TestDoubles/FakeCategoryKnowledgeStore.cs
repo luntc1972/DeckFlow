@@ -1,5 +1,6 @@
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Tests;
@@ -69,6 +70,21 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
+
+    public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
+
+    public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
+
+    public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
+
+    public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
+
+    public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<long?>(null);
 
     public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
         => Task.FromResult(CardDeckTotals.Empty);

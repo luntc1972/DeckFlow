@@ -5,23 +5,6 @@ using DeckFlow.Core.Storage;
 namespace DeckFlow.Web.Services.Harvest;
 
 /// <summary>
-/// Forward-declared marker interface for the Plan 06 harvest stats aggregator. Plan 01
-/// only needs the <c>Invalidate()</c> hook so write-side stores can drop the
-/// MemoryCache entry on every successful state change (D-13 explicit invalidation).
-/// Plan 06 amends this surface with a <c>GetAsync</c> method without breaking existing
-/// callers. STUB — Plan 06 fleshes this out with GetAsync.
-/// </summary>
-public interface IHarvestStatsAggregator
-{
-    /// <summary>
-    /// Drops the cached <c>HarvestStatsSnapshot</c> so the next read recomputes
-    /// from the underlying SQL. Called from <see cref="HarvestRunStore"/> after
-    /// every successful write (D-13).
-    /// </summary>
-    void Invalidate();
-}
-
-/// <summary>
 /// Default implementation of <see cref="IHarvestRunStore"/> backed by
 /// <see cref="RelationalDatabaseConnection"/> (Postgres in production, SQLite in tests
 /// and local-dev). Schema is lazy-initialized via a SemaphoreSlim gate that also runs
