@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using DeckFlow.Core.Storage;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.Web.Services.Harvest;
 
@@ -10,13 +11,14 @@ namespace DeckFlow.Web.Services.Harvest;
 /// and local-dev). Schema is lazy-initialized via a SemaphoreSlim gate that also runs
 /// the D-02 startup reaper (UPDATE non-terminal rows to <c>Failed</c>) on first call.
 /// Mirrors the <see cref="DeckFlow.Web.Services.FeatureFlags.FeatureFlagStore"/> shape.
-/// Optional <see cref="IHarvestStatsAggregator"/> dependency lets Plan 06 wire in
-/// explicit cache invalidation without touching this file.
+/// Stats invalidation resolves <see cref="IHarvestStatsAggregator"/> lazily from an
+/// optional <see cref="IServiceProvider"/> so run-store writes can invalidate the
+/// aggregate cache without creating a circular constructor graph.
 /// </summary>
 public sealed class HarvestRunStore : IHarvestRunStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
-    private readonly IHarvestStatsAggregator? _stats;
+    private readonly IServiceProvider? _services;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
@@ -26,9 +28,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
     /// SQLite tests.
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file (created if missing).</param>
-    /// <param name="stats">Optional stats aggregator that gets invalidated after writes (D-13).</param>
-    public HarvestRunStore(string databasePath, IHarvestStatsAggregator? stats = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), stats) { }
+    /// <param name="services">Optional service provider used for best-effort stats invalidation after writes.</param>
+    public HarvestRunStore(string databasePath, IServiceProvider? services = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), services) { }
 
     /// <summary>
     /// Creates a store using the supplied <see cref="RelationalDatabaseConnection"/>
@@ -36,12 +38,12 @@ public sealed class HarvestRunStore : IHarvestRunStore
     /// without going through the DI factory.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
-    /// <param name="stats">Optional stats aggregator that gets invalidated after writes (D-13).</param>
-    public HarvestRunStore(RelationalDatabaseConnection connectionInfo, IHarvestStatsAggregator? stats = null)
+    /// <param name="services">Optional service provider used for best-effort stats invalidation after writes.</param>
+    public HarvestRunStore(RelationalDatabaseConnection connectionInfo, IServiceProvider? services = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
-        _stats = stats;
+        _services = services;
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
@@ -55,12 +57,13 @@ public sealed class HarvestRunStore : IHarvestRunStore
     /// <summary>
     /// DI ctor — resolves the connection via
     /// <see cref="DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection"/>,
-    /// which shares the feedback DB (D-07).
+    /// which shares the feedback DB (D-07), and keeps stats invalidation lazy to
+    /// avoid the run-store/stats circular dependency at startup.
     /// </summary>
     /// <param name="environment">Web host environment used by the connection factory.</param>
-    /// <param name="stats">Optional stats aggregator that gets invalidated after writes (D-13).</param>
-    public HarvestRunStore(IWebHostEnvironment environment, IHarvestStatsAggregator? stats = null)
-        : this(DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection(environment), stats) { }
+    /// <param name="services">Optional service provider used for best-effort stats invalidation after writes.</param>
+    public HarvestRunStore(IWebHostEnvironment environment, IServiceProvider? services = null)
+        : this(DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection(environment), services) { }
 
     /// <inheritdoc />
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
@@ -128,7 +131,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
         // D-13: explicit invalidation so the stats panel reflects the new queued row.
-        _stats?.Invalidate();
+        InvalidateStats();
         return id;
     }
 
@@ -173,7 +176,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
         // D-13: explicit invalidation on every state change.
-        _stats?.Invalidate();
+        InvalidateStats();
     }
 
     /// <inheritdoc />
@@ -269,6 +272,18 @@ public sealed class HarvestRunStore : IHarvestRunStore
         return _connectionInfo.IsPostgres
             ? (object)value.Value.UtcDateTime
             : value.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+    }
+
+    private void InvalidateStats()
+    {
+        try
+        {
+            _services?.GetService<IHarvestStatsAggregator>()?.Invalidate();
+        }
+        catch
+        {
+            // Best-effort invalidation must never break a successful write path.
+        }
     }
 
     private HarvestRunRow ReadHarvestRunRow(DbDataReader reader)
