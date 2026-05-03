@@ -1,0 +1,38 @@
+@inject DeckFlow.Web.Services.IVersionService VersionService
+@{
+    var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? string.Empty;
+    bool IsActive(string c) => string.Equals(controllerName, c, StringComparison.OrdinalIgnoreCase);
+    string ActiveClass(string c) => IsActive(c) ? "admin-sidebar__link admin-sidebar__link--active" : "admin-sidebar__link";
+    string ActiveAria(string c) => IsActive(c) ? "page" : null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - DeckFlow Admin</title>
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+</head>
+<body>
+    <a class="skip-link" href="#admin-content">Skip to main content</a>
+    <div class="admin-shell">
+        <aside class="admin-sidebar" aria-label="Admin sections">
+            <div class="admin-sidebar__brand">DeckFlow Admin</div>
+            <nav class="admin-sidebar__nav">
+                <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
+                <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
+                <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
+                <a class="@ActiveClass("AdminFlags")"     aria-current="@ActiveAria("AdminFlags")"     href="@Url.Content("~/Admin/Flags")">Flags</a>
+            </nav>
+        </aside>
+        <header class="admin-topbar">
+            <h1 class="admin-topbar__title">@ViewData["Title"]</h1>
+            <span class="admin-topbar__version">v@VersionService.GetVersion()</span>
+        </header>
+        <main id="admin-content" class="admin-content" role="main">
+            @RenderBody()
+        </main>
+    </div>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
