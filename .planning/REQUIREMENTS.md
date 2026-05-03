@@ -13,7 +13,7 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 - [x] **ADMIN-02**: All admin pages render through a dedicated `_AdminLayout.cshtml` that loads only neutral admin CSS — no guild theme leakage, no public-site nav
 - [ ] **ADMIN-03**: BasicAuth gate via existing `/Admin` path branch keeps protecting every admin page (Feedback, Harvest, Analytics, Flags) without per-controller `[Authorize]` drift
 - [ ] **ADMIN-04**: Existing `/Admin/feedback` page continues to work unchanged inside the new admin shell (no regression to inbox / mark-read flow)
-- [ ] **ADMIN-05**: All admin POST forms protected with `[ValidateAntiForgeryToken]` (Razor antiforgery, since `SameOriginRequestValidator` covers JSON APIs only)
+- [x] **ADMIN-05**: All admin POST forms protected with `[ValidateAntiForgeryToken]` (Razor antiforgery, since `SameOriginRequestValidator` covers JSON APIs only)
 
 ### Harvest
 
@@ -38,7 +38,7 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 
 - [x] **FLAG-01**: Postgres `feature_flags` table seeded by `EnsureSchemaAsync` with default-on rows for shipped features (no default-off accidentally killing live behavior on fresh DB)
 - [x] **FLAG-02**: Singleton `IFeatureFlagCache` holds the flag dict in-memory; refreshed by a 30s `BackgroundService` poller, plus explicit invalidation on admin write so toggle takes effect within seconds
-- [ ] **FLAG-03**: Operator can list all flags and toggle bool values from `/Admin/flags`; admin write triggers cache invalidation immediately
+- [x] **FLAG-03**: Operator can list all flags and toggle bool values from `/Admin/flags`; admin write triggers cache invalidation immediately
 - [ ] **FLAG-04**: `ScryfallTaggerService` consults `IFeatureFlagCache` and returns empty results (no upstream call) when its kill-switch flag is off
 - [ ] **FLAG-05**: Page kill-switch pattern: a chosen route returns 503 + maintenance copy when its flag is off, demonstrated end-to-end on at least one user-facing page
 
@@ -95,7 +95,7 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | ADMIN-02 | Phase 6 | Complete |
 | ADMIN-03 | Phase 6 | Pending |
 | ADMIN-04 | Phase 6 | Pending |
-| ADMIN-05 | Phase 6 | Pending |
+| ADMIN-05 | Phase 6 | Complete (06-05) |
 | HARV-01 | Phase 7 | Pending |
 | HARV-02 | Phase 7 | Pending |
 | HARV-03 | Phase 7 | Pending |
@@ -111,7 +111,7 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | ANLY-06 | Phase 8 | Pending |
 | FLAG-01 | Phase 6 | Complete (06-02) |
 | FLAG-02 | Phase 6 | Complete |
-| FLAG-03 | Phase 6 | Pending |
+| FLAG-03 | Phase 6 | Complete (06-05) |
 | FLAG-04 | Phase 6 | Pending |
 | FLAG-05 | Phase 6 | Pending |
 
