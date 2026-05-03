@@ -45,7 +45,16 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 4. `/Admin/feedback` loads inside the new admin shell with its existing inbox and mark-read flow fully intact (no regression).
 5. Operator can disable the Tagger kill-switch flag from `/Admin/flags`, reload a card lookup page within 2 seconds, and observe that Tagger tags are absent — demonstrating hot-reload invalidation, not TTL expiry.
 
-**Plans**: TBD
+**Plans**: 7 plans across 3 waves
+
+Plans:
+- [ ] 06-01-PLAN.md — Admin shell layout + CSS + sidebar nav + 3 placeholder controllers + MaintenanceViewModel/_MaintenancePage view (ADMIN-01, ADMIN-02)
+- [ ] 06-02-PLAN.md — feature_flags schema + IFeatureFlagStore (Postgres + SQLite) with EnsureSchemaAsync seed (FLAG-01)
+- [ ] 06-03-PLAN.md — AdminFeedback layout-swap to _AdminLayout (D-15 zero controller / view-body churn) (ADMIN-03, ADMIN-04)
+- [ ] 06-04-PLAN.md — IFeatureFlagCache singleton + IHostedService (sync StartAsync load D-14, 30s poller, WARN-once dedupe D-13) + AddDeckFlowFeatureFlags() extension (FLAG-02)
+- [ ] 06-05-PLAN.md — AdminFlagsController + view + POST toggle (antiforgery + sync cache reload D-10 + key-allowlist) (ADMIN-05, FLAG-03)
+- [ ] 06-06-PLAN.md — ScryfallTaggerService gate at top of LookupOracleTagsAsync (D-11 service-level kill switch) (FLAG-04)
+- [ ] 06-07-PLAN.md — FeatureFlagGateAttribute action filter + apply to /help index (D-16 demo target, D-17 503 + Retry-After 300, D-18 attribute wiring) (ADMIN-03, FLAG-05)
 
 **UI hint**: yes
 
