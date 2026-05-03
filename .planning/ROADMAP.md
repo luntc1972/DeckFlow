@@ -49,7 +49,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 Plans:
 - [x] 06-01-PLAN.md — Admin shell layout + CSS + sidebar nav + 3 placeholder controllers + MaintenanceViewModel/_MaintenancePage view (ADMIN-01, ADMIN-02)
-- [ ] 06-02-PLAN.md — feature_flags schema + IFeatureFlagStore (Postgres + SQLite) with EnsureSchemaAsync seed (FLAG-01)
+- [x] 06-02-PLAN.md — feature_flags schema + IFeatureFlagStore (Postgres + SQLite) with EnsureSchemaAsync seed (FLAG-01)
 - [ ] 06-03-PLAN.md — AdminFeedback layout-swap to _AdminLayout (D-15 zero controller / view-body churn) (ADMIN-03, ADMIN-04)
 - [ ] 06-04-PLAN.md — IFeatureFlagCache singleton + IHostedService (sync StartAsync load D-14, 30s poller, WARN-once dedupe D-13) + AddDeckFlowFeatureFlags() extension (FLAG-02)
 - [ ] 06-05-PLAN.md — AdminFlagsController + view + POST toggle (antiforgery + sync cache reload D-10 + key-allowlist) (ADMIN-05, FLAG-03)
