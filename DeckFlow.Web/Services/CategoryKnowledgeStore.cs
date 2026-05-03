@@ -82,6 +82,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
     }
 
+    public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default) => _repository.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken);
+
     /// <summary>
     /// Runs an extended cache sweep for the specified duration.
     /// </summary>
