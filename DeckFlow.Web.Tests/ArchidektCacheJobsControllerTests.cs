@@ -149,6 +149,9 @@ public sealed class ArchidektCacheJobsControllerTests
 
         public ArchidektCacheJobStatus? GetActiveJob()
             => _job;
+
+        public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(_job is not null);
     }
 
     private sealed class FakeUrlHelper : IUrlHelper
