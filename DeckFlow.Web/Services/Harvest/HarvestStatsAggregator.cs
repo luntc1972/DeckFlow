@@ -1,0 +1,88 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using DeckFlow.Web.Services;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Serilog;
+
+namespace DeckFlow.Web.Services.Harvest;
+
+/// <summary>
+/// Aggregates the HARV-06 stats payload under a 60-second IMemoryCache entry.
+/// </summary>
+public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
+{
+    private const string CacheKey = "admin.harvest.stats.v1";
+
+    private readonly IHarvestRunStore _runStore;
+    private readonly IHarvestScheduleCache _scheduleCache;
+    private readonly ICategoryKnowledgeStore _categoryStore;
+    private readonly IMemoryCache _memoryCache;
+    private readonly ILogger<HarvestStatsAggregator> _logger;
+
+    public HarvestStatsAggregator(
+        IHarvestRunStore runStore,
+        IHarvestScheduleCache scheduleCache,
+        ICategoryKnowledgeStore categoryStore,
+        IMemoryCache memoryCache,
+        ILogger<HarvestStatsAggregator> logger)
+    {
+        ArgumentNullException.ThrowIfNull(runStore);
+        ArgumentNullException.ThrowIfNull(scheduleCache);
+        ArgumentNullException.ThrowIfNull(categoryStore);
+        ArgumentNullException.ThrowIfNull(memoryCache);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _runStore = runStore;
+        _scheduleCache = scheduleCache;
+        _categoryStore = categoryStore;
+        _memoryCache = memoryCache;
+        _logger = logger;
+    }
+
+    public Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
+        => _memoryCache.GetOrCreateAsync(CacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            return await BuildAsync(cancellationToken).ConfigureAwait(false);
+        })!;
+
+    public void Invalidate()
+    {
+        _memoryCache.Remove(CacheKey);
+        Log.Debug("Harvest stats cache invalidated");
+    }
+
+    private async Task<HarvestStatsPayload> BuildAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Harvest.Stats.Build rebuilding cached payload.");
+
+        var totalDecks = await _categoryStore.GetTotalProcessedDeckCountAsync(cancellationToken).ConfigureAwait(false);
+        var totalDecks30d = await _categoryStore.GetTotalProcessedDeckCountSinceAsync(
+            DateTime.UtcNow.AddDays(-30),
+            cancellationToken).ConfigureAwait(false);
+        var totalObservations = await _categoryStore.GetTotalObservationCountAsync(cancellationToken).ConfigureAwait(false);
+        var topCommanders = await _categoryStore.GetTopCommandersAsync(10, cancellationToken).ConfigureAwait(false);
+        var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
+        var postgresStorageBytes = await _categoryStore.GetPostgresDatabaseSizeBytesAsync(cancellationToken).ConfigureAwait(false);
+        var lastSuccessUtc = await _runStore.GetLastSuccessUtcAsync(cancellationToken).ConfigureAwait(false);
+        var scheduleSnapshot = _scheduleCache.Snapshot();
+        DateTimeOffset? nextScheduledUtc =
+            lastSuccessUtc.HasValue
+            && scheduleSnapshot.IntervalHours.HasValue
+            && !scheduleSnapshot.Paused
+                ? lastSuccessUtc.Value + TimeSpan.FromHours(scheduleSnapshot.IntervalHours.Value)
+                : null;
+
+        return new HarvestStatsPayload(
+            totalDecks,
+            totalDecks30d,
+            totalObservations,
+            topCommanders,
+            recentRuns,
+            postgresStorageBytes,
+            lastSuccessUtc,
+            nextScheduledUtc);
+    }
+}

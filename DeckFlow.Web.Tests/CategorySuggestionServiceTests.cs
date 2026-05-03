@@ -10,6 +10,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -175,6 +176,21 @@ public sealed class CategorySuggestionServiceTests
 
         public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+
+        public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
+        public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
+        public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
+        public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
+
+        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<long?>(null);
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult(_totals);

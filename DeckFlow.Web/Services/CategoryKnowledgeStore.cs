@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using System.Threading;
 using DeckFlow.Core.Integration;
@@ -6,6 +8,9 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
 using Microsoft.Extensions.Logging;
+using Npgsql;
+using NpgsqlTypes;
+using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Services;
 
@@ -83,6 +88,74 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default) => _repository.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken);
+
+    public async Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;";
+        return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;";
+        AddTimestampParameter(command, "@cutoff", cutoffUtc);
+        return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM card_category_observations;";
+        return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT commander_name, COUNT(1) AS deck_count
+            FROM deck_queue
+            WHERE processed = 1 AND commander_name IS NOT NULL
+            GROUP BY commander_name
+            ORDER BY deck_count DESC
+            LIMIT @n;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@n", n);
+
+        var rows = new List<TopCommanderRow>(capacity: Math.Max(n, 0));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add(new TopCommanderRow(reader.GetString(0), reader.GetInt32(1)));
+        }
+
+        return rows;
+    }
+
+    public async Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        if (!_connectionInfo.IsPostgres)
+        {
+            return null;
+        }
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT pg_database_size(current_database())";
+        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return result is long bytes ? bytes : null;
+    }
 
     /// <summary>
     /// Runs an extended cache sweep for the specified duration.
@@ -175,5 +248,40 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         {
             _schemaGate.Release();
         }
+    }
+
+    private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+    {
+        var connection = _connectionInfo.CreateConnection();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        return connection;
+    }
+
+    private static async Task<int> ExecuteCountAsync(DbCommand command, CancellationToken cancellationToken)
+    {
+        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return result switch
+        {
+            null => 0,
+            DBNull => 0,
+            long value => checked((int)value),
+            int value => value,
+            _ => Convert.ToInt32(result)
+        };
+    }
+
+    private void AddTimestampParameter(DbCommand command, string name, DateTime cutoffUtc)
+    {
+        if (_connectionInfo.IsPostgres)
+        {
+            var parameter = new NpgsqlParameter(name, NpgsqlDbType.TimestampTz)
+            {
+                Value = DateTime.SpecifyKind(cutoffUtc, DateTimeKind.Utc)
+            };
+            command.Parameters.Add(parameter);
+            return;
+        }
+
+        RelationalDatabaseConnection.AddParameter(command, name, cutoffUtc.ToString("O"));
     }
 }
