@@ -51,7 +51,7 @@ Plans:
 - [x] 06-01-PLAN.md — Admin shell layout + CSS + sidebar nav + 3 placeholder controllers + MaintenanceViewModel/_MaintenancePage view (ADMIN-01, ADMIN-02)
 - [x] 06-02-PLAN.md — feature_flags schema + IFeatureFlagStore (Postgres + SQLite) with EnsureSchemaAsync seed (FLAG-01)
 - [x] 06-03-PLAN.md — AdminFeedback layout-swap to _AdminLayout (D-15 zero controller / view-body churn) (ADMIN-03, ADMIN-04) — Task 2 deferred-to-prod, DEFER-06-01 folded
-- [ ] 06-04-PLAN.md — IFeatureFlagCache singleton + IHostedService (sync StartAsync load D-14, 30s poller, WARN-once dedupe D-13) + AddDeckFlowFeatureFlags() extension (FLAG-02)
+- [x] 06-04-PLAN.md — IFeatureFlagCache singleton + IHostedService (sync StartAsync load D-14, 30s poller, WARN-once dedupe D-13) + AddDeckFlowFeatureFlags() extension (FLAG-02)
 - [ ] 06-05-PLAN.md — AdminFlagsController + view + POST toggle (antiforgery + sync cache reload D-10 + key-allowlist) (ADMIN-05, FLAG-03)
 - [ ] 06-06-PLAN.md — ScryfallTaggerService gate at top of LookupOracleTagsAsync (D-11 service-level kill switch) (FLAG-04)
 - [ ] 06-07-PLAN.md — FeatureFlagGateAttribute action filter + apply to /help index (D-16 demo target, D-17 503 + Retry-After 300, D-18 attribute wiring) (ADMIN-03, FLAG-05)
