@@ -1,3 +1,4 @@
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +12,9 @@ public sealed class HelpController : Controller
     public HelpController(IHelpContentService content) => _content = content;
 
     [HttpGet("/help")]
+    [FeatureFlagGate("page.help.enabled",
+        Title = "Help center temporarily unavailable",
+        Message = "Help is offline for maintenance. Please try again in a few minutes.")]
     public IActionResult Index() => View(_content.GetAll());
 
     [HttpGet("/help/{slug}")]
