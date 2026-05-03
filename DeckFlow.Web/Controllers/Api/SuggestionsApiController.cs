@@ -45,22 +45,6 @@ public sealed class SuggestionsApiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     public async Task<ActionResult<CategorySuggestionApiResponse>> PostCardSuggestionAsync([FromBody] CategorySuggestionRequest request, CancellationToken cancellationToken)
     {
-        // TEMPORARY DIAGNOSTIC — Phase 7.1 plan 02 (CAT-FIX-01). Removed in Task 2.
-        // Captures Origin / Referer / forwarded headers / scheme / host so we can confirm
-        // the root cause of the same-origin regression against a real failing request
-        // before changing validator logic.
-        _logger.LogWarning(
-            "SameOrigin diagnostic: path={Path} scheme={Scheme} host={Host} origin={Origin} referer={Referer} xfproto={XfProto} xfhost={XfHost} xfport={XfPort} xfor={XFor}",
-            Request.Path.Value,
-            Request.Scheme,
-            Request.Host.ToString(),
-            Request.Headers.Origin.ToString(),
-            Request.Headers.Referer.ToString(),
-            Request.Headers["X-Forwarded-Proto"].ToString(),
-            Request.Headers["X-Forwarded-Host"].ToString(),
-            Request.Headers["X-Forwarded-Port"].ToString(),
-            Request.Headers["X-Forwarded-For"].ToString());
-
         if (!SameOriginRequestValidator.IsValid(Request))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
