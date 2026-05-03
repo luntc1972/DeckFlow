@@ -8,9 +8,10 @@ namespace DeckFlow.Web.Services.FeatureFlags;
 /// Default implementation of <see cref="IFeatureFlagStore"/> backed by
 /// <see cref="RelationalDatabaseConnection"/> (Postgres in production, SQLite in tests
 /// and local-dev). Schema is lazy-initialized on first call via a SemaphoreSlim gate,
-/// mirroring AdminBruteForceTrackerStore. Seed list (D-09) inserts default-on rows for
-/// 'scryfall.tagger.enabled' and 'page.help.enabled' using ON CONFLICT (key) DO NOTHING
-/// so re-bootstrapping on an existing DB never overwrites operator changes (FLAG-01).
+/// mirroring AdminBruteForceTrackerStore. Seed list (Phase 6 D-09 + Phase 7 B3) inserts
+/// default-on rows for 'scryfall.tagger.enabled', 'page.help.enabled', and
+/// 'harvest.cron.enabled' using ON CONFLICT (key) DO NOTHING so re-bootstrapping on an
+/// existing DB never overwrites operator changes (FLAG-01).
 /// </summary>
 public sealed class FeatureFlagStore : IFeatureFlagStore
 {
@@ -172,14 +173,16 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
     private const string PostgresSeedSql = """
         INSERT INTO feature_flags (key, enabled) VALUES
           ('scryfall.tagger.enabled', TRUE),
-          ('page.help.enabled', TRUE)
+          ('page.help.enabled', TRUE),
+          ('harvest.cron.enabled', TRUE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
     private const string SqliteSeedSql = """
         INSERT INTO feature_flags (key, enabled) VALUES
           ('scryfall.tagger.enabled', 1),
-          ('page.help.enabled', 1)
+          ('page.help.enabled', 1),
+          ('harvest.cron.enabled', 1)
         ON CONFLICT (key) DO NOTHING;
         """;
 

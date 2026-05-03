@@ -87,11 +87,22 @@ public sealed class CategoryKnowledgeRepository
     {
         var columns = await GetTableColumnsAsync(connection, "deck_queue", cancellationToken);
         var hasSkipped = columns.Contains("skipped");
+        var hasCommanderName = columns.Contains("commander_name");
 
         if (!hasSkipped)
         {
             var alterCommand = connection.CreateCommand();
             alterCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0;";
+            await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (!hasCommanderName)
+        {
+            // D-17: capture commander identity per processed deck so the harvest stats panel
+            // can group top-N commanders by deck_count without joining card_category_observations.
+            // Existing rows stay NULL; only newly-imported decks populate this column.
+            var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN commander_name TEXT NULL;";
             await alterCommand.ExecuteNonQueryAsync(cancellationToken);
         }
     }
