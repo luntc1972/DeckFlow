@@ -25,7 +25,8 @@ internal static class TestServiceFactory
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
-            null,
+            null,   // cache — uses default CardLookupCache instance
+            null,   // restClientOverride
             executeAsync,
             executeSearchAsync,
             executeNamedAsync,
