@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Admin Console
-status: executing
-stopped_at: Phase 07.1 complete; Phase 8 next
-last_updated: "2026-05-03T18:35:00.000Z"
-last_activity: 2026-05-03 -- Phase 07.1 complete (CATFLAG-01..03 + CAT-FIX-01); X-Forwarded-Proto fix live on prod
+status: Awaiting plan-phase
+stopped_at: Phase 8 context gathered
+last_updated: "2026-05-03T18:48:41.348Z"
+last_activity: 2026-05-03 -- Phase 07.1 complete; X-Forwarded-Proto fix live on prod (commit aa2d7d8)
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 16
+  completed_plans: 16
   percent: 100
 ---
 
@@ -114,6 +114,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T13:54:43.657Z
-Stopped at: Phase 7 context gathered
+Last session: 2026-05-03T18:48:41.257Z
+Stopped at: Phase 8 context gathered
 Resume: run `/gsd-execute-phase 6` for plan 06 (ScryfallTaggerService gate at top of LookupOracleTagsAsync — D-11 service-level kill switch, FLAG-04)
