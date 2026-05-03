@@ -42,6 +42,13 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 - [x] **FLAG-04**: `ScryfallTaggerService` consults `IFeatureFlagCache` and returns empty results (no upstream call) when its kill-switch flag is off
 - [x] **FLAG-05**: Page kill-switch pattern: a chosen route returns 503 + maintenance copy when its flag is off, demonstrated end-to-end on at least one user-facing page
 
+### Categories Visibility (Phase 7.1 — INSERTED)
+
+- [ ] **CATFLAG-01**: `feature.categories.enabled` row added to the `feature_flags` seed (default `true`) so fresh DBs and existing prod DBs both end up with the flag present and ON without manual intervention
+- [ ] **CATFLAG-02**: Suggest Categories nav menu entry and the landing-page Categories CTA both consult `IFeatureFlagCache.IsEnabled("feature.categories.enabled")` and render nothing when the flag is OFF
+- [ ] **CATFLAG-03**: The Suggest Categories page route is gated by `[FeatureFlagGate("feature.categories.enabled")]` (Phase 6 reusable attribute) so a flag-OFF state returns 503 + maintenance copy instead of rendering a partially-broken page
+- [ ] **CAT-FIX-01**: The categories AJAX endpoint accepts a legitimate same-origin browser request from the running site without returning "This endpoint only accepts same-origin browser requests." — root cause identified (logged Origin / Referer / X-Forwarded-Proto on a real attempt), fix landed, regression covered
+
 ## v1.2+ Requirements
 
 Deferred to future milestone. Tracked but not in v1.1 roadmap.
@@ -114,12 +121,16 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | FLAG-03 | Phase 6 | Complete (06-05) |
 | FLAG-04 | Phase 6 | Complete |
 | FLAG-05 | Phase 6 | Complete |
+| CATFLAG-01 | Phase 7.1 | Pending |
+| CATFLAG-02 | Phase 7.1 | Pending |
+| CATFLAG-03 | Phase 7.1 | Pending |
+| CAT-FIX-01 | Phase 7.1 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 23 total
-- Mapped to phases: 23
+- v1.1 requirements: 27 total (23 original + 4 inserted in Phase 7.1)
+- Mapped to phases: 27
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-02*
-*Last updated: 2026-05-02 — traceability filled by gsd-roadmapper*
+*Last updated: 2026-05-03 — Phase 7.1 (INSERTED) added 4 categories-visibility REQ-IDs*
