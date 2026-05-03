@@ -103,3 +103,31 @@ If Option B is chosen, no code change — just docs + a plan-text edit, then re-
 1. Pick remediation option (A / B / C, or a combination).
 2. Either expand a new sub-plan or fold the fix into the next plan that has BasicAuth checkpoint surface (Plan 06-04 onward).
 3. Re-invoke `/gsd-execute-phase 6 --wave 2` to retry the Plan 06-03 checkpoint (Task 2 only).
+
+---
+
+## Resolution (2026-05-02)
+
+**Verdict:** **deferred-to-prod** (verify-on-deploy).
+
+**Reason:** Local BasicAuth is not configured (no `FEEDBACK_ADMIN_USER` / `FEEDBACK_ADMIN_PASSWORD` env vars), and fixing the local-dev auth story is out of scope for Plan 06-03. Render production already has both env vars set with `sync: false`, so the layout-swap will be exercised live on `https://www.deckflow.gg/Admin/Feedback` after the v1.1 admin shell merges. None of remediation options A / B / C is being implemented at this time:
+
+- **Option A** (dev-only middleware fallback) deferred — adds new security-sensitive surface area; not justified for a single checkpoint.
+- **Option B** (README docs) deferred — would still require operator setup each session; verifying once on prod is cheaper.
+- **Option C** (`launchSettings.json` env vars) rejected — conflicts with `CLAUDE.md` "no secrets in commits ever" precedent (the repo is public).
+
+**Risk acknowledged:**
+
+- No local visual gate before merge — `dotnet build DeckFlow.sln` (0 warnings, 0 errors) is the only pre-merge automated check.
+- Razor-parser bugs (e.g. literal `v@VersionService.GetVersion()` from DEFER-06-01) only surface when the page actually renders in a browser, not at build time.
+- A second Razor-parser regression in the layout-swapped views would not be caught until a post-merge prod visit.
+
+**Mitigation for THIS plan specifically:** the layout-swap surface area is the smallest possible change — a single 3-line `_ViewStart.cshtml` (`Layout = "_AdminLayout"`) with zero controller edits and zero view-body edits (D-15 enforced by `git diff`). The `_AdminLayout.cshtml` shell itself was already verified by curl in Plan 06-01 (renders with no guild theme leakage, BasicAuth gate intact). The combined risk surface is bounded to "did per-folder `_ViewStart` correctly override the root layout?" — answerable in a single post-merge URL visit.
+
+**Closure actions taken in this commit:**
+
+1. The DEFER-06-01 one-line Razor fix in `_AdminLayout.cshtml:30` (`v@VersionService.GetVersion()` → `v@(VersionService.GetVersion())`) is folded into the closure commit, so the version stamp will render correctly on the first post-merge prod visit.
+2. `06-03-SUMMARY.md` written; Task 2 recorded as `deferred-to-prod` with link back to this document.
+3. STATE.md and ROADMAP.md updated to mark Plan 06-03 complete (3 of 7 plans done in Phase 6).
+
+**Re-test plan (post-merge):** after Render auto-deploys `main`, operator visits `https://www.deckflow.gg/Admin/Feedback`, authenticates via prod BasicAuth, and confirms the eight checks in 06-03-PLAN.md `<how-to-verify>` (sidebar present, Feedback link active, no guild theme leakage, mark-read POST round-trip works, version stamp renders correctly). Failure of any check would be filed as a fast-follow bug, not a re-open of Plan 06-03.
