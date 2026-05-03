@@ -45,6 +45,8 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     private const int MaxCardsPerSubmission = 100;
     private static readonly Regex QuantityPrefixRegex = new(@"^(?<quantity>\d+)\s+(?<name>.+)$", RegexOptions.Compiled);
     private static readonly Regex AbilityWordRegex = new(@"^(?<term>[A-Za-z][A-Za-z' -]{1,40})\s+—\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex TrailingFoilMarkerRegex = new(@"\s+\*[A-Za-z]\*\s*$", RegexOptions.Compiled);
+    private static readonly Regex TrailingSetCollectorRegex = new(@"\s+\([A-Za-z0-9]+\)\s+\S+\s*$", RegexOptions.Compiled);
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
@@ -433,15 +435,40 @@ public sealed class ScryfallCardLookupService : ICardLookupService
             {
                 parsedLines.Add(new ParsedCardLine(
                     trimmed,
-                    match.Groups["name"].Value.Trim(),
+                    SanitizeCardName(match.Groups["name"].Value.Trim()),
                     int.Parse(match.Groups["quantity"].Value)));
                 continue;
             }
 
-            parsedLines.Add(new ParsedCardLine(trimmed, trimmed, null));
+            parsedLines.Add(new ParsedCardLine(trimmed, SanitizeCardName(trimmed), null));
         }
 
         return parsedLines;
+    }
+
+    /// <summary>
+    /// Strips Archidekt-export decorations from a raw card name so it matches Scryfall's
+    /// /cards/collection identifier exactly.
+    /// Order: foil/etched markers first (outermost), then (SET) COLLECTOR_NUMBER,
+    /// then DFC slash normalisation, then trim.
+    /// </summary>
+    private static string SanitizeCardName(string raw)
+    {
+        var name = raw;
+
+        // 1. Strip trailing *F* / *E* / other single-letter export markers (repeat in case of stacked suffixes).
+        while (TrailingFoilMarkerRegex.IsMatch(name))
+        {
+            name = TrailingFoilMarkerRegex.Replace(name, string.Empty);
+        }
+
+        // 2. Strip trailing (SET) COLLECTOR_NUMBER  e.g. "(CMR) 84", "(ZNR) 174", "(MKM-174) 289s".
+        name = TrailingSetCollectorRegex.Replace(name, string.Empty);
+
+        // 3. Normalise DFC face separator: " / " → " // " so Scryfall recognises double-faced card names.
+        name = name.Replace(" / ", " // ");
+
+        return name.Trim();
     }
 
     private sealed record ParsedCardLine(string OriginalLine, string CardName, int? Quantity);
