@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Completed 06-05-PLAN.md (AdminFlagsController + /Admin/Flags view, antiforgery + sync cache reload D-10)
-last_updated: "2026-05-03T05:08:05Z"
+last_updated: "2026-05-03T05:21:01.716Z"
 last_activity: 2026-05-03
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 ## Current Position
 
 Phase: 06 (admin-shell-flags-foundation) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-05-03
 
@@ -59,6 +59,7 @@ Progress bar: `░░░░░░░░░░` 0% (0/3 phases complete) — 5/7 
 | Phase 06 P03 | ~25min | 1 task done + 1 deferred-to-prod | 2 files (1 created, 1 modified — DEFER-06-01 fold) |
 | Phase 06 P04 | 4min | 2 tasks | 4 files |
 | Phase 06 P05 | 4min | 2 tasks done + 1 deferred-to-prod | 2 files (both created — AdminFlagsController.cs, Views/AdminFlags/Index.cshtml) |
+| Phase 06 P06 | 2min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Decisions affecting v1.1 work:
 - [Phase 6, Plan 03]: AdminFeedback layout swap landed via 3-line per-folder _ViewStart (D-15 layout-swap-only enforced — zero controller / view-body diff); Task 2 visual verification deferred-to-prod because local-dev has no FEEDBACK_ADMIN_USER/PASSWORD env vars (operator declined to add a dev-only BasicAuth fallback). DEFER-06-01 (`v@VersionService.GetVersion()` literal-text bug on _AdminLayout.cshtml:30) folded into the 06-03 closure commit (one-line `v@(...)` parens fix) so it rides the same post-merge prod verification gate.
 - [Phase 6]: FeatureFlagCache uses BackgroundService.StartAsync override (not IHostApplicationLifetime.ApplicationStarted) for D-14 sync initial load — pattern is awaitable BEFORE base.StartAsync schedules ExecuteAsync, so host doesn't report ready until snapshot is hydrated. WARN-once dedupe via ConcurrentDictionary<string, byte> sentinel; T-06-D1 mitigated by try/catch preserving prior snapshot on PG failure.
 - [Phase 6, Plan 05]: AdminFlagsController landed with sequential-await D-10 (`SetEnabledAsync` then `ReloadAsync` BEFORE redirect) and snapshot-allowlist key validation (T-06-E2 — unknown keys → 400 BadRequest, never reach store). View inherits _AdminLayout via plan 01's per-folder _ViewStart; per-row antiforgery POST forms match AdminFeedbackController pattern (ADMIN-05, FLAG-03 closed). Visual checkpoint deferred-to-prod under phase-wide standing decision (DEFER-06-01 precedent — local-dev has no FEEDBACK_ADMIN_USER/PASSWORD env). Production verification steps captured in 06-05-SUMMARY.md "Production verification steps".
+- [Phase 06]: D-11 service-layer kill-switch gate at top of ScryfallTaggerService.LookupOracleTagsAsync — IFeatureFlagCache.IsEnabled("scryfall.tagger.enabled") short-circuits with Array.Empty<string>() when off; FLAG-04 satisfied.
 
 ### Pending Todos
 
@@ -103,6 +105,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T05:08:05Z
+Last session: 2026-05-03T05:20:11.143Z
 Stopped at: Completed 06-05-PLAN.md (AdminFlagsController + /Admin/Flags view, antiforgery + sync cache reload D-10)
 Resume: run `/gsd-execute-phase 6` for plan 06 (ScryfallTaggerService gate at top of LookupOracleTagsAsync — D-11 service-level kill switch, FLAG-04)
