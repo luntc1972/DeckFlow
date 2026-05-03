@@ -36,7 +36,7 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 
 ### Feature Flags
 
-- [ ] **FLAG-01**: Postgres `feature_flags` table seeded by `EnsureSchemaAsync` with default-on rows for shipped features (no default-off accidentally killing live behavior on fresh DB)
+- [x] **FLAG-01**: Postgres `feature_flags` table seeded by `EnsureSchemaAsync` with default-on rows for shipped features (no default-off accidentally killing live behavior on fresh DB)
 - [ ] **FLAG-02**: Singleton `IFeatureFlagCache` holds the flag dict in-memory; refreshed by a 30s `BackgroundService` poller, plus explicit invalidation on admin write so toggle takes effect within seconds
 - [ ] **FLAG-03**: Operator can list all flags and toggle bool values from `/Admin/flags`; admin write triggers cache invalidation immediately
 - [ ] **FLAG-04**: `ScryfallTaggerService` consults `IFeatureFlagCache` and returns empty results (no upstream call) when its kill-switch flag is off
@@ -109,7 +109,7 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | ANLY-04 | Phase 8 | Pending |
 | ANLY-05 | Phase 8 | Pending |
 | ANLY-06 | Phase 8 | Pending |
-| FLAG-01 | Phase 6 | Pending |
+| FLAG-01 | Phase 6 | Complete (06-02) |
 | FLAG-02 | Phase 6 | Pending |
 | FLAG-03 | Phase 6 | Pending |
 | FLAG-04 | Phase 6 | Pending |
