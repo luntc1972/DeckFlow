@@ -102,3 +102,51 @@ a:hover { text-decoration: underline; }
 .maintenance-page { max-width: 600px; margin: 40px auto; text-align: center; }
 .maintenance-page h1 { font-size: 24px; margin-bottom: 12px; }
 .maintenance-page p { color: var(--text); }
+
+/* Phase 8 — Analytics admin page (ANLY-04, ANLY-05) */
+.admin-page-header { margin-bottom: 16px; }
+.admin-page-header h1 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+
+.admin-analytics .admin-range-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.admin-analytics .admin-range-selector a {
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+.admin-analytics .admin-range-selector a:hover { color: var(--text); text-decoration: none; }
+.admin-analytics .admin-range-selector a.is-active {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.admin-analytics-table { width: 100%; border-collapse: collapse; }
+.admin-analytics-table th,
+.admin-analytics-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.admin-analytics-table th { background: var(--panel); font-weight: 600; }
+.admin-analytics-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-analytics-table .route code { font-size: 0.82em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.admin-analytics-table .spark { width: 130px; }
+
+.admin-sparkline {
+  color: var(--muted);
+  line-height: 0;
+}
+
+.admin-empty {
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 12px;
+}
