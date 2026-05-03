@@ -12,6 +12,7 @@ using Serilog;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
+using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Http;
@@ -155,6 +156,7 @@ public partial class Program
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
+            builder.Services.AddDeckFlowFeatureFlags();
 
             // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
             // the browser's https scheme, not the http hop from proxy to app. Without this,
