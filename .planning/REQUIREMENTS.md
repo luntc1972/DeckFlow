@@ -91,35 +91,35 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ADMIN-01 | TBD | Pending |
-| ADMIN-02 | TBD | Pending |
-| ADMIN-03 | TBD | Pending |
-| ADMIN-04 | TBD | Pending |
-| ADMIN-05 | TBD | Pending |
-| HARV-01 | TBD | Pending |
-| HARV-02 | TBD | Pending |
-| HARV-03 | TBD | Pending |
-| HARV-04 | TBD | Pending |
-| HARV-05 | TBD | Pending |
-| HARV-06 | TBD | Pending |
-| HARV-07 | TBD | Pending |
-| ANLY-01 | TBD | Pending |
-| ANLY-02 | TBD | Pending |
-| ANLY-03 | TBD | Pending |
-| ANLY-04 | TBD | Pending |
-| ANLY-05 | TBD | Pending |
-| ANLY-06 | TBD | Pending |
-| FLAG-01 | TBD | Pending |
-| FLAG-02 | TBD | Pending |
-| FLAG-03 | TBD | Pending |
-| FLAG-04 | TBD | Pending |
-| FLAG-05 | TBD | Pending |
+| ADMIN-01 | Phase 6 | Pending |
+| ADMIN-02 | Phase 6 | Pending |
+| ADMIN-03 | Phase 6 | Pending |
+| ADMIN-04 | Phase 6 | Pending |
+| ADMIN-05 | Phase 6 | Pending |
+| HARV-01 | Phase 7 | Pending |
+| HARV-02 | Phase 7 | Pending |
+| HARV-03 | Phase 7 | Pending |
+| HARV-04 | Phase 7 | Pending |
+| HARV-05 | Phase 7 | Pending |
+| HARV-06 | Phase 7 | Pending |
+| HARV-07 | Phase 7 | Pending |
+| ANLY-01 | Phase 8 | Pending |
+| ANLY-02 | Phase 8 | Pending |
+| ANLY-03 | Phase 8 | Pending |
+| ANLY-04 | Phase 8 | Pending |
+| ANLY-05 | Phase 8 | Pending |
+| ANLY-06 | Phase 8 | Pending |
+| FLAG-01 | Phase 6 | Pending |
+| FLAG-02 | Phase 6 | Pending |
+| FLAG-03 | Phase 6 | Pending |
+| FLAG-04 | Phase 6 | Pending |
+| FLAG-05 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 23 total
-- Mapped to phases: 0 (filled by roadmapper)
-- Unmapped: 23 ⚠️ (expected — roadmap not yet written)
+- Mapped to phases: 23
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-02*
-*Last updated: 2026-05-02 after initial v1.1 definition*
+*Last updated: 2026-05-02 — traceability filled by gsd-roadmapper*
