@@ -27,7 +27,7 @@
         </aside>
         <header class="admin-topbar">
             <h1 class="admin-topbar__title">@ViewData["Title"]</h1>
-            <span class="admin-topbar__version">v@VersionService.GetVersion()</span>
+            <span class="admin-topbar__version">v@(VersionService.GetVersion())</span>
         </header>
         <main id="admin-content" class="admin-content" role="main">
             @RenderBody()
