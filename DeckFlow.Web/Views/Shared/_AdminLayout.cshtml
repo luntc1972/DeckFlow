@@ -3,7 +3,7 @@
     var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? string.Empty;
     bool IsActive(string c) => string.Equals(controllerName, c, StringComparison.OrdinalIgnoreCase);
     string ActiveClass(string c) => IsActive(c) ? "admin-sidebar__link admin-sidebar__link--active" : "admin-sidebar__link";
-    string ActiveAria(string c) => IsActive(c) ? "page" : null;
+    string? ActiveAria(string c) => IsActive(c) ? "page" : null;
 }
 <!DOCTYPE html>
 <html lang="en">
