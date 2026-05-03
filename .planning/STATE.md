@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-05-03T20:54:41.413Z"
+last_updated: "2026-05-03T21:08:48.113Z"
 last_activity: 2026-05-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 21
-  completed_plans: 18
-  percent: 86
+  completed_plans: 19
+  percent: 90
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 ## Current Position
 
 Phase: 08 (analytics) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-05-03
 
@@ -63,6 +63,7 @@ Progress bar: `███████░░░` 75% (3/4 phases complete in v1.1)
 | Phase 6 P7 | 5min | 2 tasks | 2 files |
 | Phase 08-analytics P01 | 25 | 2 tasks | 5 files |
 | Phase 08-analytics P02 | 10min | 2 tasks | 2 files |
+| Phase 08-analytics P03 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Decisions affecting v1.1 work:
 - [Phase ?]: RequestMetricsStore takes IServiceProvider? per D-14 to avoid circular DI with flusher/buffer
 - [Phase ?]: ShutdownDrainCeiling=2s chosen for orderly restart flush without stalling Render/Fly graceful shutdown window
 - [Phase ?]: MaybeLogDrops resets lastDropLog even when dropped==0 to advance the 60s window continuously and prevent spurious WARN bursts
+- [Phase ?]: AnalyticsSaltAccessor: volatile-read singleton populated once at startup eliminates per-request DB I/O on analytics hot path
+- [Phase ?]: Salt resolution try/catch at startup: SQLite feedback_meta missing logs WRN and continues with ip_hash null
 
 ### Pending Todos
 
@@ -120,6 +123,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T20:54:11.931Z
+Last session: 2026-05-03T21:08:39.132Z
 Stopped at: Phase 8 context gathered
 Resume: run `/gsd-execute-phase 6` for plan 06 (ScryfallTaggerService gate at top of LookupOracleTagsAsync — D-11 service-level kill switch, FLAG-04)
