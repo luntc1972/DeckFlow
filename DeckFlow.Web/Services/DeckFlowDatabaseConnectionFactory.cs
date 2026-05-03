@@ -30,6 +30,15 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateFeatureFlagConnection(IWebHostEnvironment environment)
         => CreateFeedbackConnection(environment);
 
+    /// <summary>
+    /// Returns the relational connection used by the Phase 7 harvest stores.
+    /// Harvest state shares the feedback Postgres connection in production and the
+    /// feedback.db SQLite file in local-dev because the harvest tables are tiny-row
+    /// operational metadata (D-07 / RESEARCH Q1 RESOLVED).
+    /// </summary>
+    public static RelationalDatabaseConnection CreateHarvestStateConnection(IWebHostEnvironment environment)
+        => CreateFeedbackConnection(environment);
+
     public static RelationalDatabaseConnection CreateCategoryKnowledgeConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "category-knowledge.db");
 

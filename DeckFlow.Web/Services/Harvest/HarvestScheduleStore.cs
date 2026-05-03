@@ -47,12 +47,12 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
 
     /// <summary>
     /// DI ctor — resolves the connection via
-    /// <see cref="DeckFlowDatabaseConnectionFactory.CreateFeatureFlagConnection"/>
+    /// <see cref="DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection"/>
     /// (D-07 — same DB file as feature_flags / harvest_runs).
     /// </summary>
     /// <param name="environment">Web host environment used by the connection factory.</param>
     public HarvestScheduleStore(IWebHostEnvironment environment)
-        : this(DeckFlowDatabaseConnectionFactory.CreateFeatureFlagConnection(environment)) { }
+        : this(DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection(environment)) { }
 
     /// <inheritdoc />
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)

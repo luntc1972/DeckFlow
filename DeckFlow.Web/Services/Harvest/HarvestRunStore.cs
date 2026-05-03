@@ -71,13 +71,13 @@ public sealed class HarvestRunStore : IHarvestRunStore
 
     /// <summary>
     /// DI ctor — resolves the connection via
-    /// <see cref="DeckFlowDatabaseConnectionFactory.CreateFeatureFlagConnection"/>,
+    /// <see cref="DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection"/>,
     /// which shares the feedback DB (D-07).
     /// </summary>
     /// <param name="environment">Web host environment used by the connection factory.</param>
     /// <param name="stats">Optional stats aggregator that gets invalidated after writes (D-13).</param>
     public HarvestRunStore(IWebHostEnvironment environment, IHarvestStatsAggregator? stats = null)
-        : this(DeckFlowDatabaseConnectionFactory.CreateFeatureFlagConnection(environment), stats) { }
+        : this(DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection(environment), stats) { }
 
     /// <inheritdoc />
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
