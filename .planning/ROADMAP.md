@@ -24,7 +24,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 ### v1.1 Admin Console
 
 - [x] **Phase 6: Admin Shell + Flags Foundation** — Layout shell, sidebar nav, antiforgery baseline, feature-flag infrastructure (completed 2026-05-03)
-- [ ] **Phase 7: Harvest Controls + Stats** — Run-now, cancel, pause/resume, cron schedule, stats panel, run history
+- [x] **Phase 7: Harvest Controls + Stats** — Run-now, cancel, pause/resume, cron schedule, stats panel, run history (completed 2026-05-03; circular-DI errata fixed in dc66a38)
 - [x] **Phase 7.1: Categories feature flag + SameOrigin AJAX fix** — kill-switch flag default-on; X-Forwarded-Proto honored in same-origin validator (completed 2026-05-03)
 - [ ] **Phase 8: Analytics** — Request metrics middleware, write-behind buffer, top-routes page, inline SVG sparklines
 
@@ -80,13 +80,13 @@ Plans:
 **Plans**: 7 plans across 5 waves
 
 Plans:
-- [ ] 07-01-PLAN.md — Harvest run/schedule stores + schemas + D-02 startup reaper + D-17 deck_queue.commander_name additive migration (HARV-07) [Wave 1]
-- [ ] 07-02-PLAN.md — ArchidektCacheJobService PG migration (drop _jobs dict) + _activeJobCts cancel plumbing + commander capture at MarkProcessed UPDATE site (HARV-01, HARV-03) [Wave 2]
-- [ ] 07-03-PLAN.md — IHarvestScheduleCache (BackgroundService + sync StartAsync + 30s poller) + HarvestScheduleService 60s tick gated by harvest.cron.enabled (HARV-04, HARV-05) [Wave 2]
-- [ ] 07-04-PLAN.md — AdminHarvestController (5 antiforgery POSTs) + AdminHarvestViewModel + Index.cshtml four panels per D-11 (HARV-01, HARV-02, HARV-04, HARV-05) [Wave 3]
-- [ ] 07-05-PLAN.md — GET /Admin/Harvest/status JSON (same-origin gated, 1s IMemoryCache) + admin-harvest.ts 3s setTimeout poll (HARV-01, HARV-03) [Wave 4]
-- [ ] 07-06-PLAN.md — IHarvestStatsAggregator 60s cache (admin.harvest.stats.v1) + GetTopCommandersAsync + pg_database_size PG-only branch + stats panel Razor (HARV-06) [Wave 5]
-- [ ] 07-07-PLAN.md — AddDeckFlowHarvest() DI extension + Program.cs wiring + startup IHarvestRunStore.EnsureSchemaAsync awaited before app.RunAsync (cross-cutting) [Wave 4]
+- [x] 07-01-PLAN.md — Harvest run/schedule stores + schemas + D-02 startup reaper + D-17 deck_queue.commander_name additive migration (HARV-07) [Wave 1]
+- [x] 07-02-PLAN.md — ArchidektCacheJobService PG migration (drop _jobs dict) + _activeJobCts cancel plumbing + commander capture at MarkProcessed UPDATE site (HARV-01, HARV-03) [Wave 2]
+- [x] 07-03-PLAN.md — IHarvestScheduleCache (BackgroundService + sync StartAsync + 30s poller) + HarvestScheduleService 60s tick gated by harvest.cron.enabled (HARV-04, HARV-05) [Wave 2]
+- [x] 07-04-PLAN.md — AdminHarvestController (5 antiforgery POSTs) + AdminHarvestViewModel + Index.cshtml four panels per D-11 (HARV-01, HARV-02, HARV-04, HARV-05) [Wave 3]
+- [x] 07-05-PLAN.md — GET /Admin/Harvest/status JSON (same-origin gated, 1s IMemoryCache) + admin-harvest.ts 3s setTimeout poll (HARV-01, HARV-03) [Wave 4]
+- [x] 07-06-PLAN.md — IHarvestStatsAggregator 60s cache (admin.harvest.stats.v1) + GetTopCommandersAsync + pg_database_size PG-only branch + stats panel Razor (HARV-06) [Wave 5]
+- [x] 07-07-PLAN.md — AddDeckFlowHarvest() DI extension + Program.cs wiring + startup IHarvestRunStore.EnsureSchemaAsync awaited before app.RunAsync (cross-cutting) [Wave 4]
 
 ---
 
