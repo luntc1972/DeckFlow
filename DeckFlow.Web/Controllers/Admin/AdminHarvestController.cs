@@ -2,9 +2,11 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models.Admin;
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DeckFlow.Web.Controllers.Admin;
 
@@ -16,6 +18,7 @@ namespace DeckFlow.Web.Controllers.Admin;
 public sealed class AdminHarvestController : Controller
 {
     private const string BannerKey = "AdminHarvestBanner";
+    private const string StatusCacheKey = "admin.harvest.status.v1";
 
     private readonly IArchidektCacheJobService _jobService;
     private readonly IHarvestRunStore _runStore;
@@ -23,6 +26,7 @@ public sealed class AdminHarvestController : Controller
     private readonly IHarvestScheduleCache _scheduleCache;
     private readonly IArchidektDeckImporter _deckImporter;
     private readonly ICategoryKnowledgeStore _categoryStore;
+    private readonly IMemoryCache _memoryCache;
     private readonly ILogger<AdminHarvestController> _logger;
 
     public AdminHarvestController(
@@ -32,6 +36,7 @@ public sealed class AdminHarvestController : Controller
         IHarvestScheduleCache scheduleCache,
         IArchidektDeckImporter deckImporter,
         ICategoryKnowledgeStore categoryStore,
+        IMemoryCache memoryCache,
         ILogger<AdminHarvestController> logger)
     {
         ArgumentNullException.ThrowIfNull(jobService);
@@ -40,6 +45,7 @@ public sealed class AdminHarvestController : Controller
         ArgumentNullException.ThrowIfNull(scheduleCache);
         ArgumentNullException.ThrowIfNull(deckImporter);
         ArgumentNullException.ThrowIfNull(categoryStore);
+        ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(logger);
 
         _jobService = jobService;
@@ -48,6 +54,7 @@ public sealed class AdminHarvestController : Controller
         _scheduleCache = scheduleCache;
         _deckImporter = deckImporter;
         _categoryStore = categoryStore;
+        _memoryCache = memoryCache;
         _logger = logger;
     }
 
@@ -66,6 +73,34 @@ public sealed class AdminHarvestController : Controller
         };
 
         return View(viewModel);
+    }
+
+    [HttpGet("status")]
+    public async Task<IActionResult> Status(CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
+        }
+
+        var payload = await _memoryCache.GetOrCreateAsync(StatusCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1);
+
+            var active = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            return new HarvestStatusPayload(
+                State: active?.State.ToString() ?? "Idle",
+                JobId: active?.Id,
+                Kind: active?.Kind.ToString(),
+                DecksProcessed: active?.DecksProcessed ?? 0,
+                StartedUtc: active?.StartedUtc,
+                CompletedUtc: active?.CompletedUtc,
+                ErrorMessage: active?.ErrorMessage);
+        }).ConfigureAwait(false);
+
+        return Json(payload);
     }
 
     [HttpPost("run")]
@@ -262,4 +297,13 @@ public sealed class AdminHarvestController : Controller
 
         return board.Trim().ToLowerInvariant();
     }
+
+    private sealed record HarvestStatusPayload(
+        string State,
+        Guid? JobId,
+        string? Kind,
+        int DecksProcessed,
+        DateTimeOffset? StartedUtc,
+        DateTimeOffset? CompletedUtc,
+        string? ErrorMessage);
 }

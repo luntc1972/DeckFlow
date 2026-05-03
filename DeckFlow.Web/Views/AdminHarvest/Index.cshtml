@@ -37,12 +37,19 @@
         </form>
     }
 
-    <div data-harvest-status data-state="@activeState">
-        <strong>Status:</strong> @activeState
+    <div id="harvest-status-live" data-harvest-status data-state="@activeState">
+        <strong>Status:</strong> <span class="admin-harvest__state">@activeState</span>
         @if (Model.ActiveRun is not null)
         {
-            <span> | Decks: @Model.ActiveRun.DecksProcessed</span>
-            <span> | Started: @(Model.ActiveRun.StartedUtc?.ToString("u") ?? "Queued")</span>
+            <span> | Decks: <span class="admin-harvest__decks">@Model.ActiveRun.DecksProcessed</span></span>
+            <span> | Started: <span class="admin-harvest__started">@(Model.ActiveRun.StartedUtc?.ToString("u") ?? "Queued")</span></span>
+            <span> | Elapsed: <span class="admin-harvest__elapsed">—</span></span>
+        }
+        else
+        {
+            <span> | Decks: <span class="admin-harvest__decks">0</span></span>
+            <span> | Started: <span class="admin-harvest__started">—</span></span>
+            <span> | Elapsed: <span class="admin-harvest__elapsed">—</span></span>
         }
     </div>
 </section>
