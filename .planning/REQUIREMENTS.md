@@ -27,9 +27,9 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 
 ### Analytics
 
-- [ ] **ANLY-01**: Per-request middleware records (route template, day, count, unique-IP, error-rate) into a Postgres `request_metrics` table, using route template (not raw path) to prevent high-cardinality blow-up
+- [x] **ANLY-01**: Per-request middleware records (route template, day, count, unique-IP, error-rate) into a Postgres `request_metrics` table, using route template (not raw path) to prevent high-cardinality blow-up
 - [ ] **ANLY-02**: Middleware uses a write-behind buffer (bounded `Channel` + `BackgroundService` flusher) so hot-path requests do not pay synchronous DB I/O latency
-- [ ] **ANLY-03**: Unique-IP count uses hashed CF-Connecting-IP (existing `FEEDBACK_IP_SALT`) so no raw IPs are stored
+- [x] **ANLY-03**: Unique-IP count uses hashed CF-Connecting-IP (existing `FEEDBACK_IP_SALT`) so no raw IPs are stored
 - [ ] **ANLY-04**: `/Admin/analytics` lists top routes by hit count for a chosen time window (today / 7d / 30d / all-time)
 - [ ] **ANLY-05**: Each route row shows a daily sparkline rendered as inline SVG (no JS charting library, no external dependency) plus error-rate column
 - [ ] **ANLY-06**: Static-asset routes (`/css/*`, `/js/*`, `/lib/*`, `/extensions/*`) are excluded from `request_metrics` to keep the table small and signal-rich
@@ -110,9 +110,9 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | HARV-05 | Phase 7 | Complete (07-03, 07-04) |
 | HARV-06 | Phase 7 | Complete (07-06) |
 | HARV-07 | Phase 7 | Complete (07-01) |
-| ANLY-01 | Phase 8 | Pending |
+| ANLY-01 | Phase 8 | Complete |
 | ANLY-02 | Phase 8 | Pending |
-| ANLY-03 | Phase 8 | Pending |
+| ANLY-03 | Phase 8 | Complete |
 | ANLY-04 | Phase 8 | Pending |
 | ANLY-05 | Phase 8 | Pending |
 | ANLY-06 | Phase 8 | Pending |
