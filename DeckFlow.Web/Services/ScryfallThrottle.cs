@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using RestSharp;
 
@@ -21,31 +22,42 @@ internal static class ScryfallThrottle
     // build completes" vs "packet build fails with try-again-shortly".
     private static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(30);
 
+    // Fallback delay used when a 429 response is missing/unparseable Retry-After (Cloudflare BIC
+    // and burst-detection 429s often omit it). Conservative — long enough to clear the typical
+    // Cloudflare burst window without making single-call latency feel broken.
+    private static readonly TimeSpan FallbackRetryDelay = TimeSpan.FromSeconds(2);
+
+    // Maximum number of 429-recovery retries from inside the throttle. Two retries keep total
+    // wall time bounded (worst case 2 * RetryAfterCap = 60s) while giving the request enough
+    // attempts to ride out brief Cloudflare 429 spikes that the packet build flow tends to see.
+    private const int MaxRetryAttempts = 2;
+
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static DateTime _lastCallUtc = DateTime.MinValue;
 
     /// <summary>
-    /// Executes a Scryfall request under the shared throttle. If the response is 429 and
-    /// Retry-After is within the cap, sleeps and retries once.
+    /// Executes a Scryfall request under the shared throttle. If the response is 429 the call
+    /// is retried up to <see cref="MaxRetryAttempts"/> times, honoring Retry-After when present
+    /// (delta-seconds OR HTTP-date) and falling back to a short delay when the header is missing.
     /// </summary>
     public static async Task<RestResponse<T>> ExecuteAsync<T>(
         Func<CancellationToken, Task<RestResponse<T>>> execute,
         CancellationToken cancellationToken)
     {
         var response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
-        if ((int)response.StatusCode != 429)
+        for (var attempt = 0; attempt < MaxRetryAttempts && (int)response.StatusCode == 429; attempt++)
         {
-            return response;
+            var delay = ResolveRetryDelay(ReadRetryAfter(response));
+            if (delay is null)
+            {
+                return response;
+            }
+
+            await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+            response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
         }
 
-        var retryAfter = ReadRetryAfter(response);
-        if (retryAfter is null || retryAfter.Value > RetryAfterCap)
-        {
-            return response;
-        }
-
-        await Task.Delay(retryAfter.Value, cancellationToken).ConfigureAwait(false);
-        return await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+        return response;
     }
 
     /// <summary>
@@ -56,19 +68,19 @@ internal static class ScryfallThrottle
         CancellationToken cancellationToken)
     {
         var response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
-        if ((int)response.StatusCode != 429)
+        for (var attempt = 0; attempt < MaxRetryAttempts && (int)response.StatusCode == 429; attempt++)
         {
-            return response;
+            var delay = ResolveRetryDelay(ReadRetryAfter(response));
+            if (delay is null)
+            {
+                return response;
+            }
+
+            await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+            response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
         }
 
-        var retryAfter = ReadRetryAfter(response);
-        if (retryAfter is null || retryAfter.Value > RetryAfterCap)
-        {
-            return response;
-        }
-
-        await Task.Delay(retryAfter.Value, cancellationToken).ConfigureAwait(false);
-        return await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+        return response;
     }
 
     private static async Task<RestResponse> ExecuteOnceAsync(
@@ -94,14 +106,36 @@ internal static class ScryfallThrottle
         }
     }
 
+    /// <summary>
+    /// Resolves the actual delay to honor for a 429 response. Returns the upstream-provided
+    /// Retry-After (capped at <see cref="RetryAfterCap"/>) when present and parseable; falls
+    /// back to <see cref="FallbackRetryDelay"/> when the header is missing/unparseable; returns
+    /// null when the upstream is asking us to wait longer than the cap (caller should give up).
+    /// </summary>
+    private static TimeSpan? ResolveRetryDelay(TimeSpan? retryAfter)
+    {
+        if (retryAfter is null)
+        {
+            // No usable Retry-After header — Cloudflare BIC/burst 429s commonly omit it. A short
+            // fallback wait clears the typical burst window without surfacing the 429 to the user.
+            return FallbackRetryDelay;
+        }
+
+        if (retryAfter.Value > RetryAfterCap)
+        {
+            // Upstream is asking for longer than we are willing to make a request hang.
+            return null;
+        }
+
+        return retryAfter.Value < FallbackRetryDelay ? FallbackRetryDelay : retryAfter.Value;
+    }
+
     private static TimeSpan? ReadRetryAfter(RestResponse response)
     {
-        var header = response.Headers?.FirstOrDefault(h => string.Equals(h.Name, "Retry-After", StringComparison.OrdinalIgnoreCase));
-        if (header?.Value is string raw && int.TryParse(raw, out var seconds) && seconds >= 0)
-        {
-            return TimeSpan.FromSeconds(seconds);
-        }
-        return null;
+        var raw = response.Headers?
+            .FirstOrDefault(h => string.Equals(h.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
+            .Value as string;
+        return ParseRetryAfter(raw);
     }
 
     /// <summary>
@@ -145,11 +179,38 @@ internal static class ScryfallThrottle
 
     private static TimeSpan? ReadRetryAfter<T>(RestResponse<T> response)
     {
-        var header = response.Headers?.FirstOrDefault(h => string.Equals(h.Name, "Retry-After", StringComparison.OrdinalIgnoreCase));
-        if (header?.Value is string raw && int.TryParse(raw, out var seconds) && seconds >= 0)
+        var raw = response.Headers?
+            .FirstOrDefault(h => string.Equals(h.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
+            .Value as string;
+        return ParseRetryAfter(raw);
+    }
+
+    /// <summary>
+    /// Parses a Retry-After header value in either RFC 7231 form: delta-seconds (a non-negative
+    /// integer) OR an HTTP-date. Returns null when the value is missing or unparseable.
+    /// </summary>
+    private static TimeSpan? ParseRetryAfter(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var trimmed = raw.Trim();
+
+        // Form 1: delta-seconds.
+        if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) && seconds >= 0)
         {
             return TimeSpan.FromSeconds(seconds);
         }
+
+        // Form 2: HTTP-date (RFC 7231 IMF-fixdate / RFC 850 / asctime).
+        if (DateTimeOffset.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var when))
+        {
+            var delta = when - DateTimeOffset.UtcNow;
+            return delta < TimeSpan.Zero ? TimeSpan.Zero : delta;
+        }
+
         return null;
     }
 }
