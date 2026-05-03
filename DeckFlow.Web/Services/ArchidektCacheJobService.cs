@@ -298,10 +298,39 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // Host shutdown — startup reaper handles next boot (D-02).
+                // Host shutdown. Previously we rethrew without writing a terminal
+                // state — the row stayed Running until the next process start,
+                // when the reaper labelled it "interrupted by redeploy". That
+                // conflated host-shutdown / OOM-kill / SIGTERM with actual
+                // redeploys and made the Run Log misleading. Now we write Failed
+                // with a precise reason BEFORE rethrowing so the reaper only
+                // ever sees rows orphaned by SIGKILL (no graceful shutdown).
+                _logger.LogInformation(
+                    "Harvest.Run.StateChange jobId={JobId} state={State} reason={Reason}",
+                    signal.JobId, HarvestRunState.Failed, "interrupted by host shutdown");
+
+                try
+                {
+                    await _runStore.UpdateStateAsync(
+                        signal.JobId,
+                        HarvestRunState.Failed,
+                        startedUtc: null,
+                        completedUtc: DateTimeOffset.UtcNow,
+                        decksProcessed: 0,
+                        additionalDecksFound: 0,
+                        errorMessage: "interrupted by host shutdown",
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception writeException)
+                {
+                    // Best-effort terminal write during shutdown. If PG is also
+                    // shutting down and the write fails, fall back to the reaper.
+                    _logger.LogWarning(writeException, "Harvest.Run.TerminalWriteFailed jobId={JobId}", signal.JobId);
+                }
+
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (_activeJobCts?.IsCancellationRequested == true && !stoppingToken.IsCancellationRequested)
             {
                 // D-05: operator cancel landed on the per-job CTS. Use CancellationToken.None
                 // for the terminal write so the cancelled token doesn't abort it.
@@ -317,6 +346,28 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     decksProcessed: 0,
                     additionalDecksFound: 0,
                     errorMessage: "cancelled by operator",
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation landed on jobCts.Token but neither stoppingToken
+                // nor _activeJobCts triggered it. This should not happen with the
+                // current wiring — jobCts is linked only to stoppingToken — but
+                // defending against future regressions where a request-scoped CT
+                // leaks into the harvest path. Write a terminal Failed row so the
+                // reaper never has to label this orphaned.
+                _logger.LogWarning(
+                    "Harvest.Run.UnexpectedCancellation jobId={JobId} stoppingTokenCancelled={Stopping}",
+                    signal.JobId, stoppingToken.IsCancellationRequested);
+
+                await _runStore.UpdateStateAsync(
+                    signal.JobId,
+                    HarvestRunState.Failed,
+                    startedUtc: null,
+                    completedUtc: DateTimeOffset.UtcNow,
+                    decksProcessed: 0,
+                    additionalDecksFound: 0,
+                    errorMessage: "interrupted by unexpected cancellation",
                     CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception exception)
