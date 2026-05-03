@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 7 context gathered
-last_updated: "2026-05-03T15:19:46.083Z"
-last_activity: 2026-05-03 -- Phase 07 planning complete
+last_updated: "2026-05-03T15:20:55.365Z"
+last_activity: 2026-05-03 -- Phase 07 execution started
 progress:
   total_phases: 3
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 06 — admin-shell-flags-foundation
+**Current focus:** Phase 07 — harvest-controls-stats
 
 ## Current Position
 
-Phase: 06 (admin-shell-flags-foundation) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
-Last activity: 2026-05-03 -- Phase 07 planning complete
+Phase: 07 (harvest-controls-stats) — EXECUTING
+Plan: 1 of 7
+Status: Executing Phase 07
+Last activity: 2026-05-03 -- Phase 07 execution started
 
 Progress bar: `░░░░░░░░░░` 0% (0/3 phases complete) — 5/7 plans done in Phase 6
 
@@ -89,6 +89,8 @@ Decisions affecting v1.1 work:
 
 - Pre-condition for Phase 7: audit `ArchidektApiDeckImporter` cancellation token threading before designing harvest cancel UI (pitfall B3 from SUMMARY.md).
 - Capture Render dashboard p95 baseline before deploying Phase 8 analytics middleware (SUMMARY.md gap).
+- **After Phase 7:** Add `feature.categories.enabled` flag (Phase 6 IFeatureFlagCache pattern, default ON) gating two surfaces — (1) Suggest Categories nav menu entry; (2) Categories card/CTA on landing page. Ship as small interim phase (e.g., 7.5) so prod can hide the broken category flow via `/Admin/Flags`. Mirrors Phase 6 D-09 seed pattern + per-action gate. Captured 2026-05-03.
+- **After Phase 7 (depends on flag above):** Fix categories endpoint regression — fetching categories returns "This endpoint only accepts same-origin browser requests." Same-origin gate is `SameOriginRequestValidator` in `DeckFlow.Web/Security/`. Used to work; regressed at some point. Likely cause: Origin/Referer header missing on the AJAX call OR forwarded-headers / scheme mismatch behind Render reverse proxy. Investigation: log request Origin / Referer / X-Forwarded-Proto at the validator on a category attempt; compare against working endpoints; check if `app.UseForwardedHeaders()` ordering shifted recently. Captured 2026-05-03.
 
 ### Blockers/Concerns
 
