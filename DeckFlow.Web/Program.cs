@@ -15,6 +15,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web;
@@ -157,6 +158,7 @@ public partial class Program
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
+            builder.Services.AddDeckFlowHarvest(builder.Environment);
 
             // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
             // the browser's https scheme, not the http hop from proxy to app. Without this,
@@ -369,6 +371,10 @@ public partial class Program
             }
 
             await ValidateDatabaseConnectionsAsync(app.Services, app.Environment, app.Logger);
+            app.Logger.LogInformation("Ensuring harvest store schemas during startup.");
+            await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
+            await app.Services.GetRequiredService<IHarvestScheduleStore>().EnsureSchemaAsync();
+            app.Logger.LogInformation("Harvest store schemas ensured during startup.");
             await app.RunAsync();
         }
         catch (Exception exception)
