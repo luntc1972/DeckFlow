@@ -25,6 +25,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 6: Admin Shell + Flags Foundation** — Layout shell, sidebar nav, antiforgery baseline, feature-flag infrastructure (completed 2026-05-03)
 - [ ] **Phase 7: Harvest Controls + Stats** — Run-now, cancel, pause/resume, cron schedule, stats panel, run history
+- [x] **Phase 7.1: Categories feature flag + SameOrigin AJAX fix** — kill-switch flag default-on; X-Forwarded-Proto honored in same-origin validator (completed 2026-05-03)
 - [ ] **Phase 8: Analytics** — Request metrics middleware, write-behind buffer, top-routes page, inline SVG sparklines
 
 ## Phase Details
@@ -106,8 +107,8 @@ Plans:
 5. Categories AJAX endpoint accepts a legitimate same-origin request from the running site without returning the SameOrigin rejection message — investigated against logged Origin / Referer / X-Forwarded-Proto values.
 
 Plans:
-- [ ] 07.1-01-PLAN.md — feature.categories.enabled seed row + nav/landing gates + page route gate (CATFLAG-01, CATFLAG-02, CATFLAG-03) [Wave 1]
-- [ ] 07.1-02-PLAN.md — diagnose + fix SameOriginRequestValidator regression on categories AJAX endpoint (CAT-FIX-01) [Wave 1]
+- [x] 07.1-01-PLAN.md — feature.categories.enabled seed row + nav/landing gates + page route gate (CATFLAG-01, CATFLAG-02, CATFLAG-03) [Wave 1]
+- [x] 07.1-02-PLAN.md — diagnose + fix SameOriginRequestValidator regression on categories AJAX endpoint (CAT-FIX-01) [Wave 1]
 
 ### Phase 8: Analytics
 
