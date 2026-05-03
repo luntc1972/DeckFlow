@@ -223,10 +223,12 @@ public partial class Program
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMemoryCache>()));
+            builder.Services.AddSingleton<CardLookupCache>();
             builder.Services.AddSingleton<ICardLookupService>(sp =>
                 new ScryfallCardLookupService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>()));
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<CardLookupCache>()));
             builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
             builder.Services.AddSingleton<ICommanderBanListService>(sp =>
                 new CommanderBanListService(

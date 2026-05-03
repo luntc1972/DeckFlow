@@ -49,10 +49,12 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>> _executeRulingsAsync;
+    private readonly CardLookupCache _cache;
 
     internal ScryfallCardLookupService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
+        CardLookupCache? cache = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsyncOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
@@ -61,6 +63,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
+        _cache = cache ?? new CardLookupCache();
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
@@ -275,19 +278,15 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     }
 
     private static string NormalizeName(string cardName)
-        => cardName
-            .Trim()
-            .Replace('\u2019', '\'')
-            .Replace('\u2018', '\'')
-            .Replace('\u02BC', '\'')
-            .Replace('\u201C', '"')
-            .Replace('\u201D', '"')
-            .Replace('\u2013', '-')
-            .Replace('\u2014', '-')
-            .ToLowerInvariant();
+        => CardNameNormalizer.Normalize(cardName);
 
     private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
     {
+        if (_cache.TryGetCard(cardName, out var cached))
+        {
+            return cached;
+        }
+
         foreach (var query in new[]
         {
             $"(printed:\"{cardName}\" OR name:\"{cardName}\")",
@@ -308,6 +307,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
             var match = response.Data.Data.FirstOrDefault();
             if (match is not null)
             {
+                _cache.SetPositive(cardName, match);
                 return match;
             }
         }
@@ -317,9 +317,11 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
         if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
         {
+            _cache.SetPositive(cardName, namedResponse.Data);
             return namedResponse.Data;
         }
 
+        _cache.SetNegative(cardName);
         return null;
     }
 
@@ -443,4 +445,29 @@ public sealed class ScryfallCardLookupService : ICardLookupService
     }
 
     private sealed record ParsedCardLine(string OriginalLine, string CardName, int? Quantity);
+}
+
+/// <summary>
+/// Shared normalisation helper for Scryfall card names: lowercases and collapses
+/// smart-quotes, curly apostrophes, and em/en-dashes to their ASCII equivalents.
+/// Used by both <see cref="ScryfallCardLookupService"/> and <see cref="CardLookupCache"/>.
+/// </summary>
+internal static class CardNameNormalizer
+{
+    /// <summary>
+    /// Returns a normalised form of <paramref name="cardName"/> suitable for use as a cache key.
+    /// </summary>
+    /// <param name="cardName">The raw card name.</param>
+    /// <returns>Lowercased card name with Unicode punctuation collapsed to ASCII equivalents.</returns>
+    internal static string Normalize(string cardName)
+        => cardName
+            .Trim()
+            .Replace('’', '\'')
+            .Replace('‘', '\'')
+            .Replace('ʼ', '\'')
+            .Replace('“', '"')
+            .Replace('”', '"')
+            .Replace('–', '-')
+            .Replace('—', '-')
+            .ToLowerInvariant();
 }
