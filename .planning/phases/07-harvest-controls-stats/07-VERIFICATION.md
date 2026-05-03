@@ -239,3 +239,21 @@ After UAT closes the 6 deferred items, run `/gsd-secure-phase 7` and update ROAD
 *Verifier: Claude (gsd-verifier, opus 4.7 1M)*
 
 ## VERIFICATION PASSED (with deferred Production UAT)
+
+---
+
+## Errata — added 2026-05-03 after Phase 7.1 emergency
+
+**Verification gap discovered.** This audit relied on `dotnet build DeckFlow.sln` clean as the structural-correctness canary. That check does NOT exercise the MS DI service-graph builder, so a circular constructor dependency between `HarvestRunStore` (taking optional `IHarvestStatsAggregator?`) and `HarvestStatsAggregator` (taking `IHarvestRunStore`) compiled fine but threw `InvalidOperationException: A circular dependency was detected for the service of type 'IHarvestRunStore'` at container startup on every cold deploy. Render's container crashed on the first redeploy that didn't reuse a cached image — surfaced 2026-05-03T18:05:21Z when a Phase 7.1 push forced a rebuild. Phase 7's pre-existing prod was running off a cached image which masked the bug.
+
+The "Confirmation Bias Counter" section above does flag the dotnet-build-canary anti-pattern in passing ("Reliance on `dotnet build` exit code as the canary"), but framed it as a coverage gap on integration tests — not a startup-time DI cycle that would explode on every cold deploy. The lesson: when verifying any phase that registers new services in DI, "build clean" doesn't mean "container will start." The DI graph is a separate failure surface and needs its own canary.
+
+**Fix:** commit `dc66a38 fix(harvest): break HarvestRunStore ↔ HarvestStatsAggregator DI cycle`, applied as an out-of-band emergency during Phase 7.1 plan 02 execution. Replaced `IHarvestStatsAggregator?` ctor parameter on all three `HarvestRunStore` ctors with optional `IServiceProvider?`; `_stats?.Invalidate()` calls replaced by a `private void InvalidateStats()` helper that lazy-resolves `IHarvestStatsAggregator` via `_services?.GetService<IHarvestStatsAggregator>()` inside a try/catch. DI factory updated to `services.AddSingleton<IHarvestRunStore>(sp => new HarvestRunStore(sp.GetRequiredService<IWebHostEnvironment>(), sp))` so the run-store can later resolve the aggregator on demand. `HarvestStatsAggregator` not modified. Cache invalidation behavior preserved (still fires after every run-store write, just resolved lazily).
+
+**Process lesson — recorded for future verifiers:** When verifying any phase that registers new services in DI, `dotnet build` is insufficient. Either:
+1. Smoke-test container startup locally (`dotnet run --project DeckFlow.Web` and confirm Kestrel reaches "Application started" without exceptions), OR
+2. Push to a deploy environment that builds a fresh container image (NOT a cached layer reuse) and watch the deploy log reach "Application started" / "Database connection validation completed successfully" / "Ensuring harvest store schemas during startup" without `InvalidOperationException`.
+
+Captured in project memory as `feedback_di_optional_dep_does_not_break_cycle.md` for future projects.
+
+**Phase 7 functional status post-errata:** Code on prod and working. All HARV-01..07 still trace to live, executing code. Phase 7 plan checkboxes flipped to `[x]` in ROADMAP.md as of 2026-05-03 close-out.
