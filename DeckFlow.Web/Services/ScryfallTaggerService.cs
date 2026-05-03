@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
+using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
@@ -46,6 +47,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     private readonly ResiliencePipeline<RestResponse> _scryfallPipeline;
     private readonly ResiliencePipeline<RestResponse> _taggerPipeline;
     private readonly ResiliencePipeline<RestResponse> _taggerPostPipeline;
+    private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ScryfallTaggerService> _logger;
 
     /// <summary>
@@ -58,25 +60,29 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     /// Creates a Tagger service backed by the typed Tagger HttpClient (auto-cookies via
     /// SocketsHttpHandler.CookieContainer per Phase 5 BUG-01), the IScryfallRestClientFactory
     /// for Scryfall card lookups, the named Polly v8 pipelines (scryfall, tagger, tagger-post),
-    /// and the 270s session cache (HIGH-2).
+    /// the 270s session cache (HIGH-2), and the in-process feature-flag cache used by the
+    /// FLAG-04 / D-11 kill-switch gate at the top of <see cref="LookupOracleTagsAsync"/>.
     /// </summary>
     public ScryfallTaggerService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         IScryfallTaggerHttpClient taggerHttpClient,
         ITaggerSessionCache taggerSessionCache,
         ResiliencePipelineProvider<string> pipelineProvider,
+        IFeatureFlagCache flagCache,
         ILogger<ScryfallTaggerService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(taggerHttpClient);
         ArgumentNullException.ThrowIfNull(taggerSessionCache);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
+        ArgumentNullException.ThrowIfNull(flagCache);
         _scryfallRestClientFactory = scryfallRestClientFactory;
         _taggerHttpClient = taggerHttpClient;
         _taggerSessionCache = taggerSessionCache;
         _scryfallPipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall");
         _taggerPipeline = pipelineProvider.GetPipeline<RestResponse>("tagger");
         _taggerPostPipeline = pipelineProvider.GetPipeline<RestResponse>("tagger-post");
+        _flagCache = flagCache;
         _logger = logger ?? NullLogger<ScryfallTaggerService>.Instance;
     }
 
@@ -84,6 +90,12 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     public async Task<IReadOnlyList<string>> LookupOracleTagsAsync(string cardName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+
+        // FLAG-04, D-11: kill-switch gate. Off → return empty without any HTTP work.
+        if (!_flagCache.IsEnabled("scryfall.tagger.enabled"))
+        {
+            return Array.Empty<string>();
+        }
 
         var stopwatch = Stopwatch.StartNew();
         var trimmedName = cardName.Trim();

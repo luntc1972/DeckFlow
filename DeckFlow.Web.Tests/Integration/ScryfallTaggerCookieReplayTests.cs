@@ -82,7 +82,8 @@ public sealed class ScryfallTaggerCookieReplayTests : IDisposable
             restFactory,
             typedTaggerClient,
             sessionCache,
-            new FakeResiliencePipelineProvider());
+            new FakeResiliencePipelineProvider(),
+            new FakeFeatureFlagCache());
 
         var tags = await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
 
@@ -114,7 +115,8 @@ public sealed class ScryfallTaggerCookieReplayTests : IDisposable
             restFactory,
             typedTaggerClient,
             sessionCache,
-            new FakeResiliencePipelineProvider());
+            new FakeResiliencePipelineProvider(),
+            new FakeFeatureFlagCache());
 
         _lastPostCookieHeader = null;
         await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);

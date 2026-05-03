@@ -44,7 +44,8 @@ public sealed class ScryfallTaggerServiceTests
             restClientFactory,
             typedTaggerClient,
             cache,
-            new FakeResiliencePipelineProvider());
+            new FakeResiliencePipelineProvider(),
+            new FakeFeatureFlagCache());
     }
 
     [Fact]
