@@ -8,8 +8,6 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
 using Microsoft.Extensions.Logging;
-using Npgsql;
-using NpgsqlTypes;
 using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Services;
@@ -270,18 +268,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         };
     }
 
-    private void AddTimestampParameter(DbCommand command, string name, DateTime cutoffUtc)
+    private static void AddTimestampParameter(DbCommand command, string name, DateTime cutoffUtc)
     {
-        if (_connectionInfo.IsPostgres)
-        {
-            var parameter = new NpgsqlParameter(name, NpgsqlDbType.TimestampTz)
-            {
-                Value = DateTime.SpecifyKind(cutoffUtc, DateTimeKind.Utc)
-            };
-            command.Parameters.Add(parameter);
-            return;
-        }
-
-        RelationalDatabaseConnection.AddParameter(command, name, cutoffUtc.ToString("O"));
+        var iso = DateTime.SpecifyKind(cutoffUtc, DateTimeKind.Utc).ToString("O");
+        RelationalDatabaseConnection.AddParameter(command, name, iso);
     }
 }
