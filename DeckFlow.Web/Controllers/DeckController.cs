@@ -8,6 +8,7 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 
@@ -85,6 +86,9 @@ public sealed class DeckController : Controller
     }
 
     [HttpGet("/suggest-categories")]
+    [FeatureFlagGate("feature.categories.enabled",
+        Title = "Category suggestions temporarily unavailable",
+        Message = "The Categories tool is offline for maintenance. Please try again shortly.")]
     /// <summary>
     /// Renders the suggest categories tab with fresh state.
     /// </summary>
@@ -739,6 +743,9 @@ public sealed class DeckController : Controller
     }
 
     [HttpPost("/suggest-categories")]
+    [FeatureFlagGate("feature.categories.enabled",
+        Title = "Category suggestions temporarily unavailable",
+        Message = "The Categories tool is offline for maintenance. Please try again shortly.")]
     [ValidateAntiForgeryToken]
     /// <summary>
     /// Suggests categories based on cached data and optional reference deck.
