@@ -58,27 +58,31 @@ This phase ships the **operator surface and durability layer** for the existing 
 ### Stats panel data + caching (HARV-06)
 - **D-13:** **`IMemoryCache` 60s TTL on the whole stats payload.** Single cache key `admin.harvest.stats.v1` holding a record with all metrics. Cache is invalidated explicitly on `harvest_runs` insert/update (so an operator who just clicked Run Now sees fresh state). Aligns with existing `IMemoryCache` usage in `CommanderSpellbookService` and others.
 - **D-14:** **`pg_database_size()` is PG-only, branched via `IRelationalDialect.IsPostgres`** (mirrors Phase 6 D-07 / `feedback_sqlite_postgres_sql_divergence.md`). SQLite path returns `null`; Razor view renders `"N/A"` for the storage-size row only. All other metrics work on both providers.
-- **D-15:** **Top commanders: top 10, deck-count GROUP BY.** New repository method `GetTopCommandersAsync(int n = 10, CancellationToken ct)` returning `IReadOnlyList<TopCommanderRow(string CommanderName, int DeckCount)>`. SQL shape:
+- **D-15:** **Top commanders: top 10, deck-count GROUP BY against `deck_queue.commander_name`.** New repository method `GetTopCommandersAsync(int n = 10, CancellationToken ct)` returning `IReadOnlyList<TopCommanderRow(string CommanderName, int DeckCount)>`. SQL shape:
   ```sql
-  SELECT commander_name, COUNT(DISTINCT deck_id) AS deck_count
-  FROM category_knowledge
-  WHERE commander_name IS NOT NULL
+  SELECT commander_name, COUNT(1) AS deck_count
+  FROM deck_queue
+  WHERE processed = 1 AND commander_name IS NOT NULL
   GROUP BY commander_name
   ORDER BY deck_count DESC
   LIMIT @n
   ```
-  Works on both providers. Planner adds `(commander_name)` index only if `EXPLAIN ANALYZE` on prod-sized data shows it's needed.
-- **D-16:** **Full stats metric set (HARV-06):**
-  1. `total_decks` — `SELECT COUNT(DISTINCT deck_id) FROM category_knowledge`
-  2. `total_decks_30d` — same with `WHERE first_seen_utc >= now() - interval '30 days'` (PG) / `julianday('now') - 30` (SQLite)
-  3. `total_observations` — `SELECT COUNT(1) FROM category_knowledge`
+  Works on both providers. Requires D-17 (commander column on `deck_queue`). Planner adds `(commander_name)` index only if `EXPLAIN ANALYZE` on prod-sized data shows it's needed.
+- **D-16:** **Full stats metric set (HARV-06)** — schema corrected to actual tables (`deck_queue`, `card_category_observations`):
+  1. `total_decks` — `SELECT COUNT(1) FROM deck_queue WHERE processed = 1`
+  2. `total_decks_30d` — `SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff` (param computed in C# from `DateTime.UtcNow.AddDays(-30)`; ISO-8601 string for SQLite TEXT, `TIMESTAMPTZ` for PG)
+  3. `total_observations` — `SELECT COUNT(1) FROM card_category_observations`
   4. `top_commanders` — D-15 query, N=10
   5. `recent_runs` — `SELECT * FROM harvest_runs ORDER BY started_utc DESC NULLS LAST LIMIT 10`
   6. `pg_storage_size` — `SELECT pg_database_size(current_database())` (PG only; SQLite returns null)
   7. `last_success_utc` — `SELECT MAX(completed_utc) FROM harvest_runs WHERE state='Succeeded'`
   8. `next_scheduled_utc` — computed: `last_success_utc + (harvest_schedule.interval_hours hours)`, or `null` if Off/paused/no prior success
 
+### Commander identity capture (added 2026-05-03 — schema audit)
+- **D-17:** **Add `commander_name TEXT NULL` column to `deck_queue`.** `CategoryKnowledgeRepository.EnsureDeckQueueColumnsAsync` (existing additive-migration idiom at lines 86-97) gains a second `ALTER TABLE deck_queue ADD COLUMN commander_name TEXT` branch. Backfill is **not** performed for existing rows (left NULL — top-N query already filters `commander_name IS NOT NULL`). Bulk harvest path (`ArchidektDeckCacheSession.ImportSingleDeckAsync` or equivalent) populates the column from the imported `Deck.Commander` field on every successful import. URL harvest path (HARV-02) uses the same write site so SC #2 ("commander appears in top-commanders list after URL submit") is satisfied. Whether to write commander on the `INSERT` row or via a follow-up `UPDATE deck_queue SET commander_name = @x WHERE deck_id = @id` is **planner's discretion** — the existing `MarkProcessedAsync` site (lines 639-670) is a clean update target.
+
 ### Claude's Discretion
+- Whether commander capture (D-17) writes during `INSERT` (when deck enters queue) or during `MarkProcessedAsync` UPDATE (after import). UPDATE site is cleaner — commander is known only after import.
 - Whether to write an interim `Stopping` state row between cancel-request and `OperationCanceledException` landing (D-05). Both options satisfy ROADMAP SC #3's 30-second window.
 - Exact `IMemoryCache` TTL on the status GET (D-01) — anywhere from 0s (no cache) to 2s. Pick what feels snappy without thrashing PG.
 - Whether `ArchidektCacheJobService` keeps its current `BackgroundService` + `Channel` shape or simplifies to a direct-execute pattern now that PG is the source of truth. Channel was useful for the in-memory dict; with PG, a simpler "check for active row, refuse if present, else INSERT + spawn Task.Run" pattern may be cleaner. Planner decides.

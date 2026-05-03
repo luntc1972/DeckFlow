@@ -76,7 +76,16 @@ Plans:
 4. Operator sets "Pause schedule" and confirms the recurring harvest does not fire at its next scheduled slot; operator resumes, and the next slot fires correctly.
 5. Stats panel at `https://www.deckflow.gg/Admin/harvest` shows: total decks (lifetime), total observations, Postgres storage size, last run timestamp, next scheduled run — all drawn from live Postgres, not in-memory.
 
-**Plans**: TBD
+**Plans**: 7 plans across 5 waves
+
+Plans:
+- [ ] 07-01-PLAN.md — Harvest run/schedule stores + schemas + D-02 startup reaper + D-17 deck_queue.commander_name additive migration (HARV-07) [Wave 1]
+- [ ] 07-02-PLAN.md — ArchidektCacheJobService PG migration (drop _jobs dict) + _activeJobCts cancel plumbing + commander capture at MarkProcessed UPDATE site (HARV-01, HARV-03) [Wave 2]
+- [ ] 07-03-PLAN.md — IHarvestScheduleCache (BackgroundService + sync StartAsync + 30s poller) + HarvestScheduleService 60s tick gated by harvest.cron.enabled (HARV-04, HARV-05) [Wave 2]
+- [ ] 07-04-PLAN.md — AdminHarvestController (5 antiforgery POSTs) + AdminHarvestViewModel + Index.cshtml four panels per D-11 (HARV-01, HARV-02, HARV-04, HARV-05) [Wave 3]
+- [ ] 07-05-PLAN.md — GET /Admin/Harvest/status JSON (same-origin gated, 1s IMemoryCache) + admin-harvest.ts 3s setTimeout poll (HARV-01, HARV-03) [Wave 4]
+- [ ] 07-06-PLAN.md — IHarvestStatsAggregator 60s cache (admin.harvest.stats.v1) + GetTopCommandersAsync + pg_database_size PG-only branch + stats panel Razor (HARV-06) [Wave 5]
+- [ ] 07-07-PLAN.md — AddDeckFlowHarvest() DI extension + Program.cs wiring + startup IHarvestRunStore.EnsureSchemaAsync awaited before app.RunAsync (cross-cutting) [Wave 4]
 
 ---
 
@@ -110,7 +119,7 @@ Plans:
 | 4. Security & Bug Fixes | v1.0 | 4/4 | Abandoned (rerouted to Ph. 5) | 2026-05-02 |
 | 5. Security & Bug Fixes v2 | v1.0 | 3/3 | Complete | 2026-05-02 |
 | 6. Admin Shell + Flags Foundation | v1.1 | 7/7 | Complete   | 2026-05-03 |
-| 7. Harvest Controls + Stats | v1.1 | 0/? | Not started | — |
+| 7. Harvest Controls + Stats | v1.1 | 0/7 | Not started | — |
 | 8. Analytics | v1.1 | 0/? | Not started | — |
 
 ---
