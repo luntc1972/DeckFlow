@@ -9,8 +9,8 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 
 ### Admin Shell
 
-- [ ] **ADMIN-01**: Operator can navigate `/Admin` landing page with sidebar nav listing Feedback, Harvest, Analytics, Flags (and reserved future slots), with active-page indicator
-- [ ] **ADMIN-02**: All admin pages render through a dedicated `_AdminLayout.cshtml` that loads only neutral admin CSS — no guild theme leakage, no public-site nav
+- [x] **ADMIN-01**: Operator can navigate `/Admin` landing page with sidebar nav listing Feedback, Harvest, Analytics, Flags (and reserved future slots), with active-page indicator
+- [x] **ADMIN-02**: All admin pages render through a dedicated `_AdminLayout.cshtml` that loads only neutral admin CSS — no guild theme leakage, no public-site nav
 - [ ] **ADMIN-03**: BasicAuth gate via existing `/Admin` path branch keeps protecting every admin page (Feedback, Harvest, Analytics, Flags) without per-controller `[Authorize]` drift
 - [ ] **ADMIN-04**: Existing `/Admin/feedback` page continues to work unchanged inside the new admin shell (no regression to inbox / mark-read flow)
 - [ ] **ADMIN-05**: All admin POST forms protected with `[ValidateAntiForgeryToken]` (Razor antiforgery, since `SameOriginRequestValidator` covers JSON APIs only)
@@ -91,8 +91,8 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ADMIN-01 | Phase 6 | Pending |
-| ADMIN-02 | Phase 6 | Pending |
+| ADMIN-01 | Phase 6 | Complete |
+| ADMIN-02 | Phase 6 | Complete |
 | ADMIN-03 | Phase 6 | Pending |
 | ADMIN-04 | Phase 6 | Pending |
 | ADMIN-05 | Phase 6 | Pending |

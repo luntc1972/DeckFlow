@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 6 context gathered
-last_updated: "2026-05-03T02:24:14.567Z"
-last_activity: 2026-05-03 -- Phase 06 planning complete
+last_updated: "2026-05-03T02:58:09.767Z"
+last_activity: 2026-05-03
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 14
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 
 **Core value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything.
-**Current focus:** v1.1 Admin Console — roadmap defined, Phase 6 ready to plan.
+**Current focus:** Phase 06 — admin-shell-flags-foundation
 
 ## Current Position
 
-Phase: 6 — Admin Shell + Flags Foundation (not started)
-Plan: —
+Phase: 06 (admin-shell-flags-foundation) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-05-03 -- Phase 06 planning complete
+Last activity: 2026-05-03
 
 Progress bar: `░░░░░░░░░░` 0% (0/3 phases complete)
 
@@ -54,6 +54,7 @@ Progress bar: `░░░░░░░░░░` 0% (0/3 phases complete)
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 06 P01 | 7min | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Decisions affecting v1.1 work:
 - No Phase 9 Polish phase defined: all POLISH-01..04 and HARV-NEXT/ANLY-NEXT items explicitly deferred to v1.2+ in REQUIREMENTS.md.
 - Granularity: coarse (from config.json) — 23 requirements → 3 phases. Research recommended 3 phases; structure matches exactly.
 - Live verification mandatory every phase: Phase 4 trap (v1.0 post-mortem) applies unconditionally — every phase success criteria includes at least one criterion verifiable against deployed deckflow.gg.
+- [Phase ?]: Phase 6 admin shell uses standalone admin.css with single-stylesheet wall (D-05); zero references to site-*.css guild themes
+- [Phase ?]: Per-folder _ViewStart pattern adopted for admin: 5 folder-scoped 3-line files set Layout=_AdminLayout (Admin, AdminHarvest, AdminAnalytics, AdminFlags, AdminLanding); root Views/_ViewStart.cshtml untouched
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T00:28:27.330Z
+Last session: 2026-05-03T02:58:03.500Z
 Stopped at: Phase 6 context gathered
 Resume: run `/gsd-plan-phase 6`
