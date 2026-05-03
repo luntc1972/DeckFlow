@@ -14,7 +14,9 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Infrastructure;
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Analytics;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Http;
 
@@ -159,6 +161,7 @@ public partial class Program
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
             builder.Services.AddDeckFlowHarvest(builder.Environment);
+            builder.Services.AddDeckFlowAnalytics(builder.Environment);
 
             // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
             // the browser's https scheme, not the http hop from proxy to app. Without this,
@@ -316,6 +319,7 @@ public partial class Program
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseAnalyticsMiddleware();   // D-12: after UseRouting (endpoint resolved), before MapControllers
             app.UseSerilogRequestLogging();
             if (app.Environment.IsDevelopment())
             {
@@ -375,6 +379,30 @@ public partial class Program
             await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestScheduleStore>().EnsureSchemaAsync();
             app.Logger.LogInformation("Harvest store schemas ensured during startup.");
+
+            app.Logger.LogInformation("Ensuring analytics store schema during startup.");
+            await app.Services.GetRequiredService<IRequestMetricsStore>().EnsureSchemaAsync();
+            app.Logger.LogInformation("Analytics store schema ensured during startup.");
+
+            // Resolve the IP-hash salt once at startup so the analytics middleware does not
+            // perform DB I/O on the hot path. Uses CreateHarvestStateConnection for explicit
+            // factory parity with RequestMetricsStore writes (Plan 01) and admin reads (Plan 04).
+            try
+            {
+                var saltAccessor = app.Services.GetRequiredService<AnalyticsSaltAccessor>();
+                var harvestConn = DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection(app.Environment);
+                await using var saltConnection = harvestConn.CreateConnection();
+                await saltConnection.OpenAsync();
+                var salt = await IpHasher.ResolveSaltAsync(saltConnection);
+                saltAccessor.SetSalt(salt);
+                app.Logger.LogInformation("Analytics IP salt resolved.");
+            }
+            catch (Exception saltEx)
+            {
+                app.Logger.LogWarning(saltEx,
+                    "Analytics IP salt resolution failed; ip_hash will be null until next startup.");
+            }
+
             await app.RunAsync();
         }
         catch (Exception exception)
