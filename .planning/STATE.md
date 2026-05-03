@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Admin Console
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-05-03T21:08:48.113Z"
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-05-03T21:25:58.812Z"
 last_activity: 2026-05-03
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 21
-  completed_plans: 19
-  percent: 90
+  completed_plans: 20
+  percent: 95
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 ## Current Position
 
 Phase: 08 (analytics) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-05-03
 
@@ -64,6 +64,7 @@ Progress bar: `███████░░░` 75% (3/4 phases complete in v1.1)
 | Phase 08-analytics P01 | 25 | 2 tasks | 5 files |
 | Phase 08-analytics P02 | 10min | 2 tasks | 2 files |
 | Phase 08-analytics P03 | 15min | 2 tasks | 4 files |
+| Phase 08-analytics P04 | 10min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Decisions affecting v1.1 work:
 - [Phase ?]: MaybeLogDrops resets lastDropLog even when dropped==0 to advance the 60s window continuously and prevent spurious WARN bursts
 - [Phase ?]: AnalyticsSaltAccessor: volatile-read singleton populated once at startup eliminates per-request DB I/O on analytics hot path
 - [Phase ?]: Salt resolution try/catch at startup: SQLite feedback_meta missing logs WRN and continues with ip_hash null
+- [Phase ?]: AdminAnalyticsController queries Postgres directly — IRequestMetricsStore stays write-only
+- [Phase ?]: RenderSparkline: C# StringBuilder inline SVG — no JS chart library; color via .admin-sparkline { color: var(--muted) }
 
 ### Pending Todos
 
@@ -123,6 +126,6 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-05-02:
 
 ## Session Continuity
 
-Last session: 2026-05-03T21:08:39.132Z
-Stopped at: Phase 8 context gathered
+Last session: 2026-05-03T21:25:58.761Z
+Stopped at: Completed 08-04-PLAN.md
 Resume: run `/gsd-execute-phase 6` for plan 06 (ScryfallTaggerService gate at top of LookupOracleTagsAsync — D-11 service-level kill switch, FLAG-04)
