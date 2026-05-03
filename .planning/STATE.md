@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Admin Console
 status: executing
-stopped_at: Completed 08-04-PLAN.md
-last_updated: "2026-05-03T21:25:58.812Z"
+stopped_at: Phase 8 deployed to prod; Wave 5 task 3 (live SC verification) on hold per operator
+last_updated: "2026-05-03T21:30:00.000Z"
 last_activity: 2026-05-03
 progress:
   total_phases: 4
@@ -25,10 +25,24 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 
 ## Current Position
 
-Phase: 08 (analytics) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
+Phase: 08 (analytics) — EXECUTING (Wave 5 paused)
+Plan: 5 of 5 — Waves 1-4 complete + deployed to prod (commits 3f6835f..33da0b9 pushed at 2026-05-03 ~21:30 UTC, Render deploy "Live" with build log clean)
+Status: Wave 5 task 3 on hold — operator soak time before SC verification queries
 Last activity: 2026-05-03
+
+### Phase 8 resume protocol
+
+Remaining work in Wave 5 task 3:
+- SC #1: `SELECT DISTINCT route_key FROM request_metrics ORDER BY route_key LIMIT 50` — controller/action templates only, no card/deck IDs, row count <100
+- SC #2: `SELECT COUNT(1) FROM request_metrics WHERE route_key LIKE '/css/%' OR LIKE '/js/%' OR LIKE '/lib/%' OR LIKE '/extensions/%'` — must be 0
+- SC #3: `SELECT column_name FROM information_schema.columns WHERE table_name='request_metrics'` — no ip_hash / ip_raw / ip column on aggregate table
+- SC #4: browse `/Admin/Analytics` (BasicAuth), confirm range selector + sparkline; view-source must NOT contain `<script src=...chart...>`
+- SC #5: capture post-deploy p95 from Render Metrics 24h for record (deferred — no pre-deploy baseline captured)
+- Regression: toggle a non-analytics flag on `/Admin/Flags`, confirm save still works (DI side-effect smoke)
+
+After verification: write `.planning/phases/08-analytics/08-05-SUMMARY.md`, update ROADMAP/REQUIREMENTS to flip Wave 5 + ANLY-04, ANLY-05 row checkboxes, commit as `docs(08-05): summary` and `docs(08): close phase 8`.
+
+Resume command: continue this conversation OR start fresh and run `/gsd-execute-phase 8 --wave 5` (only task 3 remains).
 
 Progress bar: `███████░░░` 75% (3/4 phases complete in v1.1) — Phase 8 remaining
 
