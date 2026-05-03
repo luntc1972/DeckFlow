@@ -13,10 +13,11 @@ namespace DeckFlow.Web.Extensions;
 public static class HarvestServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the Phase 7 harvest services and stores. B1 ordering is intentional:
-    /// <see cref="IHarvestStatsAggregator"/> is registered before
-    /// <see cref="IHarvestRunStore"/> so the run-store's nullable stats dependency
-    /// resolves to a live instance when present.
+    /// Registers the Phase 7 harvest services and stores. Registration order no
+    /// longer matters for the stats/run-store pair because
+    /// <see cref="IHarvestRunStore"/> receives <see cref="IServiceProvider"/> and
+    /// resolves <see cref="IHarvestStatsAggregator"/> lazily on each invalidation,
+    /// which breaks the otherwise-circular constructor graph.
     /// </summary>
     /// <param name="services">DI service collection.</param>
     /// <param name="env">Web host environment used by harvest store DI ctors.</param>
@@ -27,7 +28,9 @@ public static class HarvestServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(env);
 
         services.AddSingleton<IHarvestStatsAggregator, HarvestStatsAggregator>();
-        services.AddSingleton<IHarvestRunStore, HarvestRunStore>();
+        services.AddSingleton<IHarvestRunStore>(sp => new HarvestRunStore(
+            sp.GetRequiredService<IWebHostEnvironment>(),
+            sp));
         services.AddSingleton<IHarvestScheduleStore, HarvestScheduleStore>();
 
         services.AddSingleton<HarvestScheduleCache>();
