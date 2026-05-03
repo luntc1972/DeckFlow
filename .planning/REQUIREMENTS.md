@@ -17,13 +17,13 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 
 ### Harvest
 
-- [ ] **HARV-01**: Operator can trigger an Archidekt harvest run-now with a duration cap chosen from a preset list (15 / 30 / 60 min)
-- [ ] **HARV-02**: Operator can submit a single Archidekt deck URL and have it harvested on demand (independent of the bulk crawler)
-- [ ] **HARV-03**: Operator can cancel a running harvest; cancellation is graceful (current deck completes, then stops — no torn-up DB writes)
-- [ ] **HARV-04**: Operator can pause and resume the recurring harvest schedule (pause halts the schedule; in-flight run continues to graceful completion)
-- [ ] **HARV-05**: Operator can configure a recurring harvest schedule via a friendly interval picker (Off / Every 2h / 4h / 8h / 24h), persisted in Postgres so it survives Render redeploy
-- [ ] **HARV-06**: `/Admin/harvest` shows a stats panel: total decks harvested (lifetime + last 30 days), total observations / cards harvested, top-N commanders by deck count, recent runs log (last 10), Postgres storage size, last successful run timestamp + next scheduled run
-- [ ] **HARV-07**: Harvest run history is persisted to Postgres (`harvest_runs` table) so the recent-runs log survives Render redeploys, not in-memory only
+- [x] **HARV-01**: Operator can trigger an Archidekt harvest run-now with a duration cap chosen from a preset list (15 / 30 / 60 min)
+- [x] **HARV-02**: Operator can submit a single Archidekt deck URL and have it harvested on demand (independent of the bulk crawler)
+- [x] **HARV-03**: Operator can cancel a running harvest; cancellation is graceful (current deck completes, then stops — no torn-up DB writes)
+- [x] **HARV-04**: Operator can pause and resume the recurring harvest schedule (pause halts the schedule; in-flight run continues to graceful completion)
+- [x] **HARV-05**: Operator can configure a recurring harvest schedule via a friendly interval picker (Off / Every 2h / 4h / 8h / 24h), persisted in Postgres so it survives Render redeploy
+- [x] **HARV-06**: `/Admin/harvest` shows a stats panel: total decks harvested (lifetime + last 30 days), total observations / cards harvested, top-N commanders by deck count, recent runs log (last 10), Postgres storage size, last successful run timestamp + next scheduled run
+- [x] **HARV-07**: Harvest run history is persisted to Postgres (`harvest_runs` table) so the recent-runs log survives Render redeploys, not in-memory only
 
 ### Analytics
 
@@ -96,13 +96,13 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | ADMIN-03 | Phase 6 | Complete |
 | ADMIN-04 | Phase 6 | Complete (06-03) |
 | ADMIN-05 | Phase 6 | Complete (06-05) |
-| HARV-01 | Phase 7 | Pending |
-| HARV-02 | Phase 7 | Pending |
-| HARV-03 | Phase 7 | Pending |
-| HARV-04 | Phase 7 | Pending |
-| HARV-05 | Phase 7 | Pending |
-| HARV-06 | Phase 7 | Pending |
-| HARV-07 | Phase 7 | Pending |
+| HARV-01 | Phase 7 | Complete (07-02, 07-04, 07-05) |
+| HARV-02 | Phase 7 | Complete (07-04) |
+| HARV-03 | Phase 7 | Complete (07-02, 07-04, 07-05) |
+| HARV-04 | Phase 7 | Complete (07-03, 07-04) |
+| HARV-05 | Phase 7 | Complete (07-03, 07-04) |
+| HARV-06 | Phase 7 | Complete (07-06) |
+| HARV-07 | Phase 7 | Complete (07-01) |
 | ANLY-01 | Phase 8 | Pending |
 | ANLY-02 | Phase 8 | Pending |
 | ANLY-03 | Phase 8 | Pending |
