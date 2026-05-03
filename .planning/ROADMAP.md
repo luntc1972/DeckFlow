@@ -23,7 +23,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 ### v1.1 Admin Console
 
-- [ ] **Phase 6: Admin Shell + Flags Foundation** — Layout shell, sidebar nav, antiforgery baseline, feature-flag infrastructure
+- [x] **Phase 6: Admin Shell + Flags Foundation** — Layout shell, sidebar nav, antiforgery baseline, feature-flag infrastructure (completed 2026-05-03)
 - [ ] **Phase 7: Harvest Controls + Stats** — Run-now, cancel, pause/resume, cron schedule, stats panel, run history
 - [ ] **Phase 8: Analytics** — Request metrics middleware, write-behind buffer, top-routes page, inline SVG sparklines
 
@@ -54,7 +54,7 @@ Plans:
 - [x] 06-04-PLAN.md — IFeatureFlagCache singleton + IHostedService (sync StartAsync load D-14, 30s poller, WARN-once dedupe D-13) + AddDeckFlowFeatureFlags() extension (FLAG-02)
 - [x] 06-05-PLAN.md — AdminFlagsController + view + POST toggle (antiforgery + sync cache reload D-10 + key-allowlist) (ADMIN-05, FLAG-03) — visual checkpoint deferred-to-prod (no local BasicAuth)
 - [x] 06-06-PLAN.md — ScryfallTaggerService gate at top of LookupOracleTagsAsync (D-11 service-level kill switch) (FLAG-04)
-- [ ] 06-07-PLAN.md — FeatureFlagGateAttribute action filter + apply to /help index (D-16 demo target, D-17 503 + Retry-After 300, D-18 attribute wiring) (ADMIN-03, FLAG-05)
+- [x] 06-07-PLAN.md — FeatureFlagGateAttribute action filter + apply to /help index (D-16 demo target, D-17 503 + Retry-After 300, D-18 attribute wiring) (ADMIN-03, FLAG-05)
 
 **UI hint**: yes
 
@@ -109,7 +109,7 @@ Plans:
 | 3. Tech-Debt Cleanup | v1.0 | 4/4 | Complete | 2026-05-01 |
 | 4. Security & Bug Fixes | v1.0 | 4/4 | Abandoned (rerouted to Ph. 5) | 2026-05-02 |
 | 5. Security & Bug Fixes v2 | v1.0 | 3/3 | Complete | 2026-05-02 |
-| 6. Admin Shell + Flags Foundation | v1.1 | 3/7 | In progress | — |
+| 6. Admin Shell + Flags Foundation | v1.1 | 7/7 | Complete   | 2026-05-03 |
 | 7. Harvest Controls + Stats | v1.1 | 0/? | Not started | — |
 | 8. Analytics | v1.1 | 0/? | Not started | — |
 
