@@ -89,6 +89,26 @@ Plans:
 
 ---
 
+### Phase 07.1: categories feature flag + SameOrigin AJAX fix (INSERTED)
+
+**Goal:** Hide the broken Categories flow from production users behind a default-on `feature.categories.enabled` flag (operator-toggleable from /Admin/Flags), and fix the regression where the Categories AJAX endpoint returns "This endpoint only accepts same-origin browser requests."
+
+**Depends on:** Phase 7
+
+**Requirements**: CATFLAG-01, CATFLAG-02, CATFLAG-03, CAT-FIX-01
+
+**Success Criteria** (what must be TRUE):
+
+1. Fresh DB after `EnsureSchemaAsync`: `SELECT enabled FROM feature_flags WHERE key = 'feature.categories.enabled'` returns `true` (default-on).
+2. With flag ON: Suggest Categories nav entry is rendered, landing-page Categories CTA is rendered, `GET /Deck/SuggestCategories` returns 200.
+3. With flag OFF (toggled via /Admin/Flags): nav entry hidden, landing CTA hidden, page route returns 503 + maintenance copy (mirrors FLAG-05 pattern).
+4. After toggle, change is visible to users within ~30s without app restart (existing IFeatureFlagCache poll cadence).
+5. Categories AJAX endpoint accepts a legitimate same-origin request from the running site without returning the SameOrigin rejection message — investigated against logged Origin / Referer / X-Forwarded-Proto values.
+
+Plans:
+- [ ] 07.1-01-PLAN.md — feature.categories.enabled seed row + nav/landing gates + page route gate (CATFLAG-01, CATFLAG-02, CATFLAG-03) [Wave 1]
+- [ ] 07.1-02-PLAN.md — diagnose + fix SameOriginRequestValidator regression on categories AJAX endpoint (CAT-FIX-01) [Wave 1]
+
 ### Phase 8: Analytics
 
 **Goal**: Operator can see which pages are being used, how often, and whether errors are spiking — using signal-rich, low-cardinality data drawn from live traffic, with no raw IPs stored.
