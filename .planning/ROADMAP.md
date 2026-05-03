@@ -131,7 +131,7 @@ Plans:
 Plans:
 - [x] 08-01-PLAN.md — IpHasher extraction + RequestMetricsStore (schema + bulk UPSERT) + RequestMetricEvent record (ANLY-01, ANLY-03) [Wave 1]
 - [x] 08-02-PLAN.md — RequestMetricsBuffer (BoundedChannel DropOldest) + RequestMetricsFlusher (BackgroundService whichever-fires-first) (ANLY-02) [Wave 2]
-- [ ] 08-03-PLAN.md — AnalyticsMiddleware + AddDeckFlowAnalytics() DI extension + Program.cs wiring (D-12 position, D-15 startup smoke-test) (ANLY-01, ANLY-02, ANLY-03, ANLY-06) [Wave 3]
+- [x] 08-03-PLAN.md — AnalyticsMiddleware + AddDeckFlowAnalytics() DI extension + Program.cs wiring (D-12 position, D-15 startup smoke-test) (ANLY-01, ANLY-02, ANLY-03, ANLY-06) [Wave 3]
 - [ ] 08-04-PLAN.md — AdminAnalyticsController + ViewModel + Index.cshtml + sparkline helper + admin.css (ANLY-04, ANLY-05) [Wave 4]
 - [ ] 08-05-PLAN.md — Live-traffic SC verification + Render p95 baseline delta capture (all 5 SCs) [Wave 5]
 
@@ -148,7 +148,7 @@ Plans:
 | 5. Security & Bug Fixes v2 | v1.0 | 3/3 | Complete | 2026-05-02 |
 | 6. Admin Shell + Flags Foundation | v1.1 | 7/7 | Complete   | 2026-05-03 |
 | 7. Harvest Controls + Stats | v1.1 | 0/7 | Not started | — |
-| 8. Analytics | v1.1 | 2/5 | In Progress|  |
+| 8. Analytics | v1.1 | 3/5 | In Progress|  |
 
 ---
 

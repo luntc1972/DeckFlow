@@ -32,7 +32,7 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 - [x] **ANLY-03**: Unique-IP count uses hashed CF-Connecting-IP (existing `FEEDBACK_IP_SALT`) so no raw IPs are stored
 - [ ] **ANLY-04**: `/Admin/analytics` lists top routes by hit count for a chosen time window (today / 7d / 30d / all-time)
 - [ ] **ANLY-05**: Each route row shows a daily sparkline rendered as inline SVG (no JS charting library, no external dependency) plus error-rate column
-- [ ] **ANLY-06**: Static-asset routes (`/css/*`, `/js/*`, `/lib/*`, `/extensions/*`) are excluded from `request_metrics` to keep the table small and signal-rich
+- [x] **ANLY-06**: Static-asset routes (`/css/*`, `/js/*`, `/lib/*`, `/extensions/*`) are excluded from `request_metrics` to keep the table small and signal-rich
 
 ### Feature Flags
 
@@ -115,7 +115,7 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 | ANLY-03 | Phase 8 | Complete |
 | ANLY-04 | Phase 8 | Pending |
 | ANLY-05 | Phase 8 | Pending |
-| ANLY-06 | Phase 8 | Pending |
+| ANLY-06 | Phase 8 | Complete |
 | FLAG-01 | Phase 6 | Complete (06-02) |
 | FLAG-02 | Phase 6 | Complete |
 | FLAG-03 | Phase 6 | Complete (06-05) |
