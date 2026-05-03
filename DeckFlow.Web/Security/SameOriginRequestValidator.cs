@@ -66,13 +66,47 @@ public static class SameOriginRequestValidator
     private static bool UriMatchesRequestOrigin(Uri origin, HttpRequest request)
     {
         var requestHost = request.Host.Host ?? string.Empty;
+
+        // Phase 7.1 plan 02 (CAT-FIX-01): honor X-Forwarded-Proto when origin is https.
+        //
+        // Render's reverse proxy correctly sets X-Forwarded-Proto=https, but ASP.NET Core's
+        // default ForwardedHeadersOptions only honors forwarded headers from KnownProxies /
+        // KnownNetworks (localhost ranges). Render's proxy IPs are outside that range, so
+        // UseForwardedHeaders ignores the header and request.Scheme stays "http". Without
+        // this branch, every legitimate same-origin browser POST fails the scheme leg
+        // (https vs http) AND the port leg (443 vs scheme-derived 80) and is rejected.
+        //
+        // We do NOT modify Program.cs middleware ordering — Phase 4/5 invariant requires
+        // UseForwardedHeaders to run before HTTPS redirect / security headers / this
+        // validator, and re-tuning KnownProxies/KnownNetworks for Render's IP ranges is
+        // out of scope here. Promoting the scheme inside the validator is a narrowly
+        // scoped fix that leaves the broader middleware contract untouched.
+        //
+        // Trust model: an attacker on a different origin cannot forge X-Forwarded-Proto
+        // without already controlling the network path between the client and the server
+        // — the same trust model ASP.NET Core's HTTPS redirection middleware already
+        // relies on. Honoring this header here does not weaken the CSRF gate; the
+        // host-leg comparison still rejects cross-origin requests outright.
+        //
+        // Scheme and the scheme-derived default port are coupled: if we promote scheme
+        // to "https" we must also recompute requestPort from the promoted scheme,
+        // otherwise the port leg still rejects (origin 443 vs request 80).
+        var requestScheme = request.Scheme;
+        if (string.Equals(origin.Scheme, "https", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(requestScheme, "https", StringComparison.OrdinalIgnoreCase)
+            && (request.IsHttps
+                || string.Equals(request.Headers["X-Forwarded-Proto"], "https", StringComparison.OrdinalIgnoreCase)))
+        {
+            requestScheme = "https";
+        }
+
         var requestPort = request.Host.Port
-            ?? (string.Equals(request.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80);
+            ?? (string.Equals(requestScheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80);
         var originPort = origin.IsDefaultPort
             ? (string.Equals(origin.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80)
             : origin.Port;
 
-        return string.Equals(origin.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase)
+        return string.Equals(origin.Scheme, requestScheme, StringComparison.OrdinalIgnoreCase)
             && string.Equals(origin.Host, requestHost, StringComparison.OrdinalIgnoreCase)
             && originPort == requestPort;
     }
