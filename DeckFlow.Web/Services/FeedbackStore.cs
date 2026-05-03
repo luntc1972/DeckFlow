@@ -1,9 +1,7 @@
-using System.Data;
 using System.Data.Common;
-using System.Security.Cryptography;
-using System.Text;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Security;
 
 namespace DeckFlow.Web.Services;
 
@@ -178,8 +176,7 @@ public sealed class FeedbackStore : IFeedbackStore
         }
 
         var salt = _ipSalt ?? throw new InvalidOperationException("Schema not initialized; call EnsureSchemaAsync first.");
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(ip + "|" + salt));
-        return Convert.ToHexString(bytes);
+        return IpHasher.Hash(ip, salt);
     }
 
     private static string BuildWhereClause(FeedbackStatus? status, FeedbackType? type, DbCommand command)
@@ -276,7 +273,7 @@ public sealed class FeedbackStore : IFeedbackStore
                 await create.ExecuteNonQueryAsync(cancellationToken);
             }
 
-            _ipSalt = await ResolveSaltAsync(connection, cancellationToken);
+            _ipSalt = await IpHasher.ResolveSaltAsync(connection, cancellationToken);
             _schemaReady = true;
         }
         finally
@@ -285,30 +282,4 @@ public sealed class FeedbackStore : IFeedbackStore
         }
     }
 
-    private static async Task<string> ResolveSaltAsync(DbConnection connection, CancellationToken cancellationToken)
-    {
-        var envSalt = Environment.GetEnvironmentVariable("FEEDBACK_IP_SALT");
-        if (!string.IsNullOrWhiteSpace(envSalt))
-        {
-            return envSalt;
-        }
-
-        await using (var select = connection.CreateCommand())
-        {
-            select.CommandText = "SELECT value FROM feedback_meta WHERE key = 'ip_salt'";
-            var existing = await select.ExecuteScalarAsync(cancellationToken);
-            if (existing is string s && !string.IsNullOrWhiteSpace(s))
-            {
-                return s;
-            }
-        }
-
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        var generated = Convert.ToHexString(bytes);
-        await using var insert = connection.CreateCommand();
-        insert.CommandText = "INSERT INTO feedback_meta (key, value) VALUES ('ip_salt', @value)";
-        RelationalDatabaseConnection.AddParameter(insert, "@value", generated);
-        await insert.ExecuteNonQueryAsync(cancellationToken);
-        return generated;
-    }
 }
