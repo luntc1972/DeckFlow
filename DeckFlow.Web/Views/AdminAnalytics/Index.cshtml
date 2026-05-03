@@ -1,6 +1,51 @@
+@model DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel
 @{
     ViewData["Title"] = "Analytics";
 }
+
 <section class="admin-analytics">
-    <p>Page-usage analytics coming in Phase 8. This page is a placeholder so the sidebar nav resolves.</p>
+    <header class="admin-page-header">
+        <h1>Page-usage analytics</h1>
+        <nav class="admin-range-selector" aria-label="Time range">
+            <a href="@Url.Action("Index", new { range = "today" })"
+               class="@(Model.Range == "today" ? "is-active" : "")">Today</a>
+            <a href="@Url.Action("Index", new { range = "7d" })"
+               class="@(Model.Range == "7d" ? "is-active" : "")">Last 7 days</a>
+            <a href="@Url.Action("Index", new { range = "30d" })"
+               class="@(Model.Range == "30d" ? "is-active" : "")">Last 30 days</a>
+            <a href="@Url.Action("Index", new { range = "all" })"
+               class="@(Model.Range == "all" ? "is-active" : "")">All time</a>
+        </nav>
+    </header>
+
+    @if (Model.Routes.Count == 0)
+    {
+        <p class="admin-empty">No request metrics recorded yet for this window.</p>
+    }
+    else
+    {
+        <table class="admin-table admin-analytics-table">
+            <thead>
+                <tr>
+                    <th scope="col" class="route">Route</th>
+                    <th scope="col" class="num">Hits</th>
+                    <th scope="col" class="num">Unique IPs</th>
+                    <th scope="col" class="num">Error rate</th>
+                    <th scope="col" class="spark">Last 14 days</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Routes)
+            {
+                <tr>
+                    <td class="route"><code>@row.RouteKey</code></td>
+                    <td class="num">@row.Hits.ToString("N0")</td>
+                    <td class="num">@row.UniqueIps.ToString("N0")</td>
+                    <td class="num">@DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel.FormatErrorRate(row.ErrorRate)</td>
+                    <td class="spark admin-sparkline">@Html.Raw(DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel.RenderSparkline(row.HitsByDay))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
 </section>
