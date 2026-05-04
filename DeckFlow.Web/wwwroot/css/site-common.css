@@ -245,6 +245,11 @@
   border-color: var(--accent-strong, var(--cta-border, var(--accent, var(--line))));
 }
 
+.hub-card--status {
+  border-style: dashed;
+  background: var(--panel-soft-bg);
+}
+
 .chatgpt-page-toolbar {
   align-items: stretch;
   justify-content: flex-end;
@@ -371,6 +376,28 @@
 .sync-column__hint--block {
   display: block;
   margin-top: 0.2rem;
+}
+
+.maintenance-page__actions {
+  margin-top: 1rem;
+}
+
+.maintenance-page__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--cta-border, var(--accent, var(--line)));
+  border-radius: 8px;
+  color: var(--accent-strong, var(--accent, inherit));
+  text-decoration: none;
+}
+
+.maintenance-page__action:hover,
+.maintenance-page__action:focus-visible {
+  background: var(--accent-strong, var(--accent));
+  color: var(--on-accent, #fff);
+  text-decoration: none;
 }
 
 .nested-panel--compact {

@@ -48,6 +48,10 @@
             {
                 <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
             }
+            else
+            {
+                <span class="tool-nav__link tool-nav__link--muted">AI Suggestions offline</span>
+            }
             <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="@Url.Content("~/commander-categories")">Category Reference</a>
         </div>
     </div>

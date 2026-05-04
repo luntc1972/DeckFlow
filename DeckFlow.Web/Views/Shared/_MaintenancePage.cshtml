@@ -5,4 +5,10 @@
 <section class="maintenance-page">
     <h1>@Model.Title</h1>
     <p>@Model.Message</p>
+    @if (!string.IsNullOrWhiteSpace(Model.PrimaryActionLabel) && !string.IsNullOrWhiteSpace(Model.PrimaryActionUrl))
+    {
+        <p class="maintenance-page__actions">
+            <a class="maintenance-page__action" href="@Url.Content(Model.PrimaryActionUrl)">@Model.PrimaryActionLabel</a>
+        </p>
+    }
 </section>

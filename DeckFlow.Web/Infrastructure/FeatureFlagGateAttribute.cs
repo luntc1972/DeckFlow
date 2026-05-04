@@ -33,6 +33,12 @@ public sealed class FeatureFlagGateAttribute : Attribute, IAsyncActionFilter
     /// <summary>Body copy rendered in the 503 page paragraph. Defaults to a generic copy.</summary>
     public string Message { get; init; } = "This page is offline for maintenance. Please try again shortly.";
 
+    /// <summary>Optional primary action label rendered on the 503 page.</summary>
+    public string? PrimaryActionLabel { get; init; }
+
+    /// <summary>Optional primary action URL rendered on the 503 page.</summary>
+    public string? PrimaryActionUrl { get; init; }
+
     /// <summary>
     /// Constructs the gate with a required flag key. Throws <see cref="ArgumentException"/>
     /// if <paramref name="key"/> is null, empty, or whitespace.
@@ -62,7 +68,13 @@ public sealed class FeatureFlagGateAttribute : Attribute, IAsyncActionFilter
         response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         response.Headers["Retry-After"] = "300"; // 5 minutes — discourages tight-loop polling, recovers quickly on toggle (T-06-G2).
 
-        var vm = new MaintenanceViewModel { Title = Title, Message = Message };
+        var vm = new MaintenanceViewModel
+        {
+            Title = Title,
+            Message = Message,
+            PrimaryActionLabel = PrimaryActionLabel,
+            PrimaryActionUrl = PrimaryActionUrl,
+        };
         context.Result = new ViewResult
         {
             ViewName = "_MaintenancePage",
