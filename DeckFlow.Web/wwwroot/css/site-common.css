@@ -64,8 +64,8 @@
 }
 
 .theme-picker__select {
-  min-width: 6.75rem;
-  max-width: 8rem;
+  min-width: 10.25rem;
+  max-width: 12rem;
   padding: 0.28rem 0.45rem;
   font-size: var(--fs-sm);
 }
@@ -883,8 +883,14 @@
 }
 
 .theme-picker .df-select {
-  min-width: 6.75rem;
-  max-width: 8rem;
+  min-width: 10.25rem;
+  max-width: 12rem;
+}
+
+.theme-picker .df-select__trigger {
+  padding: 0.45rem 0.65rem;
+  font-size: var(--fs-sm);
+  overflow: hidden;
 }
 
 .df-select__native {
