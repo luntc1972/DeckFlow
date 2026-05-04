@@ -1,0 +1,14 @@
+/* Cross-theme rules loaded after the active theme stylesheet. */
+
+.hub-hero {
+  border-left-color: var(--cta-border, var(--accent, var(--line)));
+}
+
+.hub-card--primary {
+  border-color: var(--cta-border, var(--accent, var(--line)));
+}
+
+.hub-card--primary:hover,
+.hub-card--primary:focus-visible {
+  border-color: var(--accent-strong, var(--cta-border, var(--accent, var(--line))));
+}
