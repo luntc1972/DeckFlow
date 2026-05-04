@@ -40,14 +40,19 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
 {
     private const int ClickSweepDurationSeconds = 30;
     private readonly ICategoryKnowledgeStore _knowledgeStore;
+    private readonly IArchidektCacheJobService _harvestJobService;
     private readonly ILogger<CommanderCategoryService> _logger;
 
     /// <summary>
     /// Initializes a new instance of <see cref="CommanderCategoryService"/>.
     /// </summary>
-    public CommanderCategoryService(ICategoryKnowledgeStore knowledgeStore, ILogger<CommanderCategoryService> logger)
+    public CommanderCategoryService(
+        ICategoryKnowledgeStore knowledgeStore,
+        IArchidektCacheJobService harvestJobService,
+        ILogger<CommanderCategoryService> logger)
     {
         _knowledgeStore = knowledgeStore;
+        _harvestJobService = harvestJobService;
         _logger = logger;
     }
 
@@ -58,7 +63,14 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
 
         var trimmed = commanderName.Trim();
         var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-        await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
+        // Skip the click-triggered sweep when an admin bulk harvest is already running.
+        // Queuing a 30s suggestion sweep behind (or ahead of) the harvest gate starves
+        // the admin run. Stale cache is acceptable while a harvest is in flight.
+        var sweepPerformed = _harvestJobService.GetActiveJob() is null;
+        if (sweepPerformed)
+        {
+            await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
+        }
 
         var rows = await _knowledgeStore.GetCategoryRowsAsync(trimmed, boardFilter: "commander", cancellationToken);
 
@@ -75,6 +87,6 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
             .ToList();
 
         var additionalDecksFound = Math.Max(deckCount - initialDeckCount, 0);
-        return new CommanderCategoryResult(trimmed, rows, summaries, deckCount, cardTotals, additionalDecksFound, true);
+        return new CommanderCategoryResult(trimmed, rows, summaries, deckCount, cardTotals, additionalDecksFound, sweepPerformed);
     }
 }
