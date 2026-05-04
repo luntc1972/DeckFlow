@@ -1058,6 +1058,10 @@ const restoreFormFields = (form: HTMLFormElement, data: Record<string, string[]>
 };
 
 const persistFormState = (form: HTMLFormElement): void => {
+  if (form.dataset.skipPersistence === 'true') {
+    return;
+  }
+
   const key = form.getAttribute('data-cache-key');
   if (!key || !storageAvailable) {
     return;
@@ -1077,6 +1081,45 @@ const clearPersistedFormState = (form: HTMLFormElement): void => {
   storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
   storageAvailable.removeItem(`${formStateStoragePrefix}${key}:savedAt`);
   form.querySelector<HTMLElement>('[data-cache-pill]')?.remove();
+};
+
+const clearFormToFreshSlate = (form: HTMLFormElement): void => {
+  form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name], [data-question-bucket]').forEach(element => {
+    if (element.name === antiForgeryFieldName) {
+      return;
+    }
+
+    if (element instanceof HTMLInputElement) {
+      const inputType = element.type.toLowerCase();
+      if (inputType === 'checkbox' || inputType === 'radio') {
+        element.checked = false;
+        element.indeterminate = false;
+        return;
+      }
+
+      if (inputType === 'hidden' || inputType === 'button' || inputType === 'submit' || inputType === 'reset') {
+        return;
+      }
+
+      element.value = '';
+      return;
+    }
+
+    if (element instanceof HTMLSelectElement) {
+      Array.from(element.options).forEach(option => {
+        option.selected = false;
+      });
+
+      if (!element.multiple && element.options.length > 0) {
+        element.selectedIndex = 0;
+      }
+
+      deckFlowWindow.DeckFlow?.refreshDfSelect?.(element);
+      return;
+    }
+
+    element.value = '';
+  });
 };
 
 const formatCacheAge = (savedAtMs: number): string => {
@@ -1157,11 +1200,17 @@ const attachGenericPersistedForms = (): void => {
     form.addEventListener('change', persist);
     window.addEventListener('pagehide', persist);
 
-        const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
-        clearButton?.addEventListener('click', () => {
+    const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
+    clearButton?.addEventListener('click', () => {
       const clearHref = clearButton.getAttribute('data-clear-href');
       if (clearHref) {
-        clearPersistedFormState(form);
+        form.dataset.skipPersistence = 'true';
+        if (form.getAttribute('data-cache-key') === 'chatgpt-packets') {
+          clearChatGptPacketsState(form);
+        } else {
+          clearPersistedFormState(form);
+        }
+
         window.location.href = clearHref;
         return;
       }
@@ -1394,6 +1443,7 @@ const attachDeckSyncPersistence = (): void => {
   clearButton?.addEventListener('click', () => {
     const clearHref = clearButton.getAttribute('data-clear-href');
     if (clearHref) {
+      form.dataset.skipPersistence = 'true';
       const cacheKey = form.getAttribute('data-cache-key');
       if (cacheKey === 'chatgpt-packets') {
         clearChatGptPacketsState(form);
@@ -1500,9 +1550,14 @@ const applyChatGptUiMode = (form: HTMLFormElement, mode: ChatGptUiMode): void =>
 const clearChatGptPacketsState = (form: HTMLFormElement): void => {
   clearPersistedFormState(form);
   storageAvailable?.removeItem(chatGptUiModeStorageKey);
-  form.reset();
+  clearFormToFreshSlate(form);
   applyChatGptUiMode(form, 'guided');
   showChatGptStep(form, 1);
+  updateSyncInputModeUi();
+  syncVersioningBracketOptions(form);
+  syncCardSpecificQuestionField(form);
+  syncBudgetQuestionField(form);
+  syncPreferredCategoriesField(form);
   setChatGptValidationMessage(null);
 };
 
