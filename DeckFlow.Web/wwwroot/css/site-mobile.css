@@ -29,6 +29,63 @@
     display: none;
   }
 
+  .page-frame,
+  .content-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .page-nav {
+    margin-left: auto;
+    margin-right: 0;
+  }
+
+  .theme-picker {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .theme-picker__select,
+  .theme-picker .df-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .theme-picker .df-select__trigger {
+    width: 100%;
+  }
+
+  .tool-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .tool-nav__group {
+    min-width: 0;
+  }
+
+  .tool-nav__trigger {
+    justify-content: center;
+    width: 100%;
+    padding-inline: 0.65rem;
+  }
+
+  .hub-hero,
+  .hub-card {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
   .page-footer {
     padding-right: 1rem;
   }
