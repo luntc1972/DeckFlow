@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 8 deployed to prod; Wave 5 task 3 (live SC verification) on hold per operator
-last_updated: "2026-05-03T21:30:00.000Z"
-last_activity: 2026-05-03
+last_updated: "2026-05-04T19:25:14.231Z"
+last_activity: 2026-05-04
 progress:
   total_phases: 4
   completed_phases: 3
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 Phase: 08 (analytics) — EXECUTING (Wave 5 paused)
 Plan: 5 of 5 — Waves 1-4 complete + deployed to prod (commits 3f6835f..33da0b9 pushed at 2026-05-03 ~21:30 UTC, Render deploy "Live" with build log clean)
 Status: Wave 5 task 3 on hold — operator soak time before SC verification queries
-Last activity: 2026-05-03
+Last activity: 2026-05-04 - Completed quick task 260504-in1: fix the remaining Phase 07.1 UI review issues: when AI Category Suggestions is feature-flagged off, update maintenance copy to say only AI category suggestions are unavailable, add a link/action to Category Reference or Home from the maintenance page, and add a small in-context explanation on the home/categories area or nav so returning users understand the feature is temporarily unavailable
 
 ### Phase 8 resume protocol
 
@@ -128,6 +128,12 @@ Decisions affecting v1.1 work:
 - VSTest unreliable in WSL2 — verification leans on `dotnet build` clean + manual harness + push-and-watch CI.
 - SQL dialect divergence risk: every new SQL block (4 new tables across Phases 6-8) must be verified against Postgres before the phase closes.
 - RAM cap: Render Starter 512MB web tier — analytics bounded Channel (2000 cap, DropOldest) and 30s flag poll are sized to stay well under budget.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260504-in1 | fix the remaining Phase 07.1 UI review issues: when AI Category Suggestions is feature-flagged off, update maintenance copy to say only AI category suggestions are unavailable, add a link/action to Category Reference or Home from the maintenance page, and add a small in-context explanation on the home/categories area or nav so returning users understand the feature is temporarily unavailable | 2026-05-04 | c3c7ee2 | [260504-in1-fix-the-remaining-phase-07-1-ui-review-i](./quick/260504-in1-fix-the-remaining-phase-07-1-ui-review-i/) |
 
 ## Deferred Items
 
