@@ -1422,7 +1422,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new
             {
-                identifiers = chunk.Select(card => new { name = card.Name }).ToArray()
+                identifiers = chunk.Select(card => new { name = NormalizeForScryfall(card.Name) }).ToArray()
             });
 
             var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
@@ -1504,8 +1504,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var normalizedCardName = NormalizeLookupName(cardName);
         foreach (var query in new[]
         {
-            $"(printed:\"{cardName}\" OR name:\"{cardName}\")",
-            cardName
+            $"(printed:\"{NormalizeForScryfall(cardName)}\" OR name:\"{NormalizeForScryfall(cardName)}\")",
+            NormalizeForScryfall(cardName)
         })
         {
             var request = new RestRequest("cards/search", Method.Get);
@@ -1530,7 +1530,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         }
 
         var namedRequest = new RestRequest("cards/named", Method.Get);
-        namedRequest.AddQueryParameter("fuzzy", cardName);
+        namedRequest.AddQueryParameter("fuzzy", NormalizeForScryfall(cardName));
         var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
         ScryfallThrottle.ThrowIfUpstreamUnavailable(namedResponse.StatusCode);
         if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
@@ -1552,6 +1552,16 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             .Replace('\u2013', '-')
             .Replace('\u2014', '-')
             .ToLowerInvariant();
+
+    /// <summary>
+    /// Normalizes a card name for use in Scryfall API payloads.
+    /// Converts the single-slash DFC separator used by Archidekt exports (" / ")
+    /// to the double-slash form Scryfall expects (" // ") so DFC cards resolve on
+    /// the first /cards/collection attempt instead of cascading into per-card fallbacks.
+    /// DeckEntry.Name is NOT modified \u2014 normalization happens only at the call site.
+    /// </summary>
+    private static string NormalizeForScryfall(string cardName)
+        => cardName.Replace(" / ", " // ");
 
     private async Task<string> ValidateCommanderAsync(IReadOnlyList<DeckEntry> entries, string? commanderName, CancellationToken cancellationToken)
     {
