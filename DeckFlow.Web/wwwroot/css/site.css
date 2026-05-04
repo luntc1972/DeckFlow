@@ -811,6 +811,11 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   font-weight: 600;
 }
 
+.tool-nav__link--muted {
+  color: var(--muted);
+  cursor: default;
+}
+
 .tab-panel {
   display: block;
 }

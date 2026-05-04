@@ -10,4 +10,6 @@ public sealed class MaintenanceViewModel
 {
     public string Title { get; init; } = "Temporarily unavailable";
     public string Message { get; init; } = "This page is offline for maintenance. Please try again shortly.";
+    public string? PrimaryActionLabel { get; init; }
+    public string? PrimaryActionUrl { get; init; }
 }

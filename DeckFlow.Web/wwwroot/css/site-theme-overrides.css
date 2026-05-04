@@ -12,3 +12,24 @@
 .hub-card--primary:focus-visible {
   border-color: var(--accent-strong, var(--cta-border, var(--accent, var(--line))));
 }
+
+.hub-card--status {
+  border-style: dashed;
+  background: var(--panel-soft-bg);
+}
+
+.tool-nav__link--muted {
+  color: var(--muted);
+  cursor: default;
+}
+
+.maintenance-page__action {
+  border-color: var(--cta-border, var(--accent, var(--line)));
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.maintenance-page__action:hover,
+.maintenance-page__action:focus-visible {
+  background: var(--accent-strong, var(--accent));
+  color: var(--on-accent, #fff);
+}
