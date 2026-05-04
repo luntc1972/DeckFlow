@@ -195,7 +195,7 @@
   display: block;
   padding: 1rem 1.25rem;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--cta-border);
+  border-left: 4px solid var(--cta-border, var(--accent, var(--line)));
   border-radius: 10px;
   background: var(--panel);
   color: inherit;
@@ -237,12 +237,12 @@
 }
 
 .hub-card--primary {
-  border-color: var(--cta-border);
+  border-color: var(--cta-border, var(--accent, var(--line)));
 }
 
 .hub-card--primary:hover,
 .hub-card--primary:focus-visible {
-  border-color: var(--accent-strong, var(--cta-border));
+  border-color: var(--accent-strong, var(--cta-border, var(--accent, var(--line))));
 }
 
 .chatgpt-page-toolbar {
