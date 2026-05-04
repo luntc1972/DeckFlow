@@ -28,7 +28,7 @@ public sealed class CategorySuggestionServiceTests
         });
 
         var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
 
         var request = new CategorySuggestionRequest
         {
@@ -49,7 +49,7 @@ public sealed class CategorySuggestionServiceTests
     {
         var totals = CardDeckTotals.Empty;
         var store = new FakeKnowledgeStore(new[] { Array.Empty<string>(), new[] { "Draw" } }, processedDeckCount: 1, totals);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
 
         var request = new CategorySuggestionRequest
         {
@@ -74,7 +74,7 @@ public sealed class CategorySuggestionServiceTests
             new() { Name = "Guardian Project", NormalizedName = CardNormalizer.Normalize("Guardian Project"), Category = "Draw,Ramp", Quantity = 1, Board = "mainboard" }
         };
         var importer = new FakeImporter(entries);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), importer, new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), importer, new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
 
         var request = new CategorySuggestionRequest
         {
@@ -96,7 +96,7 @@ public sealed class CategorySuggestionServiceTests
     {
         var store = new FakeKnowledgeStore(new[] { Array.Empty<string>() }, processedDeckCount: 0, CardDeckTotals.Empty);
         var tagger = new FakeTaggerService("Protection", "Value");
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
 
         var result = await service.SuggestAsync(new CategorySuggestionRequest
         {
@@ -121,7 +121,7 @@ public sealed class CategorySuggestionServiceTests
         });
         var store = new FakeKnowledgeStore(new[] { new[] { "Draw" } }, processedDeckCount: 4, totals);
         var tagger = new FakeTaggerService("Value");
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
 
         var result = await service.SuggestAsync(new CategorySuggestionRequest
         {
@@ -227,5 +227,22 @@ public sealed class CategorySuggestionServiceTests
             LookupCalls++;
             return Task.FromResult(_responses);
         }
+    }
+
+    /// <summary>
+    /// Fake job service that reports no active harvest, so click-sweep is never suppressed
+    /// in tests that do not need harvest-guard behaviour.
+    /// </summary>
+    private sealed class FakeJobService : IArchidektCacheJobService
+    {
+        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("Not used in these tests.");
+
+        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
+
+        public ArchidektCacheJobStatus? GetActiveJob() => null;
+
+        public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 }

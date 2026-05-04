@@ -64,6 +64,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
 {
     private const int ClickSweepDurationSeconds = 30;
     private readonly ICategoryKnowledgeStore _knowledgeStore;
+    private readonly IArchidektCacheJobService _harvestJobService;
     private readonly ILogger<CategorySuggestionService> _logger;
     private readonly ArchidektParser _archidektParser;
     private readonly IArchidektDeckImporter _archidektImporter;
@@ -74,12 +75,14 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
     /// </summary>
     public CategorySuggestionService(
         ICategoryKnowledgeStore knowledgeStore,
+        IArchidektCacheJobService harvestJobService,
         ArchidektParser archidektParser,
         IArchidektDeckImporter archidektImporter,
         IScryfallTaggerService taggerService,
         ILogger<CategorySuggestionService> logger)
     {
         _knowledgeStore = knowledgeStore;
+        _harvestJobService = harvestJobService;
         _archidektParser = archidektParser;
         _archidektImporter = archidektImporter;
         _taggerService = taggerService;
@@ -121,7 +124,12 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
 
         var runCachedPath = mode == CategorySuggestionMode.CachedData || runAll;
 
-        if (runCachedPath)
+        // Skip the click-triggered sweep when an admin bulk harvest is already running.
+        // The harvest holds _sweepGate for its full duration; queuing a 30s suggestion sweep
+        // behind it (or ahead of it) starves the admin run. Suggestion data is best-effort —
+        // returning stale cache while a harvest is in flight is the correct trade-off.
+        var harvestActive = runCachedPath && _harvestJobService.GetActiveJob() is not null;
+        if (runCachedPath && !harvestActive)
         {
             await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
         }
@@ -179,7 +187,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             usedSources,
             nothingFound,
             additionalDecksFound,
-            runCachedPath);
+            runCachedPath && !harvestActive);
     }
 
     /// <summary>
