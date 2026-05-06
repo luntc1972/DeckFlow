@@ -30,7 +30,6 @@ public sealed class DeckController : Controller
     private readonly IChatGptDeckComparisonService _chatGptDeckComparisonService;
     private readonly IChatGptCedhMetaGapService _chatGptCedhMetaGapService;
     private readonly IScryfallSetService _scryfallSetService;
-    private readonly IChatGptArtifactsDirectory _chatGptArtifactsDirectory;
     private readonly ILogger<DeckController> _logger;
 
     /// <summary>
@@ -47,7 +46,6 @@ public sealed class DeckController : Controller
         IChatGptDeckComparisonService chatGptDeckComparisonService,
         IChatGptCedhMetaGapService chatGptCedhMetaGapService,
         IScryfallSetService scryfallSetService,
-        IChatGptArtifactsDirectory chatGptArtifactsDirectory,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
@@ -60,7 +58,6 @@ public sealed class DeckController : Controller
         _chatGptDeckComparisonService = chatGptDeckComparisonService;
         _chatGptCedhMetaGapService = chatGptCedhMetaGapService;
         _scryfallSetService = scryfallSetService;
-        _chatGptArtifactsDirectory = chatGptArtifactsDirectory;
         _logger = logger;
     }
 
@@ -190,16 +187,6 @@ public sealed class DeckController : Controller
     {
         var sets = await TryGetSetOptionsAsync();
         return Json(sets.Select(s => new { s.Code, s.DisplayLabel, s.SetType }));
-    }
-
-    [HttpGet("/api/saved-sessions")]
-    /// <summary>
-    /// Disabled: server-side artifact enumeration was removed to prevent cross-user data exposure.
-    /// Restructure to local download/upload is pending.
-    /// </summary>
-    public IActionResult GetSavedSessions()
-    {
-        return Json(Array.Empty<object>());
     }
 
     [HttpGet("/convert")]
@@ -478,7 +465,6 @@ public sealed class DeckController : Controller
                 AnalysisPromptText = result.AnalysisPromptText,
                 DeckProfileSchemaJson = result.DeckProfileSchemaJson,
                 SetUpgradePromptText = result.SetUpgradePromptText,
-                SavedArtifactsDirectory = result.SavedArtifactsDirectory,
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
@@ -503,6 +489,119 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-packets/download")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChatGptPacketsDownload(ChatGptDeckRequest request)
+    {
+        request ??= new ChatGptDeckRequest();
+
+        try
+        {
+            var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            var commanderName = result.AnalysisResponse?.Commander ?? request.DeckName;
+            var requestContextText = result.RequestContextText ?? ChatGptDeckPacketService.BuildRequestContextText(request, commanderName);
+            var bytes = ChatGptPacketArtifactStore.BuildZip(
+                request,
+                commanderName,
+                result.InputSummary,
+                requestContextText,
+                result.ReferenceText,
+                result.AnalysisPromptText,
+                result.DeckProfileSchemaJson,
+                result.SetUpgradePromptText);
+            var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName(commanderName);
+            return File(bytes, "application/zip", fileName);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT packet download failed validation.");
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "ChatGPT packet download hit an upstream dependency.");
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = request,
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-packets/upload")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<IActionResult> ChatGptPacketsUpload(IFormFile zipFile)
+    {
+        if (zipFile is null || zipFile.Length == 0)
+        {
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = new ChatGptDeckRequest(),
+                ErrorMessage = "Choose a .zip file produced by Download to import."
+            });
+        }
+
+        if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = new ChatGptDeckRequest(),
+                ErrorMessage = "Only .zip files produced by Download are accepted."
+            });
+        }
+
+        var request = new ChatGptDeckRequest();
+        try
+        {
+            await using var stream = zipFile.OpenReadStream();
+            ChatGptPacketArtifactStore.LoadFromZip(stream, request);
+            var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = request,
+                InputSummary = result.InputSummary,
+                SuggestedChatTitle = result.SuggestedChatTitle,
+                ReferenceText = result.ReferenceText,
+                AnalysisPromptText = result.AnalysisPromptText,
+                DeckProfileSchemaJson = result.DeckProfileSchemaJson,
+                SetUpgradePromptText = result.SetUpgradePromptText,
+                TimingSummary = result.TimingSummary,
+                AnalysisResponse = result.AnalysisResponse,
+                SetUpgradeResponse = result.SetUpgradeResponse,
+                ImportWarning = result.ImportWarning,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT packet upload failed validation.");
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = new ChatGptDeckRequest(),
+                ErrorMessage = exception.Message
+            });
+        }
+        catch (InvalidDataException)
+        {
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = new ChatGptDeckRequest(),
+                ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
         }
     }
@@ -543,7 +642,6 @@ public sealed class DeckController : Controller
                 FollowUpPromptText = result.FollowUpPromptText,
                 ComparisonSchemaJson = result.ComparisonSchemaJson,
                 ComparisonResponse = result.ComparisonResponse,
-                SavedArtifactsDirectory = result.SavedArtifactsDirectory,
                 TimingSummary = result.TimingSummary
             });
         }
@@ -570,6 +668,147 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
                 ErrorMessage = errorMessage
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-deck-comparison/download")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChatGptDeckComparisonDownload(ChatGptDeckComparisonRequest request)
+    {
+        request ??= new ChatGptDeckComparisonRequest();
+        if (!ModelState.IsValid)
+        {
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ErrorMessage = "The comparison form contains invalid values. Review the highlighted fields and try again."
+            });
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.DeckASource)
+                && string.IsNullOrWhiteSpace(request.DeckBSource)
+                && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
+            {
+                var fallbackFileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(request.DeckAName, request.DeckBName);
+                var fallbackBytes = ChatGptPacketArtifactStore.BuildComparisonZip(
+                    request,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty);
+                return File(fallbackBytes, "application/zip", fallbackFileName);
+            }
+
+            var result = await _chatGptDeckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
+            var bytes = ChatGptPacketArtifactStore.BuildComparisonZip(
+                request,
+                result.InputSummary,
+                result.DeckAListText,
+                result.DeckBListText,
+                result.DeckAComboText,
+                result.DeckBComboText,
+                result.ComparisonContextText,
+                result.ComparisonPromptText,
+                result.FollowUpPromptText,
+                result.ComparisonSchemaJson);
+            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(request.DeckAName, request.DeckBName);
+            return File(bytes, "application/zip", fileName);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT deck comparison download failed validation.");
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ErrorMessage = exception.Message
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "ChatGPT deck comparison download hit an upstream dependency.");
+            var errorMessage = exception.Message.Contains("Deck A", StringComparison.OrdinalIgnoreCase)
+                || exception.Message.Contains("Deck B", StringComparison.OrdinalIgnoreCase)
+                    ? exception.Message
+                    : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
+
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ErrorMessage = errorMessage
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-deck-comparison/upload")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public IActionResult ChatGptDeckComparisonUpload(IFormFile zipFile)
+    {
+        if (zipFile is null || zipFile.Length == 0)
+        {
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = new ChatGptDeckComparisonRequest(),
+                ErrorMessage = "Choose a .zip file produced by Download to import."
+            });
+        }
+
+        if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = new ChatGptDeckComparisonRequest(),
+                ErrorMessage = "Only .zip files produced by Download are accepted."
+            });
+        }
+
+        var request = new ChatGptDeckComparisonRequest();
+        try
+        {
+            using var stream = zipFile.OpenReadStream();
+            ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, request);
+            var comparisonResponse = ChatGptDeckComparisonService.ParseComparisonResponse(request.ComparisonResponseJson);
+            request.DeckAName = comparisonResponse.DeckAName;
+            request.DeckBName = comparisonResponse.DeckBName;
+            request.DeckABracket = comparisonResponse.DeckABracket;
+            request.DeckBBracket = comparisonResponse.DeckBBracket;
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ComparisonResponse = comparisonResponse
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT deck comparison upload failed validation.");
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = new ChatGptDeckComparisonRequest(),
+                ErrorMessage = exception.Message
+            });
+        }
+        catch (InvalidDataException)
+        {
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = new ChatGptDeckComparisonRequest(),
+                ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
         }
     }
@@ -613,8 +852,7 @@ public sealed class DeckController : Controller
                 PromptText = result.PromptText,
                 SchemaJson = result.SchemaJson,
                 FetchedEntries = result.FetchedEntries,
-                AnalysisResponse = result.AnalysisResponse,
-                SavedArtifactsDirectory = result.SavedArtifactsDirectory
+                AnalysisResponse = result.AnalysisResponse
             });
         }
         catch (InvalidOperationException exception)
@@ -637,6 +875,129 @@ public sealed class DeckController : Controller
                 ErrorMessage = exception.StatusCode == HttpStatusCode.TooManyRequests
                     ? "EDH Top 16 is rate-limiting requests right now. Try again shortly."
                     : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-cedh-meta-gap/download")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChatGptCedhMetaGapDownload(ChatGptCedhMetaGapRequest request)
+    {
+        request ??= new ChatGptCedhMetaGapRequest();
+        if (!ModelState.IsValid)
+        {
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ErrorMessage = "The cEDH meta-gap form contains invalid values. Review the highlighted fields and try again."
+            });
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.DeckSource)
+                && !string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
+            {
+                var fallbackFileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(request.CommanderName);
+                var fallbackBytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+                    request,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty);
+                return File(fallbackBytes, "application/zip", fallbackFileName);
+            }
+
+            var result = await _chatGptCedhMetaGapService.BuildAsync(request, HttpContext.RequestAborted);
+            var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+                request,
+                result.InputSummary ?? string.Empty,
+                result.PromptText ?? string.Empty,
+                result.SchemaJson ?? string.Empty);
+            var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName);
+            return File(bytes, "application/zip", fileName);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "cEDH meta-gap download failed validation.");
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "cEDH meta-gap download hit an upstream dependency.");
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ErrorMessage = exception.StatusCode == HttpStatusCode.TooManyRequests
+                    ? "EDH Top 16 is rate-limiting requests right now. Try again shortly."
+                    : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-cedh-meta-gap/upload")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public IActionResult ChatGptCedhMetaGapUpload(IFormFile zipFile)
+    {
+        if (zipFile is null || zipFile.Length == 0)
+        {
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = new ChatGptCedhMetaGapRequest(),
+                ErrorMessage = "Choose a .zip file produced by Download to import."
+            });
+        }
+
+        if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = new ChatGptCedhMetaGapRequest(),
+                ErrorMessage = "Only .zip files produced by Download are accepted."
+            });
+        }
+
+        var request = new ChatGptCedhMetaGapRequest();
+        try
+        {
+            using var stream = zipFile.OpenReadStream();
+            ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
+            var analysisResponse = ChatGptCedhMetaGapService.ParseResponse(request.MetaGapResponseJson);
+            request.CommanderName = analysisResponse.MetaGap.Commander;
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ResolvedCommanderName = analysisResponse.MetaGap.Commander,
+                AnalysisResponse = analysisResponse
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "cEDH meta-gap upload failed validation.");
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = new ChatGptCedhMetaGapRequest(),
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (InvalidDataException)
+        {
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = new ChatGptCedhMetaGapRequest(),
+                ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
         }
     }

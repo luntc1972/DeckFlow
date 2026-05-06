@@ -157,13 +157,6 @@ Deck B ([DECK B NAME]):
     Follow the steps in order: enter both decks, generate the comparison packet, paste <code>30-comparison-prompt.txt</code> into ChatGPT, then paste the returned <code>deck_comparison</code> JSON into Step 3.
 </div>
 
-@if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
-{
-    <div class="info-banner">
-        Saved comparison artifacts to <code>@Model.SavedArtifactsDirectory</code>.
-    </div>
-}
-
 @if (!string.IsNullOrWhiteSpace(Model.TimingSummary))
 {
     <details class="timing-summary">
@@ -177,6 +170,26 @@ Deck B ([DECK B NAME]):
 <form method="post" class="deck-form" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-comparison-workflow-step />
+    <details class="chatgpt-resume" data-chatgpt-resume>
+        <summary>Resume from a saved session (.zip)</summary>
+        <p class="sync-column__hint">
+            Choose a <code>.zip</code> file you previously downloaded from Step 3.
+            This rehydrates the response JSON and jumps back to the comparison results step.
+        </p>
+        <label class="field">
+            <span>Saved session file</span>
+            <input type="file" name="zipFile" accept=".zip,application/zip"
+                   data-chatgpt-zip-upload
+                   data-upload-action="@Url.Content("~/chatgpt-deck-comparison/upload")" />
+        </label>
+        <button type="submit"
+                class="run-button"
+                formaction="@Url.Content("~/chatgpt-deck-comparison/upload")"
+                formenctype="multipart/form-data"
+                formmethod="post">
+            Upload &amp; Resume
+        </button>
+    </details>
 
     @{
         var comparisonTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
@@ -518,6 +531,13 @@ Deck B ([DECK B NAME]):
         @if (Model.ComparisonResponse is not null)
         {
             <section class="result-panel nested-panel summary-panel" data-chatgpt-comparison-result-anchor>
+                <div class="toolbar chatgpt-step-actions">
+                    <button type="submit" class="run-button"
+                            formaction="@Url.Content("~/chatgpt-deck-comparison/download")"
+                            formmethod="post">
+                        Download comparison session (.zip)
+                    </button>
+                </div>
                 <h3>Comparison Summary</h3>
                 <div class="stack">
                     <div class="sync-columns">

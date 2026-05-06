@@ -8,8 +8,6 @@ public sealed class ChatGptCedhMetaGapRequest
 
     public int WorkflowStep { get; set; } = 1;
 
-    public bool SaveArtifactsToDisk { get; set; }
-
     public string CommanderName
     {
         get => _commanderName;

@@ -12,8 +12,6 @@ public sealed class ChatGptDeckComparisonRequest
 
     public int WorkflowStep { get; set; } = 1;
 
-    public bool SaveArtifactsToDisk { get; set; }
-
     public string DeckASource
     {
         get => _deckASource;

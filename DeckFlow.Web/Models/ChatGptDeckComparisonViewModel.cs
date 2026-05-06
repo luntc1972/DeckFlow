@@ -28,7 +28,5 @@ public sealed class ChatGptDeckComparisonViewModel
 
     public ChatGptDeckComparisonResponse? ComparisonResponse { get; init; }
 
-    public string? SavedArtifactsDirectory { get; init; }
-
     public string? TimingSummary { get; init; }
 }

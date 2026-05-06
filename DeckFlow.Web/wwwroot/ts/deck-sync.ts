@@ -1562,13 +1562,6 @@ const clearChatGptPacketsState = (form: HTMLFormElement): void => {
 };
 
 const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string | null => {
-  const importArtifactsPath = form.querySelector<HTMLInputElement>('input[name="ImportArtifactsPath"]')?.value.trim() ?? '';
-  if (importArtifactsPath) {
-    // When importing a saved artifacts folder, the server rehydrates DeckProfileJson / SetUpgradeResponseJson —
-    // skip client-side field validation and let the import path run.
-    return null;
-  }
-
   const deckInputSource = form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')?.value ?? DeckInputSource.PasteText;
   const deckSource = deckInputSource === DeckInputSource.PublicUrl
     ? form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')?.value.trim() ?? ''
@@ -2351,6 +2344,21 @@ const attachChatGptCedhWorkflow = (): void => {
   });
 };
 
+const wireChatGptZipUpload = (): void => {
+  document.querySelectorAll<HTMLInputElement>('[data-chatgpt-zip-upload]').forEach(input => {
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      const wrapper = input.closest('details');
+      const submit = wrapper?.querySelector<HTMLButtonElement>('button[formaction$="/upload"]');
+      submit?.click();
+    });
+  });
+};
+
 interface Window {
   setAllPrintingChoices?: (value: string) => void;
   hideBusyIndicator?: () => void;
@@ -2375,63 +2383,10 @@ const bootstrapDeckSync = (): void => {
   attachChatGptPacketsWorkflow();
   attachChatGptComparisonWorkflow();
   attachChatGptCedhWorkflow();
+  wireChatGptZipUpload();
   attachMoxfieldExtensionImport();
   loadSetOptionsAsync();
-  loadSavedSessionsAsync();
   attachConvertForm();
-};
-
-interface SavedSession {
-  relativePath: string;
-  commander: string;
-  timestamp: string;
-  createdUtc: string;
-}
-
-const loadSavedSessionsAsync = (): void => {
-  const panel = document.querySelector<HTMLElement>('[data-saved-sessions-url]');
-  const select = document.querySelector<HTMLSelectElement>('[data-saved-sessions-select]');
-  const pathInput = document.querySelector<HTMLInputElement>('[data-chatgpt-import-path]');
-  if (!panel || !select || !pathInput) return;
-
-  const url = panel.dataset.savedSessionsUrl;
-  if (!url) return;
-
-  fetch(url)
-    .then(response => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json() as Promise<SavedSession[]>;
-    })
-    .then(sessions => {
-      select.innerHTML = '';
-      const blankOption = document.createElement('option');
-      blankOption.value = '';
-      blankOption.textContent = sessions.length === 0 ? 'No saved sessions' : '— Pick a saved session —';
-      select.appendChild(blankOption);
-
-      for (const session of sessions) {
-        const option = document.createElement('option');
-        option.value = session.relativePath;
-        const created = new Date(session.createdUtc);
-        option.textContent = `${session.commander} · ${session.timestamp}  (${created.toLocaleString()})`;
-        select.appendChild(option);
-      }
-
-      deckFlowWindow.DeckFlow?.refreshDfSelect?.(select);
-
-      if (sessions.length === 0) {
-        document.querySelector<HTMLElement>('[data-saved-sessions-empty]')?.removeAttribute('hidden');
-      }
-    })
-    .catch(() => {
-      select.innerHTML = '<option value="">Could not load saved sessions</option>';
-    });
-
-  select.addEventListener('change', () => {
-    if (select.value) {
-      pathInput.value = select.value;
-    }
-  });
 };
 
 const attachConvertForm = (): void => {

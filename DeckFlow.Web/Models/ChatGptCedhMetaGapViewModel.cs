@@ -19,6 +19,4 @@ public sealed class ChatGptCedhMetaGapViewModel
     public IReadOnlyList<EdhTop16Entry> FetchedEntries { get; init; } = Array.Empty<EdhTop16Entry>();
 
     public ChatGptCedhMetaGapResponse? AnalysisResponse { get; init; }
-
-    public string? SavedArtifactsDirectory { get; init; }
 }

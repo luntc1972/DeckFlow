@@ -3,7 +3,6 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using RestSharp;
@@ -109,8 +108,7 @@ internal static class TestServiceFactory
         ILogger<ChatGptDeckPacketService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
-        string? chatGptArtifactsPath = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
@@ -123,7 +121,6 @@ internal static class TestServiceFactory
             scryfallSetService,
             commanderSpellbookService,
             logger,
-            chatGptArtifactsPath,
             null,
             executeCollectionAsync,
             executeSearchAsync,
@@ -135,11 +132,9 @@ internal static class TestServiceFactory
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         ICommanderSpellbookService commanderSpellbookService,
-        IWebHostEnvironment environment,
         ILogger<ChatGptDeckComparisonService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        string? artifactsPath = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
@@ -148,9 +143,7 @@ internal static class TestServiceFactory
             moxfieldParser,
             archidektParser,
             commanderSpellbookService,
-            environment,
             logger,
-            artifactsPath,
             null,
             executeCollectionAsync,
             executeSearchAsync);
