@@ -173,6 +173,8 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 schemaJson);
         }
 
+        // Server-side artifact save disabled — pending local download/upload restructure.
+        request.SaveArtifactsToDisk = false;
         string? savedArtifactsDirectory = null;
         if (request.SaveArtifactsToDisk && (!string.IsNullOrWhiteSpace(promptText) || analysisResponse is not null))
         {

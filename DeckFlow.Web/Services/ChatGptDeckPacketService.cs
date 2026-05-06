@@ -154,12 +154,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var overallStopwatch = Stopwatch.StartNew();
         var timings = new List<(string Label, long Ms, string? Detail)>();
 
-        if (!string.IsNullOrWhiteSpace(request.ImportArtifactsPath))
-        {
-            _artifactStore.LoadInto(request);
-            // Do not re-import on downstream branches (e.g., artifact save) that read the request again.
-            request.ImportArtifactsPath = string.Empty;
-        }
+        // Server-side artifact import disabled — pending local download/upload restructure.
+        // SaveArtifactsToDisk is force-cleared so no new artifacts land on the shared persistent disk.
+        request.ImportArtifactsPath = string.Empty;
+        request.SaveArtifactsToDisk = false;
 
         if (request.WorkflowStep == 3
             && string.IsNullOrWhiteSpace(request.DeckSource)
