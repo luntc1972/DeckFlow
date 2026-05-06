@@ -176,6 +176,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             comparisonResponse = ParseComparisonResponse(request.ComparisonResponseJson);
         }
 
+        // Server-side artifact save disabled — pending local download/upload restructure.
+        request.SaveArtifactsToDisk = false;
         string? savedArtifactsDirectory = null;
         if (request.SaveArtifactsToDisk)
         {

@@ -194,18 +194,12 @@ public sealed class DeckController : Controller
 
     [HttpGet("/api/saved-sessions")]
     /// <summary>
-    /// Returns ChatGPT Analysis artifact folders that can be imported. Newest first.
+    /// Disabled: server-side artifact enumeration was removed to prevent cross-user data exposure.
+    /// Restructure to local download/upload is pending.
     /// </summary>
     public IActionResult GetSavedSessions()
     {
-        var sessions = _chatGptArtifactsDirectory.EnumerateSessions();
-        return Json(sessions.Select(s => new
-        {
-            relativePath = s.RelativePath,
-            commander = s.Commander,
-            timestamp = s.Timestamp,
-            createdUtc = s.CreatedUtc
-        }));
+        return Json(Array.Empty<object>());
     }
 
     [HttpGet("/convert")]
