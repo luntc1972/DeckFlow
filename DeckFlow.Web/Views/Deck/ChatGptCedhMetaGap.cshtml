@@ -34,18 +34,31 @@
     Step 1 fetches EDH Top 16 reference decks, Step 2 generates the ChatGPT prompt from 1 to 3 selected lists, and Step 3 renders the returned <code>meta_gap</code> JSON.
 </div>
 
-@if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
-{
-    <div class="info-banner">
-        Saved cEDH meta-gap artifacts to <code>@Model.SavedArtifactsDirectory</code>.
-    </div>
-}
-
 <div class="error-banner hidden" data-chatgpt-cedh-validation-error role="alert"></div>
 
 <form method="post" class="deck-form" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
+    <details class="chatgpt-resume" data-chatgpt-resume>
+        <summary>Resume from a saved session (.zip)</summary>
+        <p class="sync-column__hint">
+            Choose a <code>.zip</code> file you previously downloaded from Step 3.
+            This rehydrates the response JSON and jumps back to the meta-gap results step.
+        </p>
+        <label class="field">
+            <span>Saved session file</span>
+            <input type="file" name="zipFile" accept=".zip,application/zip"
+                   data-chatgpt-zip-upload
+                   data-upload-action="@Url.Content("~/chatgpt-cedh-meta-gap/upload")" />
+        </label>
+        <button type="submit"
+                class="run-button"
+                formaction="@Url.Content("~/chatgpt-cedh-meta-gap/upload")"
+                formenctype="multipart/form-data"
+                formmethod="post">
+            Upload &amp; Resume
+        </button>
+    </details>
 
     @{
         var cedhTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
@@ -320,6 +333,13 @@
         {
             var analysis = Model.AnalysisResponse.MetaGap;
             <section class="result-panel nested-panel summary-panel" data-chatgpt-cedh-result-anchor>
+                <div class="toolbar chatgpt-step-actions">
+                    <button type="submit" class="run-button"
+                            formaction="@Url.Content("~/chatgpt-cedh-meta-gap/download")"
+                            formmethod="post">
+                        Download meta-gap session (.zip)
+                    </button>
+                </div>
                 <h3>Meta Gap Analysis</h3>
                 <div class="stack">
                     <section class="result-panel nested-panel">

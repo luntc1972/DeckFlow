@@ -6,7 +6,6 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using DeckFlow.Web.Services.Http;
 using Polly;
@@ -32,7 +31,6 @@ public sealed record ChatGptDeckComparisonResult(
     string FollowUpPromptText,
     string ComparisonSchemaJson,
     ChatGptDeckComparisonResponse? ComparisonResponse,
-    string? SavedArtifactsDirectory,
     string? TimingSummary);
 
 public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
@@ -46,7 +44,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
-    private readonly string _artifactsPath;
     private readonly ILogger<ChatGptDeckComparisonService> _logger;
 
     internal ChatGptDeckComparisonService(
@@ -57,9 +54,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         ICommanderSpellbookService commanderSpellbookService,
-        IWebHostEnvironment environment,
         ILogger<ChatGptDeckComparisonService>? logger = null,
-        string? artifactsPath = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
@@ -71,7 +66,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         ArgumentNullException.ThrowIfNull(moxfieldParser);
         ArgumentNullException.ThrowIfNull(archidektParser);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
-        ArgumentNullException.ThrowIfNull(environment);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
@@ -79,13 +73,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         _archidektParser = archidektParser;
         _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<ChatGptDeckComparisonService>.Instance;
-        _artifactsPath = string.IsNullOrWhiteSpace(artifactsPath)
-            ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "DeckFlow",
-                "ChatGPT Deck Comparison")
-            : Path.GetFullPath(artifactsPath);
-
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
@@ -176,27 +163,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             comparisonResponse = ParseComparisonResponse(request.ComparisonResponseJson);
         }
 
-        // Server-side artifact save disabled — pending local download/upload restructure.
-        request.SaveArtifactsToDisk = false;
-        string? savedArtifactsDirectory = null;
-        if (request.SaveArtifactsToDisk)
-        {
-            var artifactStopwatch = Stopwatch.StartNew();
-            savedArtifactsDirectory = await SaveArtifactsAsync(
-                request,
-                deckASummary,
-                deckBSummary,
-                inputSummary,
-                deckAListText,
-                deckBListText,
-                comparisonContextText,
-                comparisonPromptText,
-                followUpPromptText,
-                comparisonSchemaJson,
-                cancellationToken).ConfigureAwait(false);
-            timings.Add(("Artifact save", artifactStopwatch.ElapsedMilliseconds, null));
-        }
-
         var timingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
 
         return new ChatGptDeckComparisonResult(
@@ -210,7 +176,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             followUpPromptText,
             comparisonSchemaJson,
             comparisonResponse,
-            savedArtifactsDirectory,
             timingSummary);
     }
 
@@ -816,7 +781,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         });
     }
 
-    private static ChatGptDeckComparisonResponse ParseComparisonResponse(string input)
+    internal static ChatGptDeckComparisonResponse ParseComparisonResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
@@ -844,51 +809,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         }
 
         return result;
-    }
-
-    private async Task<string> SaveArtifactsAsync(
-        ChatGptDeckComparisonRequest request,
-        DeckComparisonDeckSummary deckA,
-        DeckComparisonDeckSummary deckB,
-        string inputSummary,
-        string deckAListText,
-        string deckBListText,
-        string comparisonContextText,
-        string comparisonPromptText,
-        string followUpPromptText,
-        string comparisonSchemaJson,
-        CancellationToken cancellationToken)
-    {
-        var timestampSegment = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var outputDirectory = Path.Combine(
-            _artifactsPath,
-            CreateSafePathSegment($"{deckA.Name}-vs-{deckB.Name}", "deck-comparison"),
-            timestampSegment);
-        Directory.CreateDirectory(outputDirectory);
-
-        var files = new (string FileName, string? Content)[]
-        {
-            ("00-comparison-input-summary.txt", inputSummary),
-            ("10-deck-a-list.txt", deckAListText),
-            ("11-deck-b-list.txt", deckBListText),
-            ("12-deck-a-combos.txt", BuildComboArtifactText(deckA)),
-            ("13-deck-b-combos.txt", BuildComboArtifactText(deckB)),
-            ("20-comparison-context.txt", comparisonContextText),
-            ("30-comparison-prompt.txt", comparisonPromptText),
-            ("31-comparison-schema.json", comparisonSchemaJson),
-            ("32-comparison-follow-up-prompt.txt", followUpPromptText),
-            ("40-deck-comparison-response.json", string.IsNullOrWhiteSpace(request.ComparisonResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.ComparisonResponseJson))
-        };
-
-        foreach (var file in files.Where(file => !string.IsNullOrWhiteSpace(file.Content)))
-        {
-            await File.WriteAllTextAsync(
-                Path.Combine(outputDirectory, file.FileName),
-                file.Content!.Trim() + Environment.NewLine,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        return outputDirectory;
     }
 
     private static string BuildTimingSummary(IReadOnlyList<(string Label, long Ms, string? Detail)> timings, long totalMs)
@@ -1119,14 +1039,6 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 
             yield return chunk;
         }
-    }
-
-    private static string CreateSafePathSegment(string value, string fallback)
-    {
-        var candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = new string(candidate.Select(character => invalidChars.Contains(character) ? '-' : character).ToArray());
-        return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized.Replace(' ', '-').ToLowerInvariant();
     }
 
     private static string IndentJson(string json, int indentSize)

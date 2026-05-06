@@ -24,8 +24,7 @@ public sealed record ChatGptCedhMetaGapResult(
     IReadOnlyList<EdhTop16Entry> FetchedEntries,
     string? PromptText,
     string? SchemaJson,
-    ChatGptCedhMetaGapResponse? AnalysisResponse,
-    string? SavedArtifactsDirectory);
+    ChatGptCedhMetaGapResponse? AnalysisResponse);
 
 public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 {
@@ -45,7 +44,6 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
-    private readonly string _artifactsPath;
 
     internal ChatGptCedhMetaGapService(
         IScryfallRestClientFactory scryfallRestClientFactory,
@@ -88,10 +86,6 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
-        _artifactsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "DeckFlow",
-            "ChatGPT cEDH Meta Gap");
     }
 
     public async Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default)
@@ -104,7 +98,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             analysisResponse = ParseResponse(request.MetaGapResponseJson);
             if (string.IsNullOrWhiteSpace(request.DeckSource) && string.IsNullOrWhiteSpace(request.CommanderName))
             {
-                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse, null);
+                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse);
             }
         }
 
@@ -173,28 +167,13 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 schemaJson);
         }
 
-        // Server-side artifact save disabled — pending local download/upload restructure.
-        request.SaveArtifactsToDisk = false;
-        string? savedArtifactsDirectory = null;
-        if (request.SaveArtifactsToDisk && (!string.IsNullOrWhiteSpace(promptText) || analysisResponse is not null))
-        {
-            savedArtifactsDirectory = await SaveArtifactsAsync(
-                resolvedCommanderName,
-                inputSummary,
-                promptText,
-                schemaJson,
-                request.MetaGapResponseJson,
-                cancellationToken).ConfigureAwait(false);
-        }
-
         return new ChatGptCedhMetaGapResult(
             inputSummary,
             resolvedCommanderName,
             fetchedEntries,
             promptText,
             schemaJson,
-            analysisResponse,
-            savedArtifactsDirectory);
+            analysisResponse);
     }
 
     private static IReadOnlyList<EdhTop16Entry> ResolveSelectedEntries(IReadOnlyList<int> selectedIndexes, IReadOnlyList<EdhTop16Entry> fetchedEntries)
@@ -799,7 +778,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return JsonSerializer.Serialize(payload);
     }
 
-    private static ChatGptCedhMetaGapResponse ParseResponse(string input)
+    internal static ChatGptCedhMetaGapResponse ParseResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
@@ -824,51 +803,6 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         }
 
         return result;
-    }
-
-    private async Task<string> SaveArtifactsAsync(
-        string commanderName,
-        string inputSummary,
-        string? promptText,
-        string schemaJson,
-        string? responseJson,
-        CancellationToken cancellationToken)
-    {
-        var outputDirectory = Path.Combine(
-            _artifactsPath,
-            CreateSafePathSegment(commanderName, "cedh-meta-gap"),
-            DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"));
-        Directory.CreateDirectory(outputDirectory);
-
-        var files = new (string FileName, string? Content)[]
-        {
-            ("00-input-summary.txt", inputSummary),
-            ("30-meta-gap-prompt.txt", promptText),
-            ("31-meta-gap-schema.json", schemaJson),
-            ("40-meta-gap-response.json", string.IsNullOrWhiteSpace(responseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(responseJson))
-        };
-
-        foreach (var file in files.Where(file => !string.IsNullOrWhiteSpace(file.Content)))
-        {
-            await File.WriteAllTextAsync(
-                Path.Combine(outputDirectory, file.FileName),
-                file.Content!.Trim() + Environment.NewLine,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        return outputDirectory;
-    }
-
-    private static string CreateSafePathSegment(string value, string fallback)
-    {
-        var invalidCharacters = Path.GetInvalidFileNameChars();
-        var sanitized = new string(value
-            .Trim()
-            .Select(ch => invalidCharacters.Contains(ch) ? '-' : ch)
-            .ToArray())
-            .Trim();
-
-        return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized;
     }
 
     private sealed record LoadedDeck(IReadOnlyList<DeckEntry> PlayableEntries, string CommanderName);

@@ -29,7 +29,7 @@ public interface IChatGptDeckPacketService
 }
 
 /// <summary>
-/// Contains the generated packet outputs and saved-artifact location for a workflow run.
+/// Contains the generated packet outputs for a workflow run.
 /// </summary>
 public sealed record ChatGptDeckPacketResult(
     string InputSummary,
@@ -38,7 +38,7 @@ public sealed record ChatGptDeckPacketResult(
     string? ReferenceText,
     string? AnalysisPromptText,
     string? SetUpgradePromptText,
-    string? SavedArtifactsDirectory,
+    string? RequestContextText,
     string? TimingSummary,
     ChatGptDeckAnalysisResponse? AnalysisResponse = null,
     ChatGptSetUpgradeResponse? SetUpgradeResponse = null,
@@ -63,7 +63,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
-    private readonly ChatGptPacketArtifactStore _artifactStore;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
@@ -81,7 +80,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         IScryfallSetService scryfallSetService,
         ICommanderSpellbookService commanderSpellbookService,
         ILogger<ChatGptDeckPacketService>? logger = null,
-        string? chatGptArtifactsPath = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
@@ -107,7 +105,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         _scryfallSetService = scryfallSetService;
         _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<ChatGptDeckPacketService>.Instance;
-        _artifactStore = new ChatGptPacketArtifactStore(ResolveChatGptArtifactsPath(chatGptArtifactsPath));
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride
             ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
@@ -123,26 +120,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 token).AsTask(), cancellationToken));
     }
 
-    private static string ResolveChatGptArtifactsPath(string? explicitPath)
-    {
-        if (!string.IsNullOrWhiteSpace(explicitPath))
-        {
-            return Path.GetFullPath(explicitPath);
-        }
-
-        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
-        if (!string.IsNullOrWhiteSpace(dataDir))
-        {
-            return Path.Combine(Path.GetFullPath(dataDir), "ChatGPT Analysis");
-        }
-
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "DeckFlow",
-            "ChatGPT Analysis");
-    }
-
-
     /// <summary>
     /// Builds the requested prompt outputs for the current workflow state.
     /// </summary>
@@ -154,11 +131,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var overallStopwatch = Stopwatch.StartNew();
         var timings = new List<(string Label, long Ms, string? Detail)>();
 
-        // Server-side artifact import disabled — pending local download/upload restructure.
-        // SaveArtifactsToDisk is force-cleared so no new artifacts land on the shared persistent disk.
-        request.ImportArtifactsPath = string.Empty;
-        request.SaveArtifactsToDisk = false;
-
         if (request.WorkflowStep == 3
             && string.IsNullOrWhiteSpace(request.DeckSource)
             && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
@@ -168,19 +140,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander) ? null : savedAnalysisResponse.Commander,
                 string.IsNullOrWhiteSpace(savedAnalysisResponse.Format) ? request.Format : savedAnalysisResponse.Format,
                 savedAnalysisResponse.DeckVersions.Count > 0);
-            string? savedArtifactsDirectoryForStep3 = null;
-            if (request.SaveArtifactsToDisk)
-            {
-                savedArtifactsDirectoryForStep3 = await SaveArtifactsAsync(
-                    request,
-                    string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander) ? null : savedAnalysisResponse.Commander,
-                    BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
-                    referenceText: null,
-                    analysisPromptText: null,
-                    savedDeckProfileSchemaJson,
-                    setUpgradePromptText: null,
-                    cancellationToken).ConfigureAwait(false);
-            }
             var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
             return new ChatGptDeckPacketResult(
                 InputSummary: BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
@@ -189,7 +148,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 ReferenceText: null,
                 AnalysisPromptText: null,
                 SetUpgradePromptText: null,
-                SavedArtifactsDirectory: savedArtifactsDirectoryForStep3,
+                RequestContextText: null,
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse);
         }
@@ -212,19 +171,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             var step5InputSummary = savedAnalysisResponse is null
                 ? string.Empty
                 : BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse);
-            string? savedArtifactsDirectoryForStep5 = null;
-            if (request.SaveArtifactsToDisk)
-            {
-                savedArtifactsDirectoryForStep5 = await SaveArtifactsAsync(
-                    request,
-                    step5Commander,
-                    step5InputSummary,
-                    referenceText: null,
-                    analysisPromptText: null,
-                    step5DeckProfileSchemaJson,
-                    setUpgradePromptText: null,
-                    cancellationToken).ConfigureAwait(false);
-            }
             var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
             return new ChatGptDeckPacketResult(
                 InputSummary: step5InputSummary,
@@ -233,7 +179,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 ReferenceText: null,
                 AnalysisPromptText: null,
                 SetUpgradePromptText: null,
-                SavedArtifactsDirectory: savedArtifactsDirectoryForStep5,
+                RequestContextText: null,
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse,
                 SetUpgradeResponse: savedSetUpgradeResponse);
@@ -356,11 +302,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var decklistText = BuildDecklistText(deckEntries, possibleIncludeEntries);
         var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(request.SelectedAnalysisQuestions);
         var deckProfileSchemaJson = BuildDeckProfileSchemaJson(commanderName, request.Format, requiresFullDecklists);
+        var requestContextText = BuildRequestContextText(request, commanderName);
 
         string? referenceText = null;
         string? analysisPromptText = null;
         string? setUpgradePromptText = null;
-        string? savedArtifactsDirectory = null;
         ChatGptDeckAnalysisResponse? analysisResponse = null;
         ChatGptSetUpgradeResponse? setUpgradeResponse = null;
 
@@ -494,22 +440,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             }
         }
 
-        if (request.SaveArtifactsToDisk)
-        {
-            var saveArtifactsStopwatch = Stopwatch.StartNew();
-            savedArtifactsDirectory = await SaveArtifactsAsync(
-                request,
-                commanderName,
-                inputSummary,
-                referenceText,
-                analysisPromptText,
-                deckProfileSchemaJson,
-                setUpgradePromptText,
-                cancellationToken).ConfigureAwait(false);
-            timings.Add(("Artifact save", saveArtifactsStopwatch.ElapsedMilliseconds, null));
-            _logger.LogInformation("ChatGPT packet artifact save completed in {ElapsedMs}ms.", saveArtifactsStopwatch.ElapsedMilliseconds);
-        }
-
         _logger.LogInformation(
             "ChatGPT packet build completed in {ElapsedMs}ms. AnalysisGenerated={AnalysisGenerated} SetPacketGenerated={SetPacketGenerated}.",
             overallStopwatch.ElapsedMilliseconds,
@@ -527,7 +457,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             referenceText,
             analysisPromptText,
             setUpgradePromptText,
-            savedArtifactsDirectory,
+            requestContextText,
             timingSummary,
             analysisResponse,
             setUpgradeResponse,
@@ -1718,31 +1648,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return trimmed.Trim();
     }
 
-    private Task<string> SaveArtifactsAsync(
-        ChatGptDeckRequest request,
-        string? commanderName,
-        string inputSummary,
-        string? referenceText,
-        string? analysisPromptText,
-        string deckProfileSchemaJson,
-        string? setUpgradePromptText,
-        CancellationToken cancellationToken)
-        => _artifactStore.SaveAsync(
-            request,
-            commanderName,
-            inputSummary,
-            requestContextText: BuildRequestContextText(request, commanderName),
-            referenceText,
-            analysisPromptText,
-            deckProfileSchemaJson,
-            setUpgradePromptText,
-            cancellationToken);
-
-    private static string BuildRequestContextText(ChatGptDeckRequest request, string? commanderName)
+    internal static string BuildRequestContextText(ChatGptDeckRequest request, string? commanderName)
     {
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"save_artifacts_to_disk: {request.SaveArtifactsToDisk}");
         builder.AppendLine($"format: {NormalizeSingleLine(request.Format, "Commander")}");
         builder.AppendLine($"deck_name: {NormalizeSingleLine(request.DeckName, string.Empty)}");
         builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");

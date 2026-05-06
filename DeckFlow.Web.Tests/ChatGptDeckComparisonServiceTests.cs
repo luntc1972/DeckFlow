@@ -1,7 +1,4 @@
-using System.IO;
 using System.Net;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.FileProviders;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
@@ -14,54 +11,6 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class ChatGptDeckComparisonServiceTests
 {
-    [Fact]
-    public async Task BuildAsync_ParsesBothDecksAndGeneratesArtifacts()
-    {
-        var rootPath = Path.Combine(Path.GetTempPath(), "DeckFlowComparisonTests", Guid.NewGuid().ToString("N"));
-        var service = CreateService(rootPath);
-
-        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
-        {
-            WorkflowStep = 2,
-            SaveArtifactsToDisk = true,
-            DeckAName = "Atraxa Blink",
-            DeckABracket = "Upgraded",
-            DeckASource = """
-Commander
-1 Atraxa, Praetors' Voice
-
-Deck
-1 Sol Ring
-1 Arcane Signet
-1 Smothering Tithe
-1 Cultivate
-""",
-            DeckBName = "Tymna Thrasios Midrange",
-            DeckBBracket = "Optimized",
-            DeckBSource = """
-Commander
-1 Tymna the Weaver
-1 Thrasios, Triton Hero
-
-Deck
-1 Sol Ring
-1 Arcane Signet
-1 Counterspell
-1 Wrath of God
-"""
-        });
-
-        Assert.Contains("Atraxa Blink", result.InputSummary);
-        Assert.Contains("Tymna Thrasios Midrange", result.InputSummary);
-        Assert.NotNull(result.SavedArtifactsDirectory);
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "00-comparison-input-summary.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "10-deck-a-list.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "11-deck-b-list.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "20-comparison-context.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "30-comparison-prompt.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "32-comparison-follow-up-prompt.txt")));
-    }
-
     [Fact]
     public async Task BuildAsync_PromptUsesInstructionFirstEvidenceBasedFormat()
     {
@@ -305,23 +254,17 @@ Deck
     }
 
     private static ChatGptDeckComparisonService CreateService(
-        string? rootPath = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
     {
-        var contentRootPath = rootPath ?? Path.Combine(Path.GetTempPath(), "DeckFlowComparisonTests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(contentRootPath);
-
         return TestServiceFactory.CreateChatGptDeckComparisonService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
             new MoxfieldParser(),
             new ArchidektParser(),
             new FakeCommanderSpellbookService(),
-            new FakeWebHostEnvironment(contentRootPath),
             executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
-            executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
-            artifactsPath: contentRootPath);
+            executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))));
     }
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(RestRequest request)
@@ -425,16 +368,6 @@ Deck
     {
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => Task.FromResult(new List<DeckEntry>());
-    }
-
-    private sealed class FakeWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
-    {
-        public string ApplicationName { get; set; } = "DeckFlow.Tests";
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string WebRootPath { get; set; } = contentRootPath;
-        public string EnvironmentName { get; set; } = "Development";
-        public string ContentRootPath { get; set; } = contentRootPath;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     private sealed class FakeCommanderSpellbookService : ICommanderSpellbookService

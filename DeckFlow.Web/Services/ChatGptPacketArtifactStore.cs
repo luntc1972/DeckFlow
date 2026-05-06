@@ -1,24 +1,55 @@
+using System.IO.Compression;
 using System.Text;
 using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Writes ChatGPT analysis artifacts to disk under a timestamped folder, and reads them back
-/// for the Import saved session workflow. Pure filesystem I/O, no prompt building.
+/// Builds a single in-memory .zip of every ChatGPT analysis artifact for the current request,
+/// and rehydrates a saved zip back into a request. Pure CPU work, no filesystem access.
 /// </summary>
-internal sealed class ChatGptPacketArtifactStore
+internal static class ChatGptPacketArtifactStore
 {
-    private readonly string _rootPath;
+    private const int MaxEntryUncompressedBytes = 2 * 1024 * 1024;
+    private const int MaxTotalUncompressedBytes = 10 * 1024 * 1024;
 
-    public ChatGptPacketArtifactStore(string rootPath)
+    private static readonly HashSet<string> PacketAllowedNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        _rootPath = Path.GetFullPath(rootPath);
-    }
+        "00-input-summary.txt",
+        "01-request-context.txt",
+        "30-reference.txt",
+        "31-analysis-prompt.txt",
+        "40-deck-profile.json",
+        "41-deck-profile-schema.json",
+        "50-set-upgrade-prompt.txt",
+        "51-set-upgrade-response.json",
+        "all-prompts.txt",
+        "all-responses.txt"
+    };
 
-    public string RootPath => _rootPath;
+    private static readonly HashSet<string> ComparisonAllowedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "00-comparison-input-summary.txt",
+        "10-deck-a-list.txt",
+        "11-deck-b-list.txt",
+        "12-deck-a-combos.txt",
+        "13-deck-b-combos.txt",
+        "20-comparison-context.txt",
+        "30-comparison-prompt.txt",
+        "31-comparison-schema.json",
+        "32-comparison-follow-up-prompt.txt",
+        "40-deck-comparison-response.json"
+    };
 
-    public async Task<string> SaveAsync(
+    private static readonly HashSet<string> CedhAllowedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "00-input-summary.txt",
+        "30-meta-gap-prompt.txt",
+        "31-meta-gap-schema.json",
+        "40-meta-gap-response.json"
+    };
+
+    public static byte[] BuildZip(
         ChatGptDeckRequest request,
         string? commanderName,
         string inputSummary,
@@ -26,122 +57,240 @@ internal sealed class ChatGptPacketArtifactStore
         string? referenceText,
         string? analysisPromptText,
         string deckProfileSchemaJson,
-        string? setUpgradePromptText,
-        CancellationToken cancellationToken)
+        string? setUpgradePromptText)
     {
-        var commanderSegment = CreateSafePathSegment(commanderName, "unknown-commander");
-        var timestampSegment = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var outputDirectory = Path.Combine(_rootPath, commanderSegment, timestampSegment);
-        Directory.CreateDirectory(outputDirectory);
+        ArgumentNullException.ThrowIfNull(request);
 
-        var promptSections = new List<(string FileName, string Label, string? Content)>
-        {
-            ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
+        var promptSections = NormalizeSections(
+        [
             ("00-input-summary.txt", "INPUT SUMMARY", inputSummary),
+            ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
             ("30-reference.txt", "REFERENCE TEXT", referenceText),
             ("31-analysis-prompt.txt", "ANALYSIS PROMPT", analysisPromptText),
             ("41-deck-profile-schema.json", "DECK PROFILE JSON SCHEMA", deckProfileSchemaJson),
             ("50-set-upgrade-prompt.txt", "SET UPGRADE PROMPT", setUpgradePromptText)
-        };
+        ]);
 
-        var responseSections = new List<(string FileName, string Label, string? Content)>
-        {
-            ("40-deck-profile.json", "DECK PROFILE JSON", request.DeckProfileJson),
-            ("51-set-upgrade-response.json", "SET UPGRADE RESPONSE JSON", request.SetUpgradeResponseJson)
-        };
+        var responseSections = NormalizeSections(
+        [
+            ("40-deck-profile.json", "DECK PROFILE JSON", string.IsNullOrWhiteSpace(request.DeckProfileJson) ? null : ExtractJsonObject(request.DeckProfileJson)),
+            ("51-set-upgrade-response.json", "SET UPGRADE RESPONSE JSON", string.IsNullOrWhiteSpace(request.SetUpgradeResponseJson) ? null : ExtractJsonObject(request.SetUpgradeResponseJson))
+        ]);
 
-        foreach (var section in promptSections.Where(s => !string.IsNullOrWhiteSpace(s.Content)))
-        {
-            await File.WriteAllTextAsync(
-                Path.Combine(outputDirectory, section.FileName),
-                section.Content!.Trim() + Environment.NewLine,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        foreach (var section in responseSections.Where(s => !string.IsNullOrWhiteSpace(s.Content)))
-        {
-            await File.WriteAllTextAsync(
-                Path.Combine(outputDirectory, section.FileName),
-                ExtractJsonObject(section.Content!).Trim() + Environment.NewLine,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        await File.WriteAllTextAsync(
-            Path.Combine(outputDirectory, "all-prompts.txt"),
-            BuildCombinedArtifactText(promptSections),
-            cancellationToken).ConfigureAwait(false);
-        await File.WriteAllTextAsync(
-            Path.Combine(outputDirectory, "all-responses.txt"),
-            BuildCombinedArtifactText(responseSections),
-            cancellationToken).ConfigureAwait(false);
-
-        return outputDirectory;
+        return BuildArchive(promptSections, responseSections);
     }
 
-    /// <summary>
-    /// Populates DeckProfileJson / SetUpgradeResponseJson on the request from files inside the
-    /// import folder. Sets WorkflowStep so the matching standalone short-circuit fires.
-    /// Throws if the folder is outside the artifacts root, missing, or contains neither JSON file.
-    /// </summary>
-    public void LoadInto(ChatGptDeckRequest request)
+    public static byte[] BuildComparisonZip(
+        ChatGptDeckComparisonRequest request,
+        string inputSummary,
+        string deckAListText,
+        string deckBListText,
+        string deckAComboText,
+        string deckBComboText,
+        string comparisonContextText,
+        string comparisonPromptText,
+        string followUpPromptText,
+        string comparisonSchemaJson)
     {
-        var path = request.ImportArtifactsPath.Trim();
-        var fullPath = Path.IsPathRooted(path)
-            ? Path.GetFullPath(path)
-            : Path.GetFullPath(Path.Combine(_rootPath, path));
+        ArgumentNullException.ThrowIfNull(request);
 
-        var isUnderRoot = fullPath.StartsWith(
-            _rootPath + Path.DirectorySeparatorChar,
-            StringComparison.OrdinalIgnoreCase)
-            || string.Equals(fullPath, _rootPath, StringComparison.OrdinalIgnoreCase);
-        if (!isUnderRoot)
+        var sections = NormalizeSections(
+        [
+            ("00-comparison-input-summary.txt", "COMPARISON INPUT SUMMARY", inputSummary),
+            ("10-deck-a-list.txt", "DECK A LIST", deckAListText),
+            ("11-deck-b-list.txt", "DECK B LIST", deckBListText),
+            ("12-deck-a-combos.txt", "DECK A COMBOS", deckAComboText),
+            ("13-deck-b-combos.txt", "DECK B COMBOS", deckBComboText),
+            ("20-comparison-context.txt", "COMPARISON CONTEXT", comparisonContextText),
+            ("30-comparison-prompt.txt", "COMPARISON PROMPT", comparisonPromptText),
+            ("31-comparison-schema.json", "COMPARISON SCHEMA JSON", comparisonSchemaJson),
+            ("32-comparison-follow-up-prompt.txt", "COMPARISON FOLLOW-UP PROMPT", followUpPromptText),
+            ("40-deck-comparison-response.json", "DECK COMPARISON RESPONSE JSON", string.IsNullOrWhiteSpace(request.ComparisonResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.ComparisonResponseJson))
+        ]);
+
+        return BuildArchive(sections);
+    }
+
+    public static byte[] BuildCedhMetaGapZip(
+        ChatGptCedhMetaGapRequest request,
+        string inputSummary,
+        string promptText,
+        string schemaJson)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var sections = NormalizeSections(
+        [
+            ("00-input-summary.txt", "INPUT SUMMARY", inputSummary),
+            ("30-meta-gap-prompt.txt", "META GAP PROMPT", promptText),
+            ("31-meta-gap-schema.json", "META GAP SCHEMA JSON", schemaJson),
+            ("40-meta-gap-response.json", "META GAP RESPONSE JSON", string.IsNullOrWhiteSpace(request.MetaGapResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.MetaGapResponseJson))
+        ]);
+
+        return BuildArchive(sections);
+    }
+
+    public static void LoadFromZip(Stream zipStream, ChatGptDeckRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(zipStream);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var entries = ReadEntries(zipStream, PacketAllowedNames);
+        entries.TryGetValue("40-deck-profile.json", out var deckProfile);
+        entries.TryGetValue("51-set-upgrade-response.json", out var setUpgrade);
+
+        if (string.IsNullOrWhiteSpace(deckProfile) && string.IsNullOrWhiteSpace(setUpgrade))
         {
-            throw new InvalidOperationException(
-                $"Import folder must be under the ChatGPT Analysis artifacts directory ({_rootPath}).");
+            throw new InvalidOperationException("Imported zip did not contain 40-deck-profile.json or 51-set-upgrade-response.json.");
         }
 
-        if (!Directory.Exists(fullPath))
-        {
-            throw new InvalidOperationException($"Import folder not found: {fullPath}");
-        }
-
-        var deckProfilePath = Path.Combine(fullPath, "40-deck-profile.json");
-        var setUpgradeResponsePath = Path.Combine(fullPath, "51-set-upgrade-response.json");
-
-        var loadedDeckProfile = TryLoadInto(deckProfilePath, value => request.DeckProfileJson = value);
-        var loadedSetUpgrade = TryLoadInto(setUpgradeResponsePath, value => request.SetUpgradeResponseJson = value);
-
-        if (!loadedDeckProfile && !loadedSetUpgrade)
-        {
-            throw new InvalidOperationException(
-                $"Import folder did not contain 40-deck-profile.json or 51-set-upgrade-response.json: {fullPath}");
-        }
-
+        request.DeckProfileJson = deckProfile ?? string.Empty;
+        request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
+        request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade) ? 5 : 3;
         request.DeckUrl = string.Empty;
         request.DeckText = string.Empty;
-        request.WorkflowStep = loadedSetUpgrade ? 5 : 3;
     }
 
-    private static bool TryLoadInto(string filePath, Action<string> assign)
+    public static void LoadComparisonFromZip(Stream zipStream, ChatGptDeckComparisonRequest request)
     {
-        if (!File.Exists(filePath)) return false;
-        var content = File.ReadAllText(filePath);
-        if (string.IsNullOrWhiteSpace(content)) return false;
-        assign(content);
-        return true;
+        ArgumentNullException.ThrowIfNull(zipStream);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var entries = ReadEntries(zipStream, ComparisonAllowedNames);
+        if (!entries.TryGetValue("40-deck-comparison-response.json", out var responseJson)
+            || string.IsNullOrWhiteSpace(responseJson))
+        {
+            throw new InvalidOperationException("Imported zip did not contain 40-deck-comparison-response.json.");
+        }
+
+        request.ComparisonResponseJson = responseJson;
+        request.WorkflowStep = 3;
+        request.DeckASource = string.Empty;
+        request.DeckBSource = string.Empty;
     }
 
-    private static string BuildCombinedArtifactText(IEnumerable<(string FileName, string Label, string? Content)> sections)
+    public static void LoadCedhMetaGapFromZip(Stream zipStream, ChatGptCedhMetaGapRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(zipStream);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var entries = ReadEntries(zipStream, CedhAllowedNames);
+        if (!entries.TryGetValue("40-meta-gap-response.json", out var responseJson)
+            || string.IsNullOrWhiteSpace(responseJson))
+        {
+            throw new InvalidOperationException("Imported zip did not contain 40-meta-gap-response.json.");
+        }
+
+        request.MetaGapResponseJson = responseJson;
+        request.WorkflowStep = 3;
+        request.DeckSource = string.Empty;
+        request.CommanderName = string.Empty;
+    }
+
+    public static string SuggestPacketZipFileName(string? commanderName)
+        => $"{CreateSafePathSegment(commanderName, "deckflow-packet")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+
+    public static string SuggestComparisonZipFileName(string deckAName, string deckBName)
+        => $"{CreateSafePathSegment($"{deckAName}-vs-{deckBName}", "deck-comparison")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+
+    public static string SuggestCedhMetaGapZipFileName(string commanderName)
+        => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+
+    private static byte[] BuildArchive(params IReadOnlyList<(string FileName, string Label, string Content)>[] sectionGroups)
+    {
+        using var memoryStream = new MemoryStream();
+        using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var sectionGroup in sectionGroups)
+            {
+                foreach (var section in sectionGroup)
+                {
+                    WriteEntry(archive, section.FileName, section.Content);
+                }
+            }
+
+            if (sectionGroups.Length == 2)
+            {
+                var promptText = BuildCombinedArtifactText(sectionGroups[0]);
+                if (!string.IsNullOrWhiteSpace(promptText))
+                {
+                    WriteEntry(archive, "all-prompts.txt", promptText);
+                }
+
+                var responseText = BuildCombinedArtifactText(sectionGroups[1]);
+                if (!string.IsNullOrWhiteSpace(responseText))
+                {
+                    WriteEntry(archive, "all-responses.txt", responseText);
+                }
+            }
+        }
+
+        return memoryStream.ToArray();
+    }
+
+    private static void WriteEntry(ZipArchive archive, string fileName, string content)
+    {
+        var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
+        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        writer.Write(content);
+    }
+
+    private static IReadOnlyList<(string FileName, string Label, string Content)> NormalizeSections(
+        IEnumerable<(string FileName, string Label, string? Content)> sections)
+        => sections
+            .Where(section => !string.IsNullOrWhiteSpace(section.Content))
+            .Select(section => (section.FileName, section.Label, section.Content!.Trim() + Environment.NewLine))
+            .ToList();
+
+    private static Dictionary<string, string> ReadEntries(Stream zipStream, HashSet<string> allowedNames)
+    {
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: false);
+        var entries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        long totalBytes = 0;
+
+        foreach (var entry in archive.Entries)
+        {
+            if (entry.FullName.Contains('/') || entry.FullName.Contains('\\'))
+            {
+                throw new InvalidOperationException($"Imported zip contains an invalid entry path: {entry.FullName}");
+            }
+
+            if (!allowedNames.Contains(entry.FullName))
+            {
+                throw new InvalidOperationException($"Imported zip contains an unsupported entry: {entry.FullName}");
+            }
+
+            if (entry.Length > MaxEntryUncompressedBytes)
+            {
+                throw new InvalidOperationException($"Imported zip entry exceeds the 2 MB limit: {entry.FullName}");
+            }
+
+            totalBytes += entry.Length;
+            if (totalBytes > MaxTotalUncompressedBytes)
+            {
+                throw new InvalidOperationException("Imported zip exceeds the 10 MB total uncompressed size limit.");
+            }
+
+            using var reader = new StreamReader(entry.Open(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            entries[entry.FullName] = reader.ReadToEnd();
+        }
+
+        return entries;
+    }
+
+    private static string BuildCombinedArtifactText(IEnumerable<(string FileName, string Label, string Content)> sections)
     {
         var builder = new StringBuilder();
-        foreach (var section in sections.Where(s => !string.IsNullOrWhiteSpace(s.Content)))
+        foreach (var section in sections)
         {
             builder.AppendLine($"===== {section.Label} ({section.FileName}) =====");
-            builder.AppendLine(section.Content!.Trim());
+            builder.Append(section.Content);
             builder.AppendLine();
         }
 
-        return builder.ToString().TrimEnd() + Environment.NewLine;
+        return builder.Length == 0
+            ? string.Empty
+            : builder.ToString().TrimEnd() + Environment.NewLine;
     }
 
     private static string CreateSafePathSegment(string? value, string fallback)

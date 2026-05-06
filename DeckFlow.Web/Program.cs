@@ -249,7 +249,6 @@ public partial class Program
                     sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
             builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
-            builder.Services.AddSingleton<IChatGptArtifactsDirectory, ChatGptArtifactsDirectory>();
             builder.Services.AddScoped<IChatGptDeckPacketService>(sp =>
                 new ChatGptDeckPacketService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
@@ -272,7 +271,6 @@ public partial class Program
                     sp.GetRequiredService<MoxfieldParser>(),
                     sp.GetRequiredService<ArchidektParser>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetRequiredService<IWebHostEnvironment>(),
                     sp.GetService<ILogger<ChatGptDeckComparisonService>>()));
             builder.Services.AddScoped<IChatGptCedhMetaGapService>(sp =>
                 new ChatGptCedhMetaGapService(

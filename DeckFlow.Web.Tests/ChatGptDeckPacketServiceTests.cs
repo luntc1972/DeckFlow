@@ -1264,86 +1264,6 @@ Commander
         Assert.Equal("Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.", exception.Message);
     }
 
-    [Fact]
-    public async Task BuildAsync_SavesArtifactsToDisk_WhenRequested()
-    {
-        var artifactsRoot = Path.Combine(Path.GetTempPath(), "DeckFlowTests", Guid.NewGuid().ToString("N"));
-        var service = CreateService(artifactsRoot);
-
-        var result = await service.BuildAsync(new ChatGptDeckRequest
-        {
-            WorkflowStep = 2,
-            DeckSource = """
-Commander
-1 Atraxa, Praetors' Voice
-
-1 Sol Ring
-1 Arcane Signet
-""",
-            TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["strengths-weaknesses"],
-            CardSpecificQuestionCardNames = ["Sol Ring"],
-            Format = "Commander",
-            DeckName = "Atraxa Test Deck",
-            StrategyNotes = "Play value engines and counters.",
-            MetaNotes = "Mid-power pods with removal.",
-            SaveArtifactsToDisk = true
-        });
-
-        Assert.False(string.IsNullOrWhiteSpace(result.SavedArtifactsDirectory));
-        Assert.True(Directory.Exists(result.SavedArtifactsDirectory));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "00-input-summary.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "31-analysis-prompt.txt")));
-        Assert.True(File.Exists(Path.Combine(result.SavedArtifactsDirectory!, "01-request-context.txt")));
-        var combinedPrompts = await File.ReadAllTextAsync(Path.Combine(result.SavedArtifactsDirectory!, "all-prompts.txt"));
-        Assert.Contains("===== INPUT SUMMARY", combinedPrompts);
-        Assert.Contains("===== ANALYSIS PROMPT", combinedPrompts);
-        var requestContext = await File.ReadAllTextAsync(Path.Combine(result.SavedArtifactsDirectory!, "01-request-context.txt"));
-        Assert.Contains("deck_name: Atraxa Test Deck", requestContext);
-        Assert.Contains("strategy_notes:", requestContext);
-        Assert.Contains("Play value engines and counters.", requestContext);
-        Assert.Contains("meta_notes:", requestContext);
-        Assert.Contains("Mid-power pods with removal.", requestContext);
-        Assert.Contains("card_specific_question_card_names:", requestContext);
-        Assert.Contains("- Sol Ring", requestContext);
-    }
-
-    [Fact]
-    public async Task BuildAsync_AllowsNullOptionalRequestFields_AndOmitsEmptyContextBlocks()
-    {
-        var artifactsRoot = Path.Combine(Path.GetTempPath(), "DeckFlowTests", Guid.NewGuid().ToString("N"));
-        var service = CreateService(artifactsRoot);
-
-        var result = await service.BuildAsync(new ChatGptDeckRequest
-        {
-            WorkflowStep = 2,
-            DeckSource = """
-Commander
-1 Atraxa, Praetors' Voice
-
-1 Sol Ring
-1 Arcane Signet
-""",
-            TargetCommanderBracket = "Upgraded",
-            SelectedAnalysisQuestions = ["consistency"],
-            SelectedSetCodes = null!,
-            StrategyNotes = null!,
-            MetaNotes = null!,
-            CardSpecificQuestionCardNames = null!,
-            SaveArtifactsToDisk = true
-        });
-
-        Assert.NotNull(result.ReferenceText);
-        Assert.NotNull(result.AnalysisPromptText);
-
-        var requestContext = await File.ReadAllTextAsync(Path.Combine(result.SavedArtifactsDirectory!, "01-request-context.txt"));
-        Assert.DoesNotContain("strategy_notes:", requestContext);
-        Assert.DoesNotContain("meta_notes:", requestContext);
-        Assert.DoesNotContain("set_name:", requestContext);
-        Assert.Contains("selected_set_codes:", requestContext);
-        Assert.DoesNotContain("selected_set_codes:\n-", requestContext.Replace("\r\n", "\n", StringComparison.Ordinal));
-    }
-
     /// <summary>
     /// Appends the freeform question as an extra bullet in the analysis prompt.
     /// </summary>
@@ -1429,13 +1349,10 @@ Commander
     }
 
     private static ChatGptDeckPacketService CreateService(
-        string? contentRootPath = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
     {
-        var rootPath = contentRootPath ?? Path.Combine(Path.GetTempPath(), "DeckFlowTests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(rootPath);
         return TestServiceFactory.CreateChatGptDeckPacketService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
@@ -1447,8 +1364,7 @@ Commander
             new FakeCommanderSpellbookService(),
             executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
             executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
-            executeNamedAsync: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))),
-            chatGptArtifactsPath: rootPath);
+            executeNamedAsync: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))));
     }
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(RestRequest request)

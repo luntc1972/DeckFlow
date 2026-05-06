@@ -17,7 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DeckFlow.Web\DeckFlow.Web.csproj" />
+    <ProjectReference Include="..\DeckFlow.Web\DeckFlow.Web.csproj">
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

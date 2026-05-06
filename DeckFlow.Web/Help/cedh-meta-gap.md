@@ -51,8 +51,8 @@ Paste the raw JSON or fenced `json` block back into the page. The shared JSON ex
 
 ## Artifact saving
 
-Check **Save artifacts to disk** to write generated files to:
+Use **Download meta-gap session (.zip)** in the Step 3 results panel to save the current artifacts locally.
 
-```
-Documents\DeckFlow\ChatGPT cEDH Meta Gap\<commander-name>\<timestamp>\
-```
+The zip can contain: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, and `40-meta-gap-response.json`.
+
+Use **Resume from a saved session (.zip)** at the top of the page to upload the same zip later. Re-import only reads `40-meta-gap-response.json`; the other files remain in the archive for your records.

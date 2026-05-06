@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 Phase: 08 (analytics) — EXECUTING (Wave 5 paused)
 Plan: 5 of 5 — Waves 1-4 complete + deployed to prod (commits 3f6835f..33da0b9 pushed at 2026-05-03 ~21:30 UTC, Render deploy "Live" with build log clean)
 Status: Wave 5 task 3 on hold — operator soak time before SC verification queries
-Last activity: 2026-05-04 - Completed quick task 260504-in1: fix the remaining Phase 07.1 UI review issues: when AI Category Suggestions is feature-flagged off, update maintenance copy to say only AI category suggestions are unavailable, add a link/action to Category Reference or Home from the maintenance page, and add a small in-context explanation on the home/categories area or nav so returning users understand the feature is temporarily unavailable
+Last activity: 2026-05-06 - Completed quick task 260506-hgd: ChatGPT artifact local download/upload — replace server-side save and import (privacy restructure superseding stopgap commit 0021908)
 
 ### Phase 8 resume protocol
 
@@ -134,6 +134,7 @@ Decisions affecting v1.1 work:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260504-in1 | fix the remaining Phase 07.1 UI review issues: when AI Category Suggestions is feature-flagged off, update maintenance copy to say only AI category suggestions are unavailable, add a link/action to Category Reference or Home from the maintenance page, and add a small in-context explanation on the home/categories area or nav so returning users understand the feature is temporarily unavailable | 2026-05-04 | c3c7ee2 | [260504-in1-fix-the-remaining-phase-07-1-ui-review-i](./quick/260504-in1-fix-the-remaining-phase-07-1-ui-review-i/) |
+| 260506-hgd | ChatGPT artifact local download/upload — replace server-side save and import (privacy restructure: zip download + zip upload on all three ChatGPT pages; supersedes stopgap commit 0021908; deletes IChatGptArtifactsDirectory + /api/saved-sessions; existing /data/ChatGPT Analysis/ files left untouched) | 2026-05-06 | (pending) | [260506-hgd-chatgpt-artifact-local-download-upload-r](./quick/260506-hgd-chatgpt-artifact-local-download-upload-r/) |
 
 ## Deferred Items
 
