@@ -69,6 +69,14 @@ Do not omit any fields from the schema.
 </div>
 
 <form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
+    <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
+        <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
+        <button type="submit" class="run-button chatgpt-sticky-download__button"
+                formaction="@Url.Content("~/chatgpt-packets/download")"
+                formmethod="post">
+            Download session (.zip)
+        </button>
+    </div>
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
     <details class="chatgpt-resume" data-chatgpt-resume>
