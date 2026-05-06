@@ -134,7 +134,7 @@ Decisions affecting v1.1 work:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260504-in1 | fix the remaining Phase 07.1 UI review issues: when AI Category Suggestions is feature-flagged off, update maintenance copy to say only AI category suggestions are unavailable, add a link/action to Category Reference or Home from the maintenance page, and add a small in-context explanation on the home/categories area or nav so returning users understand the feature is temporarily unavailable | 2026-05-04 | c3c7ee2 | [260504-in1-fix-the-remaining-phase-07-1-ui-review-i](./quick/260504-in1-fix-the-remaining-phase-07-1-ui-review-i/) |
-| 260506-hgd | ChatGPT artifact local download/upload — replace server-side save and import (privacy restructure: zip download + zip upload on all three ChatGPT pages; supersedes stopgap commit 0021908; deletes IChatGptArtifactsDirectory + /api/saved-sessions; existing /data/ChatGPT Analysis/ files left untouched) | 2026-05-06 | (pending) | [260506-hgd-chatgpt-artifact-local-download-upload-r](./quick/260506-hgd-chatgpt-artifact-local-download-upload-r/) |
+| 260506-hgd | ChatGPT artifact local download/upload — replace server-side save and import (privacy restructure: zip download + zip upload on all three ChatGPT pages; supersedes stopgap commit 0021908; deletes IChatGptArtifactsDirectory + /api/saved-sessions; existing /data/ChatGPT Analysis/ files left untouched) | 2026-05-06 | 5f5764f | [260506-hgd-chatgpt-artifact-local-download-upload-r](./quick/260506-hgd-chatgpt-artifact-local-download-upload-r/) |
 
 ## Deferred Items
 
