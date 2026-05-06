@@ -106,7 +106,7 @@ When either combo question is selected, the service queries the Commander Spellb
 
 ## Artifact saving
 
-Use **Download session (.zip)** in the Step 3 or Step 5 results panel to save the current artifacts locally.
+Use **Download session (.zip)** in the sticky bar at the top of the page (always available, regardless of step) or in the Step 3 / Step 5 results panel to save the current artifacts locally.
 
 The zip can contain: `00-input-summary.txt`, `01-request-context.txt`, `30-reference.txt`, `31-analysis-prompt.txt`, `41-deck-profile-schema.json`, `50-set-upgrade-prompt.txt`, `40-deck-profile.json`, `51-set-upgrade-response.json`, `all-prompts.txt`, and `all-responses.txt`.
 

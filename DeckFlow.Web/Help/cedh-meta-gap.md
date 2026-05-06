@@ -51,7 +51,7 @@ Paste the raw JSON or fenced `json` block back into the page. The shared JSON ex
 
 ## Artifact saving
 
-Use **Download meta-gap session (.zip)** in the Step 3 results panel to save the current artifacts locally.
+Use **Download meta-gap session (.zip)** in the sticky bar at the top of the page (always available, regardless of step) or in the Step 3 results panel to save the current artifacts locally.
 
 The zip can contain: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, and `40-meta-gap-response.json`.
 

@@ -35,7 +35,7 @@ If you continue asking follow-up questions in the same ChatGPT thread, use the f
 
 ## Artifact saving
 
-Use **Download comparison session (.zip)** in the Step 3 results panel to save the current artifacts locally.
+Use **Download comparison session (.zip)** in the sticky bar at the top of the page (always available, regardless of step) or in the Step 3 results panel to save the current artifacts locally.
 
 The zip can contain: `00-comparison-input-summary.txt`, `10-deck-a-list.txt`, `11-deck-b-list.txt`, `12-deck-a-combos.txt`, `13-deck-b-combos.txt`, `20-comparison-context.txt`, `30-comparison-prompt.txt`, `31-comparison-schema.json`, `32-comparison-follow-up-prompt.txt`, and `40-deck-comparison-response.json`.
 
