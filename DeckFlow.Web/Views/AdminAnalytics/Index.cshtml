@@ -3,6 +3,10 @@
     ViewData["Title"] = "Analytics";
 }
 
+<noscript>
+    <meta http-equiv="refresh" content="60" />
+</noscript>
+
 <section class="admin-analytics">
     <header class="admin-page-header">
         <h1>Page-usage analytics</h1>
@@ -49,3 +53,8 @@
         </table>
     }
 </section>
+
+@section Scripts
+{
+    <script src="~/js/admin-analytics.js" asp-append-version="true"></script>
+}
