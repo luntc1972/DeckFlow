@@ -1,8 +1,11 @@
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models.Admin;
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Npgsql;
+using System.Globalization;
 
 namespace DeckFlow.Web.Controllers.Admin;
 
@@ -18,19 +21,24 @@ public sealed class AdminAnalyticsController : Controller
 {
     private const int TopRouteLimit = 50;   // D-17: top 50 by hit_count DESC
     private const int SparklineDays = 14;   // D-18: 14-day sparkline window
+    private const string StatusCacheKey = "admin.analytics.status.v1";
 
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<AdminAnalyticsController> _logger;
+    private readonly IMemoryCache _memoryCache;
 
     /// <summary>Initializes a new instance of <see cref="AdminAnalyticsController"/>.</summary>
     /// <param name="environment">Used by <c>DeckFlowDatabaseConnectionFactory</c> to resolve the analytics DB.</param>
     /// <param name="logger">Structured logger.</param>
-    public AdminAnalyticsController(IWebHostEnvironment environment, ILogger<AdminAnalyticsController> logger)
+    /// <param name="memoryCache">5-second status payload cache.</param>
+    public AdminAnalyticsController(IWebHostEnvironment environment, ILogger<AdminAnalyticsController> logger, IMemoryCache memoryCache)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(memoryCache);
         _environment = environment;
         _logger = logger;
+        _memoryCache = memoryCache;
     }
 
     /// <summary>
@@ -64,6 +72,72 @@ public sealed class AdminAnalyticsController : Controller
             Routes = rows,
         };
         return View(vm);
+    }
+
+    /// <summary>
+    /// GET /Admin/Analytics/status — JSON revision token used by the in-page poller for auto-refresh.
+    /// Same-origin gated; results cached 5s in IMemoryCache to absorb fan-out from the 15s poller.
+    /// Returns { metricsRevision: "&lt;maxDay&gt;|&lt;sumHits&gt;" }. SQLite local-dev returns "|0".
+    /// On query failure returns a stable fallback "|err" so the poller does not loop on transient DB hiccups.
+    /// </summary>
+    [HttpGet("status")]
+    public async Task<IActionResult> Status(CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
+        }
+
+        var payload = await _memoryCache.GetOrCreateAsync(StatusCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5);
+            var revision = await GetMetricsRevisionAsync(cancellationToken).ConfigureAwait(false);
+            return new AnalyticsStatusPayload(revision);
+        }).ConfigureAwait(false);
+
+        return Json(payload);
+    }
+
+    private async Task<string> GetMetricsRevisionAsync(CancellationToken ct)
+    {
+        var connInfo = DeckFlowDatabaseConnectionFactory.CreateHarvestStateConnection(_environment);
+        if (!connInfo.IsPostgres)
+        {
+            // Local-dev SQLite — analytics is Postgres-only (D-01). Stable token => no reload loop.
+            return "|0";
+        }
+
+        try
+        {
+            var dbConn = connInfo.CreateConnection();
+            await dbConn.OpenAsync(ct).ConfigureAwait(false);
+            await using var conn = (NpgsqlConnection)dbConn;
+
+            // Token: MAX(day_utc) flips at midnight UTC; SUM(hit_count) increments on every flushed batch.
+            // Either change flips the revision string and triggers a single full-page reload in the poller.
+            const string sql = "SELECT COALESCE(MAX(day_utc)::text, ''), COALESCE(SUM(hit_count), 0) FROM request_metrics;";
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            if (!await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                return "|0";
+            }
+
+            var maxDay = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+            var sumHits = reader.IsDBNull(1) ? 0L : reader.GetInt64(1);
+            return $"{maxDay}|{sumHits.ToString(CultureInfo.InvariantCulture)}";
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AdminAnalyticsController.GetMetricsRevisionAsync failed.");
+            return "|err";
+        }
     }
 
     private async Task<AdminAnalyticsViewModel.RouteRow[]> LoadRowsAsync(string range, CancellationToken ct)
@@ -193,4 +267,6 @@ public sealed class AdminAnalyticsController : Controller
 
         return result;
     }
+
+    private sealed record AnalyticsStatusPayload(string MetricsRevision);
 }
