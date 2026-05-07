@@ -161,7 +161,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="logger">Logger for the sweep.</param>
     /// <param name="durationSeconds">Duration in seconds.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
+    public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         await EnsureSchemaReadyAsync(cancellationToken);
         await _sweepGate.WaitAsync(cancellationToken);
@@ -169,7 +169,12 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         {
             Directory.CreateDirectory(_artifactsPath);
             var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
-            var result = await session.RunAsync(TimeSpan.FromSeconds(durationSeconds), queueBatchSize: 5, fetchBatchSize: HarvestDeckCount, cancellationToken: cancellationToken);
+            var result = await session.RunAsync(
+                TimeSpan.FromSeconds(durationSeconds),
+                queueBatchSize: 5,
+                fetchBatchSize: HarvestDeckCount,
+                cancellationToken: cancellationToken,
+                progress: progress);
             return result.DecksProcessed;
         }
         finally

@@ -67,6 +67,24 @@ public interface IHarvestRunStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates ONLY <c>decks_processed</c> + <c>additional_decks_found</c> on an
+    /// existing <c>harvest_runs</c> row. Does NOT touch <c>state</c>,
+    /// <c>started_utc</c>, <c>completed_utc</c>, or <c>error_message</c>. Used by
+    /// the background harvest worker to surface incremental progress to the AJAX
+    /// status endpoint without disturbing the state machine. Implementations MUST
+    /// call <c>_stats?.Invalidate()</c> after the write succeeds.
+    /// </summary>
+    /// <param name="id">UUID primary key of the row to update.</param>
+    /// <param name="decksProcessed">Decks imported so far during the run.</param>
+    /// <param name="additionalDecksFound">Newly-discovered deck IDs added to the queue.</param>
+    /// <param name="cancellationToken">Token used to cancel the write.</param>
+    Task UpdateProgressAsync(
+        Guid id,
+        int decksProcessed,
+        int additionalDecksFound,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns the most recent non-terminal row (<c>state IN (Queued, Running, Stopping)</c>)
     /// or null when no active row exists. Used by EnqueueAsync dedup check (D-01) and the
     /// AJAX status poll (D-08).
@@ -81,6 +99,15 @@ public interface IHarvestRunStore
     /// <param name="n">Maximum number of rows to return.</param>
     /// <param name="cancellationToken">Token used to cancel the read.</param>
     Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns a token derived from <c>MAX(started_utc)</c>, <c>MAX(completed_utc)</c>,
+    /// and <c>COUNT(1)</c> over <c>harvest_runs</c>. Powers the AJAX poller's
+    /// revision-change auto-reload (B2). Cheap single-statement read; safe at
+    /// sub-second cadence.
+    /// </summary>
+    /// <param name="cancellationToken">Token used to cancel the read.</param>
+    Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns <c>MAX(completed_utc) FROM harvest_runs WHERE state='Succeeded'</c>
