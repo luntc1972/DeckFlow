@@ -192,9 +192,11 @@ Deck B ([DECK B NAME]):
         </label>
         <button type="submit"
                 class="run-button"
+                data-chatgpt-upload-submit
                 formaction="@Url.Content("~/chatgpt-deck-comparison/upload")"
                 formenctype="multipart/form-data"
-                formmethod="post">
+                formmethod="post"
+                formnovalidate>
             Upload &amp; Resume
         </button>
     </details>
