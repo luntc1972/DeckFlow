@@ -37,7 +37,8 @@ public sealed class ArchidektDeckCacheSession
     /// <param name="queueBatchSize">Max queue size per iteration.</param>
     /// <param name="fetchBatchSize">Max deck fetches per cycle.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<ArchidektCacheRunResult> RunAsync(TimeSpan duration, int queueBatchSize = 5, int fetchBatchSize = 10, CancellationToken cancellationToken = default)
+    /// <param name="progress">Optional progress reporter for cumulative decks processed.</param>
+    public async Task<ArchidektCacheRunResult> RunAsync(TimeSpan duration, int queueBatchSize = 5, int fetchBatchSize = 10, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         duration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
         queueBatchSize = Math.Max(1, queueBatchSize);
@@ -106,6 +107,7 @@ public sealed class ArchidektDeckCacheSession
                     _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}) commander={Commander}.", deckId, cacheResult, commanderName ?? "(none)");
                     // D-17: write commander_name in the same UPDATE that flips processed=1.
                     await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, cancellationToken: cancellationToken);
+                    progress?.Report(added + updated);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -117,6 +119,7 @@ public sealed class ArchidektDeckCacheSession
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
                     // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
                     await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, cancellationToken: cancellationToken);
+                    progress?.Report(added + updated);
                 }
 
                 if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)

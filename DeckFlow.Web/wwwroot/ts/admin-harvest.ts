@@ -1,7 +1,8 @@
 ((): void => {
   'use strict';
 
-  const POLL_INTERVAL_MS = 3000;
+  const ACTIVE_POLL_INTERVAL_MS = 3000;
+  const IDLE_POLL_INTERVAL_MS = 10000;
   const FETCH_TIMEOUT_MS = 10000;
   const ACTIVE_STATES = new Set<string>(['Queued', 'Running', 'Stopping']);
   const TERMINAL_STATES = new Set<string>(['Succeeded', 'Failed', 'Cancelled']);
@@ -14,6 +15,7 @@
     startedUtc: string | null;
     completedUtc: string | null;
     errorMessage: string | null;
+    recentRunsRevision: string;
   };
 
   const setText = (root: HTMLElement, selector: string, value: string): boolean => {
@@ -115,14 +117,10 @@
       return;
     }
 
-    const initialState = root.dataset.state ?? '';
-    if (!ACTIVE_STATES.has(initialState)) {
-      return;
-    }
-
     let stopped = false;
     let reloaded = false;
     let timerId: number | null = null;
+    let lastRevision: string | null = null;
 
     const stopPolling = (): void => {
       stopped = true;
@@ -132,25 +130,37 @@
       }
     };
 
-    const schedulePoll = (): void => {
+    const schedulePoll = (intervalMs: number): void => {
       if (stopped) {
         return;
       }
 
       timerId = window.setTimeout(() => {
         void poll();
-      }, POLL_INTERVAL_MS);
+      }, intervalMs);
     };
 
     const poll = async (): Promise<void> => {
       try {
         const payload = await fetchStatus();
         if (payload === null) {
-          stopPolling();
+          schedulePoll(IDLE_POLL_INTERVAL_MS);
           return;
         }
 
         render(root, payload);
+
+        if (lastRevision === null) {
+          lastRevision = payload.recentRunsRevision;
+        } else if (payload.recentRunsRevision !== lastRevision) {
+          stopPolling();
+          if (!reloaded) {
+            reloaded = true;
+            window.location.reload();
+          }
+
+          return;
+        }
 
         if (TERMINAL_STATES.has(payload.state)) {
           stopPolling();
@@ -162,17 +172,12 @@
           return;
         }
 
-        if (!ACTIVE_STATES.has(payload.state)) {
-          stopPolling();
-          return;
-        }
-
-        schedulePoll();
+        schedulePoll(ACTIVE_STATES.has(payload.state) ? ACTIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS);
       } catch {
         stopPolling();
       }
     };
 
-    schedulePoll();
+    schedulePoll(ACTIVE_STATES.has(root.dataset.state ?? '') ? ACTIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS);
   });
 })();

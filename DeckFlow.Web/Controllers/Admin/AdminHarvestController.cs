@@ -109,6 +109,7 @@ public sealed class AdminHarvestController : Controller
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1);
 
             var active = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            var recentRunsRevision = await _runStore.GetRecentRevisionAsync(cancellationToken).ConfigureAwait(false);
             return new HarvestStatusPayload(
                 State: active?.State.ToString() ?? "Idle",
                 JobId: active?.Id,
@@ -116,7 +117,8 @@ public sealed class AdminHarvestController : Controller
                 DecksProcessed: active?.DecksProcessed ?? 0,
                 StartedUtc: active?.StartedUtc,
                 CompletedUtc: active?.CompletedUtc,
-                ErrorMessage: active?.ErrorMessage);
+                ErrorMessage: active?.ErrorMessage,
+                RecentRunsRevision: recentRunsRevision);
         }).ConfigureAwait(false);
 
         return Json(payload);
@@ -324,5 +326,6 @@ public sealed class AdminHarvestController : Controller
         int DecksProcessed,
         DateTimeOffset? StartedUtc,
         DateTimeOffset? CompletedUtc,
-        string? ErrorMessage);
+        string? ErrorMessage,
+        string RecentRunsRevision);
 }

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -325,6 +326,23 @@ public sealed class ArchidektCacheJobServiceTests
             return Task.CompletedTask;
         }
 
+        public Task UpdateProgressAsync(
+            Guid id,
+            int decksProcessed,
+            int additionalDecksFound,
+            CancellationToken cancellationToken = default)
+        {
+            _rows.AddOrUpdate(
+                id,
+                _ => throw new InvalidOperationException($"No queued row for {id}."),
+                (_, existing) => existing with
+                {
+                    DecksProcessed = decksProcessed,
+                    AdditionalDecksFound = additionalDecksFound
+                });
+            return Task.CompletedTask;
+        }
+
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
         {
             HarvestRunRow? active = _rows.Values
@@ -341,6 +359,26 @@ public sealed class ArchidektCacheJobServiceTests
                 .Take(n)
                 .ToList();
             return Task.FromResult(rows);
+        }
+
+        public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
+        {
+            var startedTicks = _rows.Values
+                .Select(r => r.StartedUtc?.ToUniversalTime().Ticks)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .DefaultIfEmpty()
+                .Max();
+            var completedTicks = _rows.Values
+                .Select(r => r.CompletedUtc?.ToUniversalTime().Ticks)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .DefaultIfEmpty()
+                .Max();
+            var startedToken = startedTicks == 0 ? string.Empty : startedTicks.ToString(CultureInfo.InvariantCulture);
+            var completedToken = completedTicks == 0 ? string.Empty : completedTicks.ToString(CultureInfo.InvariantCulture);
+            var count = _rows.Count.ToString(CultureInfo.InvariantCulture);
+            return Task.FromResult($"{startedToken}|{completedToken}|{count}");
         }
 
         public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)

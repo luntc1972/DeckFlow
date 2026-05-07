@@ -180,6 +180,34 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task UpdateProgressAsync(
+        Guid id,
+        int decksProcessed,
+        int additionalDecksFound,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE harvest_runs
+               SET decks_processed = @decksProcessed,
+                   additional_decks_found = @additionalDecksFound
+             WHERE id = @id;
+            """;
+
+        RelationalDatabaseConnection.AddParameter(
+            command, "@id",
+            _connectionInfo.IsPostgres ? (object)id : id.ToString());
+        RelationalDatabaseConnection.AddParameter(command, "@decksProcessed", decksProcessed);
+        RelationalDatabaseConnection.AddParameter(command, "@additionalDecksFound", additionalDecksFound);
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        InvalidateStats();
+    }
+
+    /// <inheritdoc />
     public async Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -227,6 +255,38 @@ public sealed class HarvestRunStore : IHarvestRunStore
             rows.Add(ReadHarvestRunRow(reader));
         }
         return rows;
+    }
+
+    /// <inheritdoc />
+    public async Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT MAX(started_utc), MAX(completed_utc), COUNT(1) FROM harvest_runs;";
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return "||0";
+        }
+
+        var startedTicks = reader.IsDBNull(0)
+            ? string.Empty
+            : ReadTimestamp(reader, 0).ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
+        var completedTicks = reader.IsDBNull(1)
+            ? string.Empty
+            : ReadTimestamp(reader, 1).ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
+        var countRaw = reader.GetValue(2);
+        var count = countRaw switch
+        {
+            long value => value,
+            int value => value,
+            _ => Convert.ToInt64(countRaw, CultureInfo.InvariantCulture)
+        };
+
+        return $"{startedTicks}|{completedTicks}|{count.ToString(CultureInfo.InvariantCulture)}";
     }
 
     /// <inheritdoc />

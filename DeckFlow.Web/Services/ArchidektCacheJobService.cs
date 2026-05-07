@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using System.Diagnostics;
 using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Services;
@@ -279,7 +280,8 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     jobCts.Token).ConfigureAwait(false);
 
                 var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false);
-                var decksProcessed = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, jobCts.Token).ConfigureAwait(false);
+                var progress = new HarvestProgressWriter(signal.JobId, _runStore, _logger, jobCts.Token);
+                var decksProcessed = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, jobCts.Token, progress).ConfigureAwait(false);
                 var finalDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false);
 
                 _logger.LogInformation(
@@ -426,4 +428,103 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// <param name="JobId">Server-generated UUID for the queued run.</param>
     /// <param name="DurationSeconds">Operator-selected sweep cap.</param>
     private sealed record QueuedJobSignal(Guid JobId, int DurationSeconds);
+
+    private sealed class HarvestProgressWriter : IProgress<int>
+    {
+        private static readonly TimeSpan WriteInterval = TimeSpan.FromSeconds(2);
+        private const int DeckThreshold = 10;
+
+        private readonly Guid _jobId;
+        private readonly IHarvestRunStore _runStore;
+        private readonly ILogger _logger;
+        private readonly CancellationToken _cancellationToken;
+        private readonly object _gate = new();
+        private readonly Stopwatch _sinceLastWrite = Stopwatch.StartNew();
+        private int _latestReportedDecks;
+        private int _lastWrittenDecks;
+        private bool _writeInFlight;
+
+        public HarvestProgressWriter(Guid jobId, IHarvestRunStore runStore, ILogger logger, CancellationToken cancellationToken)
+        {
+            _jobId = jobId;
+            _runStore = runStore;
+            _logger = logger;
+            _cancellationToken = cancellationToken;
+        }
+
+        public void Report(int value)
+        {
+            lock (_gate)
+            {
+                if (value > _latestReportedDecks)
+                {
+                    _latestReportedDecks = value;
+                }
+
+                TryStartWriteLocked();
+            }
+        }
+
+        private async Task WriteProgressAsync(int decksProcessed)
+        {
+            try
+            {
+                await _runStore.UpdateProgressAsync(
+                    _jobId,
+                    decksProcessed,
+                    additionalDecksFound: 0,
+                    _cancellationToken).ConfigureAwait(false);
+
+                lock (_gate)
+                {
+                    if (decksProcessed > _lastWrittenDecks)
+                    {
+                        _lastWrittenDecks = decksProcessed;
+                    }
+
+                    _sinceLastWrite.Restart();
+                    _writeInFlight = false;
+                    TryStartWriteLocked();
+                }
+            }
+            catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
+            {
+                lock (_gate)
+                {
+                    _writeInFlight = false;
+                }
+            }
+            catch (Exception exception)
+            {
+                lock (_gate)
+                {
+                    _writeInFlight = false;
+                }
+
+                _logger.LogWarning(exception, "Harvest.Run.ProgressWriteFailed jobId={JobId} decksProcessed={DecksProcessed}", _jobId, decksProcessed);
+            }
+        }
+
+        private void TryStartWriteLocked()
+        {
+            if (_writeInFlight)
+            {
+                return;
+            }
+
+            var nextDecks = _latestReportedDecks;
+            if (nextDecks <= _lastWrittenDecks)
+            {
+                return;
+            }
+
+            if ((nextDecks - _lastWrittenDecks) < DeckThreshold && _sinceLastWrite.Elapsed < WriteInterval)
+            {
+                return;
+            }
+
+            _writeInFlight = true;
+            _ = WriteProgressAsync(nextDecks);
+        }
+    }
 }

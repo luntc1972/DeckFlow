@@ -160,7 +160,7 @@ public sealed class CategorySuggestionServiceTests
         public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(ProcessedDeckCount);
 
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default)
+        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
         {
             RunCacheSweepCalls++;
             ProcessedDeckCount++;
