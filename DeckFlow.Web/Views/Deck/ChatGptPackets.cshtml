@@ -93,9 +93,11 @@ Do not omit any fields from the schema.
         </label>
         <button type="submit"
                 class="run-button"
+                data-chatgpt-upload-submit
                 formaction="@Url.Content("~/chatgpt-packets/upload")"
                 formenctype="multipart/form-data"
-                formmethod="post">
+                formmethod="post"
+                formnovalidate>
             Upload &amp; Resume
         </button>
     </details>

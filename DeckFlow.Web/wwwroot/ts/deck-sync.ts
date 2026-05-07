@@ -1997,6 +1997,11 @@ const attachChatGptPacketsWorkflow = (): void => {
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
+      setChatGptValidationMessage(null);
+      return;
+    }
+
     const step = parseChatGptStep(submitter?.dataset.chatgptSubmitStep ?? form.dataset.chatgptCurrentStep);
     const validationMessage = validateChatGptPacketsStep(form, step);
     if (!validationMessage) {
@@ -2134,6 +2139,11 @@ const attachChatGptComparisonWorkflow = (): void => {
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
+      setChatGptComparisonValidationMessage(null);
+      return;
+    }
+
     const step = parseChatGptComparisonStep(submitter?.dataset.chatgptComparisonSubmitStep ?? form.dataset.chatgptComparisonCurrentStep);
     const validationMessage = validateChatGptComparisonStep(form, step);
     if (!validationMessage) {
@@ -2329,6 +2339,11 @@ const attachChatGptCedhWorkflow = (): void => {
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
+      setChatGptCedhValidationMessage(null);
+      return;
+    }
+
     const step = parseChatGptCedhStep(submitter?.dataset.chatgptCedhSubmitStep ?? form.dataset.chatgptCedhCurrentStep);
     const validationMessage = validateChatGptCedhStep(form, step);
     if (!validationMessage) {
