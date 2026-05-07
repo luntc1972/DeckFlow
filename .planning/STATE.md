@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: Admin Console
 status: executing
 stopped_at: Phase 8 deployed to prod; Wave 5 task 3 (live SC verification) on hold per operator
-last_updated: "2026-05-07T21:18:21Z"
+last_updated: "2026-05-07T22:42:00Z"
 last_activity: 2026-05-07
 progress:
   total_phases: 4
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-02 after v1.0 milestone)
 Phase: 08 (analytics) — EXECUTING (Wave 5 paused)
 Plan: 5 of 5 — Waves 1-4 complete + deployed to prod (commits 3f6835f..33da0b9 pushed at 2026-05-03 ~21:30 UTC, Render deploy "Live" with build log clean)
 Status: Wave 5 task 3 on hold — operator soak time before SC verification queries
-Last activity: 2026-05-07 - Completed quick task 260507-l7x: saved-session upload bypasses browser/workflow validation on all three ChatGPT pages
+Last activity: 2026-05-07 - Completed quick task 260507-m8k: live decks counter mid-run + Recent Runs auto-refresh on /Admin/Harvest
 
 ### Phase 8 resume protocol
 
@@ -137,6 +137,7 @@ Decisions affecting v1.1 work:
 | 260506-hgd | ChatGPT artifact local download/upload — replace server-side save and import (privacy restructure: zip download + zip upload on all three ChatGPT pages; supersedes stopgap commit 0021908; deletes IChatGptArtifactsDirectory + /api/saved-sessions; existing /data/ChatGPT Analysis/ files left untouched) | 2026-05-06 | 5f5764f | [260506-hgd-chatgpt-artifact-local-download-upload-r](./quick/260506-hgd-chatgpt-artifact-local-download-upload-r/) |
 | 260506-kwt | Sticky prominent Download (.zip) bar on all three ChatGPT pages — always-available top-of-page CTA so user can save current session state at any step (per-step inline buttons retained as secondary). Layout CSS in site-common.css; no per-theme edits; no JS; reuses existing /chatgpt-*/download endpoints | 2026-05-06 | d44c7ab | [260506-kwt-make-chatgpt-zip-download-button-more-pr](./quick/260506-kwt-make-chatgpt-zip-download-button-more-pr/) |
 | 260507-l7x | Fix saved-session upload on ChatGPT workflow pages so resume import bypasses browser-native required-field validation and the shared step validator. Addresses production `TargetCommanderBracket is not focusable` failure on `/chatgpt-packets` and applies the same upload-path guard to comparison and cEDH pages. | 2026-05-07 | 29e2733 | [260507-l7x-fix-chatgpt-packets-saved-session-upload](./quick/260507-l7x-fix-chatgpt-packets-saved-session-upload/) |
+| 260507-m8k | Fix two /Admin/Harvest bugs: (B1) decks-imported counter stuck at 0 during running jobs because `decks_processed` was only written at terminal transitions — fixed by adding `IHarvestRunStore.UpdateProgressAsync` (counters-only, dialect-safe) and threading an optional `IProgress<int>` through `RunCacheSweepAsync` → `ArchidektDeckCacheSession.RunAsync`, with a throttled (≥10 decks OR ≥2s) progress sink in `ArchidektCacheJobService`; (B2) Recent Runs grid stale, required manual reload — fixed by adding `recentRunsRevision` token (`{startedTicks}\|{completedTicks}\|{count}`) to `/Admin/Harvest/status` and rewriting `admin-harvest.ts` to poll always (10s idle / 3s active) and `window.location.reload()` on revision change; noscript meta-refresh and terminal-state reload fallback preserved. Live B1/B2 verification gates require post-deploy on deckflow.gg per push-and-watch pattern. | 2026-05-07 | 9698551 | [260507-m8k-fix-admin-harvest-decks-counter-and-rece](./quick/260507-m8k-fix-admin-harvest-decks-counter-and-rece/) |
 
 ## Deferred Items
 
