@@ -310,7 +310,7 @@ public partial class Program
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
-                app.UseExceptionHandler("/Deck");
+                app.UseExceptionHandler("/Deck/Error");
                 app.UseHsts();
             }
 

@@ -70,6 +70,14 @@ public sealed class DeckController : Controller
         return View("Home", DeckPageTab.Home);
     }
 
+    /// <summary>Gets the branded error page shown when an unhandled exception occurs.</summary>
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    [IgnoreAntiforgeryToken]
+    public IActionResult Error()
+    {
+        return View("Error");
+    }
+
     [HttpGet("/sync")]
     /// <summary>
     /// Renders the deck sync view with default tab state.
