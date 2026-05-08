@@ -163,8 +163,8 @@ Plans:
 **Plans**: 3 plans across 2 waves
 
 Plans:
-- [ ] 09-01-PLAN.md — CSS blocks + _AiSelector.cshtml + _BracketCallout.cshtml shared partials (BRKT-01, AISEL-01) [Wave 1]
-- [ ] 09-02-PLAN.md — TargetAiPlatform model properties (all 3 requests) + zip round-trip writer/parser/loader (AISEL-01, AISEL-04) [Wave 1]
+- [x] 09-01-PLAN.md — CSS blocks + _AiSelector.cshtml + _BracketCallout.cshtml shared partials (BRKT-01, AISEL-01) [Wave 1]
+- [x] 09-02-PLAN.md — TargetAiPlatform model properties (all 3 requests) + zip round-trip writer/parser/loader (AISEL-01, AISEL-04) [Wave 1]
 - [ ] 09-03-PLAN.md — Razor view insertions: _AiSelector in all 3 pages, bracket callout in Packets; visual checkpoint (BRKT-01, AISEL-01, AISEL-04) [Wave 2]
 
 ---
