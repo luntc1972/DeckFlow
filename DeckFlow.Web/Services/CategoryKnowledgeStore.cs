@@ -195,6 +195,14 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return await _repository.GetCategoryRowsForCardAsync(cardName, boardFilter, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCategoryRowsForCommanderAsync(commanderName, cancellationToken);
+    }
+
     /// <summary>
     /// Retrieves overall deck totals for the provided card.
     /// </summary>
@@ -203,6 +211,14 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
         await EnsureSchemaReadyAsync(cancellationToken);
         return await _repository.GetCardDeckTotalsAsync(cardName, boardFilter, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCommanderDeckCountAsync(commanderName, cancellationToken);
     }
 
     /// <summary>
