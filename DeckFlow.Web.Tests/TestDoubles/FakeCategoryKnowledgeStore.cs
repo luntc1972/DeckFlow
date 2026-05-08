@@ -88,4 +88,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
         => Task.FromResult(CardDeckTotals.Empty);
+
+    public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
+
+    public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
 }
