@@ -2001,7 +2001,8 @@ const attachChatGptPacketsWorkflow = (): void => {
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
+    if (submitter?.hasAttribute('data-chatgpt-upload-submit') ||
+        submitter?.hasAttribute('data-chatgpt-download-submit')) {
       setChatGptValidationMessage(null);
       return;
     }
