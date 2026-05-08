@@ -164,7 +164,7 @@ public sealed class ArchidektDeckCacheSession
         // D-17: extract the commander entry from the imported deck. Most decks have exactly
         // one Commander; if there are multiple (partner pairs etc.) take the first deterministically.
         string? commanderName = entries
-            .Where(e => string.Equals(e.Category, "Commander", StringComparison.OrdinalIgnoreCase))
+            .Where(e => string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Select(e => e.Name)
             .FirstOrDefault();
 
