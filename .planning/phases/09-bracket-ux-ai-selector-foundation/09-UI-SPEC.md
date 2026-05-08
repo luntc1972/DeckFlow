@@ -171,7 +171,7 @@ No destructive actions in this phase.
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 16px;
+  padding: 8px 16px;
   border: 2px solid var(--line);
   border-radius: 6px;
   background: var(--panel);
