@@ -433,7 +433,7 @@ or services beyond what already runs the project.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`_BracketCallout.cshtml` — fully self-contained partial or thin wrapper?**
    - What we know: UI-SPEC names it as a shared partial; the bracket df-select exists only on the Packets page; the partial must wrap the existing `<label class="field">` block.
