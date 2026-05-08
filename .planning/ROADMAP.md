@@ -26,7 +26,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 6: Admin Shell + Flags Foundation** — Layout shell, sidebar nav, antiforgery baseline, feature-flag infrastructure (completed 2026-05-03)
 - [x] **Phase 7: Harvest Controls + Stats** — Run-now, cancel, pause/resume, cron schedule, stats panel, run history (completed 2026-05-03; circular-DI errata fixed in dc66a38)
 - [x] **Phase 7.1: Categories feature flag + SameOrigin AJAX fix** — kill-switch flag default-on; X-Forwarded-Proto honored in same-origin validator (completed 2026-05-03)
-- [ ] **Phase 8: Analytics** — Request metrics middleware, write-behind buffer, top-routes page, inline SVG sparklines
+- [x] **Phase 8: Analytics** — Request metrics middleware, write-behind buffer, top-routes page, inline SVG sparklines (completed 2026-05-08)
 
 ## Phase Details
 
@@ -133,7 +133,7 @@ Plans:
 - [x] 08-02-PLAN.md — RequestMetricsBuffer (BoundedChannel DropOldest) + RequestMetricsFlusher (BackgroundService whichever-fires-first) (ANLY-02) [Wave 2]
 - [x] 08-03-PLAN.md — AnalyticsMiddleware + AddDeckFlowAnalytics() DI extension + Program.cs wiring (D-12 position, D-15 startup smoke-test) (ANLY-01, ANLY-02, ANLY-03, ANLY-06) [Wave 3]
 - [x] 08-04-PLAN.md — AdminAnalyticsController + ViewModel + Index.cshtml + sparkline helper + admin.css (ANLY-04, ANLY-05) [Wave 4]
-- [ ] 08-05-PLAN.md — Live-traffic SC verification + Render p95 baseline delta capture (all 5 SCs) [Wave 5]
+- [x] 08-05-PLAN.md — Live-traffic SC verification + Render p95 baseline delta capture (all 5 SCs) [Wave 5]
 
 ---
 
