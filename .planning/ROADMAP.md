@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 Polish & Quality** — Phases 1-5 (shipped 2026-05-02) — see `.planning/milestones/v1.0-ROADMAP.md`
-- 🔵 **v1.1 Admin Console** — Phases 6-8 (active)
+- ✅ **v1.1 Admin Console** — Phases 6-8 (shipped 2026-05-08)
+- 🔵 **v1.2 Multi-AI Prompts** — Phases 9-10 (active)
 
 ## Phases
 
@@ -137,6 +138,47 @@ Plans:
 
 ---
 
+### v1.2 Multi-AI Prompts
+
+- [ ] **Phase 9: Bracket UX + AI Selector Foundation** — Bracket visibility fix, AI target picker (ChatGPT/Claude/Gemini) on all three analysis pages, zip round-trip for AI selection
+- [ ] **Phase 10: Claude + Gemini Artifact Optimization** — Per-AI artifact format and instructions for Claude and Gemini
+
+---
+
+### Phase 9: Bracket UX + AI Selector Foundation
+
+**Goal**: Users cannot miss the TargetCommanderBracket selector, and all three ChatGPT analysis pages surface an AI target picker (defaulting to ChatGPT) whose selection round-trips through the zip export.
+
+**Depends on**: v1.1 (ChatGPT packet artifacts + zip round-trip infrastructure already in place)
+
+**Requirements**: BRKT-01, AISEL-01, AISEL-04
+
+**Success Criteria** (what must be TRUE):
+
+1. Opening `/chatgpt-packets` shows the TargetCommanderBracket selector with a visual treatment (label, callout, or banner) that makes it impossible to overlook before submitting Step 1.
+2. All three ChatGPT analysis pages (Packets, Deck Comparison, CEDH Meta Gap) show an AI target selector with options ChatGPT / Claude / Gemini; ChatGPT is selected by default.
+3. Selecting Claude or Gemini and downloading a session zip, then re-uploading the zip, restores the same AI target selection.
+4. Selecting Claude or Gemini and running analysis produces a valid artifact (content may be ChatGPT-format temporarily — Phase 10 adds optimization); no errors, no missing files.
+
+---
+
+### Phase 10: Claude + Gemini Artifact Optimization
+
+**Goal**: When Claude or Gemini is selected, the exported artifact differs from ChatGPT in both file structure and the instructions/system-prompt section, tuned to each AI's strengths.
+
+**Depends on**: Phase 9 (AI selector UI and routing in place)
+
+**Requirements**: AISEL-02, AISEL-03
+
+**Success Criteria** (what must be TRUE):
+
+1. Claude artifact: exported zip contains XML-structured prompt blocks (not markdown fenced code) and a system prompt section that leverages Claude's XML-tag instruction format.
+2. Gemini artifact: exported zip uses a layout and instruction style distinct from both ChatGPT and Claude formats, reflecting Gemini's prompt best practices.
+3. Pasting a Claude artifact into Claude.ai and a Gemini artifact into Gemini.google.com each produce a relevant, well-formed response without the user reformatting anything.
+4. ChatGPT artifact (existing format) is unchanged — Claude/Gemini paths are additive, zero regression on the default flow.
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -146,10 +188,13 @@ Plans:
 | 3. Tech-Debt Cleanup | v1.0 | 4/4 | Complete | 2026-05-01 |
 | 4. Security & Bug Fixes | v1.0 | 4/4 | Abandoned (rerouted to Ph. 5) | 2026-05-02 |
 | 5. Security & Bug Fixes v2 | v1.0 | 3/3 | Complete | 2026-05-02 |
-| 6. Admin Shell + Flags Foundation | v1.1 | 7/7 | Complete   | 2026-05-03 |
-| 7. Harvest Controls + Stats | v1.1 | 0/7 | Not started | — |
-| 8. Analytics | v1.1 | 4/5 | In Progress|  |
+| 6. Admin Shell + Flags Foundation | v1.1 | 7/7 | Complete | 2026-05-03 |
+| 7. Harvest Controls + Stats | v1.1 | 7/7 | Complete | 2026-05-03 |
+| 7.1 Categories Flag + SameOrigin Fix | v1.1 | 2/2 | Complete | 2026-05-03 |
+| 8. Analytics | v1.1 | 5/5 | Complete | 2026-05-08 |
+| 9. Bracket UX + AI Selector Foundation | v1.2 | 0/? | Not started | — |
+| 10. Claude + Gemini Artifact Optimization | v1.2 | 0/? | Not started | — |
 
 ---
 
-*v1.1 roadmap created: 2026-05-02*
+*v1.1 roadmap created: 2026-05-02 | v1.2 roadmap created: 2026-05-08*
