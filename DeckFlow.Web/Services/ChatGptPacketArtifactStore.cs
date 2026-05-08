@@ -134,8 +134,10 @@ internal static class ChatGptPacketArtifactStore
     /// Rehydrates a saved ChatGPT packet zip back into a deck request.
     /// </summary>
     /// <remarks>
-    /// If present, <c>01-request-context.txt</c> is parsed to restore user-controlled request fields.
-    /// Older zips that only contain the response JSON payloads remain valid and silently skip context hydration.
+    /// At least one of <c>01-request-context.txt</c>, <c>40-deck-profile.json</c>, or
+    /// <c>51-set-upgrade-response.json</c> must be present. Partial zips (request context
+    /// only, no responses) rehydrate form state and land the user back on Step 1 to re-paste
+    /// the deck. Zips with response JSONs land on Step 3 (deck profile) or Step 5 (set upgrade).
     /// </remarks>
     public static void LoadFromZip(Stream zipStream, ChatGptDeckRequest request)
     {
@@ -147,14 +149,20 @@ internal static class ChatGptPacketArtifactStore
         entries.TryGetValue("51-set-upgrade-response.json", out var setUpgrade);
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
 
-        if (string.IsNullOrWhiteSpace(deckProfile) && string.IsNullOrWhiteSpace(setUpgrade))
+        if (string.IsNullOrWhiteSpace(deckProfile) &&
+            string.IsNullOrWhiteSpace(setUpgrade) &&
+            string.IsNullOrWhiteSpace(requestContextText))
         {
-            throw new InvalidOperationException("Imported zip did not contain 40-deck-profile.json or 51-set-upgrade-response.json.");
+            throw new InvalidOperationException("Imported zip did not contain a recognized DeckFlow session — expected 01-request-context.txt, 40-deck-profile.json, or 51-set-upgrade-response.json.");
         }
 
         request.DeckProfileJson = deckProfile ?? string.Empty;
         request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
-        request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade) ? 5 : 3;
+        request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade)
+            ? 5
+            : !string.IsNullOrWhiteSpace(deckProfile)
+                ? 3
+                : 1;
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
         {
