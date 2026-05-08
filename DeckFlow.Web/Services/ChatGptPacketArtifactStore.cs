@@ -218,6 +218,11 @@ internal static class ChatGptPacketArtifactStore
             {
                 request.DeckSource = parsed.DeckSource;
             }
+
+            if (parsed.TargetAiPlatform is not null)
+            {
+                request.TargetAiPlatform = parsed.TargetAiPlatform;
+            }
         }
     }
 

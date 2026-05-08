@@ -1656,6 +1656,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine($"deck_name: {NormalizeSingleLine(request.DeckName, string.Empty)}");
         builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");
         builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
         builder.AppendLine($"include_sideboard_in_analysis: {request.IncludeSideboardInAnalysis}");
         builder.AppendLine($"include_maybeboard_in_analysis: {request.IncludeMaybeboardInAnalysis}");
         builder.AppendLine("card_specific_question_card_names:");
