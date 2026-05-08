@@ -41,6 +41,7 @@ internal static partial class ChatGptRequestContextParser
         string? deckName = null;
         string? commander = null;
         string? targetCommanderBracket = null;
+        string? targetAiPlatform = null;
         bool? includeSideboardInAnalysis = null;
         bool? includeMaybeboardInAnalysis = null;
         List<string> cardSpecificQuestionCardNames = [];
@@ -77,6 +78,9 @@ internal static partial class ChatGptRequestContextParser
                         break;
                     case "target_commander_bracket":
                         targetCommanderBracket = inlineValue.Trim();
+                        break;
+                    case "target_ai_platform":
+                        targetAiPlatform = inlineValue.Trim();
                         break;
                     case "include_sideboard_in_analysis":
                         includeSideboardInAnalysis = ParseBool(inlineValue);
@@ -144,7 +148,8 @@ internal static partial class ChatGptRequestContextParser
             SelectedSetCodes = selectedSetCodes,
             StrategyNotes = string.IsNullOrEmpty(strategyNotes) ? null : strategyNotes,
             MetaNotes = string.IsNullOrEmpty(metaNotes) ? null : metaNotes,
-            DeckSource = string.IsNullOrEmpty(deckSource) ? null : deckSource
+            DeckSource = string.IsNullOrEmpty(deckSource) ? null : deckSource,
+            TargetAiPlatform = string.IsNullOrEmpty(targetAiPlatform) ? null : targetAiPlatform
         };
     }
 
@@ -269,4 +274,10 @@ internal sealed record ParsedRequestContext
     public string? MetaNotes { get; init; }
 
     public string? DeckSource { get; init; }
+
+    /// <summary>
+    /// The AI platform from the request context, if present.
+    /// Null means absent in zip (legacy zip — caller defaults to "ChatGPT").
+    /// </summary>
+    public string? TargetAiPlatform { get; init; }
 }
