@@ -160,6 +160,13 @@ Plans:
 3. Selecting Claude or Gemini and downloading a session zip, then re-uploading the zip, restores the same AI target selection.
 4. Selecting Claude or Gemini and running analysis produces a valid artifact (content may be ChatGPT-format temporarily — Phase 10 adds optimization); no errors, no missing files.
 
+**Plans**: 3 plans across 2 waves
+
+Plans:
+- [ ] 09-01-PLAN.md — CSS blocks + _AiSelector.cshtml + _BracketCallout.cshtml shared partials (BRKT-01, AISEL-01) [Wave 1]
+- [ ] 09-02-PLAN.md — TargetAiPlatform model properties (all 3 requests) + zip round-trip writer/parser/loader (AISEL-01, AISEL-04) [Wave 1]
+- [ ] 09-03-PLAN.md — Razor view insertions: _AiSelector in all 3 pages, bracket callout in Packets; visual checkpoint (BRKT-01, AISEL-01, AISEL-04) [Wave 2]
+
 ---
 
 ### Phase 10: Claude + Gemini Artifact Optimization
@@ -192,7 +199,7 @@ Plans:
 | 7. Harvest Controls + Stats | v1.1 | 7/7 | Complete | 2026-05-03 |
 | 7.1 Categories Flag + SameOrigin Fix | v1.1 | 2/2 | Complete | 2026-05-03 |
 | 8. Analytics | v1.1 | 5/5 | Complete | 2026-05-08 |
-| 9. Bracket UX + AI Selector Foundation | v1.2 | 0/? | Not started | — |
+| 9. Bracket UX + AI Selector Foundation | v1.2 | 0/3 | Not started | — |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 0/? | Not started | — |
 
 ---
