@@ -1,7 +1,7 @@
-# Requirements: DeckFlow v1.1 Admin Console
+# Requirements: DeckFlow
 
-**Defined:** 2026-05-02
-**Core Value:** Every supported workflow must produce ChatGPT-paste-ready output in one round-trip — without the user reformatting anything. This milestone serves the operator running DeckFlow, not end users; admin tooling must keep the public site green while making harvest, flags, and usage observable from the browser.
+**v1.1 defined:** 2026-05-02 | **v1.2 defined:** 2026-05-08
+**Core Value:** Every supported workflow must produce output the user can paste into their AI assistant and get back a useful answer in one round-trip — without the user reformatting anything.
 
 ## v1.1 Requirements
 
@@ -49,9 +49,24 @@ Requirements for the v1.1 milestone. Each maps to exactly one roadmap phase. Cat
 - [x] **CATFLAG-03**: The Suggest Categories page route is gated by `[FeatureFlagGate("feature.categories.enabled")]` (Phase 6 reusable attribute) so a flag-OFF state returns 503 + maintenance copy instead of rendering a partially-broken page
 - [x] **CAT-FIX-01**: The categories AJAX endpoint accepts a legitimate same-origin browser request from the running site without returning "This endpoint only accepts same-origin browser requests." — root cause identified (logged Origin / Referer / X-Forwarded-Proto on a real attempt), fix landed, regression covered
 
-## v1.2+ Requirements
+## v1.2 Requirements
 
-Deferred to future milestone. Tracked but not in v1.1 roadmap.
+Requirements for the v1.2 milestone. Categories: BRKT (bracket UX), AISEL (AI target selector + artifacts).
+
+### Bracket UX
+
+- [ ] **BRKT-01**: The TargetCommanderBracket selector on the ChatGPT Packets page is visually prominent — a callout label, banner, or visual treatment ensures users cannot overlook it before submitting for analysis
+
+### AI Target Selector
+
+- [ ] **AISEL-01**: All three ChatGPT analysis pages (Packets, Deck Comparison, CEDH Meta Gap) show an AI target selector (ChatGPT / Claude / Gemini); ChatGPT is the default; the selector is visible at the top of the analysis step, not buried in a form section
+- [ ] **AISEL-02**: When Claude is selected, the exported artifact uses Claude-optimized structure (e.g., XML tags, system/human role blocks) and Claude-appropriate instructions tuned to Claude's reasoning strengths
+- [ ] **AISEL-03**: When Gemini is selected, the exported artifact uses Gemini-optimized structure and instructions distinct from ChatGPT and Claude formats
+- [ ] **AISEL-04**: The selected AI target is stored in the exported zip artifact and restored on resume (zip round-trip preserves AI selection)
+
+## v1.3+ Requirements
+
+Deferred to future milestone. Tracked but not in v1.2 roadmap.
 
 ### Admin polish
 
@@ -92,7 +107,22 @@ Explicitly excluded. Documented to prevent scope creep mid-milestone.
 | Mid-cycle migration framework (FluentMigrator etc.) | `EnsureSchemaAsync` + `CREATE TABLE IF NOT EXISTS` pattern still works for four new tables; revisit once the table count climbs |
 | UI audit re-score (≥ 20/24) | Carried forward from v1.0 but split into its own UI-audit milestone — not coupled to admin tooling |
 
-## Traceability
+## v1.2 Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| BRKT-01 | Phase 9 | Not started |
+| AISEL-01 | Phase 9 | Not started |
+| AISEL-02 | Phase 10 | Not started |
+| AISEL-03 | Phase 10 | Not started |
+| AISEL-04 | Phase 9 | Not started |
+
+**Coverage:**
+- v1.2 requirements: 5 total
+- Mapped to phases: 5
+- Unmapped: 0 ✓
+
+## v1.1 Traceability
 
 Which phases cover which requirements. Filled by gsd-roadmapper during roadmap creation.
 
@@ -132,5 +162,5 @@ Which phases cover which requirements. Filled by gsd-roadmapper during roadmap c
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-05-02*
-*Last updated: 2026-05-03 — Phase 7.1 (INSERTED) added 4 categories-visibility REQ-IDs*
+*v1.1 defined: 2026-05-02 | Last v1.1 update: 2026-05-03 — Phase 7.1 (INSERTED) added 4 categories-visibility REQ-IDs*
+*v1.2 defined: 2026-05-08 — 5 REQ-IDs across Phases 9-10*

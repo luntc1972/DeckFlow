@@ -8,17 +8,16 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Every supported workflow must produce output the user can paste into ChatGPT and get back a useful answer in one round-trip — without the user reformatting anything.** Visual polish, theme variety, and admin tooling all serve that core. If the prompt artifacts are wrong or missing, nothing else matters.
 
-## Current Milestone: v1.1 Admin Console
+## Current Milestone: v1.2 Multi-AI Prompts
 
-**Goal:** Ship a unified `/Admin` console (sidebar shell) that lets the operator drive Archidekt harvest jobs, see usage analytics, and toggle feature flags at runtime — without leaving the browser or shipping code.
+**Goal:** Extend the ChatGPT analysis workflows to support Claude and Gemini as target AI platforms, with artifacts optimized in both format and instructions for each platform. Also fix the bracket selector UX so it cannot be missed.
 
 **Target features:**
-- `/Admin` landing shell with sidebar nav (Feedback / Harvest / Analytics / Flags / future slots)
-- `/Admin/harvest`: run-now with duration cap, single Archidekt URL harvest, cancel, pause/resume, cron schedule, stats (total decks, cards, top commanders, recent runs, storage size, last + next run)
-- `/Admin/analytics`: per-page usage (route + day + count + unique-IP count + error rate, with daily sparkline and time-window filters)
-- `/Admin/flags`: Postgres-backed feature flags with hot reload — kill switches per page/function, Tagger off, beta-feature gates
-- BasicAuth gate (existing) carried across all admin pages
-- `/Admin/feedback` continues to work unchanged inside new shell
+- TargetCommanderBracket selector made visually prominent on the ChatGPT Packets page
+- AI target selector (ChatGPT / Claude / Gemini) added to all three ChatGPT analysis pages (Packets, Deck Comparison, CEDH Meta Gap)
+- Claude-optimized artifact: XML-structured format + Claude-tuned instructions
+- Gemini-optimized artifact: Gemini-appropriate format + instructions
+- AI selection round-tripped through zip export/import
 
 ## Requirements
 
@@ -48,13 +47,13 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ### Active
 
-<!-- v1.1 Admin Console — final REQ-IDs locked in REQUIREMENTS.md. -->
+<!-- v1.2 Multi-AI Prompts — REQ-IDs locked in REQUIREMENTS.md (BRKT-01, AISEL-01..04). -->
 
-- [ ] Admin landing shell with sidebar nav (Feedback / Harvest / Analytics / Flags / future slots) under existing BasicAuth
-- [ ] `/Admin/harvest` controls — run-now + duration cap, single-URL harvest, cancel, pause/resume, cron schedule
-- [ ] `/Admin/harvest` stats — total decks, total cards, top commanders, recent runs, storage size, last + next run
-- [ ] `/Admin/analytics` — per-page usage (route + day + count + unique-IP + error rate), time-window filter, daily sparkline
-- [ ] `/Admin/flags` — Postgres-backed feature flags with hot reload (page kill switches, Tagger off, beta gates)
+- [ ] TargetCommanderBracket selector visually prominent on ChatGPT Packets page (BRKT-01)
+- [ ] AI target selector (ChatGPT / Claude / Gemini) on all three ChatGPT analysis pages (AISEL-01)
+- [ ] Claude-optimized artifact format + instructions (AISEL-02)
+- [ ] Gemini-optimized artifact format + instructions (AISEL-03)
+- [ ] AI selection preserved in zip round-trip (AISEL-04)
 
 ### Out of Scope
 
@@ -168,8 +167,9 @@ This document evolves at phase transitions and milestone boundaries.
 ## Current State
 
 **Shipped:** v1.0 Polish & Quality (2026-05-02) — all 15 v1 requirements landed across 5 phases, 17 plans, 63 commits.
+**Shipped:** v1.1 Admin Console (2026-05-08) — all 27 requirements landed across Phases 6–8 + Phase 7.1 insert.
 
-**Active:** v1.1 Admin Console — defining requirements and roadmap.
+**Active:** v1.2 Multi-AI Prompts — Phase 9 (bracket UX + AI selector foundation) and Phase 10 (Claude + Gemini artifact optimization).
 
 ---
-*Last updated: 2026-05-02 — v1.1 Admin Console milestone opened*
+*Last updated: 2026-05-08 — v1.2 Multi-AI Prompts milestone opened*
