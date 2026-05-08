@@ -10,15 +10,15 @@
     <p class="ai-selector__heading">Analyze with</p>
     <div class="ai-selector__options" role="radiogroup" aria-label="AI analysis target">
         <input type="radio" name="TargetAiPlatform" id="ai-chatgpt" value="ChatGPT"
-               class="sr-only ai-selector__option" checked="@(selected == "ChatGPT")" />
+               class="sr-only ai-selector__option" checked="@(selected == "ChatGPT" ? "checked" : null)" />
         <label for="ai-chatgpt" class="ai-selector__option-label">ChatGPT</label>
 
         <input type="radio" name="TargetAiPlatform" id="ai-claude" value="Claude"
-               class="sr-only ai-selector__option" checked="@(selected == "Claude")" />
+               class="sr-only ai-selector__option" checked="@(selected == "Claude" ? "checked" : null)" />
         <label for="ai-claude" class="ai-selector__option-label">Claude</label>
 
         <input type="radio" name="TargetAiPlatform" id="ai-gemini" value="Gemini"
-               class="sr-only ai-selector__option" checked="@(selected == "Gemini")" />
+               class="sr-only ai-selector__option" checked="@(selected == "Gemini" ? "checked" : null)" />
         <label for="ai-gemini" class="ai-selector__option-label">Gemini</label>
     </div>
     <p class="ai-selector__hint">ChatGPT format used for all targets in this phase. Claude and Gemini optimizations arrive in Phase 10.</p>
