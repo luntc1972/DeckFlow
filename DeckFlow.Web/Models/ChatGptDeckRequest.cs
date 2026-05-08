@@ -10,6 +10,7 @@ public sealed class ChatGptDeckRequest
     private string _metaNotes = string.Empty;
     private string _deckProfileJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
+    private string _targetAiPlatform = "ChatGPT";
     private List<string> _selectedAnalysisQuestions = [];
     private List<string> _cardSpecificQuestionCardNames = new();
     private string _budgetUpgradeAmount = string.Empty;
@@ -92,6 +93,16 @@ public sealed class ChatGptDeckRequest
     {
         get => _targetCommanderBracket;
         set => _targetCommanderBracket = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// The AI platform the user intends to paste the generated artifact into.
+    /// Defaults to "ChatGPT". Accepted values: "ChatGPT", "Claude", "Gemini".
+    /// </summary>
+    public string TargetAiPlatform
+    {
+        get => _targetAiPlatform;
+        set => _targetAiPlatform = value ?? "ChatGPT";
     }
 
     public List<string> SelectedAnalysisQuestions
