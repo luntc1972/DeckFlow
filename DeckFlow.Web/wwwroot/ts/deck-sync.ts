@@ -722,7 +722,11 @@ const showBusyIndicator = (
 
 const registerBusyIndicator = (): void => {
   document.querySelectorAll<HTMLFormElement>('form[data-busy-title]').forEach(form => {
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (event: Event) => {
+      const submitter = (event as SubmitEvent).submitter;
+      if (submitter?.hasAttribute('data-no-busy')) {
+        return;
+      }
       const title = form.getAttribute('data-busy-title');
       const message = form.getAttribute('data-busy-message');
       const stepsAttr = form.getAttribute('data-busy-progress');
