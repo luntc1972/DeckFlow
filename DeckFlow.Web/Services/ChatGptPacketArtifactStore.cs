@@ -130,6 +130,13 @@ internal static class ChatGptPacketArtifactStore
         return BuildArchive(sections);
     }
 
+    /// <summary>
+    /// Rehydrates a saved ChatGPT packet zip back into a deck request.
+    /// </summary>
+    /// <remarks>
+    /// If present, <c>01-request-context.txt</c> is parsed to restore user-controlled request fields.
+    /// Older zips that only contain the response JSON payloads remain valid and silently skip context hydration.
+    /// </remarks>
     public static void LoadFromZip(Stream zipStream, ChatGptDeckRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
@@ -138,6 +145,7 @@ internal static class ChatGptPacketArtifactStore
         var entries = ReadEntries(zipStream, PacketAllowedNames);
         entries.TryGetValue("40-deck-profile.json", out var deckProfile);
         entries.TryGetValue("51-set-upgrade-response.json", out var setUpgrade);
+        entries.TryGetValue("01-request-context.txt", out var requestContextText);
 
         if (string.IsNullOrWhiteSpace(deckProfile) && string.IsNullOrWhiteSpace(setUpgrade))
         {
@@ -147,10 +155,79 @@ internal static class ChatGptPacketArtifactStore
         request.DeckProfileJson = deckProfile ?? string.Empty;
         request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
         request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade) ? 5 : 3;
-        request.DeckUrl = string.Empty;
-        request.DeckText = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(requestContextText))
+        {
+            var parsed = ChatGptRequestContextParser.Parse(requestContextText);
+            if (!string.IsNullOrEmpty(parsed.Format))
+            {
+                request.Format = parsed.Format;
+            }
+
+            if (parsed.DeckName is not null)
+            {
+                request.DeckName = parsed.DeckName;
+            }
+
+            if (parsed.TargetCommanderBracket is not null)
+            {
+                request.TargetCommanderBracket = parsed.TargetCommanderBracket;
+            }
+
+            if (parsed.IncludeSideboardInAnalysis is { } includeSideboard)
+            {
+                request.IncludeSideboardInAnalysis = includeSideboard;
+            }
+
+            if (parsed.IncludeMaybeboardInAnalysis is { } includeMaybeboard)
+            {
+                request.IncludeMaybeboardInAnalysis = includeMaybeboard;
+            }
+
+            if (parsed.CardSpecificQuestionCardNames.Count > 0)
+            {
+                request.CardSpecificQuestionCardNames = parsed.CardSpecificQuestionCardNames.ToList();
+            }
+
+            if (parsed.BudgetUpgradeAmount is not null)
+            {
+                request.BudgetUpgradeAmount = parsed.BudgetUpgradeAmount;
+            }
+
+            if (parsed.SelectedAnalysisQuestions.Count > 0)
+            {
+                request.SelectedAnalysisQuestions = parsed.SelectedAnalysisQuestions.ToList();
+            }
+
+            if (parsed.SelectedSetCodes.Count > 0)
+            {
+                request.SelectedSetCodes = parsed.SelectedSetCodes.ToList();
+            }
+
+            if (parsed.StrategyNotes is not null)
+            {
+                request.StrategyNotes = parsed.StrategyNotes;
+            }
+
+            if (parsed.MetaNotes is not null)
+            {
+                request.MetaNotes = parsed.MetaNotes;
+            }
+
+            if (parsed.DeckSource is not null)
+            {
+                request.DeckSource = parsed.DeckSource;
+            }
+        }
     }
 
+    /// <summary>
+    /// Rehydrates a saved comparison zip back into a comparison request.
+    /// </summary>
+    /// <remarks>
+    /// Deck A and Deck B are restored from the normalized post-Scryfall list entries in the zip,
+    /// which is the deck content the comparison workflow actually analyzed.
+    /// </remarks>
     public static void LoadComparisonFromZip(Stream zipStream, ChatGptDeckComparisonRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
@@ -165,10 +242,24 @@ internal static class ChatGptPacketArtifactStore
 
         request.ComparisonResponseJson = responseJson;
         request.WorkflowStep = 3;
-        request.DeckASource = string.Empty;
-        request.DeckBSource = string.Empty;
+        if (entries.TryGetValue("10-deck-a-list.txt", out var deckAList) && !string.IsNullOrWhiteSpace(deckAList))
+        {
+            request.DeckASource = deckAList.TrimEnd();
+        }
+
+        if (entries.TryGetValue("11-deck-b-list.txt", out var deckBList) && !string.IsNullOrWhiteSpace(deckBList))
+        {
+            request.DeckBSource = deckBList.TrimEnd();
+        }
     }
 
+    /// <summary>
+    /// Rehydrates a saved cEDH meta-gap zip back into a request.
+    /// </summary>
+    /// <remarks>
+    /// The cEDH zip contract does not currently include deck-source text, so <see cref="ChatGptCedhMetaGapRequest.DeckSource" />
+    /// cannot be restored here. The upload controller restores commander name from the response JSON after this method returns.
+    /// </remarks>
     public static void LoadCedhMetaGapFromZip(Stream zipStream, ChatGptCedhMetaGapRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
