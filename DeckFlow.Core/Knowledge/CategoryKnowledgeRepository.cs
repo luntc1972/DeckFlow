@@ -258,6 +258,67 @@ public sealed class CategoryKnowledgeRepository
     }
 
     /// <summary>
+    /// Returns all card-category observations from decks led by <paramref name="commanderName"/>,
+    /// aggregated across every harvested deck that has this commander in the commander zone.
+    /// </summary>
+    public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT o.category, o.card_name, SUM(o.count) AS total, COUNT(DISTINCT q.deck_id) AS deck_total
+            FROM card_category_observations o
+            JOIN deck_queue q ON o.source = 'archidekt_live:' || q.deck_id
+            WHERE LOWER(q.commander_name) = LOWER(@commanderName)
+              AND q.processed = 1
+            GROUP BY o.category, o.card_name
+            ORDER BY total DESC, LOWER(o.category), o.category;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@commanderName", commanderName);
+
+        var rows = new List<CategoryKnowledgeRow>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new CategoryKnowledgeRow(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetInt32(2),
+                reader.GetInt32(3)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Returns the count of processed decks in <c>deck_queue</c> that are led by <paramref name="commanderName"/>.
+    /// </summary>
+    public async Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(1) FROM deck_queue
+            WHERE LOWER(commander_name) = LOWER(@commanderName)
+              AND processed = 1;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@commanderName", commanderName);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is long l ? (int)l : result is int i ? i : 0;
+    }
+
+    /// <summary>
     /// Replaces all observations for a source with the provided rows.
     /// </summary>
     /// <param name="source">Source label for the data.</param>

@@ -72,10 +72,11 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
             await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
         }
 
-        var rows = await _knowledgeStore.GetCategoryRowsAsync(trimmed, boardFilter: "commander", cancellationToken);
+        var rows = await _knowledgeStore.GetCategoryRowsForCommanderAsync(trimmed, cancellationToken);
 
         var deckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-        var cardTotals = await _knowledgeStore.GetCardDeckTotalsAsync(trimmed, boardFilter: "commander", cancellationToken);
+        var commanderDeckCount = await _knowledgeStore.GetCommanderDeckCountAsync(trimmed, cancellationToken);
+        var cardTotals = new CardDeckTotals(commanderDeckCount, new Dictionary<string, int>());
         var summaries = rows
             .GroupBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
             .Select(group => new CommanderCategorySummary(
