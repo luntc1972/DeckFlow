@@ -315,7 +315,7 @@ Deck B ([DECK B NAME]):
             </div>
             <span class="chatgpt-step-badge">Packet output</span>
         </div>
-
+        @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>

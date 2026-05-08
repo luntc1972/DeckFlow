@@ -178,7 +178,7 @@
             </div>
             <span class="chatgpt-step-badge">Prompt output</span>
         </div>
-
+        @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
         {
             <section class="result-panel nested-panel summary-panel">
