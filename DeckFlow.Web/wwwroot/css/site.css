@@ -1369,3 +1369,15 @@ pre {
 .moxfield-bulkedit-hint code {
   color: var(--ink);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .busy-indicator__spinner {
+    animation: none;
+  }
+  .hub-card,
+  .hub-card:hover,
+  .hub-card:focus-visible {
+    transition: none;
+    transform: none;
+  }
+}
