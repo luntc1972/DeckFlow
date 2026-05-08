@@ -1,36 +1,11 @@
-((): void => {
-  'use strict';
-
-  let initialized = false;
-
-  const attachFeedbackBusyState = (): void => {
-    if (initialized) {
-      return;
-    }
-    initialized = true;
-
-    const form = document.querySelector<HTMLFormElement>('form.feedback-form');
-    if (!form) {
-      return;
-    }
-
-    const button = form.querySelector<HTMLButtonElement>('button.feedback-submit');
-    if (!button) {
-      return;
-    }
-
-    form.addEventListener('submit', () => {
-      // D-08: do NOT cancel the submit — let the browser POST normally.
-      // D-11: disabled flag prevents double-submit.
-      button.disabled = true;
-      button.classList.add('feedback-submit--busy');
-      // D-09: text swap for the duration of the request.
-      button.textContent = 'Sending…';
+(function () {
+    const form = document.querySelector<HTMLFormElement>(".feedback-form");
+    if (!form) return;
+    form.addEventListener("submit", () => {
+        const btn = form.querySelector<HTMLButtonElement>("button[type='submit']");
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Sending…";
+        }
     });
-  };
-
-  document.addEventListener('DOMContentLoaded', attachFeedbackBusyState);
-  if (document.readyState !== 'loading') {
-    attachFeedbackBusyState();
-  }
-})();
+}());

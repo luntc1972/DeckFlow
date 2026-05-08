@@ -1,7 +1,7 @@
 @* _MoxfieldBulkEditHint — accepts a verb string matching the host page's submit button label (e.g., "Run Sync"). Falls back to "Submit" if no model arg provided. *@
 @model string
 @{
-    var verb = string.IsNullOrWhiteSpace(Model) ? "Submit" : Model;
+    var verb = string.IsNullOrWhiteSpace(Model) ? "Run" : Model;
 }
 <details class="moxfield-bulkedit-hint">
     <summary>Want your Moxfield tags and categories to come through? Use Bulk Edit &rarr;</summary>
