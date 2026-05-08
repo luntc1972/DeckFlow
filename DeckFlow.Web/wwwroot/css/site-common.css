@@ -1161,3 +1161,78 @@
     font-weight: 600;
     white-space: nowrap;
 }
+
+/* ── Bracket Required-Field Callout (BRKT-01) ─────────────────────────── */
+.bracket-callout {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent-strong);
+    border-radius: 8px;
+    background: var(--panel-soft-bg);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.bracket-callout__label {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--accent-strong);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+/* ── AI Target Selector (AISEL-01) ────────────────────────────────────── */
+.ai-selector {
+    border: 1px solid var(--line-cool);
+    border-radius: 10px;
+    background: var(--info);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.ai-selector__heading {
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 8px 0;
+}
+
+.ai-selector__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.ai-selector__option-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border: 2px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: var(--fs-base);
+    font-weight: 400;
+    cursor: pointer;
+    min-height: 44px;
+    user-select: none;
+}
+
+.ai-selector__option:checked + .ai-selector__option-label {
+    border-color: var(--accent-strong);
+    background: var(--panel-soft-bg);
+    font-weight: 600;
+    color: var(--accent-strong);
+}
+
+.ai-selector__option-label:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.ai-selector__hint {
+    font-size: var(--fs-sm);
+    color: var(--muted);
+    margin: 8px 0 0 0;
+}
