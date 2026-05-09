@@ -466,12 +466,14 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("You are a cEDH deck optimization analyst.");
         builder.AppendLine("</role>");
         builder.AppendLine();
-        builder.AppendLine($"<commander>{commanderName}</commander>");
-        builder.AppendLine();
         builder.AppendLine("<my_deck>");
+        builder.AppendLine($"  <commander>{commanderName}</commander>");
+        builder.AppendLine("  <list>");
         builder.AppendLine(BuildCompactDecklist(myDeckEntries, oracleNameMap));
-        builder.AppendLine();
+        builder.AppendLine("  </list>");
+        builder.AppendLine("  <combos>");
         builder.AppendLine(BuildComboReferenceText("MY_DECK", myDeckCombos));
+        builder.AppendLine("  </combos>");
         builder.AppendLine("</my_deck>");
         builder.AppendLine();
         builder.AppendLine("<reference_decks>");
