@@ -57,11 +57,19 @@ public sealed class ChatGptDeckComparisonRequest
 
     /// <summary>
     /// The AI platform the user intends to paste the generated artifact into.
-    /// Defaults to "ChatGPT". UI field only in Phase 9 — zip round-trip added in Phase 10.
+    /// Defaults to "ChatGPT". Accepted values: "ChatGPT", "Claude", "Gemini".
+    /// UI field only in Phase 9 — zip round-trip added in Phase 10. Anything
+    /// outside the accepted set is normalized to "ChatGPT" so a crafted zip
+    /// with an unrecognized <c>target_ai_platform</c> value cannot leave the
+    /// request holding an out-of-set string (Phase 10 hardening).
     /// </summary>
     public string TargetAiPlatform
     {
         get => _targetAiPlatform;
-        set => _targetAiPlatform = value ?? "ChatGPT";
+        set => _targetAiPlatform = value switch
+        {
+            "ChatGPT" or "Claude" or "Gemini" => value,
+            _ => "ChatGPT"
+        };
     }
 }

@@ -114,6 +114,21 @@ public sealed class ChatGptPhase10RoundTripTests
         Assert.Equal("Claude", loaded.TargetAiPlatform);
     }
 
+    [Fact]
+    public void LoadComparisonFromZip_normalizes_invalid_target_ai_platform_to_chatgpt()
+    {
+        // A crafted zip with an out-of-set platform value must not leave the
+        // request holding an invalid string (which would render the AI selector
+        // with no radio checked). The model setter normalizes via Phase 10 hardening.
+        var bytes = BuildComparisonZipWithRequestContext("target_ai_platform: SomethingInvalid\n");
+
+        var loaded = new ChatGptDeckComparisonRequest { TargetAiPlatform = "Claude" };
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
+    }
+
     // ---- CedhMetaGap zip round-trip ----
 
     [Fact]
@@ -189,6 +204,18 @@ public sealed class ChatGptPhase10RoundTripTests
         ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("Claude", loaded.TargetAiPlatform);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_normalizes_invalid_target_ai_platform_to_chatgpt()
+    {
+        var bytes = BuildCedhMetaGapZipWithRequestContext("target_ai_platform: BogusValue\n");
+
+        var loaded = new ChatGptCedhMetaGapRequest { TargetAiPlatform = "Claude" };
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+
+        Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
     }
 
     // ---- Comparison BuildRequestContextText writer ----
