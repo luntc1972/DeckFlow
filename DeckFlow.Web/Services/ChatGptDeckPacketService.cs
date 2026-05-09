@@ -42,7 +42,8 @@ public sealed record ChatGptDeckPacketResult(
     string? TimingSummary,
     ChatGptDeckAnalysisResponse? AnalysisResponse = null,
     ChatGptSetUpgradeResponse? SetUpgradeResponse = null,
-    string? ImportWarning = null);
+    string? ImportWarning = null,
+    string? ResolvedCommanderName = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompts plus supporting reference data for ChatGPT.
@@ -150,7 +151,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 SetUpgradePromptText: null,
                 RequestContextText: null,
                 TimingSummary: savedTimingSummary,
-                AnalysisResponse: savedAnalysisResponse);
+                AnalysisResponse: savedAnalysisResponse,
+                ResolvedCommanderName: savedAnalysisResponse.Commander);
         }
 
         if (request.WorkflowStep == 5
@@ -182,7 +184,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 RequestContextText: null,
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse,
-                SetUpgradeResponse: savedSetUpgradeResponse);
+                SetUpgradeResponse: savedSetUpgradeResponse,
+                ResolvedCommanderName: savedAnalysisResponse?.Commander);
         }
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))
@@ -461,7 +464,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             timingSummary,
             analysisResponse,
             setUpgradeResponse,
-            ImportWarning: _lastImportNotice);
+            ImportWarning: _lastImportNotice,
+            ResolvedCommanderName: commanderName);
     }
 
 

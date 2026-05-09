@@ -31,7 +31,9 @@ public sealed record ChatGptDeckComparisonResult(
     string FollowUpPromptText,
     string ComparisonSchemaJson,
     ChatGptDeckComparisonResponse? ComparisonResponse,
-    string? TimingSummary);
+    string? TimingSummary,
+    string? ResolvedDeckACommander = null,
+    string? ResolvedDeckBCommander = null);
 
 public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 {
@@ -176,7 +178,9 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             followUpPromptText,
             comparisonSchemaJson,
             comparisonResponse,
-            timingSummary);
+            timingSummary,
+            ResolvedDeckACommander: deckA.CommanderName,
+            ResolvedDeckBCommander: deckB.CommanderName);
     }
 
     private async Task<LoadedDeck> LoadDeckAsync(string deckLabel, string deckSource, CancellationToken cancellationToken)
