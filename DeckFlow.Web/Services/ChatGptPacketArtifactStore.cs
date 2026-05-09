@@ -30,6 +30,7 @@ internal static class ChatGptPacketArtifactStore
     private static readonly HashSet<string> ComparisonAllowedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "00-comparison-input-summary.txt",
+        "01-request-context.txt",
         "10-deck-a-list.txt",
         "11-deck-b-list.txt",
         "12-deck-a-combos.txt",
@@ -44,6 +45,7 @@ internal static class ChatGptPacketArtifactStore
     private static readonly HashSet<string> CedhAllowedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "00-input-summary.txt",
+        "01-request-context.txt",
         "30-meta-gap-prompt.txt",
         "31-meta-gap-schema.json",
         "40-meta-gap-response.json"
@@ -90,13 +92,15 @@ internal static class ChatGptPacketArtifactStore
         string comparisonContextText,
         string comparisonPromptText,
         string followUpPromptText,
-        string comparisonSchemaJson)
+        string comparisonSchemaJson,
+        string? requestContextText)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var sections = NormalizeSections(
         [
             ("00-comparison-input-summary.txt", "COMPARISON INPUT SUMMARY", inputSummary),
+            ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
             ("10-deck-a-list.txt", "DECK A LIST", deckAListText),
             ("11-deck-b-list.txt", "DECK B LIST", deckBListText),
             ("12-deck-a-combos.txt", "DECK A COMBOS", deckAComboText),
@@ -115,13 +119,15 @@ internal static class ChatGptPacketArtifactStore
         ChatGptCedhMetaGapRequest request,
         string inputSummary,
         string promptText,
-        string schemaJson)
+        string schemaJson,
+        string? requestContextText)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var sections = NormalizeSections(
         [
             ("00-input-summary.txt", "INPUT SUMMARY", inputSummary),
+            ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
             ("30-meta-gap-prompt.txt", "META GAP PROMPT", promptText),
             ("31-meta-gap-schema.json", "META GAP SCHEMA JSON", schemaJson),
             ("40-meta-gap-response.json", "META GAP RESPONSE JSON", string.IsNullOrWhiteSpace(request.MetaGapResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.MetaGapResponseJson))
@@ -264,6 +270,16 @@ internal static class ChatGptPacketArtifactStore
         {
             request.DeckBSource = deckBList.TrimEnd();
         }
+
+        if (entries.TryGetValue("01-request-context.txt", out var requestContextText)
+            && !string.IsNullOrWhiteSpace(requestContextText))
+        {
+            var parsed = ChatGptRequestContextParser.Parse(requestContextText);
+            if (parsed.TargetAiPlatform is not null)
+            {
+                request.TargetAiPlatform = parsed.TargetAiPlatform;
+            }
+        }
     }
 
     /// <summary>
@@ -289,6 +305,16 @@ internal static class ChatGptPacketArtifactStore
         request.WorkflowStep = 3;
         request.DeckSource = string.Empty;
         request.CommanderName = string.Empty;
+
+        if (entries.TryGetValue("01-request-context.txt", out var requestContextText)
+            && !string.IsNullOrWhiteSpace(requestContextText))
+        {
+            var parsed = ChatGptRequestContextParser.Parse(requestContextText);
+            if (parsed.TargetAiPlatform is not null)
+            {
+                request.TargetAiPlatform = parsed.TargetAiPlatform;
+            }
+        }
     }
 
     public static string SuggestPacketZipFileName(string? commanderName)
