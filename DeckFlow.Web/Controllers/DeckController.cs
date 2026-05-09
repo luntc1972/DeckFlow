@@ -510,7 +510,9 @@ public sealed class DeckController : Controller
         try
         {
             var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
-            var commanderName = result.AnalysisResponse?.Commander ?? request.DeckName;
+            var commanderName = !string.IsNullOrWhiteSpace(result.ResolvedCommanderName)
+                ? result.ResolvedCommanderName
+                : result.AnalysisResponse?.Commander ?? request.DeckName;
             var requestContextText = result.RequestContextText ?? ChatGptDeckPacketService.BuildRequestContextText(request, commanderName);
             var bytes = ChatGptPacketArtifactStore.BuildZip(
                 request,
@@ -728,7 +730,13 @@ public sealed class DeckController : Controller
                 result.ComparisonPromptText,
                 result.FollowUpPromptText,
                 result.ComparisonSchemaJson);
-            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(request.DeckAName, request.DeckBName);
+            var fileNameDeckA = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
+                ? result.ResolvedDeckACommander!
+                : request.DeckAName;
+            var fileNameDeckB = !string.IsNullOrWhiteSpace(result.ResolvedDeckBCommander)
+                ? result.ResolvedDeckBCommander!
+                : request.DeckBName;
+            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fileNameDeckA, fileNameDeckB);
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
