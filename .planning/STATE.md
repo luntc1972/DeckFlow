@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Multi-AI Prompts
 status: in_progress
-stopped_at: Phase 9 — all 3 plans executed; awaiting human-verify checkpoint
-last_updated: "2026-05-09T14:48:00Z"
+stopped_at: Phase 9 closed (human-verify approved 2026-05-09); Phase 10 not yet planned
+last_updated: "2026-05-09T17:00:00Z"
 last_activity: 2026-05-09
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
   completed_plans: 3
   percent: 50
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
 
 **Core value:** Every supported workflow must produce output the user can paste into their AI assistant and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 09 — bracket UX + AI selector foundation (executed; human-verify pending)
+**Current focus:** Phase 10 — Claude + Gemini per-AI prompt optimization (not yet planned)
 
 ## Current Position
 
-Phase: 09 — EXECUTED, awaiting human-verify
+Phase: 09 — CLOSED (human-verify approved 2026-05-09)
 Plan: 3 of 3 — all SUMMARY committed (09-01, 09-02, 09-03)
-Status: Visual re-confirmation pending; two regression fixes shipped post-execution (commits 32bf620, f26e63d)
-Last activity: 2026-05-08 — 09-03 partial-zip upload regression fix landed
+Status: Phase 9 verified in browser by user; bug-fix bundle on v1.2 (7c70963, 13bb656, ce043df) covers post-upload form action, persisted state clear, and download debounce. Next: Phase 10 planning, blocked by Claude/Gemini artifact format research and a small commander-name-in-download-filename improvement requested at verify time.
+Last activity: 2026-05-09 — Phase 9 verified, bug-fix bundle pushed to origin/v1.2
 
 ## Performance Metrics
 
@@ -61,6 +61,9 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 | 09-03 | View wiring across all three ChatGPT pages | eaf1931, ab368fa, ad8a70e |
 | 09-03 fix | Download buttons formnovalidate + AI selector checked rendering | 32bf620 |
 | 09-03 fix | Allow upload of partial session zips (no responses yet) | f26e63d |
+| post-verify | Pin form action on all 3 ChatGPT pages so post-upload submits hit the correct route | 7c70963 |
+| post-verify | Clear persisted form state on session-zip upload (was overwriting upload-rendered values) | 13bb656 |
+| post-verify | Debounce session-zip download buttons (3s disable to prevent rapid re-clicks) | ce043df |
 
 ### Quick Tasks Completed (v1.2 era)
 
@@ -87,12 +90,11 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 
 ### Blockers/Concerns
 
-- Phase 9 human-verify checkpoint still pending — visual re-confirmation needed before phase closes
 - Claude/Gemini artifact format research needed before Phase 10 planning — what does a "Claude-optimized" prompt look like for deck analysis?
-- Three pages need AI selector UI changes consistent across all three — verified by grep but human eyes still needed
+- User-requested polish: download zip filenames should always include the resolved commander name to differentiate when multiple session zips end up in the same download folder. Currently Packets falls back to `deckflow-packet-{ts}.zip` and Comparison to `deck-comparison-{ts}.zip` when commander/deck name fields are empty at download time. Tackle before Phase 10 starts.
 
 ## Session Continuity
 
-Last session: 2026-05-09 8:48am MDT
-Stopped at: Resumed and synced STATE.md to reality (Phase 9 executed, not "not started")
-Next action: Human-verify Phase 9 in browser; on pass, close phase and start Phase 10 planning
+Last session: 2026-05-09 11:00am MDT
+Stopped at: Phase 9 closed; bug-fix bundle pushed to origin/v1.2; commander-name-in-filename polish queued
+Next action: Implement commander-name-in-filename fix on v1.2, then start Phase 10 research/planning
