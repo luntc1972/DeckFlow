@@ -115,7 +115,7 @@ Explicitly excluded. Documented to prevent scope creep mid-milestone.
 | AISEL-01 | Phase 9 | Not started |
 | AISEL-02 | Phase 10 | Not started |
 | AISEL-03 | Phase 10 | Not started |
-| AISEL-04 | Phase 9 | Not started |
+| AISEL-04 | Phase 9 (Packets) + Phase 10 (Comparison, CedhMetaGap) | Phase 9 partial |
 
 **Coverage:**
 - v1.2 requirements: 5 total

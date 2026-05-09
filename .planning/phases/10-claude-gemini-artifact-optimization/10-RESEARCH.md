@@ -905,7 +905,7 @@ ship plan: proceed with the assumptions; reconsider if live-paste verification f
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `01-request-context.txt` content for Comparison and CedhMetaGap match Packets verbosity, or be minimal?**
    - What we know: Packets file carries 13+ scalar/list fields. Comparison and CedhMetaGap
@@ -919,6 +919,7 @@ ship plan: proceed with the assumptions; reconsider if live-paste verification f
      commander, time_period, sort_by, min_event_size, max_standing for CedhMetaGap). Keeps
      architectural symmetry with Packets and avoids re-prompting users on resume. Cost is a
      dozen lines of extra parser code.
+   - **RESOLVED:** Full form-state parity for Comparison and CedhMetaGap request-context (matches Packets pattern). All materially round-trip-relevant fields are written and parsed; unknown keys remain silently ignored by the existing parser, so this is safe additive scope. (Locked 2026-05-09 by planner per checker B-1.)
 
 2. **Single-shim vs per-parser `<result>` extraction?**
    - What we know: All three response parsers funnel through
@@ -930,6 +931,7 @@ ship plan: proceed with the assumptions; reconsider if live-paste verification f
      parser-time callers, the shim is safe at the helper. If a save-time caller exists,
      extract via a new sibling helper and call from each `Parse*Response` method
      individually. Plan should include a 5-minute call-site audit before code changes.
+   - **RESOLVED:** Helper-level shim in `ChatGptJsonTextFormatterService.ExtractJsonPayload` (single insertion point). Assumption A1 verified all four parsers funnel through this method; no save-time caller exists outside the parser surface. If a future caller is added that bypasses `<result>` extraction, that caller can opt out at its own callsite. (Locked 2026-05-09 by planner per checker B-1.)
 
 3. **Does `ChatGptDeckComparisonService.BuildFollowUpPrompt` (line 710) need per-AI
    variants?**
@@ -944,6 +946,7 @@ ship plan: proceed with the assumptions; reconsider if live-paste verification f
      builder in the planning slice. The "all four builders" framing in the Summary should
      read "all five builders" if the follow-up prompt is included. Planner verifies during
      plan drafting.
+   - **RESOLVED:** Per-AI fork for `BuildFollowUpPrompt` — same dispatch shape as the four other prompt builders (switch expression on targetAiPlatform; three private static helpers). The follow-up prompt inherits TargetAiPlatform from the same form and shares the schema-strictness + `<result>` wrap requirements, so structural divergence parallels the main comparison prompt. Plan 10-02 task 3 implements both `BuildComparisonPrompt` and `BuildFollowUpPrompt` per-AI variants together. (Locked 2026-05-09 by planner per checker B-1.)
 
 ---
 

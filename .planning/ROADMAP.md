@@ -175,7 +175,7 @@ Plans:
 
 **Depends on**: Phase 9 (AI selector UI and routing in place)
 
-**Requirements**: AISEL-02, AISEL-03
+**Requirements**: AISEL-02, AISEL-03, AISEL-04
 
 **Success Criteria** (what must be TRUE):
 
