@@ -4,6 +4,11 @@ namespace DeckFlow.Web.Services;
 
 public static class ChatGptJsonTextFormatterService
 {
+    // Phase 10: shared <result>...</result> wrap directive used by all three
+    // ChatGptDeck* services to ensure cross-AI parsing parity.
+    internal const string ChatGptResultWrapInstruction =
+        "Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.";
+
     internal static string ExtractJsonPayload(string input)
     {
         var trimmed = input.Trim();
