@@ -751,6 +751,25 @@ const registerBusyIndicator = (): void => {
   });
 };
 
+const registerChatGptDownloadDebounce = (): void => {
+  document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-download-submit]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (button.disabled) {
+        return;
+      }
+
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Preparing download...';
+
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+      }, 3000);
+    });
+  });
+};
+
 const formStateStoragePrefix = 'decksync-form-state-';
 const antiForgeryFieldName = '__RequestVerificationToken';
 const storageAvailable = (() => {
@@ -2407,6 +2426,7 @@ const bootstrapDeckSync = (): void => {
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
   registerBusyIndicator();
+  registerChatGptDownloadDebounce();
   attachActionButtons();
   attachGenericPersistedForms();
   attachDeckSyncPersistence();
