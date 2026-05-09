@@ -36,7 +36,7 @@
 
 <div class="error-banner hidden" data-chatgpt-cedh-validation-error role="alert"></div>
 
-<form method="post" class="deck-form" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
+<form method="post" action="@Url.Content("~/chatgpt-cedh-meta-gap")" class="deck-form" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
         <button type="submit" class="run-button chatgpt-sticky-download__button"
