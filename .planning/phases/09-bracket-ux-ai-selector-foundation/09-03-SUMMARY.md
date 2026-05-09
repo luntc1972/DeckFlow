@@ -34,7 +34,7 @@ metrics:
   tasks_completed: 2
   tasks_total: 3
   files_created: 0
-  files_modified: 3
+  files_modified: 5
 ---
 
 # Phase 9 Plan 03: View Wiring — _AiSelector + Bracket Callout Summary
@@ -48,9 +48,20 @@ metrics:
 | 1 | Insert _AiSelector and bracket callout into ChatGptPackets.cshtml | eaf1931 | DeckFlow.Web/Views/Deck/ChatGptPackets.cshtml |
 | 2 | Insert _AiSelector into ChatGptDeckComparison.cshtml and ChatGptCedhMetaGap.cshtml | ab368fa | DeckFlow.Web/Views/Deck/ChatGptDeckComparison.cshtml, DeckFlow.Web/Views/Deck/ChatGptCedhMetaGap.cshtml |
 
+## Regression Fix (commit 32bf620)
+
+During human checkpoint, the user reported "download session button no longer works."
+
+**Root cause:** `TargetCommanderBracket` has `required` + `tabindex="-1"` (set by df-select). The download buttons lacked `formnovalidate`, so the browser's native constraint validation fires first, can't focus the unfocusable required select, and silently blocks submission before the JS submit handler ever runs. Same issue as the upload button (which already had `formnovalidate`).
+
+**Fixes applied:**
+1. `ChatGptPackets.cshtml` — added `formnovalidate` + `data-chatgpt-download-submit` to all three download buttons
+2. `deck-sync.ts` — chatgpt-packets submit handler now returns early for `data-chatgpt-download-submit` (mirrors `data-chatgpt-upload-submit`) so download never triggers step validation
+3. `_AiSelector.cshtml` — changed `checked="@(x)"` to `checked="@(x ? "checked" : null)"` so unchecked radios omit the attribute rather than rendering `checked="True"`
+
 ## Checkpoint Pending
 
-Task 3 (checkpoint:human-verify) awaits visual confirmation from user. See checkpoint section below.
+Task 3 (checkpoint:human-verify) awaits visual re-confirmation from user.
 
 ## Verification
 
