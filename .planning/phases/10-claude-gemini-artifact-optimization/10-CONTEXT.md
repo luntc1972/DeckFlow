@@ -12,6 +12,26 @@ infrastructure shipped in Phase 9. Ship across all three ChatGPT analysis pages
 (Packets, Deck Comparison, CEDH Meta Gap). Default ChatGPT flow stays unchanged
 in content and behavior — Claude/Gemini paths are additive.
 
+**Scope addendum (added 2026-05-09 after Codex code review of v1.2 polish bundle):**
+Phase 10 also closes two LOW-severity findings from the post-verify bug-fix
+bundle (commits ce043df and 13bb656), folded in here rather than spun out as a
+separate quick task:
+
+1. **Download debounce hardening** — replace the hard-coded 3000ms timeout in
+   `registerChatGptDownloadDebounce` (`DeckFlow.Web/wwwroot/ts/deck-sync.ts:754`)
+   with a stronger re-enable signal so rapid-clickers cannot still slip a
+   duplicate through on slow Render responses. At minimum, lift the constant
+   and add a comment; preferred, key re-enable to "response started" (e.g.,
+   detect Content-Disposition header arrival via fetch+stream OR re-enable on
+   navigation/visibility-change) without re-introducing the original sticky-
+   busy-overlay regression that motivated the `data-no-busy` attribute.
+2. **`skipPersistence` flag cleanup on failure** — in `wireChatGptZipUpload`
+   (`DeckFlow.Web/wwwroot/ts/deck-sync.ts` ~line 2375), the `skipPersistence`
+   flag is set before the upload submit but is never cleared on error. If the
+   upload POST fails mid-flight, persistence stays disabled for the rest of
+   the page lifetime. Either clear on the error path, scope the suppression
+   to a single persistence cycle, or replace with a narrower mechanism.
+
 Out of phase scope: changing the JSON response schemas; rewriting the response
 parser into a full XML pipeline; introducing API-mode integrations (this phase
 remains paste-into-web-UI).
@@ -108,6 +128,22 @@ remains paste-into-web-UI).
   to micro-manage that choice. Constraint: the dispatch happens inside the
   service, not at the controller; controllers stay AI-agnostic.
 
+### Carry-over polish (folded from v1.2 bug-fix bundle review)
+
+- **D-14:** Download debounce in `registerChatGptDownloadDebounce` must be
+  hardened beyond the hard-coded 3000ms timeout. Two acceptable approaches:
+  (a) lift the timeout to a named constant with a comment explaining the
+  Render-response-time tradeoff; or (b) wire re-enable to a stronger signal
+  (response started, navigation, visibility change). Constraint: must not
+  re-introduce the sticky-busy-overlay regression that the `data-no-busy`
+  attribute was originally added (commit b09fd46) to fix.
+- **D-15:** `skipPersistence` flag in `wireChatGptZipUpload` must be cleared
+  on the upload-failure path, OR the suppression must be scoped to a single
+  persistence cycle, OR replaced with a narrower mechanism. Today the flag
+  stays `true` for the rest of the page lifetime if the upload POST errors
+  before navigation, silently disabling form-state persistence on subsequent
+  user actions.
+
 ### Claude's Discretion
 
 - Exact wording and tone of the per-AI instruction layers (researcher and
@@ -120,6 +156,9 @@ remains paste-into-web-UI).
   are deck name, bracket, etc.). Planner decides scope of the new file based
   on what Comparison and CedhMetaGap actually need to round-trip.
 - Test approach (manual round-trip check by user vs golden-file tests).
+- Choice between option (a) and (b) for D-14 and choice between the three
+  approaches for D-15 — planner picks based on the implementation cost of
+  the cleaner approach vs the constant-rename minimum.
 
 </decisions>
 
