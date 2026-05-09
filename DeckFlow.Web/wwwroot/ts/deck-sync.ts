@@ -2372,6 +2372,16 @@ const wireChatGptZipUpload = (): void => {
         return;
       }
 
+      // The file-picker change event bubbled to the form and already triggered persistFormState
+      // with pre-upload (mostly empty) values. After the upload POST navigates back, the
+      // upload-rendered server values would be overwritten by hydrateFormState reading that
+      // stale state. Clear it here, and disable further persistence on this page until navigation.
+      const form = input.closest<HTMLFormElement>('form[data-cache-key]');
+      if (form) {
+        clearPersistedFormState(form);
+        form.dataset.skipPersistence = 'true';
+      }
+
       const wrapper = input.closest('details');
       const submit = wrapper?.querySelector<HTMLButtonElement>('button[formaction$="/upload"]');
       submit?.click();
