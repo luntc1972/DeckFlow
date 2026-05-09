@@ -1371,7 +1371,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine();
 
         builder.AppendLine("## OUTPUT FORMAT");
-        builder.AppendLine("Return ONLY a single JSON object inside the <result>...</result> wrapper. Do not include any prose, markdown headings, or commentary outside the <result> tags. The JSON must conform exactly to the schema below — no extra fields, no missing fields, no narrative wrappers.");
+        builder.AppendLine("Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.");
         builder.AppendLine();
         builder.AppendLine("Structure your readable analysis (placed BEFORE the <result> wrapper) as follows:");
         builder.AppendLine();
