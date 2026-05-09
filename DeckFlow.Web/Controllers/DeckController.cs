@@ -714,7 +714,8 @@ public sealed class DeckController : Controller
                     string.Empty,
                     string.Empty,
                     string.Empty,
-                    string.Empty);
+                    string.Empty,
+                    ChatGptDeckComparisonService.BuildRequestContextText(request));
                 return File(fallbackBytes, "application/zip", fallbackFileName);
             }
 
@@ -729,7 +730,8 @@ public sealed class DeckController : Controller
                 result.ComparisonContextText,
                 result.ComparisonPromptText,
                 result.FollowUpPromptText,
-                result.ComparisonSchemaJson);
+                result.ComparisonSchemaJson,
+                result.RequestContextText);
             var fileNameDeckA = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
                 ? result.ResolvedDeckACommander!
                 : request.DeckAName;
@@ -920,7 +922,8 @@ public sealed class DeckController : Controller
                     request,
                     string.Empty,
                     string.Empty,
-                    string.Empty);
+                    string.Empty,
+                    ChatGptCedhMetaGapService.BuildRequestContextText(request));
                 return File(fallbackBytes, "application/zip", fallbackFileName);
             }
 
@@ -929,7 +932,8 @@ public sealed class DeckController : Controller
                 request,
                 result.InputSummary ?? string.Empty,
                 result.PromptText ?? string.Empty,
-                result.SchemaJson ?? string.Empty);
+                result.SchemaJson ?? string.Empty,
+                result.RequestContextText);
             var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName);
             return File(bytes, "application/zip", fileName);
         }

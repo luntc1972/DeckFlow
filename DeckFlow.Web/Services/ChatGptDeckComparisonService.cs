@@ -33,7 +33,8 @@ public sealed record ChatGptDeckComparisonResult(
     ChatGptDeckComparisonResponse? ComparisonResponse,
     string? TimingSummary,
     string? ResolvedDeckACommander = null,
-    string? ResolvedDeckBCommander = null);
+    string? ResolvedDeckBCommander = null,
+    string? RequestContextText = null);
 
 public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 {
@@ -181,7 +182,35 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             comparisonResponse,
             timingSummary,
             ResolvedDeckACommander: deckA.CommanderName,
-            ResolvedDeckBCommander: deckB.CommanderName);
+            ResolvedDeckBCommander: deckB.CommanderName,
+            RequestContextText: BuildRequestContextText(request));
+    }
+
+    /// <summary>
+    /// Plain-text scalar key/value envelope round-tripped through the comparison zip.
+    /// Mirrors <see cref="ChatGptDeckPacketService"/>'s BuildRequestContextText for Packets.
+    /// Parsed via <see cref="ChatGptRequestContextParser"/>; unknown keys are ignored.
+    /// </summary>
+    internal static string BuildRequestContextText(ChatGptDeckComparisonRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var builder = new StringBuilder();
+        builder.AppendLine($"workflow_step: {request.WorkflowStep}");
+        builder.AppendLine($"deck_a_name: {NormalizeSingleLine(request.DeckAName, string.Empty)}");
+        builder.AppendLine($"deck_b_name: {NormalizeSingleLine(request.DeckBName, string.Empty)}");
+        builder.AppendLine($"deck_a_bracket: {NormalizeSingleLine(request.DeckABracket, string.Empty)}");
+        builder.AppendLine($"deck_b_bracket: {NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        return builder.ToString().TrimEnd() + Environment.NewLine;
+    }
+
+    private static string NormalizeSingleLine(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+        return value.Replace('\n', ' ').Replace('\r', ' ').Trim();
     }
 
     private async Task<LoadedDeck> LoadDeckAsync(string deckLabel, string deckSource, CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 
 namespace DeckFlow.Web.Services;
 
@@ -9,12 +10,29 @@ public static class ChatGptJsonTextFormatterService
     internal const string ChatGptResultWrapInstruction =
         "Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.";
 
+    // Phase 10: unified <result>...</result> wrapper across ChatGPT/Claude/Gemini.
+    // Lazy quantifier (.*?) ensures FIRST matching pair wins if user-pasted text
+    // contains stray <result> tokens. Singleline so dot matches newlines.
+    private static readonly Regex ResultTagRegex = new(
+        @"<result>\s*(.*?)\s*</result>",
+        RegexOptions.Compiled | RegexOptions.Singleline);
+
     internal static string ExtractJsonPayload(string input)
     {
         var trimmed = input.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
         {
             return trimmed;
+        }
+
+        // Phase 10: prefer <result>...</result> wrapper.
+        // Falls through to the existing brace-finding extraction on miss so
+        // legacy artifacts (no wrapper) and ChatGPT-fenced-only responses
+        // keep working unchanged.
+        var resultMatch = ResultTagRegex.Match(trimmed);
+        if (resultMatch.Success && !string.IsNullOrWhiteSpace(resultMatch.Groups[1].Value))
+        {
+            trimmed = resultMatch.Groups[1].Value.Trim();
         }
 
         var payloadStart = FindPayloadStart(trimmed);

@@ -24,7 +24,8 @@ public sealed record ChatGptCedhMetaGapResult(
     IReadOnlyList<EdhTop16Entry> FetchedEntries,
     string? PromptText,
     string? SchemaJson,
-    ChatGptCedhMetaGapResponse? AnalysisResponse);
+    ChatGptCedhMetaGapResponse? AnalysisResponse,
+    string? RequestContextText = null);
 
 public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 {
@@ -98,7 +99,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             analysisResponse = ParseResponse(request.MetaGapResponseJson);
             if (string.IsNullOrWhiteSpace(request.DeckSource) && string.IsNullOrWhiteSpace(request.CommanderName))
             {
-                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse);
+                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse, BuildRequestContextText(request));
             }
         }
 
@@ -174,7 +175,31 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             fetchedEntries,
             promptText,
             schemaJson,
-            analysisResponse);
+            analysisResponse,
+            BuildRequestContextText(request));
+    }
+
+    /// <summary>
+    /// Plain-text scalar key/value envelope round-tripped through the cEDH meta-gap zip.
+    /// Mirrors <see cref="ChatGptDeckPacketService"/>'s BuildRequestContextText for Packets.
+    /// </summary>
+    internal static string BuildRequestContextText(ChatGptCedhMetaGapRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var builder = new StringBuilder();
+        builder.AppendLine($"workflow_step: {request.WorkflowStep}");
+        builder.AppendLine($"commander: {NormalizeSingleLine(request.CommanderName, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        return builder.ToString().TrimEnd() + Environment.NewLine;
+    }
+
+    private static string NormalizeSingleLine(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+        return value.Replace('\n', ' ').Replace('\r', ' ').Trim();
     }
 
     private static IReadOnlyList<EdhTop16Entry> ResolveSelectedEntries(IReadOnlyList<int> selectedIndexes, IReadOnlyList<EdhTop16Entry> fetchedEntries)
