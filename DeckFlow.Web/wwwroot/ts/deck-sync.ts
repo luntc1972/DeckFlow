@@ -751,21 +751,30 @@ const registerBusyIndicator = (): void => {
   });
 };
 
+// Phase 10 (D-14): hardened download debounce.
+// Render Starter cold-response can take ~2s; 3s gives 1s margin for re-enable.
+// Re-enabling earlier risks duplicate POST on rapid double-click; re-enabling
+// later annoys users on fast responses. If users still report missed clicks,
+// raise this rather than coupling re-enable to navigation events - that path
+// re-introduces the sticky-busy-overlay regression (download button stays
+// visually "busy" forever after a successful navigation). The data-no-busy
+// attribute on the download button is what currently prevents that
+// regression and MUST be preserved.
+const CHATGPT_DOWNLOAD_DEBOUNCE_MS = 3000;
+
 const registerChatGptDownloadDebounce = (): void => {
   document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-download-submit]').forEach(button => {
     button.addEventListener('click', () => {
       if (button.disabled) {
         return;
       }
-
       const originalText = button.textContent;
       button.disabled = true;
       button.textContent = 'Preparing download...';
-
       window.setTimeout(() => {
         button.disabled = false;
         button.textContent = originalText;
-      }, 3000);
+      }, CHATGPT_DOWNLOAD_DEBOUNCE_MS);
     });
   });
 };
@@ -2387,10 +2396,7 @@ const wireChatGptZipUpload = (): void => {
   document.querySelectorAll<HTMLInputElement>('[data-chatgpt-zip-upload]').forEach(input => {
     input.addEventListener('change', () => {
       const file = input.files?.[0];
-      if (!file) {
-        return;
-      }
-
+      if (!file) { return; }
       // The file-picker change event bubbled to the form and already triggered persistFormState
       // with pre-upload (mostly empty) values. After the upload POST navigates back, the
       // upload-rendered server values would be overwritten by hydrateFormState reading that
@@ -2399,6 +2405,17 @@ const wireChatGptZipUpload = (): void => {
       if (form) {
         clearPersistedFormState(form);
         form.dataset.skipPersistence = 'true';
+        // Phase 10 (D-15): if the upload POST errors before navigation,
+        // skipPersistence would otherwise stay true for the rest of the
+        // page lifetime, silently disabling form-state persistence. Auto-
+        // clear after 30s - by then the upload either navigated us away
+        // (this handler is gone) or definitively failed (clear so subsequent
+        // user input is persisted normally).
+        window.setTimeout(() => {
+          if (form.dataset.skipPersistence === 'true') {
+            delete form.dataset.skipPersistence;
+          }
+        }, 30000);
       }
 
       const wrapper = input.closest('details');
