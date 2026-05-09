@@ -91,10 +91,9 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 ### Blockers/Concerns
 
 - Claude/Gemini artifact format research needed before Phase 10 planning — what does a "Claude-optimized" prompt look like for deck analysis?
-- User-requested polish: download zip filenames should always include the resolved commander name to differentiate when multiple session zips end up in the same download folder. Currently Packets falls back to `deckflow-packet-{ts}.zip` and Comparison to `deck-comparison-{ts}.zip` when commander/deck name fields are empty at download time. Tackle before Phase 10 starts.
 
 ## Session Continuity
 
-Last session: 2026-05-09 11:00am MDT
-Stopped at: Phase 9 closed; bug-fix bundle pushed to origin/v1.2; commander-name-in-filename polish queued
-Next action: Implement commander-name-in-filename fix on v1.2, then start Phase 10 research/planning
+Last session: 2026-05-09 11:05am MDT
+Stopped at: Phase 9 closed and verified; v1.2 polish bundle (form actions, persisted state clear, download debounce, commander-name filenames) all pushed to origin/v1.2
+Next action: Start Phase 10 research/planning (Claude + Gemini per-AI prompt optimization)
