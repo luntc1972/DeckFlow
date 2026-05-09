@@ -781,6 +781,11 @@ const registerChatGptDownloadDebounce = (): void => {
 
 const formStateStoragePrefix = 'decksync-form-state-';
 const antiForgeryFieldName = '__RequestVerificationToken';
+// Phase 10 (D-15 race fix): track the auto-clear timer per form so a
+// rapid second upload cancels the first upload's pending clear-timeout
+// instead of letting it fire later and clobber the second upload's
+// still-active skipPersistence flag.
+const skipPersistenceTimers = new WeakMap<HTMLFormElement, number>();
 const storageAvailable = (() => {
   try {
     const testKey = '__decksync_test_key__';
@@ -2411,11 +2416,17 @@ const wireChatGptZipUpload = (): void => {
         // clear after 30s - by then the upload either navigated us away
         // (this handler is gone) or definitively failed (clear so subsequent
         // user input is persisted normally).
-        window.setTimeout(() => {
+        const priorTimer = skipPersistenceTimers.get(form);
+        if (priorTimer !== undefined) {
+          window.clearTimeout(priorTimer);
+        }
+        const timerId = window.setTimeout(() => {
           if (form.dataset.skipPersistence === 'true') {
             delete form.dataset.skipPersistence;
           }
+          skipPersistenceTimers.delete(form);
         }, 30000);
+        skipPersistenceTimers.set(form, timerId);
       }
 
       const wrapper = input.closest('details');
