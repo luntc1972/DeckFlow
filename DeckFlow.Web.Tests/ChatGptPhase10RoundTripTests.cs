@@ -321,6 +321,61 @@ public sealed class ChatGptPhase10RoundTripTests
         Assert.Throws<ArgumentNullException>(() => ChatGptCedhMetaGapService.BuildRequestContextText(null!));
     }
 
+    // ---- Filename suggestion (AI name embedded in download filename) ----
+
+    [Theory]
+    [InlineData("ChatGPT", "chatgpt")]
+    [InlineData("Claude", "claude")]
+    [InlineData("Gemini", "gemini")]
+    public void SuggestPacketZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", platform);
+        Assert.Contains($"-{expectedSegment}-", fileName);
+        Assert.Contains("atraxa", fileName);
+        Assert.EndsWith(".zip", fileName);
+    }
+
+    [Theory]
+    [InlineData("ChatGPT", "chatgpt")]
+    [InlineData("Claude", "claude")]
+    [InlineData("Gemini", "gemini")]
+    public void SuggestComparisonZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Kraum", platform);
+        Assert.Contains($"-{expectedSegment}-", fileName);
+        Assert.Contains("atraxa-vs-kraum", fileName);
+    }
+
+    [Theory]
+    [InlineData("ChatGPT", "chatgpt")]
+    [InlineData("Claude", "claude")]
+    [InlineData("Gemini", "gemini")]
+    public void SuggestCedhMetaGapZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", platform);
+        Assert.Contains($"-{expectedSegment}-", fileName);
+    }
+
+    [Fact]
+    public void SuggestPacketZipFileName_falls_back_to_chatgpt_when_platform_null()
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", null);
+        Assert.Contains("-chatgpt-", fileName);
+    }
+
+    [Fact]
+    public void SuggestPacketZipFileName_filenames_are_distinct_per_ai_platform()
+    {
+        // Two different platforms must produce filenames distinguishable by AI
+        // segment regardless of the timestamp suffix matching exactly.
+        var claudeName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
+        var geminiName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Gemini");
+        Assert.Contains("-claude-", claudeName);
+        Assert.Contains("-gemini-", geminiName);
+        Assert.DoesNotContain("-claude-", geminiName);
+        Assert.DoesNotContain("-gemini-", claudeName);
+    }
+
     // ---- helpers ----
 
     private static byte[] BuildComparisonZipWithRequestContext(string requestContextText)
