@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Multi-AI Prompts
-status: paused_for_handoff
-stopped_at: Phase 10 awaiting human-verify; integration test 0 (download regression) PASSED, test 5 (Gemini JSON) failed→fixed→needs re-test, 7 others not yet attempted. See HANDOFF.json + 10-claude-gemini-artifact-optimization/.continue-here.md
-last_updated: "2026-05-10T03:13:00Z"
-last_activity: 2026-05-09 ~9:10pm MDT — paused for night handoff after fixing 2 bugs surfaced during integration testing + adding AI-name-in-filename feature
+status: integration_test_2_ready_for_retest
+stopped_at: 2026-05-10 ~4:38pm MDT. Commander round-trip bug surfaced during integration-test-2 attempt; root cause traced (LoadDeckAsync didn't reflag heuristic commander + MoxfieldParser didn't know Mainboard/Deck/Possible Includes); fix shipped as e0a6657 (Codex-reviewed plan + code, 3 new unit tests). User to retest test-2 against this HEAD.
+last_updated: "2026-05-10T22:38:00Z"
+last_activity: 2026-05-10 ~4:38pm MDT — committed e0a6657 (commander round-trip + zip upload regression fixes); awaiting user retest of integration-test-2
 progress:
   total_phases: 2
   completed_phases: 1
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
 
 ## Current Position
 
-Phase: 10 — IMPLEMENTATION COMPLETE, integration testing in progress, paused for night
-Plan: 4 of 4 — all SUMMARY committed. All implementation commits + Codex-review fixups + post-test fixes landed on origin/v1.2 (HEAD = `00e5bdd`).
-Status: AISEL-02 + AISEL-03 + AISEL-04 closed in code. 63 cumulative Phase 10 unit tests pass. Build clean. STRIDE security audit closed 12/12 threats. SOLID audit "Do Now" refactors landed (`08271b0`). Two bugs surfaced during integration testing and were fixed: download button regression (`d54da44` — disabled-on-click was canceling the form submit) and Gemini JSON wrapper non-compliance (`a1ab008` — appended `GeminiJsonMandate` as absolute final line of all 5 Gemini variants). One feature added (`00e5bdd` — AI name in download filename per user request).
-Last activity: 2026-05-09 ~9:10pm MDT — handoff prep complete; user stopped for night with integration tests in progress
+Phase: 10 — IMPLEMENTATION COMPLETE, integration test 2 retest-ready
+Plan: 4 of 4 — all SUMMARY committed. HEAD = `e0a6657` (commander round-trip + zip upload regression fixes, 2026-05-10 PM); pending push.
+Status: AISEL-02 + AISEL-03 + AISEL-04 closed in code. 66 cumulative Phase 10 unit tests pass (63 + 3 new round-trip regression tests). Build clean. STRIDE security audit closed 12/12 threats. SOLID audit "Do Now" refactors landed (`08271b0`). Bugs fixed during integration testing: download button regression (`d54da44`), Gemini JSON wrapper (`a1ab008`), AI name in filename feature (`00e5bdd`), commander round-trip + parser headers (`e0a6657`). Hybrid-storage plan approved but deferred (v1.3 candidate).
+Last activity: 2026-05-10 ~4:38pm MDT — committed e0a6657; awaiting user retest of integration-test-2
 
 ## Performance Metrics
 
@@ -104,13 +104,14 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 
 ## Session Continuity
 
-Last session: 2026-05-09 ~9:10pm MDT (paused for night)
-Stopped at: Phase 10 integration testing in progress — test 0 (download regression after fix d54da44) PASSED; test 5 (paste Gemini) FAILED first attempt → fixed in `a1ab008` (GeminiJsonMandate as absolute final line of all 5 Gemini variants) → NEEDS RE-TEST; tests 1-4, 6-8 not yet attempted; AI-name-in-filename feature `00e5bdd` needs verification.
+Last session: 2026-05-10 ~4:38pm MDT (mid-day fix wave + commander reflag patch)
+Stopped at: Pushed e0a6657 fixing commander round-trip + zip upload regressions. Integration test 2 (Round-trip /chatgpt-deck-comparison) attempted ~2:30pm, failed with section-keyword guard catching `Mainboard` as commander. Bug root-caused in LoadDeckAsync (no Board reflag) and MoxfieldParser (no Mainboard/Deck section recognition). Fix shipped + Codex-reviewed (gpt-5.4 full) + 3 new regression tests pass. User to retest test-2 against e0a6657.
 
-Next action: On user return — ask whether they ran the remaining tests. If all pass, close Phase 10 + v1.2 milestone. If any fail, dispatch fix per failure description. Re-confirm session-mode (Claude Edit/Write direct vs Codex MCP) before resuming code work — the mode switch was session-scoped on 2026-05-09 afternoon.
+Next action: User runs integration-test-2 in browser against this HEAD. If passes, proceed with tests 3-8. If fails, capture failure mode (which step, which error) and dispatch follow-up. Untracked `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` remains in working tree — commit separately when ready.
 
 **Resume guidance:**
-- Read `.planning/HANDOFF.json` first — structured machine-readable state with full test status table.
-- Read `.planning/phases/10-claude-gemini-artifact-optimization/.continue-here.md` for human-readable context including critical anti-patterns table (disabled-submitter, last-instruction-wins, Codex grep-guard timing).
-- `git log --oneline 26222f0..HEAD` shows the full 22-commit Phase 10 chain.
+- Read `.planning/HANDOFF.json` for structured machine-readable state.
+- `git log --oneline 26222f0..HEAD` shows the full Phase 10 commit chain (now 22 commits including the e0a6657 round-trip fix).
 - Test list with current pass/fail status: see HANDOFF.json `remaining_tasks`.
+- Deferred follow-ups: (1) Archidekt parser parity audit (ArchidektParser.cs:242 doesn't recognize Mainboard either), (2) hybrid storage rollout (allowlist update in ChatGptPacketArtifactStore + canonical/original artifacts) — both approved by user, deferred to unblock test 2 first.
+- Session mode: Claude Edit/Write direct (re-confirmed 2026-05-10 PM). Codex MCP used for plan + code review.
