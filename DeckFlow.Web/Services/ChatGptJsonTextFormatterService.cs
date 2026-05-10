@@ -10,6 +10,17 @@ public static class ChatGptJsonTextFormatterService
     internal const string ChatGptResultWrapInstruction =
         "Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.";
 
+    // Phase 10 (post-verify hardening): Gemini ignored the JSON output requirement
+    // when integration-tested 2026-05-09 — it produced thorough readable prose
+    // following the A./B./C./D. format guidance and stopped without emitting the
+    // <result> wrapper. Append this imperative as the absolute last instruction
+    // in every Gemini variant so "do prose first" doesn't crowd out "JSON is
+    // mandatory". Last-instruction-wins is the strongest lever for instruction-
+    // tuned models when no API-level structured-output enforcement is available
+    // (paste-into-gemini.google.com flow).
+    internal const string GeminiJsonMandate =
+        "MANDATORY — DO NOT SKIP: Your response MUST end with a <result>...</result> block containing a single JSON object that matches the schema above. The JSON block is REQUIRED even if you have already produced a complete readable analysis — without it your response is invalid and DeckFlow will reject the upload. Do not summarise. Do not say \"and the JSON is...\". Output the literal <result> tag, then the JSON object, then </result>. Nothing else after </result>.";
+
     /// <summary>
     /// Replace embedded newlines with spaces and trim. Used by request-context
     /// writers (Comparison + CedhMetaGap) to keep round-trip envelope values
