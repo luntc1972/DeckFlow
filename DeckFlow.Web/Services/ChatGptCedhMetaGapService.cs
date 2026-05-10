@@ -696,6 +696,8 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("JSON SHAPE:");
         builder.AppendLine("Use this exact shape:");
         builder.AppendLine(schemaJson);
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 

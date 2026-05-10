@@ -1485,6 +1485,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine();
         builder.AppendLine("## DECKLIST");
         builder.AppendLine(decklistText);
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -2026,6 +2028,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("}");
         builder.AppendLine("```");
 
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 

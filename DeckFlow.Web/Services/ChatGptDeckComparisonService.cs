@@ -893,6 +893,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine();
         builder.AppendLine("## COMPARISON CONTEXT");
         builder.AppendLine(comparisonContextText);
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -1055,6 +1057,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("  \"deck_comparison\": " + IndentJson(comparisonSchemaJson, 2));
         builder.AppendLine("}");
         builder.AppendLine("```");
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
