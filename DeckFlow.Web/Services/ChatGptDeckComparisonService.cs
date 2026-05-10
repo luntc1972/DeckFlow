@@ -120,6 +120,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         var deckB = await LoadDeckAsync("Deck B", request.DeckBSource, cancellationToken).ConfigureAwait(false);
         timings.Add(("Deck B load", deckBLoadStopwatch.ElapsedMilliseconds, $"{deckB.PlayableEntries.Sum(entry => entry.Quantity)} cards"));
 
+        ValidateSameCommander(deckA.CommanderName, deckB.CommanderName);
+
         var deckAName = ResolveDeckName(request.DeckAName, deckA.CommanderName, "Deck A");
         var deckBName = ResolveDeckName(request.DeckBName, deckB.CommanderName, "Deck B");
 
@@ -255,7 +257,35 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             throw new InvalidOperationException($"{deckLabel} parse failed: could not determine a commander from the submitted deck.");
         }
 
+        if (!hasExplicitCommander)
+        {
+            entries = ReflagCommanderEntry(entries, commanderName);
+            playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
+        }
+
         return new LoadedDeck(entries, playableEntries, optionalEntries, commanderName ?? string.Empty);
+    }
+
+    private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
+    {
+        var matched = false;
+        var result = new List<DeckEntry>(source.Count);
+        foreach (var entry in source)
+        {
+            if (!matched
+                && entry.Quantity == 1
+                && string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Add(entry with { Board = "commander" });
+                matched = true;
+            }
+            else
+            {
+                result.Add(entry);
+            }
+        }
+        return result;
     }
 
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
@@ -565,9 +595,21 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private static string BuildInputSummary(DeckComparisonDeckSummary deckA, DeckComparisonDeckSummary deckB)
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"{deckA.Name}: commander {FallbackText(deckA.CommanderName, "Unknown")} | bracket {deckA.Bracket.Label} | mainboard {deckA.MainboardCount} | lands {deckA.Lands} | ramp {deckA.Ramp} | draw {deckA.Draw} | interaction {deckA.Interaction} | combos {deckA.IncludedComboCount}");
-        builder.AppendLine($"{deckB.Name}: commander {FallbackText(deckB.CommanderName, "Unknown")} | bracket {deckB.Bracket.Label} | mainboard {deckB.MainboardCount} | lands {deckB.Lands} | ramp {deckB.Ramp} | draw {deckB.Draw} | interaction {deckB.Interaction} | combos {deckB.IncludedComboCount}");
+        AppendDeckBlock(builder, "Deck A", deckA);
+        builder.AppendLine();
+        AppendDeckBlock(builder, "Deck B", deckB);
         return builder.ToString().TrimEnd();
+    }
+
+    private static void AppendDeckBlock(StringBuilder builder, string label, DeckComparisonDeckSummary deck)
+    {
+        var heading = string.IsNullOrWhiteSpace(deck.Name) ? label : $"{label} — {deck.Name}";
+        builder.AppendLine(heading);
+        builder.AppendLine($"Commander: {FallbackText(deck.CommanderName, "Unknown")}");
+        builder.AppendLine($"Bracket: {deck.Bracket.Label}");
+        builder.AppendLine($"Main deck cards: {deck.MainboardCount}");
+        builder.AppendLine($"Lands: {deck.Lands}  Ramp: {deck.Ramp}  Draw: {deck.Draw}");
+        builder.AppendLine($"Interaction: {deck.Interaction}  Combos: {deck.IncludedComboCount}");
     }
 
     private static string BuildComparisonContextText(DeckComparisonDeckSummary deckA, DeckComparisonDeckSummary deckB)
@@ -1158,6 +1200,38 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.Append(totalMs);
         builder.Append(" ms");
         return builder.ToString();
+    }
+
+    private static readonly HashSet<string> SectionKeywordsThatAreNotCommanders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Mainboard",
+        "Sideboard",
+        "Maybeboard",
+        "Deck",
+        "Commander",
+        "Companion"
+    };
+
+    private static void ValidateSameCommander(string? deckACommander, string? deckBCommander)
+    {
+        ValidateCommanderIsRealCardName(deckACommander, "Deck A");
+        ValidateCommanderIsRealCardName(deckBCommander, "Deck B");
+        if (!string.Equals(deckACommander!.Trim(), deckBCommander!.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Both decks must share the same commander to be compared. Deck A: \"{deckACommander.Trim()}\". Deck B: \"{deckBCommander.Trim()}\". To compare different commanders, use the Deck Analysis tool on each deck individually.");
+        }
+    }
+
+    private static void ValidateCommanderIsRealCardName(string? commander, string deckLabel)
+    {
+        if (string.IsNullOrWhiteSpace(commander))
+        {
+            throw new InvalidOperationException($"{deckLabel}'s commander could not be identified. Use a deck format that marks the commander (Archidekt/Moxfield URL with the commander assigned, or a decklist with a `Commander` section header above the commander card).");
+        }
+        if (SectionKeywordsThatAreNotCommanders.Contains(commander.Trim()))
+        {
+            throw new InvalidOperationException($"{deckLabel}'s commander parsed as the section keyword \"{commander.Trim()}\" — this means the deck list was pasted without a `Commander` section header. Re-paste the deck with a `Commander` line above the commander card, or use an Archidekt/Moxfield URL where the commander is explicitly assigned.");
+        }
     }
 
     private static string ResolveDeckName(string requestedName, string commanderName, string fallback)

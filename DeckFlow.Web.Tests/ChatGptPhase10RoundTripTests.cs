@@ -129,6 +129,81 @@ public sealed class ChatGptPhase10RoundTripTests
         Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
     }
 
+    // ---- Comparison partial-zip handling (no response.json) ----
+
+    [Fact]
+    public void LoadComparisonFromZip_accepts_partial_zip_with_decks_but_no_response()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-a-list.txt"] = "1 Sol Ring\n",
+            ["11-deck-b-list.txt"] = "1 Mana Crypt\n",
+            ["01-request-context.txt"] = "target_ai_platform: Gemini\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Equal(2, loaded.WorkflowStep);
+        Assert.Equal("1 Sol Ring", loaded.DeckASource);
+        Assert.Equal("1 Mana Crypt", loaded.DeckBSource);
+        Assert.Equal(string.Empty, loaded.ComparisonResponseJson);
+        Assert.Equal("Gemini", loaded.TargetAiPlatform);
+    }
+
+    [Fact]
+    public void LoadComparisonFromZip_accepts_request_context_only_zip()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["01-request-context.txt"] = "target_ai_platform: Claude\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Equal(1, loaded.WorkflowStep);
+        Assert.Equal(string.Empty, loaded.ComparisonResponseJson);
+        Assert.Equal("Claude", loaded.TargetAiPlatform);
+    }
+
+    [Fact]
+    public void LoadComparisonFromZip_restores_deck_names_and_brackets_from_request_context()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-a-list.txt"] = "1 Sol Ring\n",
+            ["11-deck-b-list.txt"] = "1 Mana Crypt\n",
+            ["01-request-context.txt"] = "deck_a_name: My Atraxa\ndeck_b_name: Their Kraum\ndeck_a_bracket: Cedh\ndeck_b_bracket: Optimized\ntarget_ai_platform: Claude\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Equal("My Atraxa", loaded.DeckAName);
+        Assert.Equal("Their Kraum", loaded.DeckBName);
+        Assert.Equal("Cedh", loaded.DeckABracket);
+        Assert.Equal("Optimized", loaded.DeckBBracket);
+        Assert.Equal("Claude", loaded.TargetAiPlatform);
+    }
+
+    [Fact]
+    public void LoadComparisonFromZip_throws_when_zip_has_no_recognized_entries()
+    {
+        // Empty zip: passes the allowlist gate (no unsupported entries) but has
+        // none of the recognized files either, so the partial-zip throw fires.
+        var bytes = BuildRawZip(new Dictionary<string, string>());
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded));
+        Assert.Contains("recognized DeckFlow comparison session", exception.Message);
+    }
+
     // ---- CedhMetaGap zip round-trip ----
 
     [Fact]
@@ -216,6 +291,55 @@ public sealed class ChatGptPhase10RoundTripTests
         ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
+    }
+
+    // ---- CedhMetaGap partial-zip handling (no response.json) ----
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_accepts_request_context_only_zip()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["01-request-context.txt"] = "target_ai_platform: Gemini\n"
+        });
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+
+        Assert.Equal(1, loaded.WorkflowStep);
+        Assert.Equal(string.Empty, loaded.MetaGapResponseJson);
+        Assert.Equal("Gemini", loaded.TargetAiPlatform);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_restores_commander_from_request_context()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["01-request-context.txt"] = "commander: Yuriko, the Tiger's Shadow\ntarget_ai_platform: Gemini\n"
+        });
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+
+        Assert.Equal("Yuriko, the Tiger's Shadow", loaded.CommanderName);
+        Assert.Equal("Gemini", loaded.TargetAiPlatform);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_throws_when_zip_has_no_recognized_entries()
+    {
+        // Empty zip: passes the allowlist gate (no unsupported entries) but has
+        // none of the recognized files either, so the partial-zip throw fires.
+        var bytes = BuildRawZip(new Dictionary<string, string>());
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        using var stream = new MemoryStream(bytes);
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded));
+        Assert.Contains("recognized DeckFlow meta-gap session", exception.Message);
     }
 
     // ---- Comparison BuildRequestContextText writer ----
@@ -341,9 +465,9 @@ public sealed class ChatGptPhase10RoundTripTests
     [InlineData("Gemini", "gemini")]
     public void SuggestComparisonZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Kraum", platform);
+        var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
-        Assert.Contains("atraxa-vs-kraum", fileName);
+        Assert.StartsWith("atraxa-compare2-", fileName);
     }
 
     [Theory]
@@ -374,6 +498,46 @@ public sealed class ChatGptPhase10RoundTripTests
         Assert.Contains("-gemini-", geminiName);
         Assert.DoesNotContain("-claude-", geminiName);
         Assert.DoesNotContain("-gemini-", claudeName);
+    }
+
+    // ---- Page-identity segment in zip filenames ----
+
+    [Fact]
+    public void SuggestPacketZipFileName_includes_analysis_page_segment()
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
+        Assert.Contains("-analysis-", fileName);
+        Assert.DoesNotContain("-compare2-", fileName);
+        Assert.DoesNotContain("-cedh-", fileName);
+    }
+
+    [Fact]
+    public void SuggestComparisonZipFileName_includes_compare2_page_segment()
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Gemini");
+        Assert.Contains("-compare2-", fileName);
+        Assert.DoesNotContain("-analysis-", fileName);
+        Assert.DoesNotContain("-cedh-", fileName);
+    }
+
+    [Fact]
+    public void SuggestCedhMetaGapZipFileName_includes_cedh_page_segment()
+    {
+        var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", "ChatGPT");
+        Assert.Contains("-cedh-", fileName);
+        Assert.DoesNotContain("-analysis-", fileName);
+        Assert.DoesNotContain("-compare2-", fileName);
+    }
+
+    [Fact]
+    public void SuggestZipFileNames_page_segments_are_distinct_across_pages()
+    {
+        var packet = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
+        var comparison = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Claude");
+        var metaGap = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", "Claude");
+        Assert.NotEqual(packet, comparison);
+        Assert.NotEqual(packet, metaGap);
+        Assert.NotEqual(comparison, metaGap);
     }
 
     // ---- helpers ----
@@ -431,5 +595,20 @@ public sealed class ChatGptPhase10RoundTripTests
             result[entry.FullName] = reader.ReadToEnd();
         }
         return result;
+    }
+
+    private static byte[] BuildRawZip(IDictionary<string, string> entries)
+    {
+        using var memory = new MemoryStream();
+        using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var (name, contents) in entries)
+            {
+                var entry = archive.CreateEntry(name);
+                using var writer = new StreamWriter(entry.Open(), Encoding.UTF8);
+                writer.Write(contents);
+            }
+        }
+        return memory.ToArray();
     }
 }

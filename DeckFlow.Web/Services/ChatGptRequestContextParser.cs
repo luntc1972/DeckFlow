@@ -42,6 +42,10 @@ internal static partial class ChatGptRequestContextParser
         string? commander = null;
         string? targetCommanderBracket = null;
         string? targetAiPlatform = null;
+        string? deckAName = null;
+        string? deckBName = null;
+        string? deckABracket = null;
+        string? deckBBracket = null;
         bool? includeSideboardInAnalysis = null;
         bool? includeMaybeboardInAnalysis = null;
         List<string> cardSpecificQuestionCardNames = [];
@@ -81,6 +85,18 @@ internal static partial class ChatGptRequestContextParser
                         break;
                     case "target_ai_platform":
                         targetAiPlatform = inlineValue.Trim();
+                        break;
+                    case "deck_a_name":
+                        deckAName = inlineValue.Trim();
+                        break;
+                    case "deck_b_name":
+                        deckBName = inlineValue.Trim();
+                        break;
+                    case "deck_a_bracket":
+                        deckABracket = inlineValue.Trim();
+                        break;
+                    case "deck_b_bracket":
+                        deckBBracket = inlineValue.Trim();
                         break;
                     case "include_sideboard_in_analysis":
                         includeSideboardInAnalysis = ParseBool(inlineValue);
@@ -149,7 +165,11 @@ internal static partial class ChatGptRequestContextParser
             StrategyNotes = string.IsNullOrEmpty(strategyNotes) ? null : strategyNotes,
             MetaNotes = string.IsNullOrEmpty(metaNotes) ? null : metaNotes,
             DeckSource = string.IsNullOrEmpty(deckSource) ? null : deckSource,
-            TargetAiPlatform = string.IsNullOrEmpty(targetAiPlatform) ? null : targetAiPlatform
+            TargetAiPlatform = string.IsNullOrEmpty(targetAiPlatform) ? null : targetAiPlatform,
+            DeckAName = string.IsNullOrEmpty(deckAName) ? null : deckAName,
+            DeckBName = string.IsNullOrEmpty(deckBName) ? null : deckBName,
+            DeckABracket = string.IsNullOrEmpty(deckABracket) ? null : deckABracket,
+            DeckBBracket = string.IsNullOrEmpty(deckBBracket) ? null : deckBBracket
         };
     }
 
@@ -280,4 +300,16 @@ internal sealed record ParsedRequestContext
     /// Null means absent in zip (legacy zip — caller defaults to "ChatGPT").
     /// </summary>
     public string? TargetAiPlatform { get; init; }
+
+    /// <summary>Comparison-page deck A user-entered name, if present.</summary>
+    public string? DeckAName { get; init; }
+
+    /// <summary>Comparison-page deck B user-entered name, if present.</summary>
+    public string? DeckBName { get; init; }
+
+    /// <summary>Comparison-page deck A bracket selection, if present.</summary>
+    public string? DeckABracket { get; init; }
+
+    /// <summary>Comparison-page deck B bracket selection, if present.</summary>
+    public string? DeckBBracket { get; init; }
 }

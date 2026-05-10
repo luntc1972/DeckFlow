@@ -751,39 +751,105 @@ const registerBusyIndicator = (): void => {
   });
 };
 
-// Phase 10 (D-14): hardened download debounce.
-// Render Starter cold-response can take ~2s; 3s gives 1s margin for re-enable.
-// Re-enabling earlier risks duplicate POST on rapid double-click; re-enabling
-// later annoys users on fast responses. If users still report missed clicks,
-// raise this rather than coupling re-enable to navigation events - that path
-// re-introduces the sticky-busy-overlay regression (download button stays
-// visually "busy" forever after a successful navigation). The data-no-busy
-// attribute on the download button is what currently prevents that
-// regression and MUST be preserved.
+// ChatGPT session-zip download handler.
 //
-// Implementation note: we track in-flight state via a dataset attribute,
-// NOT via `button.disabled = true`. Setting `disabled` synchronously on
-// click would cancel the form submit (per HTML spec, disabled submitters
-// don't trigger their default action), breaking the download entirely —
-// regression observed in the original ce043df pattern. The dataset guard
-// blocks subsequent clicks via preventDefault() while the first click
-// goes through to the form submission.
-const CHATGPT_DOWNLOAD_DEBOUNCE_MS = 3000;
+// Replaces the prior timed 3s debounce with a deterministic fetch+blob flow:
+// the click is intercepted, the form payload is POSTed via fetch, the
+// response body is materialized as a Blob, and a synthetic <a download>
+// click triggers the browser save. The button is disabled for the entire
+// in-flight window and re-enabled in finally — so the inactive state
+// reflects the actual download lifetime, not a guessed timer. Safe to set
+// `button.disabled = true` here because we preventDefault the original
+// submit; the form never natively submits, so the disabled-submitter
+// HTML-spec gotcha (regression d54da44) does not apply.
+//
+// Page-wide busy overlay is suppressed via the `data-no-busy` marker on
+// each download button (kept for defense in depth — the form submit never
+// fires anyway because of preventDefault).
+const CHATGPT_DOWNLOAD_FALLBACK_FILENAME = 'session.zip';
 
-const registerChatGptDownloadDebounce = (): void => {
+const parseChatGptDownloadFilename = (header: string | null): string | null => {
+  if (!header) {
+    return null;
+  }
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      // fall through to plain match
+    }
+  }
+  const plain = /filename=("([^"]+)"|([^;]+))/i.exec(header);
+  if (plain) {
+    return (plain[2] ?? plain[3] ?? '').trim();
+  }
+  return null;
+};
+
+const triggerChatGptBlobDownload = (blob: Blob, filename: string): void => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // Revoke after a tick so the browser has time to start the save.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const registerChatGptDownloadHandler = (): void => {
   document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-download-submit]').forEach(button => {
-    button.addEventListener('click', (event: MouseEvent) => {
-      if (button.dataset.downloadInFlight === 'true') {
-        event.preventDefault();
+    button.addEventListener('click', async (event: MouseEvent) => {
+      const form = button.closest('form');
+      if (!form) {
         return;
       }
-      const originalText = button.textContent;
+      event.preventDefault();
+      if (button.dataset.downloadInFlight === 'true') {
+        return;
+      }
+
+      const action = button.formAction || form.action;
+      const methodAttr = (button.getAttribute('formmethod') ?? form.method ?? 'POST').toUpperCase();
+      const method = methodAttr === 'GET' ? 'GET' : 'POST';
+
       button.dataset.downloadInFlight = 'true';
-      button.textContent = 'Preparing download...';
-      window.setTimeout(() => {
+      button.disabled = true;
+
+      try {
+        const body = method === 'GET' ? undefined : new FormData(form);
+        const response = await fetch(action, {
+          method,
+          body,
+          credentials: 'same-origin',
+          headers: { Accept: 'application/zip,*/*' }
+        });
+        if (!response.ok) {
+          window.alert(`Download failed (HTTP ${response.status}). Please try again.`);
+          return;
+        }
+        const blob = await response.blob();
+        // Prefer the explicit X-DeckFlow-Filename header (set by all download
+        // endpoints — bypasses Content-Disposition parsing fragility), then
+        // fall back to Content-Disposition, then to the generic default.
+        const customFilename = response.headers.get('X-DeckFlow-Filename');
+        const dispositionFilename = parseChatGptDownloadFilename(response.headers.get('Content-Disposition'));
+        const filename = (customFilename && customFilename.trim()) || dispositionFilename || CHATGPT_DOWNLOAD_FALLBACK_FILENAME;
+        if (!customFilename && !dispositionFilename) {
+          // Diagnostic for the user — surface the missing-header case in DevTools.
+          console.warn('ChatGPT download: neither X-DeckFlow-Filename nor Content-Disposition was readable; falling back to generic filename.');
+        }
+        triggerChatGptBlobDownload(blob, filename);
+      } catch (err) {
+        console.error('ChatGPT session download failed', err);
+        window.alert('Download failed. Please try again.');
+      } finally {
         delete button.dataset.downloadInFlight;
-        button.textContent = originalText;
-      }, CHATGPT_DOWNLOAD_DEBOUNCE_MS);
+        button.disabled = false;
+      }
     });
   });
 };
@@ -2463,7 +2529,7 @@ const bootstrapDeckSync = (): void => {
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
   registerBusyIndicator();
-  registerChatGptDownloadDebounce();
+  registerChatGptDownloadHandler();
   attachActionButtons();
   attachGenericPersistedForms();
   attachDeckSyncPersistence();

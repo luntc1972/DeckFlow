@@ -39,9 +39,10 @@
 <form method="post" action="@Url.Content("~/chatgpt-cedh-meta-gap")" class="deck-form" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
-        <button type="submit" class="run-button chatgpt-sticky-download__button"
+        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
                 formaction="@Url.Content("~/chatgpt-cedh-meta-gap/download")"
-                formmethod="post">
+                formmethod="post"
+                formnovalidate>
             Download meta-gap session (.zip)
         </button>
     </div>
@@ -164,7 +165,7 @@
         </div>
 
         <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-cedh-meta-gap")">Clear</button>
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-cedh-meta-gap")">Start Over</button>
             <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="1">Fetch Top Decks</button>
         </div>
     </section>
@@ -344,9 +345,10 @@
             var analysis = Model.AnalysisResponse.MetaGap;
             <section class="result-panel nested-panel summary-panel" data-chatgpt-cedh-result-anchor>
                 <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button"
+                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/chatgpt-cedh-meta-gap/download")"
-                            formmethod="post">
+                            formmethod="post"
+                            formnovalidate>
                         Download meta-gap session (.zip)
                     </button>
                 </div>

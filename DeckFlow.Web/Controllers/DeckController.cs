@@ -524,6 +524,7 @@ public sealed class DeckController : Controller
                 result.DeckProfileSchemaJson,
                 result.SetUpgradePromptText);
             var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
+            Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
@@ -703,7 +704,9 @@ public sealed class DeckController : Controller
                 && string.IsNullOrWhiteSpace(request.DeckBSource)
                 && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
             {
-                var fallbackFileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(request.DeckAName, request.DeckBName, request.TargetAiPlatform);
+                var fallbackCommander = !string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName;
+                var fallbackFileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fallbackCommander, request.TargetAiPlatform);
+                Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
                 var fallbackBytes = ChatGptPacketArtifactStore.BuildComparisonZip(
                     request,
                     string.Empty,
@@ -732,13 +735,13 @@ public sealed class DeckController : Controller
                 result.FollowUpPromptText,
                 result.ComparisonSchemaJson,
                 result.RequestContextText);
-            var fileNameDeckA = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
+            // BuildAsync now validates both decks share the same commander, so
+            // ResolvedDeckACommander and ResolvedDeckBCommander are equal here.
+            var fileNameCommander = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
                 ? result.ResolvedDeckACommander!
-                : request.DeckAName;
-            var fileNameDeckB = !string.IsNullOrWhiteSpace(result.ResolvedDeckBCommander)
-                ? result.ResolvedDeckBCommander!
-                : request.DeckBName;
-            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fileNameDeckA, fileNameDeckB, request.TargetAiPlatform);
+                : (!string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName);
+            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fileNameCommander, request.TargetAiPlatform);
+            Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
@@ -798,6 +801,20 @@ public sealed class DeckController : Controller
         {
             using var stream = zipFile.OpenReadStream();
             ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, request);
+
+            // Partial-zip case: response JSON not yet present (user downloaded
+            // mid-workflow). Render the form on the WorkflowStep the loader
+            // resolved (1 = re-paste decks, 2 = decks restored, ready to
+            // regenerate). ComparisonResponse stays null so Step 3 doesn't render.
+            if (string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
+            {
+                return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+                {
+                    ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                    Request = request
+                });
+            }
+
             var comparisonResponse = ChatGptDeckComparisonService.ParseComparisonResponse(request.ComparisonResponseJson);
             request.DeckAName = comparisonResponse.DeckAName;
             request.DeckBName = comparisonResponse.DeckBName;
@@ -924,6 +941,7 @@ public sealed class DeckController : Controller
                     string.Empty,
                     string.Empty,
                     ChatGptCedhMetaGapService.BuildRequestContextText(request));
+                Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
                 return File(fallbackBytes, "application/zip", fallbackFileName);
             }
 
@@ -935,6 +953,7 @@ public sealed class DeckController : Controller
                 result.SchemaJson ?? string.Empty,
                 result.RequestContextText);
             var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName, request.TargetAiPlatform);
+            Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
@@ -991,6 +1010,19 @@ public sealed class DeckController : Controller
         {
             using var stream = zipFile.OpenReadStream();
             ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
+
+            // Partial-zip case: response JSON not yet present. Render the form
+            // on Step 1 with whatever state the loader could restore (the AI
+            // selector). AnalysisResponse stays null so Step 3 doesn't render.
+            if (string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
+            {
+                return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+                {
+                    ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                    Request = request
+                });
+            }
+
             var analysisResponse = ChatGptCedhMetaGapService.ParseResponse(request.MetaGapResponseJson);
             request.CommanderName = analysisResponse.MetaGap.Commander;
             return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
