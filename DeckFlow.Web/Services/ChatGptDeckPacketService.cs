@@ -835,8 +835,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
     /// <summary>
     /// Builds the main analysis prompt from the deck text, references, bracket guidance, and selected questions.
+    /// Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
     /// </summary>
-    private static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
+    internal static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
     {
         return request.TargetAiPlatform switch
         {
@@ -1489,8 +1490,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
     /// <summary>
     /// Builds the optional set-upgrade prompt used after the deck profile has been generated.
+    /// Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
     /// </summary>
-    private static string BuildSetUpgradePrompt(ChatGptDeckRequest request, string decklistText, string deckProfileJson, string? commanderName, string? generatedSetPacket, IReadOnlyList<string> bannedCards)
+    internal static string BuildSetUpgradePrompt(ChatGptDeckRequest request, string decklistText, string deckProfileJson, string? commanderName, string? generatedSetPacket, IReadOnlyList<string> bannedCards)
     {
         return request.TargetAiPlatform switch
         {

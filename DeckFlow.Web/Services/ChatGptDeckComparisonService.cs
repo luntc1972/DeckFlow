@@ -196,21 +196,12 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         ArgumentNullException.ThrowIfNull(request);
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"deck_a_name: {NormalizeSingleLine(request.DeckAName, string.Empty)}");
-        builder.AppendLine($"deck_b_name: {NormalizeSingleLine(request.DeckBName, string.Empty)}");
-        builder.AppendLine($"deck_a_bracket: {NormalizeSingleLine(request.DeckABracket, string.Empty)}");
-        builder.AppendLine($"deck_b_bracket: {NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        builder.AppendLine($"deck_a_name: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckAName, string.Empty)}");
+        builder.AppendLine($"deck_b_name: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckBName, string.Empty)}");
+        builder.AppendLine($"deck_a_bracket: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckABracket, string.Empty)}");
+        builder.AppendLine($"deck_b_bracket: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
         return builder.ToString().TrimEnd() + Environment.NewLine;
-    }
-
-    private static string NormalizeSingleLine(string? value, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return fallback;
-        }
-        return value.Replace('\n', ' ').Replace('\r', ' ').Trim();
     }
 
     private async Task<LoadedDeck> LoadDeckAsync(string deckLabel, string deckSource, CancellationToken cancellationToken)
@@ -636,7 +627,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine($"  almost_combos: {(deck.AlmostComboSummaries.Count == 0 ? "(none found)" : string.Join(" | ", deck.AlmostComboSummaries))}");
     }
 
-    private static string BuildComparisonPrompt(
+    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    internal static string BuildComparisonPrompt(
         DeckComparisonDeckSummary deckA,
         DeckComparisonDeckSummary deckB,
         string deckAListText,
@@ -946,7 +938,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine($"</{tagName}>");
     }
 
-    private static string BuildFollowUpPrompt(string comparisonSchemaJson, string targetAiPlatform)
+    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    internal static string BuildFollowUpPrompt(string comparisonSchemaJson, string targetAiPlatform)
     {
         return targetAiPlatform switch
         {
@@ -1380,7 +1373,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         IReadOnlyList<DeckEntry> OptionalEntries,
         string CommanderName);
 
-    private sealed record DeckComparisonDeckSummary(
+    // Internal for test construction — exercised by ChatGptResultContractTests.
+    internal sealed record DeckComparisonDeckSummary(
         string Name,
         string CommanderName,
         CommanderBracketOption Bracket,

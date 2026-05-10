@@ -10,6 +10,22 @@ public static class ChatGptJsonTextFormatterService
     internal const string ChatGptResultWrapInstruction =
         "Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.";
 
+    /// <summary>
+    /// Replace embedded newlines with spaces and trim. Used by request-context
+    /// writers (Comparison + CedhMetaGap) to keep round-trip envelope values
+    /// on a single line. ChatGptDeckPacketService has its own private variant
+    /// that additionally collapses multi-line input via CollapseWhitespace —
+    /// migrating those callsites is a v1.3 follow-up.
+    /// </summary>
+    internal static string NormalizeSingleLine(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+        return value.Replace('\n', ' ').Replace('\r', ' ').Trim();
+    }
+
     // Phase 10: unified <result>...</result> wrapper across ChatGPT/Claude/Gemini.
     // Lazy quantifier (.*?) ensures FIRST matching pair wins if user-pasted text
     // contains stray <result> tokens. Singleline so dot matches newlines.

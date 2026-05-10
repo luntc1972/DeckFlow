@@ -188,18 +188,9 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         ArgumentNullException.ThrowIfNull(request);
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"commander: {NormalizeSingleLine(request.CommanderName, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        builder.AppendLine($"commander: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.CommanderName, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
         return builder.ToString().TrimEnd() + Environment.NewLine;
-    }
-
-    private static string NormalizeSingleLine(string? value, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return fallback;
-        }
-        return value.Replace('\n', ' ').Replace('\r', ' ').Trim();
     }
 
     private static IReadOnlyList<EdhTop16Entry> ResolveSelectedEntries(IReadOnlyList<int> selectedIndexes, IReadOnlyList<EdhTop16Entry> fetchedEntries)
@@ -324,7 +315,8 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildPrompt(
+    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    internal static string BuildPrompt(
         string commanderName,
         IReadOnlyList<DeckEntry> myDeckEntries,
         CommanderSpellbookResult? myDeckCombos,
@@ -522,9 +514,9 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 builder.AppendLine(entry.TournamentDate.Value.ToString("yyyy-MM-dd"));
             }
 
-            builder.AppendLine("  <decklist>");
+            builder.AppendLine("  <list>");
             builder.AppendLine(BuildCompactRefDecklist(entry, oracleNameMap));
-            builder.AppendLine("  </decklist>");
+            builder.AppendLine("  </list>");
             builder.AppendLine("  <combos>");
             var comboResult = index < referenceDeckCombos.Count ? referenceDeckCombos[index] : null;
             builder.AppendLine(BuildComboReferenceText($"R{index + 1}", comboResult));
