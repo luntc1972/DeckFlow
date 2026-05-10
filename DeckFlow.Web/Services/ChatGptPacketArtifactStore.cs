@@ -468,8 +468,13 @@ internal static class ChatGptPacketArtifactStore
     private static string CreateSafePathSegment(string? value, string fallback)
     {
         var candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = new string(candidate.Select(ch => invalidChars.Contains(ch) ? '-' : ch).ToArray());
+        // Header-safe + cross-OS sanitizer. Drop anything outside [A-Za-z0-9 _.-]
+        // so CR/LF/control chars can never reach an HTTP response header even on
+        // Linux, where Path.GetInvalidFileNameChars only rejects NUL + '/'.
+        var sanitized = new string(candidate.Select(ch =>
+            ch is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or ' ' or '.' or '_' or '-'
+                ? ch
+                : '-').ToArray());
         return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized.Replace(' ', '-').ToLowerInvariant();
     }
 
