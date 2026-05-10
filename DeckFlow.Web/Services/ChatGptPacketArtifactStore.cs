@@ -244,6 +244,10 @@ internal static class ChatGptPacketArtifactStore
     /// Rehydrates a saved comparison zip back into a comparison request.
     /// </summary>
     /// <remarks>
+    /// At least one of <c>40-deck-comparison-response.json</c>, <c>10-deck-a-list.txt</c>,
+    /// <c>11-deck-b-list.txt</c>, or <c>01-request-context.txt</c> must be present. Partial zips
+    /// (no response yet) rehydrate whatever state is available and land the user back on Step 2
+    /// (decks restored, ready to regenerate the prompt) or Step 1 (re-paste decks).
     /// Deck A and Deck B are restored from the normalized post-Scryfall list entries in the zip,
     /// which is the deck content the comparison workflow actually analyzed.
     /// </remarks>
@@ -253,31 +257,60 @@ internal static class ChatGptPacketArtifactStore
         ArgumentNullException.ThrowIfNull(request);
 
         var entries = ReadEntries(zipStream, ComparisonAllowedNames);
-        if (!entries.TryGetValue("40-deck-comparison-response.json", out var responseJson)
-            || string.IsNullOrWhiteSpace(responseJson))
+        entries.TryGetValue("40-deck-comparison-response.json", out var responseJson);
+        entries.TryGetValue("10-deck-a-list.txt", out var deckAList);
+        entries.TryGetValue("11-deck-b-list.txt", out var deckBList);
+        entries.TryGetValue("01-request-context.txt", out var requestContextText);
+
+        if (string.IsNullOrWhiteSpace(responseJson) &&
+            string.IsNullOrWhiteSpace(deckAList) &&
+            string.IsNullOrWhiteSpace(deckBList) &&
+            string.IsNullOrWhiteSpace(requestContextText))
         {
-            throw new InvalidOperationException("Imported zip did not contain 40-deck-comparison-response.json.");
+            throw new InvalidOperationException("Imported zip did not contain a recognized DeckFlow comparison session — expected 01-request-context.txt, 10-deck-a-list.txt, 11-deck-b-list.txt, or 40-deck-comparison-response.json.");
         }
 
-        request.ComparisonResponseJson = responseJson;
-        request.WorkflowStep = 3;
-        if (entries.TryGetValue("10-deck-a-list.txt", out var deckAList) && !string.IsNullOrWhiteSpace(deckAList))
+        request.ComparisonResponseJson = responseJson ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(deckAList))
         {
             request.DeckASource = deckAList.TrimEnd();
         }
 
-        if (entries.TryGetValue("11-deck-b-list.txt", out var deckBList) && !string.IsNullOrWhiteSpace(deckBList))
+        if (!string.IsNullOrWhiteSpace(deckBList))
         {
             request.DeckBSource = deckBList.TrimEnd();
         }
 
-        if (entries.TryGetValue("01-request-context.txt", out var requestContextText)
-            && !string.IsNullOrWhiteSpace(requestContextText))
+        // Step 3 = response present (full state); Step 2 = both decks present
+        // (ready to regenerate prompt); otherwise Step 1 (re-paste decks).
+        request.WorkflowStep = !string.IsNullOrWhiteSpace(responseJson)
+            ? 3
+            : (!string.IsNullOrWhiteSpace(deckAList) && !string.IsNullOrWhiteSpace(deckBList))
+                ? 2
+                : 1;
+
+        if (!string.IsNullOrWhiteSpace(requestContextText))
         {
             var parsed = ChatGptRequestContextParser.Parse(requestContextText);
             if (parsed.TargetAiPlatform is not null)
             {
                 request.TargetAiPlatform = parsed.TargetAiPlatform;
+            }
+            if (parsed.DeckAName is not null)
+            {
+                request.DeckAName = parsed.DeckAName;
+            }
+            if (parsed.DeckBName is not null)
+            {
+                request.DeckBName = parsed.DeckBName;
+            }
+            if (parsed.DeckABracket is not null)
+            {
+                request.DeckABracket = parsed.DeckABracket;
+            }
+            if (parsed.DeckBBracket is not null)
+            {
+                request.DeckBBracket = parsed.DeckBBracket;
             }
         }
     }
@@ -286,8 +319,12 @@ internal static class ChatGptPacketArtifactStore
     /// Rehydrates a saved cEDH meta-gap zip back into a request.
     /// </summary>
     /// <remarks>
-    /// The cEDH zip contract does not currently include deck-source text, so <see cref="ChatGptCedhMetaGapRequest.DeckSource" />
-    /// cannot be restored here. The upload controller restores commander name from the response JSON after this method returns.
+    /// At least one of <c>40-meta-gap-response.json</c> or <c>01-request-context.txt</c> must
+    /// be present. Partial zips (no response yet) rehydrate the AI selector and land the user
+    /// back on Step 1 to re-paste the deck. The cEDH zip contract does not currently include
+    /// deck-source text, so <see cref="ChatGptCedhMetaGapRequest.DeckSource" /> cannot be
+    /// restored here. The upload controller restores commander name from the response JSON
+    /// (when present) after this method returns.
     /// </remarks>
     public static void LoadCedhMetaGapFromZip(Stream zipStream, ChatGptCedhMetaGapRequest request)
     {
@@ -295,36 +332,41 @@ internal static class ChatGptPacketArtifactStore
         ArgumentNullException.ThrowIfNull(request);
 
         var entries = ReadEntries(zipStream, CedhAllowedNames);
-        if (!entries.TryGetValue("40-meta-gap-response.json", out var responseJson)
-            || string.IsNullOrWhiteSpace(responseJson))
+        entries.TryGetValue("40-meta-gap-response.json", out var responseJson);
+        entries.TryGetValue("01-request-context.txt", out var requestContextText);
+
+        if (string.IsNullOrWhiteSpace(responseJson) && string.IsNullOrWhiteSpace(requestContextText))
         {
-            throw new InvalidOperationException("Imported zip did not contain 40-meta-gap-response.json.");
+            throw new InvalidOperationException("Imported zip did not contain a recognized DeckFlow meta-gap session — expected 01-request-context.txt or 40-meta-gap-response.json.");
         }
 
-        request.MetaGapResponseJson = responseJson;
-        request.WorkflowStep = 3;
+        request.MetaGapResponseJson = responseJson ?? string.Empty;
+        request.WorkflowStep = !string.IsNullOrWhiteSpace(responseJson) ? 3 : 1;
         request.DeckSource = string.Empty;
         request.CommanderName = string.Empty;
 
-        if (entries.TryGetValue("01-request-context.txt", out var requestContextText)
-            && !string.IsNullOrWhiteSpace(requestContextText))
+        if (!string.IsNullOrWhiteSpace(requestContextText))
         {
             var parsed = ChatGptRequestContextParser.Parse(requestContextText);
             if (parsed.TargetAiPlatform is not null)
             {
                 request.TargetAiPlatform = parsed.TargetAiPlatform;
             }
+            if (parsed.Commander is not null)
+            {
+                request.CommanderName = parsed.Commander;
+            }
         }
     }
 
     public static string SuggestPacketZipFileName(string? commanderName, string? targetAiPlatform = null)
-        => $"{CreateSafePathSegment(commanderName, "deckflow-packet")}-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+        => $"{CreateSafePathSegment(commanderName, "deckflow-packet")}-analysis-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
-    public static string SuggestComparisonZipFileName(string deckAName, string deckBName, string? targetAiPlatform = null)
-        => $"{CreateSafePathSegment($"{deckAName}-vs-{deckBName}", "deck-comparison")}-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+    public static string SuggestComparisonZipFileName(string? commanderName, string? targetAiPlatform = null)
+        => $"{CreateSafePathSegment(commanderName, "deck-comparison")}-compare2-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     public static string SuggestCedhMetaGapZipFileName(string commanderName, string? targetAiPlatform = null)
-        => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+        => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-cedh-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     private static byte[] BuildArchive(params IReadOnlyList<(string FileName, string Label, string Content)>[] sectionGroups)
     {

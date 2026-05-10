@@ -233,6 +233,18 @@ public sealed partial class MoxfieldParser : IParser
             return true;
         }
 
+        if (IsSectionHeader(line, "Mainboard") || IsSectionHeader(line, "Deck"))
+        {
+            board = "mainboard";
+            return true;
+        }
+
+        if (IsSectionHeader(line, "Possible Includes"))
+        {
+            board = "maybeboard";
+            return true;
+        }
+
         board = string.Empty;
         return false;
     }

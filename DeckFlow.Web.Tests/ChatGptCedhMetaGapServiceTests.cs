@@ -356,6 +356,40 @@ public sealed class ChatGptCedhMetaGapServiceTests
         Assert.Equal("Select no more than 3 EDH Top 16 reference decks before generating the prompt.", exception.Message);
     }
 
+    [Fact]
+    public async Task BuildAsync_ResolvesCommanderHeuristically_WhenNoEntryHasCommanderBoard()
+    {
+        // Simulates a parsed deck where no entry is tagged Board=="commander"
+        // (e.g. pasted text with no `Commander` section header). The heuristic
+        // must still resolve the commander name AND reflag the matching entry.
+        var service = CreateService(
+            new FakeMoxfieldDeckImporter(new List<DeckEntry>
+            {
+                CreateDeckEntry("Kinnan, Bonder Prodigy"),
+                CreateDeckEntry("Sol Ring"),
+                CreateDeckEntry("Llanowar Elves")
+            }),
+            new FakeArchidektDeckImporter(),
+            new FakeEdhTop16Client(new EdhTop16Entry
+            {
+                Standing = 1,
+                PlayerName = "Pilot",
+                TournamentDate = new DateOnly(2026, 4, 1),
+                MainDeck = new[] { new EdhTop16Card { Name = "Mox Diamond", Type = "Artifact" } }
+            }),
+            new FakeCommanderSpellbookService());
+
+        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-list",
+            SelectedReferenceIndexes = new List<int> { 0 }
+        });
+
+        Assert.Equal("Kinnan, Bonder Prodigy", result.ResolvedCommanderName);
+        Assert.Contains("Commander: Kinnan, Bonder Prodigy", result.InputSummary);
+    }
+
     private static ChatGptCedhMetaGapService CreateService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,

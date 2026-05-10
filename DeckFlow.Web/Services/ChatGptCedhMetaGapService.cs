@@ -236,6 +236,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             throw new InvalidOperationException("Deck parse failed: the submitted deck did not contain any commander or mainboard cards.");
         }
 
+        var hasExplicitCommander = playableEntries.Any(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase));
         var commanderName = playableEntries
             .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             ?.Name;
@@ -248,7 +249,34 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 .FirstOrDefault();
         }
 
+        if (!hasExplicitCommander && !string.IsNullOrWhiteSpace(commanderName))
+        {
+            playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
+        }
+
         return new LoadedDeck(playableEntries, commanderName ?? string.Empty);
+    }
+
+    private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
+    {
+        var matched = false;
+        var result = new List<DeckEntry>(source.Count);
+        foreach (var entry in source)
+        {
+            if (!matched
+                && entry.Quantity == 1
+                && string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Add(entry with { Board = "commander" });
+                matched = true;
+            }
+            else
+            {
+                result.Add(entry);
+            }
+        }
+        return result;
     }
 
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
