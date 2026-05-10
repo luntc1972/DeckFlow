@@ -523,7 +523,7 @@ public sealed class DeckController : Controller
                 result.AnalysisPromptText,
                 result.DeckProfileSchemaJson,
                 result.SetUpgradePromptText);
-            var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName(commanderName);
+            var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
@@ -703,7 +703,7 @@ public sealed class DeckController : Controller
                 && string.IsNullOrWhiteSpace(request.DeckBSource)
                 && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
             {
-                var fallbackFileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(request.DeckAName, request.DeckBName);
+                var fallbackFileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(request.DeckAName, request.DeckBName, request.TargetAiPlatform);
                 var fallbackBytes = ChatGptPacketArtifactStore.BuildComparisonZip(
                     request,
                     string.Empty,
@@ -738,7 +738,7 @@ public sealed class DeckController : Controller
             var fileNameDeckB = !string.IsNullOrWhiteSpace(result.ResolvedDeckBCommander)
                 ? result.ResolvedDeckBCommander!
                 : request.DeckBName;
-            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fileNameDeckA, fileNameDeckB);
+            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fileNameDeckA, fileNameDeckB, request.TargetAiPlatform);
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
@@ -917,7 +917,7 @@ public sealed class DeckController : Controller
             if (string.IsNullOrWhiteSpace(request.DeckSource)
                 && !string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
             {
-                var fallbackFileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(request.CommanderName);
+                var fallbackFileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(request.CommanderName, request.TargetAiPlatform);
                 var fallbackBytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
                     request,
                     string.Empty,
@@ -934,7 +934,7 @@ public sealed class DeckController : Controller
                 result.PromptText ?? string.Empty,
                 result.SchemaJson ?? string.Empty,
                 result.RequestContextText);
-            var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName);
+            var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName, request.TargetAiPlatform);
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
