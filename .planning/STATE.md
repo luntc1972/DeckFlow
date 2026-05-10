@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Multi-AI Prompts
-status: in_progress
-stopped_at: Phase 10 implementation complete; awaiting human-verify on 8 integration tests (see 10-03-SUMMARY.md)
-last_updated: "2026-05-09T23:55:00Z"
-last_activity: 2026-05-09 — Phase 10 all 4 plans shipped to origin/v1.2; 35 unit tests pass
+status: paused_for_handoff
+stopped_at: Phase 10 awaiting human-verify; integration test 0 (download regression) PASSED, test 5 (Gemini JSON) failed→fixed→needs re-test, 7 others not yet attempted. See HANDOFF.json + 10-claude-gemini-artifact-optimization/.continue-here.md
+last_updated: "2026-05-10T03:13:00Z"
+last_activity: 2026-05-09 ~9:10pm MDT — paused for night handoff after fixing 2 bugs surfaced during integration testing + adding AI-name-in-filename feature
 progress:
   total_phases: 2
   completed_phases: 1
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
 
 ## Current Position
 
-Phase: 10 — IMPLEMENTATION COMPLETE, awaiting human-verify
-Plan: 4 of 4 — all SUMMARY committed (10-01, 10-02, 10-03, 10-04). All implementation commits + Codex-review fixups landed on origin/v1.2.
-Status: AISEL-02 + AISEL-03 + AISEL-04 all closed in code. 35 new unit tests pass (`dotnet test --filter "FullyQualifiedName~ChatGptJsonTextFormatterServiceTests|FullyQualifiedName~ChatGptPhase10RoundTripTests"`). Build clean. Eight integration tests listed in `.planning/phases/10-claude-gemini-artifact-optimization/10-03-SUMMARY.md` need manual verification (browser round-trips on all 3 pages, paste-into-claude.ai, paste-into-gemini.google.com, response paste-back, ChatGPT default-flow zero-regression check).
-Last activity: 2026-05-09 — Phase 10 fully shipped to origin/v1.2; awaiting integration verification
+Phase: 10 — IMPLEMENTATION COMPLETE, integration testing in progress, paused for night
+Plan: 4 of 4 — all SUMMARY committed. All implementation commits + Codex-review fixups + post-test fixes landed on origin/v1.2 (HEAD = `00e5bdd`).
+Status: AISEL-02 + AISEL-03 + AISEL-04 closed in code. 63 cumulative Phase 10 unit tests pass. Build clean. STRIDE security audit closed 12/12 threats. SOLID audit "Do Now" refactors landed (`08271b0`). Two bugs surfaced during integration testing and were fixed: download button regression (`d54da44` — disabled-on-click was canceling the form submit) and Gemini JSON wrapper non-compliance (`a1ab008` — appended `GeminiJsonMandate` as absolute final line of all 5 Gemini variants). One feature added (`00e5bdd` — AI name in download filename per user request).
+Last activity: 2026-05-09 ~9:10pm MDT — handoff prep complete; user stopped for night with integration tests in progress
 
 ## Performance Metrics
 
@@ -104,8 +104,13 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 
 ## Session Continuity
 
-Last session: 2026-05-09 ~5:55pm MDT
-Stopped at: Phase 10 implementation complete; awaiting human-verify on 8 integration tests
-Next action: When user reports test results — if all 8 pass, close Phase 10 + v1.2 milestone (archive plans, decide whether to merge v1.2 → main); if any fail, dispatch fix per failure description.
+Last session: 2026-05-09 ~9:10pm MDT (paused for night)
+Stopped at: Phase 10 integration testing in progress — test 0 (download regression after fix d54da44) PASSED; test 5 (paste Gemini) FAILED first attempt → fixed in `a1ab008` (GeminiJsonMandate as absolute final line of all 5 Gemini variants) → NEEDS RE-TEST; tests 1-4, 6-8 not yet attempted; AI-name-in-filename feature `00e5bdd` needs verification.
 
-**Resume guidance:** `git log --oneline 26222f0..HEAD` shows the full Phase 10 commit chain (8 commits including 4 Codex-review fixups, 4 SUMMARY docs). Read `.planning/phases/10-claude-gemini-artifact-optimization/10-03-SUMMARY.md` § "Integration Tests Required" for the exact test list the user is running. Phase 10 commits include the Codex-review fixups (`faa6ba3`, `26c4d64`, `e4ca510`, `3360ba5`) — those are not pending; they're already shipped.
+Next action: On user return — ask whether they ran the remaining tests. If all pass, close Phase 10 + v1.2 milestone. If any fail, dispatch fix per failure description. Re-confirm session-mode (Claude Edit/Write direct vs Codex MCP) before resuming code work — the mode switch was session-scoped on 2026-05-09 afternoon.
+
+**Resume guidance:**
+- Read `.planning/HANDOFF.json` first — structured machine-readable state with full test status table.
+- Read `.planning/phases/10-claude-gemini-artifact-optimization/.continue-here.md` for human-readable context including critical anti-patterns table (disabled-submitter, last-instruction-wins, Codex grep-guard timing).
+- `git log --oneline 26222f0..HEAD` shows the full 22-commit Phase 10 chain.
+- Test list with current pass/fail status: see HANDOFF.json `remaining_tasks`.
