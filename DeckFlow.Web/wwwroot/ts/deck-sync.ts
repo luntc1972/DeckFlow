@@ -760,19 +760,28 @@ const registerBusyIndicator = (): void => {
 // visually "busy" forever after a successful navigation). The data-no-busy
 // attribute on the download button is what currently prevents that
 // regression and MUST be preserved.
+//
+// Implementation note: we track in-flight state via a dataset attribute,
+// NOT via `button.disabled = true`. Setting `disabled` synchronously on
+// click would cancel the form submit (per HTML spec, disabled submitters
+// don't trigger their default action), breaking the download entirely —
+// regression observed in the original ce043df pattern. The dataset guard
+// blocks subsequent clicks via preventDefault() while the first click
+// goes through to the form submission.
 const CHATGPT_DOWNLOAD_DEBOUNCE_MS = 3000;
 
 const registerChatGptDownloadDebounce = (): void => {
   document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-download-submit]').forEach(button => {
-    button.addEventListener('click', () => {
-      if (button.disabled) {
+    button.addEventListener('click', (event: MouseEvent) => {
+      if (button.dataset.downloadInFlight === 'true') {
+        event.preventDefault();
         return;
       }
       const originalText = button.textContent;
-      button.disabled = true;
+      button.dataset.downloadInFlight = 'true';
       button.textContent = 'Preparing download...';
       window.setTimeout(() => {
-        button.disabled = false;
+        delete button.dataset.downloadInFlight;
         button.textContent = originalText;
       }, CHATGPT_DOWNLOAD_DEBOUNCE_MS);
     });
