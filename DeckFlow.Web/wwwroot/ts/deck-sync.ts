@@ -831,12 +831,32 @@ const registerChatGptDownloadHandler = (): void => {
           window.alert(`Download failed (HTTP ${response.status}). Please try again.`);
           return;
         }
+        // Validation failures on the server return a re-rendered HTML view
+        // with status 200 — without a Content-Type/zip-header guard the
+        // client would blob the HTML and save it as session.zip. Require
+        // a real zip signal (Content-Type or X-DeckFlow-Filename or
+        // Content-Disposition) before treating the body as a download.
+        const contentType = (response.headers.get('Content-Type') ?? '').toLowerCase();
+        const customFilename = response.headers.get('X-DeckFlow-Filename');
+        const dispositionHeader = response.headers.get('Content-Disposition');
+        const looksLikeZip = contentType.includes('application/zip')
+          || contentType.includes('application/octet-stream')
+          || !!customFilename
+          || !!dispositionHeader;
+        if (!looksLikeZip) {
+          // Server returned a non-zip response (likely a re-rendered error
+          // view). Replace the document so the user sees the error UI.
+          const html = await response.text();
+          document.open();
+          document.write(html);
+          document.close();
+          return;
+        }
         const blob = await response.blob();
         // Prefer the explicit X-DeckFlow-Filename header (set by all download
         // endpoints — bypasses Content-Disposition parsing fragility), then
         // fall back to Content-Disposition, then to the generic default.
-        const customFilename = response.headers.get('X-DeckFlow-Filename');
-        const dispositionFilename = parseChatGptDownloadFilename(response.headers.get('Content-Disposition'));
+        const dispositionFilename = parseChatGptDownloadFilename(dispositionHeader);
         const filename = (customFilename && customFilename.trim()) || dispositionFilename || CHATGPT_DOWNLOAD_FALLBACK_FILENAME;
         if (!customFilename && !dispositionFilename) {
           // Diagnostic for the user — surface the missing-header case in DevTools.
