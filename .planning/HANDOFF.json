@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-10T03:11:14.404Z",
+  "phase": "10",
+  "phase_name": "claude-gemini-artifact-optimization",
+  "phase_dir": ".planning/phases/10-claude-gemini-artifact-optimization",
+  "milestone": "v1.2",
+  "branch": "v1.2",
+  "branch_state": "clean, 20 commits ahead of v1.2 planning baseline 26222f0; all pushed to origin/v1.2 (HEAD = 00e5bdd)",
+  "plan": 4,
+  "task": null,
+  "total_tasks": 0,
+  "status": "awaiting_human_verify",
+  "completed_tasks": [
+    {"id": "10-01", "name": "Per-AI dispatch primitive on BuildAnalysisPrompt + Packets Claude/Gemini variants", "status": "done", "commits": ["6c24180", "faa6ba3"]},
+    {"id": "10-02", "name": "Fanout to set-upgrade, comparison, follow-up, meta-gap (15 variants)", "status": "done", "commits": ["93454b6", "26c4d64", "a1ab008"]},
+    {"id": "10-03", "name": "Zip round-trip for AI selection + unified <result> parser shim", "status": "done", "commits": ["76861c0", "3360ba5", "00e5bdd"]},
+    {"id": "10-04", "name": "D-14 debounce hardening + D-15 skipPersistence auto-clear", "status": "done", "commits": ["b292cfe", "e4ca510", "d54da44"]},
+    {"id": "post-audit-BCD", "name": "SOLID audit Do-Now refactor (NormalizeSingleLine consolidation, tag taxonomy, <result> contract tests)", "status": "done", "commit": "08271b0"},
+    {"id": "secure-phase-10", "name": "STRIDE threat verification — 12/12 closed", "status": "done", "commit": "f6a45ea"}
+  ],
+  "remaining_tasks": [
+    {"id": "integration-test-1", "name": "Round-trip on /chatgpt-packets — select Claude, generate, download zip, re-upload, confirm AI selector renders Claude pre-selected", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-2", "name": "Round-trip on /chatgpt-deck-comparison — same with Gemini selected (NEW; closes AISEL-04 for this page)", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-3", "name": "Round-trip on /chatgpt-cedh-meta-gap — same with Claude selected (NEW; closes AISEL-04 for this page)", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-4", "name": "Paste Claude artifact into claude.ai — confirm structured analysis wrapped in <result>...</result>; no D-04 meta-confusion", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-5", "name": "Paste Gemini artifact into gemini.google.com — confirm JSON in <result> tags. RE-TEST after a1ab008 fix.", "status": "needs_retest", "type": "human-verify", "previous_attempt": "FAILED 2026-05-09: Gemini produced thorough readable analysis (Top Adds / Top Cuts) with no JSON wrapper. Root cause: data sections came after OUTPUT FORMAT, last-instruction-wins skipped the wrapper. Fixed in a1ab008 — appended new GeminiJsonMandate const as the absolute final line of all 5 Gemini variants."},
+    {"id": "integration-test-6", "name": "Response paste-back NEW path — paste Claude's <result>{...}</result> response into Step 3, confirm renders", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-7", "name": "Response paste-back LEGACY path — paste fenced ```json response (no <result> wrap), confirm still parses (backwards compatibility)", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-8", "name": "ChatGPT default flow zero-regression — analysis with ChatGPT selected, confirm prompt content is byte-equivalent to pre-Phase-10 + one new <result> wrap line in OUTPUT FORMAT", "status": "not_started", "type": "human-verify"},
+    {"id": "verify-feature-filename", "name": "Verify download filename now contains AI segment — e.g., atraxa-claude-20260509-210600.zip (commit 00e5bdd)", "status": "not_started", "type": "human-verify"},
+    {"id": "verify-fix-download-debounce", "name": "Verify download still works after debounce fix d54da44 — passed once, re-test on next session if anything regresses", "status": "passed", "type": "human-verify", "passed_at": "2026-05-09 ~8:15pm MDT"}
+  ],
+  "blockers": [
+    {"description": "Cannot close Phase 10 / v1.2 milestone until 8 integration tests pass (1 needs re-test after fix, 7 not yet attempted)", "type": "human_action", "workaround": "User runs tests in browser; reply approved on success or failure description on regression"}
+  ],
+  "human_actions_pending": [
+    {"action": "Run 8 integration tests listed in 10-03-SUMMARY.md § Integration Tests Required + the AI-name-in-filename verification", "context": "Human-verify gate before /gsd-ship can run", "blocking": true},
+    {"action": "Re-test #5 (paste Gemini) after a1ab008 fix", "context": "First attempt failed — Gemini ignored JSON wrapper. Fix shipped: GeminiJsonMandate appended as absolute final line of all 5 Gemini variants. Re-paste should now produce <result>{...}</result>", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Mid-session mode switch — Claude writes code, Codex reviews", "rationale": "User explicitly invoked this for the rest of the session after 10-02. SESSION-SCOPED — re-confirm on next session before defaulting back. CLAUDE.md global rule says route coding through Codex MCP unless explicitly authorized otherwise.", "phase": "10"},
+    {"decision": "Gemini JSON mandate appended as absolute final line vs restructuring data sections", "rationale": "Min-blast-radius fix. Gemini ignored OUTPUT FORMAT mid-prompt because data sections came after; restructuring would copy the Claude data-first ordering but require larger rewrite. Appending the imperative is sufficient for last-instruction-wins models.", "phase": "10"},
+    {"decision": "AI name in filename via lowercased segment", "rationale": "User request after first integration-test session. Format: {commander}-{ai}-{timestamp}.zip. ChatGPT/Claude/Gemini lowercased to chatgpt/claude/gemini for filename consistency.", "phase": "10"},
+    {"decision": "AiPlatform value object refactor designed but NOT implemented", "rationale": "User direction after SOLID audit: do BCD now, design A. Design captured in 10-AISEL-PLATFORM-DESIGN.md as v1.3 candidate. Forecast OCP score 3/10 → 8/10.", "phase": "10"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "On user return, ask whether they ran the 8 integration tests. If all pass: close Phase 10 + v1.2 milestone (mark complete in STATE.md/ROADMAP.md, archive plans, decide whether to merge v1.2 → main given branch policy keeps main pinned at v1.1+hotfixes). If any fail, dispatch fix per failure description (Edit/Write directly per the established session-mode switch — re-confirm if user wants to revert to Codex-writes).",
+  "context_notes": "Phase 10 implementation work and audits all complete. 63 unit tests pass. Build clean. Security audit cleared 12/12 STRIDE threats. SOLID audit identified known-tech-debt (deferred per PROJECT.md) plus one new finding (OCP — designed for v1.3). Two real bugs surfaced during integration testing and were fixed: download button regression (d54da44 — disabled-on-click was canceling the form submit) and Gemini JSON wrapper non-compliance (a1ab008 — appended GeminiJsonMandate). One feature added (00e5bdd — AI name in download filename). Mode switch active: Claude direct Edit/Write for coding, Codex for review. Re-confirm mode on next session.",
+  "cumulative_metrics": {
+    "phase_10_commits_since_planning_baseline": 20,
+    "unit_tests_added_in_phase_10": 63,
+    "build_status": "clean (0 warnings, 0 errors)",
+    "security_threats_closed": "12/12 (12 accept + 3 mitigate verified)",
+    "branch_head": "00e5bdd"
+  }
+}
