@@ -25,7 +25,8 @@ public sealed record ChatGptCedhMetaGapResult(
     string? PromptText,
     string? SchemaJson,
     ChatGptCedhMetaGapResponse? AnalysisResponse,
-    string? RequestContextText = null);
+    string? RequestContextText = null,
+    string? DecklistText = null);
 
 public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 {
@@ -176,7 +177,57 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             promptText,
             schemaJson,
             analysisResponse,
-            BuildRequestContextText(request));
+            BuildRequestContextText(request),
+            DecklistText: BuildCanonicalDecklistText(loadedDeck.AllEntries));
+    }
+
+    /// <summary>
+    /// Canonical Moxfield-flavored decklist text used as the zip-stored deck
+    /// artifact so re-upload can restore <see cref="ChatGptCedhMetaGapRequest.DeckSource"/>.
+    /// Emits Commander, Mainboard, and Possible Includes sections so optional
+    /// (maybeboard/sideboard) entries the parser accepted are preserved across
+    /// the round-trip.
+    /// </summary>
+    private static string BuildCanonicalDecklistText(IReadOnlyList<DeckEntry> allEntries)
+    {
+        var builder = new StringBuilder();
+        var commander = allEntries
+            .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase));
+        if (commander is not null)
+        {
+            builder.AppendLine("Commander");
+            builder.AppendLine($"{commander.Quantity} {commander.Name}");
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("Mainboard");
+        foreach (var entry in allEntries
+                     .Where(entry =>
+                         !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            builder.AppendLine($"{entry.Quantity} {entry.Name}");
+        }
+
+        var optional = allEntries
+            .Where(entry =>
+                string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (optional.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Possible Includes");
+            foreach (var entry in optional)
+            {
+                builder.AppendLine($"{entry.Quantity} {entry.Name}");
+            }
+        }
+
+        return builder.ToString().TrimEnd();
     }
 
     /// <summary>
@@ -252,9 +303,10 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         if (!hasExplicitCommander && !string.IsNullOrWhiteSpace(commanderName))
         {
             playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
+            entries = ReflagCommanderEntry(entries, commanderName);
         }
 
-        return new LoadedDeck(playableEntries, commanderName ?? string.Empty);
+        return new LoadedDeck(playableEntries, commanderName ?? string.Empty, entries);
     }
 
     private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
@@ -1103,5 +1155,14 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return result;
     }
 
-    private sealed record LoadedDeck(IReadOnlyList<DeckEntry> PlayableEntries, string CommanderName);
+    /// <summary>
+    /// Parsed-deck snapshot. <c>PlayableEntries</c> drives prompt + analysis paths
+    /// (maybeboard/sideboard excluded). <c>AllEntries</c> preserves the full parser
+    /// output so the canonical deck artifact written to the session zip can include
+    /// optional sections users typed.
+    /// </summary>
+    private sealed record LoadedDeck(
+        IReadOnlyList<DeckEntry> PlayableEntries,
+        string CommanderName,
+        IReadOnlyList<DeckEntry> AllEntries);
 }

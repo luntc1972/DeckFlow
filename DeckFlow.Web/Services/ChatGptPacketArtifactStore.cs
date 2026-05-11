@@ -17,6 +17,8 @@ internal static class ChatGptPacketArtifactStore
     {
         "00-input-summary.txt",
         "01-request-context.txt",
+        "10-deck-list.txt",
+        "10b-deck-original.txt",
         "30-reference.txt",
         "31-analysis-prompt.txt",
         "40-deck-profile.json",
@@ -32,7 +34,9 @@ internal static class ChatGptPacketArtifactStore
         "00-comparison-input-summary.txt",
         "01-request-context.txt",
         "10-deck-a-list.txt",
+        "10b-deck-a-original.txt",
         "11-deck-b-list.txt",
+        "11b-deck-b-original.txt",
         "12-deck-a-combos.txt",
         "13-deck-b-combos.txt",
         "20-comparison-context.txt",
@@ -46,10 +50,33 @@ internal static class ChatGptPacketArtifactStore
     {
         "00-input-summary.txt",
         "01-request-context.txt",
+        "10-deck-list.txt",
+        "10b-deck-original.txt",
         "30-meta-gap-prompt.txt",
         "31-meta-gap-schema.json",
         "40-meta-gap-response.json"
     };
+
+    /// <summary>
+    /// Returns the source string if it is NOT a supported deck-import URL
+    /// (Moxfield or Archidekt). For URL inputs returns null so the writer
+    /// skips the original-text artifact — the canonical artifact is the only
+    /// faithful record. Mirrors the host-allowlist used by the deck importers.
+    /// </summary>
+    public static string? OriginalDeckTextOrNull(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source)) { return null; }
+        var trimmed = source.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            && uri.Host is not null
+            && (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase)))
+        {
+            return null;
+        }
+        return trimmed;
+    }
 
     public static byte[] BuildZip(
         ChatGptDeckRequest request,
@@ -59,7 +86,9 @@ internal static class ChatGptPacketArtifactStore
         string? referenceText,
         string? analysisPromptText,
         string deckProfileSchemaJson,
-        string? setUpgradePromptText)
+        string? setUpgradePromptText,
+        string? canonicalDeckListText = null,
+        string? originalDeckText = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -67,6 +96,8 @@ internal static class ChatGptPacketArtifactStore
         [
             ("00-input-summary.txt", "INPUT SUMMARY", inputSummary),
             ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
+            ("10-deck-list.txt", "DECK LIST", canonicalDeckListText),
+            ("10b-deck-original.txt", "DECK ORIGINAL TEXT", originalDeckText),
             ("30-reference.txt", "REFERENCE TEXT", referenceText),
             ("31-analysis-prompt.txt", "ANALYSIS PROMPT", analysisPromptText),
             ("41-deck-profile-schema.json", "DECK PROFILE JSON SCHEMA", deckProfileSchemaJson),
@@ -93,7 +124,9 @@ internal static class ChatGptPacketArtifactStore
         string comparisonPromptText,
         string followUpPromptText,
         string comparisonSchemaJson,
-        string? requestContextText)
+        string? requestContextText,
+        string? deckAOriginalText = null,
+        string? deckBOriginalText = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -102,7 +135,9 @@ internal static class ChatGptPacketArtifactStore
             ("00-comparison-input-summary.txt", "COMPARISON INPUT SUMMARY", inputSummary),
             ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
             ("10-deck-a-list.txt", "DECK A LIST", deckAListText),
+            ("10b-deck-a-original.txt", "DECK A ORIGINAL TEXT", deckAOriginalText),
             ("11-deck-b-list.txt", "DECK B LIST", deckBListText),
+            ("11b-deck-b-original.txt", "DECK B ORIGINAL TEXT", deckBOriginalText),
             ("12-deck-a-combos.txt", "DECK A COMBOS", deckAComboText),
             ("13-deck-b-combos.txt", "DECK B COMBOS", deckBComboText),
             ("20-comparison-context.txt", "COMPARISON CONTEXT", comparisonContextText),
@@ -120,7 +155,9 @@ internal static class ChatGptPacketArtifactStore
         string inputSummary,
         string promptText,
         string schemaJson,
-        string? requestContextText)
+        string? requestContextText,
+        string? canonicalDeckListText = null,
+        string? originalDeckText = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -128,6 +165,8 @@ internal static class ChatGptPacketArtifactStore
         [
             ("00-input-summary.txt", "INPUT SUMMARY", inputSummary),
             ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
+            ("10-deck-list.txt", "DECK LIST", canonicalDeckListText),
+            ("10b-deck-original.txt", "DECK ORIGINAL TEXT", originalDeckText),
             ("30-meta-gap-prompt.txt", "META GAP PROMPT", promptText),
             ("31-meta-gap-schema.json", "META GAP SCHEMA JSON", schemaJson),
             ("40-meta-gap-response.json", "META GAP RESPONSE JSON", string.IsNullOrWhiteSpace(request.MetaGapResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.MetaGapResponseJson))
@@ -154,6 +193,8 @@ internal static class ChatGptPacketArtifactStore
         entries.TryGetValue("40-deck-profile.json", out var deckProfile);
         entries.TryGetValue("51-set-upgrade-response.json", out var setUpgrade);
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
+        entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
+        entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
 
         if (string.IsNullOrWhiteSpace(deckProfile) &&
             string.IsNullOrWhiteSpace(setUpgrade) &&
@@ -169,6 +210,18 @@ internal static class ChatGptPacketArtifactStore
             : !string.IsNullOrWhiteSpace(deckProfile)
                 ? 3
                 : 1;
+
+        // Precedence: original (user's pasted text) > canonical (DeckFlow-emitted
+        // sectioned list) > deck_source key in request_context (legacy). Each
+        // step overrides the previous so the most user-recognizable text wins.
+        if (!string.IsNullOrWhiteSpace(canonicalDeckList))
+        {
+            request.DeckText = canonicalDeckList.TrimEnd();
+        }
+        if (!string.IsNullOrWhiteSpace(originalDeckText))
+        {
+            request.DeckText = originalDeckText.TrimEnd();
+        }
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
         {
@@ -228,7 +281,12 @@ internal static class ChatGptPacketArtifactStore
                 request.MetaNotes = parsed.MetaNotes;
             }
 
-            if (parsed.DeckSource is not null)
+            // Precedence: canonical/original deck artifacts (set above) win
+            // over the legacy deck_source block in request_context. Only apply
+            // the request_context value when neither artifact populated DeckText.
+            if (parsed.DeckSource is not null
+                && string.IsNullOrWhiteSpace(canonicalDeckList)
+                && string.IsNullOrWhiteSpace(originalDeckText))
             {
                 request.DeckSource = parsed.DeckSource;
             }
@@ -259,7 +317,9 @@ internal static class ChatGptPacketArtifactStore
         var entries = ReadEntries(zipStream, ComparisonAllowedNames);
         entries.TryGetValue("40-deck-comparison-response.json", out var responseJson);
         entries.TryGetValue("10-deck-a-list.txt", out var deckAList);
+        entries.TryGetValue("10b-deck-a-original.txt", out var deckAOriginal);
         entries.TryGetValue("11-deck-b-list.txt", out var deckBList);
+        entries.TryGetValue("11b-deck-b-original.txt", out var deckBOriginal);
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
         entries.TryGetValue("00-comparison-input-summary.txt", out var inputSummary);
         entries.TryGetValue("12-deck-a-combos.txt", out var deckAComboText);
@@ -271,28 +331,36 @@ internal static class ChatGptPacketArtifactStore
 
         if (string.IsNullOrWhiteSpace(responseJson) &&
             string.IsNullOrWhiteSpace(deckAList) &&
+            string.IsNullOrWhiteSpace(deckAOriginal) &&
             string.IsNullOrWhiteSpace(deckBList) &&
+            string.IsNullOrWhiteSpace(deckBOriginal) &&
             string.IsNullOrWhiteSpace(requestContextText))
         {
             throw new InvalidOperationException("Imported zip did not contain a recognized DeckFlow comparison session — expected 01-request-context.txt, 10-deck-a-list.txt, 11-deck-b-list.txt, or 40-deck-comparison-response.json.");
         }
 
         request.ComparisonResponseJson = responseJson ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(deckAList))
+        // Precedence: original (10b-*-original.txt) over canonical (10-*-list.txt).
+        // Original is what the user actually pasted; canonical is the
+        // alphabetized DeckFlow-emitted version. URL-imported decks have no
+        // original artifact so canonical is the only restore source.
+        var deckAText = !string.IsNullOrWhiteSpace(deckAOriginal) ? deckAOriginal : deckAList;
+        if (!string.IsNullOrWhiteSpace(deckAText))
         {
-            request.DeckASource = deckAList.TrimEnd();
+            request.DeckASource = deckAText.TrimEnd();
         }
 
-        if (!string.IsNullOrWhiteSpace(deckBList))
+        var deckBText = !string.IsNullOrWhiteSpace(deckBOriginal) ? deckBOriginal : deckBList;
+        if (!string.IsNullOrWhiteSpace(deckBText))
         {
-            request.DeckBSource = deckBList.TrimEnd();
+            request.DeckBSource = deckBText.TrimEnd();
         }
 
         // Step 3 = response present (full state); Step 2 = both decks present
         // (ready to regenerate prompt); otherwise Step 1 (re-paste decks).
         request.WorkflowStep = !string.IsNullOrWhiteSpace(responseJson)
             ? 3
-            : (!string.IsNullOrWhiteSpace(deckAList) && !string.IsNullOrWhiteSpace(deckBList))
+            : (!string.IsNullOrWhiteSpace(deckAText) && !string.IsNullOrWhiteSpace(deckBText))
                 ? 2
                 : 1;
 
@@ -360,6 +428,8 @@ internal static class ChatGptPacketArtifactStore
         entries.TryGetValue("00-input-summary.txt", out var inputSummary);
         entries.TryGetValue("30-meta-gap-prompt.txt", out var promptText);
         entries.TryGetValue("31-meta-gap-schema.json", out var schemaJson);
+        entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
+        entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
 
         if (string.IsNullOrWhiteSpace(responseJson) && string.IsNullOrWhiteSpace(requestContextText))
         {
@@ -368,8 +438,16 @@ internal static class ChatGptPacketArtifactStore
 
         request.MetaGapResponseJson = responseJson ?? string.Empty;
         request.WorkflowStep = !string.IsNullOrWhiteSpace(responseJson) ? 3 : 1;
-        request.DeckSource = string.Empty;
         request.CommanderName = string.Empty;
+
+        // Precedence: original > canonical for re-rendering the deck text box.
+        // Legacy zips have neither; cleared DeckSource here lets the user
+        // re-paste. CommanderName is restored from the request_context block
+        // below as a fallback when the response JSON isn't present.
+        var deckText = !string.IsNullOrWhiteSpace(originalDeckText)
+            ? originalDeckText
+            : canonicalDeckList;
+        request.DeckSource = string.IsNullOrWhiteSpace(deckText) ? string.Empty : deckText.TrimEnd();
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
         {
