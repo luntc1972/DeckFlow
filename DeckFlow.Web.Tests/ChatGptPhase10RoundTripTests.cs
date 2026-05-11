@@ -191,6 +191,57 @@ public sealed class ChatGptPhase10RoundTripTests
     }
 
     [Fact]
+    public void LoadComparisonFromZip_returns_display_artifacts_for_view_model()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["00-comparison-input-summary.txt"] = "INPUT SUMMARY BODY\n",
+            ["10-deck-a-list.txt"] = "Commander\n1 Atraxa, Praetors' Voice\n\nMainboard\n1 Sol Ring\n",
+            ["11-deck-b-list.txt"] = "Commander\n1 Atraxa, Praetors' Voice\n\nMainboard\n1 Counterspell\n",
+            ["12-deck-a-combos.txt"] = "DECK A COMBOS BODY\n",
+            ["13-deck-b-combos.txt"] = "DECK B COMBOS BODY\n",
+            ["20-comparison-context.txt"] = "COMPARISON CONTEXT BODY\n",
+            ["30-comparison-prompt.txt"] = "COMPARISON PROMPT BODY\n",
+            ["31-comparison-schema.json"] = "{\"comparison\":{}}",
+            ["32-comparison-follow-up-prompt.txt"] = "FOLLOW-UP PROMPT BODY\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        var artifacts = ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Equal("INPUT SUMMARY BODY", artifacts.InputSummary);
+        Assert.Contains("Atraxa", artifacts.DeckAListText);
+        Assert.Contains("Counterspell", artifacts.DeckBListText);
+        Assert.Equal("DECK A COMBOS BODY", artifacts.DeckAComboText);
+        Assert.Equal("DECK B COMBOS BODY", artifacts.DeckBComboText);
+        Assert.Equal("COMPARISON CONTEXT BODY", artifacts.ComparisonContextText);
+        Assert.Equal("COMPARISON PROMPT BODY", artifacts.ComparisonPromptText);
+        Assert.Equal("{\"comparison\":{}}", artifacts.ComparisonSchemaJson);
+        Assert.Equal("FOLLOW-UP PROMPT BODY", artifacts.FollowUpPromptText);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_returns_display_artifacts_for_view_model()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["00-input-summary.txt"] = "META-GAP INPUT SUMMARY\n",
+            ["30-meta-gap-prompt.txt"] = "META-GAP PROMPT BODY\n",
+            ["31-meta-gap-schema.json"] = "{\"meta_gap\":{}}",
+            ["01-request-context.txt"] = "target_ai_platform: Claude\ncommander: Kinnan, Bonder Prodigy\n"
+        });
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        using var stream = new MemoryStream(bytes);
+        var artifacts = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+
+        Assert.Equal("META-GAP INPUT SUMMARY", artifacts.InputSummary);
+        Assert.Equal("META-GAP PROMPT BODY", artifacts.PromptText);
+        Assert.Equal("{\"meta_gap\":{}}", artifacts.SchemaJson);
+    }
+
+    [Fact]
     public void LoadComparisonFromZip_throws_when_zip_has_no_recognized_entries()
     {
         // Empty zip: passes the allowlist gate (no unsupported entries) but has
