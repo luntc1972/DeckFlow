@@ -1,58 +1,68 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-10T22:38:00Z",
+  "timestamp": "2026-05-11T00:50:00Z",
   "phase": "10",
   "phase_name": "claude-gemini-artifact-optimization",
   "phase_dir": ".planning/phases/10-claude-gemini-artifact-optimization",
   "milestone": "v1.2",
   "branch": "v1.2",
-  "branch_state": "22 commits ahead of v1.2 planning baseline 26222f0; HEAD = e0a6657 (commander round-trip + zip upload regression fixes, 2026-05-10 PM)",
+  "branch_state": "28 commits ahead of v1.2 planning baseline 26222f0; HEAD = 6e536e4 (Archidekt parser section-header state machine, 2026-05-10 evening). All commits pushed to origin/v1.2.",
   "plan": 4,
   "task": null,
   "total_tasks": 0,
-  "status": "awaiting_human_verify",
+  "status": "tests_1_and_2_passed_six_pending",
   "completed_tasks": [
     {"id": "10-01", "name": "Per-AI dispatch primitive on BuildAnalysisPrompt + Packets Claude/Gemini variants", "status": "done", "commits": ["6c24180", "faa6ba3"]},
     {"id": "10-02", "name": "Fanout to set-upgrade, comparison, follow-up, meta-gap (15 variants)", "status": "done", "commits": ["93454b6", "26c4d64", "a1ab008"]},
     {"id": "10-03", "name": "Zip round-trip for AI selection + unified <result> parser shim", "status": "done", "commits": ["76861c0", "3360ba5", "00e5bdd"]},
     {"id": "10-04", "name": "D-14 debounce hardening + D-15 skipPersistence auto-clear", "status": "done", "commits": ["b292cfe", "e4ca510", "d54da44"]},
     {"id": "post-audit-BCD", "name": "SOLID audit Do-Now refactor (NormalizeSingleLine consolidation, tag taxonomy, <result> contract tests)", "status": "done", "commit": "08271b0"},
-    {"id": "secure-phase-10", "name": "STRIDE threat verification — 12/12 closed", "status": "done", "commit": "f6a45ea"}
+    {"id": "secure-phase-10", "name": "STRIDE threat verification — 12/12 closed", "status": "done", "commit": "f6a45ea"},
+    {"id": "fix-commander-roundtrip", "name": "Commander reflag + Moxfield parser section headers (LoadDeckAsync reflag + Mainboard/Deck/Possible Includes recognition)", "status": "done", "commit": "e0a6657"},
+    {"id": "fix-codex-meds", "name": "Filename sanitizer (header-safe ASCII allowlist) + download Content-Type gate (no HTML-as-zip on validation errors)", "status": "done", "commit": "7a54f50"},
+    {"id": "fix-display-restore", "name": "Step 2 display artifacts restored on Comparison + cEDH upload — LoadComparisonFromZip and LoadCedhMetaGapFromZip now return RestoredArtifacts records the controller propagates to view model", "status": "done", "commit": "f1665ca"},
+    {"id": "feat-hybrid-storage", "name": "Hybrid storage end-to-end — canonical (10-deck-list / 10-deck-a-list / 10-deck-b-list / 11-deck-b-list) + original (10b / 11b) artifacts in all 3 zips, host-aware URL detector OriginalDeckTextOrNull, original-prefers-canonical loader precedence, cEDH LoadedDeck.AllEntries for full optional-section round-trip, +11 tests", "status": "done", "commit": "62ee45b"},
+    {"id": "feat-archidekt-parity", "name": "Archidekt parser section-header state machine — Commander/Mainboard/Deck/Sideboard/Maybeboard/Possible Includes now switch currentBoard state; inline tags still override; +5 tests", "status": "done", "commit": "6e536e4"}
   ],
   "remaining_tasks": [
     {"id": "integration-test-1", "name": "Round-trip on /chatgpt-packets — select Claude, generate, download zip, re-upload, confirm AI selector renders Claude pre-selected", "status": "passed", "type": "human-verify", "passed_at": "2026-05-10 morning MDT"},
-    {"id": "integration-test-2", "name": "Round-trip on /chatgpt-deck-comparison — same with Gemini selected (NEW; closes AISEL-04 for this page)", "status": "passed", "type": "human-verify", "passed_at": "2026-05-10 ~6:20pm MDT", "fix_chain": "e0a6657 (commander reflag + parser headers) + 7a54f50 (sanitizer + download gate) + f1665ca (Step 2 display artifact restoration). Original failure: section-keyword guard catching `Mainboard` as commander on re-upload. Second failure: Step 2 panels rendered blank because LoadComparisonFromZip never surfaced analysis artifacts to view model."},
-    {"id": "integration-test-3", "name": "Round-trip on /chatgpt-cedh-meta-gap — same with Claude selected (NEW; closes AISEL-04 for this page)", "status": "not_started", "type": "human-verify"},
+    {"id": "integration-test-2", "name": "Round-trip on /chatgpt-deck-comparison — same with Gemini selected (NEW; closes AISEL-04 for this page)", "status": "passed", "type": "human-verify", "passed_at": "2026-05-10 ~6:20pm MDT", "fix_chain": "e0a6657 (commander reflag + parser headers) + 7a54f50 (sanitizer + download gate) + f1665ca (Step 2 display artifact restoration)"},
+    {"id": "integration-test-3", "name": "Round-trip on /chatgpt-cedh-meta-gap — same with Claude selected (NEW; closes AISEL-04 for this page)", "status": "not_started", "type": "human-verify", "notes": "Should be much smoother now that LoadCedhMetaGapFromZip returns display artifacts (f1665ca) and hybrid storage gives back the original/canonical deck text on re-upload (62ee45b)."},
     {"id": "integration-test-4", "name": "Paste Claude artifact into claude.ai — confirm structured analysis wrapped in <result>...</result>; no D-04 meta-confusion", "status": "not_started", "type": "human-verify"},
     {"id": "integration-test-5", "name": "Paste Gemini artifact into gemini.google.com — confirm JSON in <result> tags. RE-TEST after a1ab008 fix.", "status": "needs_retest", "type": "human-verify", "previous_attempt": "FAILED 2026-05-09: Gemini produced thorough readable analysis (Top Adds / Top Cuts) with no JSON wrapper. Root cause: data sections came after OUTPUT FORMAT, last-instruction-wins skipped the wrapper. Fixed in a1ab008 — appended new GeminiJsonMandate const as the absolute final line of all 5 Gemini variants."},
     {"id": "integration-test-6", "name": "Response paste-back NEW path — paste Claude's <result>{...}</result> response into Step 3, confirm renders", "status": "not_started", "type": "human-verify"},
     {"id": "integration-test-7", "name": "Response paste-back LEGACY path — paste fenced ```json response (no <result> wrap), confirm still parses (backwards compatibility)", "status": "not_started", "type": "human-verify"},
     {"id": "integration-test-8", "name": "ChatGPT default flow zero-regression — analysis with ChatGPT selected, confirm prompt content is byte-equivalent to pre-Phase-10 + one new <result> wrap line in OUTPUT FORMAT", "status": "not_started", "type": "human-verify"},
-    {"id": "verify-feature-filename", "name": "Verify download filename now contains AI segment — e.g., atraxa-claude-20260509-210600.zip (commit 00e5bdd)", "status": "not_started", "type": "human-verify"},
-    {"id": "verify-fix-download-debounce", "name": "Verify download still works after debounce fix d54da44 — passed once, re-test on next session if anything regresses", "status": "passed", "type": "human-verify", "passed_at": "2026-05-09 ~8:15pm MDT"},
-    {"id": "fix-commander-roundtrip", "name": "Commander reflag + parser headers fix (e0a6657) — needs retest on test-2 and follow-up audit on Archidekt parser (only Moxfield was patched)", "status": "code_complete_awaiting_verify", "type": "code-fix", "context": "Bug surfaced during integration-test-2 attempt 2026-05-10 PM. Codex-reviewed plan + code. 3 new unit tests pass. Hybrid-storage plan (preserve original deck text alongside canonical) is approved by user but DEFERRED to v1.3 or Phase 11 candidate."}
+    {"id": "verify-feature-filename", "name": "Verify download filename now contains AI segment — e.g., atraxa-claude-20260509-210600.zip (commit 00e5bdd). Also verify filename sanitizer strips control chars / header-injection chars (7a54f50).", "status": "not_started", "type": "human-verify"},
+    {"id": "verify-fix-download-debounce", "name": "Verify download still works after debounce fix d54da44", "status": "passed", "type": "human-verify", "passed_at": "2026-05-09 ~8:15pm MDT"}
   ],
   "blockers": [
-    {"description": "Cannot close Phase 10 / v1.2 milestone until 8 integration tests pass (1 needs re-test after fix, 7 not yet attempted)", "type": "human_action", "workaround": "User runs tests in browser; reply approved on success or failure description on regression"}
+    {"description": "Cannot close Phase 10 / v1.2 milestone until remaining 6 integration tests + Gemini retest + filename verification pass", "type": "human_action", "workaround": "User runs tests in browser; reply approved on success or failure description on regression"}
   ],
   "human_actions_pending": [
-    {"action": "Run 8 integration tests listed in 10-03-SUMMARY.md § Integration Tests Required + the AI-name-in-filename verification", "context": "Human-verify gate before /gsd-ship can run", "blocking": true},
-    {"action": "Re-test #5 (paste Gemini) after a1ab008 fix", "context": "First attempt failed — Gemini ignored JSON wrapper. Fix shipped: GeminiJsonMandate appended as absolute final line of all 5 Gemini variants. Re-paste should now produce <result>{...}</result>", "blocking": true}
+    {"action": "Run 6 remaining integration tests (3, 4, 5-retest, 6, 7, 8) + filename verification", "context": "Human-verify gate before /gsd-ship can run", "blocking": true},
+    {"action": "Re-test #5 (paste Gemini) after a1ab008 fix", "context": "First attempt failed — Gemini ignored JSON wrapper. Fix shipped: GeminiJsonMandate appended as absolute final line of all 5 Gemini variants. Re-paste should now produce <result>{...}</result>", "blocking": true},
+    {"action": "Decide whether to commit .planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md (untracked since morning)", "context": "Optional brainstorm doc; commit when ready or include in a follow-up planning push", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Mid-session mode switch — Claude writes code, Codex reviews", "rationale": "User explicitly invoked this for the rest of the session after 10-02. SESSION-SCOPED — re-confirm on next session before defaulting back. CLAUDE.md global rule says route coding through Codex MCP unless explicitly authorized otherwise.", "phase": "10"},
+    {"decision": "Mid-session mode switch — Claude writes code, Codex reviews", "rationale": "User explicitly invoked this for the rest of the session after 10-02 (and re-confirmed 2026-05-10 PM session). SESSION-SCOPED — re-confirm on next session before defaulting back. CLAUDE.md global rule says route coding through Codex MCP unless explicitly authorized otherwise.", "phase": "10"},
     {"decision": "Gemini JSON mandate appended as absolute final line vs restructuring data sections", "rationale": "Min-blast-radius fix. Gemini ignored OUTPUT FORMAT mid-prompt because data sections came after; restructuring would copy the Claude data-first ordering but require larger rewrite. Appending the imperative is sufficient for last-instruction-wins models.", "phase": "10"},
     {"decision": "AI name in filename via lowercased segment", "rationale": "User request after first integration-test session. Format: {commander}-{ai}-{timestamp}.zip. ChatGPT/Claude/Gemini lowercased to chatgpt/claude/gemini for filename consistency.", "phase": "10"},
-    {"decision": "AiPlatform value object refactor designed but NOT implemented", "rationale": "User direction after SOLID audit: do BCD now, design A. Design captured in 10-AISEL-PLATFORM-DESIGN.md as v1.3 candidate. Forecast OCP score 3/10 → 8/10.", "phase": "10"}
+    {"decision": "AiPlatform value object refactor designed but NOT implemented", "rationale": "User direction after SOLID audit: do BCD now, design A. Design captured in 10-AISEL-PLATFORM-DESIGN.md as v1.3 candidate. Forecast OCP score 3/10 → 8/10.", "phase": "10"},
+    {"decision": "Hybrid deck text storage — store both original (user-pasted) AND canonical (BuildDecklistText output) in every session zip", "rationale": "User picked all-in on Codex's 5 findings 2026-05-10 PM. Resolves the user-paste-then-re-upload mismatch (canonical alphabetizes, original preserves shape). Original-prefers-canonical loader precedence; canonical is safety net for URL imports + legacy zips.", "phase": "10"},
+    {"decision": "Original artifact stored as normalized-readable (not byte-identical raw)", "rationale": "Goes through existing NormalizeSections pipeline — trims sections and appends normalized trailing newline. Preserves shape (header presence, line ordering) but not exact whitespace. Sufficient for 'user can recognize their input' use case; simpler implementation; one writer path.", "phase": "10"},
+    {"decision": "Archidekt parser parity — full state-machine, not just header-ignoring", "rationale": "Per Codex review: adding Mainboard/Possible Includes to ArchidektParser.IsIgnorableLine would only make them ignorable, not actually switch board state. So I added a stateful currentBoard tracker + TryGetBoardHeader, matching MoxfieldParser's flow. Inline [Sideboard] etc. tags still override the section state (more specific wins).", "phase": "10"}
   ],
   "uncommitted_files": [".planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md (untracked planning doc from morning, not yet committed)"],
-  "next_action": "User to retest integration-test-2 (Round-trip /chatgpt-deck-comparison) against e0a6657. If passes, proceed with tests 3-8. If fails, capture failure mode and dispatch follow-up fix. Hybrid-storage rollout (allowlist update + canonical/original artifacts) is approved but deferred — defer until all 8 integration tests are unblocked.",
-  "context_notes": "Phase 10 implementation work and audits all complete. 63 unit tests pass. Build clean. Security audit cleared 12/12 STRIDE threats. SOLID audit identified known-tech-debt (deferred per PROJECT.md) plus one new finding (OCP — designed for v1.3). Two real bugs surfaced during integration testing and were fixed: download button regression (d54da44 — disabled-on-click was canceling the form submit) and Gemini JSON wrapper non-compliance (a1ab008 — appended GeminiJsonMandate). One feature added (00e5bdd — AI name in download filename). Mode switch active: Claude direct Edit/Write for coding, Codex for review. Re-confirm mode on next session.",
+  "next_action": "On resume: restart dev server, run remaining 6 integration tests + filename check against HEAD = 6e536e4. If all pass, close Phase 10 + v1.2 milestone (mark complete in STATE.md/ROADMAP.md, archive plans, decide v1.2 → main merge per branch policy). Re-confirm coding mode (Claude Edit/Write direct vs Codex MCP) before resuming code work.",
+  "context_notes": "Phase 10 implementation work, audits, hybrid storage rollout, and Archidekt parity all complete. ~480 unit tests pass (Core: 57, Web: 407). Build clean. Security audit cleared 12/12 STRIDE threats. SOLID audit identified known-tech-debt (deferred per PROJECT.md) plus one new finding (OCP — designed for v1.3). Bugs fixed this session: commander round-trip (e0a6657), 2 Codex MEDs (7a54f50), Step 2 display restore (f1665ca). Features shipped: hybrid storage end-to-end (62ee45b), Archidekt parser parity (6e536e4). Codex MCP (gpt-5.4 full) reviewed plans + code at every major step. Pre-existing test failures unchanged (6): ArchidektCacheJob flakies (2), stale LoadFromZip error-message assertion, missing ArnaFixture, ScryfallThrottle WSL timing flakies (2).",
   "cumulative_metrics": {
-    "phase_10_commits_since_planning_baseline": 20,
-    "unit_tests_added_in_phase_10": 63,
+    "phase_10_commits_since_planning_baseline": 28,
+    "unit_tests_added_in_phase_10": "~80 (63 from initial Phase 10 + ~17 across hybrid storage / Archidekt parity / display restore commits)",
     "build_status": "clean (0 warnings, 0 errors)",
     "security_threats_closed": "12/12 (12 accept + 3 mitigate verified)",
-    "branch_head": "e0a6657"
+    "branch_head": "6e536e4",
+    "integration_tests_passed": "2 of 8 (test 1 + test 2)",
+    "integration_tests_pending": "6 (test 3, 4, 5-retest, 6, 7, 8) + filename verification"
   }
 }
