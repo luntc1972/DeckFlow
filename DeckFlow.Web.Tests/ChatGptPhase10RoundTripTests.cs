@@ -393,6 +393,183 @@ public sealed class ChatGptPhase10RoundTripTests
         Assert.Contains("recognized DeckFlow meta-gap session", exception.Message);
     }
 
+    // ---- Hybrid storage: original deck text artifact ----
+
+    [Fact]
+    public void Comparison_OriginalDeckText_RoundTrips_WhenPasted()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-a-list.txt"] = "Commander\n1 Atraxa\n\nMainboard\n1 Sol Ring\n",
+            ["10b-deck-a-original.txt"] = "1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Arcane Signet\n",
+            ["11-deck-b-list.txt"] = "Commander\n1 Atraxa\n\nMainboard\n1 Counterspell\n",
+            ["11b-deck-b-original.txt"] = "1 Atraxa, Praetors' Voice\n1 Counterspell\n1 Cyclonic Rift\n",
+            ["01-request-context.txt"] = "target_ai_platform: Gemini\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        // Original-prefers-canonical: form fields get the user's pasted text.
+        Assert.Contains("1 Arcane Signet", loaded.DeckASource);
+        Assert.DoesNotContain("Commander\n", loaded.DeckASource);
+        Assert.Contains("1 Cyclonic Rift", loaded.DeckBSource);
+    }
+
+    [Fact]
+    public void Comparison_FallsBackToCanonical_WhenOriginalMissing()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-a-list.txt"] = "Commander\n1 Atraxa\n\nMainboard\n1 Sol Ring\n",
+            ["11-deck-b-list.txt"] = "Commander\n1 Atraxa\n\nMainboard\n1 Counterspell\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Contains("Commander", loaded.DeckASource);
+        Assert.Contains("1 Sol Ring", loaded.DeckASource);
+        Assert.Contains("1 Counterspell", loaded.DeckBSource);
+    }
+
+    [Fact]
+    public void CedhMetaGap_OriginalDeckText_RoundTrips_WhenPasted()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-list.txt"] = "Commander\n1 Kinnan, Bonder Prodigy\n\nMainboard\n1 Sol Ring\n",
+            ["10b-deck-original.txt"] = "1 Kinnan, Bonder Prodigy\n1 Sol Ring\n1 Llanowar Elves\n",
+            ["01-request-context.txt"] = "target_ai_platform: Claude\ncommander: Kinnan, Bonder Prodigy\n"
+        });
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+
+        Assert.Contains("1 Llanowar Elves", loaded.DeckSource);
+        Assert.DoesNotContain("Commander\n", loaded.DeckSource);
+    }
+
+    [Fact]
+    public void CedhMetaGap_FallsBackToCanonical_WhenOriginalMissing()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-list.txt"] = "Commander\n1 Kinnan, Bonder Prodigy\n\nMainboard\n1 Sol Ring\n",
+            ["01-request-context.txt"] = "commander: Kinnan, Bonder Prodigy\n"
+        });
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+
+        Assert.Contains("Commander", loaded.DeckSource);
+        Assert.Contains("1 Sol Ring", loaded.DeckSource);
+    }
+
+    [Fact]
+    public void OriginalDeckTextOrNull_ReturnsNull_ForMoxfieldAndArchidektUrls()
+    {
+        Assert.Null(ChatGptPacketArtifactStore.OriginalDeckTextOrNull("https://www.moxfield.com/decks/abc"));
+        Assert.Null(ChatGptPacketArtifactStore.OriginalDeckTextOrNull("https://archidekt.com/decks/123"));
+    }
+
+    [Fact]
+    public void OriginalDeckTextOrNull_ReturnsTextUnchanged_ForRawDeckText()
+    {
+        Assert.Equal("1 Sol Ring\n1 Mana Crypt", ChatGptPacketArtifactStore.OriginalDeckTextOrNull("1 Sol Ring\n1 Mana Crypt"));
+        Assert.Equal("Commander\n1 Atraxa", ChatGptPacketArtifactStore.OriginalDeckTextOrNull("Commander\n1 Atraxa"));
+    }
+
+    [Fact]
+    public void OriginalDeckTextOrNull_ReturnsTextUnchanged_ForOtherHosts()
+    {
+        // Unsupported hosts (Pastebin, GitHub Gist, etc.) should preserve original text —
+        // they'll fall through to the text parser at deck-load time, so the original
+        // is the more user-recognizable source.
+        Assert.Equal("https://pastebin.com/raw/abc", ChatGptPacketArtifactStore.OriginalDeckTextOrNull("https://pastebin.com/raw/abc"));
+    }
+
+    [Fact]
+    public void Packets_OriginalDeckText_OverridesCanonicalAndRequestContextDeckSource()
+    {
+        // Precedence contract: 10b-deck-original.txt (user-pasted) wins over
+        // 10-deck-list.txt (canonical) wins over deck_source: block in
+        // 01-request-context.txt (legacy path). All three carry distinct text
+        // so the loader's winning source is unambiguous.
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10b-deck-original.txt"] = "1 Atraxa, Praetors' Voice\n1 Sol Ring\n",
+            ["10-deck-list.txt"] = "Commander\n1 Atraxa, Praetors' Voice\n\nMainboard\n1 Mana Crypt\n",
+            ["01-request-context.txt"] = "deck_source:\n1 SOMETHING ELSE\n1 ANOTHER STALE LINE\n",
+            ["40-deck-profile.json"] = "{\"commander\":\"Atraxa\"}"
+        });
+
+        var loaded = new ChatGptDeckRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadFromZip(stream, loaded);
+
+        Assert.Contains("1 Sol Ring", loaded.DeckText);
+        Assert.DoesNotContain("Mana Crypt", loaded.DeckText);
+        Assert.DoesNotContain("SOMETHING ELSE", loaded.DeckText);
+    }
+
+    [Fact]
+    public void Packets_CanonicalDeckList_WinsOver_RequestContextDeckSource_WhenOriginalMissing()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10-deck-list.txt"] = "Commander\n1 Atraxa\n\nMainboard\n1 Mana Crypt\n",
+            ["01-request-context.txt"] = "deck_source:\n1 STALE FROM REQUEST CONTEXT\n",
+            ["40-deck-profile.json"] = "{\"commander\":\"Atraxa\"}"
+        });
+
+        var loaded = new ChatGptDeckRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadFromZip(stream, loaded);
+
+        Assert.Contains("Mana Crypt", loaded.DeckText);
+        Assert.DoesNotContain("STALE", loaded.DeckText);
+    }
+
+    [Fact]
+    public void Packets_RequestContextDeckSource_UsedAsLastResort()
+    {
+        // Legacy zip path: no canonical or original deck artifact, only
+        // deck_source inside request-context. The loader still restores it.
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["01-request-context.txt"] = "deck_source:\n1 Sol Ring\n1 Arcane Signet\n",
+            ["40-deck-profile.json"] = "{\"commander\":\"Atraxa\"}"
+        });
+
+        var loaded = new ChatGptDeckRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadFromZip(stream, loaded);
+
+        Assert.Contains("Sol Ring", loaded.DeckText);
+        Assert.Contains("Arcane Signet", loaded.DeckText);
+    }
+
+    [Fact]
+    public void Comparison_WorkflowStep_IsTwo_WhenOnlyOriginalsPresent()
+    {
+        var bytes = BuildRawZip(new Dictionary<string, string>
+        {
+            ["10b-deck-a-original.txt"] = "1 Atraxa\n1 Sol Ring\n",
+            ["11b-deck-b-original.txt"] = "1 Atraxa\n1 Counterspell\n"
+        });
+
+        var loaded = new ChatGptDeckComparisonRequest();
+        using var stream = new MemoryStream(bytes);
+        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+
+        Assert.Equal(2, loaded.WorkflowStep);
+    }
+
     // ---- Comparison BuildRequestContextText writer ----
 
     [Fact]

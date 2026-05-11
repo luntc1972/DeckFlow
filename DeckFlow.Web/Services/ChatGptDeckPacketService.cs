@@ -43,7 +43,8 @@ public sealed record ChatGptDeckPacketResult(
     ChatGptDeckAnalysisResponse? AnalysisResponse = null,
     ChatGptSetUpgradeResponse? SetUpgradeResponse = null,
     string? ImportWarning = null,
-    string? ResolvedCommanderName = null);
+    string? ResolvedCommanderName = null,
+    string? DecklistText = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompts plus supporting reference data for ChatGPT.
@@ -465,7 +466,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             analysisResponse,
             setUpgradeResponse,
             ImportWarning: _lastImportNotice,
-            ResolvedCommanderName: commanderName);
+            ResolvedCommanderName: commanderName,
+            DecklistText: decklistText);
     }
 
 

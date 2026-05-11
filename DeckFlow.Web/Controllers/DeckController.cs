@@ -522,7 +522,9 @@ public sealed class DeckController : Controller
                 result.ReferenceText,
                 result.AnalysisPromptText,
                 result.DeckProfileSchemaJson,
-                result.SetUpgradePromptText);
+                result.SetUpgradePromptText,
+                canonicalDeckListText: result.DecklistText,
+                originalDeckText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
             var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
@@ -734,7 +736,9 @@ public sealed class DeckController : Controller
                 result.ComparisonPromptText,
                 result.FollowUpPromptText,
                 result.ComparisonSchemaJson,
-                result.RequestContextText);
+                result.RequestContextText,
+                deckAOriginalText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckASource),
+                deckBOriginalText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckBSource));
             // BuildAsync now validates both decks share the same commander, so
             // ResolvedDeckACommander and ResolvedDeckBCommander are equal here.
             var fileNameCommander = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
@@ -969,7 +973,9 @@ public sealed class DeckController : Controller
                 result.InputSummary ?? string.Empty,
                 result.PromptText ?? string.Empty,
                 result.SchemaJson ?? string.Empty,
-                result.RequestContextText);
+                result.RequestContextText,
+                canonicalDeckListText: result.DecklistText,
+                originalDeckText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
             var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
