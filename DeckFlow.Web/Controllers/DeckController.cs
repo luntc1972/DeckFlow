@@ -800,7 +800,7 @@ public sealed class DeckController : Controller
         try
         {
             using var stream = zipFile.OpenReadStream();
-            ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, request);
+            var restored = ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, request);
 
             // Partial-zip case: response JSON not yet present (user downloaded
             // mid-workflow). Render the form on the WorkflowStep the loader
@@ -811,7 +811,16 @@ public sealed class DeckController : Controller
                 return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
                 {
                     ActiveTab = DeckPageTab.ChatGptDeckComparison,
-                    Request = request
+                    Request = request,
+                    InputSummary = restored.InputSummary,
+                    DeckAListText = restored.DeckAListText,
+                    DeckBListText = restored.DeckBListText,
+                    DeckAComboText = restored.DeckAComboText,
+                    DeckBComboText = restored.DeckBComboText,
+                    ComparisonContextText = restored.ComparisonContextText,
+                    ComparisonPromptText = restored.ComparisonPromptText,
+                    ComparisonSchemaJson = restored.ComparisonSchemaJson,
+                    FollowUpPromptText = restored.FollowUpPromptText
                 });
             }
 
@@ -824,7 +833,16 @@ public sealed class DeckController : Controller
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
-                ComparisonResponse = comparisonResponse
+                ComparisonResponse = comparisonResponse,
+                InputSummary = restored.InputSummary,
+                DeckAListText = restored.DeckAListText,
+                DeckBListText = restored.DeckBListText,
+                DeckAComboText = restored.DeckAComboText,
+                DeckBComboText = restored.DeckBComboText,
+                ComparisonContextText = restored.ComparisonContextText,
+                ComparisonPromptText = restored.ComparisonPromptText,
+                ComparisonSchemaJson = restored.ComparisonSchemaJson,
+                FollowUpPromptText = restored.FollowUpPromptText
             });
         }
         catch (InvalidOperationException exception)
@@ -1009,7 +1027,7 @@ public sealed class DeckController : Controller
         try
         {
             using var stream = zipFile.OpenReadStream();
-            ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
+            var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
 
             // Partial-zip case: response JSON not yet present. Render the form
             // on Step 1 with whatever state the loader could restore (the AI
@@ -1019,7 +1037,10 @@ public sealed class DeckController : Controller
                 return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
                 {
                     ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
-                    Request = request
+                    Request = request,
+                    InputSummary = restored.InputSummary,
+                    PromptText = restored.PromptText,
+                    SchemaJson = restored.SchemaJson
                 });
             }
 
@@ -1030,7 +1051,10 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
                 ResolvedCommanderName = analysisResponse.MetaGap.Commander,
-                AnalysisResponse = analysisResponse
+                AnalysisResponse = analysisResponse,
+                InputSummary = restored.InputSummary,
+                PromptText = restored.PromptText,
+                SchemaJson = restored.SchemaJson
             });
         }
         catch (InvalidOperationException exception)

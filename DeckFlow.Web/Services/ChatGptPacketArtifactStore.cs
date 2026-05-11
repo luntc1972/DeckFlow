@@ -251,7 +251,7 @@ internal static class ChatGptPacketArtifactStore
     /// Deck A and Deck B are restored from the normalized post-Scryfall list entries in the zip,
     /// which is the deck content the comparison workflow actually analyzed.
     /// </remarks>
-    public static void LoadComparisonFromZip(Stream zipStream, ChatGptDeckComparisonRequest request)
+    public static RestoredComparisonArtifacts LoadComparisonFromZip(Stream zipStream, ChatGptDeckComparisonRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
         ArgumentNullException.ThrowIfNull(request);
@@ -261,6 +261,13 @@ internal static class ChatGptPacketArtifactStore
         entries.TryGetValue("10-deck-a-list.txt", out var deckAList);
         entries.TryGetValue("11-deck-b-list.txt", out var deckBList);
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
+        entries.TryGetValue("00-comparison-input-summary.txt", out var inputSummary);
+        entries.TryGetValue("12-deck-a-combos.txt", out var deckAComboText);
+        entries.TryGetValue("13-deck-b-combos.txt", out var deckBComboText);
+        entries.TryGetValue("20-comparison-context.txt", out var comparisonContextText);
+        entries.TryGetValue("30-comparison-prompt.txt", out var comparisonPromptText);
+        entries.TryGetValue("31-comparison-schema.json", out var comparisonSchemaJson);
+        entries.TryGetValue("32-comparison-follow-up-prompt.txt", out var followUpPromptText);
 
         if (string.IsNullOrWhiteSpace(responseJson) &&
             string.IsNullOrWhiteSpace(deckAList) &&
@@ -313,7 +320,23 @@ internal static class ChatGptPacketArtifactStore
                 request.DeckBBracket = parsed.DeckBBracket;
             }
         }
+
+        return new RestoredComparisonArtifacts
+        {
+            InputSummary = NullIfBlank(inputSummary),
+            DeckAListText = NullIfBlank(deckAList),
+            DeckBListText = NullIfBlank(deckBList),
+            DeckAComboText = NullIfBlank(deckAComboText),
+            DeckBComboText = NullIfBlank(deckBComboText),
+            ComparisonContextText = NullIfBlank(comparisonContextText),
+            ComparisonPromptText = NullIfBlank(comparisonPromptText),
+            ComparisonSchemaJson = NullIfBlank(comparisonSchemaJson),
+            FollowUpPromptText = NullIfBlank(followUpPromptText)
+        };
     }
+
+    private static string? NullIfBlank(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.TrimEnd();
 
     /// <summary>
     /// Rehydrates a saved cEDH meta-gap zip back into a request.
@@ -326,7 +349,7 @@ internal static class ChatGptPacketArtifactStore
     /// restored here. The upload controller restores commander name from the response JSON
     /// (when present) after this method returns.
     /// </remarks>
-    public static void LoadCedhMetaGapFromZip(Stream zipStream, ChatGptCedhMetaGapRequest request)
+    public static RestoredCedhMetaGapArtifacts LoadCedhMetaGapFromZip(Stream zipStream, ChatGptCedhMetaGapRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
         ArgumentNullException.ThrowIfNull(request);
@@ -334,6 +357,9 @@ internal static class ChatGptPacketArtifactStore
         var entries = ReadEntries(zipStream, CedhAllowedNames);
         entries.TryGetValue("40-meta-gap-response.json", out var responseJson);
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
+        entries.TryGetValue("00-input-summary.txt", out var inputSummary);
+        entries.TryGetValue("30-meta-gap-prompt.txt", out var promptText);
+        entries.TryGetValue("31-meta-gap-schema.json", out var schemaJson);
 
         if (string.IsNullOrWhiteSpace(responseJson) && string.IsNullOrWhiteSpace(requestContextText))
         {
@@ -357,6 +383,13 @@ internal static class ChatGptPacketArtifactStore
                 request.CommanderName = parsed.Commander;
             }
         }
+
+        return new RestoredCedhMetaGapArtifacts
+        {
+            InputSummary = NullIfBlank(inputSummary),
+            PromptText = NullIfBlank(promptText),
+            SchemaJson = NullIfBlank(schemaJson)
+        };
     }
 
     public static string SuggestPacketZipFileName(string? commanderName, string? targetAiPlatform = null)
@@ -498,4 +531,33 @@ internal static class ChatGptPacketArtifactStore
 
         return trimmed.Trim();
     }
+}
+
+/// <summary>
+/// Display-side artifacts restored from a comparison zip on re-upload.
+/// Mirrors the analysis output stored alongside form-field state so the
+/// view can show Step 2 content (prompt, summary, schema, combos, etc.)
+/// without re-running BuildAsync.
+/// </summary>
+internal sealed record RestoredComparisonArtifacts
+{
+    public string? InputSummary { get; init; }
+    public string? DeckAListText { get; init; }
+    public string? DeckBListText { get; init; }
+    public string? DeckAComboText { get; init; }
+    public string? DeckBComboText { get; init; }
+    public string? ComparisonContextText { get; init; }
+    public string? ComparisonPromptText { get; init; }
+    public string? ComparisonSchemaJson { get; init; }
+    public string? FollowUpPromptText { get; init; }
+}
+
+/// <summary>
+/// Display-side artifacts restored from a cEDH meta-gap zip on re-upload.
+/// </summary>
+internal sealed record RestoredCedhMetaGapArtifacts
+{
+    public string? InputSummary { get; init; }
+    public string? PromptText { get; init; }
+    public string? SchemaJson { get; init; }
 }
