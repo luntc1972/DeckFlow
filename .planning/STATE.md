@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Multi-AI Prompts
-status: integration_test_2_ready_for_retest
-stopped_at: 2026-05-10 ~4:38pm MDT. Commander round-trip bug surfaced during integration-test-2 attempt; root cause traced (LoadDeckAsync didn't reflag heuristic commander + MoxfieldParser didn't know Mainboard/Deck/Possible Includes); fix shipped as e0a6657 (Codex-reviewed plan + code, 3 new unit tests). User to retest test-2 against this HEAD.
-last_updated: "2026-05-10T22:38:00Z"
-last_activity: 2026-05-10 ~4:38pm MDT — committed e0a6657 (commander round-trip + zip upload regression fixes); awaiting user retest of integration-test-2
+status: integration_test_2_passed_remaining_tests_pending
+stopped_at: 2026-05-10 ~6:45pm MDT. Test 2 passed against f1665ca (Step 2 display restore). Same session shipped hybrid storage (62ee45b) + Archidekt parser parity (6e536e4). Stopped for night; tests 3, 4, 5-retest, 6, 7, 8 + filename verification still pending human-verify.
+last_updated: "2026-05-10T00:45:00Z"
+last_activity: 2026-05-10 ~6:45pm MDT — committed 6e536e4 (Archidekt parser state machine); test 2 passed earlier in session; user stopping for night
 progress:
   total_phases: 2
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
 
 **Core value:** Every supported workflow must produce output the user can paste into their AI assistant and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 10 — implementation complete; awaiting human-verify on 8 integration tests before milestone close
+**Current focus:** Phase 10 — implementation complete + hybrid storage shipped; tests 1-2 PASSED; 6 integration tests still pending human-verify before milestone close.
 
 ## Current Position
 
-Phase: 10 — IMPLEMENTATION COMPLETE, integration test 2 retest-ready
-Plan: 4 of 4 — all SUMMARY committed. HEAD = `e0a6657` (commander round-trip + zip upload regression fixes, 2026-05-10 PM); pending push.
-Status: AISEL-02 + AISEL-03 + AISEL-04 closed in code. 66 cumulative Phase 10 unit tests pass (63 + 3 new round-trip regression tests). Build clean. STRIDE security audit closed 12/12 threats. SOLID audit "Do Now" refactors landed (`08271b0`). Bugs fixed during integration testing: download button regression (`d54da44`), Gemini JSON wrapper (`a1ab008`), AI name in filename feature (`00e5bdd`), commander round-trip + parser headers (`e0a6657`). Hybrid-storage plan approved but deferred (v1.3 candidate).
-Last activity: 2026-05-10 ~4:38pm MDT — committed e0a6657; awaiting user retest of integration-test-2
+Phase: 10 — IMPLEMENTATION COMPLETE + hybrid storage shipped, 6 integration tests pending verify
+Plan: 4 of 4 — all SUMMARY committed. HEAD = `6e536e4` (Archidekt parser state machine, 2026-05-10 evening). All commits pushed to origin/v1.2.
+Status: AISEL-02 + AISEL-03 + AISEL-04 closed. Hybrid storage end-to-end (canonical + original deck-text artifacts in all 3 zips) live. Archidekt parser now has Moxfield parity. ~480 cumulative unit tests pass (63 Phase 10 + 11 hybrid + 5 Archidekt + earlier). Build clean, 0 warnings, 0 errors. STRIDE security audit closed 12/12. SOLID audit "Do Now" landed (08271b0). Two MED issues from Codex hardening (filename sanitizer + download content-type gate) fixed in 7a54f50. Step 2 display artifacts now restored on Comparison + cEDH upload (f1665ca).
+Last activity: 2026-05-10 ~6:45pm MDT — committed 6e536e4 (Archidekt parser parity); user stopping for night
 
 ## Performance Metrics
 
@@ -87,11 +87,13 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 - Phase 9 ships UI + round-trip with ChatGPT-format fallback for Claude/Gemini; Phase 10 adds per-AI artifact content
 - 09-03: `_AiSelector` placement = directly after `chatgpt-step-heading` close, before first content div (consistent across all three views)
 - 09-03 regression: `_AiSelector.cshtml` uses `checked="@(x ? "checked" : null)"` not `checked="@(x)"` to avoid `checked="True"` rendering
+- 2026-05-10: Hybrid storage scope expanded mid-session — user picked "all-in" on Codex's 5 findings. Original-prefers-canonical loader precedence. Host-aware URL detector. cEDH `LoadedDeck.AllEntries` added to preserve maybeboard/sideboard across canonical round-trip.
 
 ### Blockers/Concerns
 
-- Phase 10 human-verify checkpoint pending. Eight integration tests listed in `.planning/phases/10-claude-gemini-artifact-optimization/10-03-SUMMARY.md` (under "Integration Tests Required") need manual browser/paste-in verification before milestone closes. User will run these in a future session and reply "approved" (or describe failures).
-- Pre-existing test divergence flagged in 10-03-SUMMARY: `ChatGptPacketArtifactStoreTests.LoadFromZip_throws_when_no_response_json_present` asserts a stale error-message string. Out of phase 10 scope; track for follow-up.
+- Phase 10 human-verify checkpoint: 2 of 8 integration tests passed (1 + 2). 6 still pending: 3 (cEDH meta-gap round-trip), 4 (paste Claude artifact into claude.ai), 5-retest (paste Gemini after `a1ab008` fix), 6 (paste-back NEW path with <result> wrap), 7 (paste-back LEGACY path with fenced JSON), 8 (ChatGPT zero-regression). Plus filename verification (`00e5bdd`).
+- Pre-existing test divergence still flagged: `ChatGptPacketArtifactStoreTests.LoadFromZip_throws_when_no_response_json_present` asserts a stale error-message string. Out of phase 10 scope.
+- Codex follow-up NIT: `ArchidektParser.IsIgnorableLine` still has dead branch for section keywords (TryGetBoardHeader catches them first). Defense-in-depth; clean up in follow-up if motivated.
 
 ### Phase 10 Execution (v1.2)
 
@@ -102,16 +104,28 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 | 10-02 | Per-AI dispatch fanout to set-upgrade, comparison, follow-up, meta-gap (15 variants) | 93454b6, 26c4d64 (CedhMetaGap nested tag fix) |
 | 10-03 | Zip round-trip for AI selection (Comparison + CedhMetaGap) + unified <result> response shim + 35 unit tests | 76861c0, 3360ba5 (TargetAiPlatform setter normalization fix) |
 
+### 2026-05-10 Session Commits (post-test-2 work)
+
+| Commit | Description |
+|--------|-------------|
+| e0a6657 | fix(10): commander round-trip + zip upload regressions — LoadDeckAsync reflag + MoxfieldParser section headers |
+| 780a8d3 | docs(state): record commander round-trip fix and test 2 retest gate |
+| 7a54f50 | fix(10): harden filename sanitizer + gate zip download on content-type (2 MEDs Codex flagged) |
+| f1665ca | fix(10): restore Step 2 display artifacts on Comparison + cEDH upload (test 2 final blocker) |
+| 62ee45b | feat(10): hybrid deck text storage — original + canonical artifacts in all 3 zips, +11 tests |
+| 6e536e4 | feat(10): Archidekt parser section-header state machine, +5 tests |
+
 ## Session Continuity
 
-Last session: 2026-05-10 ~4:38pm MDT (mid-day fix wave + commander reflag patch)
-Stopped at: Pushed e0a6657 fixing commander round-trip + zip upload regressions. Integration test 2 (Round-trip /chatgpt-deck-comparison) attempted ~2:30pm, failed with section-keyword guard catching `Mainboard` as commander. Bug root-caused in LoadDeckAsync (no Board reflag) and MoxfieldParser (no Mainboard/Deck section recognition). Fix shipped + Codex-reviewed (gpt-5.4 full) + 3 new regression tests pass. User to retest test-2 against e0a6657.
+Last session: 2026-05-10 ~6:45pm MDT (long session: bug fixes → test 2 pass → hybrid storage rollout → Archidekt parser parity)
+Stopped at: Integration test 2 PASSED. Hybrid storage end-to-end shipped. Archidekt parser now has Moxfield parity. Stopping for night.
 
-Next action: User runs integration-test-2 in browser against this HEAD. If passes, proceed with tests 3-8. If fails, capture failure mode (which step, which error) and dispatch follow-up. Untracked `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` remains in working tree — commit separately when ready.
+Next action on resume: User runs the 6 remaining integration tests against HEAD = `6e536e4` (restart dev server first to pick up TS rebuild). When all pass, close Phase 10 + v1.2 milestone (mark complete in STATE.md/ROADMAP.md, archive plans, decide whether to merge v1.2 → main per branch policy). If any fail, capture failure mode and dispatch follow-up fix.
 
 **Resume guidance:**
-- Read `.planning/HANDOFF.json` for structured machine-readable state.
-- `git log --oneline 26222f0..HEAD` shows the full Phase 10 commit chain (now 22 commits including the e0a6657 round-trip fix).
-- Test list with current pass/fail status: see HANDOFF.json `remaining_tasks`.
-- Deferred follow-ups: (1) Archidekt parser parity audit (ArchidektParser.cs:242 doesn't recognize Mainboard either), (2) hybrid storage rollout (allowlist update in ChatGptPacketArtifactStore + canonical/original artifacts) — both approved by user, deferred to unblock test 2 first.
-- Session mode: Claude Edit/Write direct (re-confirmed 2026-05-10 PM). Codex MCP used for plan + code review.
+- Read `.planning/HANDOFF.json` for structured machine-readable state with full test status table.
+- `git log --oneline 26222f0..HEAD` shows the full Phase 10 commit chain (28 commits including this session's 6).
+- Test list with current pass/fail status: see HANDOFF.json `remaining_tasks`. Test 1 + Test 2 status = passed. 6 + filename check + Gemini retest = pending.
+- Untracked planning doc remaining: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (from morning). Commit separately when ready.
+- Session mode: Claude Edit/Write direct (re-confirmed 2026-05-10 PM). Codex MCP (gpt-5.4 full) reviewed plans + code at every major step.
+- Re-confirm mode on next session.
