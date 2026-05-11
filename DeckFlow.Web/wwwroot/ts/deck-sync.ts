@@ -2350,6 +2350,14 @@ const scrollChatGptCedhResults = (form: HTMLFormElement): void => {
     return;
   }
 
+  // The Step 2 anchor is a collapsed <details> by default. When the server has
+  // returned PromptText (this function only runs on bootstrap with content
+  // already restored), open it so the user can see the generated artifact
+  // without a hunt-and-click.
+  if (resultAnchor instanceof HTMLDetailsElement) {
+    resultAnchor.open = true;
+  }
+
   window.setTimeout(() => {
     resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 120);
