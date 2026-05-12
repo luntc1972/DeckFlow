@@ -1,5 +1,7 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Services;
@@ -12,6 +14,16 @@ internal static class ChatGptPacketArtifactStore
 {
     private const int MaxEntryUncompressedBytes = 2 * 1024 * 1024;
     private const int MaxTotalUncompressedBytes = 10 * 1024 * 1024;
+
+    // Phase 10-05: serialization options for the new 20-edh-top16-references.json
+    // artifact. CamelCase property names match the EdhTop16Entry JSON shape used
+    // by the upstream edhtop16 client; ignoring nulls keeps the payload compact.
+    private static readonly JsonSerializerOptions FetchedEntriesJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
 
     private static readonly HashSet<string> PacketAllowedNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -52,6 +64,7 @@ internal static class ChatGptPacketArtifactStore
         "01-request-context.txt",
         "10-deck-list.txt",
         "10b-deck-original.txt",
+        "20-edh-top16-references.json",
         "30-meta-gap-prompt.txt",
         "31-meta-gap-schema.json",
         "40-meta-gap-response.json"
@@ -157,7 +170,8 @@ internal static class ChatGptPacketArtifactStore
         string schemaJson,
         string? requestContextText,
         string? canonicalDeckListText = null,
-        string? originalDeckText = null)
+        string? originalDeckText = null,
+        IReadOnlyList<EdhTop16Entry>? fetchedEntries = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -167,6 +181,8 @@ internal static class ChatGptPacketArtifactStore
             ("01-request-context.txt", "REQUEST CONTEXT", requestContextText),
             ("10-deck-list.txt", "DECK LIST", canonicalDeckListText),
             ("10b-deck-original.txt", "DECK ORIGINAL TEXT", originalDeckText),
+            ("20-edh-top16-references.json", "EDH TOP 16 REFERENCES",
+                fetchedEntries is { Count: > 0 } ? JsonSerializer.Serialize(fetchedEntries, FetchedEntriesJsonOptions) : null),
             ("30-meta-gap-prompt.txt", "META GAP PROMPT", promptText),
             ("31-meta-gap-schema.json", "META GAP SCHEMA JSON", schemaJson),
             ("40-meta-gap-response.json", "META GAP RESPONSE JSON", string.IsNullOrWhiteSpace(request.MetaGapResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.MetaGapResponseJson))
@@ -430,6 +446,7 @@ internal static class ChatGptPacketArtifactStore
         entries.TryGetValue("31-meta-gap-schema.json", out var schemaJson);
         entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
         entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
+        entries.TryGetValue("20-edh-top16-references.json", out var fetchedEntriesJson);
 
         if (string.IsNullOrWhiteSpace(responseJson) && string.IsNullOrWhiteSpace(requestContextText))
         {
@@ -437,7 +454,6 @@ internal static class ChatGptPacketArtifactStore
         }
 
         request.MetaGapResponseJson = responseJson ?? string.Empty;
-        request.WorkflowStep = !string.IsNullOrWhiteSpace(responseJson) ? 3 : 1;
         request.CommanderName = string.Empty;
 
         // Precedence: original > canonical for re-rendering the deck text box.
@@ -460,14 +476,61 @@ internal static class ChatGptPacketArtifactStore
             {
                 request.CommanderName = parsed.Commander;
             }
+            if (parsed.TimePeriod is not null && Enum.TryParse<CedhMetaTimePeriod>(parsed.TimePeriod, out var tp))
+            {
+                request.TimePeriod = tp;
+            }
+            if (parsed.SortBy is not null && Enum.TryParse<CedhMetaSortBy>(parsed.SortBy, out var sb))
+            {
+                request.SortBy = sb;
+            }
+            if (parsed.MinEventSize.HasValue)
+            {
+                request.MinEventSize = parsed.MinEventSize.Value;
+            }
+            if (parsed.MaxStanding.HasValue)
+            {
+                request.MaxStanding = parsed.MaxStanding.Value;
+            }
+            if (parsed.SelectedReferenceIndexes.Count > 0)
+            {
+                request.SelectedReferenceIndexes = parsed.SelectedReferenceIndexes.ToList();
+            }
         }
+
+        var restoredEntries = TryDeserializeFetchedEntries(fetchedEntriesJson);
+
+        // Workflow-step heuristic — must run AFTER restoredEntries is computed so
+        // we can distinguish "no response, but Step 1 state was saved" (=> Step 2)
+        // from "truly empty session" (=> Step 1).
+        request.WorkflowStep = !string.IsNullOrWhiteSpace(responseJson) ? 3
+            : restoredEntries.Count > 0 ? 2
+            : 1;
 
         return new RestoredCedhMetaGapArtifacts
         {
             InputSummary = NullIfBlank(inputSummary),
             PromptText = NullIfBlank(promptText),
-            SchemaJson = NullIfBlank(schemaJson)
+            SchemaJson = NullIfBlank(schemaJson),
+            FetchedEntries = restoredEntries
         };
+    }
+
+    private static IReadOnlyList<EdhTop16Entry> TryDeserializeFetchedEntries(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return Array.Empty<EdhTop16Entry>();
+        }
+        try
+        {
+            var deserialized = JsonSerializer.Deserialize<List<EdhTop16Entry>>(json, FetchedEntriesJsonOptions);
+            return deserialized ?? (IReadOnlyList<EdhTop16Entry>)Array.Empty<EdhTop16Entry>();
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<EdhTop16Entry>();
+        }
     }
 
     public static string SuggestPacketZipFileName(string? commanderName, string? targetAiPlatform = null)
@@ -638,4 +701,5 @@ internal sealed record RestoredCedhMetaGapArtifacts
     public string? InputSummary { get; init; }
     public string? PromptText { get; init; }
     public string? SchemaJson { get; init; }
+    public IReadOnlyList<EdhTop16Entry> FetchedEntries { get; init; } = Array.Empty<EdhTop16Entry>();
 }

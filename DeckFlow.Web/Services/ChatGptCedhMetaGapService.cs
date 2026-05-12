@@ -119,18 +119,22 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             throw new InvalidOperationException("Could not determine a commander from the submitted deck. Enter the commander name explicitly and try again.");
         }
 
-        var fetchedEntries = (await _edhTop16Client.SearchCommanderEntriesAsync(
-            resolvedCommanderName,
-            request.TimePeriod,
-            request.SortBy,
-            request.MinEventSize,
-            request.MaxStanding,
-            FetchCount,
-            cancellationToken).ConfigureAwait(false))
-            .OrderByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
-            .ThenBy(entry => entry.Standing)
-            .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var fetchedEntries = TryUseFetchedEntriesOverride(request);
+        if (fetchedEntries is null)
+        {
+            fetchedEntries = (await _edhTop16Client.SearchCommanderEntriesAsync(
+                resolvedCommanderName,
+                request.TimePeriod,
+                request.SortBy,
+                request.MinEventSize,
+                request.MaxStanding,
+                FetchCount,
+                cancellationToken).ConfigureAwait(false))
+                .OrderByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
+                .ThenBy(entry => entry.Standing)
+                .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
 
         if (fetchedEntries.Count == 0)
         {
@@ -241,7 +245,51 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
         builder.AppendLine($"commander: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.CommanderName, string.Empty)}");
         builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        builder.AppendLine($"time_period: {request.TimePeriod}");
+        builder.AppendLine($"sort_by: {request.SortBy}");
+        builder.AppendLine($"min_event_size: {request.MinEventSize}");
+        if (request.MaxStanding.HasValue)
+        {
+            builder.AppendLine($"max_standing: {request.MaxStanding.Value}");
+        }
+        if (request.SelectedReferenceIndexes is { Count: > 0 } indexes)
+        {
+            builder.AppendLine("selected_reference_indexes:");
+            foreach (var index in indexes)
+            {
+                builder.AppendLine($"- {index}");
+            }
+        }
         return builder.ToString().TrimEnd() + Environment.NewLine;
+    }
+
+    /// <summary>
+    /// Phase 10-05: when the request carries a serialized FetchedEntries payload
+    /// (round-tripped from a saved zip), use it instead of re-hitting edhtop16.
+    /// Returns null when the override should not be applied, so the caller falls
+    /// through to the live fetch. Step 1 always re-fetches regardless.
+    /// </summary>
+    private static List<EdhTop16Entry>? TryUseFetchedEntriesOverride(ChatGptCedhMetaGapRequest request)
+    {
+        if (request.WorkflowStep < 2)
+        {
+            return null;
+        }
+        if (string.IsNullOrWhiteSpace(request.FetchedEntriesJson))
+        {
+            return null;
+        }
+        try
+        {
+            var deserialized = JsonSerializer.Deserialize<List<EdhTop16Entry>>(
+                request.FetchedEntriesJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return deserialized is { Count: > 0 } ? deserialized : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static IReadOnlyList<EdhTop16Entry> ResolveSelectedEntries(IReadOnlyList<int> selectedIndexes, IReadOnlyList<EdhTop16Entry> fetchedEntries)

@@ -48,6 +48,7 @@
     </div>
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
+    <input type="hidden" name="FetchedEntriesJson" value="@Model.Request.FetchedEntriesJson" />
     <details class="chatgpt-resume" data-chatgpt-resume>
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
