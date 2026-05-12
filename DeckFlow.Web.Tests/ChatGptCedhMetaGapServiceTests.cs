@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
@@ -388,6 +389,151 @@ public sealed class ChatGptCedhMetaGapServiceTests
 
         Assert.Equal("Kinnan, Bonder Prodigy", result.ResolvedCommanderName);
         Assert.Contains("Commander: Kinnan, Bonder Prodigy", result.InputSummary);
+    }
+
+    // ---- Phase 10-05: BuildRequestContextText emits Step 1 round-trip state ----
+
+    [Fact]
+    public void BuildRequestContextText_emits_filter_scalars_and_selected_indexes()
+    {
+        var request = new ChatGptCedhMetaGapRequest
+        {
+            WorkflowStep = 2,
+            CommanderName = "Atraxa",
+            TargetAiPlatform = "Claude",
+            TimePeriod = CedhMetaTimePeriod.SIX_MONTHS,
+            SortBy = CedhMetaSortBy.NEW,
+            MinEventSize = 30,
+            MaxStanding = 4,
+            SelectedReferenceIndexes = new List<int> { 0, 2, 5 }
+        };
+
+        var text = ChatGptCedhMetaGapService.BuildRequestContextText(request);
+
+        Assert.Contains("time_period: SIX_MONTHS", text);
+        Assert.Contains("sort_by: NEW", text);
+        Assert.Contains("min_event_size: 30", text);
+        Assert.Contains("max_standing: 4", text);
+        Assert.Contains("selected_reference_indexes:\n- 0\n- 2\n- 5", text.Replace("\r", string.Empty));
+    }
+
+    [Fact]
+    public void BuildRequestContextText_omits_max_standing_and_indexes_when_unset()
+    {
+        var request = new ChatGptCedhMetaGapRequest
+        {
+            CommanderName = "Atraxa",
+            TimePeriod = CedhMetaTimePeriod.ONE_YEAR,
+            SortBy = CedhMetaSortBy.TOP,
+            MinEventSize = 50,
+            MaxStanding = null,
+            SelectedReferenceIndexes = new List<int>()
+        };
+
+        var text = ChatGptCedhMetaGapService.BuildRequestContextText(request);
+
+        Assert.DoesNotContain("max_standing:", text);
+        Assert.DoesNotContain("selected_reference_indexes:", text);
+    }
+
+    // ---- Phase 10-05: BuildAsync override branch — skip re-fetch when FetchedEntriesJson present ----
+
+    [Fact]
+    public async Task BuildAsync_uses_fetched_entries_override_and_skips_edhtop16_fetch_when_FetchedEntriesJson_present()
+    {
+        var entries = new List<EdhTop16Entry>
+        {
+            new()
+            {
+                Standing = 1,
+                Wins = 7,
+                Losses = 0,
+                Draws = 0,
+                PlayerName = "Override Pilot",
+                DecklistUrl = "https://example.com/o",
+                TournamentName = "Test Cup",
+                TournamentId = "tc",
+                TournamentSize = 64,
+                MainDeck = new List<EdhTop16Card> { new() { Name = "Sol Ring", Type = "Artifact" } }
+            }
+        };
+        var fetchedEntriesJson = JsonSerializer.Serialize(
+            entries,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+        var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
+        {
+            CreateDeckEntry("Atraxa, Praetors' Voice", "commander"),
+            CreateDeckEntry("Sol Ring")
+        });
+        var service = CreateService(
+            importer,
+            new FakeArchidektDeckImporter(),
+            new ThrowingEdhTop16Client(),
+            new FakeCommanderSpellbookService());
+
+        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        {
+            WorkflowStep = 2,
+            CommanderName = "Atraxa, Praetors' Voice",
+            DeckSource = "https://www.moxfield.com/decks/test",
+            FetchedEntriesJson = fetchedEntriesJson,
+            SelectedReferenceIndexes = new List<int> { 0 }
+        });
+
+        Assert.Single(result.FetchedEntries);
+        Assert.Equal("Override Pilot", result.FetchedEntries[0].PlayerName);
+    }
+
+    [Fact]
+    public async Task BuildAsync_falls_back_to_edhtop16_fetch_when_FetchedEntriesJson_corrupt()
+    {
+        var fakeClient = new FakeEdhTop16Client(
+            new EdhTop16Entry
+            {
+                Standing = 1,
+                PlayerName = "Live Pilot",
+                DecklistUrl = "u",
+                TournamentName = "t",
+                TournamentId = "id",
+                TournamentSize = 1,
+                MainDeck = new List<EdhTop16Card> { new() { Name = "Sol Ring", Type = "Artifact" } }
+            });
+        var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
+        {
+            CreateDeckEntry("Atraxa, Praetors' Voice", "commander"),
+            CreateDeckEntry("Sol Ring")
+        });
+        var service = CreateService(
+            importer,
+            new FakeArchidektDeckImporter(),
+            fakeClient,
+            new FakeCommanderSpellbookService());
+
+        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        {
+            WorkflowStep = 2,
+            CommanderName = "Atraxa, Praetors' Voice",
+            DeckSource = "https://www.moxfield.com/decks/test",
+            FetchedEntriesJson = "this-is-not-json",
+            SelectedReferenceIndexes = new List<int> { 0 }
+        });
+
+        Assert.Single(result.FetchedEntries);
+        Assert.Equal("Live Pilot", result.FetchedEntries[0].PlayerName);
+    }
+
+    private sealed class ThrowingEdhTop16Client : IEdhTop16Client
+    {
+        public Task<IReadOnlyList<EdhTop16Entry>> SearchCommanderEntriesAsync(
+            string commanderName,
+            CedhMetaTimePeriod timePeriod,
+            CedhMetaSortBy sortBy,
+            int minEventSize,
+            int? maxStanding,
+            int count,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("edhtop16 must not be called when FetchedEntriesJson is set");
     }
 
     private static ChatGptCedhMetaGapService CreateService(

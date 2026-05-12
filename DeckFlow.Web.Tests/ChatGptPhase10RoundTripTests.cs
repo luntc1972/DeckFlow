@@ -812,6 +812,220 @@ public sealed class ChatGptPhase10RoundTripTests
     private static byte[] BuildCedhMetaGapZipWithoutRequestContext()
         => BuildCedhMetaGapZipWithRequestContext(null!);
 
+    // ---- Phase 10-05: cEDH Step 1 round-trip — zip artifact write/read ----
+
+    [Fact]
+    public void BuildCedhMetaGapZip_includes_fetched_entries_artifact_when_provided()
+    {
+        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var entries = new List<EdhTop16Entry>
+        {
+            new()
+            {
+                Standing = 1,
+                Wins = 6,
+                Losses = 0,
+                Draws = 1,
+                PlayerName = "Alice",
+                DecklistUrl = "https://example.com/a",
+                TournamentName = "Test Cup",
+                TournamentId = "tc1",
+                TournamentDate = new DateOnly(2026, 4, 1),
+                TournamentSize = 64,
+                MainDeck = new List<EdhTop16Card> { new() { Name = "Sol Ring", Type = "Artifact" } }
+            }
+        };
+        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            request,
+            inputSummary: "summary",
+            promptText: "prompt text",
+            schemaJson: "{}",
+            requestContextText: "workflow_step: 2",
+            canonicalDeckListText: null,
+            originalDeckText: null,
+            fetchedEntries: entries);
+
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        var entry = archive.GetEntry("20-edh-top16-references.json");
+        Assert.NotNull(entry);
+        using var reader = new StreamReader(entry!.Open());
+        var json = reader.ReadToEnd();
+        var roundTripped = System.Text.Json.JsonSerializer.Deserialize<List<EdhTop16Entry>>(
+            json,
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(roundTripped);
+        Assert.Single(roundTripped!);
+        Assert.Equal("Alice", roundTripped![0].PlayerName);
+        Assert.Equal("Sol Ring", roundTripped[0].MainDeck[0].Name);
+    }
+
+    [Fact]
+    public void BuildCedhMetaGapZip_omits_fetched_entries_artifact_when_empty()
+    {
+        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            request,
+            inputSummary: "summary",
+            promptText: "prompt text",
+            schemaJson: "{}",
+            requestContextText: "workflow_step: 2",
+            canonicalDeckListText: null,
+            originalDeckText: null,
+            fetchedEntries: Array.Empty<EdhTop16Entry>());
+
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        Assert.Null(archive.GetEntry("20-edh-top16-references.json"));
+    }
+
+    // ---- Phase 10-05: cEDH Step 1 round-trip — loader ----
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_restores_fetched_entries_from_artifact()
+    {
+        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var entries = new List<EdhTop16Entry>
+        {
+            new()
+            {
+                Standing = 1,
+                PlayerName = "Bob",
+                DecklistUrl = "https://example.com/b",
+                TournamentName = "Cup",
+                TournamentId = "c1",
+                TournamentSize = 32,
+                MainDeck = new List<EdhTop16Card> { new() { Name = "Mana Crypt", Type = "Artifact" } }
+            }
+        };
+        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            request, "summary", "prompt", "{}", "workflow_step: 2", null, null, entries);
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+
+        Assert.Single(restored.FetchedEntries);
+        Assert.Equal("Bob", restored.FetchedEntries[0].PlayerName);
+        Assert.Equal("Mana Crypt", restored.FetchedEntries[0].MainDeck[0].Name);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_restores_filter_scalars_and_selected_indexes()
+    {
+        var request = new ChatGptCedhMetaGapRequest
+        {
+            WorkflowStep = 2,
+            CommanderName = "Atraxa",
+            TimePeriod = CedhMetaTimePeriod.SIX_MONTHS,
+            SortBy = CedhMetaSortBy.NEW,
+            MinEventSize = 30,
+            MaxStanding = 4,
+            SelectedReferenceIndexes = new List<int> { 0, 2 }
+        };
+        var contextText = ChatGptCedhMetaGapService.BuildRequestContextText(request);
+        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            request, "summary", "prompt", "{}", contextText, null, null, fetchedEntries: null);
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+
+        Assert.Equal(CedhMetaTimePeriod.SIX_MONTHS, loaded.TimePeriod);
+        Assert.Equal(CedhMetaSortBy.NEW, loaded.SortBy);
+        Assert.Equal(30, loaded.MinEventSize);
+        Assert.Equal(4, loaded.MaxStanding);
+        Assert.Equal(new[] { 0, 2 }, loaded.SelectedReferenceIndexes);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_lands_on_step_2_when_entries_present_and_no_response()
+    {
+        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var entries = new List<EdhTop16Entry>
+        {
+            new()
+            {
+                Standing = 1,
+                PlayerName = "Pilot",
+                DecklistUrl = "u",
+                TournamentName = "t",
+                TournamentId = "id",
+                TournamentSize = 1,
+                MainDeck = new List<EdhTop16Card> { new() { Name = "Sol Ring", Type = "Artifact" } }
+            }
+        };
+        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            request, "summary", "prompt", "{}", "workflow_step: 2\ncommander: Atraxa", null, null, fetchedEntries: entries);
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+
+        Assert.Equal(2, loaded.WorkflowStep);
+    }
+
+    [Fact]
+    public void LoadCedhMetaGapFromZip_returns_empty_entries_for_legacy_zip()
+    {
+        var request = new ChatGptCedhMetaGapRequest
+        {
+            CommanderName = "Atraxa",
+            MetaGapResponseJson = "{\"meta_gap\":{\"commander\":\"Atraxa\"}}"
+        };
+        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            request, "summary", "prompt", "{}",
+            "workflow_step: 3\ncommander: Atraxa\ntarget_ai_platform: ChatGPT",
+            null, null, fetchedEntries: null);
+
+        var loaded = new ChatGptCedhMetaGapRequest();
+        var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+
+        Assert.Empty(restored.FetchedEntries);
+        Assert.Empty(loaded.SelectedReferenceIndexes);
+        Assert.Equal(CedhMetaTimePeriod.ONE_YEAR, loaded.TimePeriod);
+    }
+
+    // ---- Phase 10-05: cEDH Step 1 round-trip — request-context parser ----
+
+    [Fact]
+    public void Parse_extracts_filter_scalars_and_selected_reference_indexes_list()
+    {
+        const string text = """
+            workflow_step: 2
+            commander: Atraxa
+            target_ai_platform: Claude
+            time_period: ONE_YEAR
+            sort_by: TOP
+            min_event_size: 50
+            max_standing: 16
+            selected_reference_indexes:
+            - 0
+            - 2
+            - 5
+            """;
+
+        var parsed = ChatGptRequestContextParser.Parse(text);
+
+        Assert.Equal("ONE_YEAR", parsed.TimePeriod);
+        Assert.Equal("TOP", parsed.SortBy);
+        Assert.Equal(50, parsed.MinEventSize);
+        Assert.Equal(16, parsed.MaxStanding);
+        Assert.Equal(new[] { 0, 2, 5 }, parsed.SelectedReferenceIndexes);
+    }
+
+    [Fact]
+    public void Parse_returns_null_filter_scalars_when_keys_absent()
+    {
+        const string text = """
+            workflow_step: 1
+            commander: Atraxa
+            """;
+
+        var parsed = ChatGptRequestContextParser.Parse(text);
+
+        Assert.Null(parsed.TimePeriod);
+        Assert.Null(parsed.SortBy);
+        Assert.Null(parsed.MinEventSize);
+        Assert.Null(parsed.MaxStanding);
+        Assert.Empty(parsed.SelectedReferenceIndexes);
+    }
+
     private static Dictionary<string, string> ReadZipEntries(byte[] bytes)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

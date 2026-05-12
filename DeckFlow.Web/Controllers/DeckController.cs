@@ -962,7 +962,8 @@ public sealed class DeckController : Controller
                     string.Empty,
                     string.Empty,
                     string.Empty,
-                    ChatGptCedhMetaGapService.BuildRequestContextText(request));
+                    ChatGptCedhMetaGapService.BuildRequestContextText(request),
+                    fetchedEntries: Array.Empty<EdhTop16Entry>());
                 Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
                 return File(fallbackBytes, "application/zip", fallbackFileName);
             }
@@ -975,7 +976,8 @@ public sealed class DeckController : Controller
                 result.SchemaJson ?? string.Empty,
                 result.RequestContextText,
                 canonicalDeckListText: result.DecklistText,
-                originalDeckText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                originalDeckText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                fetchedEntries: result.FetchedEntries);
             var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
@@ -1035,9 +1037,20 @@ public sealed class DeckController : Controller
             using var stream = zipFile.OpenReadStream();
             var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
 
-            // Partial-zip case: response JSON not yet present. Render the form
-            // on Step 1 with whatever state the loader could restore (the AI
-            // selector). AnalysisResponse stays null so Step 3 doesn't render.
+            // Phase 10-05: round-trip the fetched entries through the next form
+            // submit so the service can skip the edhtop16 re-fetch (also
+            // bypasses upstream rate-limit on regenerate from a saved session).
+            if (restored.FetchedEntries.Count > 0)
+            {
+                request.FetchedEntriesJson = JsonSerializer.Serialize(
+                    restored.FetchedEntries,
+                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            }
+
+            // Partial-zip case: response JSON not yet present. Loader has set
+            // WorkflowStep correctly (2 if entries restored, 1 otherwise).
+            // Propagate FetchedEntries to the view model so the reference table
+            // and selection checkboxes render.
             if (string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
             {
                 return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
@@ -1046,7 +1059,8 @@ public sealed class DeckController : Controller
                     Request = request,
                     InputSummary = restored.InputSummary,
                     PromptText = restored.PromptText,
-                    SchemaJson = restored.SchemaJson
+                    SchemaJson = restored.SchemaJson,
+                    FetchedEntries = restored.FetchedEntries
                 });
             }
 
@@ -1060,7 +1074,8 @@ public sealed class DeckController : Controller
                 AnalysisResponse = analysisResponse,
                 InputSummary = restored.InputSummary,
                 PromptText = restored.PromptText,
-                SchemaJson = restored.SchemaJson
+                SchemaJson = restored.SchemaJson,
+                FetchedEntries = restored.FetchedEntries
             });
         }
         catch (InvalidOperationException exception)

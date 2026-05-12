@@ -6,6 +6,7 @@ public sealed class ChatGptCedhMetaGapRequest
     private string _deckSource = string.Empty;
     private string _metaGapResponseJson = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
+    private string _fetchedEntriesJson = string.Empty;
 
     public int WorkflowStep { get; set; } = 1;
 
@@ -53,5 +54,17 @@ public sealed class ChatGptCedhMetaGapRequest
             "ChatGPT" or "Claude" or "Gemini" => value,
             _ => "ChatGPT"
         };
+    }
+
+    /// <summary>
+    /// Hidden form field carrying the serialized List&lt;EdhTop16Entry&gt; between Step 2 submits.
+    /// When non-empty and successfully deserialized, ChatGptCedhMetaGapService.BuildAsync uses
+    /// these entries instead of re-fetching from edhtop16. Round-tripped through the cEDH zip
+    /// via 20-edh-top16-references.json. Empty by default; safe to leave blank for fresh flows.
+    /// </summary>
+    public string FetchedEntriesJson
+    {
+        get => _fetchedEntriesJson;
+        set => _fetchedEntriesJson = value ?? string.Empty;
     }
 }

@@ -55,6 +55,11 @@ internal static partial class ChatGptRequestContextParser
         string? strategyNotes = null;
         string? metaNotes = null;
         string? deckSource = null;
+        string? timePeriod = null;
+        string? sortBy = null;
+        int? minEventSize = null;
+        int? maxStanding = null;
+        List<int> selectedReferenceIndexes = [];
 
         for (var i = 0; i < lines.Length; i++)
         {
@@ -107,6 +112,24 @@ internal static partial class ChatGptRequestContextParser
                     case "budget_upgrade_amount":
                         budgetUpgradeAmount = inlineValue.Trim();
                         break;
+                    case "time_period":
+                        timePeriod = inlineValue.Trim();
+                        break;
+                    case "sort_by":
+                        sortBy = inlineValue.Trim();
+                        break;
+                    case "min_event_size":
+                        if (int.TryParse(inlineValue.Trim(), out var minEventSizeValue))
+                        {
+                            minEventSize = minEventSizeValue;
+                        }
+                        break;
+                    case "max_standing":
+                        if (int.TryParse(inlineValue.Trim(), out var maxStandingValue))
+                        {
+                            maxStanding = maxStandingValue;
+                        }
+                        break;
                 }
 
                 continue;
@@ -124,6 +147,13 @@ internal static partial class ChatGptRequestContextParser
                         break;
                     case "selected_set_codes":
                         selectedSetCodes = listValues;
+                        break;
+                    case "selected_reference_indexes":
+                        selectedReferenceIndexes = listValues
+                            .Select(value => int.TryParse(value, out var index) ? (int?)index : null)
+                            .Where(index => index.HasValue)
+                            .Select(index => index!.Value)
+                            .ToList();
                         break;
                 }
 
@@ -169,7 +199,12 @@ internal static partial class ChatGptRequestContextParser
             DeckAName = string.IsNullOrEmpty(deckAName) ? null : deckAName,
             DeckBName = string.IsNullOrEmpty(deckBName) ? null : deckBName,
             DeckABracket = string.IsNullOrEmpty(deckABracket) ? null : deckABracket,
-            DeckBBracket = string.IsNullOrEmpty(deckBBracket) ? null : deckBBracket
+            DeckBBracket = string.IsNullOrEmpty(deckBBracket) ? null : deckBBracket,
+            TimePeriod = string.IsNullOrEmpty(timePeriod) ? null : timePeriod,
+            SortBy = string.IsNullOrEmpty(sortBy) ? null : sortBy,
+            MinEventSize = minEventSize,
+            MaxStanding = maxStanding,
+            SelectedReferenceIndexes = selectedReferenceIndexes
         };
     }
 
@@ -208,7 +243,10 @@ internal static partial class ChatGptRequestContextParser
     }
 
     private static bool IsListKey(string key)
-        => key is "card_specific_question_card_names" or "selected_analysis_questions" or "selected_set_codes";
+        => key is "card_specific_question_card_names"
+            or "selected_analysis_questions"
+            or "selected_set_codes"
+            or "selected_reference_indexes";
 
     private static string? ReadBlock(string[] lines, ref int index)
     {
@@ -312,4 +350,19 @@ internal sealed record ParsedRequestContext
 
     /// <summary>Comparison-page deck B bracket selection, if present.</summary>
     public string? DeckBBracket { get; init; }
+
+    /// <summary>cEDH Step 1 filter — time period enum string, e.g. "ONE_YEAR".</summary>
+    public string? TimePeriod { get; init; }
+
+    /// <summary>cEDH Step 1 filter — sort-by enum string, e.g. "TOP".</summary>
+    public string? SortBy { get; init; }
+
+    /// <summary>cEDH Step 1 filter — minimum event size threshold.</summary>
+    public int? MinEventSize { get; init; }
+
+    /// <summary>cEDH Step 1 filter — maximum standing cutoff (null = no cap).</summary>
+    public int? MaxStanding { get; init; }
+
+    /// <summary>cEDH Step 2 user picks — positional indexes into the round-tripped FetchedEntries list.</summary>
+    public IReadOnlyList<int> SelectedReferenceIndexes { get; init; } = Array.Empty<int>();
 }
