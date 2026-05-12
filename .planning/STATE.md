@@ -120,6 +120,8 @@ Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captu
 Last session: 2026-05-10 ~6:45pm MDT (long session: bug fixes → test 2 pass → hybrid storage rollout → Archidekt parser parity)
 Stopped at: Integration test 2 PASSED. Hybrid storage end-to-end shipped. Archidekt parser now has Moxfield parity. Stopping for night.
 
+Session resumed: 2026-05-11 — proceeding to integration tests 3, 4, 5-retest, 6, 7, 8 + filename verification against HEAD `6e536e4`. Coding mode re-confirmed: Claude Edit/Write direct (Codex review on demand). On all-pass → close Phase 10 + v1.2 milestone.
+
 Next action on resume: User runs the 6 remaining integration tests against HEAD = `6e536e4` (restart dev server first to pick up TS rebuild). When all pass, close Phase 10 + v1.2 milestone (mark complete in STATE.md/ROADMAP.md, archive plans, decide whether to merge v1.2 → main per branch policy). If any fail, capture failure mode and dispatch follow-up fix.
 
 **Resume guidance:**
