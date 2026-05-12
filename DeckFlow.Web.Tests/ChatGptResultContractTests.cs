@@ -192,6 +192,29 @@ public sealed class ChatGptResultContractTests
         Assert.Contains("</result>", prompt);
     }
 
+    [Fact]
+    public void BuildAnalysisPrompt_for_Gemini_ends_with_mandate_block()
+    {
+        var request = new ChatGptDeckRequest
+        {
+            TargetAiPlatform = "Gemini",
+            DeckName = "Test Deck",
+            Format = "Commander",
+            TargetCommanderBracket = "Cedh"
+        };
+        var prompt = ChatGptDeckPacketService.BuildAnalysisPrompt(
+            request,
+            decklistText: "1 Sol Ring\n1 Mana Crypt",
+            referenceText: "Sol Ring: Add 2 mana.",
+            deckProfileSchemaJson: "{\"type\":\"object\"}",
+            commanderName: "Atraxa",
+            selectedQuestionIds: System.Array.Empty<string>(),
+            bannedCards: System.Array.Empty<string>());
+
+        Assert.Contains("MANDATORY", prompt);
+        Assert.EndsWith("Nothing else after </result>.", prompt);
+    }
+
     private static ChatGptDeckComparisonService.DeckComparisonDeckSummary BuildSampleDeckSummary(string name, string commander)
     {
         var bracket = CommanderBracketCatalog.Options[0];
