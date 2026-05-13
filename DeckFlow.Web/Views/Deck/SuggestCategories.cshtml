@@ -37,10 +37,10 @@
         <label class="mode-picker">
             <span>Lookup mode</span>
             <select name="Mode" required data-default-value="@CategorySuggestionMode.All" data-df-select>
-                <option value="@CategorySuggestionMode.All" selected="@(suggestionMode == CategorySuggestionMode.All)">All sources</option>
-                <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData)">Use cached data</option>
-                <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck)">Use reference deck</option>
-                <option value="@CategorySuggestionMode.ScryfallTagger" selected="@(suggestionMode == CategorySuggestionMode.ScryfallTagger)">Scryfall Tagger</option>
+                <option value="@CategorySuggestionMode.All" selected="@(suggestionMode == CategorySuggestionMode.All ? "selected" : null)">All sources</option>
+                <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData ? "selected" : null)">Use cached data</option>
+                <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck ? "selected" : null)">Use reference deck</option>
+                <option value="@CategorySuggestionMode.ScryfallTagger" selected="@(suggestionMode == CategorySuggestionMode.ScryfallTagger ? "selected" : null)">Scryfall Tagger</option>
             </select>
         </label>
         <label class="mode-picker flex-grow">
@@ -85,8 +85,8 @@
         <label class="mode-picker">
             <span>Reference deck input</span>
             <select name="ArchidektInputSource" required data-default-value="@DeckInputSource.PublicUrl" data-df-select>
-                <option value="@DeckInputSource.PublicUrl" selected="@(suggestionInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
-                <option value="@DeckInputSource.PasteText" selected="@(suggestionInputSource == DeckInputSource.PasteText)">Paste text</option>
+                <option value="@DeckInputSource.PublicUrl" selected="@(suggestionInputSource == DeckInputSource.PublicUrl ? "selected" : null)">Use public deck URL</option>
+                <option value="@DeckInputSource.PasteText" selected="@(suggestionInputSource == DeckInputSource.PasteText ? "selected" : null)">Paste text</option>
             </select>
         </label>
 
