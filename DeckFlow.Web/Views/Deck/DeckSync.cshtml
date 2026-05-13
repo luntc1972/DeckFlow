@@ -97,7 +97,7 @@
             <div class="sync-column__body">
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="moxfield-url">
                     <span data-sync-role="moxfield-url-label">@leftSystem public deck URL</span>
-                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="@(string.Equals(leftSystem, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "https://archidekt.com/decks/..." : "https://moxfield.com/decks/...")" />
+                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" autocomplete="url" inputmode="url" placeholder="@(string.Equals(leftSystem, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "https://archidekt.com/decks/…" : "https://moxfield.com/decks/…")" />
                     @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
                         @await Html.PartialAsync("_DeckFlowBridgeHint")
@@ -132,7 +132,7 @@
             <div class="sync-column__body">
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="archidekt-url">
                     <span data-sync-role="archidekt-url-label">@rightSystem public deck URL</span>
-                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="@(string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "https://moxfield.com/decks/..." : "https://archidekt.com/decks/...")" />
+                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" autocomplete="url" inputmode="url" placeholder="@(string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "https://moxfield.com/decks/…" : "https://archidekt.com/decks/…")" />
                     @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
                         @await Html.PartialAsync("_DeckFlowBridgeHint")

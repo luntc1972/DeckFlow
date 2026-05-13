@@ -93,7 +93,7 @@
         <div class="url-grid @(suggestionInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-suggest-panel="url">
             <label class="field" data-suggest-panel="archidekt-url">
                 <span>Archidekt public deck URL</span>
-                <input type="url" name="ArchidektUrl" value="@Model.SuggestionRequest.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
+                <input type="url" name="ArchidektUrl" value="@Model.SuggestionRequest.ArchidektUrl" autocomplete="url" inputmode="url" placeholder="https://archidekt.com/decks/…" />
             </label>
         </div>
 
