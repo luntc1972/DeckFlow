@@ -73,7 +73,7 @@
     <form method="post" asp-action="SubmitUrl" class="admin-action-form">
         @Html.AntiForgeryToken()
         <label for="url">Archidekt URL</label>
-        <input id="url" type="url" name="url" placeholder="https://archidekt.com/decks/..." required />
+        <input id="url" type="url" name="url" autocomplete="url" inputmode="url" placeholder="https://archidekt.com/decks/…" required />
         <button type="submit">Submit</button>
     </form>
 </section>

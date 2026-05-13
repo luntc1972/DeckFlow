@@ -112,7 +112,7 @@
 
                 <label class="field">
                     <span>Deck URL or deck text</span>
-                    <textarea name="DeckSource" spellcheck="false">@Model.Request.DeckSource</textarea>
+                    <textarea autocomplete="off" name="DeckSource" spellcheck="false">@Model.Request.DeckSource</textarea>
                     <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt URL, or raw deck export text.</small>
                 </label>
                 @await Html.PartialAsync("_DeckFlowBridgeHint")
@@ -297,7 +297,7 @@
                     </div>
                     <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-prompt-output">Copy</button>
                 </div>
-                <textarea id="cedh-meta-gap-prompt-output" readonly spellcheck="false">@Model.PromptText</textarea>
+                <textarea autocomplete="off" id="cedh-meta-gap-prompt-output" readonly spellcheck="false">@Model.PromptText</textarea>
             </details>
         }
 
@@ -312,7 +312,7 @@
                     </div>
                     <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-schema-output">Copy</button>
                 </div>
-                <textarea id="cedh-meta-gap-schema-output" readonly spellcheck="false">@Model.SchemaJson</textarea>
+                <textarea autocomplete="off" id="cedh-meta-gap-schema-output" readonly spellcheck="false">@Model.SchemaJson</textarea>
             </details>
         }
 
@@ -334,7 +334,7 @@
 
         <label class="field">
             <span>Meta gap JSON</span>
-            <textarea name="MetaGapResponseJson" spellcheck="false">@Model.Request.MetaGapResponseJson</textarea>
+            <textarea autocomplete="off" name="MetaGapResponseJson" spellcheck="false">@Model.Request.MetaGapResponseJson</textarea>
             <small class="sync-column__hint">Required for rendering the final analysis. You can paste the fenced <code>```json</code> block directly.</small>
         </label>
 

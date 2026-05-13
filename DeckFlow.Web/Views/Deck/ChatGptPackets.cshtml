@@ -139,13 +139,13 @@ Do not omit any fields from the schema.
             </label>
             <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-url">
                 <span>Public deck URL</span>
-                <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" placeholder="https://moxfield.com/decks/... or https://archidekt.com/decks/..." />
+                <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" autocomplete="url" inputmode="url" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
                 <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt deck URL.</small>
                 @await Html.PartialAsync("_DeckFlowBridgeHint")
             </label>
             <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-text">
                 <span>Deck export text</span>
-                <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+                <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
                 <small class="sync-column__hint">Required. Paste deck export text directly.</small>
                 @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Analysis")
             </label>
@@ -195,7 +195,7 @@ Do not omit any fields from the schema.
                 </div>
                 <button type="button" class="copy-button" data-copy-target="analysis-follow-up-output">Copy</button>
             </div>
-            <textarea id="analysis-follow-up-output" readonly spellcheck="false">@analysisFollowUpPrompt</textarea>
+            <textarea autocomplete="off" id="analysis-follow-up-output" readonly spellcheck="false">@analysisFollowUpPrompt</textarea>
         </section>
 
         <div class="bracket-callout">
@@ -236,11 +236,11 @@ Do not omit any fields from the schema.
             </div>
             <label class="field">
                 <span>Strategy notes</span>
-                <textarea name="StrategyNotes" spellcheck="false">@Model.Request.StrategyNotes</textarea>
+                <textarea autocomplete="off" name="StrategyNotes" spellcheck="false">@Model.Request.StrategyNotes</textarea>
             </label>
             <label class="field">
                 <span>Meta notes</span>
-                <textarea name="MetaNotes" spellcheck="false">@Model.Request.MetaNotes</textarea>
+                <textarea autocomplete="off" name="MetaNotes" spellcheck="false">@Model.Request.MetaNotes</textarea>
             </label>
         </details>
         <div class="result-panel nested-panel">
@@ -366,12 +366,12 @@ Do not omit any fields from the schema.
                                 </label>
                                 <label class="field hidden" data-preferred-categories-field>
                                     <span>Preferred category names (optional)</span>
-                                    <textarea name="PreferredCategories" rows="4" spellcheck="false">@Model.Request.PreferredCategories</textarea>
+                                    <textarea autocomplete="off" name="PreferredCategories" rows="4" spellcheck="false">@Model.Request.PreferredCategories</textarea>
                                     <small class="sync-column__hint">One category name per line. ChatGPT will use these names when assigning categories and will only create new ones when none of the preferred names fit.</small>
                                 </label>
                                 <label class="field">
                                     <span>Protected cards (optional)</span>
-                                    <textarea name="ProtectedCards" rows="4" spellcheck="false">@Model.Request.ProtectedCards</textarea>
+                                    <textarea autocomplete="off" name="ProtectedCards" rows="4" spellcheck="false">@Model.Request.ProtectedCards</textarea>
                                     <small class="sync-column__hint">One card name per line. These cards will always be kept in every generated deck version or upgrade path. They may still appear as suggested cuts in the general analysis.</small>
                                 </label>
                             }
@@ -382,7 +382,7 @@ Do not omit any fields from the schema.
         </section>
         <label class="field">
             <span>Additional freeform question (optional)</span>
-            <textarea name="FreeformQuestion" rows="3" spellcheck="false" placeholder="Type any additional question or instruction to include in the analysis prompt…">@Model.Request.FreeformQuestion</textarea>
+            <textarea autocomplete="off" name="FreeformQuestion" rows="3" spellcheck="false" placeholder="Type any additional question or instruction to include in the analysis prompt…">@Model.Request.FreeformQuestion</textarea>
             <small class="sync-column__hint">This question is appended to the list of selected analysis questions in the generated prompt.</small>
         </label>
         <div class="toolbar chatgpt-step-actions">
@@ -421,7 +421,7 @@ Do not omit any fields from the schema.
                     </div>
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
-                <textarea id="analysis-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.AnalysisPromptText</textarea>
+                <textarea autocomplete="off" id="analysis-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.AnalysisPromptText</textarea>
             </section>
         }
 
@@ -435,7 +435,7 @@ Do not omit any fields from the schema.
                     </div>
                     <button type="button" class="copy-button" data-copy-target="reference-output">Copy</button>
                 </div>
-                <textarea id="reference-output" readonly spellcheck="false">@Model.ReferenceText</textarea>
+                <textarea autocomplete="off" id="reference-output" readonly spellcheck="false">@Model.ReferenceText</textarea>
             </section>
         }
 
@@ -450,7 +450,7 @@ Do not omit any fields from the schema.
                     </div>
                     <button type="button" class="copy-button" data-copy-target="deck-profile-schema-output">Copy</button>
                 </div>
-                <textarea id="deck-profile-schema-output" readonly spellcheck="false">@Model.DeckProfileSchemaJson</textarea>
+                <textarea autocomplete="off" id="deck-profile-schema-output" readonly spellcheck="false">@Model.DeckProfileSchemaJson</textarea>
             </details>
         }
 
@@ -472,7 +472,7 @@ Do not omit any fields from the schema.
 
         <label class="field">
             <span>Deck profile JSON</span>
-            <textarea name="DeckProfileJson" spellcheck="false">@Model.Request.DeckProfileJson</textarea>
+            <textarea autocomplete="off" name="DeckProfileJson" spellcheck="false">@Model.Request.DeckProfileJson</textarea>
             <small class="sync-column__hint">Required for rendering the analysis summary and for the optional set-upgrade step. You can paste the fenced <code>```json</code> block directly.</small>
         </label>
 
@@ -674,7 +674,7 @@ Do not omit any fields from the schema.
             <summary>Show condensed set packet override</summary>
             <label class="field">
                 <span>Condensed set packet override</span>
-                <textarea name="SetPacketText" spellcheck="false">@Model.Request.SetPacketText</textarea>
+                <textarea autocomplete="off" name="SetPacketText" spellcheck="false">@Model.Request.SetPacketText</textarea>
                 <small class="sync-column__hint">Optional. Leave this blank to use the generated set packet from the selected sets.</small>
             </label>
         </details>
@@ -692,7 +692,7 @@ Do not omit any fields from the schema.
                     </div>
                     <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
                 </div>
-                <textarea id="set-upgrade-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.SetUpgradePromptText</textarea>
+                <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.SetUpgradePromptText</textarea>
             </section>
         }
         <div class="chatgpt-step-footer">
@@ -713,7 +713,7 @@ Do not omit any fields from the schema.
 
         <label class="field">
             <span>Set upgrade report JSON</span>
-            <textarea name="SetUpgradeResponseJson" spellcheck="false">@Model.Request.SetUpgradeResponseJson</textarea>
+            <textarea autocomplete="off" name="SetUpgradeResponseJson" spellcheck="false">@Model.Request.SetUpgradeResponseJson</textarea>
             <small class="sync-column__hint">Paste the fenced <code>```json</code> block or the raw JSON payload. Surrounding prose (like the <code>discussion_summary.txt</code> text block) is safe to include.</small>
         </label>
 

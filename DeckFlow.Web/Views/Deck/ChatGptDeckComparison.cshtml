@@ -267,7 +267,7 @@ Deck B ([DECK B NAME]):
                 </label>
                 <label class="field">
                     <span>Deck A URL or deck text</span>
-                    <textarea name="DeckASource" spellcheck="false">@Model.Request.DeckASource</textarea>
+                    <textarea autocomplete="off" name="DeckASource" spellcheck="false">@Model.Request.DeckASource</textarea>
                     <small class="sync-column__hint">Required. Paste a public deck URL or raw deck export text.</small>
                 </label>
             </section>
@@ -295,7 +295,7 @@ Deck B ([DECK B NAME]):
                 </label>
                 <label class="field">
                     <span>Deck B URL or deck text</span>
-                    <textarea name="DeckBSource" spellcheck="false">@Model.Request.DeckBSource</textarea>
+                    <textarea autocomplete="off" name="DeckBSource" spellcheck="false">@Model.Request.DeckBSource</textarea>
                     <small class="sync-column__hint">Required. Paste a public deck URL or raw deck export text.</small>
                 </label>
             </section>
@@ -340,7 +340,7 @@ Deck B ([DECK B NAME]):
                         </div>
                         <button type="button" class="copy-button" data-copy-target="comparison-preset-header">Copy</button>
                     </div>
-                    <textarea id="comparison-preset-header" readonly spellcheck="false">@presetBestPracticeHeader</textarea>
+                    <textarea autocomplete="off" id="comparison-preset-header" readonly spellcheck="false">@presetBestPracticeHeader</textarea>
                 </section>
 
                 <section class="result-panel nested-panel">
@@ -351,7 +351,7 @@ Deck B ([DECK B NAME]):
                         </div>
                         <button type="button" class="copy-button" data-copy-target="comparison-preset-quick">Copy</button>
                     </div>
-                    <textarea id="comparison-preset-quick" readonly spellcheck="false">@presetQuickVerdict</textarea>
+                    <textarea autocomplete="off" id="comparison-preset-quick" readonly spellcheck="false">@presetQuickVerdict</textarea>
                 </section>
 
                 <section class="result-panel nested-panel">
@@ -362,7 +362,7 @@ Deck B ([DECK B NAME]):
                         </div>
                         <button type="button" class="copy-button" data-copy-target="comparison-preset-all-in-one">Copy</button>
                     </div>
-                    <textarea id="comparison-preset-all-in-one" readonly spellcheck="false">@presetAllInOne</textarea>
+                    <textarea autocomplete="off" id="comparison-preset-all-in-one" readonly spellcheck="false">@presetAllInOne</textarea>
                 </section>
 
                 <section class="result-panel nested-panel">
@@ -373,7 +373,7 @@ Deck B ([DECK B NAME]):
                         </div>
                         <button type="button" class="copy-button" data-copy-target="comparison-preset-json">Copy</button>
                     </div>
-                    <textarea id="comparison-preset-json" readonly spellcheck="false">@presetJsonReturn</textarea>
+                    <textarea autocomplete="off" id="comparison-preset-json" readonly spellcheck="false">@presetJsonReturn</textarea>
                 </section>
             </div>
         </details>
@@ -403,7 +403,7 @@ Deck B ([DECK B NAME]):
                             </div>
                             <button type="button" class="copy-button" data-copy-target="comparison-deck-a-list">Copy</button>
                         </div>
-                        <textarea id="comparison-deck-a-list" readonly spellcheck="false">@Model.DeckAListText</textarea>
+                        <textarea autocomplete="off" id="comparison-deck-a-list" readonly spellcheck="false">@Model.DeckAListText</textarea>
                     </section>
                 }
 
@@ -417,7 +417,7 @@ Deck B ([DECK B NAME]):
                             </div>
                             <button type="button" class="copy-button" data-copy-target="comparison-deck-b-list">Copy</button>
                         </div>
-                        <textarea id="comparison-deck-b-list" readonly spellcheck="false">@Model.DeckBListText</textarea>
+                        <textarea autocomplete="off" id="comparison-deck-b-list" readonly spellcheck="false">@Model.DeckBListText</textarea>
                     </section>
                 }
             </div>
@@ -436,7 +436,7 @@ Deck B ([DECK B NAME]):
                             </div>
                             <button type="button" class="copy-button" data-copy-target="comparison-deck-a-combos">Copy</button>
                         </div>
-                        <textarea id="comparison-deck-a-combos" readonly spellcheck="false">@Model.DeckAComboText</textarea>
+                        <textarea autocomplete="off" id="comparison-deck-a-combos" readonly spellcheck="false">@Model.DeckAComboText</textarea>
                     </section>
                 }
 
@@ -450,7 +450,7 @@ Deck B ([DECK B NAME]):
                             </div>
                             <button type="button" class="copy-button" data-copy-target="comparison-deck-b-combos">Copy</button>
                         </div>
-                        <textarea id="comparison-deck-b-combos" readonly spellcheck="false">@Model.DeckBComboText</textarea>
+                        <textarea autocomplete="off" id="comparison-deck-b-combos" readonly spellcheck="false">@Model.DeckBComboText</textarea>
                     </section>
                 }
             </div>
@@ -466,7 +466,7 @@ Deck B ([DECK B NAME]):
                             </div>
                             <button type="button" class="copy-button" data-copy-target="comparison-context-output">Copy</button>
                         </div>
-                <textarea id="comparison-context-output" readonly spellcheck="false">@Model.ComparisonContextText</textarea>
+                <textarea autocomplete="off" id="comparison-context-output" readonly spellcheck="false">@Model.ComparisonContextText</textarea>
             </section>
         }
 
@@ -480,7 +480,7 @@ Deck B ([DECK B NAME]):
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
                 </div>
-                <textarea id="comparison-prompt-output" readonly spellcheck="false" data-chatgpt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
+                <textarea autocomplete="off" id="comparison-prompt-output" readonly spellcheck="false" data-chatgpt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
             </section>
         }
 
@@ -495,7 +495,7 @@ Deck B ([DECK B NAME]):
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-schema-output">Copy</button>
                 </div>
-                <textarea id="comparison-schema-output" readonly spellcheck="false">@Model.ComparisonSchemaJson</textarea>
+                <textarea autocomplete="off" id="comparison-schema-output" readonly spellcheck="false">@Model.ComparisonSchemaJson</textarea>
             </details>
         }
 
@@ -509,7 +509,7 @@ Deck B ([DECK B NAME]):
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-follow-up-prompt-output">Copy</button>
                 </div>
-                <textarea id="comparison-follow-up-prompt-output" readonly spellcheck="false">@Model.FollowUpPromptText</textarea>
+                <textarea autocomplete="off" id="comparison-follow-up-prompt-output" readonly spellcheck="false">@Model.FollowUpPromptText</textarea>
             </section>
         }
 
@@ -531,7 +531,7 @@ Deck B ([DECK B NAME]):
 
         <label class="field">
             <span>Deck comparison JSON</span>
-            <textarea name="ComparisonResponseJson" spellcheck="false">@Model.Request.ComparisonResponseJson</textarea>
+            <textarea autocomplete="off" name="ComparisonResponseJson" spellcheck="false">@Model.Request.ComparisonResponseJson</textarea>
             <small class="sync-column__hint">Required for rendering the final summary. You can paste the fenced <code>```json</code> block directly.</small>
         </label>
 
