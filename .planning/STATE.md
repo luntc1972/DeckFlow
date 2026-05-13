@@ -2,17 +2,38 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Multi-AI Prompts
-status: integration_test_2_passed_remaining_tests_pending
-stopped_at: 2026-05-10 ~6:45pm MDT. Test 2 passed against f1665ca (Step 2 display restore). Same session shipped hybrid storage (62ee45b) + Archidekt parser parity (6e536e4). Stopped for night; tests 3, 4, 5-retest, 6, 7, 8 + filename verification still pending human-verify.
-last_updated: "2026-05-10T00:45:00Z"
-last_activity: 2026-05-10 ~6:45pm MDT — committed 6e536e4 (Archidekt parser state machine); test 2 passed earlier in session; user stopping for night
+status: Awaiting next milestone
+stopped_at: Integration test 2 PASSED. Hybrid storage end-to-end shipped. Archidekt parser now has Moxfield parity. Stopping for night.
+last_updated: "2026-05-13T20:07:24.387Z"
+last_activity: 2026-05-13 — Milestone v1.2 completed and archived
 progress:
   total_phases: 2
-  completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
+  completed_phases: 2
+  total_plans: 8
+  completed_plans: 8
   percent: 100
 ---
+
+## Deferred Items
+
+Items acknowledged and deferred at v1.2 milestone close on 2026-05-13. Roll to v1.3 triage.
+
+| Category | Item | Status |
+|----------|------|--------|
+| debug | harvest-killed-by-suggestion | investigating (since 2026-05-03) |
+| verification_gap | Phase 07 (07-VERIFICATION.md) | human_needed |
+| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing |
+| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing |
+| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | missing |
+| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | missing |
+| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | missing |
+| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | missing |
+| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | missing |
+| documentation | 09-VERIFICATION.md missing (v1.2 phase 9) | not authored |
+| documentation | 10-VERIFICATION.md missing (v1.2 phase 10) | not authored |
+| documentation | Phase 9 SUMMARYs miss requirements-completed frontmatter | partial |
+| tech_debt | AiPlatform value object refactor (v1.3 candidate) | designed in 10-AISEL-PLATFORM-DESIGN.md |
+| tech_debt | Gemini paste-limit workaround | flag-gated DECKFLOW_GEMINI_ENABLED |
 
 # Project State
 
@@ -25,10 +46,10 @@ See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
 
 ## Current Position
 
-Phase: 10 — IMPLEMENTATION COMPLETE + hybrid storage shipped, 6 integration tests pending verify
-Plan: 4 of 4 — all SUMMARY committed. HEAD = `6e536e4` (Archidekt parser state machine, 2026-05-10 evening). All commits pushed to origin/v1.2.
-Status: AISEL-02 + AISEL-03 + AISEL-04 closed. Hybrid storage end-to-end (canonical + original deck-text artifacts in all 3 zips) live. Archidekt parser now has Moxfield parity. ~480 cumulative unit tests pass (63 Phase 10 + 11 hybrid + 5 Archidekt + earlier). Build clean, 0 warnings, 0 errors. STRIDE security audit closed 12/12. SOLID audit "Do Now" landed (08271b0). Two MED issues from Codex hardening (filename sanitizer + download content-type gate) fixed in 7a54f50. Step 2 display artifacts now restored on Comparison + cEDH upload (f1665ca).
-Last activity: 2026-05-10 ~6:45pm MDT — committed 6e536e4 (Archidekt parser parity); user stopping for night
+Phase: Milestone v1.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-13 — Milestone v1.2 completed and archived
 
 ## Performance Metrics
 
@@ -125,9 +146,14 @@ Session resumed: 2026-05-11 — proceeding to integration tests 3, 4, 5-retest, 
 Next action on resume: User runs the 6 remaining integration tests against HEAD = `6e536e4` (restart dev server first to pick up TS rebuild). When all pass, close Phase 10 + v1.2 milestone (mark complete in STATE.md/ROADMAP.md, archive plans, decide whether to merge v1.2 → main per branch policy). If any fail, capture failure mode and dispatch follow-up fix.
 
 **Resume guidance:**
+
 - Read `.planning/HANDOFF.json` for structured machine-readable state with full test status table.
 - `git log --oneline 26222f0..HEAD` shows the full Phase 10 commit chain (28 commits including this session's 6).
 - Test list with current pass/fail status: see HANDOFF.json `remaining_tasks`. Test 1 + Test 2 status = passed. 6 + filename check + Gemini retest = pending.
 - Untracked planning doc remaining: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (from morning). Commit separately when ready.
 - Session mode: Claude Edit/Write direct (re-confirmed 2026-05-10 PM). Codex MCP (gpt-5.4 full) reviewed plans + code at every major step.
 - Re-confirm mode on next session.
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
