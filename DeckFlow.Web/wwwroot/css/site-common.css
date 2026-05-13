@@ -1,5 +1,48 @@
 :root {
   --shell-max-width: 1120px;
+  /* WDG-08 finding O: signal user-agent that native chrome (scrollbars,
+     form controls) should follow each theme's light/dark intent. */
+  color-scheme: light dark;
+}
+
+/* === Cross-cutting a11y foundation (WDG-08, Phase 11 Sweep 1) ===
+   Source: .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md
+   findings O, P, Q, R + sticky-anchor jumps. Per CLAUDE.md D-07, cross-cutting
+   layout/a11y CSS lives in site-common.css so all 22 guild themes inherit
+   without per-fork edit. Do NOT duplicate these rules in site.css or theme forks. */
+
+/* Finding P: reduced-motion gate generalized app-wide. Supersedes the narrower
+   site.css block (spinner + hub-card only) via broader cascade. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Finding Q: remove 300ms tap delay on touch devices for interactive elements. */
+button,
+a,
+summary {
+  touch-action: manipulation;
+}
+
+/* Finding R: utility class for numeric columns (applied in later sweeps, e.g. WDG-06). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* In-page anchor jumps (heading IDs, back-to-top) should not land underneath
+   sticky chrome like .global-job-notice or .chatgpt-sticky-download. */
+h1,
+h2,
+h3,
+[id] {
+  scroll-margin-top: 4rem;
 }
 
 .page-shell {
