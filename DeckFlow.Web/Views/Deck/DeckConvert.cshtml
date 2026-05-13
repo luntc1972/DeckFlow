@@ -61,7 +61,7 @@
     </label>
     <label class="field @(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-convert-panel="text">
         <span>Deck export text</span>
-        <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+        <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
         @if (isMoxfieldSource)
         {
             @await Html.PartialAsync("_MoxfieldBulkEditHint", "Convert")
@@ -91,7 +91,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="deck-convert-output">Copy</button>
         </div>
-        <textarea id="deck-convert-output" readonly spellcheck="false">@Model.ConvertedText</textarea>
+        <textarea autocomplete="off" id="deck-convert-output" readonly spellcheck="false">@Model.ConvertedText</textarea>
     </section>
 }
 

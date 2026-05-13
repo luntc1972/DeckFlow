@@ -105,7 +105,7 @@
                 </label>
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="moxfield-text">
                     <span data-sync-role="moxfield-text-label">@leftSystem export text</span>
-                    <textarea name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
+                    <textarea autocomplete="off" name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
                     <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target").</small>
                     @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
@@ -140,7 +140,7 @@
                 </label>
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="archidekt-text">
                     <span data-sync-role="archidekt-text-label">@rightSystem export text</span>
-                    <textarea name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
+                    <textarea autocomplete="off" name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
                     <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source").</small>
                     @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
@@ -169,7 +169,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="delta-output">Copy</button>
         </div>
-        <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
+        <textarea autocomplete="off" id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
     </section>
 
     <section class="result-panel">
@@ -180,7 +180,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="full-import-output">Copy</button>
         </div>
-        <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
+        <textarea autocomplete="off" id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
     </section>
 
 <section class="result-panel @(Model.Diff?.PrintingConflicts.Count > 0 ? string.Empty : "hidden")" id="deck-sync-conflicts-js">
@@ -253,7 +253,7 @@
                 </div>
                 <button type="button" class="copy-button" data-copy-target="delta-output">Copy</button>
             </div>
-            <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
+            <textarea autocomplete="off" id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
         </section>
 
         <section class="result-panel">
@@ -264,7 +264,7 @@
                 </div>
                 <button type="button" class="copy-button" data-copy-target="full-import-output">Copy</button>
             </div>
-            <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
+            <textarea autocomplete="off" id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
         </section>
 
         @if (Model.Diff.PrintingConflicts.Count > 0)
@@ -329,7 +329,7 @@
                     </div>
                     <button type="button" class="copy-button" data-copy-target="swap-output">Copy</button>
                 </div>
-                <textarea id="swap-output" readonly spellcheck="false">@Model.SwapChecklistText</textarea>
+                <textarea autocomplete="off" id="swap-output" readonly spellcheck="false">@Model.SwapChecklistText</textarea>
             </section>
         }
 

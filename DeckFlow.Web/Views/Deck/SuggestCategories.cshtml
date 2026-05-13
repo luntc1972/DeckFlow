@@ -100,7 +100,7 @@
         <div class="field-grid @(suggestionInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-suggest-panel="text">
             <label class="field" data-suggest-panel="archidekt-text">
                 <span>Archidekt export text</span>
-                <textarea name="ArchidektText" spellcheck="false">@Model.SuggestionRequest.ArchidektText</textarea>
+                <textarea autocomplete="off" name="ArchidektText" spellcheck="false">@Model.SuggestionRequest.ArchidektText</textarea>
             </label>
         </div>
     </div>
@@ -151,7 +151,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="exact-suggested-categories-output">Copy</button>
         </div>
-        <textarea id="exact-suggested-categories-output" data-api-field="exact-text" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
+        <textarea autocomplete="off" id="exact-suggested-categories-output" data-api-field="exact-text" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
     </section>
 
     <section class="result-panel inferred-panel @(hasInferred ? string.Empty : "hidden")" data-api-panel="inferred" id="cached-store-matches">
@@ -167,7 +167,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="inferred-categories-output">Copy</button>
         </div>
-        <textarea id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
+        <textarea autocomplete="off" id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
     </section>
 
     <section class="result-panel tagger-panel @(string.IsNullOrWhiteSpace(Model.TaggerCategoriesText) ? "hidden" : string.Empty)" data-api-panel="tagger">
@@ -178,7 +178,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="tagger-categories-output">Copy</button>
         </div>
-        <textarea id="tagger-categories-output" data-api-field="tagger-text" readonly spellcheck="false">@Model.TaggerCategoriesText</textarea>
+        <textarea autocomplete="off" id="tagger-categories-output" data-api-field="tagger-text" readonly spellcheck="false">@Model.TaggerCategoriesText</textarea>
     </section>
 </section>
 
