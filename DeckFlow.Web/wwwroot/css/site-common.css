@@ -45,6 +45,23 @@ h3,
   scroll-margin-top: 4rem;
 }
 
+/* === WDG audit fixes (WDG-06, Phase 11 Sweep 6) — sr-only utility ===
+   Visually-hidden accessible text for <caption> elements (and any other off-screen
+   labels) so screen readers announce table purpose without affecting layout. Lives
+   in site-common.css per CLAUDE.md D-07 so all 22 guild themes inherit. Also
+   mirrored in admin.css since admin shell does not load site-common.css. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .page-shell {
   min-height: 100vh;
   padding: 2rem 1rem 3rem;
