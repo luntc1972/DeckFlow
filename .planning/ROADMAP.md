@@ -65,17 +65,17 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
   3. With JavaScript disabled, the workflow-step tablist on Packets / DeckComparison / CedhMetaGap pre-selects the current step server-side (`aria-selected="true" tabindex="0"` on current, `aria-selected="false" tabindex="-1"` on others).
   4. No inline `style`/`onclick`/`onchange`/`onsubmit` handlers remain in AdminFeedback Detail, AdminFeedback Index, or `Views/Deck/Error.cshtml`; the app is CSP-ready for `script-src 'self'` + `style-src 'self'`.
   5. All 10 sweep PRs from `260513-wdg-FINDINGS.md` merge to `v1.3`, with cross-cutting a11y rules (`color-scheme`, global `prefers-reduced-motion`, `touch-action: manipulation`, `tabular-nums`, `scroll-margin-top`) added to `site-common.css` so all 22 guild themes inherit them without per-fork edit, and `Release` `dotnet build DeckFlow.sln` completes clean.
-**Plans:** 1/10 plans executed
+**Plans:** 5/10 plans executed
 Plans:
 - [x] 11-01-PLAN.md — Sweep 1 (WDG-08): cross-cutting a11y rules added to site-common.css (color-scheme, prefers-reduced-motion, touch-action, .tabular, scroll-margin-top)
-- [ ] 11-02-PLAN.md — Sweep 2 (WDG-01): universal :focus-visible block + color-scheme + tabular-nums added to admin.css
-- [ ] 11-03-PLAN.md — Sweep 3 (WDG-07): Razor `selected="@(x ? "selected" : null)"` sweep across DeckSync, DeckConvert, SuggestCategories, AdminHarvest/Index
+- [x] 11-02-PLAN.md — Sweep 2 (WDG-01): universal :focus-visible block + color-scheme + tabular-nums added to admin.css
+- [x] 11-03-PLAN.md — Sweep 3 (WDG-07): Razor `selected="@(x ? "selected" : null)"` sweep across DeckSync, DeckConvert, SuggestCategories, AdminHarvest/Index
 - [ ] 11-04-PLAN.md — Sweep 4 (WDG-04): inline style/onchange removal from Error.cshtml + AdminFeedback/Index.cshtml; D-05 deferral comment on AdminFeedback/Detail.cshtml
-- [ ] 11-05-PLAN.md — Sweep 5 (WDG-02): df-typeahead.ts ARIA combobox refactor + ArrowDown/Up/Enter/Escape keyboard handlers (5 consumer pages benefit)
+- [x] 11-05-PLAN.md — Sweep 5 (WDG-02): df-typeahead.ts ARIA combobox refactor + ArrowDown/Up/Enter/Escape keyboard handlers (5 consumer pages benefit)
 - [ ] 11-06-PLAN.md — Sweep 6 (WDG-06): `<caption>` + `<th scope="col">` table semantics across AdminFlags, AdminFeedback Index, AdminHarvest, DeckSync, CommanderCategories, CedhMetaGap
 - [ ] 11-07-PLAN.md — Sweep 7 (WDG-09): URL input autocomplete=url + inputmode=url + ellipsis placeholders; user-paste textarea autocomplete=off sweep
 - [ ] 11-08-PLAN.md — Sweep 8 (WDG-05): info-tooltip `<span title=...>` → `<details><summary>` conversion in SuggestCategories + CommanderCategories
-- [ ] 11-09-PLAN.md — Sweep 9 (WDG-03): _WorkflowStepTabs.cshtml server-renders aria-selected + tabindex based on current step
+- [x] 11-09-PLAN.md — Sweep 9 (WDG-03): _WorkflowStepTabs.cshtml server-renders aria-selected + tabindex based on current step
 - [ ] 11-10-PLAN.md — Sweep 10 (WDG-10): role="status" + aria-live="polite" added to #harvest-status-live element in AdminHarvest/Index.cshtml
 **UI hint**: yes
 
@@ -146,7 +146,7 @@ Plans:
 | 8. Analytics | v1.1 | 5/5 | Complete | 2026-05-08 |
 | 9. Bracket UX + AI Selector Foundation | v1.2 | 3/3 | Complete | 2026-05-08 |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
-| 11. Web Design Guidelines Audit Fixes | v1.3 | 1/10 | In Progress|  |
+| 11. Web Design Guidelines Audit Fixes | v1.3 | 5/10 | In Progress|  |
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 0/3 | Not started | — |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/3 | Not started | — |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
