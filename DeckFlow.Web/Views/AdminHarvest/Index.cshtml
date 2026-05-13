@@ -51,7 +51,7 @@
         </form>
     }
 
-    <div id="harvest-status-live" data-harvest-status data-state="@activeState">
+    <div id="harvest-status-live" role="status" aria-live="polite" data-harvest-status data-state="@activeState">
         <strong>Status:</strong> <span class="admin-harvest__state">@activeState</span>
         @if (Model.ActiveRun is not null)
         {
