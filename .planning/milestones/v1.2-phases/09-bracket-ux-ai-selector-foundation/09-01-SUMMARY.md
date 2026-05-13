@@ -1,6 +1,7 @@
 ---
 phase: 09-bracket-ux-ai-selector-foundation
 plan: "01"
+requirements-completed: [BRKT-01, AISEL-01]
 subsystem: UI/CSS
 tags: [css, razor, partial, ai-selector, bracket-callout, phase9]
 dependency_graph:
