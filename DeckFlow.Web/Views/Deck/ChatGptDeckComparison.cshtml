@@ -167,12 +167,13 @@ Deck B ([DECK B NAME]):
 
 <div class="error-banner hidden" data-chatgpt-comparison-validation-error role="alert"></div>
 
-<form method="post" class="deck-form" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
+<form method="post" action="@Url.Content("~/chatgpt-deck-comparison")" class="deck-form" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
-        <button type="submit" class="run-button chatgpt-sticky-download__button"
+        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
                 formaction="@Url.Content("~/chatgpt-deck-comparison/download")"
-                formmethod="post">
+                formmethod="post"
+                formnovalidate>
             Download comparison session (.zip)
         </button>
     </div>
@@ -301,7 +302,7 @@ Deck B ([DECK B NAME]):
         </div>
 
         <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-deck-comparison")">Clear</button>
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-deck-comparison")">Start Over</button>
             <button type="button" class="run-button" data-chatgpt-comparison-next-step="2">Next: Generate Packet</button>
         </div>
     </section>
@@ -315,7 +316,7 @@ Deck B ([DECK B NAME]):
             </div>
             <span class="chatgpt-step-badge">Packet output</span>
         </div>
-
+        @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
@@ -384,8 +385,8 @@ Deck B ([DECK B NAME]):
         @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
         {
             <section class="result-panel nested-panel summary-panel">
-                <h3>Comparison Input Summary</h3>
-                <pre>@Model.InputSummary</pre>
+                <h3>Deck Summary</h3>
+                <pre spellcheck="false">@Model.InputSummary</pre>
             </section>
         }
 
@@ -542,9 +543,10 @@ Deck B ([DECK B NAME]):
         {
             <section class="result-panel nested-panel summary-panel" data-chatgpt-comparison-result-anchor>
                 <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button"
+                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/chatgpt-deck-comparison/download")"
-                            formmethod="post">
+                            formmethod="post"
+                            formnovalidate>
                         Download comparison session (.zip)
                     </button>
                 </div>

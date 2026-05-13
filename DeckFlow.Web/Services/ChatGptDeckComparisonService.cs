@@ -31,7 +31,10 @@ public sealed record ChatGptDeckComparisonResult(
     string FollowUpPromptText,
     string ComparisonSchemaJson,
     ChatGptDeckComparisonResponse? ComparisonResponse,
-    string? TimingSummary);
+    string? TimingSummary,
+    string? ResolvedDeckACommander = null,
+    string? ResolvedDeckBCommander = null,
+    string? RequestContextText = null);
 
 public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 {
@@ -117,6 +120,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         var deckB = await LoadDeckAsync("Deck B", request.DeckBSource, cancellationToken).ConfigureAwait(false);
         timings.Add(("Deck B load", deckBLoadStopwatch.ElapsedMilliseconds, $"{deckB.PlayableEntries.Sum(entry => entry.Quantity)} cards"));
 
+        ValidateSameCommander(deckA.CommanderName, deckB.CommanderName);
+
         var deckAName = ResolveDeckName(request.DeckAName, deckA.CommanderName, "Deck A");
         var deckBName = ResolveDeckName(request.DeckBName, deckB.CommanderName, "Deck B");
 
@@ -154,8 +159,9 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             deckAComboText,
             deckBComboText,
             comparisonContextText,
-            comparisonSchemaJson);
-        var followUpPromptText = BuildFollowUpPrompt(comparisonSchemaJson);
+            comparisonSchemaJson,
+            request.TargetAiPlatform);
+        var followUpPromptText = BuildFollowUpPrompt(comparisonSchemaJson, request.TargetAiPlatform);
 
         ChatGptDeckComparisonResponse? comparisonResponse = null;
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
@@ -176,7 +182,28 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             followUpPromptText,
             comparisonSchemaJson,
             comparisonResponse,
-            timingSummary);
+            timingSummary,
+            ResolvedDeckACommander: deckA.CommanderName,
+            ResolvedDeckBCommander: deckB.CommanderName,
+            RequestContextText: BuildRequestContextText(request));
+    }
+
+    /// <summary>
+    /// Plain-text scalar key/value envelope round-tripped through the comparison zip.
+    /// Mirrors <see cref="ChatGptDeckPacketService"/>'s BuildRequestContextText for Packets.
+    /// Parsed via <see cref="ChatGptRequestContextParser"/>; unknown keys are ignored.
+    /// </summary>
+    internal static string BuildRequestContextText(ChatGptDeckComparisonRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var builder = new StringBuilder();
+        builder.AppendLine($"workflow_step: {request.WorkflowStep}");
+        builder.AppendLine($"deck_a_name: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckAName, string.Empty)}");
+        builder.AppendLine($"deck_b_name: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckBName, string.Empty)}");
+        builder.AppendLine($"deck_a_bracket: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckABracket, string.Empty)}");
+        builder.AppendLine($"deck_b_bracket: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        return builder.ToString().TrimEnd() + Environment.NewLine;
     }
 
     private async Task<LoadedDeck> LoadDeckAsync(string deckLabel, string deckSource, CancellationToken cancellationToken)
@@ -230,7 +257,35 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             throw new InvalidOperationException($"{deckLabel} parse failed: could not determine a commander from the submitted deck.");
         }
 
+        if (!hasExplicitCommander)
+        {
+            entries = ReflagCommanderEntry(entries, commanderName);
+            playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
+        }
+
         return new LoadedDeck(entries, playableEntries, optionalEntries, commanderName ?? string.Empty);
+    }
+
+    private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
+    {
+        var matched = false;
+        var result = new List<DeckEntry>(source.Count);
+        foreach (var entry in source)
+        {
+            if (!matched
+                && entry.Quantity == 1
+                && string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Add(entry with { Board = "commander" });
+                matched = true;
+            }
+            else
+            {
+                result.Add(entry);
+            }
+        }
+        return result;
     }
 
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
@@ -540,9 +595,21 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private static string BuildInputSummary(DeckComparisonDeckSummary deckA, DeckComparisonDeckSummary deckB)
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"{deckA.Name}: commander {FallbackText(deckA.CommanderName, "Unknown")} | bracket {deckA.Bracket.Label} | mainboard {deckA.MainboardCount} | lands {deckA.Lands} | ramp {deckA.Ramp} | draw {deckA.Draw} | interaction {deckA.Interaction} | combos {deckA.IncludedComboCount}");
-        builder.AppendLine($"{deckB.Name}: commander {FallbackText(deckB.CommanderName, "Unknown")} | bracket {deckB.Bracket.Label} | mainboard {deckB.MainboardCount} | lands {deckB.Lands} | ramp {deckB.Ramp} | draw {deckB.Draw} | interaction {deckB.Interaction} | combos {deckB.IncludedComboCount}");
+        AppendDeckBlock(builder, "Deck A", deckA);
+        builder.AppendLine();
+        AppendDeckBlock(builder, "Deck B", deckB);
         return builder.ToString().TrimEnd();
+    }
+
+    private static void AppendDeckBlock(StringBuilder builder, string label, DeckComparisonDeckSummary deck)
+    {
+        var heading = string.IsNullOrWhiteSpace(deck.Name) ? label : $"{label} — {deck.Name}";
+        builder.AppendLine(heading);
+        builder.AppendLine($"Commander: {FallbackText(deck.CommanderName, "Unknown")}");
+        builder.AppendLine($"Bracket: {deck.Bracket.Label}");
+        builder.AppendLine($"Main deck cards: {deck.MainboardCount}");
+        builder.AppendLine($"Lands: {deck.Lands}  Ramp: {deck.Ramp}  Draw: {deck.Draw}");
+        builder.AppendLine($"Interaction: {deck.Interaction}  Combos: {deck.IncludedComboCount}");
     }
 
     private static string BuildComparisonContextText(DeckComparisonDeckSummary deckA, DeckComparisonDeckSummary deckB)
@@ -602,7 +669,27 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine($"  almost_combos: {(deck.AlmostComboSummaries.Count == 0 ? "(none found)" : string.Join(" | ", deck.AlmostComboSummaries))}");
     }
 
-    private static string BuildComparisonPrompt(
+    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    internal static string BuildComparisonPrompt(
+        DeckComparisonDeckSummary deckA,
+        DeckComparisonDeckSummary deckB,
+        string deckAListText,
+        string deckBListText,
+        string deckAComboText,
+        string deckBComboText,
+        string comparisonContextText,
+        string comparisonSchemaJson,
+        string targetAiPlatform)
+    {
+        return targetAiPlatform switch
+        {
+            "Claude" => BuildComparisonPromptClaude(deckA, deckB, deckAListText, deckBListText, deckAComboText, deckBComboText, comparisonContextText, comparisonSchemaJson),
+            "Gemini" => BuildComparisonPromptGemini(deckA, deckB, deckAListText, deckBListText, deckAComboText, deckBComboText, comparisonContextText, comparisonSchemaJson),
+            _ => BuildComparisonPromptChatGpt(deckA, deckB, deckAListText, deckBListText, deckAComboText, deckBComboText, comparisonContextText, comparisonSchemaJson),
+        };
+    }
+
+    private static string BuildComparisonPromptChatGpt(
         DeckComparisonDeckSummary deckA,
         DeckComparisonDeckSummary deckB,
         string deckAListText,
@@ -661,6 +748,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
         builder.AppendLine("D. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
         builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine();
         builder.AppendLine("JSON requirements:");
         builder.AppendLine("- Return valid JSON only inside the fenced ```json code block.");
         builder.AppendLine("- Do not include comments in the JSON.");
@@ -685,6 +774,172 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         return builder.ToString().TrimEnd();
     }
 
+    private static string BuildComparisonPromptClaude(
+        DeckComparisonDeckSummary deckA,
+        DeckComparisonDeckSummary deckB,
+        string deckAListText,
+        string deckBListText,
+        string deckAComboText,
+        string deckBComboText,
+        string comparisonContextText,
+        string comparisonSchemaJson)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("<role>");
+        builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
+        builder.AppendLine("</role>");
+        builder.AppendLine();
+
+        AppendComparisonPromptDeckXml(builder, "deck_a", deckA, deckAListText, deckAComboText);
+        builder.AppendLine();
+        AppendComparisonPromptDeckXml(builder, "deck_b", deckB, deckBListText, deckBComboText);
+        builder.AppendLine();
+
+        builder.AppendLine("<comparison_context>");
+        builder.AppendLine(comparisonContextText);
+        builder.AppendLine("</comparison_context>");
+        builder.AppendLine();
+
+        builder.AppendLine("<output_schema>");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"deck_comparison\": " + IndentJson(comparisonSchemaJson, 2));
+        builder.AppendLine("}");
+        builder.AppendLine("</output_schema>");
+        builder.AppendLine();
+
+        builder.AppendLine("<" + "task>");
+        builder.AppendLine("Based only on the provided deck contents and supplied context, compare the decks in a typical multiplayer Commander environment.");
+        builder.AppendLine("Provide a grounded, evidence-based comparison instead of a speculative matchup prediction.");
+        builder.AppendLine("Read all supplied deck data and context before beginning the comparison.");
+        builder.AppendLine("Treat the supplied decklists, commander names, bracket selections, combo findings, and derived comparison context as the source of truth.");
+        builder.AppendLine("Do not invent cards, colors, commander identities, or card text not supported by the provided context.");
+        builder.AppendLine("Do not assume a card's role unless it is supported by the deck contents or provided context.");
+        builder.AppendLine("Do not claim exact card text unless it is included in the packet.");
+        builder.AppendLine("If a conclusion is not well-supported by the provided deck contents, say that explicitly instead of guessing.");
+        builder.AppendLine("If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("When uncertain, mark the statement as low-confidence and add the reason to confidence_notes.");
+        builder.AppendLine("For each major conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
+        builder.AppendLine("Base conclusions on observable deck construction rather than vague impressions.");
+        builder.AppendLine("Do not make claims about exact metagames unless explicitly provided.");
+        builder.AppendLine("If the two decks target different brackets, note the mismatch prominently and explain how it affects the comparison.");
+        builder.AppendLine();
+        builder.AppendLine("Write readable comparison prose first with:");
+        builder.AppendLine($"- Commander role and game plan for {deckA.Name}");
+        builder.AppendLine($"- Commander role and game plan for {deckB.Name}");
+        builder.AppendLine("- Speed and setup tempo");
+        builder.AppendLine("- Ramp");
+        builder.AppendLine("- Draw");
+        builder.AppendLine("- Spot interaction");
+        builder.AppendLine("- Sweepers");
+        builder.AppendLine("- Recursion");
+        builder.AppendLine("- Closing power, including complete combos and near-combos as part of the win-condition comparison");
+        builder.AppendLine("- Resilience");
+        builder.AppendLine("- Consistency");
+        builder.AppendLine("- Mana stability");
+        builder.AppendLine("- Dependence on commander");
+        builder.AppendLine("- Likely table fit");
+        builder.AppendLine("- Major overlap and major differences");
+        builder.AppendLine("- Five concrete cards or packages that best explain the gap between the two decks, with one sentence of reasoning each.");
+        builder.AppendLine("- A final verdict naming which deck is stronger overall and why, in 2-4 sentences.");
+        builder.AppendLine("After the readable comparison, return a single JSON object matching <output_schema>.");
+        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("</" + "task>");
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildComparisonPromptGemini(
+        DeckComparisonDeckSummary deckA,
+        DeckComparisonDeckSummary deckB,
+        string deckAListText,
+        string deckBListText,
+        string deckAComboText,
+        string deckBComboText,
+        string comparisonContextText,
+        string comparisonSchemaJson)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("You are an expert Magic: The Gathering analyst with deep cEDH metagame knowledge.");
+        builder.AppendLine("You analyze Commander decks rigorously and base every conclusion on observable card text and deck composition.");
+        builder.AppendLine();
+        builder.AppendLine("Think carefully through the problem before responding. Read every supplied section in full before forming any conclusion. When in doubt, prefer evidence-based caveats over confident speculation.");
+        builder.AppendLine();
+        builder.AppendLine($"Title this chat: {deckA.CommanderName} vs {deckB.CommanderName} | Deck Comparison");
+        builder.AppendLine();
+        builder.AppendLine("## TASK");
+        builder.AppendLine("Based only on the provided deck contents and supplied context, compare the decks in a typical multiplayer Commander environment.");
+        builder.AppendLine("Provide a grounded, evidence-based comparison instead of a speculative matchup prediction.");
+        builder.AppendLine("Read all supplied deck data and context before beginning the comparison.");
+        builder.AppendLine();
+        builder.AppendLine("## RULES");
+        builder.AppendLine("- Treat the supplied decklists, commander names, bracket selections, combo findings, and derived comparison context as the source of truth.");
+        builder.AppendLine("- Do not invent cards, colors, commander identities, or card text not supported by the provided context.");
+        builder.AppendLine("- Do not assume a card's role unless it is supported by the deck contents or provided context.");
+        builder.AppendLine("- Do not claim exact card text unless it is included in the packet.");
+        builder.AppendLine("- If a conclusion is not well-supported by the provided deck contents, say that explicitly instead of guessing.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- When uncertain, mark the statement as low-confidence and add the reason to confidence_notes.");
+        builder.AppendLine("- For each major conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
+        builder.AppendLine("- Base conclusions on observable deck construction rather than vague impressions.");
+        builder.AppendLine("- Do not make claims about exact metagames unless explicitly provided.");
+        builder.AppendLine("- If the two decks target different brackets, note the mismatch prominently and explain how it affects the comparison.");
+        builder.AppendLine();
+        builder.AppendLine("## COMPARISON AXES");
+        builder.AppendLine("For each axis, write 2-4 sentences comparing the two decks. State the conclusion first, then the evidence.");
+        builder.AppendLine($"- Commander role and game plan for {deckA.Name}");
+        builder.AppendLine($"- Commander role and game plan for {deckB.Name}");
+        builder.AppendLine("- Speed and setup tempo");
+        builder.AppendLine("- Ramp");
+        builder.AppendLine("- Draw");
+        builder.AppendLine("- Spot interaction");
+        builder.AppendLine("- Sweepers");
+        builder.AppendLine("- Recursion");
+        builder.AppendLine("- Closing power, including complete combos and near-combos as part of the win-condition comparison");
+        builder.AppendLine("- Resilience");
+        builder.AppendLine("- Consistency");
+        builder.AppendLine("- Mana stability");
+        builder.AppendLine("- Dependence on commander");
+        builder.AppendLine("- Likely table fit");
+        builder.AppendLine("- Major overlap and major differences");
+        builder.AppendLine();
+        builder.AppendLine("## OUTPUT FORMAT");
+        builder.AppendLine("Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.");
+        builder.AppendLine();
+        builder.AppendLine("Structure your readable analysis (placed BEFORE the <result> wrapper) as follows:");
+        builder.AppendLine();
+        builder.AppendLine("A. Readable comparison — one subsection per axis above, then a concise side-by-side summary.");
+        builder.AppendLine("B. Five concrete cards or packages that best explain the gap between the two decks, with one sentence of reasoning each.");
+        builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
+        builder.AppendLine("D. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine();
+        builder.AppendLine("JSON requirements:");
+        builder.AppendLine("- Return valid JSON only inside the fenced ```json code block.");
+        builder.AppendLine("- Do not include comments in the JSON.");
+        builder.AppendLine("- Do not omit required fields.");
+        builder.AppendLine("- Use arrays instead of prose where appropriate.");
+        builder.AppendLine("- The JSON must match this schema exactly:");
+        builder.AppendLine();
+        builder.AppendLine("```json");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"deck_comparison\": " + IndentJson(comparisonSchemaJson, 2));
+        builder.AppendLine("}");
+        builder.AppendLine("```");
+        builder.AppendLine();
+        builder.AppendLine("## DECK A");
+        AppendPromptDeckSection(builder, deckA, deckAListText, deckAComboText);
+        builder.AppendLine();
+        builder.AppendLine("## DECK B");
+        AppendPromptDeckSection(builder, deckB, deckBListText, deckBComboText);
+        builder.AppendLine();
+        builder.AppendLine("## COMPARISON CONTEXT");
+        builder.AppendLine(comparisonContextText);
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
+        return builder.ToString().TrimEnd();
+    }
+
     private static void AppendPromptDeckSection(
         StringBuilder builder,
         DeckComparisonDeckSummary deck,
@@ -703,7 +958,42 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine(comboText);
     }
 
-    private static string BuildFollowUpPrompt(string comparisonSchemaJson)
+    private static void AppendComparisonPromptDeckXml(
+        StringBuilder builder,
+        string tagName,
+        DeckComparisonDeckSummary deck,
+        string deckListText,
+        string comboText)
+    {
+        builder.AppendLine($"<{tagName}>");
+        builder.AppendLine($"  <name>{deck.Name}</name>");
+        builder.AppendLine($"  <commander>{FallbackText(deck.CommanderName, "Unknown")}</commander>");
+        builder.AppendLine("  <bracket>");
+        builder.AppendLine($"    <label>{deck.Bracket.Label}</label>");
+        builder.AppendLine($"    <summary>{deck.Bracket.Summary}</summary>");
+        builder.AppendLine($"    <turn_expectation>{deck.Bracket.TurnsExpectation}</turn_expectation>");
+        builder.AppendLine("  </bracket>");
+        builder.AppendLine("  <list>");
+        builder.AppendLine(deckListText);
+        builder.AppendLine("  </list>");
+        builder.AppendLine("  <combos>");
+        builder.AppendLine(comboText);
+        builder.AppendLine("  </combos>");
+        builder.AppendLine($"</{tagName}>");
+    }
+
+    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    internal static string BuildFollowUpPrompt(string comparisonSchemaJson, string targetAiPlatform)
+    {
+        return targetAiPlatform switch
+        {
+            "Claude" => BuildFollowUpPromptClaude(comparisonSchemaJson),
+            "Gemini" => BuildFollowUpPromptGemini(comparisonSchemaJson),
+            _ => BuildFollowUpPromptChatGpt(comparisonSchemaJson),
+        };
+    }
+
+    private static string BuildFollowUpPromptChatGpt(string comparisonSchemaJson)
     {
         var builder = new StringBuilder();
         builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
@@ -729,6 +1019,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
         builder.AppendLine("- Include a revised verdict.");
         builder.AppendLine("- Then regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
+        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
         builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
         builder.AppendLine();
         builder.AppendLine("```json");
@@ -736,6 +1027,80 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("  \"deck_comparison\": " + IndentJson(comparisonSchemaJson, 2));
         builder.AppendLine("}");
         builder.AppendLine("```");
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildFollowUpPromptClaude(string comparisonSchemaJson)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("<role>");
+        builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
+        builder.AppendLine("</role>");
+        builder.AppendLine();
+        builder.AppendLine("<output_schema>");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"deck_comparison\": " + IndentJson(comparisonSchemaJson, 2));
+        builder.AppendLine("}");
+        builder.AppendLine("</output_schema>");
+        builder.AppendLine();
+        builder.AppendLine("<" + "task>");
+        builder.AppendLine("Revise the existing deck comparison using the follow-up questions and answers in this chat.");
+        builder.AppendLine("Re-read the original decklists and packet context before revising.");
+        builder.AppendLine("Preserve the original comparison structure: readable summary, side-by-side comparison, verdict, then JSON.");
+        builder.AppendLine("Incorporate the new follow-up Q&A without contradicting the supplied deck contents or packet context.");
+        builder.AppendLine("Keep using the decklists and packet context as the source of truth.");
+        builder.AppendLine("Do not invent cards, colors, or card text not supported by the provided context.");
+        builder.AppendLine("If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("If a new conclusion is uncertain, mark it as low-confidence and explain why in confidence_notes.");
+        builder.AppendLine("For each revised conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
+        builder.AppendLine("Return updated readable comparison prose first with 2-4 sentences per axis that changed, then a revised verdict.");
+        builder.AppendLine("After the readable revision, return a single JSON object matching <output_schema>.");
+        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("</" + "task>");
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildFollowUpPromptGemini(string comparisonSchemaJson)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("You are an expert Magic: The Gathering analyst with deep cEDH metagame knowledge.");
+        builder.AppendLine("You analyze Commander decks rigorously and base every conclusion on observable card text and deck composition.");
+        builder.AppendLine();
+        builder.AppendLine("Think carefully through the problem before responding. Read every supplied section in full before forming any conclusion. When in doubt, prefer evidence-based caveats over confident speculation.");
+        builder.AppendLine();
+        builder.AppendLine("## TASK");
+        builder.AppendLine("Revise the existing deck comparison using the follow-up questions and answers in this chat.");
+        builder.AppendLine("Re-read the original decklists and packet context before revising.");
+        builder.AppendLine();
+        builder.AppendLine("## RULES");
+        builder.AppendLine("- Preserve the original comparison structure: readable summary, side-by-side comparison, verdict, then JSON.");
+        builder.AppendLine("- Incorporate the new follow-up Q&A without contradicting the supplied deck contents or packet context.");
+        builder.AppendLine("- Keep using the decklists and packet context as the source of truth.");
+        builder.AppendLine("- Do not invent cards, colors, or card text not supported by the provided context.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- If a new conclusion is uncertain, mark it as low-confidence and explain why in confidence_notes.");
+        builder.AppendLine("- For each revised conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
+        builder.AppendLine();
+        builder.AppendLine("## COMPARISON AXES");
+        builder.AppendLine("Re-evaluate every axis from the original comparison where the follow-up information is relevant:");
+        builder.AppendLine("commander role, game plan, speed, ramp, draw, spot interaction, sweepers, recursion, closing power, resilience, consistency, mana stability, commander dependence, and table fit.");
+        builder.AppendLine();
+        builder.AppendLine("## OUTPUT FORMAT");
+        builder.AppendLine("Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.");
+        builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
+        builder.AppendLine("- Include a revised verdict.");
+        builder.AppendLine("- Then regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
+        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
+        builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
+        builder.AppendLine();
+        builder.AppendLine("```json");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"deck_comparison\": " + IndentJson(comparisonSchemaJson, 2));
+        builder.AppendLine("}");
+        builder.AppendLine("```");
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -835,6 +1200,38 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.Append(totalMs);
         builder.Append(" ms");
         return builder.ToString();
+    }
+
+    private static readonly HashSet<string> SectionKeywordsThatAreNotCommanders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Mainboard",
+        "Sideboard",
+        "Maybeboard",
+        "Deck",
+        "Commander",
+        "Companion"
+    };
+
+    private static void ValidateSameCommander(string? deckACommander, string? deckBCommander)
+    {
+        ValidateCommanderIsRealCardName(deckACommander, "Deck A");
+        ValidateCommanderIsRealCardName(deckBCommander, "Deck B");
+        if (!string.Equals(deckACommander!.Trim(), deckBCommander!.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Both decks must share the same commander to be compared. Deck A: \"{deckACommander.Trim()}\". Deck B: \"{deckBCommander.Trim()}\". To compare different commanders, use the Deck Analysis tool on each deck individually.");
+        }
+    }
+
+    private static void ValidateCommanderIsRealCardName(string? commander, string deckLabel)
+    {
+        if (string.IsNullOrWhiteSpace(commander))
+        {
+            throw new InvalidOperationException($"{deckLabel}'s commander could not be identified. Use a deck format that marks the commander (Archidekt/Moxfield URL with the commander assigned, or a decklist with a `Commander` section header above the commander card).");
+        }
+        if (SectionKeywordsThatAreNotCommanders.Contains(commander.Trim()))
+        {
+            throw new InvalidOperationException($"{deckLabel}'s commander parsed as the section keyword \"{commander.Trim()}\" — this means the deck list was pasted without a `Commander` section header. Re-paste the deck with a `Commander` line above the commander card, or use an Archidekt/Moxfield URL where the commander is explicitly assigned.");
+        }
     }
 
     private static string ResolveDeckName(string requestedName, string commanderName, string fallback)
@@ -1054,7 +1451,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         IReadOnlyList<DeckEntry> OptionalEntries,
         string CommanderName);
 
-    private sealed record DeckComparisonDeckSummary(
+    // Internal for test construction — exercised by ChatGptResultContractTests.
+    internal sealed record DeckComparisonDeckSummary(
         string Name,
         string CommanderName,
         CommanderBracketOption Bracket,

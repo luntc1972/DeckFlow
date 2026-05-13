@@ -33,8 +33,7 @@ Deck
             DeckBBracket = "Optimized",
             DeckBSource = """
 Commander
-1 Tymna the Weaver
-1 Thrasios, Triton Hero
+1 Atraxa, Praetors' Voice
 
 Deck
 1 Sol Ring
@@ -157,8 +156,7 @@ Deck
             DeckBBracket = "Optimized",
             DeckBSource = """
 Commander
-1 Tymna the Weaver
-1 Thrasios, Triton Hero
+1 Atraxa, Praetors' Voice
 
 Deck
 1 Sol Ring
@@ -239,8 +237,7 @@ Deck
             DeckBBracket = "Optimized",
             DeckBSource = """
 Commander
-1 Tymna the Weaver
-1 Thrasios, Triton Hero
+1 Atraxa, Praetors' Voice
 
 Deck
 1 Sol Ring
@@ -251,6 +248,67 @@ Deck
         Assert.Contains("1 Perfect Defense // Denting Blows [printed as: Ya viene el coco]", result.DeckAListText);
         Assert.Contains("1 Commander's Authority [printed as: El Senor Presidente]", result.DeckAListText);
         Assert.DoesNotContain("Perfect Defense // Denting Blows [printed as: El Senor Presidente]", result.DeckAListText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_EmitsCommanderSection_WhenDeckHasNoExplicitCommanderHeader()
+    {
+        var service = CreateService();
+        var deckText = """
+1 Atraxa, Praetors' Voice
+1 Sol Ring
+1 Arcane Signet
+1 Counterspell
+""";
+
+        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckABracket = "Upgraded",
+            DeckASource = deckText,
+            DeckBBracket = "Upgraded",
+            DeckBSource = deckText
+        });
+
+        Assert.StartsWith("Commander\n1 Atraxa, Praetors' Voice", result.DeckAListText, StringComparison.Ordinal);
+        Assert.Contains("\nMainboard\n", result.DeckAListText, StringComparison.Ordinal);
+        Assert.Equal("Atraxa, Praetors' Voice", result.ResolvedDeckACommander);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RoundTripsExportedDeckText_WhenOriginalLackedCommanderHeader()
+    {
+        var service = CreateService();
+        var original = """
+1 Atraxa, Praetors' Voice
+1 Sol Ring
+1 Arcane Signet
+1 Counterspell
+""";
+
+        var first = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckABracket = "Upgraded",
+            DeckASource = original,
+            DeckBBracket = "Upgraded",
+            DeckBSource = original
+        });
+
+        // Feed the exported decklist text back in as the source — this is what
+        // the zip round-trip does after a download + re-upload cycle.
+        var second = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckABracket = "Upgraded",
+            DeckASource = first.DeckAListText,
+            DeckBBracket = "Upgraded",
+            DeckBSource = first.DeckBListText
+        });
+
+        Assert.Equal("Atraxa, Praetors' Voice", second.ResolvedDeckACommander);
+        Assert.Equal("Atraxa, Praetors' Voice", second.ResolvedDeckBCommander);
+        Assert.Equal(first.DeckAListText, second.DeckAListText);
     }
 
     private static ChatGptDeckComparisonService CreateService(

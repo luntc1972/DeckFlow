@@ -24,7 +24,9 @@ public sealed record ChatGptCedhMetaGapResult(
     IReadOnlyList<EdhTop16Entry> FetchedEntries,
     string? PromptText,
     string? SchemaJson,
-    ChatGptCedhMetaGapResponse? AnalysisResponse);
+    ChatGptCedhMetaGapResponse? AnalysisResponse,
+    string? RequestContextText = null,
+    string? DecklistText = null);
 
 public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 {
@@ -98,7 +100,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             analysisResponse = ParseResponse(request.MetaGapResponseJson);
             if (string.IsNullOrWhiteSpace(request.DeckSource) && string.IsNullOrWhiteSpace(request.CommanderName))
             {
-                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse);
+                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse, BuildRequestContextText(request));
             }
         }
 
@@ -117,18 +119,22 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             throw new InvalidOperationException("Could not determine a commander from the submitted deck. Enter the commander name explicitly and try again.");
         }
 
-        var fetchedEntries = (await _edhTop16Client.SearchCommanderEntriesAsync(
-            resolvedCommanderName,
-            request.TimePeriod,
-            request.SortBy,
-            request.MinEventSize,
-            request.MaxStanding,
-            FetchCount,
-            cancellationToken).ConfigureAwait(false))
-            .OrderByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
-            .ThenBy(entry => entry.Standing)
-            .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var fetchedEntries = TryUseFetchedEntriesOverride(request);
+        if (fetchedEntries is null)
+        {
+            fetchedEntries = (await _edhTop16Client.SearchCommanderEntriesAsync(
+                resolvedCommanderName,
+                request.TimePeriod,
+                request.SortBy,
+                request.MinEventSize,
+                request.MaxStanding,
+                FetchCount,
+                cancellationToken).ConfigureAwait(false))
+                .OrderByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
+                .ThenBy(entry => entry.Standing)
+                .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
 
         if (fetchedEntries.Count == 0)
         {
@@ -164,7 +170,8 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 selectedEntries,
                 referenceComboTasks.Select(task => task.Result).ToList(),
                 oracleNameMap,
-                schemaJson);
+                schemaJson,
+                request.TargetAiPlatform);
         }
 
         return new ChatGptCedhMetaGapResult(
@@ -173,7 +180,116 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             fetchedEntries,
             promptText,
             schemaJson,
-            analysisResponse);
+            analysisResponse,
+            BuildRequestContextText(request),
+            DecklistText: BuildCanonicalDecklistText(loadedDeck.AllEntries));
+    }
+
+    /// <summary>
+    /// Canonical Moxfield-flavored decklist text used as the zip-stored deck
+    /// artifact so re-upload can restore <see cref="ChatGptCedhMetaGapRequest.DeckSource"/>.
+    /// Emits Commander, Mainboard, and Possible Includes sections so optional
+    /// (maybeboard/sideboard) entries the parser accepted are preserved across
+    /// the round-trip.
+    /// </summary>
+    private static string BuildCanonicalDecklistText(IReadOnlyList<DeckEntry> allEntries)
+    {
+        var builder = new StringBuilder();
+        var commander = allEntries
+            .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase));
+        if (commander is not null)
+        {
+            builder.AppendLine("Commander");
+            builder.AppendLine($"{commander.Quantity} {commander.Name}");
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("Mainboard");
+        foreach (var entry in allEntries
+                     .Where(entry =>
+                         !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            builder.AppendLine($"{entry.Quantity} {entry.Name}");
+        }
+
+        var optional = allEntries
+            .Where(entry =>
+                string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (optional.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Possible Includes");
+            foreach (var entry in optional)
+            {
+                builder.AppendLine($"{entry.Quantity} {entry.Name}");
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Plain-text scalar key/value envelope round-tripped through the cEDH meta-gap zip.
+    /// Mirrors <see cref="ChatGptDeckPacketService"/>'s BuildRequestContextText for Packets.
+    /// </summary>
+    internal static string BuildRequestContextText(ChatGptCedhMetaGapRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var builder = new StringBuilder();
+        builder.AppendLine($"workflow_step: {request.WorkflowStep}");
+        builder.AppendLine($"commander: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.CommanderName, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        builder.AppendLine($"time_period: {request.TimePeriod}");
+        builder.AppendLine($"sort_by: {request.SortBy}");
+        builder.AppendLine($"min_event_size: {request.MinEventSize}");
+        if (request.MaxStanding.HasValue)
+        {
+            builder.AppendLine($"max_standing: {request.MaxStanding.Value}");
+        }
+        if (request.SelectedReferenceIndexes is { Count: > 0 } indexes)
+        {
+            builder.AppendLine("selected_reference_indexes:");
+            foreach (var index in indexes)
+            {
+                builder.AppendLine($"- {index}");
+            }
+        }
+        return builder.ToString().TrimEnd() + Environment.NewLine;
+    }
+
+    /// <summary>
+    /// Phase 10-05: when the request carries a serialized FetchedEntries payload
+    /// (round-tripped from a saved zip), use it instead of re-hitting edhtop16.
+    /// Returns null when the override should not be applied, so the caller falls
+    /// through to the live fetch. Step 1 always re-fetches regardless.
+    /// </summary>
+    private static List<EdhTop16Entry>? TryUseFetchedEntriesOverride(ChatGptCedhMetaGapRequest request)
+    {
+        if (request.WorkflowStep < 2)
+        {
+            return null;
+        }
+        if (string.IsNullOrWhiteSpace(request.FetchedEntriesJson))
+        {
+            return null;
+        }
+        try
+        {
+            var deserialized = JsonSerializer.Deserialize<List<EdhTop16Entry>>(
+                request.FetchedEntriesJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return deserialized is { Count: > 0 } ? deserialized : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static IReadOnlyList<EdhTop16Entry> ResolveSelectedEntries(IReadOnlyList<int> selectedIndexes, IReadOnlyList<EdhTop16Entry> fetchedEntries)
@@ -219,6 +335,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             throw new InvalidOperationException("Deck parse failed: the submitted deck did not contain any commander or mainboard cards.");
         }
 
+        var hasExplicitCommander = playableEntries.Any(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase));
         var commanderName = playableEntries
             .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             ?.Name;
@@ -231,7 +348,35 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 .FirstOrDefault();
         }
 
-        return new LoadedDeck(playableEntries, commanderName ?? string.Empty);
+        if (!hasExplicitCommander && !string.IsNullOrWhiteSpace(commanderName))
+        {
+            playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
+            entries = ReflagCommanderEntry(entries, commanderName);
+        }
+
+        return new LoadedDeck(playableEntries, commanderName ?? string.Empty, entries);
+    }
+
+    private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
+    {
+        var matched = false;
+        var result = new List<DeckEntry>(source.Count);
+        foreach (var entry in source)
+        {
+            if (!matched
+                && entry.Quantity == 1
+                && string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Add(entry with { Board = "commander" });
+                matched = true;
+            }
+            else
+            {
+                result.Add(entry);
+            }
+        }
+        return result;
     }
 
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
@@ -298,7 +443,26 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildPrompt(
+    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    internal static string BuildPrompt(
+        string commanderName,
+        IReadOnlyList<DeckEntry> myDeckEntries,
+        CommanderSpellbookResult? myDeckCombos,
+        IReadOnlyList<EdhTop16Entry> selectedEntries,
+        IReadOnlyList<CommanderSpellbookResult?> referenceDeckCombos,
+        IReadOnlyDictionary<string, string> oracleNameMap,
+        string schemaJson,
+        string targetAiPlatform)
+    {
+        return targetAiPlatform switch
+        {
+            "Claude" => BuildPromptClaude(commanderName, myDeckEntries, myDeckCombos, selectedEntries, referenceDeckCombos, oracleNameMap, schemaJson),
+            "Gemini" => BuildPromptGemini(commanderName, myDeckEntries, myDeckCombos, selectedEntries, referenceDeckCombos, oracleNameMap, schemaJson),
+            _ => BuildPromptChatGpt(commanderName, myDeckEntries, myDeckCombos, selectedEntries, referenceDeckCombos, oracleNameMap, schemaJson),
+        };
+    }
+
+    private static string BuildPromptChatGpt(
         string commanderName,
         IReadOnlyList<DeckEntry> myDeckEntries,
         CommanderSpellbookResult? myDeckCombos,
@@ -418,6 +582,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("OUTPUT CONTRACT:");
         builder.AppendLine("- First, provide a concise human-readable meta gap summary.");
         builder.AppendLine("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
+        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
         builder.AppendLine("- The prose summary must come before the JSON block.");
         builder.AppendLine("- Fill every field in meta_gap.");
         builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
@@ -428,6 +593,239 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("JSON SHAPE:");
         builder.AppendLine("Use this exact shape:");
         builder.AppendLine(schemaJson);
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildPromptClaude(
+        string commanderName,
+        IReadOnlyList<DeckEntry> myDeckEntries,
+        CommanderSpellbookResult? myDeckCombos,
+        IReadOnlyList<EdhTop16Entry> selectedEntries,
+        IReadOnlyList<CommanderSpellbookResult?> referenceDeckCombos,
+        IReadOnlyDictionary<string, string> oracleNameMap,
+        string schemaJson)
+    {
+        var refCount = selectedEntries.Count;
+        var builder = new StringBuilder();
+        builder.AppendLine("<role>");
+        builder.AppendLine("You are a cEDH deck optimization analyst.");
+        builder.AppendLine("</role>");
+        builder.AppendLine();
+        builder.AppendLine("<my_deck>");
+        builder.AppendLine($"  <commander>{commanderName}</commander>");
+        builder.AppendLine("  <list>");
+        builder.AppendLine(BuildCompactDecklist(myDeckEntries, oracleNameMap));
+        builder.AppendLine("  </list>");
+        builder.AppendLine("  <combos>");
+        builder.AppendLine(BuildComboReferenceText("MY_DECK", myDeckCombos));
+        builder.AppendLine("  </combos>");
+        builder.AppendLine("</my_deck>");
+        builder.AppendLine();
+        builder.AppendLine("<reference_decks>");
+        for (var index = 0; index < refCount; index++)
+        {
+            var entry = selectedEntries[index];
+            builder.AppendLine("  <reference>");
+            builder.Append("  player: ");
+            builder.AppendLine(string.IsNullOrWhiteSpace(entry.PlayerName) ? "?" : entry.PlayerName);
+            builder.Append("  standing: #");
+            builder.AppendLine(entry.Standing.ToString());
+            if (!string.IsNullOrWhiteSpace(entry.TournamentName))
+            {
+                builder.Append("  tournament: ");
+                builder.AppendLine(entry.TournamentName);
+            }
+
+            if (entry.TournamentDate.HasValue)
+            {
+                builder.Append("  tournament_date: ");
+                builder.AppendLine(entry.TournamentDate.Value.ToString("yyyy-MM-dd"));
+            }
+
+            builder.AppendLine("  <list>");
+            builder.AppendLine(BuildCompactRefDecklist(entry, oracleNameMap));
+            builder.AppendLine("  </list>");
+            builder.AppendLine("  <combos>");
+            var comboResult = index < referenceDeckCombos.Count ? referenceDeckCombos[index] : null;
+            builder.AppendLine(BuildComboReferenceText($"R{index + 1}", comboResult));
+            builder.AppendLine("  </combos>");
+            builder.AppendLine("  </reference>");
+        }
+        builder.AppendLine("</reference_decks>");
+        builder.AppendLine();
+        builder.AppendLine("<output_schema>");
+        builder.AppendLine(schemaJson);
+        builder.AppendLine("</output_schema>");
+        builder.AppendLine();
+        builder.AppendLine("<" + "task>");
+        builder.AppendLine($"Compare MY_DECK against {refCount} REF deck(s).");
+        builder.AppendLine("Use the supplied decklists as the primary evidence.");
+        builder.AppendLine("Use the supplied Commander Spellbook combo sections as verified combo evidence.");
+        builder.AppendLine("Only infer patterns that are strongly supported by the supplied cards.");
+        builder.AppendLine("If Commander Spellbook evidence and deck-reading inference conflict, prefer the Commander Spellbook evidence.");
+        builder.AppendLine("Read every supplied decklist before answering.");
+        builder.AppendLine("Base every conclusion ONLY on observable card overlap and deck construction.");
+        builder.AppendLine("Do NOT assume combo lines unless supported by card presence in the lists.");
+        builder.AppendLine("Cite specific card names as evidence.");
+        builder.AppendLine("Clearly label any interpretation as inference.");
+        builder.AppendLine("If evidence is weak or unclear, explicitly say so in the relevant field.");
+        builder.AppendLine("Do NOT invent card text or interactions.");
+        builder.AppendLine();
+        builder.AppendLine("Provide readable analysis first covering:");
+        builder.AppendLine("- WIN CONDITIONS");
+        builder.AppendLine("- INTERACTION AUDIT");
+        builder.AppendLine("- SPEED & TEMPO");
+        builder.AppendLine("- MANA EFFICIENCY");
+        builder.AppendLine("- CARD OVERLAP ANALYSIS");
+        builder.AppendLine("- CONSISTENCY & REDUNDANCY");
+        builder.AppendLine("- TOP IMPROVEMENTS");
+        builder.AppendLine("- META POSITIONING");
+        builder.AppendLine("After the readable summary, return a single JSON object matching <output_schema>.");
+        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("</" + "task>");
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildPromptGemini(
+        string commanderName,
+        IReadOnlyList<DeckEntry> myDeckEntries,
+        CommanderSpellbookResult? myDeckCombos,
+        IReadOnlyList<EdhTop16Entry> selectedEntries,
+        IReadOnlyList<CommanderSpellbookResult?> referenceDeckCombos,
+        IReadOnlyDictionary<string, string> oracleNameMap,
+        string schemaJson)
+    {
+        var refCount = selectedEntries.Count;
+        var builder = new StringBuilder();
+        builder.AppendLine("You are an expert Magic: The Gathering analyst with deep cEDH metagame knowledge.");
+        builder.AppendLine("You analyze Commander decks rigorously and base every conclusion on observable card text and deck composition.");
+        builder.AppendLine();
+        builder.AppendLine("Think carefully through the problem before responding. Read every supplied section in full before forming any conclusion. When in doubt, prefer evidence-based caveats over confident speculation.");
+        builder.AppendLine();
+        builder.AppendLine($"Title this chat: {commanderName} | cEDH Meta Gap");
+        builder.AppendLine();
+        builder.AppendLine("ROLE:");
+        builder.AppendLine("You are a cEDH deck optimization analyst.");
+        builder.AppendLine($"Compare MY_DECK against {refCount} REF deck(s).");
+        builder.AppendLine();
+
+        builder.AppendLine("EVIDENCE PRIORITY:");
+        builder.AppendLine("1. Use the supplied decklists as the primary evidence.");
+        builder.AppendLine("2. Use the supplied Commander Spellbook combo sections as verified combo evidence.");
+        builder.AppendLine("3. Only infer patterns that are strongly supported by the supplied cards.");
+        builder.AppendLine("4. If Commander Spellbook evidence and deck-reading inference conflict, prefer the Commander Spellbook evidence.");
+        builder.AppendLine();
+
+        builder.AppendLine("RULES:");
+        builder.AppendLine("- Read every supplied decklist before answering.");
+        builder.AppendLine("- Base every conclusion ONLY on observable card overlap and deck construction.");
+        builder.AppendLine("- Do NOT assume combo lines unless supported by card presence in the lists.");
+        builder.AppendLine("- Cite specific card names as evidence.");
+        builder.AppendLine("- Clearly label any interpretation as inference.");
+        builder.AppendLine("- If evidence is weak or unclear, explicitly say so in the relevant field.");
+        builder.AppendLine("- Do NOT invent card text or interactions.");
+        builder.AppendLine();
+
+        builder.AppendLine("INPUT DATA:");
+        builder.AppendLine($"MY_DECK ({commanderName}):");
+        builder.AppendLine(BuildCompactDecklist(myDeckEntries, oracleNameMap));
+        builder.AppendLine();
+        builder.AppendLine(BuildComboReferenceText("MY_DECK", myDeckCombos));
+        builder.AppendLine();
+
+        for (var index = 0; index < refCount; index++)
+        {
+            var entry = selectedEntries[index];
+            builder.Append($"R{index + 1} (");
+            builder.Append(string.IsNullOrWhiteSpace(entry.PlayerName) ? "?" : entry.PlayerName);
+            builder.Append($", #{entry.Standing}");
+            if (!string.IsNullOrWhiteSpace(entry.TournamentName))
+            {
+                builder.Append($", {entry.TournamentName}");
+            }
+
+            if (entry.TournamentDate.HasValue)
+            {
+                builder.Append($", {entry.TournamentDate.Value:yyyy-MM-dd}");
+            }
+
+            builder.AppendLine("):");
+            builder.AppendLine(BuildCompactRefDecklist(entry, oracleNameMap));
+            builder.AppendLine();
+
+            var comboResult = index < referenceDeckCombos.Count ? referenceDeckCombos[index] : null;
+            builder.AppendLine(BuildComboReferenceText($"R{index + 1}", comboResult));
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("ANALYSIS TASK:");
+        builder.AppendLine("Use the input data above and complete every section below.");
+        builder.AppendLine();
+
+        builder.AppendLine("1. WIN CONDITIONS");
+        builder.AppendLine("- Identify primary and backup win lines in MY_DECK.");
+        builder.AppendLine("- Identify primary and backup win lines across REF decks (consensus).");
+        builder.AppendLine("- List win lines present in multiple REF decks but missing in MY_DECK.");
+        builder.AppendLine();
+
+        builder.AppendLine("2. INTERACTION AUDIT");
+        builder.AppendLine("- Count and compare counterspells, removal, free interaction, and stax pieces.");
+        builder.AppendLine("- Determine if MY_DECK is under, over, or aligned vs REF decks.");
+        builder.AppendLine("- Identify key missing interaction pieces.");
+        builder.AppendLine();
+
+        builder.AppendLine("3. SPEED & TEMPO");
+        builder.AppendLine("- Classify each deck as turbo (T2-3), fast (T3-4), mid (T4-5), or grind (T5+).");
+        builder.AppendLine("- Estimate MY_DECK vs REF average goldfish speed.");
+        builder.AppendLine("- Identify cards contributing to faster starts (fast mana, free spells).");
+        builder.AppendLine();
+
+        builder.AppendLine("4. MANA EFFICIENCY");
+        builder.AppendLine("- Compare fast mana count (0-1 CMC ramp), total ramp density, and land count.");
+        builder.AppendLine("- Identify missing high-impact acceleration pieces.");
+        builder.AppendLine();
+
+        builder.AppendLine("5. CARD OVERLAP ANALYSIS");
+        builder.AppendLine($"- Core convergence: cards in all {refCount} REF decks. Flag whether MY_DECK has them.");
+        builder.AppendLine("- High-frequency staples: cards in 2+ REF decks but not in MY_DECK = missing staples.");
+        builder.AppendLine("- Cards unique to MY_DECK (in 0 REF decks) = potential cuts.");
+        builder.AppendLine("- Categorize each by role: ramp, interaction, draw, wincon, protection, stax, tutor, utility, land.");
+        builder.AppendLine();
+
+        builder.AppendLine("6. CONSISTENCY & REDUNDANCY");
+        builder.AppendLine("- Compare tutor density, redundant combo pieces, and draw engine count.");
+        builder.AppendLine("- Determine whether MY_DECK is more or less consistent than the REF sample.");
+        builder.AppendLine();
+
+        builder.AppendLine("7. TOP IMPROVEMENTS");
+        builder.AppendLine("- Top 5-10 adds: include what each replaces and justify using overlap evidence.");
+        builder.AppendLine("- Top 5-10 cuts: explain why each is low-impact or non-meta.");
+        builder.AppendLine();
+
+        builder.AppendLine("8. META POSITIONING");
+        builder.AppendLine("- Determine if MY_DECK is faster or slower than the field, more or less interactive.");
+        builder.AppendLine("- Identify which archetype it most resembles (turbo, midrange, control, stax).");
+        builder.AppendLine("- Assign a 1-10 cEDH readiness score with 2-sentence justification.");
+        builder.AppendLine();
+
+        builder.AppendLine("OUTPUT CONTRACT:");
+        builder.AppendLine("Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.");
+        builder.AppendLine("- First, provide a concise human-readable meta gap summary.");
+        builder.AppendLine("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
+        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
+        builder.AppendLine("- The prose summary must come before the JSON block.");
+        builder.AppendLine("- Fill every field in meta_gap.");
+        builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
+        builder.AppendLine("- Keep all detail and justification concise, specific, and evidence-based.");
+        builder.AppendLine("- Put the consistency/redundancy summary and meta-positioning summary into meta_summary and optimization_path.");
+        builder.AppendLine("- Do not add any extra sections after the JSON block.");
+        builder.AppendLine();
+        builder.AppendLine("JSON SHAPE:");
+        builder.AppendLine("Use this exact shape:");
+        builder.AppendLine(schemaJson);
+        builder.AppendLine();
+        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -805,5 +1203,14 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return result;
     }
 
-    private sealed record LoadedDeck(IReadOnlyList<DeckEntry> PlayableEntries, string CommanderName);
+    /// <summary>
+    /// Parsed-deck snapshot. <c>PlayableEntries</c> drives prompt + analysis paths
+    /// (maybeboard/sideboard excluded). <c>AllEntries</c> preserves the full parser
+    /// output so the canonical deck artifact written to the session zip can include
+    /// optional sections users typed.
+    /// </summary>
+    private sealed record LoadedDeck(
+        IReadOnlyList<DeckEntry> PlayableEntries,
+        string CommanderName,
+        IReadOnlyList<DeckEntry> AllEntries);
 }

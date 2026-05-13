@@ -8,17 +8,11 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Every supported workflow must produce output the user can paste into ChatGPT and get back a useful answer in one round-trip — without the user reformatting anything.** Visual polish, theme variety, and admin tooling all serve that core. If the prompt artifacts are wrong or missing, nothing else matters.
 
-## Current Milestone: v1.1 Admin Console
+## Current State
 
-**Goal:** Ship a unified `/Admin` console (sidebar shell) that lets the operator drive Archidekt harvest jobs, see usage analytics, and toggle feature flags at runtime — without leaving the browser or shipping code.
+**Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — AI target selector (ChatGPT / Claude / Gemini) live on all three ChatGPT analysis pages with zip round-trip; Claude-optimized XML prompt structure; cEDH meta-gap Step 1 state round-trip; Gemini gated behind `DECKFLOW_GEMINI_ENABLED` env flag because the full packet exceeds gemini.google.com's paste cap.
 
-**Target features:**
-- `/Admin` landing shell with sidebar nav (Feedback / Harvest / Analytics / Flags / future slots)
-- `/Admin/harvest`: run-now with duration cap, single Archidekt URL harvest, cancel, pause/resume, cron schedule, stats (total decks, cards, top commanders, recent runs, storage size, last + next run)
-- `/Admin/analytics`: per-page usage (route + day + count + unique-IP count + error rate, with daily sparkline and time-window filters)
-- `/Admin/flags`: Postgres-backed feature flags with hot reload — kill switches per page/function, Tagger off, beta-feature gates
-- BasicAuth gate (existing) carried across all admin pages
-- `/Admin/feedback` continues to work unchanged inside new shell
+**Next:** v1.3 — not yet scoped. Candidates: AiPlatform value object refactor, Gemini paste-limit workaround, VERIFICATION.md backfill for v1.2 phases.
 
 ## Requirements
 
@@ -45,16 +39,18 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - ✓ Scryfall Tagger restored for cEDH staples (auto-cookie revert + Cloudflare BIC headers + `AutomaticDecompression`) — v1.0 (BUG-01)
 - ✓ Postgres-backed admin brute-force throttle with `CF-Connecting-IP` partition + same fix on `/feedback` rate-limiter — v1.0 (BUG-02 + TD-04 patch)
 - ✓ Localhost integration test regression guard for Tagger cookie-replay path — v1.0
+- ✓ TargetCommanderBracket selector visually prominent on ChatGPT Packets page — v1.2 (BRKT-01)
+- ✓ AI target selector (ChatGPT / Claude / Gemini) on all three ChatGPT analysis pages — v1.2 (AISEL-01)
+- ✓ Claude-optimized artifact format + instructions — v1.2 (AISEL-02)
+- ✓ Gemini-optimized artifact format + instructions — v1.2 (AISEL-03, flag-gated since 2026-05-13)
+- ✓ AI selection preserved in zip round-trip — v1.2 (AISEL-04)
+- ✓ cEDH meta-gap Step 1 state preserved in zip round-trip (fetched entries + filters + selections, regenerate without re-fetching edhtop16) — v1.2 (AISEL-04 closeout, 10-05)
 
 ### Active
 
-<!-- v1.1 Admin Console — final REQ-IDs locked in REQUIREMENTS.md. -->
+<!-- v1.3 not yet scoped — run /gsd-new-milestone to define. -->
 
-- [ ] Admin landing shell with sidebar nav (Feedback / Harvest / Analytics / Flags / future slots) under existing BasicAuth
-- [ ] `/Admin/harvest` controls — run-now + duration cap, single-URL harvest, cancel, pause/resume, cron schedule
-- [ ] `/Admin/harvest` stats — total decks, total cards, top commanders, recent runs, storage size, last + next run
-- [ ] `/Admin/analytics` — per-page usage (route + day + count + unique-IP + error rate), time-window filter, daily sparkline
-- [ ] `/Admin/flags` — Postgres-backed feature flags with hot reload (page kill switches, Tagger off, beta gates)
+(none — v1.3 pending definition)
 
 ### Out of Scope
 
@@ -147,6 +143,11 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 | Phase 4 abandonment + rerouting BUG-01/BUG-02 to Phase 5 | Both Phase 4 fixes passed static checks but failed live on prod (Tagger still empty for cEDH staples, throttle still ineffective). Pressing forward would have buried the root causes. | ✓ Good (Phase 5 surfaced Cloudflare BIC + AutomaticDecompression as the actual blockers) |
 | `CF-Connecting-IP` as the partition key for both admin throttle AND `/feedback` rate-limiter | `X-Forwarded-For` was being fragmented by multi-proxy chain; spoof-resistance comes from Render Inbound IP Rules + Cloudflare CIDR allow-list, not from header trust. | ✓ Good (live UAT 10×401 + 1×429 with monotonic Retry-After 899→879) |
 | Localhost `HttpListener` integration test for Tagger cookie-replay | Static checks let `4db8b8a` ship to prod without exercising the GraphQL POST leg. Real `SocketsHttpHandler` against a stub server catches future regressions to manual cookie replay or `UseCookies=false`. | ✓ Good (2/2 pass; closes the verification gap) |
+| Per-AI dispatch primitive on prompt builders (v1.2 Phase 10-01) | Single `request.TargetAiPlatform` branch at the top of every prompt builder, fanned out across all 5 builders (analysis, set-upgrade, comparison, follow-up, meta-gap). Keeps ChatGPT path unchanged; Claude/Gemini are additive. | ✓ Good (15 variants shipped 2026-05-09; AISEL-02/03 satisfied) |
+| Unified `<result>...</result>` wrapper for AI responses (v1.2 Phase 10-03) | One regex extracts JSON from any AI's response with the fenced ` ```json ` block preserved as fallback. Closes AISEL-04 in a single seam rather than 3 page-specific parsers. | ✓ Good (one extractor, 3 pages, no per-page paste logic) |
+| Hybrid deck text storage in session zips (v1.2 Phase 10 hardening) | Store both original (user-pasted) and canonical (BuildDecklistText output) in every zip. Original-prefers-canonical loader precedence handles the alphabetize-vs-preserve mismatch on re-upload. | ✓ Good (62ee45b; 11 new tests) |
+| Hidden form field carries cEDH Step 1 state between Step 2 submits (v1.2 Phase 10-05) | Stateless server, no session-affinity required, sidesteps edhtop16 rate-limit on regenerate. ~50-200KB per form post is acceptable. | ✓ Good (T3 retest passed 2026-05-13) |
+| Gemini hidden behind `DECKFLOW_GEMINI_ENABLED` flag at v1.2 close | Full packet exceeds gemini.google.com paste cap, truncating instructions. Server logic preserved; flip env var to re-enable. | ⚠️ Revisit in v1.3 (needs split-message prompt or direct API integration) |
 
 ## Evolution
 
@@ -165,11 +166,13 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-## Current State
+## Shipped History
 
 **Shipped:** v1.0 Polish & Quality (2026-05-02) — all 15 v1 requirements landed across 5 phases, 17 plans, 63 commits.
+**Shipped:** v1.1 Admin Console (2026-05-08) — all 27 requirements landed across Phases 6–8 + Phase 7.1 insert.
+**Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — 5 requirements across Phases 9-10 (8 plans). AI target selector + Claude-optimized artifacts + cEDH Step 1 round-trip live. Gemini flag-gated.
 
-**Active:** v1.1 Admin Console — defining requirements and roadmap.
+**Next:** v1.3 — not yet scoped. Run `/gsd-new-milestone` to define.
 
 ---
-*Last updated: 2026-05-02 — v1.1 Admin Console milestone opened*
+*Last updated: 2026-05-13 — v1.2 Multi-AI Prompts milestone shipped*

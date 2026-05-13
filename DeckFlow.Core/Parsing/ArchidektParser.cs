@@ -21,6 +21,7 @@ public sealed partial class ArchidektParser : IParser
 
         var entries = new List<DeckEntry>();
         var foundEntries = false;
+        var currentBoard = "mainboard";
         var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
         for (var i = 0; i < lines.Length; i++)
@@ -36,12 +37,20 @@ public sealed partial class ArchidektParser : IParser
                 break;
             }
 
+            // Section headers switch the current board state so cards listed
+            // under them inherit it. Matches Moxfield parser's stateful flow.
+            if (TryGetBoardHeader(line, out var headerBoard))
+            {
+                currentBoard = headerBoard;
+                continue;
+            }
+
             if (IsIgnorableLine(line))
             {
                 continue;
             }
 
-            if (!TryParseEntry(line, allowImplicitQuantity: !foundEntries, out var entry))
+            if (!TryParseEntry(line, currentBoard, allowImplicitQuantity: !foundEntries, out var entry))
             {
                 if (foundEntries && IsNonDeckTextLine(line))
                 {
@@ -68,7 +77,7 @@ public sealed partial class ArchidektParser : IParser
         return entries;
     }
 
-    private static bool TryParseEntry(string line, bool allowImplicitQuantity, out DeckEntry entry)
+    private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, out DeckEntry entry)
     {
         entry = default!;
 
@@ -136,7 +145,7 @@ public sealed partial class ArchidektParser : IParser
             }
         }
 
-        var board = DetermineBoard(categoryText);
+        var board = DetermineBoard(categoryText, defaultBoard);
         entry = new DeckEntry
         {
             Name = cardName,
@@ -151,13 +160,16 @@ public sealed partial class ArchidektParser : IParser
         return true;
     }
 
-    private static string DetermineBoard(string? categories)
+    private static string DetermineBoard(string? categories, string defaultBoard = "mainboard")
     {
         if (string.IsNullOrWhiteSpace(categories))
         {
-            return "mainboard";
+            return defaultBoard;
         }
 
+        // Inline category tags take precedence over the parse-loop board state
+        // (so a card explicitly tagged [Sideboard] under a Mainboard header
+        // still ends up on the sideboard).
         if (categories.Contains("Sideboard", StringComparison.OrdinalIgnoreCase))
         {
             return "sideboard";
@@ -173,7 +185,40 @@ public sealed partial class ArchidektParser : IParser
             return "commander";
         }
 
-        return "mainboard";
+        return defaultBoard;
+    }
+
+    private static bool TryGetBoardHeader(string line, out string board)
+    {
+        var normalized = line.Trim().TrimEnd(':');
+        if (string.Equals(normalized, "Commander", StringComparison.OrdinalIgnoreCase))
+        {
+            board = "commander";
+            return true;
+        }
+
+        if (string.Equals(normalized, "Mainboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Deck", StringComparison.OrdinalIgnoreCase))
+        {
+            board = "mainboard";
+            return true;
+        }
+
+        if (string.Equals(normalized, "Sideboard", StringComparison.OrdinalIgnoreCase))
+        {
+            board = "sideboard";
+            return true;
+        }
+
+        if (string.Equals(normalized, "Maybeboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Possible Includes", StringComparison.OrdinalIgnoreCase))
+        {
+            board = "maybeboard";
+            return true;
+        }
+
+        board = string.Empty;
+        return false;
     }
 
     private static string? NormalizeCategory(string? categories)
