@@ -16,23 +16,10 @@ progress:
 
 ## Deferred Items
 
-Items acknowledged and deferred at v1.2 milestone close on 2026-05-13. Roll to v1.3 triage.
+Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harvest-killed-by-suggestion (debug), AiPlatform value object refactor. Removed 7 quick_tasks (all complete per SUMMARY, stale "missing" label). Closed 07-VERIFICATION as satisfied (v1.1 shipped 2026-05-08, no harvest crash incidents). Backfilled 09/10-VERIFICATION.md and Phase 9 SUMMARY frontmatter same session.
 
 | Category | Item | Status |
 |----------|------|--------|
-| debug | harvest-killed-by-suggestion | investigating (since 2026-05-03) |
-| verification_gap | Phase 07 (07-VERIFICATION.md) | human_needed |
-| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing |
-| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing |
-| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | missing |
-| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | missing |
-| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | missing |
-| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | missing |
-| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | missing |
-| documentation | 09-VERIFICATION.md missing (v1.2 phase 9) | not authored |
-| documentation | 10-VERIFICATION.md missing (v1.2 phase 10) | not authored |
-| documentation | Phase 9 SUMMARYs miss requirements-completed frontmatter | partial |
-| tech_debt | AiPlatform value object refactor (v1.3 candidate) | designed in 10-AISEL-PLATFORM-DESIGN.md |
 | tech_debt | Gemini paste-limit workaround | flag-gated DECKFLOW_GEMINI_ENABLED |
 
 # Project State

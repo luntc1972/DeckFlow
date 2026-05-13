@@ -45,10 +45,12 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 
 ### 🟢 v1.3 — Pending Definition
 
-Next milestone not yet scoped. Candidates (from v1.2 deferred):
-- AiPlatform value object refactor (designed in `10-AISEL-PLATFORM-DESIGN.md`)
-- Gemini paste-limit workaround (split-message prompt or direct API)
-- Backfill v1.2 VERIFICATION.md docs
+Next milestone not yet scoped. Candidates (promoted from v1.2 deferred via 2026-05-13 backlog review):
+- AiPlatform value object refactor (designed in `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization/10-AISEL-PLATFORM-DESIGN.md`)
+- Debug `harvest-killed-by-suggestion` — H1 hypothesis (`EnqueueAsync` CT leak into `_activeJobCts`) parked since 2026-05-03 in `.planning/debug/harvest-killed-by-suggestion.md`; confirm + fix
+
+Other deferred candidates (not promoted):
+- Gemini paste-limit workaround (split-message prompt or direct API) — kept deferred, flag-gated `DECKFLOW_GEMINI_ENABLED`
 
 Run `/gsd-new-milestone` to start v1.3 definition.
 

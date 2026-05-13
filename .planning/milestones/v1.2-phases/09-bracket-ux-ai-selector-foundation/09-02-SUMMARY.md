@@ -1,6 +1,7 @@
 ---
 phase: 09-bracket-ux-ai-selector-foundation
 plan: "02"
+requirements-completed: [AISEL-04]
 subsystem: ChatGPT request models + zip round-trip
 tags: [models, services, round-trip, ai-selector]
 dependency_graph:
