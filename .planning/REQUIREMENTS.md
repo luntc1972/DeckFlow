@@ -66,29 +66,29 @@ Source: `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization
 
 ## Traceability
 
-(populated by gsd-roadmapper after roadmap creation)
+(populated by gsd-roadmapper after roadmap creation — 2026-05-13)
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| WDG-01 | TBD | active |
-| WDG-02 | TBD | active |
-| WDG-03 | TBD | active |
-| WDG-04 | TBD | active |
-| WDG-05 | TBD | active |
-| WDG-06 | TBD | active |
-| WDG-07 | TBD | active |
-| WDG-08 | TBD | active |
-| WDG-09 | TBD | active |
-| WDG-10 | TBD | active |
-| RENAME-01 | TBD | active |
-| RENAME-02 | TBD | active |
-| RENAME-03 | TBD | active |
-| CLASSRENAME-01 | TBD | active |
-| CLASSRENAME-02 | TBD | active |
-| CLASSRENAME-03 | TBD | active |
-| AUDIT-01 | TBD | active |
-| AUDIT-02 | TBD | active |
-| AUDIT-03 | TBD | active |
-| AIPLATFORM-01 | TBD | active |
-| AIPLATFORM-02 | TBD | active |
-| AIPLATFORM-03 | TBD | active |
+| WDG-01 | 11 | active |
+| WDG-02 | 11 | active |
+| WDG-03 | 11 | active |
+| WDG-04 | 11 | active |
+| WDG-05 | 11 | active |
+| WDG-06 | 11 | active |
+| WDG-07 | 11 | active |
+| WDG-08 | 11 | active |
+| WDG-09 | 11 | active |
+| WDG-10 | 11 | active |
+| RENAME-01 | 12 | active |
+| RENAME-02 | 12 | active |
+| RENAME-03 | 12 | active |
+| CLASSRENAME-01 | 13 | active |
+| CLASSRENAME-02 | 13 | active |
+| CLASSRENAME-03 | 13 | active |
+| AUDIT-01 | 14 | active |
+| AUDIT-02 | 14 | active |
+| AUDIT-03 | 14 | active |
+| AIPLATFORM-01 | 15 | active |
+| AIPLATFORM-02 | 15 | active |
+| AIPLATFORM-03 | 15 | active |

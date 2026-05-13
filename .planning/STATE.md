@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: planning
-last_updated: "2026-05-13T21:28:14.419Z"
+last_updated: "2026-05-13T22:00:00.000Z"
 last_activity: 2026-05-13
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,37 +20,50 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 | Category | Item | Status |
 |----------|------|--------|
 | tech_debt | Gemini paste-limit workaround | flag-gated DECKFLOW_GEMINI_ENABLED |
+| debug | harvest-killed-by-suggestion (H1 hypothesis parked in `.planning/debug/`) | deferred from v1.3 — root-cause work is gating, not parallel-shippable |
+| archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; quick-task candidate for v1.4 cleanup |
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
+See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
-**Core value:** Every supported workflow must produce output the user can paste into their AI assistant and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 10 — implementation complete + hybrid storage shipped; tests 1-2 PASSED; 6 integration tests still pending human-verify before milestone close.
+**Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
+**Current focus:** v1.3 milestone scoped — roadmap created with 5 phases (11-15), 22 v1.3 REQ-IDs mapped 100%. Next: plan Phase 11 (WDG audit fixes).
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
+Phase: 11 (Web Design Guidelines Audit Fixes) — not started
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-13 — Milestone v1.3 started
+Status: Roadmap created; awaiting `/gsd-plan-phase 11`
+Last activity: 2026-05-13 — v1.3 ROADMAP.md created, all 22 REQ-IDs mapped to Phases 11-15
+Progress: 0/5 phases complete (0%)
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (v1.2 reference):**
 
-- Total plans completed: 3 (v1.2)
-- Average duration: ~1 day per plan (parallel waves)
-- Total execution time: ~1 day (Wave 1 parallel: 09-01 + 09-02; then 09-03)
+- Total plans completed in v1.2: 8 (Phases 9 + 10)
+- Average duration: ~1 day per plan (parallel waves where possible)
 
-**By Phase:**
+**By Phase (v1.2):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 9 — Bracket UX + AI Selector | 3 | 3 | ~1 day |
-| 10 — Claude + Gemini Optimization | TBD | — | — |
+| 10 — Claude + Gemini Optimization | 5 | 5 | ~1 day |
+
+**v1.3 Forecast:**
+
+| Phase | Plans (est.) | Notes |
+|-------|--------------|-------|
+| 11 — WDG Audit Fixes | 10 | One plan per sweep PR in `260513-wdg-FINDINGS.md` |
+| 12 — URL + Page Rename | 2-3 | Slug + redirect + filename sanitizer + view sweep |
+| 13 — ChatGpt* Class Rename | 2-3 | DTO/service/viewmodel rename + doc comment backfill + DI/test fixture update |
+| 14 — Broader Audit | 2-3 | Per-project sweep + doc comment backfill + build clean |
+| 15 — AiPlatform Refactor | 3-4 | Value object + per-builder registries + DI wiring + T1-T8 reverify |
 
 ## Accumulated Context
 
@@ -59,87 +72,58 @@ Last activity: 2026-05-13 — Milestone v1.3 started
 v1.1 Admin Console shipped 2026-05-08. All 27 REQ-IDs complete across Phases 6–8 + Phase 7.1.
 Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captured.
 
-### Phase 9 Execution (v1.2)
+### v1.2 Shipped
 
-| Plan | Description | Commits |
-|------|-------------|---------|
-| 09-01 | CSS tokens + `_AiSelector` / `_BracketCallout` partials created | (Wave 1) |
-| 09-02 | `TargetAiPlatform` round-trip — model + parser + writer + zip loader | 5b4e777, e222c7f |
-| 09-03 | View wiring across all three ChatGPT pages | eaf1931, ab368fa, ad8a70e |
-| 09-03 fix | Download buttons formnovalidate + AI selector checked rendering | 32bf620 |
-| 09-03 fix | Allow upload of partial session zips (no responses yet) | f26e63d |
-| post-verify | Pin form action on all 3 ChatGPT pages so post-upload submits hit the correct route | 7c70963 |
-| post-verify | Clear persisted form state on session-zip upload (was overwriting upload-rendered values) | 13bb656 |
-| post-verify | Debounce session-zip download buttons (3s disable to prevent rapid re-clicks) | ce043df |
+v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) functionally complete across Phases 9-10 (8 plans). Gemini flag-gated behind `DECKFLOW_GEMINI_ENABLED` because full packet exceeds gemini.google.com paste cap. Audit gap: documentation-only (see `.planning/milestones/v1.2-MILESTONE-AUDIT.md`).
 
-### Quick Tasks Completed (v1.2 era)
+### v1.3 Roadmap Created (2026-05-13)
 
-| # | Description | Date | Commit |
-|---|-------------|------|--------|
-| b09fd46 | fix: busy indicator sticks after zip download — data-no-busy on download buttons, registerBusyIndicator checks submitter | 2026-05-08 | b09fd46 |
+22 v1.3 REQ-IDs mapped across 5 phases:
 
-### Relevant Architecture for Phase 9 / 10
-
-- ChatGPT packet form: `DeckFlow.Web/Views/Deck/ChatGptPackets.cshtml` — `data-chatgpt-packets-form`, `data-chatgpt-current-step`
-- Deck Comparison form: `DeckFlow.Web/Views/Deck/ChatGptDeckComparison.cshtml`
-- CEDH Meta Gap form: `DeckFlow.Web/Views/Deck/ChatGptCedhMetaGap.cshtml`
-- `_AiSelector.cshtml` partial wired into top of Step 2 on all three pages (per 09-03 decision)
-- `TargetCommanderBracket` wrapped in `.bracket-callout` — Packets-only
-- `TargetAiPlatform` field round-trips via `ChatGptRequestContextParser` + `ChatGptPacketArtifactStore.LoadFromZip` (extended in 09-02)
-- `df-select` + `required` fields need `formnovalidate` on bypass-validation submit buttons (lesson from 09-03 regression)
+- **Phase 11 (WDG-01..10)**: 10 sweep PRs from `260513-wdg-FINDINGS.md`. Highest leverage: Sweep 1 (`site-common.css` cross-cutting a11y — avoids 22× theme fork) + Sweep 2 (admin focus-visible foundation).
+- **Phase 12 (RENAME-01..03)**: AI-agnostic URL slugs + permanent 301 redirects + H1/nav/hub labels + filename sanitizer. Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` Option A (Mock A).
+- **Phase 13 (CLASSRENAME-01..03)**: Strip `ChatGpt` prefix from all C# types; backfill `<summary>` doc comments; update DI + InternalsVisibleTo + test fixtures + Razor `@model` directives.
+- **Phase 14 (AUDIT-01..03)**: Broader name-vs-behavior pass across all 5 projects; doc-comment backfill; Release build clean.
+- **Phase 15 (AIPLATFORM-01..03)**: Sealed `AiPlatform` record value object per `10-AISEL-PLATFORM-DESIGN.md`. OCP 3/10 → 8/10. T1-T8 reverify for zero behavior change.
 
 ### Decisions
 
-- v1.2 artifact optimization: both file format AND instructions section differ per AI platform (confirmed by user 2026-05-08)
-- Phase 9 ships UI + round-trip with ChatGPT-format fallback for Claude/Gemini; Phase 10 adds per-AI artifact content
-- 09-03: `_AiSelector` placement = directly after `chatgpt-step-heading` close, before first content div (consistent across all three views)
-- 09-03 regression: `_AiSelector.cshtml` uses `checked="@(x ? "checked" : null)"` not `checked="@(x)"` to avoid `checked="True"` rendering
-- 2026-05-10: Hybrid storage scope expanded mid-session — user picked "all-in" on Codex's 5 findings. Original-prefers-canonical loader precedence. Host-aware URL detector. cEDH `LoadedDeck.AllEntries` added to preserve maybeboard/sideboard across canonical round-trip.
+- Phase order locked by user 2026-05-13: WDG first (visible quality wins, low-risk) → URL rename → class rename (paired conceptually but separable in execution) → broader audit → refactor last (sits on clean class names).
+- Phase 11 stays as ONE phase with 10 plans rather than splitting. The 10 sweep PRs in FINDINGS.md are already sequenced by leverage; no hard dependency forces a split.
+- Phases 12 and 13 stay separate (not combined). User intent is URL + class rename ship together conceptually but execution is cleaner with two phases — URL rename ships first to validate user-facing terminology, class rename follows to bring code in line.
+- Phase 15 acceptance: `AiPlatform.All` extension test must prove adding a hypothetical 4th platform requires no switch-expression / request-setter / Razor partial / context-parser edits.
+
+### Constraints Carried Forward (per PROJECT.md + CLAUDE.md)
+
+- ASP.NET 10 + Razor pinned — no framework migration in v1.3.
+- Cross-cutting CSS lands in `site-common.css`, NOT `site.css` or per-theme forks (WDG-08 in Phase 11).
+- 22 guild theme stylesheets are full forks — every CSS gap multiplied 22× if landed in wrong layer.
+- VSTest unreliable in WSL — Phase 14 AUDIT-03 verification relies on `dotnet build` clean + push-and-watch CI.
+- Plain default-author commits across all of v1.3 (no `Co-Authored-By` trailer).
+- Public repo `luntc1972/DeckFlow` — no secrets in commits; Render dashboard holds env vars with `sync: false`.
 
 ### Blockers/Concerns
 
-- Phase 10 human-verify checkpoint: 2 of 8 integration tests passed (1 + 2). 6 still pending: 3 (cEDH meta-gap round-trip), 4 (paste Claude artifact into claude.ai), 5-retest (paste Gemini after `a1ab008` fix), 6 (paste-back NEW path with <result> wrap), 7 (paste-back LEGACY path with fenced JSON), 8 (ChatGPT zero-regression). Plus filename verification (`00e5bdd`).
-- Pre-existing test divergence still flagged: `ChatGptPacketArtifactStoreTests.LoadFromZip_throws_when_no_response_json_present` asserts a stale error-message string. Out of phase 10 scope.
-- Codex follow-up NIT: `ArchidektParser.IsIgnorableLine` still has dead branch for section keywords (TryGetBoardHeader catches them first). Defense-in-depth; clean up in follow-up if motivated.
-
-### Phase 10 Execution (v1.2)
-
-| Plan | Description | Commits |
-|------|-------------|---------|
-| 10-01 | Per-AI dispatch primitive on BuildAnalysisPrompt + Packets Claude/Gemini variants | 6c24180, faa6ba3 (Gemini schema-strictness contradiction fix) |
-| 10-04 | D-14 download debounce hardening + D-15 skipPersistence auto-clear | b292cfe, e4ca510 (race-condition fix) |
-| 10-02 | Per-AI dispatch fanout to set-upgrade, comparison, follow-up, meta-gap (15 variants) | 93454b6, 26c4d64 (CedhMetaGap nested tag fix) |
-| 10-03 | Zip round-trip for AI selection (Comparison + CedhMetaGap) + unified <result> response shim + 35 unit tests | 76861c0, 3360ba5 (TargetAiPlatform setter normalization fix) |
-
-### 2026-05-10 Session Commits (post-test-2 work)
-
-| Commit | Description |
-|--------|-------------|
-| e0a6657 | fix(10): commander round-trip + zip upload regressions — LoadDeckAsync reflag + MoxfieldParser section headers |
-| 780a8d3 | docs(state): record commander round-trip fix and test 2 retest gate |
-| 7a54f50 | fix(10): harden filename sanitizer + gate zip download on content-type (2 MEDs Codex flagged) |
-| f1665ca | fix(10): restore Step 2 display artifacts on Comparison + cEDH upload (test 2 final blocker) |
-| 62ee45b | feat(10): hybrid deck text storage — original + canonical artifacts in all 3 zips, +11 tests |
-| 6e536e4 | feat(10): Archidekt parser section-header state machine, +5 tests |
+- None at roadmap creation. v1.3 branch is clean off `main` at `7ed0cde` (post-v1.2 merge).
+- `harvest-killed-by-suggestion` debug remains parked at H1 hypothesis in `.planning/debug/` — deferred from v1.3 (root-cause investigation is gating, not parallel-shippable with WDG/rename/audit/refactor).
 
 ## Session Continuity
 
-Last session: 2026-05-10 ~6:45pm MDT (long session: bug fixes → test 2 pass → hybrid storage rollout → Archidekt parser parity)
-Stopped at: Integration test 2 PASSED. Hybrid storage end-to-end shipped. Archidekt parser now has Moxfield parity. Stopping for night.
+Last session: 2026-05-13 — v1.2 milestone merged to `main`, v1.3 branch created, v1.3 requirements scoped (22 REQ-IDs), roadmap created with 5 phases.
 
-Session resumed: 2026-05-11 — proceeding to integration tests 3, 4, 5-retest, 6, 7, 8 + filename verification against HEAD `6e536e4`. Coding mode re-confirmed: Claude Edit/Write direct (Codex review on demand). On all-pass → close Phase 10 + v1.2 milestone.
+Stopped at: ROADMAP.md + STATE.md updated for v1.3. REQUIREMENTS.md traceability table filled with phase numbers. Ready to plan Phase 11.
 
-Next action on resume: User runs the 6 remaining integration tests against HEAD = `6e536e4` (restart dev server first to pick up TS rebuild). When all pass, close Phase 10 + v1.2 milestone (mark complete in STATE.md/ROADMAP.md, archive plans, decide whether to merge v1.2 → main per branch policy). If any fail, capture failure mode and dispatch follow-up fix.
+Next action on resume: `/gsd-plan-phase 11` to decompose Phase 11 (WDG audit fixes) into 10 sweep-PR plans per `260513-wdg-FINDINGS.md`. Per CLAUDE.md feedback memory: do NOT auto-start the dev server; ask the user to launch when manual UX verification is needed.
 
 **Resume guidance:**
 
-- Read `.planning/HANDOFF.json` for structured machine-readable state with full test status table.
-- `git log --oneline 26222f0..HEAD` shows the full Phase 10 commit chain (28 commits including this session's 6).
-- Test list with current pass/fail status: see HANDOFF.json `remaining_tasks`. Test 1 + Test 2 status = passed. 6 + filename check + Gemini retest = pending.
-- Untracked planning doc remaining: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (from morning). Commit separately when ready.
-- Session mode: Claude Edit/Write direct (re-confirmed 2026-05-10 PM). Codex MCP (gpt-5.4 full) reviewed plans + code at every major step.
-- Re-confirm mode on next session.
+- Read `.planning/PROJECT.md` for v1.3 milestone goals + execution order rationale.
+- Read `.planning/REQUIREMENTS.md` for 22 v1.3 REQ-IDs with phase assignments.
+- Read `.planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md` for the 10 sweep PRs that decompose Phase 11.
+- Read `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` for Mock A naming decisions feeding Phase 12.
+- Read `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization/10-AISEL-PLATFORM-DESIGN.md` for Phase 15 design.
+- Branch: `v1.3` (created 2026-05-13 from `main` at `7ed0cde`).
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Run `/gsd-plan-phase 11` to decompose Phase 11 (Web Design Guidelines Audit Fixes) into per-sweep plans.
