@@ -12,7 +12,26 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — AI target selector (ChatGPT / Claude / Gemini) live on all three ChatGPT analysis pages with zip round-trip; Claude-optimized XML prompt structure; cEDH meta-gap Step 1 state round-trip; Gemini gated behind `DECKFLOW_GEMINI_ENABLED` env flag because the full packet exceeds gemini.google.com's paste cap.
 
-**Next:** v1.3 — not yet scoped. Candidates: AiPlatform value object refactor, Gemini paste-limit workaround, VERIFICATION.md backfill for v1.2 phases.
+**Active:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (started 2026-05-13 on `v1.3` branch).
+
+## Current Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
+
+**Goal:** Ship audit-driven a11y/quality fixes, drop "ChatGPT" branding from AI-target-agnostic surfaces (URLs + classes), bring class names in line with behavior across the codebase, refactor `AiPlatform` string to value object.
+
+**Target features (in execution order):**
+
+1. Web Design Guidelines audit fixes — 10 sweep PRs from `.planning/quick/260513-wdg-web-design-guidelines-audit-findings/FINDINGS.md` (P1 a11y bugs first: admin focus-visible, df-typeahead keyboard nav, ARIA tablist server-render, CSP inline-handler removal, info-tooltip a11y, then P2 guideline violations).
+2. AI-agnostic rename — URL + page layer (`/chatgpt-packets`, `/chatgpt-deck-comparison`, `/chatgpt-cedh-meta-gap` → AI-agnostic URLs; H1/nav/hub labels updated; permanent redirects from old URLs; explainer lines preserve "this is for an AI" cue). Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (Option A recommended).
+3. ChatGpt* class rename — code layer (`ChatGptDeckRequest`, `ChatGptDeckPacketService`, `ChatGptRequestContextParser`, `ChatGptPacketArtifactStore`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, etc.) renamed to AI-agnostic terms; XML `<summary>` doc comments added on every renamed class; DI registrations + `InternalsVisibleTo` updated.
+4. Broader codebase audit — name-vs-behavior pass. Scan all classes (services, models, controllers, helpers). Flag and rename any whose name doesn't match current responsibility; add `<summary>` doc comments where missing.
+5. `AiPlatform` value object refactor — replace string `TargetAiPlatform` with sealed record value object per `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization/10-AISEL-PLATFORM-DESIGN.md` design. OCP forecast 3/10 → 8/10. Zero user-visible behavior change.
+
+**Key context:**
+
+- Branch: `v1.3` (created from `main` at commit `7ed0cde` on 2026-05-13).
+- Phase numbering continues from v1.2 — starts at Phase 11.
+- Order rationale: #1 first (independent, low-risk, visible quality wins); #2+#3 paired (URL + class rename in single conceptual unit); #4 broader audit uses #3 as template; #5 last (refactor sits on clean class names).
+- Deferred (NOT in v1.3 scope): `harvest-killed-by-suggestion` debug (parked at H1 hypothesis in `.planning/debug/`), Gemini paste-limit workaround (kept flag-gated via `DECKFLOW_GEMINI_ENABLED`).
 
 ## Requirements
 
@@ -172,7 +191,7 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.1 Admin Console (2026-05-08) — all 27 requirements landed across Phases 6–8 + Phase 7.1 insert.
 **Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — 5 requirements across Phases 9-10 (8 plans). AI target selector + Claude-optimized artifacts + cEDH Step 1 round-trip live. Gemini flag-gated.
 
-**Next:** v1.3 — not yet scoped. Run `/gsd-new-milestone` to define.
+**Active:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (started 2026-05-13 on `v1.3` branch).
 
 ---
-*Last updated: 2026-05-13 — v1.2 Multi-AI Prompts milestone shipped*
+*Last updated: 2026-05-13 — v1.3 milestone started*

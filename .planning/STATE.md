@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Multi-AI Prompts
-status: Awaiting next milestone
-stopped_at: Integration test 2 PASSED. Hybrid storage end-to-end shipped. Archidekt parser now has Moxfield parity. Stopping for night.
-last_updated: "2026-05-13T20:07:24.387Z"
-last_activity: 2026-05-13 — Milestone v1.2 completed and archived
+milestone: v1.3
+milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
+status: planning
+last_updated: "2026-05-13T21:28:14.419Z"
+last_activity: 2026-05-13
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 ## Deferred Items
@@ -33,10 +32,10 @@ See: .planning/PROJECT.md (updated 2026-05-08 for v1.2)
 
 ## Current Position
 
-Phase: Milestone v1.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-13 — Milestone v1.2 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-13 — Milestone v1.3 started
 
 ## Performance Metrics
 
