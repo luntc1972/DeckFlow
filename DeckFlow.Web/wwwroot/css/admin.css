@@ -52,6 +52,21 @@ a:hover { text-decoration: underline; }
 }
 .skip-link:focus { left: 8px; top: 8px; width: auto; height: auto; padding: 8px 12px; background: var(--panel); color: var(--text); z-index: 100; }
 
+/* === WDG audit fixes (WDG-06, Phase 11 Sweep 6) — sr-only utility ===
+   Visually-hidden accessible text for <caption> elements on admin tables. Mirrors
+   the declaration in site-common.css; admin shell does not inherit from site-common.css. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Shell layout: sidebar + (topbar + content). */
 .admin-shell {
   display: grid;
