@@ -1279,3 +1279,19 @@ h3,
     color: var(--muted);
     margin: 8px 0 0 0;
 }
+
+/* === WDG audit fixes (WDG-04, Phase 11 Sweep 4) — Error page === */
+/* Replaces inline style= attributes on Views/Deck/Error.cshtml so the page
+   complies with strict CSP (style-src 'self'). Values preserved exactly from
+   the prior inline rules: margin-top:2rem; padding:1.5rem; on the panel,
+   margin-top:0; on the heading. See
+   .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md
+   finding D. */
+.error-page__panel {
+    margin-top: 2rem;
+    padding: 1.5rem;
+}
+
+.error-page__title {
+    margin-top: 0;
+}
