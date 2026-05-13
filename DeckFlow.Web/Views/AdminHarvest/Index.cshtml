@@ -37,7 +37,7 @@
             @foreach (var durationSeconds in Model.DurationOptions)
             {
                 var minutes = durationSeconds / 60;
-                <option value="@durationSeconds" selected="@(durationSeconds == 3600)">@minutes minutes</option>
+                <option value="@durationSeconds" selected="@(durationSeconds == 3600 ? "selected" : null)">@minutes minutes</option>
             }
         </select>
         <button type="submit">Run Now</button>
@@ -87,7 +87,7 @@
             <option value="">Off</option>
             @foreach (var intervalHours in Model.IntervalOptions)
             {
-                <option value="@intervalHours" selected="@(Model.Schedule.IntervalHours == intervalHours)">Every @intervalHours hours</option>
+                <option value="@intervalHours" selected="@(Model.Schedule.IntervalHours == intervalHours ? "selected" : null)">Every @intervalHours hours</option>
             }
         </select>
         <input type="hidden" name="paused" value="@(Model.Schedule.Paused.ToString().ToLowerInvariant())" />
