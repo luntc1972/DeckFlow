@@ -191,11 +191,12 @@
             </div>
         </div>
         <table class="conflicts-table">
+            <caption class="sr-only">Printing conflicts between source and target decks</caption>
             <thead>
                 <tr>
-                    <th>Card</th>
-                    <th id="deck-sync-conflict-target"><span data-sync-result="target-system">@targetName</span></th>
-                    <th id="deck-sync-conflict-source"><span data-sync-result="source-system">@sourceName</span></th>
+                    <th scope="col">Card</th>
+                    <th scope="col" id="deck-sync-conflict-target"><span data-sync-result="target-system">@targetName</span></th>
+                    <th scope="col" id="deck-sync-conflict-source"><span data-sync-result="source-system">@sourceName</span></th>
                 </tr>
             </thead>
             <tbody id="deck-sync-conflicts-body">
@@ -291,12 +292,13 @@
                     </div>
                 </div>
                 <table class="conflicts-table">
+                    <caption class="sr-only">Printing conflicts between source and target decks with selection for each card</caption>
                     <thead>
                         <tr>
-                            <th>Card</th>
-                            <th>@targetName</th>
-                            <th>@sourceName</th>
-                            <th>Use</th>
+                            <th scope="col">Card</th>
+                            <th scope="col">@targetName</th>
+                            <th scope="col">@sourceName</th>
+                            <th scope="col">Use</th>
                         </tr>
                     </thead>
                     <tbody>
