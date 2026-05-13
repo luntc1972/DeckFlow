@@ -1,10 +1,20 @@
+@using Microsoft.Extensions.Options
+@using DeckFlow.Web.Configuration
+@inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @model string
 @* AI target selector — radio pill group. Model is the currently-selected platform string.
    Accepted values: "ChatGPT", "Claude", "Gemini". Defaults to "ChatGPT" if model is null/empty.
+   Gemini radio is hidden unless DECKFLOW_GEMINI_ENABLED=true; if a persisted Gemini value
+   lands here while disabled, fall back to ChatGPT so a real radio shows checked.
    Usage: @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
 *@
 @{
+    var geminiEnabled = AiPlatformOptionsAccessor.Value.GeminiEnabled;
     var selected = string.IsNullOrEmpty(Model) ? "ChatGPT" : Model;
+    if (selected == "Gemini" && !geminiEnabled)
+    {
+        selected = "ChatGPT";
+    }
 }
 <div class="ai-selector">
     <p class="ai-selector__heading">Analyze with</p>
@@ -17,9 +27,11 @@
                class="sr-only ai-selector__option" checked="@(selected == "Claude" ? "checked" : null)" />
         <label for="ai-claude" class="ai-selector__option-label">Claude</label>
 
-        <input type="radio" name="TargetAiPlatform" id="ai-gemini" value="Gemini"
-               class="sr-only ai-selector__option" checked="@(selected == "Gemini" ? "checked" : null)" />
-        <label for="ai-gemini" class="ai-selector__option-label">Gemini</label>
+        @if (geminiEnabled)
+        {
+            <input type="radio" name="TargetAiPlatform" id="ai-gemini" value="Gemini"
+                   class="sr-only ai-selector__option" checked="@(selected == "Gemini" ? "checked" : null)" />
+            <label for="ai-gemini" class="ai-selector__option-label">Gemini</label>
+        }
     </div>
-    <p class="ai-selector__hint">ChatGPT format used for all targets in this phase. Claude and Gemini optimizations arrive in Phase 10.</p>
 </div>
