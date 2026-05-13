@@ -158,7 +158,10 @@
         <div class="panel-heading">
             <div>
                 <h2>Cached Store Matches</h2>
-                <span class="info-tooltip" title="These categories are ordered by how many cached decks contained the card (descending).">i</span>
+                <details class="info-tooltip">
+                    <summary>i</summary>
+                    <p>These categories are ordered by how many cached decks contained the card (descending).</p>
+                </details>
                 <p data-api-field="inferred-context">@Model.InferredSuggestionContextText</p>
                 <p data-api-field="cache-info-detail">@if (Model.CardDeckTotals.TotalDeckCount > 0) { <text>@Model.CardDeckTotals.TotalDeckCount deck(s) in the cache include @Model.SuggestionRequest.CardName.</text> }</p>
             </div>
