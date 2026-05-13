@@ -1,0 +1,17 @@
+@* Bracket required-field callout wrapper (BRKT-01).
+   This partial renders only the outer .bracket-callout div and eyebrow label.
+   The existing TargetCommanderBracket <label class="field"> block in ChatGptPackets.cshtml
+   is placed inside this partial's wrapper via the calling view.
+   Usage: wrap the bracket <label class="field"> inside @await Html.PartialAsync("_BracketCallout")
+
+   NOTE: Because this partial wraps inline markup from the parent view, it cannot fully
+   encapsulate the df-select content. Instead, the calling view (ChatGptPackets.cshtml)
+   places the <div class="bracket-callout"> wrapper and <p class="bracket-callout__label">
+   directly inline — this partial exists for documentation/discoverability only and is NOT
+   called via PartialAsync. The actual bracket callout markup lives inline in ChatGptPackets.cshtml.
+   See Plan 09-03 Task 1 for the inline wrapper implementation.
+*@
+<div class="bracket-callout">
+    <p class="bracket-callout__label">Required before generating</p>
+    @* Caller places the existing <label class="field"> for TargetCommanderBracket here *@
+</div>

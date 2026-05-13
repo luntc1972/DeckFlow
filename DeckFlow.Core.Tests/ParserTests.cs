@@ -230,4 +230,102 @@ public sealed class ParserTests
         Assert.Equal("maybeboard", entries[3].Board);
         Assert.Equal("Ramp", entries[3].Category);
     }
+
+    [Fact]
+    public void ArchidektParser_SwitchesBoard_OnCommanderAndMainboardSectionHeaders()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            Commander
+            1 Atraxa, Praetors' Voice
+            Mainboard
+            1 Sol Ring
+            1 Arcane Signet
+            """);
+
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("Atraxa, Praetors' Voice", entries[0].Name);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("mainboard", entries[2].Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_TreatsDeckHeaderAsMainboardAndSwitchesBack_AfterCommanderSection()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            Commander
+            1 Kinnan, Bonder Prodigy
+            Deck
+            1 Birds of Paradise
+            1 Mana Crypt
+            """);
+
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("mainboard", entries[2].Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_MapsSectionHeadersToSideboardAndMaybeboard()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            Commander
+            1 Atraxa, Praetors' Voice
+            Mainboard
+            1 Sol Ring
+            Sideboard
+            1 Counterspell
+            Maybeboard
+            1 Cyclonic Rift
+            Possible Includes
+            1 Wrath of God
+            """);
+
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("sideboard", entries[2].Board);
+        Assert.Equal("maybeboard", entries[3].Board);
+        Assert.Equal("maybeboard", entries[4].Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_InlineTagOverridesSectionHeaderBoardState()
+    {
+        // A card explicitly tagged [Sideboard] under a Mainboard section header
+        // should still go to the sideboard — inline categories win.
+        var entries = new ArchidektParser().ParseText("""
+            Mainboard
+            1 Sol Ring [Ramp]
+            1 Counterspell [Sideboard,Interaction]
+            """);
+
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("sideboard", entries[1].Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_RoundTripsCanonicalDeckFlowFormat()
+    {
+        // The hybrid storage commit emits decklist text starting with
+        // "Commander\n1 <commander>\n\nMainboard\n<cards>\n\nPossible Includes\n<cards>".
+        // The Archidekt parser must accept this format cleanly so the
+        // canonical-fallback path works for users whose decks parse via
+        // Archidekt (set codes / collector numbers).
+        var entries = new ArchidektParser().ParseText("""
+            Commander
+            1 Atraxa, Praetors' Voice
+
+            Mainboard
+            1 Sol Ring
+            1 Arcane Signet
+
+            Possible Includes
+            1 Smothering Tithe
+            """);
+
+        Assert.Equal(4, entries.Count);
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("mainboard", entries[2].Board);
+        Assert.Equal("maybeboard", entries[3].Board);
+    }
 }

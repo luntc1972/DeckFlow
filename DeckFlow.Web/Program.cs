@@ -12,6 +12,7 @@ using Serilog;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
+using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Security;
@@ -61,6 +62,15 @@ public partial class Program
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
             builder.Services.AddMemoryCache();
+
+            // AI platform toggles. Gemini is hidden in the UI by default because the full
+            // packet frequently exceeds Gemini's paste limit (truncates instructions, produces
+            // degraded output). Flip DECKFLOW_GEMINI_ENABLED=true to expose it again.
+            builder.Services.Configure<AiPlatformOptions>(options =>
+            {
+                var raw = Environment.GetEnvironmentVariable("DECKFLOW_GEMINI_ENABLED");
+                options.GeminiEnabled = bool.TryParse(raw, out var enabled) && enabled;
+            });
 
             // HTTP infrastructure: IHttpClientFactory-backed clients (D-01) + Polly v8 pipelines (D-03..05).
             // Tagger uses a typed client with cookie-disabled SocketsHttpHandler (D-06); other three are named.

@@ -751,8 +751,136 @@ const registerBusyIndicator = (): void => {
   });
 };
 
+// ChatGPT session-zip download handler.
+//
+// Replaces the prior timed 3s debounce with a deterministic fetch+blob flow:
+// the click is intercepted, the form payload is POSTed via fetch, the
+// response body is materialized as a Blob, and a synthetic <a download>
+// click triggers the browser save. The button is disabled for the entire
+// in-flight window and re-enabled in finally — so the inactive state
+// reflects the actual download lifetime, not a guessed timer. Safe to set
+// `button.disabled = true` here because we preventDefault the original
+// submit; the form never natively submits, so the disabled-submitter
+// HTML-spec gotcha (regression d54da44) does not apply.
+//
+// Page-wide busy overlay is suppressed via the `data-no-busy` marker on
+// each download button (kept for defense in depth — the form submit never
+// fires anyway because of preventDefault).
+const CHATGPT_DOWNLOAD_FALLBACK_FILENAME = 'session.zip';
+
+const parseChatGptDownloadFilename = (header: string | null): string | null => {
+  if (!header) {
+    return null;
+  }
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      // fall through to plain match
+    }
+  }
+  const plain = /filename=("([^"]+)"|([^;]+))/i.exec(header);
+  if (plain) {
+    return (plain[2] ?? plain[3] ?? '').trim();
+  }
+  return null;
+};
+
+const triggerChatGptBlobDownload = (blob: Blob, filename: string): void => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // Revoke after a tick so the browser has time to start the save.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const registerChatGptDownloadHandler = (): void => {
+  document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-download-submit]').forEach(button => {
+    button.addEventListener('click', async (event: MouseEvent) => {
+      const form = button.closest('form');
+      if (!form) {
+        return;
+      }
+      event.preventDefault();
+      if (button.dataset.downloadInFlight === 'true') {
+        return;
+      }
+
+      const action = button.formAction || form.action;
+      const methodAttr = (button.getAttribute('formmethod') ?? form.method ?? 'POST').toUpperCase();
+      const method = methodAttr === 'GET' ? 'GET' : 'POST';
+
+      button.dataset.downloadInFlight = 'true';
+      button.disabled = true;
+
+      try {
+        const body = method === 'GET' ? undefined : new FormData(form);
+        const response = await fetch(action, {
+          method,
+          body,
+          credentials: 'same-origin',
+          headers: { Accept: 'application/zip,*/*' }
+        });
+        if (!response.ok) {
+          window.alert(`Download failed (HTTP ${response.status}). Please try again.`);
+          return;
+        }
+        // Validation failures on the server return a re-rendered HTML view
+        // with status 200 — without a Content-Type/zip-header guard the
+        // client would blob the HTML and save it as session.zip. Require
+        // a real zip signal (Content-Type or X-DeckFlow-Filename or
+        // Content-Disposition) before treating the body as a download.
+        const contentType = (response.headers.get('Content-Type') ?? '').toLowerCase();
+        const customFilename = response.headers.get('X-DeckFlow-Filename');
+        const dispositionHeader = response.headers.get('Content-Disposition');
+        const looksLikeZip = contentType.includes('application/zip')
+          || contentType.includes('application/octet-stream')
+          || !!customFilename
+          || !!dispositionHeader;
+        if (!looksLikeZip) {
+          // Server returned a non-zip response (likely a re-rendered error
+          // view). Replace the document so the user sees the error UI.
+          const html = await response.text();
+          document.open();
+          document.write(html);
+          document.close();
+          return;
+        }
+        const blob = await response.blob();
+        // Prefer the explicit X-DeckFlow-Filename header (set by all download
+        // endpoints — bypasses Content-Disposition parsing fragility), then
+        // fall back to Content-Disposition, then to the generic default.
+        const dispositionFilename = parseChatGptDownloadFilename(dispositionHeader);
+        const filename = (customFilename && customFilename.trim()) || dispositionFilename || CHATGPT_DOWNLOAD_FALLBACK_FILENAME;
+        if (!customFilename && !dispositionFilename) {
+          // Diagnostic for the user — surface the missing-header case in DevTools.
+          console.warn('ChatGPT download: neither X-DeckFlow-Filename nor Content-Disposition was readable; falling back to generic filename.');
+        }
+        triggerChatGptBlobDownload(blob, filename);
+      } catch (err) {
+        console.error('ChatGPT session download failed', err);
+        window.alert('Download failed. Please try again.');
+      } finally {
+        delete button.dataset.downloadInFlight;
+        button.disabled = false;
+      }
+    });
+  });
+};
+
 const formStateStoragePrefix = 'decksync-form-state-';
 const antiForgeryFieldName = '__RequestVerificationToken';
+// Phase 10 (D-15 race fix): track the auto-clear timer per form so a
+// rapid second upload cancels the first upload's pending clear-timeout
+// instead of letting it fire later and clobber the second upload's
+// still-active skipPersistence flag.
+const skipPersistenceTimers = new WeakMap<HTMLFormElement, number>();
 const storageAvailable = (() => {
   try {
     const testKey = '__decksync_test_key__';
@@ -2001,7 +2129,8 @@ const attachChatGptPacketsWorkflow = (): void => {
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
+    if (submitter?.hasAttribute('data-chatgpt-upload-submit') ||
+        submitter?.hasAttribute('data-chatgpt-download-submit')) {
       setChatGptValidationMessage(null);
       return;
     }
@@ -2221,6 +2350,14 @@ const scrollChatGptCedhResults = (form: HTMLFormElement): void => {
     return;
   }
 
+  // The Step 2 anchor is a collapsed <details> by default. When the server has
+  // returned PromptText (this function only runs on bootstrap with content
+  // already restored), open it so the user can see the generated artifact
+  // without a hunt-and-click.
+  if (resultAnchor instanceof HTMLDetailsElement) {
+    resultAnchor.open = true;
+  }
+
   window.setTimeout(() => {
     resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 120);
@@ -2367,8 +2504,32 @@ const wireChatGptZipUpload = (): void => {
   document.querySelectorAll<HTMLInputElement>('[data-chatgpt-zip-upload]').forEach(input => {
     input.addEventListener('change', () => {
       const file = input.files?.[0];
-      if (!file) {
-        return;
+      if (!file) { return; }
+      // The file-picker change event bubbled to the form and already triggered persistFormState
+      // with pre-upload (mostly empty) values. After the upload POST navigates back, the
+      // upload-rendered server values would be overwritten by hydrateFormState reading that
+      // stale state. Clear it here, and disable further persistence on this page until navigation.
+      const form = input.closest<HTMLFormElement>('form[data-cache-key]');
+      if (form) {
+        clearPersistedFormState(form);
+        form.dataset.skipPersistence = 'true';
+        // Phase 10 (D-15): if the upload POST errors before navigation,
+        // skipPersistence would otherwise stay true for the rest of the
+        // page lifetime, silently disabling form-state persistence. Auto-
+        // clear after 30s - by then the upload either navigated us away
+        // (this handler is gone) or definitively failed (clear so subsequent
+        // user input is persisted normally).
+        const priorTimer = skipPersistenceTimers.get(form);
+        if (priorTimer !== undefined) {
+          window.clearTimeout(priorTimer);
+        }
+        const timerId = window.setTimeout(() => {
+          if (form.dataset.skipPersistence === 'true') {
+            delete form.dataset.skipPersistence;
+          }
+          skipPersistenceTimers.delete(form);
+        }, 30000);
+        skipPersistenceTimers.set(form, timerId);
       }
 
       const wrapper = input.closest('details');
@@ -2396,6 +2557,7 @@ const bootstrapDeckSync = (): void => {
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
   registerBusyIndicator();
+  registerChatGptDownloadHandler();
   attachActionButtons();
   attachGenericPersistedForms();
   attachDeckSyncPersistence();

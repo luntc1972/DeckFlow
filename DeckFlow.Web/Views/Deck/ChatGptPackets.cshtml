@@ -68,12 +68,13 @@ Do not omit any fields from the schema.
     </div>
 </div>
 
-<form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
+<form method="post" action="@Url.Content("~/chatgpt-packets")" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
-        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy
+        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
                 formaction="@Url.Content("~/chatgpt-packets/download")"
-                formmethod="post">
+                formmethod="post"
+                formnovalidate>
             Download session (.zip)
         </button>
     </div>
@@ -165,7 +166,7 @@ Do not omit any fields from the schema.
             </div>
             <span class="chatgpt-step-badge">Customize the analysis</span>
         </div>
-
+        @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
@@ -197,17 +198,20 @@ Do not omit any fields from the schema.
             <textarea id="analysis-follow-up-output" readonly spellcheck="false">@analysisFollowUpPrompt</textarea>
         </section>
 
-        <label class="field">
-            <span>Target Commander bracket <small>(required)</small></span>
-            <select name="TargetCommanderBracket" required aria-required="true" data-df-select>
-                <option value="">Select a target bracket (required)</option>
-                @foreach (var bracket in commanderBrackets)
-                {
-                    <option value="@bracket.Value" selected="@(string.Equals(Model.Request.TargetCommanderBracket, bracket.Value, StringComparison.OrdinalIgnoreCase))">@bracket.Label</option>
-                }
-            </select>
-            <small class="sync-column__hint">Required. The analysis prompt will include the official Commander bracket expectation and turn pacing for the bracket you select.</small>
-        </label>
+        <div class="bracket-callout">
+            <p class="bracket-callout__label">Required before generating</p>
+            <label class="field">
+                <span>Target Commander bracket <small>(required)</small></span>
+                <select name="TargetCommanderBracket" required aria-required="true" data-df-select>
+                    <option value="">Select a target bracket (required)</option>
+                    @foreach (var bracket in commanderBrackets)
+                    {
+                        <option value="@bracket.Value" selected="@(string.Equals(Model.Request.TargetCommanderBracket, bracket.Value, StringComparison.OrdinalIgnoreCase))">@bracket.Label</option>
+                    }
+                </select>
+                <small class="sync-column__hint">Required. The analysis prompt will include the official Commander bracket expectation and turn pacing for the bracket you select.</small>
+            </label>
+        </div>
         <details class="result-panel nested-panel">
             <summary>Analysis context</summary>
             <div class="chatgpt-context-note">
@@ -480,9 +484,10 @@ Do not omit any fields from the schema.
         {
             <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor>
                 <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy
+                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/chatgpt-packets/download")"
-                            formmethod="post">
+                            formmethod="post"
+                            formnovalidate>
                         Download session (.zip)
                     </button>
                 </div>
@@ -720,9 +725,10 @@ Do not omit any fields from the schema.
         {
             <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor>
                 <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy
+                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/chatgpt-packets/download")"
-                            formmethod="post">
+                            formmethod="post"
+                            formnovalidate>
                         Download session (.zip)
                     </button>
                 </div>
