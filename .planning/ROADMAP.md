@@ -65,9 +65,9 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
   3. With JavaScript disabled, the workflow-step tablist on Packets / DeckComparison / CedhMetaGap pre-selects the current step server-side (`aria-selected="true" tabindex="0"` on current, `aria-selected="false" tabindex="-1"` on others).
   4. No inline `style`/`onclick`/`onchange`/`onsubmit` handlers remain in AdminFeedback Detail, AdminFeedback Index, or `Views/Deck/Error.cshtml`; the app is CSP-ready for `script-src 'self'` + `style-src 'self'`.
   5. All 10 sweep PRs from `260513-wdg-FINDINGS.md` merge to `v1.3`, with cross-cutting a11y rules (`color-scheme`, global `prefers-reduced-motion`, `touch-action: manipulation`, `tabular-nums`, `scroll-margin-top`) added to `site-common.css` so all 22 guild themes inherit them without per-fork edit, and `Release` `dotnet build DeckFlow.sln` completes clean.
-**Plans:** 10 plans
+**Plans:** 1/10 plans executed
 Plans:
-- [ ] 11-01-PLAN.md — Sweep 1 (WDG-08): cross-cutting a11y rules added to site-common.css (color-scheme, prefers-reduced-motion, touch-action, .tabular, scroll-margin-top)
+- [x] 11-01-PLAN.md — Sweep 1 (WDG-08): cross-cutting a11y rules added to site-common.css (color-scheme, prefers-reduced-motion, touch-action, .tabular, scroll-margin-top)
 - [ ] 11-02-PLAN.md — Sweep 2 (WDG-01): universal :focus-visible block + color-scheme + tabular-nums added to admin.css
 - [ ] 11-03-PLAN.md — Sweep 3 (WDG-07): Razor `selected="@(x ? "selected" : null)"` sweep across DeckSync, DeckConvert, SuggestCategories, AdminHarvest/Index
 - [ ] 11-04-PLAN.md — Sweep 4 (WDG-04): inline style/onchange removal from Error.cshtml + AdminFeedback/Index.cshtml; D-05 deferral comment on AdminFeedback/Detail.cshtml
@@ -146,7 +146,7 @@ Plans:
 | 8. Analytics | v1.1 | 5/5 | Complete | 2026-05-08 |
 | 9. Bracket UX + AI Selector Foundation | v1.2 | 3/3 | Complete | 2026-05-08 |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
-| 11. Web Design Guidelines Audit Fixes | v1.3 | 0/10 | Not started | — |
+| 11. Web Design Guidelines Audit Fixes | v1.3 | 1/10 | In Progress|  |
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 0/3 | Not started | — |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/3 | Not started | — |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
