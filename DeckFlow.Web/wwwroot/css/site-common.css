@@ -1295,3 +1295,64 @@ h3,
 .error-page__title {
     margin-top: 0;
 }
+
+/* === WDG audit fixes (WDG-05, Phase 11 Sweep 8) — info-tooltip details/summary ===
+   Source: .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md finding F.
+   Per CLAUDE.md D-10 the info-tooltip "i" affordance migrated from
+   <span class="info-tooltip" title="…"> (mouse-only, SR hears bare "i") to
+   <details class="info-tooltip"><summary>i</summary><p>…</p></details>
+   for keyboard + screen-reader access with no JS. Per D-07 these layout rules
+   live in site-common.css so every theme fork inherits without per-fork edit.
+   The legacy circle styling in site.css:.info-tooltip {…} was authored for a
+   <span>; here we shift it onto the <summary> child and keep the <details>
+   itself inline so the indicator sits next to surrounding headings. */
+details.info-tooltip {
+    display: inline-block;
+    position: relative;
+    background: transparent;
+    color: inherit;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+
+details.info-tooltip > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+/* Hide the default disclosure triangle in browsers that still draw it. */
+details.info-tooltip > summary::-webkit-details-marker {
+    display: none;
+}
+details.info-tooltip > summary::marker {
+    content: "";
+}
+
+details.info-tooltip > summary:focus-visible {
+    outline: 2px solid var(--accent-strong, var(--accent));
+    outline-offset: 2px;
+}
+
+details.info-tooltip > p {
+    margin: 0.4rem 0 0 0;
+    padding: 0.5rem 0.75rem;
+    background: var(--panel-soft-bg, var(--surface, transparent));
+    color: var(--text, inherit);
+    border-radius: 0.25rem;
+    font-size: var(--fs-sm);
+    max-width: 32rem;
+}
