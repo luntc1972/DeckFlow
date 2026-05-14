@@ -8,13 +8,13 @@ updated: 2026-05-13T22:55:00Z
 
 ## Current Test
 
-[awaiting human testing]
+Test 2 — df-typeahead keyboard nav
 
 ## Tests
 
 ### 1. Tab-navigate every /Admin/* page; verify visible focus ring on each focused element
 expected: 2px solid var(--focus) outline + 2px offset on links, buttons, inputs, selects, textareas, summary, role=tab
-result: [pending]
+result: PASS (2026-05-14) — all admin pages: /Admin, /Admin/Flags, /Admin/Feedback (Index + Detail), /Admin/Harvest, /Admin/Analytics
 
 ### 2. df-typeahead keyboard nav on 5 consumers (SuggestCategories card-name, DeckConvert commander, JudgeQuestions card, CommanderCategories, CardLookup single)
 expected: ArrowDown/Up moves highlight (aria-activedescendant tracks), Enter selects, Escape closes. SR announces highlighted option.
@@ -43,9 +43,9 @@ result: [pending]
 ## Summary
 
 total: 7
-passed: 0
+passed: 1
 issues: 0
-pending: 7
+pending: 6
 skipped: 0
 blocked: 0
 
