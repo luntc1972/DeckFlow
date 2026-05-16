@@ -77,6 +77,12 @@ public sealed class ScryfallCardSearchService : ICardSearchService
         request.AddQueryParameter("include_multilingual", "false");
 
         var response = await _executeAsync(request, cancellationToken);
+        if ((int)response.StatusCode == 404)
+        {
+            _cache.Set(normalized, (IReadOnlyList<string>)Array.Empty<string>(), TimeSpan.FromMinutes(10));
+            return Array.Empty<string>();
+        }
+
         if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
         {
             throw new HttpRequestException(
