@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-14T16:38:52.038Z",
+  "timestamp": "2026-05-16T00:00:00Z",
   "phase": "11",
   "phase_name": "web-design-guidelines-audit-fixes",
   "phase_dir": ".planning/phases/11-web-design-guidelines-audit-fixes",
@@ -9,57 +9,28 @@
   "plan": 10,
   "task": null,
   "total_tasks": null,
-  "status": "paused_during_human_uat",
-  "stage": "human_uat",
+  "status": "complete",
+  "stage": "closed",
   "completed_tasks": [
     {"id": "11-01..11-10", "name": "All 10 WDG sweep plans shipped", "status": "done"},
-    {"id": "uat-test-1", "name": "Tab-navigate /Admin/* focus rings", "status": "done", "result": "PASS"}
+    {"id": "uat-test-1..7", "name": "All 7 human UAT tests PASS", "status": "done", "result": "PASS"},
+    {"id": "warning-decision-1", "name": "WDG-04 deferred Detail onsubmit", "status": "done", "result": "override accepted; logged in 11-VERIFICATION.md frontmatter"},
+    {"id": "warning-decision-2", "name": "WDG-06 AdminAnalytics caption drift", "status": "done", "result": "resolved via caption backfill in commit 3e433f0"},
+    {"id": "uat-bug-A", "name": "/lookup typed text invisible", "status": "done", "result": "fixed in c66ccaf — cross-cutting color: var(--ink) on form controls in site-common.css"},
+    {"id": "uat-bug-B", "name": "/lookup Scryfall 404 user error", "status": "done", "result": "fixed in e8c2989 — CardSearchService.SearchAsync treats 404 as empty + 10min cache + test"}
   ],
-  "remaining_tasks": [
-    {"id": "uat-test-2", "name": "df-typeahead kbd nav (5 consumers)", "status": "in_progress", "progress": "4/5 PASS; CardLookup /lookup FAILED — 2 bugs found"},
-    {"id": "uat-test-3", "name": "Workflow-step tablist JS-off", "status": "not_started"},
-    {"id": "uat-test-4", "name": "AdminFeedback Detail Delete confirm()", "status": "not_started"},
-    {"id": "uat-test-5", "name": "AdminHarvest SR live region", "status": "not_started"},
-    {"id": "uat-test-6", "name": "prefers-reduced-motion toggle", "status": "not_started"},
-    {"id": "uat-test-7", "name": "Mobile/touch tap responsiveness", "status": "not_started"},
-    {"id": "warning-decision-1", "name": "WDG-04 deferred Detail onsubmit (override vs ROADMAP narrow)", "status": "pending-decision"},
-    {"id": "warning-decision-2", "name": "WDG-06 AdminAnalytics caption drift (accept vs backfill)", "status": "pending-decision"}
-  ],
-  "blockers": [
-    {
-      "description": "/lookup typed text invisible in single-card input",
-      "type": "technical",
-      "location": "DeckFlow.Web/Views/Deck/CardLookup.cshtml:28 — input has no class; styled via .autocomplete-anchor input (site-common.css:1152 + per-theme CSS)",
-      "workaround": "DevTools inspect computed color vs background-color on #card-lookup-single-name to confirm root cause; may be CSS regression from WDG sweeps or pre-existing theme bug"
-    },
-    {
-      "description": "/lookup Scryfall 404 on 2-char query surfaces user-facing error 'Scryfall returned HTTP 404. Try again shortly.'",
-      "type": "technical",
-      "location": "DeckFlow.Web/Services/CardSearchService.cs:80-86 — SearchAsync throws on 404",
-      "workaround": "Mirror SearchCommandersAsync:121-125 — treat 404 as empty array + cache 10min"
-    }
-  ],
+  "remaining_tasks": [],
+  "blockers": [],
   "human_actions_pending": [
-    {"action": "Decide scope for 2 bugs found in Test 2 (fix in Phase 11 vs defer to v1.4)", "context": "Both bugs block Test 2 PASS for CardLookup consumer only; other 4 consumers PASS", "blocking": true},
-    {"action": "Run UAT tests 2-7 once Test 2 bugs resolved", "context": "Phase 11 verification status: human_needed — 6 tests remaining", "blocking": true},
-    {"action": "Decide WDG-04 + WDG-06 warnings (override / narrow / accept / backfill)", "context": "Both flagged in 11-VERIFICATION.md warnings[]", "blocking": true},
-    {"action": "Start dev server with FEEDBACK_ADMIN_USER + FEEDBACK_ADMIN_PASSWORD env vars set (cmd: set VAR=value)", "context": "User starts server, not auto-launched (per feedback memory)", "blocking": false}
+    {"action": "Decide Phase 12 entry: discuss-phase, plan-phase, or skip to spec-phase", "context": "Phase 12 = URL + page rename (slug/redirect/filename sanitizer/view sweep). 2-3 plans estimated.", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Phase 11 advanced to human UAT stage", "rationale": "10/10 sweep plans shipped, Release build clean, 5/5 must-haves verified by automated VERIFICATION; 7 human-only tests + 2 warnings remain", "phase": "11"},
-    {"decision": "Test 1 logged PASS in 11-HUMAN-UAT.md", "rationale": "User confirmed visible focus rings on all /Admin/* pages including landing, Flags, Feedback (Index + Detail), Harvest, Analytics", "phase": "11"}
+    {"decision": "Phase 11 closed as COMPLETE", "rationale": "10/10 sweep plans shipped; 7/7 human UAT PASS; 1 override accepted (WDG-04); 1 INFO resolved by backfill (WDG-06); Release build clean", "phase": "11"},
+    {"decision": "WDG-04 inline confirm() onsubmit deferred to v1.4", "rationale": "Removing inline handler without focus-trapped JS modal converts 'delete with prompt' to 'instant delete' under strict CSP — security/UX regression. Replacement scheduled v1.4.", "phase": "11"},
+    {"decision": "WDG-06 caption backfilled on AdminAnalytics", "rationale": "Closes drift between REQUIREMENTS.md WDG-06 scope and FINDINGS.md Sweep 6 coverage with 1-line cshtml edit. Release build clean.", "phase": "11"}
   ],
-  "uncommitted_files": [
-    ".planning/phases/11-web-design-guidelines-audit-fixes/11-HUMAN-UAT.md"
-  ],
-  "blocking_constraints": [
-    {
-      "name": "STATE.md stale relative to phase progress",
-      "description": "STATE.md still says 'Phase 11 context gathered' and 0/10 plans complete, but commits show all 10 WDG sweeps shipped through wave 6 (last: 6cca6df 'test(11): persist human verification items as UAT'). 11-VERIFICATION.md confirms 5/5 must-haves verified.",
-      "severity": "advisory",
-      "mitigation": "On resume, trust .planning/phases/11-*/ artifacts (PLAN/SUMMARY/VERIFICATION) over STATE.md. Update STATE.md after UAT closes."
-    }
-  ],
-  "next_action": "Resume Test 2: DevTools-inspect /lookup single-card input to confirm visibility bug root cause (computed color/bg). Choose scope: (a) fix both bugs inline + retest, (b) defer to v1.4 + log Test 2 partial PASS, (c) fix 404 only. Then advance to Test 3 (JS-off tablist).",
-  "context_notes": "Phase 11 execution done; in human UAT. STATE.md stale. Two real bugs surfaced on /lookup typeahead only: (a) input text invisible — likely CSS color/bg parity issue, suspect WDG regression or pre-existing theme bug; needs DevTools confirm. (b) CardSearchService.SearchAsync throws on Scryfall 404 — same case is handled correctly in SearchCommandersAsync. Both bugs block Test 2 for CardLookup consumer; other 4 consumers (suggest-categories card-name, convert commander, judge-questions card, commander-categories) PASS. Dev server started by user with FEEDBACK_ADMIN_USER=admin / FEEDBACK_ADMIN_PASSWORD=devpass via cmd 'set' before dotnet run."
+  "uncommitted_files": [],
+  "blocking_constraints": [],
+  "next_action": "Start Phase 12 (url-page-rename) via /gsd-discuss-phase or /gsd-plan-phase. Phase 12 scope per ROADMAP: slug + redirect + filename sanitizer + view sweep (2-3 plans).",
+  "context_notes": "Phase 11 fully closed. STATE.md updated to 1/5 phases complete (20%). HANDOFF.json reflects clean handoff to Phase 12. Phase 11 surfaced + fixed 2 real bugs on /lookup not caught by automated VERIFICATION: cross-cutting form control color regression from WDG-01 `color-scheme: light dark`, and CardSearchService 404 inconsistency vs SearchCommandersAsync."
 }
