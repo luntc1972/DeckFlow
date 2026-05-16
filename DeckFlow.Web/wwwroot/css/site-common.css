@@ -31,6 +31,19 @@ summary {
   touch-action: manipulation;
 }
 
+/* Form-control text color fallback. Without this, inputs inherit the UA default
+   text color (Canvas/CanvasText), which the `color-scheme: light dark` declaration
+   above lets the browser flip to the OS-preferred scheme. On a light guild theme
+   under a dark OS, that produces near-white text on a near-white input bg, which
+   makes typed text invisible. All 22 guild themes set --ink, so binding input
+   color to --ink keeps text legible regardless of UA color-scheme negotiation.
+   Per-theme rules that explicitly set `color` still win via cascade. */
+textarea,
+input,
+select {
+  color: var(--ink);
+}
+
 /* Finding R: utility class for numeric columns (applied in later sweeps, e.g. WDG-06). */
 .tabular {
   font-variant-numeric: tabular-nums;
