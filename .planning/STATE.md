@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: executing
-stopped_at: Phase 11 complete; ready for Phase 12 discuss/plan
-last_updated: "2026-05-16T00:00:00Z"
+stopped_at: Phase 12 context gathered
+last_updated: "2026-05-16T23:35:44.902Z"
 last_activity: 2026-05-16 -- Phase 11 UAT 7/7 PASS, overrides + caption backfill committed
 progress:
   total_phases: 5
@@ -110,11 +110,11 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-13T21:47:05.255Z
+Last session: 2026-05-16T23:35:44.880Z
 
-Stopped at: Phase 11 context gathered
+Stopped at: Phase 12 context gathered
 
-Next action on resume: `/gsd-plan-phase 11` to decompose Phase 11 (WDG audit fixes) into 10 sweep-PR plans per `260513-wdg-FINDINGS.md`. Per CLAUDE.md feedback memory: do NOT auto-start the dev server; ask the user to launch when manual UX verification is needed.
+Next action on resume: `/gsd-plan-phase 12` to decompose Phase 12 (AI-agnostic URL + page rename) per the locked decisions in `12-CONTEXT.md`. Per CLAUDE.md feedback memory: do NOT auto-start the dev server; ask the user to launch when manual UX verification is needed.
 
 **Resume guidance:**
 
@@ -127,4 +127,4 @@ Next action on resume: `/gsd-plan-phase 11` to decompose Phase 11 (WDG audit fix
 
 ## Operator Next Steps
 
-- Run `/gsd-plan-phase 11` to decompose Phase 11 (Web Design Guidelines Audit Fixes) into per-sweep plans.
+- Run `/gsd-plan-phase 12` to decompose Phase 12 (AI-Agnostic URL + Page Rename) per `12-CONTEXT.md` decisions D-01..D-16.
