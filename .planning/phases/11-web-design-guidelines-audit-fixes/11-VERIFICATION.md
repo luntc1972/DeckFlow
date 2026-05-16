@@ -1,9 +1,10 @@
 ---
 phase: 11-web-design-guidelines-audit-fixes
 verified: 2026-05-13T00:00:00Z
-status: human_needed
-score: 5/5 must-haves verified (1 documented deviation flagged for human override decision)
-overrides_applied: 0
+human_uat_completed: 2026-05-16T00:00:00Z
+status: passed
+score: 5/5 must-haves verified; 7/7 human UAT PASS (see 11-HUMAN-UAT.md); 1 override accepted (WDG-04); 1 INFO resolved by caption backfill (WDG-06)
+overrides_applied: 1
 human_verification:
   - test: "Tab-navigate every page under /Admin/* and observe a visible focus ring on each focused interactive element (links, buttons, inputs, selects, textareas, summary disclosure, tab buttons)."
     expected: "Every focusable element shows the 2px solid var(--focus) outline + 2px offset defined by admin.css :focus-visible block."
@@ -44,10 +45,14 @@ warnings:
     override_suggestion:
       must_have: "No inline style/onclick/onchange/onsubmit handlers remain in AdminFeedback Detail, AdminFeedback Index, or Views/Deck/Error.cshtml; the app is CSP-ready for script-src 'self' + style-src 'self'."
       reason: "AdminFeedback/Detail.cshtml line 41 onsubmit=\"return confirm(...)\" is intentionally deferred to v1.4 per Phase 11 D-05/D-06. Removing the inline handler without a replacement focus-trapped JS modal would convert 'delete with prompt' into 'instant delete' under strict CSP — a security/UX regression. All OTHER inline handlers in AdminFeedback Index, AdminFeedback Detail (style/onclick/onchange), and Views/Deck/Error.cshtml ARE removed."
-      accepted_by: "TBD"
-      accepted_at: "TBD"
+      accepted_by: "Chris Lunt (project owner)"
+      accepted_at: "2026-05-16"
+      uat_evidence: "Phase 11 UAT Test 4 PASS — native confirm fires, Cancel preserves row, OK deletes (11-HUMAN-UAT.md)."
   - id: "WDG-06-adminanalytics-no-caption"
     severity: info
+    status: resolved
+    resolved_at: "2026-05-16"
+    resolution: "Backfilled `<caption class=\"sr-only\">` on AdminAnalytics top-routes table (DeckFlow.Web/Views/AdminAnalytics/Index.cshtml:32). Release build clean."
     summary: "REQUIREMENTS.md WDG-06 lists AdminAnalytics in the table-semantics scope, but FINDINGS.md Sweep 6 and the 11-06 plan only scoped 6 tables (excluding AdminAnalytics). AdminAnalytics has <th scope='col'> pre-existing from Phase 8 but no <caption>."
     evidence:
       - "REQUIREMENTS.md:19 — 'Applies to AdminFlags, AdminFeedback Index, AdminHarvest (stats + recent runs + run log), AdminAnalytics, DeckSync, CommanderCategories, CedhMetaGap.'"

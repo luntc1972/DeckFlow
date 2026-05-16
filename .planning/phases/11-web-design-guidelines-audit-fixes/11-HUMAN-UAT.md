@@ -1,14 +1,15 @@
 ---
-status: partial
+status: passed
 phase: 11-web-design-guidelines-audit-fixes
 source: [11-VERIFICATION.md]
 started: 2026-05-13T22:55:00Z
-updated: 2026-05-13T22:55:00Z
+updated: 2026-05-16T00:00:00Z
+completed: 2026-05-16T00:00:00Z
 ---
 
 ## Current Test
 
-Test 2 — df-typeahead keyboard nav
+All 7 tests PASS. Awaiting 2 warning decisions (WDG-04, WDG-06) before phase close.
 
 ## Tests
 
@@ -18,34 +19,34 @@ result: PASS (2026-05-14) — all admin pages: /Admin, /Admin/Flags, /Admin/Feed
 
 ### 2. df-typeahead keyboard nav on 5 consumers (SuggestCategories card-name, DeckConvert commander, JudgeQuestions card, CommanderCategories, CardLookup single)
 expected: ArrowDown/Up moves highlight (aria-activedescendant tracks), Enter selects, Escape closes. SR announces highlighted option.
-result: [pending]
+result: PASS (2026-05-16) — all 5 consumers verified after Bug A (input color invisible) and Bug B (Scryfall 404 user error) resolved. Fixes: e8c2989 (CardSearchService 404→empty + test), c66ccaf (cross-cutting `color: var(--ink)` on form controls in site-common.css).
 
 ### 3. Workflow-step tablist with JavaScript disabled (Packets / DeckComparison / CedhMetaGap)
 expected: Exactly one tab in focus order with aria-selected=true; others tabindex=-1
-result: [pending]
+result: PASS (2026-05-16) — all 3 ChatGPT pages: single active tab in focus order, siblings tabindex=-1, sibling anchors navigate.
 
 ### 4. AdminFeedback Detail Delete confirm() prompt
 expected: Click Delete → native confirm dialog; Cancel keeps row; OK deletes. Confirms deferred inline onsubmit still functions.
-result: [pending]
+result: PASS (2026-05-16) — native confirm fires; Cancel preserves row; OK deletes + redirects. Deferred WDG-04 inline onsubmit handler functional.
 
 ### 5. AdminHarvest live region SR announcement during real harvest run
 expected: Each state transition (Queued → Running → Completed, decks counter) announced via aria-live=polite
-result: [pending]
+result: PASS (2026-05-16) — SR announces Queued/Running/Completed transitions + decks counter via aria-live=polite.
 
 ### 6. prefers-reduced-motion toggle (OS or DevTools)
 expected: All transitions/animations snap to ~0.01ms; no perceptible motion across spinners, hub-card hovers, AI-selector
-result: [pending]
+result: PASS (2026-05-16) — reduced-motion gate in site-common.css neutralizes animation/transition app-wide; motion returns when preference cleared.
 
 ### 7. Mobile/touch tap responsiveness
 expected: Tap registers immediately; no 300ms double-tap delay (touch-action: manipulation)
-result: [pending]
+result: PASS (2026-05-16) — taps register immediately on buttons, anchors, summary disclosures; touch-action: manipulation in site-common.css working.
 
 ## Summary
 
 total: 7
-passed: 1
+passed: 7
 issues: 0
-pending: 6
+pending: 0
 skipped: 0
 blocked: 0
 
