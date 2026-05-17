@@ -13,22 +13,36 @@ using System.Net;
 
 namespace DeckFlow.Web.Services;
 
-public interface IChatGptCedhMetaGapService
+/// <summary>
+/// Builds the cEDH meta-gap prompt packet using edhtop16 reference decks.
+/// </summary>
+public interface IMetaGapService
 {
-    Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Builds the cEDH meta-gap packet for the supplied workflow request.
+    /// </summary>
+    /// <param name="request">cEDH meta-gap workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed record ChatGptCedhMetaGapResult(
+/// <summary>
+/// Returns the results of a cEDH meta-gap packet build.
+/// </summary>
+public sealed record MetaGapResult(
     string? InputSummary,
     string? ResolvedCommanderName,
     IReadOnlyList<EdhTop16Entry> FetchedEntries,
     string? PromptText,
     string? SchemaJson,
-    ChatGptCedhMetaGapResponse? AnalysisResponse,
+    MetaGapResponse? AnalysisResponse,
     string? RequestContextText = null,
     string? DecklistText = null);
 
-public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
+/// <summary>
+/// Fetches top edhtop16 reference decks for the user's commander, hydrates them via Scryfall and Commander Spellbook, derives the cEDH meta-gap context (core convergence, missing staples, potential cuts), and composes the JSON-bound meta-gap prompt artifacts saved to the session zip.
+/// </summary>
+public sealed class MetaGapService : IMetaGapService
 {
     private const int FetchCount = 48;
     private const int ScryfallBatchSize = 75;
@@ -47,7 +61,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
 
-    internal ChatGptCedhMetaGapService(
+    internal MetaGapService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
         IMoxfieldDeckImporter moxfieldDeckImporter,
@@ -90,17 +104,17 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 cancellationToken));
     }
 
-    public async Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default)
+    public async Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        ChatGptCedhMetaGapResponse? analysisResponse = null;
+        MetaGapResponse? analysisResponse = null;
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
         {
             analysisResponse = ParseResponse(request.MetaGapResponseJson);
             if (string.IsNullOrWhiteSpace(request.DeckSource) && string.IsNullOrWhiteSpace(request.CommanderName))
             {
-                return new ChatGptCedhMetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse, BuildRequestContextText(request));
+                return new MetaGapResult(null, null, Array.Empty<EdhTop16Entry>(), null, MetaGapSchemaJson, analysisResponse, BuildRequestContextText(request));
             }
         }
 
@@ -174,7 +188,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
                 request.TargetAiPlatform);
         }
 
-        return new ChatGptCedhMetaGapResult(
+        return new MetaGapResult(
             inputSummary,
             resolvedCommanderName,
             fetchedEntries,
@@ -187,7 +201,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 
     /// <summary>
     /// Canonical Moxfield-flavored decklist text used as the zip-stored deck
-    /// artifact so re-upload can restore <see cref="ChatGptCedhMetaGapRequest.DeckSource"/>.
+    /// artifact so re-upload can restore <see cref="MetaGapRequest.DeckSource"/>.
     /// Emits Commander, Mainboard, and Possible Includes sections so optional
     /// (maybeboard/sideboard) entries the parser accepted are preserved across
     /// the round-trip.
@@ -236,15 +250,15 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
 
     /// <summary>
     /// Plain-text scalar key/value envelope round-tripped through the cEDH meta-gap zip.
-    /// Mirrors <see cref="ChatGptDeckPacketService"/>'s BuildRequestContextText for Packets.
+    /// Mirrors <see cref="DeckAnalysisPacketService"/>'s BuildRequestContextText for Packets.
     /// </summary>
-    internal static string BuildRequestContextText(ChatGptCedhMetaGapRequest request)
+    internal static string BuildRequestContextText(MetaGapRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"commander: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.CommanderName, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        builder.AppendLine($"commander: {JsonTextFormatterService.NormalizeSingleLine(request.CommanderName, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {JsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
         builder.AppendLine($"time_period: {request.TimePeriod}");
         builder.AppendLine($"sort_by: {request.SortBy}");
         builder.AppendLine($"min_event_size: {request.MinEventSize}");
@@ -269,7 +283,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     /// Returns null when the override should not be applied, so the caller falls
     /// through to the live fetch. Step 1 always re-fetches regardless.
     /// </summary>
-    private static List<EdhTop16Entry>? TryUseFetchedEntriesOverride(ChatGptCedhMetaGapRequest request)
+    private static List<EdhTop16Entry>? TryUseFetchedEntriesOverride(MetaGapRequest request)
     {
         if (request.WorkflowStep < 2)
         {
@@ -408,7 +422,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
     private static string BuildInputSummary(
         LoadedDeck loadedDeck,
         string resolvedCommanderName,
-        ChatGptCedhMetaGapRequest request,
+        MetaGapRequest request,
         IReadOnlyList<EdhTop16Entry> fetchedEntries)
     {
         var builder = new StringBuilder();
@@ -443,7 +457,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return builder.ToString().TrimEnd();
     }
 
-    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    // Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     internal static string BuildPrompt(
         string commanderName,
         IReadOnlyList<DeckEntry> myDeckEntries,
@@ -582,7 +596,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("OUTPUT CONTRACT:");
         builder.AppendLine("- First, provide a concise human-readable meta gap summary.");
         builder.AppendLine("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
-        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
+        builder.AppendLine($"- {JsonTextFormatterService.ResultWrapInstruction}");
         builder.AppendLine("- The prose summary must come before the JSON block.");
         builder.AppendLine("- Fill every field in meta_gap.");
         builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
@@ -681,7 +695,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("- TOP IMPROVEMENTS");
         builder.AppendLine("- META POSITIONING");
         builder.AppendLine("After the readable summary, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
@@ -813,7 +827,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.");
         builder.AppendLine("- First, provide a concise human-readable meta gap summary.");
         builder.AppendLine("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
-        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
+        builder.AppendLine($"- {JsonTextFormatterService.ResultWrapInstruction}");
         builder.AppendLine("- The prose summary must come before the JSON block.");
         builder.AppendLine("- Fill every field in meta_gap.");
         builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
@@ -825,7 +839,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         builder.AppendLine("Use this exact shape:");
         builder.AppendLine(schemaJson);
         builder.AppendLine();
-        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
+        builder.AppendLine(JsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -1176,14 +1190,14 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         return JsonSerializer.Serialize(payload);
     }
 
-    internal static ChatGptCedhMetaGapResponse ParseResponse(string input)
+    internal static MetaGapResponse ParseResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
             throw new InvalidOperationException("Paste the meta_gap JSON returned from ChatGPT into Step 3.");
         }
 
-        var json = ChatGptJsonTextFormatterService.ExtractJsonPayload(input);
+        var json = JsonTextFormatterService.ExtractJsonPayload(input);
         using var document = JsonDocument.Parse(json);
 
         JsonElement payload = document.RootElement;
@@ -1193,7 +1207,7 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
             payload = JsonSerializer.SerializeToElement(new { meta_gap = metaGapElement });
         }
 
-        var result = JsonSerializer.Deserialize<ChatGptCedhMetaGapResponse>(payload.GetRawText(), JsonOptions);
+        var result = JsonSerializer.Deserialize<MetaGapResponse>(payload.GetRawText(), JsonOptions);
 
         if (result is null)
         {
