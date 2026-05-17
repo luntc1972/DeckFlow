@@ -1,36 +1,39 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-16T00:00:00Z",
-  "phase": "11",
-  "phase_name": "web-design-guidelines-audit-fixes",
-  "phase_dir": ".planning/phases/11-web-design-guidelines-audit-fixes",
-  "milestone": "v1.3",
-  "branch": "v1.3",
-  "plan": 10,
-  "task": null,
-  "total_tasks": null,
-  "status": "complete",
-  "stage": "closed",
+  "timestamp": "2026-05-17T02:49:29Z",
+  "phase": "13",
+  "phase_name": "ChatGpt* Class Rename + Summary Doc Comments",
+  "phase_dir": ".planning/phases/13-chatgpt-class-rename-summary-doc-comments",
+  "plan": 0,
+  "task": 0,
+  "total_tasks": 0,
+  "status": "context_gathered_awaiting_user_review",
   "completed_tasks": [
-    {"id": "11-01..11-10", "name": "All 10 WDG sweep plans shipped", "status": "done"},
-    {"id": "uat-test-1..7", "name": "All 7 human UAT tests PASS", "status": "done", "result": "PASS"},
-    {"id": "warning-decision-1", "name": "WDG-04 deferred Detail onsubmit", "status": "done", "result": "override accepted; logged in 11-VERIFICATION.md frontmatter"},
-    {"id": "warning-decision-2", "name": "WDG-06 AdminAnalytics caption drift", "status": "done", "result": "resolved via caption backfill in commit 3e433f0"},
-    {"id": "uat-bug-A", "name": "/lookup typed text invisible", "status": "done", "result": "fixed in c66ccaf — cross-cutting color: var(--ink) on form controls in site-common.css"},
-    {"id": "uat-bug-B", "name": "/lookup Scryfall 404 user error", "status": "done", "result": "fixed in e8c2989 — CardSearchService.SearchAsync treats 404 as empty + 10min cache + test"}
+    {"id": "12", "name": "Phase 12 (ai-agnostic-url-page-rename) shipped + verified", "status": "done", "commit": "e57fbb8"},
+    {"id": "12-PROJECT", "name": "PROJECT.md evolved to mark RENAME-01/02/03 validated", "status": "done", "commit": "58ee5fe"},
+    {"id": "13-CONTEXT", "name": "Phase 13 CONTEXT.md + DISCUSSION-LOG.md (auto-mode)", "status": "done", "commit": "738bbad"},
+    {"id": "13-STATE", "name": "STATE.md session record for Phase 13 context", "status": "done", "commit": "ac2974a"}
   ],
-  "remaining_tasks": [],
+  "remaining_tasks": [
+    {"id": "13-REVIEW-CONTEXT", "name": "User reviews 13-CONTEXT.md D-01 naming table — confirm DeckAnalysis* / DeckComparison* / MetaGap* triplet + PacketArtifactStore bare-name + DeckPageTab enum value renames + nested response shape renames (drop both ChatGpt and Cedh prefixes)", "status": "not_started"},
+    {"id": "13-PLAN", "name": "Run /gsd:plan-phase 13 (interactive) or /gsd:plan-phase 13 --auto (chain)", "status": "not_started"},
+    {"id": "13-EXEC", "name": "Run /gsd:execute-phase 13 — 4-wave sequential (Models -> Services -> Controller+Views -> Tests+build gate)", "status": "not_started"}
+  ],
   "blockers": [],
   "human_actions_pending": [
-    {"action": "Decide Phase 12 entry: discuss-phase, plan-phase, or skip to spec-phase", "context": "Phase 12 = URL + page rename (slug/redirect/filename sanitizer/view sweep). 2-3 plans estimated.", "blocking": false}
+    {"action": "Review 13-CONTEXT.md D-01 rename map for collisions or preferred alternative names", "context": "26 ChatGpt-prefixed classes + 142 hits in DeckController.cs + nested response shape classes. Once executors run rename across this surface, undoing requires another full rename pass.", "blocking": true},
+    {"action": "Optional: dogfood Phase 12 URLs at https://www.deckflow.gg after deploy — verify 11 301 redirects + new help slugs", "context": "Phase 12 verification passed but only 4 of 4 automated SC + 3 of 3 reqs checked; runtime curl spot-checks deferred per CLAUDE.md feedback_user_starts_server.md (no auto dev server launch).", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Phase 11 closed as COMPLETE", "rationale": "10/10 sweep plans shipped; 7/7 human UAT PASS; 1 override accepted (WDG-04); 1 INFO resolved by backfill (WDG-06); Release build clean", "phase": "11"},
-    {"decision": "WDG-04 inline confirm() onsubmit deferred to v1.4", "rationale": "Removing inline handler without focus-trapped JS modal converts 'delete with prompt' to 'instant delete' under strict CSP — security/UX regression. Replacement scheduled v1.4.", "phase": "11"},
-    {"decision": "WDG-06 caption backfilled on AdminAnalytics", "rationale": "Closes drift between REQUIREMENTS.md WDG-06 scope and FINDINGS.md Sweep 6 coverage with 1-line cshtml edit. Release build clean.", "phase": "11"}
+    {"decision": "Page-aligned naming (DeckAnalysis* / DeckComparison* / MetaGap*) over generic prefix (Ai*, Workflow*)", "rationale": "Matches Phase 12 URL slugs + AIPLATFORM-01 spec explicitly names these as targets. Forward-compatible with Phase 15 value object refactor.", "phase": "13"},
+    {"decision": "PacketArtifactStore renamed bare (no page prefix)", "rationale": "Static helper serves all three pages; matches CONVENTIONS.md precedent for stateless helpers.", "phase": "13"},
+    {"decision": "4-wave sequential execution (no worktree parallelism)", "rationale": "Every wave overlaps DeckController.cs + Program.cs. Parallel worktrees would race on merge.", "phase": "13"},
+    {"decision": "Doc comments hand-crafted from method bodies, not generated", "rationale": "Generates accurate single-sentence summaries matching project's existing terse style (ScryfallCardLookupService / CommanderSpellbookService). No vague TODO placeholders in public XML doc file.", "phase": "13"},
+    {"decision": "TS / CSS / data-* internal identifier sweep deferred to a future hygiene phase", "rationale": "chatgpt-* class names, data-cache-key, data-chatgpt-*-form, TS const names like parseChatGptDownloadFilename couple to TypeScript event handlers + browser CSS. Renaming risks runtime breakage and needs its own test pass.", "phase": "13"},
+    {"decision": "Phase 12 follow-up: renamed Help/chatgpt-analysis.md -> Help/deck-analysis.md + Help/chatgpt-deck-comparison.md -> Help/deck-comparison.md + 2 added 301 redirects + 19 cshtml Url.Content sweeps in renamed views", "rationale": "User asked mid-Phase-12 to include all docs and help files. Plan 12-05's grep gate excluded *.cshtml; cshtml form actions still pointed at /chatgpt-* URLs causing 301 round-trips on POST.", "phase": "12"},
+    {"decision": "Phase 12 review fixes WR-01 + WR-02 landed pre-completion (README controller-action prose refs + trailing-slash anchor on all 11 redirects)", "rationale": "Code review caught README still documenting /Deck/ChatGptPackets (now 404) and ^slug$ anchor falling through on trailing slash.", "phase": "12"}
   ],
   "uncommitted_files": [],
-  "blocking_constraints": [],
-  "next_action": "Start Phase 12 (url-page-rename) via /gsd-discuss-phase or /gsd-plan-phase. Phase 12 scope per ROADMAP: slug + redirect + filename sanitizer + view sweep (2-3 plans).",
-  "context_notes": "Phase 11 fully closed. STATE.md updated to 1/5 phases complete (20%). HANDOFF.json reflects clean handoff to Phase 12. Phase 11 surfaced + fixed 2 real bugs on /lookup not caught by automated VERIFICATION: cross-cutting form control color regression from WDG-01 `color-scheme: light dark`, and CardSearchService 404 inconsistency vs SearchCommandersAsync."
+  "next_action": "User reads .planning/phases/13-chatgpt-class-rename-summary-doc-comments/13-CONTEXT.md D-01 naming table. Edit if needed. Then run /gsd:plan-phase 13 (interactive) or /gsd:plan-phase 13 --auto (full chain to execute).",
+  "context_notes": "Session shipped Phase 12 end-to-end (5/5 plans + extra in-flight scope expansion to all docs/help files + 2 code-review-driven fixes), then auto-advanced through transition to Phase 13 discuss. Auto-mode wrote a complete 13-CONTEXT.md with naming decisions aligned to CLASSRENAME-01 + AIPLATFORM-01 spec targets. Paused before plan/execute chain because the rename surface area (26 classes, 142 DeckController hits, 3 services with 27+38+47 hits each) is large enough that the naming-table decision in D-01 is foundational. Chain flag cleared. Workflow.auto_advance persistent preference is still true, so explicit /gsd:plan-phase 13 invocation will pick that up. Build is clean. STATE.md frontmatter reflects ready_to_plan + stopped_at Phase 12 complete."
 }
