@@ -4,24 +4,23 @@ using DeckFlow.Web.Models;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Parses ChatGPT JSON responses for the deck-analysis and set-upgrade workflows.
-/// Pure helpers — no side effects, no I/O, safe to call from anywhere.
+/// Parses the analysis and set-upgrade JSON returns from the AI into the strongly-typed response shapes used by the deck-analysis page. Pure helpers — no side effects, no I/O, safe to call from anywhere.
 /// </summary>
-internal static class ChatGptResponseParsers
+internal static class ResponseParsers
 {
     private static readonly JsonSerializerOptions DeserializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public static ChatGptDeckAnalysisResponse ParseAnalysisResponse(string input)
+    public static DeckAnalysisResponse ParseAnalysisResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
             throw new InvalidOperationException("Paste the deck_profile JSON returned from ChatGPT into Step 3.");
         }
 
-        var json = ChatGptJsonTextFormatterService.ExtractJsonPayload(input);
+        var json = JsonTextFormatterService.ExtractJsonPayload(input);
         using var document = JsonDocument.Parse(json);
 
         var payload = document.RootElement;
@@ -36,7 +35,7 @@ internal static class ChatGptResponseParsers
             throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_profile payload.");
         }
 
-        var result = JsonSerializer.Deserialize<ChatGptDeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
+        var result = JsonSerializer.Deserialize<DeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
         if (result is null || !HasMeaningfulDeckProfileContent(result))
         {
             throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_profile payload.");
@@ -45,14 +44,14 @@ internal static class ChatGptResponseParsers
         return result;
     }
 
-    public static ChatGptSetUpgradeResponse ParseSetUpgradeResponse(string input)
+    public static SetUpgradeResponse ParseSetUpgradeResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
             throw new InvalidOperationException("Paste the set_upgrade_report JSON returned from ChatGPT into Step 5.");
         }
 
-        var json = ChatGptJsonTextFormatterService.ExtractJsonPayload(input);
+        var json = JsonTextFormatterService.ExtractJsonPayload(input);
         using var document = JsonDocument.Parse(json);
 
         var payload = document.RootElement;
@@ -67,7 +66,7 @@ internal static class ChatGptResponseParsers
             throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid set_upgrade_report payload.");
         }
 
-        var result = JsonSerializer.Deserialize<ChatGptSetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
+        var result = JsonSerializer.Deserialize<SetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
         if (result is null || !HasMeaningfulSetUpgradeContent(result))
         {
             throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid set_upgrade_report payload.");
@@ -97,7 +96,7 @@ internal static class ChatGptResponseParsers
         return knownProperties.Any(propertyName => payload.TryGetProperty(propertyName, out _));
     }
 
-    private static bool HasMeaningfulDeckProfileContent(ChatGptDeckAnalysisResponse response)
+    private static bool HasMeaningfulDeckProfileContent(DeckAnalysisResponse response)
         => !string.IsNullOrWhiteSpace(response.Format)
             || !string.IsNullOrWhiteSpace(response.Commander)
             || !string.IsNullOrWhiteSpace(response.GamePlan)
@@ -117,14 +116,14 @@ internal static class ChatGptResponseParsers
         return knownProperties.Any(propertyName => payload.TryGetProperty(propertyName, out _));
     }
 
-    private static bool HasMeaningfulSetUpgradeContent(ChatGptSetUpgradeResponse response)
+    private static bool HasMeaningfulSetUpgradeContent(SetUpgradeResponse response)
         => response.Sets.Count > 0
             || (response.FinalShortlist is not null
                 && (response.FinalShortlist.MustTest.Any(HasMeaningfulTopAdd)
                     || response.FinalShortlist.Optional.Any(HasMeaningfulTopAdd)
                     || response.FinalShortlist.Skip.Any(card => !string.IsNullOrWhiteSpace(card))));
 
-    private static bool HasMeaningfulTopAdd(ChatGptSetUpgradeTopAdd add)
+    private static bool HasMeaningfulTopAdd(SetUpgradeTopAdd add)
         => !string.IsNullOrWhiteSpace(add.Card)
             || !string.IsNullOrWhiteSpace(add.Reason)
             || !string.IsNullOrWhiteSpace(add.SuggestedCut)
