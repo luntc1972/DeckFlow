@@ -224,12 +224,12 @@ None.
 
 ## Self-Check: PASSED
 
-Verified before commit:
+Verified before final commit:
 - `[ -f .planning/phases/13-chatgpt-class-rename-summary-doc-comments/13-HUMAN-UAT.md ]` — exists
-- `[ -f DeckFlow.Web.Tests/MetaGapServiceTests.cs ]` — exists (9 new test files all exist)
-- `git log | grep f6e30dd` — HUMAN-UAT emission commit exists
-- `git log | grep d7510da` — DeckControllerTests sweep commit exists
-- `git log | grep 5c241bb` — TestServiceFactory rename commit exists
-- All 9 test file rename commits (1323c57, 1dbdfdd, 506909e, 7ed4603, 85dde0e, 96dfcfc, 40e66f3, 6b5552f, 65da37f) exist in `git log`
-- Final solution build green: 0 errors, 0 warnings (Build succeeded. line confirmed in /tmp/build-13-04.log)
+- `[ -f .planning/phases/13-chatgpt-class-rename-summary-doc-comments/13-04-SUMMARY.md ]` — exists
+- All 9 new test files exist on disk (MetaGapServiceTests.cs, DeckComparisonServiceTests.cs, DeckAnalysisPacketServiceTests.cs, JsonTextFormatterServiceTests.cs, PacketArtifactStoreRoundTripTests.cs, PacketArtifactStoreTests.cs, AiPlatformPhase10RoundTripTests.cs, ResponseParsersTests.cs, ResultContractTests.cs)
+- All 15 Phase-13-Wave-4 commits exist in `git log` (1323c57, 1dbdfdd, 506909e, 7ed4603, 85dde0e, 96dfcfc, 40e66f3, 6b5552f, 65da37f, 5c241bb, d7510da, f6e30dd, 52095e9, cb3f092, 5390f38)
+- HEAD content for renamed test files contains the new class names (e.g., `git show HEAD:DeckFlow.Web.Tests/MetaGapServiceTests.cs` shows `public sealed class MetaGapServiceTests`)
+- Final solution build green: 0 errors, 0 warnings (Build succeeded. line confirmed twice — once pre-fix-up at /tmp/build-13-04.log, once post-fix-up after 52095e9)
 - Final grep gate: 0 hits (/tmp/grep-gate-13-04.log is empty)
+- Final CLI build green: 0 errors, 0 warnings
