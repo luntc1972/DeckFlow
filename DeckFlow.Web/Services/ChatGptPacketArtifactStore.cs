@@ -534,13 +534,13 @@ internal static class ChatGptPacketArtifactStore
     }
 
     public static string SuggestPacketZipFileName(string? commanderName, string? targetAiPlatform = null)
-        => $"{CreateSafePathSegment(commanderName, "deckflow-packet")}-analysis-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+        => $"{CreateSafePathSegment(commanderName, "deck-analysis")}-analysis-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     public static string SuggestComparisonZipFileName(string? commanderName, string? targetAiPlatform = null)
-        => $"{CreateSafePathSegment(commanderName, "deck-comparison")}-compare2-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+        => $"{CreateSafePathSegment(commanderName, "deck-comparison")}-comparison-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     public static string SuggestCedhMetaGapZipFileName(string commanderName, string? targetAiPlatform = null)
-        => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-cedh-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+        => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-cedh-meta-gap-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     private static byte[] BuildArchive(params IReadOnlyList<(string FileName, string Label, string Content)>[] sectionGroups)
     {
