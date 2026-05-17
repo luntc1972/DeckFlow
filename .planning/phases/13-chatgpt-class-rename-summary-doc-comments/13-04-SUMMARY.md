@@ -66,8 +66,8 @@ metrics:
   tasks_total: 4
   files_renamed: 9
   files_modified: 2
-  commits_this_wave: 12
-  total_phase_13_commits: 45
+  commits_this_wave: 13
+  total_phase_13_commits: 46
 ---
 
 # Phase 13 Plan 04: Wave 4 — Tests + Final Build Gate + HUMAN-UAT Emission Summary
@@ -185,9 +185,16 @@ Per CLAUDE.md feedback memory: **do NOT auto-launch the dev server** — user st
 
 ## Deviations from Plan
 
-### Auto-fixed Issues (none) — Plan executed as written
+### Auto-fixed Issues
 
-No Rule 1 bugs, no Rule 2 missing functionality, no Rule 3 blockers encountered. Build was green on first attempt after the test rename sweep.
+**1. [Rule 1 — Bug] Fix-up commit for missing test-file content edits**
+- **Found during:** Post-Task-3 self-check (`git status` showed all 9 renamed test files as still modified after commit)
+- **Issue:** Each of the 9 `git mv` + content-edit commits (1323c57, 1dbdfdd, 506909e, 7ed4603, 85dde0e, 96dfcfc, 40e66f3, 6b5552f, 65da37f) registered only the rename portion in git's index (`0 insertions(+), 0 deletions(-)`). The on-disk sed/Edit content rewrites and XML `<summary>` doc-comment additions were not staged into those commits despite the `git add` step appearing to succeed. Disk content was correct (which is why `dotnet build` ran clean), but HEAD lagged.
+- **Fix:** Staged all 9 modified test files and emitted a single consolidated fix-up commit (52095e9) recording all content edits. After the fix-up, HEAD content matches disk content, allowlisted grep gate returns 0 hits against HEAD, and a re-run of `dotnet build DeckFlow.sln --configuration Release` remains green (0 errors, 0 warnings).
+- **Files modified:** All 9 renamed test files (AiPlatformPhase10RoundTripTests.cs, DeckAnalysisPacketServiceTests.cs, DeckComparisonServiceTests.cs, JsonTextFormatterServiceTests.cs, MetaGapServiceTests.cs, PacketArtifactStoreRoundTripTests.cs, PacketArtifactStoreTests.cs, ResponseParsersTests.cs, ResultContractTests.cs)
+- **Commit:** 52095e9
+
+No Rule 2 missing functionality, no Rule 3 blockers, no Rule 4 architectural changes encountered. Build was green on first attempt after the consolidated fix-up landed.
 
 ### Discoveries beyond plan scope (informational only)
 
