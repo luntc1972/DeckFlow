@@ -95,12 +95,12 @@ Plans:
   3. Session zip download filenames and `Content-Disposition` headers use AI-agnostic artifact terminology consistent with the new page naming (filename sanitizer in `ChatGptPacketArtifactStore` updated; AI-segment in the filename pattern preserved per Phase 10 commit `00e5bdd`).
   4. README, `DeckFlow.Web/Help/**/*.md`, and the browser-extension package (`browser-extensions/deckflow-bridge/`) reference the new URLs; no hardcoded `chatgpt-` paths remain in any tracked file outside of permanent-redirect registrations.
 
-**Plans:** 5 plans
+**Plans:** 2/5 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 12-01-PLAN.md — UseRewriter 301 block (9 redirects) + DeckController 12 route attribute replacements
-- [ ] 12-04-PLAN.md — Suggest*ZipFileName helpers: deckflow-packet→deck-analysis, compare2→comparison, cedh→cedh-meta-gap (chatgpt AI fallback preserved)
+- [x] 12-01-PLAN.md — UseRewriter 301 block (9 redirects) + DeckController 12 route attribute replacements
+- [x] 12-04-PLAN.md — Suggest*ZipFileName helpers: deckflow-packet→deck-analysis, compare2→comparison, cedh→cedh-meta-gap (chatgpt AI fallback preserved)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -177,7 +177,7 @@ Plans:
 | 9. Bracket UX + AI Selector Foundation | v1.2 | 3/3 | Complete | 2026-05-08 |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
-| 12. AI-Agnostic URL + Page Rename | v1.3 | 0/5 | Not started | — |
+| 12. AI-Agnostic URL + Page Rename | v1.3 | 2/5 | In Progress|  |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/3 | Not started | — |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
