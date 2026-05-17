@@ -60,13 +60,16 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 **Depends on**: Nothing (kicks off v1.3).
 **Requirements**: WDG-01, WDG-02, WDG-03, WDG-04, WDG-05, WDG-06, WDG-07, WDG-08, WDG-09, WDG-10
 **Success Criteria** (what must be TRUE):
+
   1. Tab-navigating every page under `/Admin/*` shows a visible focus ring on the currently focused element (admin.css universal `:focus-visible` block mirrors `site.css:109-118`).
   2. Keyboard users can pick suggestions from every `df-typeahead` autocomplete input (SuggestCategories card-name, DeckConvert commander, JudgeQuestions card, CommanderCategories, CardLookup single) using ArrowDown/Up/Enter/Escape, with full ARIA combobox attributes wired (`role="combobox"`, `aria-autocomplete="list"`, `aria-expanded`, `aria-controls`, `aria-activedescendant`, options `role="option"`).
   3. With JavaScript disabled, the workflow-step tablist on Packets / DeckComparison / CedhMetaGap pre-selects the current step server-side (`aria-selected="true" tabindex="0"` on current, `aria-selected="false" tabindex="-1"` on others).
   4. No inline `style`/`onclick`/`onchange`/`onsubmit` handlers remain in AdminFeedback Detail, AdminFeedback Index, or `Views/Deck/Error.cshtml`; the app is CSP-ready for `script-src 'self'` + `style-src 'self'`.
   5. All 10 sweep PRs from `260513-wdg-FINDINGS.md` merge to `v1.3`, with cross-cutting a11y rules (`color-scheme`, global `prefers-reduced-motion`, `touch-action: manipulation`, `tabular-nums`, `scroll-margin-top`) added to `site-common.css` so all 22 guild themes inherit them without per-fork edit, and `Release` `dotnet build DeckFlow.sln` completes clean.
+
 **Plans:** 10/10 plans complete
 Plans:
+
 - [x] 11-01-PLAN.md — Sweep 1 (WDG-08): cross-cutting a11y rules added to site-common.css (color-scheme, prefers-reduced-motion, touch-action, .tabular, scroll-margin-top)
 - [x] 11-02-PLAN.md — Sweep 2 (WDG-01): universal :focus-visible block + color-scheme + tabular-nums added to admin.css
 - [x] 11-03-PLAN.md — Sweep 3 (WDG-07): Razor `selected="@(x ? "selected" : null)"` sweep across DeckSync, DeckConvert, SuggestCategories, AdminHarvest/Index
@@ -77,6 +80,7 @@ Plans:
 - [x] 11-08-PLAN.md — Sweep 8 (WDG-05): info-tooltip `<span title=...>` → `<details><summary>` conversion in SuggestCategories + CommanderCategories
 - [x] 11-09-PLAN.md — Sweep 9 (WDG-03): _WorkflowStepTabs.cshtml server-renders aria-selected + tabindex based on current step
 - [x] 11-10-PLAN.md — Sweep 10 (WDG-10): role="status" + aria-live="polite" added to #harvest-status-live element in AdminHarvest/Index.cshtml
+
 **UI hint**: yes
 
 ### Phase 12: AI-Agnostic URL + Page Rename
@@ -85,17 +89,31 @@ Plans:
 **Depends on**: Phase 11 (so explainer-line `.page-lede` CSS in `site-common.css` lands on Phase 11's foundation before Phase 12 uses it).
 **Requirements**: RENAME-01, RENAME-02, RENAME-03
 **Success Criteria** (what must be TRUE):
+
   1. The three current URLs (`/chatgpt-packets`, `/chatgpt-deck-comparison`, `/chatgpt-cedh-meta-gap`) plus their `/upload` / `/download` sub-routes serve permanent (301) redirects to the new AI-agnostic slugs; visiting an old bookmark lands on the renamed page with no broken links.
   2. Page `<h1>`, top-nav labels in `_DeckToolTabs.cshtml`, hub-card titles on `Home.cshtml`, and `<title>` element values on all three pages reflect AI-agnostic naming; explainer text under each H1 preserves the "this generates something to paste into an AI" cue per `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` Mock A.
   3. Session zip download filenames and `Content-Disposition` headers use AI-agnostic artifact terminology consistent with the new page naming (filename sanitizer in `ChatGptPacketArtifactStore` updated; AI-segment in the filename pattern preserved per Phase 10 commit `00e5bdd`).
   4. README, `DeckFlow.Web/Help/**/*.md`, and the browser-extension package (`browser-extensions/deckflow-bridge/`) reference the new URLs; no hardcoded `chatgpt-` paths remain in any tracked file outside of permanent-redirect registrations.
+
 **Plans:** 5 plans
 Plans:
+**Wave 1**
+
 - [ ] 12-01-PLAN.md — UseRewriter 301 block (9 redirects) + DeckController 12 route attribute replacements
-- [ ] 12-02-PLAN.md — git mv 3 view files (ChatGpt*.cshtml → AI-agnostic names) + DeckController View() literal-string updates
-- [ ] 12-03-PLAN.md — Page-1 H1/title/nav/hub label swap + 3 page-lede explainer paragraphs + .page-lede CSS in site-common.css + 6 hrefs across nav and home
 - [ ] 12-04-PLAN.md — Suggest*ZipFileName helpers: deckflow-packet→deck-analysis, compare2→comparison, cedh→cedh-meta-gap (chatgpt AI fallback preserved)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 12-02-PLAN.md — git mv 3 view files (ChatGpt*.cshtml → AI-agnostic names) + DeckController View() literal-string updates
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 12-03-PLAN.md — Page-1 H1/title/nav/hub label swap + 3 page-lede explainer paragraphs + .page-lede CSS in site-common.css + 6 hrefs across nav and home
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 12-05-PLAN.md — README + Help/*.md URL sweep + browser-extension verification + manifest version bump (conditional) + phase-wide D-15 grep gate
+
 **UI hint**: yes
 
 ### Phase 13: ChatGpt* Class Rename + Summary Doc Comments
@@ -104,10 +122,12 @@ Plans:
 **Depends on**: Phase 12 (renamed classes line up with the user-facing terminology decided in Phase 12; pairs URL + class rename as one conceptual unit but shipped as separate phases per user execution order).
 **Requirements**: CLASSRENAME-01, CLASSRENAME-02, CLASSRENAME-03
 **Success Criteria** (what must be TRUE):
+
   1. All `ChatGpt*`-prefixed public types renamed to AI-agnostic names — including `ChatGptDeckRequest`, `ChatGptDeckPacketService`, `ChatGptRequestContextParser`, `ChatGptPacketArtifactStore`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, `ChatGptDeckViewModel`, `ChatGptDeckComparisonViewModel`, `ChatGptCedhMetaGapViewModel`, `ChatGptCedhMetaGapRequest`, `ChatGptDeckComparisonRequest` — with grep across the solution returning zero `ChatGpt` matches outside of explicitly-preserved string literals (e.g., `AiPlatform.Key = "ChatGPT"`).
   2. Every renamed class has an XML `<summary>` doc comment describing its current responsibility; `<GenerateDocumentationFile>true</GenerateDocumentationFile>` in `DeckFlow.Web.csproj` compiles clean for the renamed types without relying on `NoWarn 1591` suppression.
   3. DI registrations in `Program.cs`, `[assembly: InternalsVisibleTo("DeckFlow.Web.Tests")]` in `AssemblyInfo.cs`, namespace imports, controller actions, view-model bindings, test fixtures, Razor `@model` directives, and form `name` attributes that bind to renamed properties are all updated; `dotnet build DeckFlow.sln --configuration Release` succeeds with zero new warnings.
   4. Zero user-visible behavior change verified by re-running the full manual T1-T8 integration suite (per `.planning/milestones/v1.2-MILESTONE-AUDIT.md`) against post-rename HEAD: all three pages still produce identical artifacts and round-trip identical zips.
+
 **Plans**: TBD
 
 ### Phase 14: Broader Codebase Name-vs-Behavior Audit
@@ -116,10 +136,12 @@ Plans:
 **Depends on**: Phase 13 (uses class-rename pattern as template; runs after the largest rename surface has stabilized).
 **Requirements**: AUDIT-01, AUDIT-02, AUDIT-03
 **Success Criteria** (what must be TRUE):
+
   1. Every public class in `DeckFlow.Core`, `DeckFlow.Web`, `DeckFlow.CLI`, `DeckFlow.Core.Tests`, and `DeckFlow.Web.Tests` has been reviewed for name-vs-behavior alignment; classes whose names don't describe current responsibility are renamed (candidates to verify per REQUIREMENTS.md: `ScryfallTaggerService`, `CommanderSpellbookService`, `Null*`/`Fake*`/`Stub*` test-double scoping consistency).
   2. Every public class and interface across all 5 projects has an XML `<summary>` doc comment; `<GenerateDocumentationFile>true</GenerateDocumentationFile>` is verified clean (or newly enabled) on `DeckFlow.Core` and `DeckFlow.CLI` in addition to the already-on `DeckFlow.Web`.
   3. `dotnet build DeckFlow.sln --configuration Release` produces zero new warnings vs. the pre-Phase-14 baseline; test discovery succeeds via `dotnet test --no-build` where WSL permits, otherwise verified via push-and-watch CI on the `v1.3` branch.
   4. Scope discipline observed: DeckController god-class split and ChatGPT-services extraction stay out of scope per PROJECT.md (own refactor milestones); renames touch class names + doc comments only, no responsibility splits.
+
 **Plans**: TBD
 
 ### Phase 15: AiPlatform Value Object Refactor
@@ -128,11 +150,13 @@ Plans:
 **Depends on**: Phase 13 + Phase 14 (refactor sits on top of clean class names and audited responsibilities so the value object lands on a stable surface).
 **Requirements**: AIPLATFORM-01, AIPLATFORM-02, AIPLATFORM-03
 **Success Criteria** (what must be TRUE):
+
   1. `AiPlatform` sealed record value object replaces `string TargetAiPlatform` on all three renamed request DTOs (per CLASSRENAME-01 final names — likely `DeckAnalysisRequest`, `DeckComparisonRequest`, `MetaGapRequest`); the value object encapsulates name, display label, enabled flag, and response-extraction strategy with `AiPlatform.All` as the single source of truth and `AiPlatform.Normalize(string?)` handling form-post / zip-load deserialization.
   2. All five per-AI prompt builders (`BuildAnalysisPrompt`, `BuildSetUpgradePrompt`, `BuildComparisonPrompt`, `BuildFollowUpPrompt`, `BuildMetaGapPrompt`), the unified `<result>` extractor in `ExtractJsonPayload`, the artifact store round-trip (`LoadFromZip` / `BuildZip`), the request context parser, and the `_AiSelector.cshtml` Razor partial dispatch via the value-object API (registry pattern per design doc) — not via string switches.
   3. `DECKFLOW_GEMINI_ENABLED` env-var gating on Gemini option visibility is preserved end-to-end (server still hides the radio when the flag is unset; saved zips with `target_ai_platform: Gemini` still round-trip).
   4. Zero user-visible behavior change: full T1-T8 manual integration tests (per `.planning/milestones/v1.2-MILESTONE-AUDIT.md`) plus filename verify pass against post-refactor HEAD; all three pages produce byte-identical artifacts and round-trip identical zips before and after the refactor.
   5. Hypothetical 4th-platform extension test: adding `AiPlatform.Test` to `AiPlatform.All` + one stub variant per builder family does NOT require editing any switch expression, request-model setter, Razor partial, or context parser (proven by an actual test in the suite).
+
 **Plans**: TBD
 
 ---
