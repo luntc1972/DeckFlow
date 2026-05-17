@@ -177,7 +177,7 @@ Plans:
 | 9. Bracket UX + AI Selector Foundation | v1.2 | 3/3 | Complete | 2026-05-08 |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
-| 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete   | 2026-05-17 |
+| 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete    | 2026-05-17 |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/3 | Not started | — |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |

@@ -26,9 +26,9 @@ Source: `.planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-
 
 Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (Option A recommended: drop brand, evergreen URLs, explainer lines).
 
-- [ ] **RENAME-01**: Three AI-agnostic page URLs replace `/chatgpt-packets`, `/chatgpt-deck-comparison`, `/chatgpt-cedh-meta-gap`. Permanent 301 redirects from old URLs preserve bookmarks and inbound links. Final URL slugs TBD during planning (candidates: `/deck-analysis`, `/deck-comparison`, `/meta-gap` from brainstorm).
-- [ ] **RENAME-02**: Page `<h1>`, top-nav labels (`_DeckToolTabs.cshtml`), hub-card titles (`Home.cshtml`), and `<title>` element values reflect AI-agnostic naming. Explainer text under each `<h1>` preserves the "this generates something to paste into an AI" cue.
-- [ ] **RENAME-03**: Session zip download filenames and `Content-Disposition` headers use new artifact terminology consistent with the page naming. Filename sanitizer in `ChatGptPacketArtifactStore` updated.
+- [x] **RENAME-01**: Three AI-agnostic page URLs replace `/chatgpt-packets`, `/chatgpt-deck-comparison`, `/chatgpt-cedh-meta-gap`. Permanent 301 redirects from old URLs preserve bookmarks and inbound links. Final URL slugs TBD during planning (candidates: `/deck-analysis`, `/deck-comparison`, `/meta-gap` from brainstorm).
+- [x] **RENAME-02**: Page `<h1>`, top-nav labels (`_DeckToolTabs.cshtml`), hub-card titles (`Home.cshtml`), and `<title>` element values reflect AI-agnostic naming. Explainer text under each `<h1>` preserves the "this generates something to paste into an AI" cue.
+- [x] **RENAME-03**: Session zip download filenames and `Content-Disposition` headers use new artifact terminology consistent with the page naming. Filename sanitizer in `ChatGptPacketArtifactStore` updated.
 
 ### Code Hygiene — ChatGpt* class rename
 

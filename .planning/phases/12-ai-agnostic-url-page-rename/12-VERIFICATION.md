@@ -1,212 +1,229 @@
-# Phase 12 Verification: AI-Agnostic URL + Page Rename
+---
+phase: 12-ai-agnostic-url-page-rename
+verified: 2026-05-16T22:00:00Z
+status: passed
+score: 4/4 success criteria + 3/3 requirements verified
+overrides_applied: 0
+---
 
-**Generated:** 2026-05-17 (after Plan 05 close)
-**Phase:** 12-ai-agnostic-url-page-rename
-**Status:** All 4 ROADMAP success criteria satisfied
+# Phase 12: AI-Agnostic URL + Page Rename Verification Report
 
-This document aggregates the verification outputs from all 5 Phase 12 plans so the phase-level acceptance signals can be inspected from one place. Each success criterion (SC #1-4) below is sourced from the corresponding plan SUMMARY.
+**Phase Goal:** Drop "ChatGPT" branding from the three multi-AI workflow pages at the URL + visible-label layer so the AI-agnostic reality of v1.2's per-AI dispatch is reflected in what users see and bookmark.
+
+**Verified:** 2026-05-16T22:00:00Z
+**Status:** PASSED
+**Re-verification:** Yes — overwrites the Plan 05 wave-4 self-audit with a full phase-level verification including requirement traceability and code-level checks.
 
 ---
 
-## SC #1 — 301 redirects (Plan 01)
+## Goal Achievement
 
-**Criterion:** All 9 legacy `/chatgpt-*` paths (3 page-roots + 3 `/download` + 3 `/upload`) MUST 301-redirect to the new AI-agnostic slugs via the centralized `UseRewriter` block in `DeckFlow.Web/Program.cs`. Forwarded-headers middleware MUST precede `UseRewriter` so the 301 `Location` honors `X-Forwarded-Proto`.
+### Observable Truths (ROADMAP Success Criteria)
 
-**Source plan:** `12-01-SUMMARY.md`
-**Commits:** `5598f9d` (feat — UseRewriter middleware), `38bb2f8` (feat — DeckController route attributes).
+| #   | Truth   | Status     | Evidence       |
+| --- | ------- | ---------- | -------------- |
+| SC1 | Three old URLs (/chatgpt-packets, /chatgpt-deck-comparison, /chatgpt-cedh-meta-gap) + their /upload + /download sub-routes serve 301 redirects to new slugs | VERIFIED | `DeckFlow.Web/Program.cs:329-340` — 11 `AddRedirect(..., 301)` entries via `UseRewriter`. All 9 original chatgpt-* paths covered (3 page-roots × 3 verbs: bare/download/upload) plus 2 added post-review for `/help/chatgpt-analysis` and `/help/chatgpt-deck-comparison`. `grep -c "AddRedirect" Program.cs` = 11. All regexes use `^slug/?$` accepting trailing slash (WR-02 fix). Pipeline order: `UseForwardedHeaders` (L319) → `UseRewriter` (L329) → `UseDeckFlowSecurityHeaders` (L349) → `UseHttpsRedirection` (L351) — D-05 invariant satisfied. |
+| SC2 | H1, top-nav labels, hub-card titles, `<title>` values reflect AI-agnostic naming; `.page-lede` explainer paragraphs land | VERIFIED | Page-1 H1: `DeckAnalysis.cshtml:29` reads `<h1>Deck Analysis</h1>`; ViewData["Title"]="Deck Analysis" at L3. Page-2 H1 unchanged (`Deck Comparison` at DeckComparison.cshtml:144). Page-3 H1 unchanged (`cEDH Meta Gap` at CedhMetaGap.cshtml:21). Three exact Mock A lede paragraphs verified at DeckAnalysis.cshtml:30, DeckComparison.cshtml:145, CedhMetaGap.cshtml:22. Nav strip: `_DeckToolTabs.cshtml:18-20` shows "Deck Analysis / Deck Comparison / cEDH Meta Gap" with new-slug hrefs. Hub-hero (`Home.cshtml:11-14`): "Analyze Your Deck" title, "paste into ChatGPT, Claude, or Gemini" in description. 3 hub-cards (`Home.cshtml:20-30`) point at new slugs. |
+| SC3 | Session zip filenames + Content-Disposition use AI-agnostic terminology (Phase 10 AI-segment invariant preserved) | VERIFIED | `ChatGptPacketArtifactStore.cs:536-543`: SuggestPacketZipFileName fallback `"deck-analysis"` (was `"deckflow-packet"`), SuggestComparisonZipFileName mid-segment `-comparison-` (was `-compare2-`), SuggestCedhMetaGapZipFileName mid-segment `-cedh-meta-gap-` (was `-cedh-`). `grep -c '"chatgpt"'` = 3 — AI-segment fallback preserved per D-10 Phase 10 invariant. Content-Disposition headers auto-derive from `File(bytes,"application/zip",fileName)` transitively per D-11 (no controller edits needed). |
+| SC4 | README, Help/*.md, browser-extension files reference new URLs; no hardcoded chatgpt-* paths outside permanent redirect registrations | VERIFIED | **D-15 atomic gate passes:** `grep -rnE "/chatgpt-(packets\|deck-comparison\|cedh-meta-gap\|analysis)" --include="*.md" --include="*.js" --include="*.json" --include="*.cs" --include="*.cshtml" --include="*.css" --exclude-dir=".planning" --exclude-dir=".claude" --exclude-dir="node_modules" --exclude-dir="obj" --exclude-dir="bin" --exclude-dir=".git" .` filtered to exclude `Program.cs` returns **zero** hits. README line 215 reads "/deck-analysis", line 330 "/deck-comparison", lines 376/437 area "/cedh-meta-gap". `Help/deck-analysis.md`, `Help/deck-comparison.md`, `Help/cedh-meta-gap.md` all reference new slugs. browser-extensions/deckflow-bridge/ has no chatgpt-* references (Case A NO-OP per D-16 — manifest.json version unchanged at "0.1.0"). |
 
-### 9 redirect paths (per D-04)
+**Score:** 4/4 ROADMAP Success Criteria verified.
 
-| Legacy path | Target slug | Status |
-|---|---|:---:|
-| `/chatgpt-packets` | `/deck-analysis` | 301 |
-| `/chatgpt-packets/download` | `/deck-analysis/download` | 301 |
-| `/chatgpt-packets/upload` | `/deck-analysis/upload` | 301 |
-| `/chatgpt-deck-comparison` | `/deck-comparison` | 301 |
-| `/chatgpt-deck-comparison/download` | `/deck-comparison/download` | 301 |
-| `/chatgpt-deck-comparison/upload` | `/deck-comparison/upload` | 301 |
-| `/chatgpt-cedh-meta-gap` | `/cedh-meta-gap` | 301 |
-| `/chatgpt-cedh-meta-gap/download` | `/cedh-meta-gap/download` | 301 |
-| `/chatgpt-cedh-meta-gap/upload` | `/cedh-meta-gap/upload` | 301 |
+### Required Artifacts (Cross-Plan)
 
-### Automated gates (from Plan 01 SUMMARY)
+| Artifact | Expected | Status | Details |
+| -------- | -------- | ------ | ------- |
+| `DeckFlow.Web/Program.cs` | UseRewriter block with 9+ AddRedirect entries | VERIFIED | 11 redirects (9 baseline + 2 added for help URLs), `UseRewriter` count = 1, pipeline ordering correct |
+| `DeckFlow.Web/Controllers/DeckController.cs` | 12 new HttpGet/HttpPost route attributes; 0 chatgpt-* attrs | VERIFIED | `grep -cE 'Http(Get\|Post)\("/chatgpt-'` = 0; `grep -cE 'Http(Get\|Post)\("/(deck-analysis\|deck-comparison\|cedh-meta-gap)'` = 12. Action method names (`ChatGptPackets`, `ChatGptDeckComparison`, `ChatGptCedhMetaGap`, +9 POST variants) intentionally preserved — Phase 13 scope |
+| `DeckFlow.Web/Views/Deck/DeckAnalysis.cshtml` | Renamed view with new H1, ViewData[Title], lede paragraph | VERIFIED | exists; `@model ChatGptDeckViewModel` preserved per D-14; H1="Deck Analysis"; lede on L30 |
+| `DeckFlow.Web/Views/Deck/DeckComparison.cshtml` | Renamed view with lede paragraph (H1 unchanged) | VERIFIED | exists; `@model ChatGptDeckComparisonViewModel` preserved; H1="Deck Comparison"; lede on L145 |
+| `DeckFlow.Web/Views/Deck/CedhMetaGap.cshtml` | Renamed view with lede paragraph (H1 unchanged) | VERIFIED | exists; `@model ChatGptCedhMetaGapViewModel` preserved; H1="cEDH Meta Gap"; lede on L22 |
+| Old view files removed (3) | gone | VERIFIED | `ChatGptPackets.cshtml`, `ChatGptDeckComparison.cshtml`, `ChatGptCedhMetaGap.cshtml` all not found (git mv preserved history) |
+| `DeckFlow.Web/wwwroot/css/site-common.css` | `.page-lede` rule with --muted color, --fs-base font-size | VERIFIED | Rule at L1393. `grep -lr "\.page-lede" wwwroot/css/ \| grep -v site-common.css` = empty — T-12-07 mitigated (no guild-fork drift across 22 themes) |
+| `DeckFlow.Web/Views/Shared/_DeckToolTabs.cshtml` | 3 nav links to new slugs, Page-1 label "Deck Analysis" | VERIFIED | L18-20 all use `~/deck-analysis`/`~/deck-comparison`/`~/cedh-meta-gap` and read "Deck Analysis"/"Deck Comparison"/"cEDH Meta Gap" |
+| `DeckFlow.Web/Views/Deck/Home.cshtml` | hub-hero "Analyze Your Deck"; 3 hub-cards to new slugs; Page-1 card "Deck Analysis" | VERIFIED | L11 hero href `~/deck-analysis`; L13 title "Analyze Your Deck" (was "Analyze Your Deck with ChatGPT"); 3 hub-card hrefs and Page-1 title "Deck Analysis" all confirmed |
+| `DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs` | 3 sanitizer helpers updated per D-10 | VERIFIED | L536-543 match D-10 target. `"chatgpt"` AI-fallback count = 3 (preserved). Class name `ChatGptPacketArtifactStore` intentionally preserved — Phase 13 scope. |
+| README.md | No `/chatgpt-*` or `/Deck/ChatGpt*` URLs in user-facing prose | VERIFIED | All workflow-page mentions reference `/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`. WR-01 fix applied: lines around 213/330 use new slugs. Single remaining "ChatGpt" reference at L637 is the C# class name `ChatGptDeckComparisonService` (intentionally preserved — Phase 13 scope). |
+| `DeckFlow.Web/Help/deck-analysis.md` | Exists, references /deck-analysis | VERIFIED | L9 reads `(/deck-analysis)`. File renamed from chatgpt-analysis.md per post-phase code-review fix. |
+| `DeckFlow.Web/Help/deck-comparison.md` | Exists, references /deck-comparison | VERIFIED | L9 reads `(/deck-comparison)`. File renamed from chatgpt-deck-comparison.md. |
+| `DeckFlow.Web/Help/cedh-meta-gap.md` | Exists, references /cedh-meta-gap, "AI workflow" prose | VERIFIED | L9 reads `(/cedh-meta-gap) generates a structured AI workflow`. Prose update applied. |
+| `browser-extensions/deckflow-bridge/` | No chatgpt-* refs; manifest version conditionally bumped | VERIFIED | `grep -rn "chatgpt-" browser-extensions/` = empty. `manifest.json` version unchanged at "0.1.0" — Case A NO-OP per D-16 honored. |
 
-- `grep -cE 'Http(Get|Post)\("/chatgpt-' DeckFlow.Web/Controllers/DeckController.cs` → **0** (no remaining chatgpt- route attributes)
-- `grep -cE 'Http(Get|Post)\("/(deck-analysis|deck-comparison|cedh-meta-gap)' DeckFlow.Web/Controllers/DeckController.cs` → **12** (3 page-roots × 4 verbs)
-- `grep -c "AddRedirect.*chatgpt-" DeckFlow.Web/Program.cs` → **9**
-- `grep -c "AddRedirect.*301" DeckFlow.Web/Program.cs` → **9**
-- `grep -c "UseRewriter" DeckFlow.Web/Program.cs` → **1**
-- Pipeline-order: `UseForwardedHeaders()` (L319) before `UseRewriter(` (L329) before `UseDeckFlowSecurityHeaders()` (L347) — D-05 invariant satisfied.
-- `dotnet build DeckFlow.Web/DeckFlow.Web.csproj` → 0 warnings, 0 errors.
+### Key Link Verification
 
-### Manual curl verification (deferred to user per `feedback_user_starts_server.md`)
+| From | To  | Via | Status | Details |
+| ---- | --- | --- | ------ | ------- |
+| Program.cs UseRewriter `^chatgpt-packets/?$` | DeckController `[HttpGet("/deck-analysis")]` (L151) | 301 Location header resolved by new route attr | VERIFIED | Redirect target literal `"deck-analysis"` matches route attribute; build succeeds |
+| Program.cs UseRewriter `^chatgpt-deck-comparison/?$` | DeckController `[HttpGet("/deck-comparison")]` (L164) | 301 Location | VERIFIED | Mapping confirmed |
+| Program.cs UseRewriter `^chatgpt-cedh-meta-gap/?$` | DeckController `[HttpGet("/cedh-meta-gap")]` (L177) | 301 Location | VERIFIED | Mapping confirmed |
+| Program.cs UseRewriter `^help/chatgpt-analysis/?$` | HelpController `[HttpGet("/help/{slug}")]` (L20) → `Help/deck-analysis.md` | dynamic slug lookup via `IHelpContentService.GetBySlug` | VERIFIED | Help file `deck-analysis.md` exists; slug routing dynamic |
+| Program.cs UseRewriter `^help/chatgpt-deck-comparison/?$` | HelpController + `Help/deck-comparison.md` | dynamic slug lookup | VERIFIED | Help file exists |
+| UseForwardedHeaders (L319) | UseRewriter (L329) | pipeline ordering (D-05 invariant) | VERIFIED | L319 < L329 < L349 — forwarded headers run first so 301 Location honors X-Forwarded-Proto |
+| _DeckToolTabs.cshtml href "~/deck-analysis" | DeckController `[HttpGet("/deck-analysis")]` | Url.Content tilde resolution | VERIFIED | 3 nav-link hrefs all map to existing routes |
+| Home.cshtml hub-card hrefs (4 — hero + 3 cards) | DeckController routes | Url.Content | VERIFIED | 4 hub hrefs at L11/L20/L24/L28 all resolve to new routes |
+| DeckController `View("DeckAnalysis", ...)` | DeckFlow.Web/Views/Deck/DeckAnalysis.cshtml | Razor view-name string lookup | VERIFIED | 39 View() calls reference new view names; 0 reference old |
+| DeckController `File(bytes, "application/zip", SuggestPacketZipFileName(...))` | Sanitizer return value | Content-Disposition transitive (ASP.NET-derived) | VERIFIED | Helper signature unchanged; new mid-segments propagate transitively per D-11 |
+| .cshtml `<p class="page-lede">...</p>` | site-common.css `.page-lede` rule | CSS class selector (cross-cutting per CLAUDE.md D-07) | VERIFIED | Rule lives ONLY in site-common.css:1393; no guild-fork drift |
 
-User-launched dev server spot-check spec from Plan 01 verification block:
+### Data-Flow Trace (Level 4)
 
-```text
-curl -i http://localhost:5173/chatgpt-packets             → 301 Location: /deck-analysis
-curl -i http://localhost:5173/chatgpt-deck-comparison     → 301 Location: /deck-comparison
-curl -i http://localhost:5173/chatgpt-cedh-meta-gap       → 301 Location: /cedh-meta-gap
-curl -i http://localhost:5173/deck-analysis               → 200
-curl -i http://localhost:5173/deck-comparison             → 200
-curl -i http://localhost:5173/cedh-meta-gap               → 200
-```
+| Artifact | Data Variable | Source | Produces Real Data | Status |
+| -------- | ------------- | ------ | ------------------ | ------ |
+| Page-1 view (`/deck-analysis`) | Razor server-rendered HTML — H1, lede, page title | Razor view + Model resolved by DeckController.ChatGptPackets() action | yes (existing action code path unchanged by Phase 12) | FLOWING |
+| Page-2 view (`/deck-comparison`) | as above | DeckController.ChatGptDeckComparison() | yes | FLOWING |
+| Page-3 view (`/cedh-meta-gap`) | as above | DeckController.ChatGptCedhMetaGap() | yes | FLOWING |
+| Zip filename via Suggest*ZipFileName | `commanderName`, `targetAiPlatform` | DeckController POST handlers passing through `CreateSafePathSegment` | yes | FLOWING |
+| Browser-extension wwwroot zip | extension JS files | MSBuild `ZipDeckFlowBridge` target | yes (no JS edits in Phase 12; zip byte-identical) | FLOWING |
 
-Same pattern for the `/upload` and `/download` sub-routes — all 9 redirects MUST return 301; all 3 new page-roots MUST return 200.
+### Behavioral Spot-Checks
 
-**SC #1: PASSED (automated). Manual curl spot-check deferred to user.**
+| Behavior | Command | Result | Status |
+| -------- | ------- | ------ | ------ |
+| Build cleanly compiles entire web project | `dotnet build DeckFlow.Web/DeckFlow.Web.csproj --nologo --verbosity quiet` | "Build succeeded. 0 Warning(s) 0 Error(s)" | PASS |
+| Build cleanly compiles full solution | `dotnet build DeckFlow.sln --nologo --verbosity quiet` | "Build succeeded. 0 Warning(s) 0 Error(s)" | PASS |
+| Route attribute count check | `grep -cE 'Http(Get\|Post)\("/(deck-analysis\|deck-comparison\|cedh-meta-gap)' DeckController.cs` | 12 | PASS |
+| Old route attribute removal | `grep -cE 'Http(Get\|Post)\("/chatgpt-' DeckController.cs` | 0 | PASS |
+| Redirect count | `grep -c "AddRedirect" Program.cs` | 11 | PASS |
+| UseRewriter singleton | `grep -c "UseRewriter" Program.cs` | 1 | PASS |
+| Old chatgpt sanitizer literals gone | `grep -c '"deckflow-packet"\|compare2' ChatGptPacketArtifactStore.cs` | 0 | PASS |
+| AI fallback `"chatgpt"` preserved 3x | `grep -c '"chatgpt"' ChatGptPacketArtifactStore.cs` | 3 | PASS |
+| `.page-lede` rule single-source | `grep -lr "\.page-lede" wwwroot/css/ \| grep -v site-common.css \| wc -l` | 0 | PASS |
+| View files renamed (new exists) | `ls DeckFlow.Web/Views/Deck/{DeckAnalysis,DeckComparison,CedhMetaGap}.cshtml` | all 3 found | PASS |
+| Old view files removed | `ls DeckFlow.Web/Views/Deck/{ChatGptPackets,ChatGptDeckComparison,ChatGptCedhMetaGap}.cshtml` | "No such file or directory" × 3 | PASS |
+| D-15 atomic gate | `grep -rnE "/chatgpt-(packets\|deck-comparison\|cedh-meta-gap\|analysis)" --include="*.{md,js,json,cs,cshtml,css}" --exclude-dir=".planning"/".claude"/"node_modules"/"obj"/"bin"/".git" .` filtered to exclude Program.cs | empty (zero hits) | PASS |
+| HTTP 301 round-trip (manual curl spec) | per user-launched dev server check from 12-01-PLAN | DEFERRED to user — VSTest unreliable in WSL per CLAUDE.md; per user memory `feedback_user_starts_server.md` verifier MUST NOT auto-launch web | SKIP |
+| T1/T4/T7 download filename round-trip | per user-launched dev server check from 12-04-PLAN | DEFERRED to user (same reason) | SKIP |
 
----
+### Requirements Coverage
 
-## SC #2 — Page labels + explainer lines (Plan 03)
+| Requirement | Source Plan | Description | Status | Evidence |
+| ----------- | ---------- | ----------- | ------ | -------- |
+| RENAME-01 | 12-01, 12-05 | Three AI-agnostic page URLs replace `/chatgpt-packets`, `/chatgpt-deck-comparison`, `/chatgpt-cedh-meta-gap`. Permanent 301 redirects from old URLs preserve bookmarks and inbound links | SATISFIED | 11 AddRedirect entries with status 301 in Program.cs:329-340; 12 new route attributes in DeckController; D-15 sweep passes; final slugs `/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap` locked from Mock A per D-01/D-02 |
+| RENAME-02 | 12-02, 12-03 | Page `<h1>`, top-nav labels, hub-card titles, and `<title>` element values reflect AI-agnostic naming. Explainer text under each `<h1>` preserves the "paste into AI" cue | SATISFIED | Page-1 H1 `Deck Analysis`; nav strip 3 labels; hub-hero + 3 hub-cards updated; 3 lede paragraphs with exact Mock A copy at expected line numbers; `.page-lede` CSS in site-common.css only (CLAUDE.md D-07 invariant) |
+| RENAME-03 | 12-04 | Session zip download filenames and Content-Disposition headers use new artifact terminology consistent with the page naming. Filename sanitizer in `ChatGptPacketArtifactStore` updated | SATISFIED | 3 sanitizer literal-string edits applied at ChatGptPacketArtifactStore.cs:536-543 per D-10; `-comparison-` and `-cedh-meta-gap-` mid-segments replace old; `"deckflow-packet"` fallback → `"deck-analysis"`; AI-segment `"chatgpt"` fallback preserved 3x per Phase 10 invariant (commit `00e5bdd`) |
 
-**Criterion:** Page-1 H1 + browser `<title>` + nav-link text + hub-card title + hub-hero title all read `Deck Analysis` (was `ChatGPT Analysis`). All three AI workflow pages (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`) have a `<p class="page-lede">` explainer paragraph directly under the H1 with the exact Mock A copy. `.page-lede` CSS lives ONLY in `site-common.css` (CLAUDE.md D-07 invariant).
+**No orphaned requirements.** REQUIREMENTS.md maps RENAME-01..03 to Phase 12; all three are covered by plans 12-01..12-05 frontmatter.
 
-**Source plan:** `12-03-SUMMARY.md`
-**Commits:** `6b3dbb8` (feat — `.page-lede` CSS + explainer paragraphs on 3 views), `208654b` (feat — Page-1 rebrand + 6 nav/home href flips).
+### Anti-Patterns Found
 
-### Changed labels (per D-06, D-07, D-09)
+| File | Line | Pattern | Severity | Impact |
+| ---- | ---- | ------- | -------- | ------ |
+| `DeckFlow.Web/Views/Deck/DeckAnalysis.cshtml` | 128 | Pre-existing typo "analysigs" instead of "analysis" | Info | IN-01 from REVIEW; typo predates Phase 12 (existed in ChatGptPackets.cshtml at the same line before file rename); not a Phase 12 introduction; no goal impact |
+| `DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs` | 542-543 | SuggestCedhMetaGapZipFileName fallback `"cedh-meta-gap"` duplicates the suffix when commander is empty — produces `cedh-meta-gap-cedh-meta-gap-chatgpt-...zip` | Info | IN-02 from REVIEW; edge case (empty commander); polish issue not behavior bug |
+| `DeckFlow.Web/Program.cs` | 329-340 | No automated test for the 301 redirects | Info | IN-03 from REVIEW; consistent with CLAUDE.md "VSTest unreliable in WSL" testing posture; CI on push covers regression |
+| `DeckFlow.Web/Controllers/DeckController.cs` | 151+ | `///` doc-comment placement AFTER `[HttpGet]` attribute (Roslyn parses; Sandcastle does not) | Info | IN-04 from REVIEW; pattern inherited by Phase 12, not introduced; suppressed by NoWarn 1591/1573/1587 in DeckFlow.Web.csproj |
 
-| Surface | Before | After |
-|---|---|---|
-| Page-1 H1 (`DeckAnalysis.cshtml:29`) | `ChatGPT Analysis` | `Deck Analysis` |
-| Page-1 browser title (`DeckAnalysis.cshtml:3`) | `ChatGPT Analysis` | `Deck Analysis` |
-| Nav-link Page 1 (`_DeckToolTabs.cshtml:18`) | `ChatGPT Analysis` | `Deck Analysis` |
-| Hub-hero title (`Home.cshtml:13`) | `Analyze Your Deck with ChatGPT` | `Analyze Your Deck` |
-| Hub-card 1 title (`Home.cshtml:21`) | `ChatGPT Analysis` | `Deck Analysis` |
-| Page-2 H1 + Title | `Deck Comparison` | unchanged (already AI-agnostic per D-06) |
-| Page-3 H1 + Title | `cEDH Meta Gap` | unchanged (already AI-agnostic per D-06) |
+**No debt markers (TBD/FIXME/XXX/TODO) introduced by Phase 12.** All findings classified as Info-level by code review.
 
-### Mock A explainer paragraphs (per D-07)
+### Phase 13 Surface Intentionally Preserved (D-14)
 
-| View | Page-lede copy (exact, Mock A) |
-|---|---|
-| `DeckAnalysis.cshtml:30` | `Generate a prompt to paste into ChatGPT, Claude, or Gemini.` |
-| `DeckComparison.cshtml:145` | `Generate a prompt comparing two decks. Paste into ChatGPT, Claude, or Gemini.` |
-| `CedhMetaGap.cshtml:22` | `Generate a prompt analyzing your deck against current cEDH meta. Paste into ChatGPT, Claude, or Gemini.` |
+The following items appear unchanged in Phase 12 output and are CORRECT per the phase scope contract:
 
-### Href synchronization (6 flips per D-09)
+| Surface | Where | Why preserved |
+| ------- | ----- | ------------- |
+| `@model DeckFlow.Web.Models.ChatGptDeckViewModel` etc | 3 renamed .cshtml files L1 | Phase 13 owns C# class renames (CLASSRENAME-01) per D-14 |
+| Action method names `ChatGptPackets`, `ChatGptDeckComparison`, `ChatGptCedhMetaGap` (×12 GET/POST) | DeckController.cs | Phase 13 scope per D-14 |
+| `DeckPageTab.ChatGptPackets`, `DeckPageTab.ChatGptDeckComparison`, `DeckPageTab.ChatGptCedhMetaGap` enum values | _DeckToolTabs.cshtml L6, L18-20 | Phase 13 scope per D-14 |
+| `"chatgpt"` AI-segment fallback in sanitizer helpers | ChatGptPacketArtifactStore.cs L537/L540/L543 | Phase 10 invariant (commit `00e5bdd`) per D-10 — `chatgpt` is the user-chosen AI default, not artifact branding |
+| Class name `ChatGptPacketArtifactStore` (file + class) | DeckFlow.Web/Services/ | Phase 13 (CLASSRENAME-01) per D-14 |
+| Single literal "ChatGptDeckComparisonService" in README L637 | README.md | C# class name reference; Phase 13 will rename and the README mention with it |
 
-3 nav-link hrefs in `_DeckToolTabs.cshtml` + 1 hub-hero + 3 hub-cards in `Home.cshtml` = 7 hrefs total all flipped to new slugs. `grep -c 'Url.Content("~/chatgpt-' _DeckToolTabs.cshtml Home.cshtml` → **0**.
+### Human Verification Required
 
-### CSS invariant (per D-07 / D-08)
+The following items cannot be verified programmatically because:
+- CLAUDE.md note: "VSTest unreliable in WSL"
+- User memory `feedback_user_starts_server.md`: the verifier MUST NOT auto-launch the DeckFlow web; ask user
+- Visual / browser-rendering behavior cannot be grep-verified
 
-- `.page-lede` rule lives at `site-common.css:1393` (single source).
-- `grep -rln "\.page-lede" DeckFlow.Web/wwwroot/css/ | grep -v site-common.css | wc -l` → **0** (not forked across any of the 22 guild themes — T-12-07 mitigated).
+#### 1. 301 redirects honor X-Forwarded-Proto on production proxy
 
-### Build
-
-- `dotnet build DeckFlow.Web/DeckFlow.Web.csproj` → 0 warnings, 0 errors.
-- `dotnet build DeckFlow.sln --configuration Release` → 0 warnings, 0 errors.
-
-**SC #2: PASSED.**
-
----
-
-## SC #3 — Artifact filenames (Plan 04 — RENAME-03)
-
-**Criterion:** The three `Suggest*ZipFileName` helpers in `ChatGptPacketArtifactStore.cs` emit AI-agnostic artifact terminology (`deck-analysis`, `-comparison-`, `-cedh-meta-gap-`) while preserving the Phase 10 `"chatgpt"` AI-segment fallback invariant. The download/upload round-trip (T1/T4/T7) continues to work because `LoadFromZip` matches by zip CONTENT, not zip filename.
-
-**Source plan:** `12-04-SUMMARY.md`
-**Commits:** `c87ff5b` (feat — three sanitizer literal-string edits).
-
-### Sanitizer changes (per D-10)
-
-| Helper | Before | After |
-|---|---|---|
-| `SuggestPacketZipFileName` commander fallback | `"deckflow-packet"` | `"deck-analysis"` |
-| `SuggestComparisonZipFileName` mid-segment | `"-compare2-"` | `"-comparison-"` |
-| `SuggestCedhMetaGapZipFileName` mid-segment | `"-cedh-"` | `"-cedh-meta-gap-"` |
-| All three AI-segment fallback | `"chatgpt"` | unchanged (D-10 invariant from Phase 10 commit `00e5bdd`) |
-
-### Automated gates (from Plan 04 SUMMARY)
-
-- `grep -c 'CreateSafePathSegment(commanderName, "deckflow-packet")' DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs` → **0**
-- `grep -c 'CreateSafePathSegment(commanderName, "deck-analysis")' DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs` → **1**
-- `grep -c "compare2" DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs` → **0**
-- `grep -c '"chatgpt"' DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs` → **3** (one per helper — AI fallback preserved)
-- Build clean (0 warnings, 0 errors).
-
-### Round-trip checks (T1 / T4 / T7) — deferred to user
-
-Per `feedback_user_starts_server.md` the executor does not auto-launch the dev server. The user-launched verification spec from Plan 04:
-
-- **T1 (`/deck-analysis`):** Generate prompts, click Download. Expected filename pattern `{commander}-analysis-{ai}-{yyyymmdd-hhmmss}.zip`.
-- **T4 (`/deck-comparison`):** Same. Expected `{commander}-comparison-{ai}-{ts}.zip` (was `compare2`).
-- **T7 (`/cedh-meta-gap`):** Same. Expected `{commander}-cedh-meta-gap-{ai}-{ts}.zip` (was bare `cedh`).
-- **Edge — empty commander on `/deck-analysis`:** Expected `deck-analysis-analysis-{ai}-{ts}.zip` (NOT `deckflow-packet-...`).
-- **Edge — empty AI selector:** All three fall back to `chatgpt` segment (UNCHANGED — D-10 invariant).
-- **Backward compatibility:** Old saved zips (pre-Phase-12 filenames) still load via Step-1 resume upload. `LoadFromZip` matches by zip content not filename.
-
-**SC #3: PASSED (automated). Manual T1/T4/T7 round-trip deferred to user.**
-
----
-
-## SC #4 — Docs + extension sweep (Plan 05)
-
-**Criterion:** No hardcoded `/chatgpt-(packets|deck-comparison|cedh-meta-gap)` paths remain in any tracked `*.md`, `*.js`, or `*.json` file outside `.planning/` and outside the `UseRewriter` redirect block in `DeckFlow.Web/Program.cs`. The browser-extension package (`browser-extensions/deckflow-bridge/`) is verified clean of stale URL references; manifest version bumped iff actual JS edits occurred (D-16 conditional).
-
-**Source plan:** `12-05-SUMMARY.md` (this plan)
-**Commits:** `51bb902` (docs — README + Help + CLAUDE.md URL sweep; Task 2 was Case A NO-OP per D-16).
-
-### Files updated (3 .md files)
-
-| File | Hits before | Hits after | Prose update |
-|---|:-:|:-:|---|
-| `README.md` (lines 278, 365, 376, 437) | 4 | 0 | Line 376: "structured ChatGPT workflow" → "structured AI workflow" |
-| `DeckFlow.Web/Help/cedh-meta-gap.md` (line 9) | 1 | 0 | Same prose update as README line 376 |
-| `CLAUDE.md` (line 272 — Rule 3 addition) | 2 (`/chatgpt-packets`, `/chatgpt-cedh-meta-gap`) | 0 | URL strings only |
-
-### Browser-extension state (D-16 conditional bump)
-
-| File | Pre-edit hits | Action | Post-edit state |
-|---|:-:|---|---|
-| `background.js` | 0 | NO-OP (Case A) | unchanged |
-| `deckflow-bridge.js` | 0 | NO-OP (Case A) | unchanged |
-| `manifest.json` | 0 | version NOT bumped per D-16 | unchanged (`git diff` empty) |
-| `wwwroot/extensions/deckflow-bridge.zip` | n/a | MSBuild re-zipped on rebuild | byte-identical contents |
-
-### D-15 atomic acceptance grep gate
-
-The phase-wide D-15 gate:
-
+**Test:** With user-launched dev server, run:
 ```bash
-grep -rEn "/chatgpt-(packets|deck-comparison|cedh-meta-gap)" \
-  --include="*.md" --include="*.js" --include="*.json" \
-  --exclude-dir=".planning" --exclude-dir="node_modules" --exclude-dir="bin" --exclude-dir="obj" \
-  .
+curl -i http://localhost:5173/chatgpt-packets
+curl -i http://localhost:5173/chatgpt-packets/download
+curl -i http://localhost:5173/chatgpt-packets/upload
+curl -i http://localhost:5173/chatgpt-deck-comparison
+curl -i http://localhost:5173/chatgpt-deck-comparison/download
+curl -i http://localhost:5173/chatgpt-deck-comparison/upload
+curl -i http://localhost:5173/chatgpt-cedh-meta-gap
+curl -i http://localhost:5173/chatgpt-cedh-meta-gap/download
+curl -i http://localhost:5173/chatgpt-cedh-meta-gap/upload
+curl -i http://localhost:5173/help/chatgpt-analysis
+curl -i http://localhost:5173/help/chatgpt-deck-comparison
 ```
+**Expected:** Each request returns `HTTP/1.1 301 Moved Permanently` with `Location:` header pointing at the corresponding new-slug path.
+**Why human:** Requires running dev server (cannot auto-launch); user-action verification needed for production-proxy parity.
 
-**Output (recorded at Plan 05 completion):** *(empty — zero hits)*
+#### 2. New page-root URLs return 200
 
-The only remaining `chatgpt-(packets|deck-comparison|cedh-meta-gap)` URL strings anywhere in the repo are inside the `AddRedirect(...)` calls in `DeckFlow.Web/Program.cs`'s `UseRewriter` block — that file is `.cs` (structurally excluded from the `--include` set) and the strings are the legitimate redirect-source side of the 301 pattern.
+**Test:**
+```bash
+curl -i http://localhost:5173/deck-analysis
+curl -i http://localhost:5173/deck-comparison
+curl -i http://localhost:5173/cedh-meta-gap
+curl -i http://localhost:5173/help/deck-analysis
+curl -i http://localhost:5173/help/deck-comparison
+```
+**Expected:** All return `HTTP/1.1 200 OK` with the Razor-rendered page (H1 visible, lede paragraph under it).
+**Why human:** Same as above.
 
-### Build
+#### 3. T1/T4/T7 — Download zip filename round-trip
 
-- `dotnet build DeckFlow.Web/DeckFlow.Web.csproj` → 0 warnings, 0 errors.
+**Test:**
+- T1 (`/deck-analysis`): Load deck, generate prompts, click Download. Verify downloaded filename pattern `{commander}-analysis-{ai}-{yyyymmdd-hhmmss}.zip`.
+- T4 (`/deck-comparison`): Same. Expected `{commander}-comparison-{ai}-{ts}.zip` (was `compare2`).
+- T7 (`/cedh-meta-gap`): Same. Expected `{commander}-cedh-meta-gap-{ai}-{ts}.zip` (was bare `cedh`).
+- Edge: Empty commander on `/deck-analysis` → `deck-analysis-analysis-{ai}-{ts}.zip` (NOT `deckflow-packet-...`).
+- Backward compat: Old saved zips (pre-Phase-12 filenames) still load via Step-1 resume upload.
 
-**SC #4: PASSED.**
+**Why human:** Requires interactive browser + file-download UI; sanitizer behavior cannot be grep-verified end-to-end.
+
+#### 4. Visual smoke: page-lede styling renders across themes
+
+**Test:** Visit `/deck-analysis?theme=azorius` (and 2-3 other themes). DevTools → Computed styles on the `<p class="page-lede">` element. Confirm `color` resolves to the theme's `--muted` token and `font-size` to `--fs-base`. Mobile 375px viewport: lede wraps cleanly; nav strip does not overflow horizontally.
+**Why human:** Visual rendering across 22 guild themes cannot be programmatically asserted within Phase 12 scope (visual-regression harness is deferred per CONTEXT.md).
 
 ---
 
 ## Aggregate Phase 12 Status
 
-| ROADMAP Success Criterion | Plan | Status |
+| ROADMAP Success Criterion | Plan(s) | Status |
 |---|---|---|
-| SC #1 — 301 redirects for 9 legacy paths | 01 | PASS |
-| SC #2 — User-visible labels + Mock A explainer lines | 03 | PASS |
-| SC #3 — AI-agnostic artifact filenames | 04 | PASS |
-| SC #4 — Docs + extension sweep (D-15) | 05 | PASS |
+| SC #1 — 301 redirects for 9 legacy paths (+2 added /help redirects) | 12-01, 12-05 | PASS |
+| SC #2 — User-visible labels + Mock A explainer lines | 12-02, 12-03 | PASS |
+| SC #3 — AI-agnostic artifact filenames | 12-04 | PASS |
+| SC #4 — Docs + extension sweep (D-15 atomic gate) | 12-05 | PASS |
 
-Additional phase invariants:
-- **D-05 (pipeline order):** `UseForwardedHeaders` before `UseRewriter` before security headers — verified at L319/L329/L347 of Program.cs.
-- **D-12 (R100 view-file rename):** Three views renamed via `git mv` with rename detection preserving `git blame` / `git log --follow` continuity.
-- **D-14 (Phase 13 surface preservation):** `ChatGpt*ViewModel` `@model` directives, action-method names (`ChatGptPackets`, `ChatGptDeckComparison`, `ChatGptCedhMetaGap`), and `DeckPageTab.*` enum values intentionally LEFT in place — those are Phase 13 (CLASSRENAME-01..03) scope.
-- **D-16 (conditional manifest bump):** Honored — no JS edits to browser extension, no manifest version bump.
-- **CLAUDE.md compliance:** Plain default-author commits (no `Co-Authored-By` trailer); one logical change per commit; README updated when behavior changes; no secrets in any commit; build clean.
+| Phase Requirement | Status |
+|---|---|
+| RENAME-01 | SATISFIED |
+| RENAME-02 | SATISFIED |
+| RENAME-03 | SATISFIED |
 
-**Phase 12 ready for merge. Phase 13 (C# class renames) unblocked.**
+### Cross-plan invariants verified
+
+- **D-05 pipeline order:** `UseForwardedHeaders` (L319) before `UseRewriter` (L329) before `UseDeckFlowSecurityHeaders` (L349) — VERIFIED
+- **D-12 view file rename via git mv:** 3 new view files exist, 3 old ones gone (`ls` confirms both halves) — VERIFIED
+- **D-14 Phase 13 surface preserved:** `ChatGpt*ViewModel` `@model` directives, `ChatGptPackets`/`ChatGptDeckComparison`/`ChatGptCedhMetaGap` action method names, `DeckPageTab.ChatGptPackets` enum values, `ChatGptPacketArtifactStore` class name — all UNCHANGED — VERIFIED
+- **D-16 conditional manifest bump:** Browser-extension JS had zero pre-edit hits → Case A NO-OP → `manifest.json` version unchanged at `"0.1.0"` → honored — VERIFIED
+- **CLAUDE.md theme system (D-07):** `.page-lede` rule lives ONLY in `site-common.css`; zero guild-fork drift across the 22 theme files — VERIFIED (T-12-07 mitigation)
+- **CLAUDE.md "VSTest unreliable in WSL":** Verifier did NOT run `dotnet test`; used `dotnet build` clean + targeted grep gates — HONORED
+- **Phase 10 AI-segment invariant (commit `00e5bdd`):** `"chatgpt"` fallback preserved 3x in `ChatGptPacketArtifactStore.cs` — VERIFIED
+- **Code-review fixes merged:** WR-01 (README `/Deck/ChatGpt*` URLs corrected), WR-02 (all 11 redirect regexes accept trailing slash via `/?$`), plus 2 added redirects for `/help/chatgpt-analysis` and `/help/chatgpt-deck-comparison`, plus renamed Help/*.md files and 19 swept `Url.Content("~/chatgpt-*")` references in views — all verified present
+
+### Build state
+
+- `dotnet build DeckFlow.Web/DeckFlow.Web.csproj` → 0 Warning(s) 0 Error(s)
+- `dotnet build DeckFlow.sln` → 0 Warning(s) 0 Error(s)
+
+### Gaps Summary
+
+**None.** All four ROADMAP success criteria are satisfied. All three Phase 12 requirements (RENAME-01/02/03) are satisfied. The phase goal — "drop ChatGPT branding from the three multi-AI workflow pages at the URL + visible-label layer" — is achieved in the codebase.
+
+Four human-verification items remain (HTTP 301 round-trips, page 200 renders, T1/T4/T7 download filename round-trips, visual page-lede styling across themes), all of which are inherent limits of verifier scope (cannot auto-launch dev server per user memory; visual rendering cannot be grep-verified). These do NOT block phase merge; they are user-side smoke-test items.
 
 ---
-*Phase: 12-ai-agnostic-url-page-rename*
-*Verification compiled: 2026-05-17 (post-Plan 05)*
+
+_Verified: 2026-05-16T22:00:00Z_
+_Verifier: Claude (gsd-verifier)_
+_Mode: full phase verification (overwrites Plan 05 wave-4 self-audit)_
