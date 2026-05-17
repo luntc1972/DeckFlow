@@ -2,7 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace DeckFlow.Web.Models;
 
-public sealed class ChatGptDeckAnalysisResponse
+/// <summary>
+/// Top-level JSON shape returned by the deck-analysis prompt; carries the structured deck assessment, weak slots, question answers, and optional deck-version suggestions.
+/// </summary>
+public sealed class DeckAnalysisResponse
 {
     [JsonPropertyName("format")]
     public string Format { get; init; } = string.Empty;
@@ -29,19 +32,22 @@ public sealed class ChatGptDeckAnalysisResponse
     public IReadOnlyList<string> DeckNeeds { get; init; } = Array.Empty<string>();
 
     [JsonPropertyName("weak_slots")]
-    public IReadOnlyList<ChatGptWeakSlot> WeakSlots { get; init; } = Array.Empty<ChatGptWeakSlot>();
+    public IReadOnlyList<WeakSlot> WeakSlots { get; init; } = Array.Empty<WeakSlot>();
 
     [JsonPropertyName("synergy_tags")]
     public IReadOnlyList<string> SynergyTags { get; init; } = Array.Empty<string>();
 
     [JsonPropertyName("question_answers")]
-    public IReadOnlyList<ChatGptQuestionAnswer> QuestionAnswers { get; init; } = Array.Empty<ChatGptQuestionAnswer>();
+    public IReadOnlyList<QuestionAnswer> QuestionAnswers { get; init; } = Array.Empty<QuestionAnswer>();
 
     [JsonPropertyName("deck_versions")]
-    public IReadOnlyList<ChatGptDeckVersion> DeckVersions { get; init; } = Array.Empty<ChatGptDeckVersion>();
+    public IReadOnlyList<DeckVersion> DeckVersions { get; init; } = Array.Empty<DeckVersion>();
 }
 
-public sealed class ChatGptWeakSlot
+/// <summary>
+/// A single weak-slot entry in the deck-analysis response: the card the AI flagged plus the reason it's considered weak.
+/// </summary>
+public sealed class WeakSlot
 {
     [JsonPropertyName("card")]
     public string Card { get; init; } = string.Empty;
@@ -50,7 +56,10 @@ public sealed class ChatGptWeakSlot
     public string Reason { get; init; } = string.Empty;
 }
 
-public sealed class ChatGptQuestionAnswer
+/// <summary>
+/// A single question/answer pair from the deck-analysis response, including the question number, original question text, the AI's answer, and the basis it cites.
+/// </summary>
+public sealed class QuestionAnswer
 {
     [JsonPropertyName("question_number")]
     public int QuestionNumber { get; init; }
@@ -65,7 +74,10 @@ public sealed class ChatGptQuestionAnswer
     public string Basis { get; init; } = string.Empty;
 }
 
-public sealed class ChatGptDeckVersion
+/// <summary>
+/// One alternate deck version the AI proposed during analysis: its name, the full decklist, and the diff of cards added and cut versus the input deck.
+/// </summary>
+public sealed class DeckVersion
 {
     [JsonPropertyName("version_name")]
     public string VersionName { get; init; } = string.Empty;
