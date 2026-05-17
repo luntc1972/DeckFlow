@@ -220,6 +220,47 @@ Should adapt per `request.TargetAiPlatform` (ChatGPT/Claude/Gemini). Out of Phas
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
+### Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Captured 2026-05-17 during Phase 13 UAT T4. Claude is currently instructed to wrap JSON response in `<result>...</result>` XML tags (`JsonTextFormatterService.ResultWrapInstruction` at `DeckFlow.Web/Services/JsonTextFormatterService.cs:13-14`) for unified parser extraction across ChatGPT/Claude/Gemini. User observation: Claude emits the wrapper AND duplicates the JSON in a fenced ```json block below, producing visible XML artifacts in the chat.
+
+Considered alternatives:
+- Drop the wrapper for Claude only (emit raw JSON via fenced block) — pro: cleaner Claude output; con: breaks unified parser (`JsonTextFormatterService` extracts `<result>...</result>` first, falls back to fenced); needs per-platform extractor; diverges Phase 10 design (D-? AISEL-02).
+- Tighten Claude prompt to suppress fenced-block duplication while keeping `<result>` wrapper.
+- Switch the parser to fenced-block-primary, `<result>` fallback.
+
+Design call. Forward-compatible candidate to pair with AIPLATFORM-01 / Phase 15 value object (per-platform dispatch already plumbed there).
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.3: edhtop16 Filter Defaults vs DeckFlow Filter Defaults (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Captured 2026-05-17 during Phase 13 UAT T5. cEDH Meta-Gap fails to find Plagon, Lord of the Beach decks even though edhtop16.com shows multiple recent entries (2025-05 through 2026-01). DeckFlow filters (Six Months + Top Performing + minEventSize) return zero matches; edhtop16.com site UI likely uses different default filter window/event-size threshold/standing cutoff.
+
+Repro (2026-05-17 14:18:57 + 14:19:09 in `web-20260517.log`):
+- Commander: "Plagon, Lord of the Beach"
+- Filters: SixMonths, TopPerforming, minEventSize=default, maxStanding=default
+- Result: `InvalidOperationException` at `MetaGapService.cs:160` — "No EDH Top 16 decks matched your filters..."
+- edhtop16.com browser shows entries from 2026-01-04, 2026-01-18, 2025-09-27, 2025-05-24
+
+Pre-existing — predates Phase 13 (MetaGapService logic unchanged by rename). Investigate:
+1. edhtop16 GraphQL `commander(name)` lookup: does "Plagon, Lord of the Beach" match the stored canonical name exactly?
+2. Default DeckFlow form filter values vs site UI defaults — alignment audit.
+3. minEventSize=50 default may be too restrictive — site UI may use 30.
+4. timePeriod=SixMonths may map to ≤180 days where site uses calendar months (sometimes 183-184 days).
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
 ---
 
 *v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 started 2026-05-13*
