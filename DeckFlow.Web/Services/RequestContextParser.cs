@@ -5,7 +5,7 @@ namespace DeckFlow.Web.Services;
 
 /// <summary>
 /// Parses the YAML-like <c>01-request-context.txt</c> payload emitted by
-/// <see cref="ChatGptDeckPacketService.BuildRequestContextText(DeckFlow.Web.Models.ChatGptDeckRequest, string?)" />.
+/// <see cref="DeckAnalysisPacketService.BuildRequestContextText(DeckFlow.Web.Models.DeckAnalysisRequest, string?)" />.
 /// </summary>
 /// <remarks>
 /// The writer is not general YAML. It emits unindented <c>key: value</c> scalars, unindented
@@ -13,7 +13,7 @@ namespace DeckFlow.Web.Services;
 /// and <c>deck_source</c>. This parser intentionally mirrors that exact contract and returns
 /// defaults for null, empty, or malformed input instead of throwing.
 /// </remarks>
-internal static partial class ChatGptRequestContextParser
+internal static partial class RequestContextParser
 {
     private static readonly Regex TopLevelKeyRegex = TopLevelKeyPattern();
     private static readonly HashSet<string> MultiLineBlockKeys = new(StringComparer.Ordinal)
