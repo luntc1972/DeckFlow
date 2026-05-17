@@ -160,7 +160,24 @@ Plans:
   3. `dotnet build DeckFlow.sln --configuration Release` produces zero new warnings vs. the pre-Phase-14 baseline; test discovery succeeds via `dotnet test --no-build` where WSL permits, otherwise verified via push-and-watch CI on the `v1.3` branch.
   4. Scope discipline observed: DeckController god-class split and ChatGPT-services extraction stay out of scope per PROJECT.md (own refactor milestones); renames touch class names + doc comments only, no responsibility splits.
 
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+
+**Wave 1**
+
+- [ ] 14-01-PLAN.md — Capture pre-phase warning baseline + emit 14-AUDIT-REPORT.md (rename worklist + doc-backfill worklist + XML coverage-diff gate codification) and 14-BASELINE.md
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 14-02-PLAN.md — Execute every rename from 14-AUDIT-REPORT.md (ScryfallTaggerService→ScryfallTaggerLookupService + 8 test-double canonicalizations); one commit per rename; D-08 mid-plan green invariant
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 14-03-PLAN.md — Doc-comment backfill across DeckFlow.Core records (Models/ — DeckEntry, DeckDiff, LoadedDecks, PrintingConflict + others) and ~47 test classes; DeckPageTab discretionary opt-in; { get; init; } preservation grep on every commit
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 14-04-PLAN.md — Flip GenerateDocumentationFile=true in 4 csprojs (Core, CLI, Core.Tests, Web.Tests; Web stays as-is); run AUDIT-03 triple-gate (warning count vs baseline + XML coverage diff per RESEARCH.md Option A overriding D-04 + test discovery with Render push-and-watch fallback); emit 14-COVERAGE.md; mark phase complete
 
 ### Phase 15: AiPlatform Value Object Refactor
 
@@ -197,7 +214,7 @@ Plans:
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete    | 2026-05-17 |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
-| 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
+| 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/4 | Planned | — |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
 
 ---
