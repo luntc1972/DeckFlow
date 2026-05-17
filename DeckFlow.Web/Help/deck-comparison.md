@@ -1,12 +1,12 @@
 ---
-title: ChatGPT Deck Comparison
+title: Deck Comparison
 summary: Compare two Commander decklists side by side with a structured ChatGPT prompt.
 order: 20
 ---
 
-# ChatGPT Deck Comparison
+# Deck Comparison
 
-The Deck Comparison page (`/Deck/ChatGptDeckComparison`) generates structured ChatGPT prompts for comparing two Commander decklists side by side. It lives under the **ChatGPT** dropdown alongside the Analysis page.
+The Deck Comparison page (`/deck-comparison`) generates structured ChatGPT prompts for comparing two Commander decklists side by side. It lives alongside the Deck Analysis page in the Deck Tools tabs.
 
 ## Step 1 — Deck Setup
 

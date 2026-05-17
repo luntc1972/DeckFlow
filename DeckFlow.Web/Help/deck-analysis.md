@@ -1,12 +1,12 @@
 ---
-title: ChatGPT Analysis
+title: Deck Analysis
 summary: Five-step workflow that builds an analysis prompt and renders the returned JSON.
 order: 10
 ---
 
-# ChatGPT Analysis
+# Deck Analysis
 
-The ChatGPT Analysis page (`/Deck/ChatGptPackets`) guides you through a 5-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, Step 4 optionally generates a set-upgrade prompt using that parsed profile, and Step 5 parses and renders the returned `set_upgrade_report` JSON.
+The Deck Analysis page (`/deck-analysis`) guides you through a 5-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, Step 4 optionally generates a set-upgrade prompt using that parsed profile, and Step 5 parses and renders the returned `set_upgrade_report` JSON.
 
 ## Workflow layout modes
 

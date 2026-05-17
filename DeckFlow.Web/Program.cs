@@ -335,7 +335,9 @@ public partial class Program
                 .AddRedirect("^chatgpt-deck-comparison/upload$", "deck-comparison/upload", 301)
                 .AddRedirect("^chatgpt-cedh-meta-gap$", "cedh-meta-gap", 301)
                 .AddRedirect("^chatgpt-cedh-meta-gap/download$", "cedh-meta-gap/download", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap/upload$", "cedh-meta-gap/upload", 301));
+                .AddRedirect("^chatgpt-cedh-meta-gap/upload$", "cedh-meta-gap/upload", 301)
+                .AddRedirect("^help/chatgpt-analysis$", "help/deck-analysis", 301)
+                .AddRedirect("^help/chatgpt-deck-comparison$", "help/deck-comparison", 301));
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())

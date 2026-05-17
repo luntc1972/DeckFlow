@@ -4,7 +4,7 @@ summary: Compare your deck against recent EDH Top 16 lists for the same commande
 order: 30
 ---
 
-# ChatGPT cEDH Meta Gap
+# cEDH Meta Gap
 
 The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
 
