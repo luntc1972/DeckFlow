@@ -26,9 +26,9 @@ public sealed class DeckController : Controller
     private readonly ICardLookupService _cardLookupService;
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
-    private readonly IChatGptDeckPacketService _chatGptDeckPacketService;
-    private readonly IChatGptDeckComparisonService _chatGptDeckComparisonService;
-    private readonly IChatGptCedhMetaGapService _chatGptCedhMetaGapService;
+    private readonly IDeckAnalysisPacketService _deckAnalysisPacketService;
+    private readonly IDeckComparisonService _deckComparisonService;
+    private readonly IMetaGapService _metaGapService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
@@ -42,9 +42,9 @@ public sealed class DeckController : Controller
         ICardLookupService cardLookupService,
         IMechanicLookupService mechanicLookupService,
         ICategorySuggestionService categorySuggestionService,
-        IChatGptDeckPacketService chatGptDeckPacketService,
-        IChatGptDeckComparisonService chatGptDeckComparisonService,
-        IChatGptCedhMetaGapService chatGptCedhMetaGapService,
+        IDeckAnalysisPacketService deckAnalysisPacketService,
+        IDeckComparisonService deckComparisonService,
+        IMetaGapService metaGapService,
         IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
@@ -54,9 +54,9 @@ public sealed class DeckController : Controller
         _cardLookupService = cardLookupService;
         _mechanicLookupService = mechanicLookupService;
         _categorySuggestionService = categorySuggestionService;
-        _chatGptDeckPacketService = chatGptDeckPacketService;
-        _chatGptDeckComparisonService = chatGptDeckComparisonService;
-        _chatGptCedhMetaGapService = chatGptCedhMetaGapService;
+        _deckAnalysisPacketService = deckAnalysisPacketService;
+        _deckComparisonService = deckComparisonService;
+        _metaGapService = metaGapService;
         _scryfallSetService = scryfallSetService;
         _logger = logger;
     }
@@ -150,27 +150,27 @@ public sealed class DeckController : Controller
 
     [HttpGet("/deck-analysis")]
     /// <summary>
-    /// Renders the staged ChatGPT packet workflow. Set options load asynchronously on the client.
+    /// Renders the staged deck-analysis packet workflow. Set options load asynchronously on the client.
     /// </summary>
-    public IActionResult ChatGptPackets()
+    public IActionResult DeckAnalysis()
     {
-        return View("DeckAnalysis", new ChatGptDeckViewModel
+        return View("DeckAnalysis", new DeckAnalysisViewModel
         {
-            ActiveTab = DeckPageTab.ChatGptPackets,
-            Request = new ChatGptDeckRequest(),
+            ActiveTab = DeckPageTab.DeckAnalysis,
+            Request = new DeckAnalysisRequest(),
         });
     }
 
     [HttpGet("/deck-comparison")]
     /// <summary>
-    /// Renders the staged ChatGPT deck-comparison workflow.
+    /// Renders the staged deck-comparison workflow.
     /// </summary>
-    public IActionResult ChatGptDeckComparison()
+    public IActionResult DeckComparison()
     {
-        return View("DeckComparison", new ChatGptDeckComparisonViewModel
+        return View("DeckComparison", new DeckComparisonViewModel
         {
-            ActiveTab = DeckPageTab.ChatGptDeckComparison,
-            Request = new ChatGptDeckComparisonRequest(),
+            ActiveTab = DeckPageTab.DeckComparison,
+            Request = new DeckComparisonRequest(),
         });
     }
 
@@ -178,12 +178,12 @@ public sealed class DeckController : Controller
     /// <summary>
     /// Renders the staged cEDH meta-gap workflow.
     /// </summary>
-    public IActionResult ChatGptCedhMetaGap()
+    public IActionResult CedhMetaGap()
     {
-        return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+        return View("CedhMetaGap", new MetaGapViewModel
         {
-            ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
-            Request = new ChatGptCedhMetaGapRequest(),
+            ActiveTab = DeckPageTab.CedhMetaGap,
+            Request = new MetaGapRequest(),
         });
     }
 
@@ -456,16 +456,16 @@ public sealed class DeckController : Controller
     /// Processes a ChatGPT workflow postback and regenerates the next packet outputs.
     /// </summary>
     /// <param name="request">Current workflow request.</param>
-    public async Task<IActionResult> ChatGptPackets(ChatGptDeckRequest request)
+    public async Task<IActionResult> DeckAnalysis(DeckAnalysisRequest request)
     {
-        request ??= new ChatGptDeckRequest();
+        request ??= new DeckAnalysisRequest();
 
         try
         {
-            var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            var result = await _deckAnalysisPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
+                ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 InputSummary = result.InputSummary,
                 SuggestedChatTitle = result.SuggestedChatTitle,
@@ -481,20 +481,20 @@ public sealed class DeckController : Controller
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "ChatGPT packet generation failed validation.");
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            _logger.LogInformation(exception, "Deck-analysis packet generation failed validation.");
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
+                ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 ErrorMessage = exception.Message,
             });
         }
         catch (HttpRequestException exception)
         {
-            _logger.LogWarning(exception, "ChatGPT packet generation hit an upstream dependency.");
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            _logger.LogWarning(exception, "Deck-analysis packet generation hit an upstream dependency.");
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
+                ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
@@ -503,18 +503,18 @@ public sealed class DeckController : Controller
 
     [HttpPost("/deck-analysis/download")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChatGptPacketsDownload(ChatGptDeckRequest request)
+    public async Task<IActionResult> DeckAnalysisDownload(DeckAnalysisRequest request)
     {
-        request ??= new ChatGptDeckRequest();
+        request ??= new DeckAnalysisRequest();
 
         try
         {
-            var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            var result = await _deckAnalysisPacketService.BuildAsync(request, HttpContext.RequestAborted);
             var commanderName = !string.IsNullOrWhiteSpace(result.ResolvedCommanderName)
                 ? result.ResolvedCommanderName
                 : result.AnalysisResponse?.Commander ?? request.DeckName;
-            var requestContextText = result.RequestContextText ?? ChatGptDeckPacketService.BuildRequestContextText(request, commanderName);
-            var bytes = ChatGptPacketArtifactStore.BuildZip(
+            var requestContextText = result.RequestContextText ?? DeckAnalysisPacketService.BuildRequestContextText(request, commanderName);
+            var bytes = PacketArtifactStore.BuildZip(
                 request,
                 commanderName,
                 result.InputSummary,
@@ -524,27 +524,27 @@ public sealed class DeckController : Controller
                 result.DeckProfileSchemaJson,
                 result.SetUpgradePromptText,
                 canonicalDeckListText: result.DecklistText,
-                originalDeckText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
-            var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
+                originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+            var fileName = PacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "ChatGPT packet download failed validation.");
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            _logger.LogInformation(exception, "Deck-analysis packet download failed validation.");
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
+                ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 ErrorMessage = exception.Message,
             });
         }
         catch (HttpRequestException exception)
         {
-            _logger.LogWarning(exception, "ChatGPT packet download hit an upstream dependency.");
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            _logger.LogWarning(exception, "Deck-analysis packet download hit an upstream dependency.");
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
+                ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
@@ -554,37 +554,37 @@ public sealed class DeckController : Controller
     [HttpPost("/deck-analysis/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> ChatGptPacketsUpload(IFormFile zipFile)
+    public async Task<IActionResult> DeckAnalysisUpload(IFormFile zipFile)
     {
         if (zipFile is null || zipFile.Length == 0)
         {
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
-                Request = new ChatGptDeckRequest(),
+                ActiveTab = DeckPageTab.DeckAnalysis,
+                Request = new DeckAnalysisRequest(),
                 ErrorMessage = "Choose a .zip file produced by Download to import."
             });
         }
 
         if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
         {
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
-                Request = new ChatGptDeckRequest(),
+                ActiveTab = DeckPageTab.DeckAnalysis,
+                Request = new DeckAnalysisRequest(),
                 ErrorMessage = "Only .zip files produced by Download are accepted."
             });
         }
 
-        var request = new ChatGptDeckRequest();
+        var request = new DeckAnalysisRequest();
         try
         {
             await using var stream = zipFile.OpenReadStream();
-            ChatGptPacketArtifactStore.LoadFromZip(stream, request);
-            var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            PacketArtifactStore.LoadFromZip(stream, request);
+            var result = await _deckAnalysisPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
+                ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 InputSummary = result.InputSummary,
                 SuggestedChatTitle = result.SuggestedChatTitle,
@@ -600,20 +600,20 @@ public sealed class DeckController : Controller
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "ChatGPT packet upload failed validation.");
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            _logger.LogInformation(exception, "Deck-analysis packet upload failed validation.");
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
-                Request = new ChatGptDeckRequest(),
+                ActiveTab = DeckPageTab.DeckAnalysis,
+                Request = new DeckAnalysisRequest(),
                 ErrorMessage = exception.Message
             });
         }
         catch (InvalidDataException)
         {
-            return View("DeckAnalysis", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new DeckAnalysisViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptPackets,
-                Request = new ChatGptDeckRequest(),
+                ActiveTab = DeckPageTab.DeckAnalysis,
+                Request = new DeckAnalysisRequest(),
                 ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
         }
@@ -622,17 +622,17 @@ public sealed class DeckController : Controller
     [HttpPost("/deck-comparison")]
     [ValidateAntiForgeryToken]
     /// <summary>
-    /// Processes the ChatGPT deck comparison workflow.
+    /// Processes the deck-comparison workflow.
     /// </summary>
     /// <param name="request">Current comparison workflow request.</param>
-    public async Task<IActionResult> ChatGptDeckComparison(ChatGptDeckComparisonRequest request)
+    public async Task<IActionResult> DeckComparison(DeckComparisonRequest request)
     {
-        request ??= new ChatGptDeckComparisonRequest();
+        request ??= new DeckComparisonRequest();
         if (!ModelState.IsValid)
         {
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ErrorMessage = "The comparison form contains invalid values. Review the highlighted fields and try again."
             });
@@ -640,10 +640,10 @@ public sealed class DeckController : Controller
 
         try
         {
-            var result = await _chatGptDeckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            var result = await _deckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 InputSummary = result.InputSummary,
                 DeckAListText = result.DeckAListText,
@@ -660,25 +660,25 @@ public sealed class DeckController : Controller
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "ChatGPT deck comparison failed validation.");
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            _logger.LogInformation(exception, "Deck-comparison failed validation.");
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ErrorMessage = exception.Message
             });
         }
         catch (HttpRequestException exception)
         {
-            _logger.LogWarning(exception, "ChatGPT deck comparison hit an upstream dependency.");
+            _logger.LogWarning(exception, "Deck-comparison hit an upstream dependency.");
             var errorMessage = exception.Message.Contains("Deck A", StringComparison.OrdinalIgnoreCase)
                 || exception.Message.Contains("Deck B", StringComparison.OrdinalIgnoreCase)
                     ? exception.Message
                     : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
 
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ErrorMessage = errorMessage
             });
@@ -687,14 +687,14 @@ public sealed class DeckController : Controller
 
     [HttpPost("/deck-comparison/download")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChatGptDeckComparisonDownload(ChatGptDeckComparisonRequest request)
+    public async Task<IActionResult> DeckComparisonDownload(DeckComparisonRequest request)
     {
-        request ??= new ChatGptDeckComparisonRequest();
+        request ??= new DeckComparisonRequest();
         if (!ModelState.IsValid)
         {
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ErrorMessage = "The comparison form contains invalid values. Review the highlighted fields and try again."
             });
@@ -707,9 +707,9 @@ public sealed class DeckController : Controller
                 && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
             {
                 var fallbackCommander = !string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName;
-                var fallbackFileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fallbackCommander, request.TargetAiPlatform);
+                var fallbackFileName = PacketArtifactStore.SuggestComparisonZipFileName(fallbackCommander, request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
-                var fallbackBytes = ChatGptPacketArtifactStore.BuildComparisonZip(
+                var fallbackBytes = PacketArtifactStore.BuildComparisonZip(
                     request,
                     string.Empty,
                     string.Empty,
@@ -720,12 +720,12 @@ public sealed class DeckController : Controller
                     string.Empty,
                     string.Empty,
                     string.Empty,
-                    ChatGptDeckComparisonService.BuildRequestContextText(request));
+                    DeckComparisonService.BuildRequestContextText(request));
                 return File(fallbackBytes, "application/zip", fallbackFileName);
             }
 
-            var result = await _chatGptDeckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
-            var bytes = ChatGptPacketArtifactStore.BuildComparisonZip(
+            var result = await _deckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
+            var bytes = PacketArtifactStore.BuildComparisonZip(
                 request,
                 result.InputSummary,
                 result.DeckAListText,
@@ -737,38 +737,38 @@ public sealed class DeckController : Controller
                 result.FollowUpPromptText,
                 result.ComparisonSchemaJson,
                 result.RequestContextText,
-                deckAOriginalText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckASource),
-                deckBOriginalText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckBSource));
+                deckAOriginalText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckASource),
+                deckBOriginalText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckBSource));
             // BuildAsync now validates both decks share the same commander, so
             // ResolvedDeckACommander and ResolvedDeckBCommander are equal here.
             var fileNameCommander = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
                 ? result.ResolvedDeckACommander!
                 : (!string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName);
-            var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName(fileNameCommander, request.TargetAiPlatform);
+            var fileName = PacketArtifactStore.SuggestComparisonZipFileName(fileNameCommander, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "ChatGPT deck comparison download failed validation.");
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            _logger.LogInformation(exception, "Deck-comparison download failed validation.");
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ErrorMessage = exception.Message
             });
         }
         catch (HttpRequestException exception)
         {
-            _logger.LogWarning(exception, "ChatGPT deck comparison download hit an upstream dependency.");
+            _logger.LogWarning(exception, "Deck-comparison download hit an upstream dependency.");
             var errorMessage = exception.Message.Contains("Deck A", StringComparison.OrdinalIgnoreCase)
                 || exception.Message.Contains("Deck B", StringComparison.OrdinalIgnoreCase)
                     ? exception.Message
                     : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
 
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ErrorMessage = errorMessage
             });
@@ -778,33 +778,33 @@ public sealed class DeckController : Controller
     [HttpPost("/deck-comparison/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
-    public IActionResult ChatGptDeckComparisonUpload(IFormFile zipFile)
+    public IActionResult DeckComparisonUpload(IFormFile zipFile)
     {
         if (zipFile is null || zipFile.Length == 0)
         {
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
-                Request = new ChatGptDeckComparisonRequest(),
+                ActiveTab = DeckPageTab.DeckComparison,
+                Request = new DeckComparisonRequest(),
                 ErrorMessage = "Choose a .zip file produced by Download to import."
             });
         }
 
         if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
         {
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
-                Request = new ChatGptDeckComparisonRequest(),
+                ActiveTab = DeckPageTab.DeckComparison,
+                Request = new DeckComparisonRequest(),
                 ErrorMessage = "Only .zip files produced by Download are accepted."
             });
         }
 
-        var request = new ChatGptDeckComparisonRequest();
+        var request = new DeckComparisonRequest();
         try
         {
             using var stream = zipFile.OpenReadStream();
-            var restored = ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, request);
+            var restored = PacketArtifactStore.LoadComparisonFromZip(stream, request);
 
             // Partial-zip case: response JSON not yet present (user downloaded
             // mid-workflow). Render the form on the WorkflowStep the loader
@@ -812,9 +812,9 @@ public sealed class DeckController : Controller
             // regenerate). ComparisonResponse stays null so Step 3 doesn't render.
             if (string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
             {
-                return View("DeckComparison", new ChatGptDeckComparisonViewModel
+                return View("DeckComparison", new DeckComparisonViewModel
                 {
-                    ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                    ActiveTab = DeckPageTab.DeckComparison,
                     Request = request,
                     InputSummary = restored.InputSummary,
                     DeckAListText = restored.DeckAListText,
@@ -828,14 +828,14 @@ public sealed class DeckController : Controller
                 });
             }
 
-            var comparisonResponse = ChatGptDeckComparisonService.ParseComparisonResponse(request.ComparisonResponseJson);
+            var comparisonResponse = DeckComparisonService.ParseComparisonResponse(request.ComparisonResponseJson);
             request.DeckAName = comparisonResponse.DeckAName;
             request.DeckBName = comparisonResponse.DeckBName;
             request.DeckABracket = comparisonResponse.DeckABracket;
             request.DeckBBracket = comparisonResponse.DeckBBracket;
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                ActiveTab = DeckPageTab.DeckComparison,
                 Request = request,
                 ComparisonResponse = comparisonResponse,
                 InputSummary = restored.InputSummary,
@@ -851,20 +851,20 @@ public sealed class DeckController : Controller
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "ChatGPT deck comparison upload failed validation.");
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            _logger.LogInformation(exception, "Deck-comparison upload failed validation.");
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
-                Request = new ChatGptDeckComparisonRequest(),
+                ActiveTab = DeckPageTab.DeckComparison,
+                Request = new DeckComparisonRequest(),
                 ErrorMessage = exception.Message
             });
         }
         catch (InvalidDataException)
         {
-            return View("DeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new DeckComparisonViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptDeckComparison,
-                Request = new ChatGptDeckComparisonRequest(),
+                ActiveTab = DeckPageTab.DeckComparison,
+                Request = new DeckComparisonRequest(),
                 ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
         }
@@ -876,14 +876,14 @@ public sealed class DeckController : Controller
     /// Processes the cEDH meta-gap workflow.
     /// </summary>
     /// <param name="request">Current meta-gap workflow request.</param>
-    public async Task<IActionResult> ChatGptCedhMetaGap(ChatGptCedhMetaGapRequest request)
+    public async Task<IActionResult> CedhMetaGap(MetaGapRequest request)
     {
-        request ??= new ChatGptCedhMetaGapRequest();
+        request ??= new MetaGapRequest();
         if (!ModelState.IsValid)
         {
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ErrorMessage = "The cEDH meta-gap form contains invalid values. Review the highlighted fields and try again."
             });
@@ -891,7 +891,7 @@ public sealed class DeckController : Controller
 
         try
         {
-            var result = await _chatGptCedhMetaGapService.BuildAsync(request, HttpContext.RequestAborted);
+            var result = await _metaGapService.BuildAsync(request, HttpContext.RequestAborted);
             request.WorkflowStep = request.WorkflowStep switch
             {
                 >= 3 when result.AnalysisResponse is not null => 3,
@@ -900,9 +900,9 @@ public sealed class DeckController : Controller
                 _ => 1
             };
 
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 InputSummary = result.InputSummary,
                 ResolvedCommanderName = result.ResolvedCommanderName,
@@ -915,9 +915,9 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap generation failed validation.");
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ErrorMessage = exception.Message,
             });
@@ -925,9 +925,9 @@ public sealed class DeckController : Controller
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "cEDH meta-gap generation hit an upstream dependency.");
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ErrorMessage = exception.StatusCode == HttpStatusCode.TooManyRequests
                     ? "EDH Top 16 is rate-limiting requests right now. Try again shortly."
@@ -938,14 +938,14 @@ public sealed class DeckController : Controller
 
     [HttpPost("/cedh-meta-gap/download")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChatGptCedhMetaGapDownload(ChatGptCedhMetaGapRequest request)
+    public async Task<IActionResult> CedhMetaGapDownload(MetaGapRequest request)
     {
-        request ??= new ChatGptCedhMetaGapRequest();
+        request ??= new MetaGapRequest();
         if (!ModelState.IsValid)
         {
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ErrorMessage = "The cEDH meta-gap form contains invalid values. Review the highlighted fields and try again."
             });
@@ -956,38 +956,38 @@ public sealed class DeckController : Controller
             if (string.IsNullOrWhiteSpace(request.DeckSource)
                 && !string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
             {
-                var fallbackFileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(request.CommanderName, request.TargetAiPlatform);
-                var fallbackBytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+                var fallbackFileName = PacketArtifactStore.SuggestCedhMetaGapZipFileName(request.CommanderName, request.TargetAiPlatform);
+                var fallbackBytes = PacketArtifactStore.BuildCedhMetaGapZip(
                     request,
                     string.Empty,
                     string.Empty,
                     string.Empty,
-                    ChatGptCedhMetaGapService.BuildRequestContextText(request),
+                    MetaGapService.BuildRequestContextText(request),
                     fetchedEntries: Array.Empty<EdhTop16Entry>());
                 Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
                 return File(fallbackBytes, "application/zip", fallbackFileName);
             }
 
-            var result = await _chatGptCedhMetaGapService.BuildAsync(request, HttpContext.RequestAborted);
-            var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+            var result = await _metaGapService.BuildAsync(request, HttpContext.RequestAborted);
+            var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
                 request,
                 result.InputSummary ?? string.Empty,
                 result.PromptText ?? string.Empty,
                 result.SchemaJson ?? string.Empty,
                 result.RequestContextText,
                 canonicalDeckListText: result.DecklistText,
-                originalDeckText: ChatGptPacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
                 fetchedEntries: result.FetchedEntries);
-            var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName, request.TargetAiPlatform);
+            var fileName = PacketArtifactStore.SuggestCedhMetaGapZipFileName(result.ResolvedCommanderName ?? request.CommanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap download failed validation.");
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ErrorMessage = exception.Message,
             });
@@ -995,9 +995,9 @@ public sealed class DeckController : Controller
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "cEDH meta-gap download hit an upstream dependency.");
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ErrorMessage = exception.StatusCode == HttpStatusCode.TooManyRequests
                     ? "EDH Top 16 is rate-limiting requests right now. Try again shortly."
@@ -1009,33 +1009,33 @@ public sealed class DeckController : Controller
     [HttpPost("/cedh-meta-gap/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
-    public IActionResult ChatGptCedhMetaGapUpload(IFormFile zipFile)
+    public IActionResult CedhMetaGapUpload(IFormFile zipFile)
     {
         if (zipFile is null || zipFile.Length == 0)
         {
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
-                Request = new ChatGptCedhMetaGapRequest(),
+                ActiveTab = DeckPageTab.CedhMetaGap,
+                Request = new MetaGapRequest(),
                 ErrorMessage = "Choose a .zip file produced by Download to import."
             });
         }
 
         if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
         {
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
-                Request = new ChatGptCedhMetaGapRequest(),
+                ActiveTab = DeckPageTab.CedhMetaGap,
+                Request = new MetaGapRequest(),
                 ErrorMessage = "Only .zip files produced by Download are accepted."
             });
         }
 
-        var request = new ChatGptCedhMetaGapRequest();
+        var request = new MetaGapRequest();
         try
         {
             using var stream = zipFile.OpenReadStream();
-            var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
+            var restored = PacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
 
             // Phase 10-05: round-trip the fetched entries through the next form
             // submit so the service can skip the edhtop16 re-fetch (also
@@ -1053,9 +1053,9 @@ public sealed class DeckController : Controller
             // and selection checkboxes render.
             if (string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
             {
-                return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+                return View("CedhMetaGap", new MetaGapViewModel
                 {
-                    ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                    ActiveTab = DeckPageTab.CedhMetaGap,
                     Request = request,
                     InputSummary = restored.InputSummary,
                     PromptText = restored.PromptText,
@@ -1064,11 +1064,11 @@ public sealed class DeckController : Controller
                 });
             }
 
-            var analysisResponse = ChatGptCedhMetaGapService.ParseResponse(request.MetaGapResponseJson);
+            var analysisResponse = MetaGapService.ParseResponse(request.MetaGapResponseJson);
             request.CommanderName = analysisResponse.MetaGap.Commander;
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = request,
                 ResolvedCommanderName = analysisResponse.MetaGap.Commander,
                 AnalysisResponse = analysisResponse,
@@ -1081,19 +1081,19 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap upload failed validation.");
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
-                Request = new ChatGptCedhMetaGapRequest(),
+                ActiveTab = DeckPageTab.CedhMetaGap,
+                Request = new MetaGapRequest(),
                 ErrorMessage = exception.Message,
             });
         }
         catch (InvalidDataException)
         {
-            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new MetaGapViewModel
             {
-                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
-                Request = new ChatGptCedhMetaGapRequest(),
+                ActiveTab = DeckPageTab.CedhMetaGap,
+                Request = new MetaGapRequest(),
                 ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
         }
