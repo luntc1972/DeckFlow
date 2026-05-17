@@ -2,7 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace DeckFlow.Web.Models;
 
-public sealed class ChatGptDeckComparisonResponse
+/// <summary>
+/// Top-level JSON shape returned by the deck-comparison prompt; carries per-deck identity, themes, strengths, weaknesses, axis-by-axis comparisons, an overall verdict, and per-deck recommendation buckets.
+/// </summary>
+public sealed class DeckComparisonResponse
 {
     [JsonPropertyName("deck_a_name")]
     public string DeckAName { get; init; } = string.Empty;
@@ -77,13 +80,16 @@ public sealed class ChatGptDeckComparisonResponse
     public IReadOnlyList<string> DeckBKeyCombos { get; init; } = Array.Empty<string>();
 
     [JsonPropertyName("recommended_for")]
-    public ChatGptDeckComparisonRecommendation RecommendedFor { get; init; } = new();
+    public DeckComparisonRecommendation RecommendedFor { get; init; } = new();
 
     [JsonPropertyName("confidence_notes")]
     public IReadOnlyList<string> ConfidenceNotes { get; init; } = Array.Empty<string>();
 }
 
-public sealed class ChatGptDeckComparisonRecommendation
+/// <summary>
+/// Per-deck recommendation buckets produced by the deck-comparison prompt; lists the player profiles or use-cases each deck is recommended for.
+/// </summary>
+public sealed class DeckComparisonRecommendation
 {
     [JsonPropertyName("deck_a")]
     public IReadOnlyList<string> DeckA { get; init; } = Array.Empty<string>();
