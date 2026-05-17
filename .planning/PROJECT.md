@@ -64,6 +64,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - ✓ Gemini-optimized artifact format + instructions — v1.2 (AISEL-03, flag-gated since 2026-05-13)
 - ✓ AI selection preserved in zip round-trip — v1.2 (AISEL-04)
 - ✓ cEDH meta-gap Step 1 state preserved in zip round-trip (fetched entries + filters + selections, regenerate without re-fetching edhtop16) — v1.2 (AISEL-04 closeout, 10-05)
+- ✓ AI-agnostic URLs + page labels (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap` with 301 redirects from old chatgpt-* slugs; H1/nav/hub labels + Mock A explainer lines; site-common.css `.page-lede`; AI-agnostic zip artifact filenames preserving Phase 10 AI-segment invariant) — v1.3 (RENAME-01, RENAME-02, RENAME-03; Phase 12)
 
 ### Active
 
@@ -194,4 +195,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Active:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (started 2026-05-13 on `v1.3` branch).
 
 ---
-*Last updated: 2026-05-13 — v1.3 milestone started*
+*Last updated: 2026-05-17 — Phase 12 (AI-agnostic URL + page rename) complete*
