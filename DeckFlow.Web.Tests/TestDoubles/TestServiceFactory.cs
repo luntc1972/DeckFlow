@@ -96,7 +96,7 @@ internal static class TestServiceFactory
             null,
             executeCollectionAsync);
 
-    public static ChatGptDeckPacketService CreateChatGptDeckPacketService(
+    public static DeckAnalysisPacketService CreateDeckAnalysisPacketService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
@@ -105,7 +105,7 @@ internal static class TestServiceFactory
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
         ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckPacketService>? logger = null,
+        ILogger<DeckAnalysisPacketService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
@@ -126,13 +126,13 @@ internal static class TestServiceFactory
             executeSearchAsync,
             executeNamedAsync);
 
-    public static ChatGptDeckComparisonService CreateChatGptDeckComparisonService(
+    public static DeckComparisonService CreateDeckComparisonService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckComparisonService>? logger = null,
+        ILogger<DeckComparisonService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
         => new(
@@ -148,7 +148,7 @@ internal static class TestServiceFactory
             executeCollectionAsync,
             executeSearchAsync);
 
-    public static ChatGptCedhMetaGapService CreateChatGptCedhMetaGapService(
+    public static MetaGapService CreateMetaGapService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
