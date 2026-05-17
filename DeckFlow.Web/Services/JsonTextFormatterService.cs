@@ -3,11 +3,14 @@ using System.Text.RegularExpressions;
 
 namespace DeckFlow.Web.Services;
 
-public static class ChatGptJsonTextFormatterService
+/// <summary>
+/// Extracts the <c>&lt;result&gt;...&lt;/result&gt;</c> payload or fenced-JSON block from AI text returns so the response parsers can consume well-formed JSON.
+/// </summary>
+public static class JsonTextFormatterService
 {
     // Phase 10: shared <result>...</result> wrap directive used by all three
-    // ChatGptDeck* services to ensure cross-AI parsing parity.
-    internal const string ChatGptResultWrapInstruction =
+    // deck-analysis, deck-comparison, and meta-gap services to ensure cross-AI parsing parity.
+    internal const string ResultWrapInstruction =
         "Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.";
 
     // Phase 10 (post-verify hardening): Gemini ignored the JSON output requirement
@@ -24,7 +27,7 @@ public static class ChatGptJsonTextFormatterService
     /// <summary>
     /// Replace embedded newlines with spaces and trim. Used by request-context
     /// writers (Comparison + CedhMetaGap) to keep round-trip envelope values
-    /// on a single line. ChatGptDeckPacketService has its own private variant
+    /// on a single line. DeckAnalysisPacketService has its own private variant
     /// that additionally collapses multi-line input via CollapseWhitespace —
     /// migrating those callsites is a v1.3 follow-up.
     /// </summary>
