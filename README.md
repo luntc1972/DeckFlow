@@ -275,7 +275,7 @@ On the **ChatGPT Analysis** page, the Step 3 and Step 5 result panels include a 
 To resume a saved run later, expand **Resume from a saved session (.zip)** at the top of the form, choose the previously downloaded zip, and the page rehydrates the response JSON into Step 3 or Step 5. The browser's busy indicator runs while the upload is processed.
 
 Zip contents:
-- **/chatgpt-packets**: `00-input-summary.txt`, `01-request-context.txt`, `30-reference.txt`, `31-analysis-prompt.txt`, `41-deck-profile-schema.json`, `50-set-upgrade-prompt.txt`, `40-deck-profile.json`, `51-set-upgrade-response.json`, `all-prompts.txt`, `all-responses.txt`
+- **/deck-analysis**: `00-input-summary.txt`, `01-request-context.txt`, `30-reference.txt`, `31-analysis-prompt.txt`, `41-deck-profile-schema.json`, `50-set-upgrade-prompt.txt`, `40-deck-profile.json`, `51-set-upgrade-response.json`, `all-prompts.txt`, `all-responses.txt`
 
 Re-import only consumes `40-deck-profile.json` and `51-set-upgrade-response.json`; the rest rides along for your records or future ChatGPT context.
 
@@ -362,7 +362,7 @@ On the **Deck Comparison** page, the Step 3 result panel includes a **Download c
 To resume a saved run later, expand **Resume from a saved session (.zip)** at the top of the form, choose the previously downloaded zip, and the page rehydrates the response JSON into Step 3. The browser's busy indicator runs while the upload is processed.
 
 Zip contents:
-- **/chatgpt-deck-comparison**: `00-comparison-input-summary.txt`, `10-deck-a-list.txt`, `11-deck-b-list.txt`, `12-deck-a-combos.txt`, `13-deck-b-combos.txt`, `20-comparison-context.txt`, `30-comparison-prompt.txt`, `31-comparison-schema.json`, `32-comparison-follow-up-prompt.txt`, `40-deck-comparison-response.json`
+- **/deck-comparison**: `00-comparison-input-summary.txt`, `10-deck-a-list.txt`, `11-deck-b-list.txt`, `12-deck-a-combos.txt`, `13-deck-b-combos.txt`, `20-comparison-context.txt`, `30-comparison-prompt.txt`, `31-comparison-schema.json`, `32-comparison-follow-up-prompt.txt`, `40-deck-comparison-response.json`
 
 Re-import only consumes `40-deck-comparison-response.json`; the rest rides along for your records or future ChatGPT context.
 
@@ -373,7 +373,7 @@ The `prompt-templates/deck-comparison/` directory contains reference templates f
 
 ## ChatGPT cEDH Meta Gap
 
-The cEDH Meta Gap page (`/chatgpt-cedh-meta-gap`) generates a structured ChatGPT workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
+The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
 
 ### Step 1 — Load Deck And Fetch References
 Paste a public Moxfield or Archidekt URL, or paste deck export text directly. You can optionally override the commander name. The page then queries EDH Top 16 using:
@@ -434,7 +434,7 @@ On the **cEDH Meta Gap** page, the Step 3 result panel includes a **Download met
 To resume a saved run later, expand **Resume from a saved session (.zip)** at the top of the form, choose the previously downloaded zip, and the page rehydrates the response JSON into Step 3. The browser's busy indicator runs while the upload is processed.
 
 Zip contents:
-- **/chatgpt-cedh-meta-gap**: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, `40-meta-gap-response.json`
+- **/cedh-meta-gap**: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, `40-meta-gap-response.json`
 
 Re-import only consumes `40-meta-gap-response.json`; the rest rides along for your records or future ChatGPT context.
 

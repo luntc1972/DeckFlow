@@ -269,7 +269,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - Responsibilities: Configure Serilog file sink, build `System.CommandLine` root with `compare`, `probe-moxfield`, `export-moxfield`, `archidekt-categories`, `archidekt-category-cards` commands; dispatch to `CommandRunners`.
 - `GET /` → `DeckController.Home`
 - `GET /sync` → `DeckController.Index`
-- Plus `/lookup`, `/mechanic-lookup`, `/convert`, `/suggest-categories`, `/judge-questions`, `/chatgpt-packets`, `/chatgpt-comparison`, `/chatgpt-cedh-meta-gap`, `/commander-categories`, `/help`, `/about`, `/feedback`.
+- Plus `/lookup`, `/mechanic-lookup`, `/convert`, `/suggest-categories`, `/judge-questions`, `/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`, `/commander-categories`, `/help`, `/about`, `/feedback`.
 - Default conventional route registered at the end (`Program.cs:230`).
 - `POST /api/deck/diff` → `DeckSyncApiController`
 - Suggestion endpoints under `SuggestionsApiController`
