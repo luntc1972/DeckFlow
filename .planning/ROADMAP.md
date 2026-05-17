@@ -48,7 +48,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 
 - [x] **Phase 11: Web Design Guidelines Audit Fixes** — Land all 10 sweep PRs from `260513-wdg-FINDINGS.md`: cross-cutting `site-common.css` a11y rules, admin focus-visible foundation, df-typeahead keyboard nav + ARIA combobox, ARIA tablist server-render, CSP inline-handler removal, info-tooltip a11y, table semantics, URL/textarea autocomplete, Razor `selected=` bool sweep, and AdminHarvest live-region announcement. (completed 2026-05-13)
 - [x] **Phase 12: AI-Agnostic URL + Page Rename** — Drop "chatgpt-" from the three multi-AI workflow URLs, swap H1/nav/hub labels, add `.page-lede` explainer lines, ship 301 permanent redirects, update artifact filenames to AI-agnostic terms. (completed 2026-05-17)
-- [ ] **Phase 13: ChatGpt* Class Rename + Summary Doc Comments** — Rename all `ChatGpt*` request/service/viewmodel/parser/store types to AI-agnostic names; backfill XML `<summary>` doc comments on every renamed class; update DI registrations, `InternalsVisibleTo`, namespaces, controller actions, test fixtures, and Razor `@model` directives with zero behavior change.
+- [x] **Phase 13: ChatGpt* Class Rename + Summary Doc Comments** — Rename all `ChatGpt*` request/service/viewmodel/parser/store types to AI-agnostic names; backfill XML `<summary>` doc comments on every renamed class; update DI registrations, `InternalsVisibleTo`, namespaces, controller actions, test fixtures, and Razor `@model` directives with zero behavior change. (completed 2026-05-17)
 - [ ] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings.
 - [ ] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite.
 
@@ -128,25 +128,25 @@ Plans:
   3. DI registrations in `Program.cs`, `[assembly: InternalsVisibleTo("DeckFlow.Web.Tests")]` in `AssemblyInfo.cs`, namespace imports, controller actions, view-model bindings, test fixtures, Razor `@model` directives, and form `name` attributes that bind to renamed properties are all updated; `dotnet build DeckFlow.sln --configuration Release` succeeds with zero new warnings.
   4. Zero user-visible behavior change verified by re-running the full manual T1-T8 integration suite (per `.planning/milestones/v1.2-MILESTONE-AUDIT.md`) against post-rename HEAD: all three pages still produce identical artifacts and round-trip identical zips.
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
 
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — Rename 10 model files (Request/ViewModel/Response triplets for DeckAnalysis/DeckComparison/MetaGap + SetUpgradeResponse) + DeckPageTab enum values; backfill XML <summary> on 29 types
+- [x] 13-01-PLAN.md — Rename 10 model files (Request/ViewModel/Response triplets for DeckAnalysis/DeckComparison/MetaGap + SetUpgradeResponse) + DeckPageTab enum values; backfill XML <summary> on 29 types
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 13-02-PLAN.md — Rename 7 service files (DeckAnalysisPacketService, DeckComparisonService, MetaGapService, PacketArtifactStore, RequestContextParser, ResponseParsers, JsonTextFormatterService) + Program.cs DI block + README.md mentions; ChatGptResultWrapInstruction const renamed
+- [x] 13-02-PLAN.md — Rename 7 service files (DeckAnalysisPacketService, DeckComparisonService, MetaGapService, PacketArtifactStore, RequestContextParser, ResponseParsers, JsonTextFormatterService) + Program.cs DI block + README.md mentions; ChatGptResultWrapInstruction const renamed
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 13-03-PLAN.md — Sweep DeckController.cs (142 hits: 12 action methods + ctor + body refs) + 3 Razor @model directives + _DeckToolTabs.cshtml enum refs + _BracketCallout.cshtml comment refs (preserving Phase 12 view-name string literals + route attributes)
+- [x] 13-03-PLAN.md — Sweep DeckController.cs (142 hits: 12 action methods + ctor + body refs) + 3 Razor @model directives + _DeckToolTabs.cshtml enum refs + _BracketCallout.cshtml comment refs (preserving Phase 12 view-name string literals + route attributes)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 13-04-PLAN.md — Rename 9 test files + DeckControllerTests.cs (126 hits + 6 inline test doubles) + TestServiceFactory.cs; final dotnet build clean gate + allowlisted grep gate + CLI smoke + HUMAN-UAT.md T1-T8 manual round-trip checkpoint
+- [x] 13-04-PLAN.md — Rename 9 test files + DeckControllerTests.cs (126 hits + 6 inline test doubles) + TestServiceFactory.cs; final dotnet build clean gate + allowlisted grep gate + CLI smoke + HUMAN-UAT.md T1-T8 manual round-trip checkpoint
 
 ### Phase 14: Broader Codebase Name-vs-Behavior Audit
 
@@ -196,7 +196,7 @@ Plans:
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete    | 2026-05-17 |
-| 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/4 | Not started | — |
+| 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
 

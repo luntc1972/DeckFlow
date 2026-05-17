@@ -32,9 +32,9 @@ Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (Option A recommended: drop
 
 ### Code Hygiene — ChatGpt* class rename
 
-- [ ] **CLASSRENAME-01**: All `ChatGpt*`-prefixed classes renamed to AI-agnostic terms. Targets include `ChatGptDeckRequest`, `ChatGptDeckPacketService`, `ChatGptRequestContextParser`, `ChatGptPacketArtifactStore`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, `ChatGptDeckViewModel`, `ChatGptDeckComparisonViewModel`, `ChatGptCedhMetaGapViewModel`, `ChatGptCedhMetaGapRequest`, `ChatGptDeckComparisonRequest`. Final names decided during planning.
-- [ ] **CLASSRENAME-02**: Every renamed class has an XML `<summary>` doc comment describing its current responsibility. `<GenerateDocumentationFile>true</GenerateDocumentationFile>` (`DeckFlow.Web.csproj`) compiles clean without `NoWarn 1591`-suppressed warnings for the renamed types.
-- [ ] **CLASSRENAME-03**: DI registrations (`Program.cs`), `[InternalsVisibleTo("DeckFlow.Web.Tests")]` (`AssemblyInfo.cs`), namespace imports, controller actions, view-model bindings, test fixtures, and Razor `@model` directives updated. Zero behavior change.
+- [x] **CLASSRENAME-01**: All `ChatGpt*`-prefixed classes renamed to AI-agnostic terms. Targets include `ChatGptDeckRequest`, `ChatGptDeckPacketService`, `ChatGptRequestContextParser`, `ChatGptPacketArtifactStore`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, `ChatGptDeckViewModel`, `ChatGptDeckComparisonViewModel`, `ChatGptCedhMetaGapViewModel`, `ChatGptCedhMetaGapRequest`, `ChatGptDeckComparisonRequest`. Final names decided during planning.
+- [x] **CLASSRENAME-02**: Every renamed class has an XML `<summary>` doc comment describing its current responsibility. `<GenerateDocumentationFile>true</GenerateDocumentationFile>` (`DeckFlow.Web.csproj`) compiles clean without `NoWarn 1591`-suppressed warnings for the renamed types.
+- [x] **CLASSRENAME-03**: DI registrations (`Program.cs`), `[InternalsVisibleTo("DeckFlow.Web.Tests")]` (`AssemblyInfo.cs`), namespace imports, controller actions, view-model bindings, test fixtures, and Razor `@model` directives updated. Zero behavior change.
 
 ### Code Hygiene — broader codebase audit
 
