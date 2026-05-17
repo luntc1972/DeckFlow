@@ -154,7 +154,7 @@ public sealed class DeckController : Controller
     /// </summary>
     public IActionResult ChatGptPackets()
     {
-        return View("ChatGptPackets", new ChatGptDeckViewModel
+        return View("DeckAnalysis", new ChatGptDeckViewModel
         {
             ActiveTab = DeckPageTab.ChatGptPackets,
             Request = new ChatGptDeckRequest(),
@@ -167,7 +167,7 @@ public sealed class DeckController : Controller
     /// </summary>
     public IActionResult ChatGptDeckComparison()
     {
-        return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+        return View("DeckComparison", new ChatGptDeckComparisonViewModel
         {
             ActiveTab = DeckPageTab.ChatGptDeckComparison,
             Request = new ChatGptDeckComparisonRequest(),
@@ -180,7 +180,7 @@ public sealed class DeckController : Controller
     /// </summary>
     public IActionResult ChatGptCedhMetaGap()
     {
-        return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+        return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
         {
             ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
             Request = new ChatGptCedhMetaGapRequest(),
@@ -463,7 +463,7 @@ public sealed class DeckController : Controller
         try
         {
             var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
@@ -482,7 +482,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "ChatGPT packet generation failed validation.");
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
@@ -492,7 +492,7 @@ public sealed class DeckController : Controller
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "ChatGPT packet generation hit an upstream dependency.");
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
@@ -532,7 +532,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "ChatGPT packet download failed validation.");
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
@@ -542,7 +542,7 @@ public sealed class DeckController : Controller
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "ChatGPT packet download hit an upstream dependency.");
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
@@ -558,7 +558,7 @@ public sealed class DeckController : Controller
     {
         if (zipFile is null || zipFile.Length == 0)
         {
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = new ChatGptDeckRequest(),
@@ -568,7 +568,7 @@ public sealed class DeckController : Controller
 
         if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
         {
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = new ChatGptDeckRequest(),
@@ -582,7 +582,7 @@ public sealed class DeckController : Controller
             await using var stream = zipFile.OpenReadStream();
             ChatGptPacketArtifactStore.LoadFromZip(stream, request);
             var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
@@ -601,7 +601,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "ChatGPT packet upload failed validation.");
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = new ChatGptDeckRequest(),
@@ -610,7 +610,7 @@ public sealed class DeckController : Controller
         }
         catch (InvalidDataException)
         {
-            return View("ChatGptPackets", new ChatGptDeckViewModel
+            return View("DeckAnalysis", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = new ChatGptDeckRequest(),
@@ -630,7 +630,7 @@ public sealed class DeckController : Controller
         request ??= new ChatGptDeckComparisonRequest();
         if (!ModelState.IsValid)
         {
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -641,7 +641,7 @@ public sealed class DeckController : Controller
         try
         {
             var result = await _chatGptDeckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -661,7 +661,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "ChatGPT deck comparison failed validation.");
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -676,7 +676,7 @@ public sealed class DeckController : Controller
                     ? exception.Message
                     : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
 
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -692,7 +692,7 @@ public sealed class DeckController : Controller
         request ??= new ChatGptDeckComparisonRequest();
         if (!ModelState.IsValid)
         {
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -751,7 +751,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "ChatGPT deck comparison download failed validation.");
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -766,7 +766,7 @@ public sealed class DeckController : Controller
                     ? exception.Message
                     : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
 
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -782,7 +782,7 @@ public sealed class DeckController : Controller
     {
         if (zipFile is null || zipFile.Length == 0)
         {
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = new ChatGptDeckComparisonRequest(),
@@ -792,7 +792,7 @@ public sealed class DeckController : Controller
 
         if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
         {
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = new ChatGptDeckComparisonRequest(),
@@ -812,7 +812,7 @@ public sealed class DeckController : Controller
             // regenerate). ComparisonResponse stays null so Step 3 doesn't render.
             if (string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
             {
-                return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+                return View("DeckComparison", new ChatGptDeckComparisonViewModel
                 {
                     ActiveTab = DeckPageTab.ChatGptDeckComparison,
                     Request = request,
@@ -833,7 +833,7 @@ public sealed class DeckController : Controller
             request.DeckBName = comparisonResponse.DeckBName;
             request.DeckABracket = comparisonResponse.DeckABracket;
             request.DeckBBracket = comparisonResponse.DeckBBracket;
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
@@ -852,7 +852,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "ChatGPT deck comparison upload failed validation.");
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = new ChatGptDeckComparisonRequest(),
@@ -861,7 +861,7 @@ public sealed class DeckController : Controller
         }
         catch (InvalidDataException)
         {
-            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            return View("DeckComparison", new ChatGptDeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = new ChatGptDeckComparisonRequest(),
@@ -881,7 +881,7 @@ public sealed class DeckController : Controller
         request ??= new ChatGptCedhMetaGapRequest();
         if (!ModelState.IsValid)
         {
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -900,7 +900,7 @@ public sealed class DeckController : Controller
                 _ => 1
             };
 
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -915,7 +915,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap generation failed validation.");
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -925,7 +925,7 @@ public sealed class DeckController : Controller
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "cEDH meta-gap generation hit an upstream dependency.");
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -943,7 +943,7 @@ public sealed class DeckController : Controller
         request ??= new ChatGptCedhMetaGapRequest();
         if (!ModelState.IsValid)
         {
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -985,7 +985,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap download failed validation.");
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -995,7 +995,7 @@ public sealed class DeckController : Controller
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "cEDH meta-gap download hit an upstream dependency.");
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -1013,7 +1013,7 @@ public sealed class DeckController : Controller
     {
         if (zipFile is null || zipFile.Length == 0)
         {
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = new ChatGptCedhMetaGapRequest(),
@@ -1023,7 +1023,7 @@ public sealed class DeckController : Controller
 
         if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
         {
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = new ChatGptCedhMetaGapRequest(),
@@ -1053,7 +1053,7 @@ public sealed class DeckController : Controller
             // and selection checkboxes render.
             if (string.IsNullOrWhiteSpace(request.MetaGapResponseJson))
             {
-                return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+                return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
                 {
                     ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                     Request = request,
@@ -1066,7 +1066,7 @@ public sealed class DeckController : Controller
 
             var analysisResponse = ChatGptCedhMetaGapService.ParseResponse(request.MetaGapResponseJson);
             request.CommanderName = analysisResponse.MetaGap.Commander;
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = request,
@@ -1081,7 +1081,7 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap upload failed validation.");
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = new ChatGptCedhMetaGapRequest(),
@@ -1090,7 +1090,7 @@ public sealed class DeckController : Controller
         }
         catch (InvalidDataException)
         {
-            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            return View("CedhMetaGap", new ChatGptCedhMetaGapViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
                 Request = new ChatGptCedhMetaGapRequest(),
