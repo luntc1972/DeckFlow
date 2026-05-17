@@ -88,7 +88,7 @@ public sealed class MetaGapRequest
 
     /// <summary>
     /// Hidden form field carrying the serialized List&lt;EdhTop16Entry&gt; between Step 2 submits.
-    /// When non-empty and successfully deserialized, ChatGptCedhMetaGapService.BuildAsync uses
+    /// When non-empty and successfully deserialized, MetaGapService.BuildAsync uses
     /// these entries instead of re-fetching from edhtop16. Round-tripped through the cEDH zip
     /// via 20-edh-top16-references.json. Empty by default; safe to leave blank for fresh flows.
     /// </summary>
