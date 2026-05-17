@@ -212,7 +212,7 @@ Plans:
 
 Captured 2026-05-17 during Phase 13 UAT. Hardcoded "ChatGPT" strings in Razor visible prose:
 - DeckAnalysis.cshtml: "Ask ChatGPT to return...", "How to push back on ChatGPT's conclusions" heading + body, "If ChatGPT makes a bad assumption...", "keep the conversation in ChatGPT going...", "Optional Follow-up JSON Refresh Prompt" intro ("if you asked additional questions in ChatGPT...")
-- DeckComparison.cshtml + CedhMetaGap.cshtml: same pattern expected
+- DeckComparison.cshtml + CedhMetaGap.cshtml: same pattern CONFIRMED during Phase 13 UAT T5 (hardcoded "ChatGPT" prose in cEDH meta-gap workflow instructions)
 - Per-page `analysisFollowUpPrompt` raw-string literal + equivalents
 
 Should adapt per `request.TargetAiPlatform` (ChatGPT/Claude/Gemini). Out of Phase 13 scope per 13-CONTEXT.md D-07 #6 (Razor visible prose preserved — CLASSRENAME is code-symbol-only). Candidate to pair with AIPLATFORM-01 / Phase 15 value object plumbing (richer per-platform dispatch already planned) OR own follow-up phase.
