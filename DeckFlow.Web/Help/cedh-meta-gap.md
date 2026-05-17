@@ -6,7 +6,7 @@ order: 30
 
 # ChatGPT cEDH Meta Gap
 
-The cEDH Meta Gap page (`/chatgpt-cedh-meta-gap`) generates a structured ChatGPT workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
+The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
 
 ## Step 1 — Load Deck And Fetch References
 
