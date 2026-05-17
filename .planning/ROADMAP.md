@@ -202,4 +202,24 @@ Plans:
 
 ---
 
+## Backlog
+
+### Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Captured 2026-05-17 during Phase 13 UAT. Hardcoded "ChatGPT" strings in Razor visible prose:
+- DeckAnalysis.cshtml: "Ask ChatGPT to return...", "How to push back on ChatGPT's conclusions" heading + body, "If ChatGPT makes a bad assumption...", "keep the conversation in ChatGPT going...", "Optional Follow-up JSON Refresh Prompt" intro ("if you asked additional questions in ChatGPT...")
+- DeckComparison.cshtml + CedhMetaGap.cshtml: same pattern expected
+- Per-page `analysisFollowUpPrompt` raw-string literal + equivalents
+
+Should adapt per `request.TargetAiPlatform` (ChatGPT/Claude/Gemini). Out of Phase 13 scope per 13-CONTEXT.md D-07 #6 (Razor visible prose preserved — CLASSRENAME is code-symbol-only). Candidate to pair with AIPLATFORM-01 / Phase 15 value object plumbing (richer per-platform dispatch already planned) OR own follow-up phase.
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+---
+
 *v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 started 2026-05-13*
