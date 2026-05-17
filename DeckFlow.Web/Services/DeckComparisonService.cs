@@ -15,12 +15,23 @@ using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Services;
 
-public interface IChatGptDeckComparisonService
+/// <summary>
+/// Builds the deck-comparison prompt packet by hydrating two decks side-by-side.
+/// </summary>
+public interface IDeckComparisonService
 {
-    Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Builds the deck-comparison packet for the supplied two-deck request.
+    /// </summary>
+    /// <param name="request">Comparison workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed record ChatGptDeckComparisonResult(
+/// <summary>
+/// Returns the results of a deck-comparison packet build.
+/// </summary>
+public sealed record DeckComparisonResult(
     string InputSummary,
     string DeckAListText,
     string DeckBListText,
@@ -30,13 +41,16 @@ public sealed record ChatGptDeckComparisonResult(
     string ComparisonPromptText,
     string FollowUpPromptText,
     string ComparisonSchemaJson,
-    ChatGptDeckComparisonResponse? ComparisonResponse,
+    DeckComparisonResponse? ComparisonResponse,
     string? TimingSummary,
     string? ResolvedDeckACommander = null,
     string? ResolvedDeckBCommander = null,
     string? RequestContextText = null);
 
-public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
+/// <summary>
+/// Hydrates two decks via Scryfall, queries Commander Spellbook for each, derives the side-by-side comparison context (role counts, mana curves, combo gaps), and composes the JSON-bound comparison prompt artifacts saved to the session zip.
+/// </summary>
+public sealed class DeckComparisonService : IDeckComparisonService
 {
     private const int ScryfallBatchSize = 75;
 
@@ -47,9 +61,9 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
-    private readonly ILogger<ChatGptDeckComparisonService> _logger;
+    private readonly ILogger<DeckComparisonService> _logger;
 
-    internal ChatGptDeckComparisonService(
+    internal DeckComparisonService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
         IMoxfieldDeckImporter moxfieldDeckImporter,
@@ -57,7 +71,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckComparisonService>? logger = null,
+        ILogger<DeckComparisonService>? logger = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
@@ -75,7 +89,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         _moxfieldParser = moxfieldParser;
         _archidektParser = archidektParser;
         _commanderSpellbookService = commanderSpellbookService;
-        _logger = logger ?? NullLogger<ChatGptDeckComparisonService>.Instance;
+        _logger = logger ?? NullLogger<DeckComparisonService>.Instance;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
@@ -91,7 +105,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
                 cancellationToken));
     }
 
-    public async Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default)
+    public async Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var overallStopwatch = Stopwatch.StartNew();
@@ -163,7 +177,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             request.TargetAiPlatform);
         var followUpPromptText = BuildFollowUpPrompt(comparisonSchemaJson, request.TargetAiPlatform);
 
-        ChatGptDeckComparisonResponse? comparisonResponse = null;
+        DeckComparisonResponse? comparisonResponse = null;
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
         {
             comparisonResponse = ParseComparisonResponse(request.ComparisonResponseJson);
@@ -171,7 +185,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 
         var timingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
 
-        return new ChatGptDeckComparisonResult(
+        return new DeckComparisonResult(
             inputSummary,
             deckAListText,
             deckBListText,
@@ -190,19 +204,19 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 
     /// <summary>
     /// Plain-text scalar key/value envelope round-tripped through the comparison zip.
-    /// Mirrors <see cref="ChatGptDeckPacketService"/>'s BuildRequestContextText for Packets.
-    /// Parsed via <see cref="ChatGptRequestContextParser"/>; unknown keys are ignored.
+    /// Mirrors <see cref="DeckAnalysisPacketService"/>'s BuildRequestContextText for Packets.
+    /// Parsed via <see cref="RequestContextParser"/>; unknown keys are ignored.
     /// </summary>
-    internal static string BuildRequestContextText(ChatGptDeckComparisonRequest request)
+    internal static string BuildRequestContextText(DeckComparisonRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"deck_a_name: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckAName, string.Empty)}");
-        builder.AppendLine($"deck_b_name: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckBName, string.Empty)}");
-        builder.AppendLine($"deck_a_bracket: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckABracket, string.Empty)}");
-        builder.AppendLine($"deck_b_bracket: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {ChatGptJsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        builder.AppendLine($"deck_a_name: {JsonTextFormatterService.NormalizeSingleLine(request.DeckAName, string.Empty)}");
+        builder.AppendLine($"deck_b_name: {JsonTextFormatterService.NormalizeSingleLine(request.DeckBName, string.Empty)}");
+        builder.AppendLine($"deck_a_bracket: {JsonTextFormatterService.NormalizeSingleLine(request.DeckABracket, string.Empty)}");
+        builder.AppendLine($"deck_b_bracket: {JsonTextFormatterService.NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
+        builder.AppendLine($"target_ai_platform: {JsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
         return builder.ToString().TrimEnd() + Environment.NewLine;
     }
 
@@ -669,7 +683,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine($"  almost_combos: {(deck.AlmostComboSummaries.Count == 0 ? "(none found)" : string.Join(" | ", deck.AlmostComboSummaries))}");
     }
 
-    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    // Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     internal static string BuildComparisonPrompt(
         DeckComparisonDeckSummary deckA,
         DeckComparisonDeckSummary deckB,
@@ -748,7 +762,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
         builder.AppendLine("D. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
         builder.AppendLine();
-        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine();
         builder.AppendLine("JSON requirements:");
         builder.AppendLine("- Return valid JSON only inside the fenced ```json code block.");
@@ -842,7 +856,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("- Five concrete cards or packages that best explain the gap between the two decks, with one sentence of reasoning each.");
         builder.AppendLine("- A final verdict naming which deck is stronger overall and why, in 2-4 sentences.");
         builder.AppendLine("After the readable comparison, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
@@ -912,7 +926,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
         builder.AppendLine("D. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
         builder.AppendLine();
-        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine();
         builder.AppendLine("JSON requirements:");
         builder.AppendLine("- Return valid JSON only inside the fenced ```json code block.");
@@ -936,7 +950,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("## COMPARISON CONTEXT");
         builder.AppendLine(comparisonContextText);
         builder.AppendLine();
-        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
+        builder.AppendLine(JsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -982,7 +996,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine($"</{tagName}>");
     }
 
-    // Internal for test access — per-AI dispatcher exercised by ChatGptResultContractTests.
+    // Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     internal static string BuildFollowUpPrompt(string comparisonSchemaJson, string targetAiPlatform)
     {
         return targetAiPlatform switch
@@ -1019,7 +1033,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
         builder.AppendLine("- Include a revised verdict.");
         builder.AppendLine("- Then regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
-        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
+        builder.AppendLine($"- {JsonTextFormatterService.ResultWrapInstruction}");
         builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
         builder.AppendLine();
         builder.AppendLine("```json");
@@ -1055,7 +1069,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("For each revised conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
         builder.AppendLine("Return updated readable comparison prose first with 2-4 sentences per axis that changed, then a revised verdict.");
         builder.AppendLine("After the readable revision, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction);
+        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
@@ -1091,7 +1105,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
         builder.AppendLine("- Include a revised verdict.");
         builder.AppendLine("- Then regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
-        builder.AppendLine($"- {ChatGptJsonTextFormatterService.ChatGptResultWrapInstruction}");
+        builder.AppendLine($"- {JsonTextFormatterService.ResultWrapInstruction}");
         builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
         builder.AppendLine();
         builder.AppendLine("```json");
@@ -1100,7 +1114,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("}");
         builder.AppendLine("```");
         builder.AppendLine();
-        builder.AppendLine(ChatGptJsonTextFormatterService.GeminiJsonMandate);
+        builder.AppendLine(JsonTextFormatterService.GeminiJsonMandate);
         return builder.ToString().TrimEnd();
     }
 
@@ -1146,14 +1160,14 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         });
     }
 
-    internal static ChatGptDeckComparisonResponse ParseComparisonResponse(string input)
+    internal static DeckComparisonResponse ParseComparisonResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
             throw new InvalidOperationException("Paste the deck_comparison JSON returned from ChatGPT into Step 3.");
         }
 
-        var json = ChatGptJsonTextFormatterService.ExtractJsonPayload(input);
+        var json = JsonTextFormatterService.ExtractJsonPayload(input);
         using var document = JsonDocument.Parse(json);
 
         JsonElement payload = document.RootElement;
@@ -1163,7 +1177,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             payload = comparisonElement;
         }
 
-        var result = JsonSerializer.Deserialize<ChatGptDeckComparisonResponse>(payload.GetRawText(), new JsonSerializerOptions
+        var result = JsonSerializer.Deserialize<DeckComparisonResponse>(payload.GetRawText(), new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
@@ -1451,7 +1465,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         IReadOnlyList<DeckEntry> OptionalEntries,
         string CommanderName);
 
-    // Internal for test construction — exercised by ChatGptResultContractTests.
+    // Internal for test construction — exercised by the AI result contract tests.
     internal sealed record DeckComparisonDeckSummary(
         string Name,
         string CommanderName,
