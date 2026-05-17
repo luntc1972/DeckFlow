@@ -1,6 +1,6 @@
 @model DeckFlow.Web.Models.ChatGptDeckViewModel
 @{
-    ViewData["Title"] = "ChatGPT Analysis";
+    ViewData["Title"] = "Deck Analysis";
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = DeckFlow.Web.Models.AnalysisQuestionCatalog.Buckets;
@@ -26,7 +26,7 @@ Do not omit any fields from the schema.
 }
 
 <section class="hero">
-    <h1>ChatGPT Analysis</h1>
+    <h1>Deck Analysis</h1>
     <p class="page-lede">Generate a prompt to paste into ChatGPT, Claude, or Gemini.</p>
     <p class="lede">Paste your deck, choose your analysis questions, generate the prompt, and paste back the results. The set-upgrade step is optional.</p>
 </section>

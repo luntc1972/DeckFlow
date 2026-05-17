@@ -15,9 +15,9 @@
             Analyze
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-packets")">ChatGPT Analysis</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptDeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-deck-comparison")">Deck Comparison</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptCedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-cedh-meta-gap")">cEDH Meta Gap</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="@Url.Content("~/deck-analysis")">Deck Analysis</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptDeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/deck-comparison")">Deck Comparison</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptCedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/cedh-meta-gap")">cEDH Meta Gap</a>
         </div>
     </div>
     <div class="tool-nav__group @(buildActive ? "is-active" : string.Empty)" data-tool-nav-group>
