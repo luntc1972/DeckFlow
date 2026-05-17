@@ -260,8 +260,8 @@ public partial class Program
                     sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
             builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
-            builder.Services.AddScoped<IChatGptDeckPacketService>(sp =>
-                new ChatGptDeckPacketService(
+            builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
+                new DeckAnalysisPacketService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMoxfieldDeckImporter>(),
@@ -272,9 +272,9 @@ public partial class Program
                     sp.GetRequiredService<ICommanderBanListService>(),
                     sp.GetRequiredService<IScryfallSetService>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetService<ILogger<ChatGptDeckPacketService>>()));
-            builder.Services.AddScoped<IChatGptDeckComparisonService>(sp =>
-                new ChatGptDeckComparisonService(
+                    sp.GetService<ILogger<DeckAnalysisPacketService>>()));
+            builder.Services.AddScoped<IDeckComparisonService>(sp =>
+                new DeckComparisonService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMoxfieldDeckImporter>(),
@@ -282,9 +282,9 @@ public partial class Program
                     sp.GetRequiredService<MoxfieldParser>(),
                     sp.GetRequiredService<ArchidektParser>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetService<ILogger<ChatGptDeckComparisonService>>()));
-            builder.Services.AddScoped<IChatGptCedhMetaGapService>(sp =>
-                new ChatGptCedhMetaGapService(
+                    sp.GetService<ILogger<DeckComparisonService>>()));
+            builder.Services.AddScoped<IMetaGapService>(sp =>
+                new MetaGapService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMoxfieldDeckImporter>(),
