@@ -1386,3 +1386,12 @@ details.info-tooltip > p {
     font-size: var(--fs-sm);
     max-width: 32rem;
 }
+
+/* === Phase 12 (RENAME-02) — page-lede explainer line ===
+   Muted one-line explainer under an H1 on the three AI workflow pages.
+   Per CLAUDE.md D-07, cross-cutting rules live in site-common.css. */
+.page-lede {
+  margin: 0.25rem 0 1rem;
+  color: var(--muted);
+  font-size: var(--fs-base);
+}
