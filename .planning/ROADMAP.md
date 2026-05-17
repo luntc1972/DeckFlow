@@ -89,7 +89,13 @@ Plans:
   2. Page `<h1>`, top-nav labels in `_DeckToolTabs.cshtml`, hub-card titles on `Home.cshtml`, and `<title>` element values on all three pages reflect AI-agnostic naming; explainer text under each H1 preserves the "this generates something to paste into an AI" cue per `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` Mock A.
   3. Session zip download filenames and `Content-Disposition` headers use AI-agnostic artifact terminology consistent with the new page naming (filename sanitizer in `ChatGptPacketArtifactStore` updated; AI-segment in the filename pattern preserved per Phase 10 commit `00e5bdd`).
   4. README, `DeckFlow.Web/Help/**/*.md`, and the browser-extension package (`browser-extensions/deckflow-bridge/`) reference the new URLs; no hardcoded `chatgpt-` paths remain in any tracked file outside of permanent-redirect registrations.
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 12-01-PLAN.md — UseRewriter 301 block (9 redirects) + DeckController 12 route attribute replacements
+- [ ] 12-02-PLAN.md — git mv 3 view files (ChatGpt*.cshtml → AI-agnostic names) + DeckController View() literal-string updates
+- [ ] 12-03-PLAN.md — Page-1 H1/title/nav/hub label swap + 3 page-lede explainer paragraphs + .page-lede CSS in site-common.css + 6 hrefs across nav and home
+- [ ] 12-04-PLAN.md — Suggest*ZipFileName helpers: deckflow-packet→deck-analysis, compare2→comparison, cedh→cedh-meta-gap (chatgpt AI fallback preserved)
+- [ ] 12-05-PLAN.md — README + Help/*.md URL sweep + browser-extension verification + manifest version bump (conditional) + phase-wide D-15 grep gate
 **UI hint**: yes
 
 ### Phase 13: ChatGpt* Class Rename + Summary Doc Comments
@@ -147,7 +153,7 @@ Plans:
 | 9. Bracket UX + AI Selector Foundation | v1.2 | 3/3 | Complete | 2026-05-08 |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
-| 12. AI-Agnostic URL + Page Rename | v1.3 | 0/3 | Not started | — |
+| 12. AI-Agnostic URL + Page Rename | v1.3 | 0/5 | Not started | — |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/3 | Not started | — |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
