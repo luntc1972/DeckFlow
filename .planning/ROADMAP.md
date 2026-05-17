@@ -47,7 +47,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 ### 🟢 v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (Phases 11-15)
 
 - [x] **Phase 11: Web Design Guidelines Audit Fixes** — Land all 10 sweep PRs from `260513-wdg-FINDINGS.md`: cross-cutting `site-common.css` a11y rules, admin focus-visible foundation, df-typeahead keyboard nav + ARIA combobox, ARIA tablist server-render, CSP inline-handler removal, info-tooltip a11y, table semantics, URL/textarea autocomplete, Razor `selected=` bool sweep, and AdminHarvest live-region announcement. (completed 2026-05-13)
-- [ ] **Phase 12: AI-Agnostic URL + Page Rename** — Drop "chatgpt-" from the three multi-AI workflow URLs, swap H1/nav/hub labels, add `.page-lede` explainer lines, ship 301 permanent redirects, update artifact filenames to AI-agnostic terms.
+- [x] **Phase 12: AI-Agnostic URL + Page Rename** — Drop "chatgpt-" from the three multi-AI workflow URLs, swap H1/nav/hub labels, add `.page-lede` explainer lines, ship 301 permanent redirects, update artifact filenames to AI-agnostic terms. (completed 2026-05-17)
 - [ ] **Phase 13: ChatGpt* Class Rename + Summary Doc Comments** — Rename all `ChatGpt*` request/service/viewmodel/parser/store types to AI-agnostic names; backfill XML `<summary>` doc comments on every renamed class; update DI registrations, `InternalsVisibleTo`, namespaces, controller actions, test fixtures, and Razor `@model` directives with zero behavior change.
 - [ ] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings.
 - [ ] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite.
@@ -95,7 +95,7 @@ Plans:
   3. Session zip download filenames and `Content-Disposition` headers use AI-agnostic artifact terminology consistent with the new page naming (filename sanitizer in `ChatGptPacketArtifactStore` updated; AI-segment in the filename pattern preserved per Phase 10 commit `00e5bdd`).
   4. README, `DeckFlow.Web/Help/**/*.md`, and the browser-extension package (`browser-extensions/deckflow-bridge/`) reference the new URLs; no hardcoded `chatgpt-` paths remain in any tracked file outside of permanent-redirect registrations.
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 **Wave 1**
 
@@ -112,7 +112,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 12-05-PLAN.md — README + Help/*.md URL sweep + browser-extension verification + manifest version bump (conditional) + phase-wide D-15 grep gate
+- [x] 12-05-PLAN.md — README + Help/*.md URL sweep + browser-extension verification + manifest version bump (conditional) + phase-wide D-15 grep gate
 
 **UI hint**: yes
 
@@ -177,7 +177,7 @@ Plans:
 | 9. Bracket UX + AI Selector Foundation | v1.2 | 3/3 | Complete | 2026-05-08 |
 | 10. Claude + Gemini Artifact Optimization | v1.2 | 5/5 | Complete | 2026-05-13 |
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
-| 12. AI-Agnostic URL + Page Rename | v1.3 | 4/5 | In Progress|  |
+| 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete   | 2026-05-17 |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 0/3 | Not started | — |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 0/3 | Not started | — |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
