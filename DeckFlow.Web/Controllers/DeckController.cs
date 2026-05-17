@@ -148,7 +148,7 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/chatgpt-packets")]
+    [HttpGet("/deck-analysis")]
     /// <summary>
     /// Renders the staged ChatGPT packet workflow. Set options load asynchronously on the client.
     /// </summary>
@@ -161,7 +161,7 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/chatgpt-deck-comparison")]
+    [HttpGet("/deck-comparison")]
     /// <summary>
     /// Renders the staged ChatGPT deck-comparison workflow.
     /// </summary>
@@ -174,7 +174,7 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/chatgpt-cedh-meta-gap")]
+    [HttpGet("/cedh-meta-gap")]
     /// <summary>
     /// Renders the staged cEDH meta-gap workflow.
     /// </summary>
@@ -450,7 +450,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-packets")]
+    [HttpPost("/deck-analysis")]
     [ValidateAntiForgeryToken]
     /// <summary>
     /// Processes a ChatGPT workflow postback and regenerates the next packet outputs.
@@ -501,7 +501,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-packets/download")]
+    [HttpPost("/deck-analysis/download")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChatGptPacketsDownload(ChatGptDeckRequest request)
     {
@@ -551,7 +551,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-packets/upload")]
+    [HttpPost("/deck-analysis/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public async Task<IActionResult> ChatGptPacketsUpload(IFormFile zipFile)
@@ -619,7 +619,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-deck-comparison")]
+    [HttpPost("/deck-comparison")]
     [ValidateAntiForgeryToken]
     /// <summary>
     /// Processes the ChatGPT deck comparison workflow.
@@ -685,7 +685,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-deck-comparison/download")]
+    [HttpPost("/deck-comparison/download")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChatGptDeckComparisonDownload(ChatGptDeckComparisonRequest request)
     {
@@ -775,7 +775,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-deck-comparison/upload")]
+    [HttpPost("/deck-comparison/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public IActionResult ChatGptDeckComparisonUpload(IFormFile zipFile)
@@ -870,7 +870,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-cedh-meta-gap")]
+    [HttpPost("/cedh-meta-gap")]
     [ValidateAntiForgeryToken]
     /// <summary>
     /// Processes the cEDH meta-gap workflow.
@@ -936,7 +936,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-cedh-meta-gap/download")]
+    [HttpPost("/cedh-meta-gap/download")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChatGptCedhMetaGapDownload(ChatGptCedhMetaGapRequest request)
     {
@@ -1006,7 +1006,7 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/chatgpt-cedh-meta-gap/upload")]
+    [HttpPost("/cedh-meta-gap/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public IActionResult ChatGptCedhMetaGapUpload(IFormFile zipFile)
