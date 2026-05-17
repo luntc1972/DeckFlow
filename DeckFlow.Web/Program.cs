@@ -327,17 +327,17 @@ public partial class Program
             // every old page-root plus its /download + /upload sub-routes (D-04). Targets are
             // hardcoded literal absolute paths — no user input is interpolated (T-12-01).
             app.UseRewriter(new RewriteOptions()
-                .AddRedirect("^chatgpt-packets$", "deck-analysis", 301)
-                .AddRedirect("^chatgpt-packets/download$", "deck-analysis/download", 301)
-                .AddRedirect("^chatgpt-packets/upload$", "deck-analysis/upload", 301)
-                .AddRedirect("^chatgpt-deck-comparison$", "deck-comparison", 301)
-                .AddRedirect("^chatgpt-deck-comparison/download$", "deck-comparison/download", 301)
-                .AddRedirect("^chatgpt-deck-comparison/upload$", "deck-comparison/upload", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap$", "cedh-meta-gap", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap/download$", "cedh-meta-gap/download", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap/upload$", "cedh-meta-gap/upload", 301)
-                .AddRedirect("^help/chatgpt-analysis$", "help/deck-analysis", 301)
-                .AddRedirect("^help/chatgpt-deck-comparison$", "help/deck-comparison", 301));
+                .AddRedirect("^chatgpt-packets/?$", "deck-analysis", 301)
+                .AddRedirect("^chatgpt-packets/download/?$", "deck-analysis/download", 301)
+                .AddRedirect("^chatgpt-packets/upload/?$", "deck-analysis/upload", 301)
+                .AddRedirect("^chatgpt-deck-comparison/?$", "deck-comparison", 301)
+                .AddRedirect("^chatgpt-deck-comparison/download/?$", "deck-comparison/download", 301)
+                .AddRedirect("^chatgpt-deck-comparison/upload/?$", "deck-comparison/upload", 301)
+                .AddRedirect("^chatgpt-cedh-meta-gap/?$", "cedh-meta-gap", 301)
+                .AddRedirect("^chatgpt-cedh-meta-gap/download/?$", "cedh-meta-gap/download", 301)
+                .AddRedirect("^chatgpt-cedh-meta-gap/upload/?$", "cedh-meta-gap/upload", 301)
+                .AddRedirect("^help/chatgpt-analysis/?$", "help/deck-analysis", 301)
+                .AddRedirect("^help/chatgpt-deck-comparison/?$", "help/deck-comparison", 301));
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
