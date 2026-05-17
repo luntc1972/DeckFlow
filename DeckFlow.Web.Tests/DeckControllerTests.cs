@@ -18,7 +18,7 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckControllerTests
 {
     [Fact]
-    public void ChatGptCedhMetaGap_Get_ReturnsExpectedViewModel()
+    public void CedhMetaGap_Get_ReturnsExpectedViewModel()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -27,22 +27,22 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
-        var result = controller.ChatGptCedhMetaGap();
+        var result = controller.CedhMetaGap();
 
         var view = Assert.IsType<ViewResult>(result);
-        Assert.Equal("ChatGptCedhMetaGap", view.ViewName);
-        var model = Assert.IsType<ChatGptCedhMetaGapViewModel>(view.Model);
-        Assert.Equal(DeckPageTab.ChatGptCedhMetaGap, model.ActiveTab);
+        Assert.Equal("CedhMetaGap", view.ViewName);
+        var model = Assert.IsType<MetaGapViewModel>(view.Model);
+        Assert.Equal(DeckPageTab.CedhMetaGap, model.ActiveTab);
     }
 
     [Fact]
-    public async Task ChatGptCedhMetaGap_Post_AdvancesToStep2WhenReferenceDecksAreFetched()
+    public async Task CedhMetaGap_Post_AdvancesToStep2WhenReferenceDecksAreFetched()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -51,9 +51,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new ConfigurableChatGptCedhMetaGapService(new ChatGptCedhMetaGapResult(
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new ConfigurableMetaGapService(new MetaGapResult(
                 "summary",
                 "Kinnan, Bonder Prodigy",
                 new[]
@@ -76,21 +76,21 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.ChatGptCedhMetaGap(new ChatGptCedhMetaGapRequest
+        var result = await controller.CedhMetaGap(new MetaGapRequest
         {
             WorkflowStep = 1,
             DeckSource = "https://www.moxfield.com/decks/test"
         });
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptCedhMetaGapViewModel>(view.Model);
+        var model = Assert.IsType<MetaGapViewModel>(view.Model);
         Assert.Equal(2, model.Request.WorkflowStep);
         Assert.Single(model.FetchedEntries);
         Assert.Equal("Kinnan, Bonder Prodigy", model.ResolvedCommanderName);
     }
 
     [Fact]
-    public async Task ChatGptCedhMetaGap_Post_ReturnsRateLimitMessage()
+    public async Task CedhMetaGap_Post_ReturnsRateLimitMessage()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -99,9 +99,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new ThrowingChatGptCedhMetaGapService(new HttpRequestException("Too many requests", null, HttpStatusCode.TooManyRequests)),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new ThrowingMetaGapService(new HttpRequestException("Too many requests", null, HttpStatusCode.TooManyRequests)),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -111,14 +111,14 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.ChatGptCedhMetaGap(new ChatGptCedhMetaGapRequest
+        var result = await controller.CedhMetaGap(new MetaGapRequest
         {
             WorkflowStep = 1,
             DeckSource = "https://www.moxfield.com/decks/test"
         });
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptCedhMetaGapViewModel>(view.Model);
+        var model = Assert.IsType<MetaGapViewModel>(view.Model);
         Assert.Equal("EDH Top 16 is rate-limiting requests right now. Try again shortly.", model.ErrorMessage);
     }
 
@@ -153,9 +153,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -184,9 +184,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -213,9 +213,9 @@ public sealed class DeckControllerTests
             new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -245,9 +245,9 @@ public sealed class DeckControllerTests
             new ThrowingCardLookupService(new InvalidOperationException("Please verify 100 non-empty lines or fewer per submission.")),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -277,9 +277,9 @@ public sealed class DeckControllerTests
             new SuccessfulCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -311,9 +311,9 @@ public sealed class DeckControllerTests
             new SuccessfulSingleCardLookupService(),
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -346,9 +346,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -375,9 +375,9 @@ public sealed class DeckControllerTests
             new AlternateNameSingleCardLookupService(),
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -405,9 +405,9 @@ public sealed class DeckControllerTests
             new MultiMechanicSingleCardLookupService(),
             new PartiallyFailingMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -436,9 +436,9 @@ public sealed class DeckControllerTests
             new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -464,9 +464,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -493,9 +493,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -518,7 +518,7 @@ public sealed class DeckControllerTests
     }
 
     [Fact]
-    public async Task ChatGptPackets_ReturnsValidationError_WhenBracketMissingForAnalysisStep()
+    public async Task DeckAnalysis_ReturnsValidationError_WhenBracketMissingForAnalysisStep()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -527,9 +527,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new ThrowingChatGptDeckPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -539,20 +539,20 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.ChatGptPackets(new ChatGptDeckRequest
+        var result = await controller.DeckAnalysis(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
         });
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
         Assert.Equal("Choose a target Commander bracket before generating the analysis packet.", model.ErrorMessage);
         Assert.Equal(2, model.Request.WorkflowStep);
     }
 
     [Fact]
-    public async Task ChatGptPackets_ReturnsValidationError_WhenQuestionsMissingForAnalysisStep()
+    public async Task DeckAnalysis_ReturnsValidationError_WhenQuestionsMissingForAnalysisStep()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -561,9 +561,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -573,7 +573,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.ChatGptPackets(new ChatGptDeckRequest
+        var result = await controller.DeckAnalysis(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
@@ -581,13 +581,13 @@ public sealed class DeckControllerTests
         });
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
         Assert.Equal("Select at least one analysis question before generating the analysis packet.", model.ErrorMessage);
         Assert.Equal(2, model.Request.WorkflowStep);
     }
 
     [Fact]
-    public async Task ChatGptPackets_ReturnsValidationError_WhenSetSourceMissingForUpgradeStep()
+    public async Task DeckAnalysis_ReturnsValidationError_WhenSetSourceMissingForUpgradeStep()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -596,9 +596,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -608,7 +608,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.ChatGptPackets(new ChatGptDeckRequest
+        var result = await controller.DeckAnalysis(new DeckAnalysisRequest
         {
             WorkflowStep = 3,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
@@ -618,15 +618,15 @@ public sealed class DeckControllerTests
         });
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
         Assert.Equal("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.", model.ErrorMessage);
         Assert.Equal(3, model.Request.WorkflowStep);
     }
 
     [Fact]
-    public async Task ChatGptPackets_PassesSelectedQuestionsAndSingleSetToService()
+    public async Task DeckAnalysis_PassesSelectedQuestionsAndSingleSetToService()
     {
-        var capturingService = new CapturingChatGptDeckPacketService();
+        var capturingService = new CapturingDeckAnalysisPacketService();
         var controller = new DeckController(
             new FakeDeckSyncService(),
             new FakeDeckConvertService(),
@@ -635,8 +635,8 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             capturingService,
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -646,7 +646,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var request = new ChatGptDeckRequest
+        var request = new DeckAnalysisRequest
         {
             WorkflowStep = 3,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
@@ -657,7 +657,7 @@ public sealed class DeckControllerTests
             SelectedSetCodes = ["dsk"]
         };
 
-        await controller.ChatGptPackets(request);
+        await controller.DeckAnalysis(request);
 
         Assert.NotNull(capturingService.LastRequest);
         Assert.Equal(3, capturingService.LastRequest!.SelectedAnalysisQuestions.Count);
@@ -670,7 +670,7 @@ public sealed class DeckControllerTests
     }
 
     [Fact]
-    public void ChatGptDeckComparison_Get_RendersPage()
+    public void DeckComparison_Get_RendersPage()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -679,21 +679,21 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
-        var result = controller.ChatGptDeckComparison();
+        var result = controller.DeckComparison();
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptDeckComparisonViewModel>(view.Model);
-        Assert.Equal(DeckPageTab.ChatGptDeckComparison, model.ActiveTab);
+        var model = Assert.IsType<DeckComparisonViewModel>(view.Model);
+        Assert.Equal(DeckPageTab.DeckComparison, model.ActiveTab);
     }
 
     [Fact]
-    public async Task ChatGptDeckComparison_Post_ReturnsExpectedResultModel()
+    public async Task DeckComparison_Post_ReturnsExpectedResultModel()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -702,9 +702,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -714,7 +714,7 @@ public sealed class DeckControllerTests
             }
         };
 
-        var result = await controller.ChatGptDeckComparison(new ChatGptDeckComparisonRequest
+        var result = await controller.DeckComparison(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckABracket = "Upgraded",
@@ -724,14 +724,14 @@ public sealed class DeckControllerTests
         });
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptDeckComparisonViewModel>(view.Model);
+        var model = Assert.IsType<DeckComparisonViewModel>(view.Model);
         Assert.Equal("comparison prompt", model.ComparisonPromptText);
         Assert.Equal("comparison follow-up prompt", model.FollowUpPromptText);
         Assert.NotNull(model.ComparisonResponse);
     }
 
     [Fact]
-    public async Task ChatGptDeckComparison_Post_ReturnsViewWithError_WhenModelStateInvalid()
+    public async Task DeckComparison_Post_ReturnsViewWithError_WhenModelStateInvalid()
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
@@ -740,9 +740,9 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
-            new FakeChatGptDeckPacketService(),
-            new FakeChatGptDeckComparisonService(),
-            new FakeChatGptCedhMetaGapService(),
+            new FakeDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new FakeMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -753,10 +753,10 @@ public sealed class DeckControllerTests
         };
         controller.ModelState.AddModelError("DeckASource", "Required");
 
-        var result = await controller.ChatGptDeckComparison(new ChatGptDeckComparisonRequest());
+        var result = await controller.DeckComparison(new DeckComparisonRequest());
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChatGptDeckComparisonViewModel>(view.Model);
+        var model = Assert.IsType<DeckComparisonViewModel>(view.Model);
         Assert.Equal("The comparison form contains invalid values. Review the highlighted fields and try again.", model.ErrorMessage);
     }
 
@@ -772,16 +772,16 @@ public sealed class DeckControllerTests
             => throw new NotImplementedException();
     }
 
-    private sealed class FakeChatGptDeckPacketService : IChatGptDeckPacketService
+    private sealed class FakeDeckAnalysisPacketService : IDeckAnalysisPacketService
     {
-        public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
+        public Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 
-    private sealed class FakeChatGptDeckComparisonService : IChatGptDeckComparisonService
+    private sealed class FakeDeckComparisonService : IDeckComparisonService
     {
-        public Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default)
-            => Task.FromResult(new ChatGptDeckComparisonResult(
+        public Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new DeckComparisonResult(
                 "comparison summary",
                 "deck a list",
                 "deck b list",
@@ -791,7 +791,7 @@ public sealed class DeckControllerTests
                 "comparison prompt",
                 "comparison follow-up prompt",
                 "{}",
-                new ChatGptDeckComparisonResponse
+                new DeckComparisonResponse
                 {
                     DeckAName = "Deck A",
                     DeckBName = "Deck B",
@@ -807,18 +807,18 @@ public sealed class DeckControllerTests
                 null));
     }
 
-    private sealed class FakeChatGptCedhMetaGapService : IChatGptCedhMetaGapService
+    private sealed class FakeMetaGapService : IMetaGapService
     {
-        public Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default)
-            => Task.FromResult(new ChatGptCedhMetaGapResult(
+        public Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new MetaGapResult(
                 "meta gap summary",
                 "Tymna / Kraum",
                 Array.Empty<EdhTop16Entry>(),
                 "meta gap prompt",
                 "{}",
-                new ChatGptCedhMetaGapResponse
+                new MetaGapResponse
                 {
-                    MetaGap = new ChatGptCedhMetaGapData
+                    MetaGap = new MetaGapData
                     {
                         Commander = "Tymna / Kraum",
                         RefDeckCount = 3,
@@ -828,53 +828,53 @@ public sealed class DeckControllerTests
                 }));
     }
 
-    private sealed class ConfigurableChatGptCedhMetaGapService : IChatGptCedhMetaGapService
+    private sealed class ConfigurableMetaGapService : IMetaGapService
     {
-        private readonly ChatGptCedhMetaGapResult _result;
+        private readonly MetaGapResult _result;
 
-        public ConfigurableChatGptCedhMetaGapService(ChatGptCedhMetaGapResult result)
+        public ConfigurableMetaGapService(MetaGapResult result)
         {
             _result = result;
         }
 
-        public Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default)
+        public Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
             => Task.FromResult(_result);
     }
 
-    private sealed class ThrowingChatGptCedhMetaGapService : IChatGptCedhMetaGapService
+    private sealed class ThrowingMetaGapService : IMetaGapService
     {
         private readonly Exception _exception;
 
-        public ThrowingChatGptCedhMetaGapService(Exception exception)
+        public ThrowingMetaGapService(Exception exception)
         {
             _exception = exception;
         }
 
-        public Task<ChatGptCedhMetaGapResult> BuildAsync(ChatGptCedhMetaGapRequest request, CancellationToken cancellationToken = default)
-            => Task.FromException<ChatGptCedhMetaGapResult>(_exception);
+        public Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
+            => Task.FromException<MetaGapResult>(_exception);
     }
 
-    private sealed class ThrowingChatGptDeckPacketService : IChatGptDeckPacketService
+    private sealed class ThrowingDeckAnalysisPacketService : IDeckAnalysisPacketService
     {
         private readonly Exception _exception;
 
-        public ThrowingChatGptDeckPacketService(Exception exception)
+        public ThrowingDeckAnalysisPacketService(Exception exception)
         {
             _exception = exception;
         }
 
-        public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
-            => Task.FromException<ChatGptDeckPacketResult>(_exception);
+        public Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default)
+            => Task.FromException<DeckAnalysisPacketResult>(_exception);
     }
 
-    private sealed class CapturingChatGptDeckPacketService : IChatGptDeckPacketService
+    private sealed class CapturingDeckAnalysisPacketService : IDeckAnalysisPacketService
     {
-        public ChatGptDeckRequest? LastRequest { get; private set; }
+        public DeckAnalysisRequest? LastRequest { get; private set; }
 
-        public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
+        public Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default)
         {
             LastRequest = request;
-            return Task.FromResult(new ChatGptDeckPacketResult(
+            return Task.FromResult(new DeckAnalysisPacketResult(
                 "summary",
                 "Test Deck | AI Deck Analysis",
                 "{}",
