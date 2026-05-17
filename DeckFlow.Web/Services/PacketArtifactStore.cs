@@ -7,10 +7,9 @@ using DeckFlow.Web.Models;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Builds a single in-memory .zip of every ChatGPT analysis artifact for the current request,
-/// and rehydrates a saved zip back into a request. Pure CPU work, no filesystem access.
+/// Builds, saves, and loads session zip artifacts for the deck-analysis, deck-comparison, and cEDH meta-gap pages, including AI-segment filename sanitization. Pure CPU work, no filesystem access.
 /// </summary>
-internal static class ChatGptPacketArtifactStore
+internal static class PacketArtifactStore
 {
     private const int MaxEntryUncompressedBytes = 2 * 1024 * 1024;
     private const int MaxTotalUncompressedBytes = 10 * 1024 * 1024;
@@ -92,7 +91,7 @@ internal static class ChatGptPacketArtifactStore
     }
 
     public static byte[] BuildZip(
-        ChatGptDeckRequest request,
+        DeckAnalysisRequest request,
         string? commanderName,
         string inputSummary,
         string? requestContextText,
@@ -127,7 +126,7 @@ internal static class ChatGptPacketArtifactStore
     }
 
     public static byte[] BuildComparisonZip(
-        ChatGptDeckComparisonRequest request,
+        DeckComparisonRequest request,
         string inputSummary,
         string deckAListText,
         string deckBListText,
@@ -157,14 +156,14 @@ internal static class ChatGptPacketArtifactStore
             ("30-comparison-prompt.txt", "COMPARISON PROMPT", comparisonPromptText),
             ("31-comparison-schema.json", "COMPARISON SCHEMA JSON", comparisonSchemaJson),
             ("32-comparison-follow-up-prompt.txt", "COMPARISON FOLLOW-UP PROMPT", followUpPromptText),
-            ("40-deck-comparison-response.json", "DECK COMPARISON RESPONSE JSON", string.IsNullOrWhiteSpace(request.ComparisonResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.ComparisonResponseJson))
+            ("40-deck-comparison-response.json", "DECK COMPARISON RESPONSE JSON", string.IsNullOrWhiteSpace(request.ComparisonResponseJson) ? null : JsonTextFormatterService.ExtractJsonPayload(request.ComparisonResponseJson))
         ]);
 
         return BuildArchive(sections);
     }
 
     public static byte[] BuildCedhMetaGapZip(
-        ChatGptCedhMetaGapRequest request,
+        MetaGapRequest request,
         string inputSummary,
         string promptText,
         string schemaJson,
@@ -185,7 +184,7 @@ internal static class ChatGptPacketArtifactStore
                 fetchedEntries is { Count: > 0 } ? JsonSerializer.Serialize(fetchedEntries, FetchedEntriesJsonOptions) : null),
             ("30-meta-gap-prompt.txt", "META GAP PROMPT", promptText),
             ("31-meta-gap-schema.json", "META GAP SCHEMA JSON", schemaJson),
-            ("40-meta-gap-response.json", "META GAP RESPONSE JSON", string.IsNullOrWhiteSpace(request.MetaGapResponseJson) ? null : ChatGptJsonTextFormatterService.ExtractJsonPayload(request.MetaGapResponseJson))
+            ("40-meta-gap-response.json", "META GAP RESPONSE JSON", string.IsNullOrWhiteSpace(request.MetaGapResponseJson) ? null : JsonTextFormatterService.ExtractJsonPayload(request.MetaGapResponseJson))
         ]);
 
         return BuildArchive(sections);
@@ -200,7 +199,7 @@ internal static class ChatGptPacketArtifactStore
     /// only, no responses) rehydrate form state and land the user back on Step 1 to re-paste
     /// the deck. Zips with response JSONs land on Step 3 (deck profile) or Step 5 (set upgrade).
     /// </remarks>
-    public static void LoadFromZip(Stream zipStream, ChatGptDeckRequest request)
+    public static void LoadFromZip(Stream zipStream, DeckAnalysisRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
         ArgumentNullException.ThrowIfNull(request);
@@ -241,7 +240,7 @@ internal static class ChatGptPacketArtifactStore
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
         {
-            var parsed = ChatGptRequestContextParser.Parse(requestContextText);
+            var parsed = RequestContextParser.Parse(requestContextText);
             if (!string.IsNullOrEmpty(parsed.Format))
             {
                 request.Format = parsed.Format;
@@ -325,7 +324,7 @@ internal static class ChatGptPacketArtifactStore
     /// Deck A and Deck B are restored from the normalized post-Scryfall list entries in the zip,
     /// which is the deck content the comparison workflow actually analyzed.
     /// </remarks>
-    public static RestoredComparisonArtifacts LoadComparisonFromZip(Stream zipStream, ChatGptDeckComparisonRequest request)
+    public static RestoredComparisonArtifacts LoadComparisonFromZip(Stream zipStream, DeckComparisonRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
         ArgumentNullException.ThrowIfNull(request);
@@ -382,7 +381,7 @@ internal static class ChatGptPacketArtifactStore
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
         {
-            var parsed = ChatGptRequestContextParser.Parse(requestContextText);
+            var parsed = RequestContextParser.Parse(requestContextText);
             if (parsed.TargetAiPlatform is not null)
             {
                 request.TargetAiPlatform = parsed.TargetAiPlatform;
@@ -429,11 +428,11 @@ internal static class ChatGptPacketArtifactStore
     /// At least one of <c>40-meta-gap-response.json</c> or <c>01-request-context.txt</c> must
     /// be present. Partial zips (no response yet) rehydrate the AI selector and land the user
     /// back on Step 1 to re-paste the deck. The cEDH zip contract does not currently include
-    /// deck-source text, so <see cref="ChatGptCedhMetaGapRequest.DeckSource" /> cannot be
+    /// deck-source text, so <see cref="MetaGapRequest.DeckSource" /> cannot be
     /// restored here. The upload controller restores commander name from the response JSON
     /// (when present) after this method returns.
     /// </remarks>
-    public static RestoredCedhMetaGapArtifacts LoadCedhMetaGapFromZip(Stream zipStream, ChatGptCedhMetaGapRequest request)
+    public static RestoredCedhMetaGapArtifacts LoadCedhMetaGapFromZip(Stream zipStream, MetaGapRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
         ArgumentNullException.ThrowIfNull(request);
@@ -467,7 +466,7 @@ internal static class ChatGptPacketArtifactStore
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
         {
-            var parsed = ChatGptRequestContextParser.Parse(requestContextText);
+            var parsed = RequestContextParser.Parse(requestContextText);
             if (parsed.TargetAiPlatform is not null)
             {
                 request.TargetAiPlatform = parsed.TargetAiPlatform;
