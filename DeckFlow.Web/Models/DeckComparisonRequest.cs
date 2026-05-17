@@ -1,6 +1,9 @@
 namespace DeckFlow.Web.Models;
 
-public sealed class ChatGptDeckComparisonRequest
+/// <summary>
+/// Form-bound request DTO for the deck-comparison page; captures two deck inputs (URL or pasted text), per-deck commander bracket, AI-platform selection, and the round-tripped comparison response state used across workflow steps.
+/// </summary>
+public sealed class DeckComparisonRequest
 {
     private string _deckASource = string.Empty;
     private string _deckBSource = string.Empty;
@@ -11,44 +14,68 @@ public sealed class ChatGptDeckComparisonRequest
     private string _comparisonResponseJson = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
 
+    /// <summary>
+    /// Tracks the current step in the multi-step deck-comparison workflow.
+    /// </summary>
     public int WorkflowStep { get; set; } = 1;
 
+    /// <summary>
+    /// Raw input for deck A (public URL or pasted export text).
+    /// </summary>
     public string DeckASource
     {
         get => _deckASource;
         set => _deckASource = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Raw input for deck B (public URL or pasted export text).
+    /// </summary>
     public string DeckBSource
     {
         get => _deckBSource;
         set => _deckBSource = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Optional user-supplied display name for deck A.
+    /// </summary>
     public string DeckAName
     {
         get => _deckAName;
         set => _deckAName = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Optional user-supplied display name for deck B.
+    /// </summary>
     public string DeckBName
     {
         get => _deckBName;
         set => _deckBName = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Target Commander bracket for deck A (e.g., casual / focused / cEDH).
+    /// </summary>
     public string DeckABracket
     {
         get => _deckABracket;
         set => _deckABracket = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Target Commander bracket for deck B (e.g., casual / focused / cEDH).
+    /// </summary>
     public string DeckBBracket
     {
         get => _deckBBracket;
         set => _deckBBracket = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Serialized comparison-response JSON round-tripped between workflow steps and through the comparison artifact zip.
+    /// </summary>
     public string ComparisonResponseJson
     {
         get => _comparisonResponseJson;
