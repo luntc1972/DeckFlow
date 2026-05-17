@@ -1,6 +1,9 @@
 namespace DeckFlow.Web.Models;
 
-public sealed class ChatGptCedhMetaGapRequest
+/// <summary>
+/// Form-bound request DTO for the cEDH meta-gap page; captures the user deck plus the edhtop16 reference filters (time period, sort, minimum event size, max standing) and selected reference rows used to generate the meta-gap analysis prompt.
+/// </summary>
+public sealed class MetaGapRequest
 {
     private string _commanderName = string.Empty;
     private string _deckSource = string.Empty;
@@ -8,30 +11,57 @@ public sealed class ChatGptCedhMetaGapRequest
     private string _targetAiPlatform = "ChatGPT";
     private string _fetchedEntriesJson = string.Empty;
 
+    /// <summary>
+    /// Tracks the current step in the multi-step cEDH meta-gap workflow.
+    /// </summary>
     public int WorkflowStep { get; set; } = 1;
 
+    /// <summary>
+    /// Commander name the user is analyzing; drives the edhtop16 reference lookup.
+    /// </summary>
     public string CommanderName
     {
         get => _commanderName;
         set => _commanderName = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Raw deck input for the user's deck (public URL or pasted export text).
+    /// </summary>
     public string DeckSource
     {
         get => _deckSource;
         set => _deckSource = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Edhtop16 time-period filter (e.g., one-year window) applied when fetching reference decks.
+    /// </summary>
     public CedhMetaTimePeriod TimePeriod { get; set; } = CedhMetaTimePeriod.ONE_YEAR;
 
+    /// <summary>
+    /// Edhtop16 sort order used when listing reference decks for selection.
+    /// </summary>
     public CedhMetaSortBy SortBy { get; set; } = CedhMetaSortBy.TOP;
 
+    /// <summary>
+    /// Minimum event size to include in the edhtop16 reference query (filters out small events).
+    /// </summary>
     public int MinEventSize { get; set; } = 50;
 
+    /// <summary>
+    /// Optional maximum tournament standing applied to the edhtop16 reference query.
+    /// </summary>
     public int? MaxStanding { get; set; }
 
+    /// <summary>
+    /// Indexes (within <see cref="FetchedEntriesJson"/>) of the reference rows the user picked for the meta-gap analysis.
+    /// </summary>
     public List<int> SelectedReferenceIndexes { get; set; } = new();
 
+    /// <summary>
+    /// Serialized meta-gap response JSON round-tripped between workflow steps and through the cEDH artifact zip.
+    /// </summary>
     public string MetaGapResponseJson
     {
         get => _metaGapResponseJson;
