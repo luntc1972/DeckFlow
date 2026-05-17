@@ -5,18 +5,22 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-public sealed class ChatGptPacketArtifactStoreTests
+/// <summary>
+/// Unit tests for <see cref="PacketArtifactStore"/> covering build-and-load zip round-trip,
+/// rejection of zips with no recognized response JSON, and path-traversal entry rejection.
+/// </summary>
+public sealed class PacketArtifactStoreTests
 {
     [Fact]
     public void BuildZip_then_LoadFromZip_round_trips_response_json()
     {
-        var request = new ChatGptDeckRequest
+        var request = new DeckAnalysisRequest
         {
             DeckProfileJson = "{\"deck_profile\":{\"format\":\"Commander\"}}",
             SetUpgradeResponseJson = "{\"set_upgrade_report\":{\"sets\":[]}}"
         };
 
-        var bytes = ChatGptPacketArtifactStore.BuildZip(
+        var bytes = PacketArtifactStore.BuildZip(
             request,
             commanderName: "Atraxa",
             inputSummary: "summary",
@@ -26,9 +30,9 @@ public sealed class ChatGptPacketArtifactStoreTests
             deckProfileSchemaJson: "{}",
             setUpgradePromptText: "upgrade prompt");
 
-        var loaded = new ChatGptDeckRequest();
+        var loaded = new DeckAnalysisRequest();
         using var memoryStream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadFromZip(memoryStream, loaded);
+        PacketArtifactStore.LoadFromZip(memoryStream, loaded);
 
         Assert.Contains("deck_profile", loaded.DeckProfileJson);
         Assert.Contains("set_upgrade_report", loaded.SetUpgradeResponseJson);
@@ -49,7 +53,7 @@ public sealed class ChatGptPacketArtifactStoreTests
         memoryStream.Position = 0;
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            ChatGptPacketArtifactStore.LoadFromZip(memoryStream, new ChatGptDeckRequest()));
+            PacketArtifactStore.LoadFromZip(memoryStream, new DeckAnalysisRequest()));
         Assert.Equal("Imported zip did not contain 40-deck-profile.json or 51-set-upgrade-response.json.", exception.Message);
     }
 
@@ -67,7 +71,7 @@ public sealed class ChatGptPacketArtifactStoreTests
         memoryStream.Position = 0;
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            ChatGptPacketArtifactStore.LoadFromZip(memoryStream, new ChatGptDeckRequest()));
+            PacketArtifactStore.LoadFromZip(memoryStream, new DeckAnalysisRequest()));
         Assert.Contains("invalid entry path", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

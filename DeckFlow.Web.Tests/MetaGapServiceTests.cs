@@ -16,7 +16,12 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-public sealed class ChatGptCedhMetaGapServiceTests
+/// <summary>
+/// Integration fixture for <see cref="MetaGapService.BuildAsync"/> covering cEDH meta-gap prompt
+/// assembly: user deck loading, reference-deck combo lookups, request context emission, and saved
+/// analysis response parsing without re-loading the deck.
+/// </summary>
+public sealed class MetaGapServiceTests
 {
     [Fact]
     public async Task BuildAsync_ParsesSavedResponseWithoutReloadingDeck()
@@ -27,7 +32,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             new FakeEdhTop16Client(),
             new FakeCommanderSpellbookService());
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 3,
             MetaGapResponseJson = """
@@ -64,7 +69,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             new FakeEdhTop16Client(),
             new FakeCommanderSpellbookService());
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 3,
             MetaGapResponseJson = """
@@ -155,7 +160,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
 
         var service = CreateService(importer, new FakeArchidektDeckImporter(), edhTop16Client, spellbookService);
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
@@ -219,7 +224,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
 
         var service = CreateService(importer, new FakeArchidektDeckImporter(), edhTop16Client, new FakeCommanderSpellbookService());
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
@@ -263,7 +268,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             new FakeCommanderSpellbookService(),
             scryfall);
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
@@ -307,7 +312,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             spellbookService,
             scryfall);
 
-        _ = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        _ = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
@@ -347,7 +352,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             new FakeEdhTop16Client(entries),
             new FakeCommanderSpellbookService());
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
@@ -380,7 +385,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             }),
             new FakeCommanderSpellbookService());
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
@@ -396,7 +401,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
     [Fact]
     public void BuildRequestContextText_emits_filter_scalars_and_selected_indexes()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             WorkflowStep = 2,
             CommanderName = "Atraxa",
@@ -408,7 +413,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             SelectedReferenceIndexes = new List<int> { 0, 2, 5 }
         };
 
-        var text = ChatGptCedhMetaGapService.BuildRequestContextText(request);
+        var text = MetaGapService.BuildRequestContextText(request);
 
         Assert.Contains("time_period: SIX_MONTHS", text);
         Assert.Contains("sort_by: NEW", text);
@@ -420,7 +425,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
     [Fact]
     public void BuildRequestContextText_omits_max_standing_and_indexes_when_unset()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             CommanderName = "Atraxa",
             TimePeriod = CedhMetaTimePeriod.ONE_YEAR,
@@ -430,7 +435,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             SelectedReferenceIndexes = new List<int>()
         };
 
-        var text = ChatGptCedhMetaGapService.BuildRequestContextText(request);
+        var text = MetaGapService.BuildRequestContextText(request);
 
         Assert.DoesNotContain("max_standing:", text);
         Assert.DoesNotContain("selected_reference_indexes:", text);
@@ -472,7 +477,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             new ThrowingEdhTop16Client(),
             new FakeCommanderSpellbookService());
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             CommanderName = "Atraxa, Praetors' Voice",
@@ -510,7 +515,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             fakeClient,
             new FakeCommanderSpellbookService());
 
-        var result = await service.BuildAsync(new ChatGptCedhMetaGapRequest
+        var result = await service.BuildAsync(new MetaGapRequest
         {
             WorkflowStep = 2,
             CommanderName = "Atraxa, Praetors' Voice",
@@ -536,7 +541,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
             => throw new InvalidOperationException("edhtop16 must not be called when FetchedEntriesJson is set");
     }
 
-    private static ChatGptCedhMetaGapService CreateService(
+    private static MetaGapService CreateService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         IEdhTop16Client edhTop16Client,
@@ -544,7 +549,7 @@ public sealed class ChatGptCedhMetaGapServiceTests
         FakeScryfallResolver? scryfallResolver = null)
     {
         var resolver = scryfallResolver ?? new FakeScryfallResolver();
-        return TestServiceFactory.CreateChatGptCedhMetaGapService(
+        return TestServiceFactory.CreateMetaGapService(
             moxfieldDeckImporter,
             archidektDeckImporter,
             new MoxfieldParser(),

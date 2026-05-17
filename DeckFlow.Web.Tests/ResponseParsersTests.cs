@@ -3,20 +3,24 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-public sealed class ChatGptResponseParsersTests
+/// <summary>
+/// Unit tests for <see cref="ResponseParsers"/> covering deck-analysis and set-upgrade JSON
+/// parsing with both bare and wrapped payload shapes, and error handling for empty / malformed input.
+/// </summary>
+public sealed class ResponseParsersTests
 {
     [Fact]
     public void ParseAnalysisResponse_ThrowsForNullOrWhitespaceInput()
     {
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseAnalysisResponse(null!));
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseAnalysisResponse(string.Empty));
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseAnalysisResponse("   "));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse(null!));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse(string.Empty));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse("   "));
     }
 
     [Fact]
     public void ParseAnalysisResponse_ThrowsForValidJsonWithoutDeckProfileShape()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseAnalysisResponse("""{"foo":1}"""));
+        var exception = Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse("""{"foo":1}"""));
 
         Assert.Contains("deck_profile", exception.Message);
     }
@@ -24,7 +28,7 @@ public sealed class ChatGptResponseParsersTests
     [Fact]
     public void ParseAnalysisResponse_AcceptsBareDeckProfilePayload()
     {
-        var response = ChatGptResponseParsers.ParseAnalysisResponse("""{"format":"commander","commander":"Atraxa"}""");
+        var response = ResponseParsers.ParseAnalysisResponse("""{"format":"commander","commander":"Atraxa"}""");
 
         Assert.Equal("commander", response.Format);
         Assert.Equal("Atraxa", response.Commander);
@@ -33,7 +37,7 @@ public sealed class ChatGptResponseParsersTests
     [Fact]
     public void ParseAnalysisResponse_AcceptsWrappedDeckProfilePayload()
     {
-        var response = ChatGptResponseParsers.ParseAnalysisResponse("""{"deck_profile":{"format":"commander","commander":"Atraxa"}}""");
+        var response = ResponseParsers.ParseAnalysisResponse("""{"deck_profile":{"format":"commander","commander":"Atraxa"}}""");
 
         Assert.Equal("commander", response.Format);
         Assert.Equal("Atraxa", response.Commander);
@@ -61,21 +65,21 @@ public sealed class ChatGptResponseParsersTests
             }
             """;
 
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseAnalysisResponse(payload));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse(payload));
     }
 
     [Fact]
     public void ParseSetUpgradeResponse_ThrowsForNullOrWhitespaceInput()
     {
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseSetUpgradeResponse(null!));
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseSetUpgradeResponse(string.Empty));
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseSetUpgradeResponse("   "));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse(null!));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse(string.Empty));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse("   "));
     }
 
     [Fact]
     public void ParseSetUpgradeResponse_ThrowsForValidJsonWithoutSetUpgradeShape()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseSetUpgradeResponse("""{"foo":1}"""));
+        var exception = Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse("""{"foo":1}"""));
 
         Assert.Contains("set_upgrade_report", exception.Message);
     }
@@ -83,7 +87,7 @@ public sealed class ChatGptResponseParsersTests
     [Fact]
     public void ParseSetUpgradeResponse_AcceptsBareSetUpgradePayload()
     {
-        var response = ChatGptResponseParsers.ParseSetUpgradeResponse("""{"sets":[{"set_code":"duskmourn","set_name":"Duskmourn","top_adds":[{"card":"Atraxa's Fall"}]}]}""");
+        var response = ResponseParsers.ParseSetUpgradeResponse("""{"sets":[{"set_code":"duskmourn","set_name":"Duskmourn","top_adds":[{"card":"Atraxa's Fall"}]}]}""");
 
         var set = Assert.Single(response.Sets);
         Assert.Equal("duskmourn", set.SetCode);
@@ -95,7 +99,7 @@ public sealed class ChatGptResponseParsersTests
     [Fact]
     public void ParseSetUpgradeResponse_AcceptsWrappedSetUpgradePayload()
     {
-        var response = ChatGptResponseParsers.ParseSetUpgradeResponse("""{"set_upgrade_report":{"sets":[{"set_code":"duskmourn","set_name":"Duskmourn","top_adds":[{"card":"Atraxa's Fall"}]}]}}""");
+        var response = ResponseParsers.ParseSetUpgradeResponse("""{"set_upgrade_report":{"sets":[{"set_code":"duskmourn","set_name":"Duskmourn","top_adds":[{"card":"Atraxa's Fall"}]}]}}""");
 
         var set = Assert.Single(response.Sets);
         Assert.Equal("duskmourn", set.SetCode);
@@ -119,7 +123,7 @@ public sealed class ChatGptResponseParsersTests
             }
             """;
 
-        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParsers.ParseSetUpgradeResponse(payload));
+        Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse(payload));
     }
 
     [Fact]
@@ -137,7 +141,7 @@ public sealed class ChatGptResponseParsersTests
             }
             """;
 
-        var response = ChatGptResponseParsers.ParseSetUpgradeResponse(payload);
+        var response = ResponseParsers.ParseSetUpgradeResponse(payload);
 
         Assert.NotNull(response.FinalShortlist);
         var shortlist = response.FinalShortlist!;

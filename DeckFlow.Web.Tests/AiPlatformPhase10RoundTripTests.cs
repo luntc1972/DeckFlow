@@ -11,19 +11,19 @@ namespace DeckFlow.Web.Tests;
 /// envelope on Comparison + CedhMetaGap zips, plus the per-service
 /// <c>BuildRequestContextText</c> writers and their parser-symmetric reads.
 /// </summary>
-public sealed class ChatGptPhase10RoundTripTests
+public sealed class AiPlatformPhase10RoundTripTests
 {
     // ---- Comparison zip round-trip ----
 
     [Fact]
     public void BuildComparisonZip_writes_request_context_entry_when_provided()
     {
-        var request = new ChatGptDeckComparisonRequest
+        var request = new DeckComparisonRequest
         {
             ComparisonResponseJson = "{\"deck_a\":{},\"deck_b\":{}}"
         };
 
-        var bytes = ChatGptPacketArtifactStore.BuildComparisonZip(
+        var bytes = PacketArtifactStore.BuildComparisonZip(
             request,
             inputSummary: "summary",
             deckAListText: "deck a list",
@@ -44,12 +44,12 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void BuildComparisonZip_omits_request_context_entry_when_null()
     {
-        var request = new ChatGptDeckComparisonRequest
+        var request = new DeckComparisonRequest
         {
             ComparisonResponseJson = "{\"deck_a\":{},\"deck_b\":{}}"
         };
 
-        var bytes = ChatGptPacketArtifactStore.BuildComparisonZip(
+        var bytes = PacketArtifactStore.BuildComparisonZip(
             request,
             inputSummary: "summary",
             deckAListText: "deck a",
@@ -71,9 +71,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildComparisonZipWithRequestContext("target_ai_platform: Gemini\n");
 
-        var loaded = new ChatGptDeckComparisonRequest { TargetAiPlatform = "ChatGPT" };
+        var loaded = new DeckComparisonRequest { TargetAiPlatform = "ChatGPT" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("Gemini", loaded.TargetAiPlatform);
     }
@@ -83,9 +83,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildComparisonZipWithoutRequestContext();
 
-        var loaded = new ChatGptDeckComparisonRequest { TargetAiPlatform = "Claude" };
+        var loaded = new DeckComparisonRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("Claude", loaded.TargetAiPlatform);
     }
@@ -95,9 +95,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildComparisonZipWithRequestContext("   \n");
 
-        var loaded = new ChatGptDeckComparisonRequest { TargetAiPlatform = "Claude" };
+        var loaded = new DeckComparisonRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("Claude", loaded.TargetAiPlatform);
     }
@@ -107,9 +107,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildComparisonZipWithRequestContext("deck_a_name: My Deck\nworkflow_step: 2\n");
 
-        var loaded = new ChatGptDeckComparisonRequest { TargetAiPlatform = "Claude" };
+        var loaded = new DeckComparisonRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("Claude", loaded.TargetAiPlatform);
     }
@@ -122,9 +122,9 @@ public sealed class ChatGptPhase10RoundTripTests
         // with no radio checked). The model setter normalizes via Phase 10 hardening.
         var bytes = BuildComparisonZipWithRequestContext("target_ai_platform: SomethingInvalid\n");
 
-        var loaded = new ChatGptDeckComparisonRequest { TargetAiPlatform = "Claude" };
+        var loaded = new DeckComparisonRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
     }
@@ -141,9 +141,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "target_ai_platform: Gemini\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal(2, loaded.WorkflowStep);
         Assert.Equal("1 Sol Ring", loaded.DeckASource);
@@ -160,9 +160,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "target_ai_platform: Claude\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal(1, loaded.WorkflowStep);
         Assert.Equal(string.Empty, loaded.ComparisonResponseJson);
@@ -179,9 +179,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "deck_a_name: My Atraxa\ndeck_b_name: Their Kraum\ndeck_a_bracket: Cedh\ndeck_b_bracket: Optimized\ntarget_ai_platform: Claude\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("My Atraxa", loaded.DeckAName);
         Assert.Equal("Their Kraum", loaded.DeckBName);
@@ -206,9 +206,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["32-comparison-follow-up-prompt.txt"] = "FOLLOW-UP PROMPT BODY\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        var artifacts = ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        var artifacts = PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal("INPUT SUMMARY BODY", artifacts.InputSummary);
         Assert.Contains("Atraxa", artifacts.DeckAListText);
@@ -232,9 +232,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "target_ai_platform: Claude\ncommander: Kinnan, Bonder Prodigy\n"
         });
 
-        var loaded = new ChatGptCedhMetaGapRequest();
+        var loaded = new MetaGapRequest();
         using var stream = new MemoryStream(bytes);
-        var artifacts = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        var artifacts = PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("META-GAP INPUT SUMMARY", artifacts.InputSummary);
         Assert.Equal("META-GAP PROMPT BODY", artifacts.PromptText);
@@ -248,10 +248,10 @@ public sealed class ChatGptPhase10RoundTripTests
         // none of the recognized files either, so the partial-zip throw fires.
         var bytes = BuildRawZip(new Dictionary<string, string>());
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
         var exception = Assert.Throws<InvalidOperationException>(
-            () => ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded));
+            () => PacketArtifactStore.LoadComparisonFromZip(stream, loaded));
         Assert.Contains("recognized DeckFlow comparison session", exception.Message);
     }
 
@@ -260,12 +260,12 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void BuildCedhMetaGapZip_writes_request_context_entry_when_provided()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             MetaGapResponseJson = "{\"meta_gap\":{}}"
         };
 
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request,
             inputSummary: "summary",
             promptText: "prompt",
@@ -280,12 +280,12 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void BuildCedhMetaGapZip_omits_request_context_entry_when_null()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             MetaGapResponseJson = "{\"meta_gap\":{}}"
         };
 
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request,
             inputSummary: "summary",
             promptText: "prompt",
@@ -301,9 +301,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildCedhMetaGapZipWithRequestContext("target_ai_platform: Gemini\n");
 
-        var loaded = new ChatGptCedhMetaGapRequest { TargetAiPlatform = "ChatGPT" };
+        var loaded = new MetaGapRequest { TargetAiPlatform = "ChatGPT" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("Gemini", loaded.TargetAiPlatform);
     }
@@ -313,9 +313,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildCedhMetaGapZipWithoutRequestContext();
 
-        var loaded = new ChatGptCedhMetaGapRequest { TargetAiPlatform = "Claude" };
+        var loaded = new MetaGapRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("Claude", loaded.TargetAiPlatform);
     }
@@ -325,9 +325,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildCedhMetaGapZipWithRequestContext("   \n");
 
-        var loaded = new ChatGptCedhMetaGapRequest { TargetAiPlatform = "Claude" };
+        var loaded = new MetaGapRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("Claude", loaded.TargetAiPlatform);
     }
@@ -337,9 +337,9 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         var bytes = BuildCedhMetaGapZipWithRequestContext("target_ai_platform: BogusValue\n");
 
-        var loaded = new ChatGptCedhMetaGapRequest { TargetAiPlatform = "Claude" };
+        var loaded = new MetaGapRequest { TargetAiPlatform = "Claude" };
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
     }
@@ -354,9 +354,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "target_ai_platform: Gemini\n"
         });
 
-        var loaded = new ChatGptCedhMetaGapRequest();
+        var loaded = new MetaGapRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal(1, loaded.WorkflowStep);
         Assert.Equal(string.Empty, loaded.MetaGapResponseJson);
@@ -371,9 +371,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "commander: Yuriko, the Tiger's Shadow\ntarget_ai_platform: Gemini\n"
         });
 
-        var loaded = new ChatGptCedhMetaGapRequest();
+        var loaded = new MetaGapRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Equal("Yuriko, the Tiger's Shadow", loaded.CommanderName);
         Assert.Equal("Gemini", loaded.TargetAiPlatform);
@@ -386,10 +386,10 @@ public sealed class ChatGptPhase10RoundTripTests
         // none of the recognized files either, so the partial-zip throw fires.
         var bytes = BuildRawZip(new Dictionary<string, string>());
 
-        var loaded = new ChatGptCedhMetaGapRequest();
+        var loaded = new MetaGapRequest();
         using var stream = new MemoryStream(bytes);
         var exception = Assert.Throws<InvalidOperationException>(
-            () => ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded));
+            () => PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded));
         Assert.Contains("recognized DeckFlow meta-gap session", exception.Message);
     }
 
@@ -407,9 +407,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "target_ai_platform: Gemini\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         // Original-prefers-canonical: form fields get the user's pasted text.
         Assert.Contains("1 Arcane Signet", loaded.DeckASource);
@@ -426,9 +426,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["11-deck-b-list.txt"] = "Commander\n1 Atraxa\n\nMainboard\n1 Counterspell\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Contains("Commander", loaded.DeckASource);
         Assert.Contains("1 Sol Ring", loaded.DeckASource);
@@ -445,9 +445,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "target_ai_platform: Claude\ncommander: Kinnan, Bonder Prodigy\n"
         });
 
-        var loaded = new ChatGptCedhMetaGapRequest();
+        var loaded = new MetaGapRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Contains("1 Llanowar Elves", loaded.DeckSource);
         Assert.DoesNotContain("Commander\n", loaded.DeckSource);
@@ -462,9 +462,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["01-request-context.txt"] = "commander: Kinnan, Bonder Prodigy\n"
         });
 
-        var loaded = new ChatGptCedhMetaGapRequest();
+        var loaded = new MetaGapRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
+        PacketArtifactStore.LoadCedhMetaGapFromZip(stream, loaded);
 
         Assert.Contains("Commander", loaded.DeckSource);
         Assert.Contains("1 Sol Ring", loaded.DeckSource);
@@ -473,15 +473,15 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void OriginalDeckTextOrNull_ReturnsNull_ForMoxfieldAndArchidektUrls()
     {
-        Assert.Null(ChatGptPacketArtifactStore.OriginalDeckTextOrNull("https://www.moxfield.com/decks/abc"));
-        Assert.Null(ChatGptPacketArtifactStore.OriginalDeckTextOrNull("https://archidekt.com/decks/123"));
+        Assert.Null(PacketArtifactStore.OriginalDeckTextOrNull("https://www.moxfield.com/decks/abc"));
+        Assert.Null(PacketArtifactStore.OriginalDeckTextOrNull("https://archidekt.com/decks/123"));
     }
 
     [Fact]
     public void OriginalDeckTextOrNull_ReturnsTextUnchanged_ForRawDeckText()
     {
-        Assert.Equal("1 Sol Ring\n1 Mana Crypt", ChatGptPacketArtifactStore.OriginalDeckTextOrNull("1 Sol Ring\n1 Mana Crypt"));
-        Assert.Equal("Commander\n1 Atraxa", ChatGptPacketArtifactStore.OriginalDeckTextOrNull("Commander\n1 Atraxa"));
+        Assert.Equal("1 Sol Ring\n1 Mana Crypt", PacketArtifactStore.OriginalDeckTextOrNull("1 Sol Ring\n1 Mana Crypt"));
+        Assert.Equal("Commander\n1 Atraxa", PacketArtifactStore.OriginalDeckTextOrNull("Commander\n1 Atraxa"));
     }
 
     [Fact]
@@ -490,7 +490,7 @@ public sealed class ChatGptPhase10RoundTripTests
         // Unsupported hosts (Pastebin, GitHub Gist, etc.) should preserve original text —
         // they'll fall through to the text parser at deck-load time, so the original
         // is the more user-recognizable source.
-        Assert.Equal("https://pastebin.com/raw/abc", ChatGptPacketArtifactStore.OriginalDeckTextOrNull("https://pastebin.com/raw/abc"));
+        Assert.Equal("https://pastebin.com/raw/abc", PacketArtifactStore.OriginalDeckTextOrNull("https://pastebin.com/raw/abc"));
     }
 
     [Fact]
@@ -508,9 +508,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["40-deck-profile.json"] = "{\"commander\":\"Atraxa\"}"
         });
 
-        var loaded = new ChatGptDeckRequest();
+        var loaded = new DeckAnalysisRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadFromZip(stream, loaded);
+        PacketArtifactStore.LoadFromZip(stream, loaded);
 
         Assert.Contains("1 Sol Ring", loaded.DeckText);
         Assert.DoesNotContain("Mana Crypt", loaded.DeckText);
@@ -527,9 +527,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["40-deck-profile.json"] = "{\"commander\":\"Atraxa\"}"
         });
 
-        var loaded = new ChatGptDeckRequest();
+        var loaded = new DeckAnalysisRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadFromZip(stream, loaded);
+        PacketArtifactStore.LoadFromZip(stream, loaded);
 
         Assert.Contains("Mana Crypt", loaded.DeckText);
         Assert.DoesNotContain("STALE", loaded.DeckText);
@@ -546,9 +546,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["40-deck-profile.json"] = "{\"commander\":\"Atraxa\"}"
         });
 
-        var loaded = new ChatGptDeckRequest();
+        var loaded = new DeckAnalysisRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadFromZip(stream, loaded);
+        PacketArtifactStore.LoadFromZip(stream, loaded);
 
         Assert.Contains("Sol Ring", loaded.DeckText);
         Assert.Contains("Arcane Signet", loaded.DeckText);
@@ -563,9 +563,9 @@ public sealed class ChatGptPhase10RoundTripTests
             ["11b-deck-b-original.txt"] = "1 Atraxa\n1 Counterspell\n"
         });
 
-        var loaded = new ChatGptDeckComparisonRequest();
+        var loaded = new DeckComparisonRequest();
         using var stream = new MemoryStream(bytes);
-        ChatGptPacketArtifactStore.LoadComparisonFromZip(stream, loaded);
+        PacketArtifactStore.LoadComparisonFromZip(stream, loaded);
 
         Assert.Equal(2, loaded.WorkflowStep);
     }
@@ -575,7 +575,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void Comparison_BuildRequestContextText_emits_all_expected_keys()
     {
-        var request = new ChatGptDeckComparisonRequest
+        var request = new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckAName = "My Atraxa",
@@ -585,7 +585,7 @@ public sealed class ChatGptPhase10RoundTripTests
             TargetAiPlatform = "Claude"
         };
 
-        var text = ChatGptDeckComparisonService.BuildRequestContextText(request);
+        var text = DeckComparisonService.BuildRequestContextText(request);
 
         Assert.Contains("workflow_step: 2", text);
         Assert.Contains("deck_a_name: My Atraxa", text);
@@ -600,19 +600,19 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         // Setter normalizes empty-string to "ChatGPT" already via Phase 9 plumbing,
         // but the writer's own fallback also defends against direct field manipulation.
-        var request = new ChatGptDeckComparisonRequest();
-        var text = ChatGptDeckComparisonService.BuildRequestContextText(request);
+        var request = new DeckComparisonRequest();
+        var text = DeckComparisonService.BuildRequestContextText(request);
         Assert.Contains("target_ai_platform: ChatGPT", text);
     }
 
     [Fact]
     public void Comparison_BuildRequestContextText_normalizes_newlines_in_field_values()
     {
-        var request = new ChatGptDeckComparisonRequest
+        var request = new DeckComparisonRequest
         {
             DeckAName = "Multi\nline\rDeck Name"
         };
-        var text = ChatGptDeckComparisonService.BuildRequestContextText(request);
+        var text = DeckComparisonService.BuildRequestContextText(request);
         Assert.Contains("deck_a_name: Multi line Deck Name", text);
         Assert.DoesNotContain("Multi\nline", text);
     }
@@ -620,21 +620,21 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void Comparison_BuildRequestContextText_round_trips_target_ai_platform_through_parser()
     {
-        var request = new ChatGptDeckComparisonRequest
+        var request = new DeckComparisonRequest
         {
             TargetAiPlatform = "Gemini",
             DeckAName = "A",
             DeckBName = "B"
         };
-        var text = ChatGptDeckComparisonService.BuildRequestContextText(request);
-        var parsed = ChatGptRequestContextParser.Parse(text);
+        var text = DeckComparisonService.BuildRequestContextText(request);
+        var parsed = RequestContextParser.Parse(text);
         Assert.Equal("Gemini", parsed.TargetAiPlatform);
     }
 
     [Fact]
     public void Comparison_BuildRequestContextText_throws_on_null_request()
     {
-        Assert.Throws<ArgumentNullException>(() => ChatGptDeckComparisonService.BuildRequestContextText(null!));
+        Assert.Throws<ArgumentNullException>(() => DeckComparisonService.BuildRequestContextText(null!));
     }
 
     // ---- CedhMetaGap BuildRequestContextText writer ----
@@ -642,13 +642,13 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void CedhMetaGap_BuildRequestContextText_emits_all_expected_keys()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             WorkflowStep = 3,
             CommanderName = "Kraum, Ludevic's Opus",
             TargetAiPlatform = "Claude"
         };
-        var text = ChatGptCedhMetaGapService.BuildRequestContextText(request);
+        var text = MetaGapService.BuildRequestContextText(request);
         Assert.Contains("workflow_step: 3", text);
         Assert.Contains("commander: Kraum, Ludevic's Opus", text);
         Assert.Contains("target_ai_platform: Claude", text);
@@ -657,20 +657,20 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void CedhMetaGap_BuildRequestContextText_round_trips_target_ai_platform_through_parser()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             CommanderName = "Atraxa",
             TargetAiPlatform = "Gemini"
         };
-        var text = ChatGptCedhMetaGapService.BuildRequestContextText(request);
-        var parsed = ChatGptRequestContextParser.Parse(text);
+        var text = MetaGapService.BuildRequestContextText(request);
+        var parsed = RequestContextParser.Parse(text);
         Assert.Equal("Gemini", parsed.TargetAiPlatform);
     }
 
     [Fact]
     public void CedhMetaGap_BuildRequestContextText_throws_on_null_request()
     {
-        Assert.Throws<ArgumentNullException>(() => ChatGptCedhMetaGapService.BuildRequestContextText(null!));
+        Assert.Throws<ArgumentNullException>(() => MetaGapService.BuildRequestContextText(null!));
     }
 
     // ---- Filename suggestion (AI name embedded in download filename) ----
@@ -681,7 +681,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [InlineData("Gemini", "gemini")]
     public void SuggestPacketZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", platform);
+        var fileName = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
         Assert.Contains("atraxa", fileName);
         Assert.EndsWith(".zip", fileName);
@@ -693,7 +693,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [InlineData("Gemini", "gemini")]
     public void SuggestComparisonZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", platform);
+        var fileName = PacketArtifactStore.SuggestComparisonZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
         Assert.StartsWith("atraxa-compare2-", fileName);
     }
@@ -704,14 +704,14 @@ public sealed class ChatGptPhase10RoundTripTests
     [InlineData("Gemini", "gemini")]
     public void SuggestCedhMetaGapZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", platform);
+        var fileName = PacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
     }
 
     [Fact]
     public void SuggestPacketZipFileName_falls_back_to_chatgpt_when_platform_null()
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", null);
+        var fileName = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", null);
         Assert.Contains("-chatgpt-", fileName);
     }
 
@@ -720,8 +720,8 @@ public sealed class ChatGptPhase10RoundTripTests
     {
         // Two different platforms must produce filenames distinguishable by AI
         // segment regardless of the timestamp suffix matching exactly.
-        var claudeName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
-        var geminiName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Gemini");
+        var claudeName = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
+        var geminiName = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Gemini");
         Assert.Contains("-claude-", claudeName);
         Assert.Contains("-gemini-", geminiName);
         Assert.DoesNotContain("-claude-", geminiName);
@@ -733,7 +733,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void SuggestPacketZipFileName_includes_analysis_page_segment()
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
+        var fileName = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
         Assert.Contains("-analysis-", fileName);
         Assert.DoesNotContain("-compare2-", fileName);
         Assert.DoesNotContain("-cedh-", fileName);
@@ -742,7 +742,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void SuggestComparisonZipFileName_includes_compare2_page_segment()
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Gemini");
+        var fileName = PacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Gemini");
         Assert.Contains("-compare2-", fileName);
         Assert.DoesNotContain("-analysis-", fileName);
         Assert.DoesNotContain("-cedh-", fileName);
@@ -751,7 +751,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void SuggestCedhMetaGapZipFileName_includes_cedh_page_segment()
     {
-        var fileName = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", "ChatGPT");
+        var fileName = PacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", "ChatGPT");
         Assert.Contains("-cedh-", fileName);
         Assert.DoesNotContain("-analysis-", fileName);
         Assert.DoesNotContain("-compare2-", fileName);
@@ -760,9 +760,9 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void SuggestZipFileNames_page_segments_are_distinct_across_pages()
     {
-        var packet = ChatGptPacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
-        var comparison = ChatGptPacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Claude");
-        var metaGap = ChatGptPacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", "Claude");
+        var packet = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", "Claude");
+        var comparison = PacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Claude");
+        var metaGap = PacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", "Claude");
         Assert.NotEqual(packet, comparison);
         Assert.NotEqual(packet, metaGap);
         Assert.NotEqual(comparison, metaGap);
@@ -772,12 +772,12 @@ public sealed class ChatGptPhase10RoundTripTests
 
     private static byte[] BuildComparisonZipWithRequestContext(string requestContextText)
     {
-        var request = new ChatGptDeckComparisonRequest
+        var request = new DeckComparisonRequest
         {
             ComparisonResponseJson = "{\"deck_a\":{},\"deck_b\":{}}"
         };
 
-        return ChatGptPacketArtifactStore.BuildComparisonZip(
+        return PacketArtifactStore.BuildComparisonZip(
             request,
             inputSummary: "summary",
             deckAListText: "deck a",
@@ -796,12 +796,12 @@ public sealed class ChatGptPhase10RoundTripTests
 
     private static byte[] BuildCedhMetaGapZipWithRequestContext(string requestContextText)
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             MetaGapResponseJson = "{\"meta_gap\":{}}"
         };
 
-        return ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        return PacketArtifactStore.BuildCedhMetaGapZip(
             request,
             inputSummary: "summary",
             promptText: "prompt",
@@ -817,7 +817,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void BuildCedhMetaGapZip_includes_fetched_entries_artifact_when_provided()
     {
-        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var request = new MetaGapRequest { CommanderName = "Atraxa" };
         var entries = new List<EdhTop16Entry>
         {
             new()
@@ -835,7 +835,7 @@ public sealed class ChatGptPhase10RoundTripTests
                 MainDeck = new List<EdhTop16Card> { new() { Name = "Sol Ring", Type = "Artifact" } }
             }
         };
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request,
             inputSummary: "summary",
             promptText: "prompt text",
@@ -862,8 +862,8 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void BuildCedhMetaGapZip_omits_fetched_entries_artifact_when_empty()
     {
-        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var request = new MetaGapRequest { CommanderName = "Atraxa" };
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request,
             inputSummary: "summary",
             promptText: "prompt text",
@@ -882,7 +882,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void LoadCedhMetaGapFromZip_restores_fetched_entries_from_artifact()
     {
-        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var request = new MetaGapRequest { CommanderName = "Atraxa" };
         var entries = new List<EdhTop16Entry>
         {
             new()
@@ -896,11 +896,11 @@ public sealed class ChatGptPhase10RoundTripTests
                 MainDeck = new List<EdhTop16Card> { new() { Name = "Mana Crypt", Type = "Artifact" } }
             }
         };
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request, "summary", "prompt", "{}", "workflow_step: 2", null, null, entries);
 
-        var loaded = new ChatGptCedhMetaGapRequest();
-        var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+        var loaded = new MetaGapRequest();
+        var restored = PacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
 
         Assert.Single(restored.FetchedEntries);
         Assert.Equal("Bob", restored.FetchedEntries[0].PlayerName);
@@ -910,7 +910,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void LoadCedhMetaGapFromZip_restores_filter_scalars_and_selected_indexes()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             WorkflowStep = 2,
             CommanderName = "Atraxa",
@@ -920,12 +920,12 @@ public sealed class ChatGptPhase10RoundTripTests
             MaxStanding = 4,
             SelectedReferenceIndexes = new List<int> { 0, 2 }
         };
-        var contextText = ChatGptCedhMetaGapService.BuildRequestContextText(request);
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var contextText = MetaGapService.BuildRequestContextText(request);
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request, "summary", "prompt", "{}", contextText, null, null, fetchedEntries: null);
 
-        var loaded = new ChatGptCedhMetaGapRequest();
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+        var loaded = new MetaGapRequest();
+        PacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
 
         Assert.Equal(CedhMetaTimePeriod.SIX_MONTHS, loaded.TimePeriod);
         Assert.Equal(CedhMetaSortBy.NEW, loaded.SortBy);
@@ -937,7 +937,7 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void LoadCedhMetaGapFromZip_lands_on_step_2_when_entries_present_and_no_response()
     {
-        var request = new ChatGptCedhMetaGapRequest { CommanderName = "Atraxa" };
+        var request = new MetaGapRequest { CommanderName = "Atraxa" };
         var entries = new List<EdhTop16Entry>
         {
             new()
@@ -951,11 +951,11 @@ public sealed class ChatGptPhase10RoundTripTests
                 MainDeck = new List<EdhTop16Card> { new() { Name = "Sol Ring", Type = "Artifact" } }
             }
         };
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request, "summary", "prompt", "{}", "workflow_step: 2\ncommander: Atraxa", null, null, fetchedEntries: entries);
 
-        var loaded = new ChatGptCedhMetaGapRequest();
-        ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+        var loaded = new MetaGapRequest();
+        PacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
 
         Assert.Equal(2, loaded.WorkflowStep);
     }
@@ -963,18 +963,18 @@ public sealed class ChatGptPhase10RoundTripTests
     [Fact]
     public void LoadCedhMetaGapFromZip_returns_empty_entries_for_legacy_zip()
     {
-        var request = new ChatGptCedhMetaGapRequest
+        var request = new MetaGapRequest
         {
             CommanderName = "Atraxa",
             MetaGapResponseJson = "{\"meta_gap\":{\"commander\":\"Atraxa\"}}"
         };
-        var bytes = ChatGptPacketArtifactStore.BuildCedhMetaGapZip(
+        var bytes = PacketArtifactStore.BuildCedhMetaGapZip(
             request, "summary", "prompt", "{}",
             "workflow_step: 3\ncommander: Atraxa\ntarget_ai_platform: ChatGPT",
             null, null, fetchedEntries: null);
 
-        var loaded = new ChatGptCedhMetaGapRequest();
-        var restored = ChatGptPacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
+        var loaded = new MetaGapRequest();
+        var restored = PacketArtifactStore.LoadCedhMetaGapFromZip(new MemoryStream(bytes), loaded);
 
         Assert.Empty(restored.FetchedEntries);
         Assert.Empty(loaded.SelectedReferenceIndexes);
@@ -1000,7 +1000,7 @@ public sealed class ChatGptPhase10RoundTripTests
             - 5
             """;
 
-        var parsed = ChatGptRequestContextParser.Parse(text);
+        var parsed = RequestContextParser.Parse(text);
 
         Assert.Equal("ONE_YEAR", parsed.TimePeriod);
         Assert.Equal("TOP", parsed.SortBy);
@@ -1017,7 +1017,7 @@ public sealed class ChatGptPhase10RoundTripTests
             commander: Atraxa
             """;
 
-        var parsed = ChatGptRequestContextParser.Parse(text);
+        var parsed = RequestContextParser.Parse(text);
 
         Assert.Null(parsed.TimePeriod);
         Assert.Null(parsed.SortBy);

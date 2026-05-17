@@ -5,7 +5,12 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-public sealed class ChatGptPacketArtifactStoreRoundTripTests
+/// <summary>
+/// Round-trip integration test verifying that <see cref="PacketArtifactStore"/> correctly restores
+/// user inputs (deck text, selected questions, set codes, strategy notes, JSON payloads) from a fixture
+/// zip on disk produced by an earlier session.
+/// </summary>
+public sealed class PacketArtifactStoreRoundTripTests
 {
     private static readonly string FixtureDirectory = "/tmp/arna-test";
 
@@ -14,8 +19,8 @@ public sealed class ChatGptPacketArtifactStoreRoundTripTests
     {
         using var stream = BuildFixtureZip();
 
-        var request = new ChatGptDeckRequest();
-        ChatGptPacketArtifactStore.LoadFromZip(stream, request);
+        var request = new DeckAnalysisRequest();
+        PacketArtifactStore.LoadFromZip(stream, request);
 
         Assert.True(request.DeckText.Length > 1000);
         Assert.Contains("Arna Kennerüd, Skycaptain", request.DeckText, StringComparison.Ordinal);

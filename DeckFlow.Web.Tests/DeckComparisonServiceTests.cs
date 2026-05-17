@@ -9,14 +9,19 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-public sealed class ChatGptDeckComparisonServiceTests
+/// <summary>
+/// End-to-end fixture for <see cref="DeckComparisonService.BuildAsync"/> covering two-deck
+/// comparison prompt assembly, deck loading via Moxfield/Archidekt importers, Scryfall card
+/// resolution, error handling for missing decks / commanders, and result determinism.
+/// </summary>
+public sealed class DeckComparisonServiceTests
 {
     [Fact]
     public async Task BuildAsync_PromptUsesInstructionFirstEvidenceBasedFormat()
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        var result = await service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckAName = "Atraxa Blink",
@@ -74,7 +79,7 @@ Deck
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckComparisonRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckBSource = "Commander\n1 Tymna the Weaver"
@@ -88,7 +93,7 @@ Deck
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckComparisonRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckASource = "Commander\n1 Atraxa, Praetors' Voice"
@@ -102,7 +107,7 @@ Deck
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckComparisonRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckASource = "Commander\n1 Atraxa, Praetors' Voice",
@@ -118,7 +123,7 @@ Deck
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckComparisonRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckABracket = "Upgraded",
@@ -141,7 +146,7 @@ Deck
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        var result = await service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 3,
             DeckABracket = "Upgraded",
@@ -219,7 +224,7 @@ Deck
             executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponseForRequestedCardsOnly(request)),
             executeSearchAsync: (request, _) => Task.FromResult(CreateFallbackSearchResponse(request)));
 
-        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        var result = await service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckAName = "Renamed Cards",
@@ -261,7 +266,7 @@ Deck
 1 Counterspell
 """;
 
-        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        var result = await service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckABracket = "Upgraded",
@@ -286,7 +291,7 @@ Deck
 1 Counterspell
 """;
 
-        var first = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        var first = await service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckABracket = "Upgraded",
@@ -297,7 +302,7 @@ Deck
 
         // Feed the exported decklist text back in as the source — this is what
         // the zip round-trip does after a download + re-upload cycle.
-        var second = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        var second = await service.BuildAsync(new DeckComparisonRequest
         {
             WorkflowStep = 2,
             DeckABracket = "Upgraded",
@@ -311,11 +316,11 @@ Deck
         Assert.Equal(first.DeckAListText, second.DeckAListText);
     }
 
-    private static ChatGptDeckComparisonService CreateService(
+    private static DeckComparisonService CreateService(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
     {
-        return TestServiceFactory.CreateChatGptDeckComparisonService(
+        return TestServiceFactory.CreateDeckComparisonService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
             new MoxfieldParser(),

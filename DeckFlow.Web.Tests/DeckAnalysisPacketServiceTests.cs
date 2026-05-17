@@ -11,9 +11,10 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Covers staged prompt generation, validation, and artifact output for the ChatGPT workflow.
+/// Covers staged prompt generation, validation, and artifact output for the deck-analysis
+/// workflow served by <see cref="DeckAnalysisPacketService"/> across all supported AI platforms.
 /// </summary>
-public sealed class ChatGptDeckPacketServiceTests
+public sealed class DeckAnalysisPacketServiceTests
 {
     /// <summary>
     /// Builds the deck summary and schema from pasted deck text on the setup step.
@@ -23,7 +24,7 @@ public sealed class ChatGptDeckPacketServiceTests
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -48,7 +49,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -81,7 +82,7 @@ Maybeboard
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -129,7 +130,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -158,7 +159,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -184,7 +185,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -221,7 +222,7 @@ Maybeboard
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -256,7 +257,7 @@ Maybeboard
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -278,7 +279,7 @@ Commander
         var service = CreateService(
             executeCollectionAsync: (_, _) => throw new InvalidOperationException("Scryfall lookup should not run for Step 3."));
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 3,
             DeckSource = """
@@ -319,7 +320,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -340,7 +341,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 3,
             DeckSource = """
@@ -366,7 +367,7 @@ Commander
         var service = CreateService(
             executeCollectionAsync: (_, _) => throw new InvalidOperationException("Scryfall lookup should not run for saved Step 3 JSON."));
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 3,
             DeckProfileJson = """
@@ -403,7 +404,7 @@ Commander
         var service = CreateService(
             executeCollectionAsync: (_, _) => throw new InvalidOperationException("Scryfall lookup should not run for saved Step 5 JSON."));
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 5,
             SetUpgradeResponseJson = """
@@ -471,7 +472,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 5,
             SetUpgradeResponseJson = "{ \"unrelated\": 123 }"
@@ -488,7 +489,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -513,7 +514,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -535,7 +536,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -559,7 +560,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -589,7 +590,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -619,7 +620,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -643,7 +644,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -665,7 +666,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -721,7 +722,7 @@ Commander
                 StatusCode = HttpStatusCode.NotFound
             }));
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             DeckName = "Earthfall",
             DeckSource = """
@@ -742,7 +743,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -772,7 +773,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -802,7 +803,7 @@ Commander
         var service = CreateService();
 
         // Mainboard is A-Z sorted as Moxfield exports it: Arcane Signet (A) before Sol Ring (S).
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             DeckSource = """
 1 Atraxa, Praetors' Voice
@@ -825,7 +826,7 @@ Commander
 
         // Tannuk (T) is the commander; Aerith's (A) is the first mainboard card and sorts before
         // Aftermath Analyst (Af) — confirming it belongs to the A-Z sorted mainboard, not as a partner.
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             DeckSource = """
 1 Tannuk, Memorial Ensign
@@ -848,7 +849,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             DeckSource = """
 1 Tymna the Weaver
@@ -867,7 +868,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -944,7 +945,7 @@ Commander
                 });
             });
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -972,7 +973,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -1025,7 +1026,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -1068,7 +1069,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -1110,7 +1111,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -1151,7 +1152,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -1189,7 +1190,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 1,
             DeckSource = """
@@ -1234,7 +1235,7 @@ Commander
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 4,
             DeckSource = """
@@ -1272,7 +1273,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -1302,7 +1303,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -1330,7 +1331,7 @@ Commander
     {
         var service = CreateService();
 
-        var result = await service.BuildAsync(new ChatGptDeckRequest
+        var result = await service.BuildAsync(new DeckAnalysisRequest
         {
             WorkflowStep = 2,
             DeckSource = """
@@ -1348,12 +1349,12 @@ Commander
         Assert.Contains("How does this deck compare to a typical Atraxa superfriends build?", result.AnalysisPromptText);
     }
 
-    private static ChatGptDeckPacketService CreateService(
+    private static DeckAnalysisPacketService CreateService(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
     {
-        return TestServiceFactory.CreateChatGptDeckPacketService(
+        return TestServiceFactory.CreateDeckAnalysisPacketService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
             new MoxfieldParser(),
