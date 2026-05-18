@@ -39,7 +39,7 @@ Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (Option A recommended: drop
 ### Code Hygiene — broader codebase audit
 
 - [x] **AUDIT-01**: All public classes across `DeckFlow.Core`, `DeckFlow.Web`, `DeckFlow.CLI`, `DeckFlow.Core.Tests`, `DeckFlow.Web.Tests` reviewed for name-vs-behavior alignment. Classes whose names don't describe their current behavior are renamed. Examples to verify: `ScryfallTaggerService` (does it just call tagger, or also normalize/cache?), `CommanderSpellbookService` (lookup vs full client?), `Null*`/`Fake*`/`Stub*` test doubles (scoping consistent?).
-- [ ] **AUDIT-02**: Every public class and interface has an XML `<summary>` doc comment. Missing comments backfilled. `<GenerateDocumentationFile>` clean across `DeckFlow.Web` (already on) and verified across `DeckFlow.Core`, `DeckFlow.CLI`.
+- [x] **AUDIT-02**: Every public class and interface has an XML `<summary>` doc comment. Missing comments backfilled. `<GenerateDocumentationFile>` clean across `DeckFlow.Web` (already on) and verified across `DeckFlow.Core`, `DeckFlow.CLI`.
 - [ ] **AUDIT-03**: `dotnet build DeckFlow.sln --configuration Release` produces zero new warnings. Test discovery succeeds (`dotnet test --no-build`) where WSL permits; otherwise verified via push-and-watch CI.
 
 ### AiPlatform value object refactor
