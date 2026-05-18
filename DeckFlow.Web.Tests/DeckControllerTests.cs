@@ -53,7 +53,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new ConfigurableMetaGapService(new MetaGapResult(
+            new FakeMetaGapService(new MetaGapResult(
                 "summary",
                 "Kinnan, Bonder Prodigy",
                 new[]
@@ -832,11 +832,15 @@ public sealed class DeckControllerTests
                 }));
     }
 
-    private sealed class ConfigurableMetaGapService : IMetaGapService
+    /// <summary>
+    /// Stateful fake that returns the <see cref="MetaGapResult"/> supplied at construction,
+    /// allowing tests to configure the returned result per scenario.
+    /// </summary>
+    private sealed class FakeMetaGapService : IMetaGapService
     {
         private readonly MetaGapResult _result;
 
-        public ConfigurableMetaGapService(MetaGapResult result)
+        public FakeMetaGapService(MetaGapResult result)
         {
             _result = result;
         }
