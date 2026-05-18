@@ -182,6 +182,9 @@ internal enum DeckCacheWriteResult
     Updated,
 }
 
+/// <summary>
+/// Holds aggregate statistics for a completed Archidekt deck-cache run.
+/// </summary>
 public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksSkipped, TimeSpan Duration)
 {
     public int DecksProcessed => DecksAdded + DecksUpdated;
