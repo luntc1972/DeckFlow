@@ -160,7 +160,7 @@ Plans:
   3. `dotnet build DeckFlow.sln --configuration Release` produces zero new warnings vs. the pre-Phase-14 baseline; test discovery succeeds via `dotnet test --no-build` where WSL permits, otherwise verified via push-and-watch CI on the `v1.3` branch.
   4. Scope discipline observed: DeckController god-class split and ChatGPT-services extraction stay out of scope per PROJECT.md (own refactor milestones); renames touch class names + doc comments only, no responsibility splits.
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 Plans:
 
 **Wave 1**
@@ -169,7 +169,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 14-02-PLAN.md — Execute every rename from 14-AUDIT-REPORT.md (ScryfallTaggerService→ScryfallTaggerLookupService + 8 test-double canonicalizations); one commit per rename; D-08 mid-plan green invariant
+- [x] 14-02-PLAN.md — Execute every rename from 14-AUDIT-REPORT.md (ScryfallTaggerService→ScryfallTaggerLookupService + 8 test-double canonicalizations); one commit per rename; D-08 mid-plan green invariant
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -214,7 +214,7 @@ Plans:
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete    | 2026-05-17 |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
-| 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 1/4 | In Progress|  |
+| 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 2/4 | In Progress|  |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
 
 ---
