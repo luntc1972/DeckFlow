@@ -5,7 +5,7 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Tests for <see cref="MechanicLookupService"/> covering comprehensive rules parsing, mechanic name extraction, and caching.
+/// Tests for <see cref="WotcMechanicLookupService"/> covering comprehensive rules parsing, mechanic name extraction, and caching.
 /// </summary>
 public sealed class MechanicLookupServiceTests
 {
