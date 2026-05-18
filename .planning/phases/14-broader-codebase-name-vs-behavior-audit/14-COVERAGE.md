@@ -105,3 +105,26 @@ comm -23 /tmp/web-inscope-required.txt /tmp/documented-DeckFlow.Web.txt
 - Gate 2: PASS
 - Gate 3: PASS
 - **Phase 14 AUDIT-03 verified.**
+
+---
+
+## Preservation Discipline Audit (D-10)
+
+Run at Plan 14-04 Task 3 closeout. All counts are non-zero (items present), confirming Phase 14 did not disturb any D-10 preservation targets.
+
+| Preservation Item | Count at HEAD | Status |
+| ----------------- | ------------- | ------ |
+| `"ChatGPT"` string literal (AI key value) | 9 files | INTACT |
+| `"Claude"` string literal (AI key value) | 9 files | INTACT |
+| `"Gemini"` string literal (AI key value) | 9 files | INTACT |
+| `TargetAiPlatform` property name | 12 files | INTACT |
+| `targetAiPlatform` form field identifier | 8 files | INTACT |
+| `"chatgpt"` zip filename fallback in PacketArtifactStore | 1 file | INTACT |
+| `data-cache-key="chatgpt-packets"` HTML attribute | 1 file | INTACT |
+| `chatgpt-packets-form` CSS/HTML class | 2 files | INTACT |
+| `parseChatGptDownloadFilename` TS function | 1 file | INTACT |
+| Guild theme CSS forks (`site-*.css`) | 26 files | INTACT |
+
+Phase 14 commit hygiene check (SHA-scoped from 14-BASELINE.md):
+
+- Co-Authored-By trailers across all Phase 14 commits: **0** (clean)
