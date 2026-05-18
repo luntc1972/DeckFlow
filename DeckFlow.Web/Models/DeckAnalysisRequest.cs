@@ -138,11 +138,7 @@ public sealed class DeckAnalysisRequest
     public string TargetAiPlatform
     {
         get => _targetAiPlatform;
-        set => _targetAiPlatform = value switch
-        {
-            "ChatGPT" or "Claude" or "Gemini" => value,
-            _ => "ChatGPT"
-        };
+        set => _targetAiPlatform = AiPlatform.Normalize(value).Key;
     }
 
     /// <summary>
