@@ -1,6 +1,7 @@
 @model DeckFlow.Web.Models.DeckAnalysisViewModel
 @{
     ViewData["Title"] = "Deck Analysis";
+    var aiPlatform = DeckFlow.Web.Models.AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = DeckFlow.Web.Models.AnalysisQuestionCatalog.Buckets;
@@ -40,7 +41,7 @@ Do not omit any fields from the schema.
 }
 
 <div class="info-banner chatgpt-global-note">
-    Follow the steps in order. Each step tells you what to paste into ChatGPT and what to paste back into this page.
+    Follow the steps in order. Each step tells you what to paste into your AI and what to paste back into this page.
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
@@ -69,7 +70,7 @@ Do not omit any fields from the schema.
     </div>
 </div>
 
-<form method="post" action="@Url.Content("~/deck-analysis")" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
+<form method="post" action="@Url.Content("~/deck-analysis")" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building Deck Analysis Packet" data-busy-message="Resolving the deck and generating prompt files.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
         <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
@@ -106,7 +107,7 @@ Do not omit any fields from the schema.
 
     @{
         var packetTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
-            AriaLabel: "ChatGPT packet workflow steps",
+            AriaLabel: "Deck Analysis packet workflow steps",
             TabIdPrefix: "chatgpt-step-tab",
             PanelIdPrefix: "chatgpt-step-panel",
             DataShowStepAttribute: "chatgpt-show-step",
@@ -175,24 +176,24 @@ Do not omit any fields from the schema.
                 <li>Select one or more question buckets, individual questions, or both.</li>
                 <li>Optionally include sideboard and/or maybeboard cards as candidate references.</li>
                 <li>Click <code>Generate Analysis Packet</code>.</li>
-                <li>Copy <code>analysis.txt</code> and paste it into ChatGPT.</li>
-                <li>Ask ChatGPT to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
+                <li>Copy <code>analysis.txt</code> and paste it into your AI.</li>
+                <li>Ask your AI to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
                 <li>Move to Step 3 to paste the returned JSON and view a formatted analysis summary. Step 4 is optional for set-specific upgrade suggestions.</li>
             </ol>
         </div>
 
         <div class="info-banner chatgpt-helper-panel">
-            <strong>How to push back on ChatGPT's conclusions</strong>
-            <p>If ChatGPT makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
+            <strong>How to push back on your AI's conclusions</strong>
+            <p>If your AI makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
             <p>Examples: "Re-evaluate this as Bracket 2 Core, not Bracket 3 Upgraded." "You overstated the combo finishers; the deck wins primarily through combat." "Card X is not a weak slot because it is part of the recursion engine."</p>
-            <p>Best practice: keep the conversation in ChatGPT going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 3.</p>
+            <p>Best practice: keep the conversation with your AI going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 3.</p>
         </div>
 
         <section class="result-panel nested-panel">
             <div class="panel-heading">
                 <div>
                     <h3>Optional Follow-up JSON Refresh Prompt</h3>
-                    <p>Use this later only if you asked additional questions in ChatGPT after the first analysis response and need it to rebuild the updated <code>deck_profile</code> JSON.</p>
+                    <p>Use this later only if you asked additional questions of your AI after the first analysis response and need it to rebuild the updated <code>deck_profile</code> JSON.</p>
                 </div>
                 <button type="button" class="copy-button" data-copy-target="analysis-follow-up-output">Copy</button>
             </div>
@@ -220,10 +221,10 @@ Do not omit any fields from the schema.
                 <ul>
                     <li><strong>Format</strong> keeps the analysis and upgrade prompts in the right rules context.</li>
                     <li><strong>Deck name</strong> gives the prompts a stable label and is also saved with the packet artifacts.</li>
-                    <li><strong>Strategy notes</strong> tell ChatGPT what the deck is trying to do so it weighs the list against your intended game plan.</li>
-                    <li><strong>Meta notes</strong> tell ChatGPT what kinds of tables or threats you expect, which changes how it judges weaknesses and upgrades.</li>
+                    <li><strong>Strategy notes</strong> tell your AI what the deck is trying to do so it weighs the list against your intended game plan.</li>
+                    <li><strong>Meta notes</strong> tell your AI what kinds of tables or threats you expect, which changes how it judges weaknesses and upgrades.</li>
                 </ul>
-                <p>If you leave these blank, the prompts still work. ChatGPT will infer more from the decklist alone.</p>
+                <p>If you leave these blank, the prompts still work. your AI will infer more from the decklist alone.</p>
             </div>
             <div class="sync-columns">
                 <label class="field">
@@ -356,19 +357,19 @@ Do not omit any fields from the schema.
                                         <option value="moxfield" selected="@(string.Equals(Model.Request.DecklistExportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
                                         <option value="archidekt" selected="@(string.Equals(Model.Request.DecklistExportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
                                     </select>
-                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. When assigning or updating categories, you must choose Moxfield or Archidekt and ChatGPT should return the decklist in a fenced <code>```text</code> block.</small>
+                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. When assigning or updating categories, you must choose Moxfield or Archidekt and @aiPlatform.DisplayName should return the decklist in a fenced <code>```text</code> block.</small>
                                 </label>
                                 <label class="chatgpt-question-option desktop-only">
                                     <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
                                     <span>
                                         Include card versions (set code &amp; collector number) for retained cards
-                                        <small class="sync-column__hint sync-column__hint--block">When checked, the original deck's set code and collector number are provided to ChatGPT so it can preserve the exact printing for any card kept in a generated deck version.</small>
+                                        <small class="sync-column__hint sync-column__hint--block">When checked, the original deck's set code and collector number are provided to @aiPlatform.DisplayName so it can preserve the exact printing for any card kept in a generated deck version.</small>
                                     </span>
                                 </label>
                                 <label class="field hidden" data-preferred-categories-field>
                                     <span>Preferred category names (optional)</span>
                                     <textarea autocomplete="off" name="PreferredCategories" rows="4" spellcheck="false">@Model.Request.PreferredCategories</textarea>
-                                    <small class="sync-column__hint">One category name per line. ChatGPT will use these names when assigning categories and will only create new ones when none of the preferred names fit.</small>
+                                    <small class="sync-column__hint">One category name per line. @aiPlatform.DisplayName will use these names when assigning categories and will only create new ones when none of the preferred names fit.</small>
                                 </label>
                                 <label class="field">
                                     <span>Protected cards (optional)</span>
@@ -395,8 +396,8 @@ Do not omit any fields from the schema.
             <section class="result-panel nested-panel">
                 <div class="panel-heading">
                     <div>
-                        <h3>Suggested ChatGPT conversation title</h3>
-                        <p>Rename your ChatGPT conversation to this before pasting the prompt.</p>
+                        <h3>Suggested @aiPlatform.DisplayName conversation title</h3>
+                        <p>Rename your @aiPlatform.DisplayName conversation to this before pasting the prompt.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="suggested-chat-title">Copy</button>
                 </div>
@@ -418,7 +419,7 @@ Do not omit any fields from the schema.
                 <div class="panel-heading">
                     <div>
                         <h3>analysis.txt</h3>
-                        <p>Paste this into ChatGPT for the main deck analysis. It requests prose analysis plus a structured <code>deck_profile</code> JSON object.</p>
+                        <p>Paste this into @aiPlatform.DisplayName for the main deck analysis. It requests prose analysis plus a structured <code>deck_profile</code> JSON object.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
@@ -432,7 +433,7 @@ Do not omit any fields from the schema.
                 <div class="panel-heading">
                     <div>
                         <h3>reference.txt</h3>
-                        <p>Support context for the analysis prompt. It contains the authoritative card and mechanic references already embedded into <code>analysis.txt</code>, so you usually do not need to paste it into ChatGPT separately.</p>
+                        <p>Support context for the analysis prompt. It contains the authoritative card and mechanic references already embedded into <code>analysis.txt</code>, so you usually do not need to paste it into @aiPlatform.DisplayName separately.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="reference-output">Copy</button>
                 </div>
@@ -447,7 +448,7 @@ Do not omit any fields from the schema.
                 <div class="panel-heading">
                     <div>
                         <h3>deck-profile-schema.json</h3>
-                        <p>ChatGPT should return a <code>deck_profile</code> JSON object matching this schema.</p>
+                        <p>@aiPlatform.DisplayName should return a <code>deck_profile</code> JSON object matching this schema.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="deck-profile-schema-output">Copy</button>
                 </div>
@@ -466,7 +467,7 @@ Do not omit any fields from the schema.
             <div>
                 <p class="chatgpt-step-eyebrow">Step 3</p>
                 <h2>Paste the deck profile JSON and view the analysis results</h2>
-                <p>Paste the fenced <code>deck_profile</code> JSON block or raw JSON payload returned from ChatGPT. You can use a saved JSON file here directly without filling out Steps 1 and 2 again.</p>
+                <p>Paste the fenced <code>deck_profile</code> JSON block or raw JSON payload returned from @aiPlatform.DisplayName. You can use a saved JSON file here directly without filling out Steps 1 and 2 again.</p>
             </div>
             <span class="chatgpt-step-badge">Review results</span>
         </div>
@@ -650,15 +651,15 @@ Do not omit any fields from the schema.
             <ol>
                 <li>Select one set, or paste a condensed set packet.</li>
                 <li>Click <code>Generate Set Upgrade Packet</code>.</li>
-                <li>Paste the returned <code>set-upgrade-analysis.txt</code> into ChatGPT.</li>
-                <li>Have ChatGPT return both a fenced <code>```json</code> block for the set analysis data and a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with condensed per-set notes, recommendations, and answers.</li>
+                <li>Paste the returned <code>set-upgrade-analysis.txt</code> into @aiPlatform.DisplayName.</li>
+                <li>Have @aiPlatform.DisplayName return both a fenced <code>```json</code> block for the set analysis data and a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with condensed per-set notes, recommendations, and answers.</li>
             </ol>
         </div>
         <label class="field">
             <span>Select one set to generate a compact set packet</span>
             <select name="SelectedSetCodes" data-df-select="search" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes.Take(1))">
             </select>
-            <small class="sync-column__hint">Choose a single set here. The tool generates a compact candidate packet instead of a full set dump to keep the ChatGPT prompt sendable.</small>
+            <small class="sync-column__hint">Choose a single set here. The tool generates a compact candidate packet instead of a full set dump to keep the @aiPlatform.DisplayName prompt sendable.</small>
             <small class="sync-column__hint hidden" data-set-options-error>The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
         </label>
         <label class="field">
@@ -669,7 +670,7 @@ Do not omit any fields from the schema.
                 <option value="strict-upgrades" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "strict-upgrades", StringComparison.OrdinalIgnoreCase))">Strict upgrades — clearly better than what I have</option>
                 <option value="both" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "both", StringComparison.OrdinalIgnoreCase))">Both — lateral moves and strict upgrades</option>
             </select>
-            <small class="sync-column__hint">Controls what ChatGPT looks for. Default finds the best adds regardless of type. Lateral moves swap a card for something at a similar power level. Strict upgrades replace a card with something meaningfully better.</small>
+            <small class="sync-column__hint">Controls what @aiPlatform.DisplayName looks for. Default finds the best adds regardless of type. Lateral moves swap a card for something at a similar power level. Strict upgrades replace a card with something meaningfully better.</small>
         </label>
         <details class="result-panel nested-panel">
             <summary>Show condensed set packet override</summary>
@@ -689,7 +690,7 @@ Do not omit any fields from the schema.
                 <div class="panel-heading">
                     <div>
                         <h3>set-upgrade-analysis.txt</h3>
-                        <p>Paste this into ChatGPT after you have a deck profile and a condensed set packet. It tells ChatGPT to return both structured JSON and a condensed discussion summary text block that includes the per-set analysis.</p>
+                        <p>Paste this into @aiPlatform.DisplayName after you have a deck profile and a condensed set packet. It tells @aiPlatform.DisplayName to return both structured JSON and a condensed discussion summary text block that includes the per-set analysis.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
                 </div>
@@ -707,7 +708,7 @@ Do not omit any fields from the schema.
             <div>
                 <p class="chatgpt-step-eyebrow">Step 5</p>
                 <h2>Paste the set-upgrade JSON and view the results</h2>
-                <p>Paste the fenced <code>set_upgrade_report</code> JSON block or raw JSON payload returned from ChatGPT. You can use a saved JSON file here directly without filling out earlier steps.</p>
+                <p>Paste the fenced <code>set_upgrade_report</code> JSON block or raw JSON payload returned from @aiPlatform.DisplayName. You can use a saved JSON file here directly without filling out earlier steps.</p>
             </div>
             <span class="chatgpt-step-badge">Review results</span>
         </div>
