@@ -49,7 +49,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 11: Web Design Guidelines Audit Fixes** — Land all 10 sweep PRs from `260513-wdg-FINDINGS.md`: cross-cutting `site-common.css` a11y rules, admin focus-visible foundation, df-typeahead keyboard nav + ARIA combobox, ARIA tablist server-render, CSP inline-handler removal, info-tooltip a11y, table semantics, URL/textarea autocomplete, Razor `selected=` bool sweep, and AdminHarvest live-region announcement. (completed 2026-05-13)
 - [x] **Phase 12: AI-Agnostic URL + Page Rename** — Drop "chatgpt-" from the three multi-AI workflow URLs, swap H1/nav/hub labels, add `.page-lede` explainer lines, ship 301 permanent redirects, update artifact filenames to AI-agnostic terms. (completed 2026-05-17)
 - [x] **Phase 13: ChatGpt* Class Rename + Summary Doc Comments** — Rename all `ChatGpt*` request/service/viewmodel/parser/store types to AI-agnostic names; backfill XML `<summary>` doc comments on every renamed class; update DI registrations, `InternalsVisibleTo`, namespaces, controller actions, test fixtures, and Razor `@model` directives with zero behavior change. (completed 2026-05-17)
-- [ ] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings.
+- [x] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings. (completed 2026-05-18)
 - [ ] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite.
 
 ## Phase Details
@@ -160,7 +160,7 @@ Plans:
   3. `dotnet build DeckFlow.sln --configuration Release` produces zero new warnings vs. the pre-Phase-14 baseline; test discovery succeeds via `dotnet test --no-build` where WSL permits, otherwise verified via push-and-watch CI on the `v1.3` branch.
   4. Scope discipline observed: DeckController god-class split and ChatGPT-services extraction stay out of scope per PROJECT.md (own refactor milestones); renames touch class names + doc comments only, no responsibility splits.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 Plans:
 
 **Wave 1**
@@ -177,7 +177,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 14-04-PLAN.md — Flip GenerateDocumentationFile=true in 4 csprojs (Core, CLI, Core.Tests, Web.Tests; Web stays as-is); run AUDIT-03 triple-gate (warning count vs baseline + XML coverage diff per RESEARCH.md Option A overriding D-04 + test discovery with Render push-and-watch fallback); emit 14-COVERAGE.md; mark phase complete
+- [x] 14-04-PLAN.md — Flip GenerateDocumentationFile=true in 4 csprojs (Core, CLI, Core.Tests, Web.Tests; Web stays as-is); run AUDIT-03 triple-gate (warning count vs baseline + XML coverage diff per RESEARCH.md Option A overriding D-04 + test discovery with Render push-and-watch fallback); emit 14-COVERAGE.md; mark phase complete
 
 ### Phase 15: AiPlatform Value Object Refactor
 
@@ -214,7 +214,7 @@ Plans:
 | 11. Web Design Guidelines Audit Fixes | v1.3 | 10/10 | Complete   | 2026-05-13 |
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete    | 2026-05-17 |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
-| 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 3/4 | In Progress|  |
+| 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
 | 15. AiPlatform Value Object Refactor | v1.3 | 0/3 | Not started | — |
 
 ---
