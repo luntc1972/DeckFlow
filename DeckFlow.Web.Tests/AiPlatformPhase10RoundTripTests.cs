@@ -675,12 +675,19 @@ public sealed class AiPlatformPhase10RoundTripTests
 
     // ---- Filename suggestion (AI name embedded in download filename) ----
 
-    [Theory]
-    [InlineData("ChatGPT", "chatgpt")]
-    [InlineData("Claude", "claude")]
-    [InlineData("Gemini", "gemini")]
-    public void SuggestPacketZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
+    public static IEnumerable<object[]> AllPlatforms()
     {
+        foreach (var platform in AiPlatform.All)
+        {
+            yield return new object[] { platform.Key };
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllPlatforms))]
+    public void SuggestPacketZipFileName_includes_lowercased_ai_name(string platform)
+    {
+        var expectedSegment = platform.ToLowerInvariant();
         var fileName = PacketArtifactStore.SuggestPacketZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
         Assert.Contains("atraxa", fileName);
@@ -688,22 +695,20 @@ public sealed class AiPlatformPhase10RoundTripTests
     }
 
     [Theory]
-    [InlineData("ChatGPT", "chatgpt")]
-    [InlineData("Claude", "claude")]
-    [InlineData("Gemini", "gemini")]
-    public void SuggestComparisonZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
+    [MemberData(nameof(AllPlatforms))]
+    public void SuggestComparisonZipFileName_includes_lowercased_ai_name(string platform)
     {
+        var expectedSegment = platform.ToLowerInvariant();
         var fileName = PacketArtifactStore.SuggestComparisonZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
         Assert.StartsWith("atraxa-compare2-", fileName);
     }
 
     [Theory]
-    [InlineData("ChatGPT", "chatgpt")]
-    [InlineData("Claude", "claude")]
-    [InlineData("Gemini", "gemini")]
-    public void SuggestCedhMetaGapZipFileName_includes_lowercased_ai_name(string platform, string expectedSegment)
+    [MemberData(nameof(AllPlatforms))]
+    public void SuggestCedhMetaGapZipFileName_includes_lowercased_ai_name(string platform)
     {
+        var expectedSegment = platform.ToLowerInvariant();
         var fileName = PacketArtifactStore.SuggestCedhMetaGapZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
     }
