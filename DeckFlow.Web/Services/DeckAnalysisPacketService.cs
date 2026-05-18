@@ -207,7 +207,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var loadDeckStopwatch = Stopwatch.StartNew();
         var entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
         timings.Add(("Deck load", loadDeckStopwatch.ElapsedMilliseconds, null));
-        _logger.LogInformation("ChatGPT packet deck load completed in {ElapsedMs}ms.", loadDeckStopwatch.ElapsedMilliseconds);
+        _logger.LogInformation("Deck Analysis packet deck load completed in {ElapsedMs}ms.", loadDeckStopwatch.ElapsedMilliseconds);
         var deckEntries = entries
             .Where(entry =>
                 !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
@@ -383,7 +383,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             var setPacketTask = BuildGeneratedSetPacketAsync(request, cancellationToken);
             await Task.WhenAll(bannedCardsTask, setPacketTask).ConfigureAwait(false);
             timings.Add(("Ban list + set packet", parallelStopwatch.ElapsedMilliseconds, null));
-            _logger.LogInformation("ChatGPT packet banned-list + set-packet fetch completed in {ElapsedMs}ms.", parallelStopwatch.ElapsedMilliseconds);
+            _logger.LogInformation("Deck Analysis packet banned-list + set-packet fetch completed in {ElapsedMs}ms.", parallelStopwatch.ElapsedMilliseconds);
             var bannedCards = bannedCardsTask.Result;
             var generatedSetPacket = setPacketTask.Result;
 
@@ -406,7 +406,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 var cardReferenceBundle = await LookupCardReferencesAsync(cardReferenceRequests, cancellationToken).ConfigureAwait(false);
                 timings.Add(("Scryfall card lookup", cardReferenceStopwatch.ElapsedMilliseconds, $"{cardReferenceBundle.CardReferences.Count} cards, {cardReferenceBundle.MechanicNames.Count} mechanics found"));
                 _logger.LogInformation(
-                    "ChatGPT packet card reference lookup completed in {ElapsedMs}ms for {CardCount} cards and {MechanicCount} mechanics.",
+                    "Deck Analysis packet card reference lookup completed in {ElapsedMs}ms for {CardCount} cards and {MechanicCount} mechanics.",
                     cardReferenceStopwatch.ElapsedMilliseconds,
                     cardReferenceBundle.CardReferences.Count,
                     cardReferenceBundle.MechanicNames.Count);
@@ -414,7 +414,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 var mechanicReferences = await LookupMechanicReferencesAsync(cardReferenceBundle.MechanicNames, cancellationToken).ConfigureAwait(false);
                 timings.Add(("Mechanic rules lookup", mechanicReferenceStopwatch.ElapsedMilliseconds, $"{mechanicReferences.Count} mechanics resolved"));
                 _logger.LogInformation(
-                    "ChatGPT packet mechanic lookup completed in {ElapsedMs}ms for {MechanicCount} mechanics.",
+                    "Deck Analysis packet mechanic lookup completed in {ElapsedMs}ms for {MechanicCount} mechanics.",
                     mechanicReferenceStopwatch.ElapsedMilliseconds,
                     mechanicReferences.Count);
 
@@ -455,7 +455,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         _logger.LogInformation(
-            "ChatGPT packet build completed in {ElapsedMs}ms. AnalysisGenerated={AnalysisGenerated} SetPacketGenerated={SetPacketGenerated}.",
+            "Deck Analysis packet build completed in {ElapsedMs}ms. AnalysisGenerated={AnalysisGenerated} SetPacketGenerated={SetPacketGenerated}.",
             overallStopwatch.ElapsedMilliseconds,
             !string.IsNullOrWhiteSpace(analysisPromptText),
             !string.IsNullOrWhiteSpace(setUpgradePromptText));
