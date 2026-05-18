@@ -626,7 +626,7 @@ public sealed class DeckControllerTests
     [Fact]
     public async Task DeckAnalysis_PassesSelectedQuestionsAndSingleSetToService()
     {
-        var capturingService = new CapturingDeckAnalysisPacketService();
+        var capturingService = new FakeDeckAnalysisPacketService();
         var controller = new DeckController(
             new FakeDeckSyncService(),
             new FakeDeckConvertService(),
@@ -879,7 +879,11 @@ public sealed class DeckControllerTests
             => Task.FromException<DeckAnalysisPacketResult>(_exception);
     }
 
-    private sealed class CapturingDeckAnalysisPacketService : IDeckAnalysisPacketService
+    /// <summary>
+    /// Stateful fake that captures the last <see cref="DeckAnalysisRequest"/> passed to
+    /// <see cref="IDeckAnalysisPacketService.BuildAsync"/> so the consuming test can assert call arguments.
+    /// </summary>
+    private sealed class FakeDeckAnalysisPacketService : IDeckAnalysisPacketService
     {
         public DeckAnalysisRequest? LastRequest { get; private set; }
 
