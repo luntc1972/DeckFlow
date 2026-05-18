@@ -25,20 +25,20 @@ Configure the analysis:
 
 | Setting | Purpose |
 |---|---|
-| **Target Commander Bracket** | Bracket 1–5. ChatGPT uses this when evaluating card quality, interaction density, and upgrade suggestions. |
+| **Target Commander Bracket** | Bracket 1–5. Your AI uses this when evaluating card quality, interaction density, and upgrade suggestions. |
 | **Analysis questions** | Select one or more questions from the buckets below. |
 | **Card name** | Required when card-specific questions are selected. |
 | **Budget amount** | Required when the budget-upgrade question is selected. |
 | **Decklist export format** | Moxfield or Archidekt — required when category questions are selected; optional for versioning questions. |
-| **Include card versions** | When checked, the original deck's set code and collector number are sent so ChatGPT can preserve the exact printing for retained cards. |
-| **Preferred category names** | Shown when **Update categories** is selected. One name per line; ChatGPT will prefer these over inventing new ones. |
+| **Include card versions** | When checked, the original deck's set code and collector number are sent so your AI can preserve the exact printing for retained cards. |
+| **Preferred category names** | Shown when **Update categories** is selected. One name per line; your AI will prefer these over inventing new ones. |
 | **Protected cards** | Cards that must appear in every generated deck version. |
 
 Click **Generate Analysis Packet** to build the reference data and analysis prompt. The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to keep long prompts structured.
 
 ## Step 3 — Analysis Results
 
-Paste the fenced `deck_profile` JSON block or raw JSON payload returned from ChatGPT. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
+Paste the fenced `deck_profile` JSON block or raw JSON payload returned from your AI. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
 
 - Format and commander
 - Game plan, speed, primary axes, and synergy tags
@@ -50,11 +50,11 @@ This step is local to the returned JSON. It does not regenerate the analysis pac
 
 ## Step 4 — Set Upgrade (optional)
 
-Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. For Commander/precon-style sets (`commander`, `duel_deck`, `starter`), the packet is filtered to first-print cards only so reprints don't crowd out genuinely new candidates; standard expansions are unfiltered. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it ChatGPT gets an empty schema and produces generic recommendations.
+Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks your AI to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. For Commander/precon-style sets (`commander`, `duel_deck`, `starter`), the packet is filtered to first-print cards only so reprints don't crowd out genuinely new candidates; standard expansions are unfiltered. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it your AI gets an empty schema and produces generic recommendations.
 
 ## Step 5 — Set Upgrade Results (optional)
 
-Paste the fenced `set_upgrade_report` JSON block or raw JSON payload returned from ChatGPT. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
+Paste the fenced `set_upgrade_report` JSON block or raw JSON payload returned from your AI. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
 
 - Per-set panels: top adds with suggested cuts and reasoning, traps, and speculative tests
 - Final shortlist broken into must-test, optional, and skip columns
@@ -80,7 +80,7 @@ Questions are grouped into collapsible buckets. Buckets with pre-selected questi
 
 ### Deck Versioning output format
 
-When any versioning or category question is selected, the analysis prompt instructs ChatGPT to:
+When any versioning or category question is selected, the analysis prompt instructs your AI to:
 
 - Output the **full, complete 100-card decklist** for each generated version — no truncation, no "fill with basics" shorthand.
 - Count cards before responding to confirm the total reaches 100.
@@ -91,9 +91,9 @@ When any versioning or category question is selected, the analysis prompt instru
 
 ### Category / tag questions
 
-- **Assign categories** — ChatGPT assigns functional role categories to every card in the deck. Plain-text export is not supported; Moxfield or Archidekt format is required.
-- **Update categories** — ChatGPT updates or reassigns categories using the preferred category names you provide. Preferred names are injected into the prompt; ChatGPT may add new categories only when none of the preferred names fit.
-- Basic card types (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are excluded as categories. ChatGPT is instructed to use functional role labels instead (Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection, etc.).
+- **Assign categories** — Your AI assigns functional role categories to every card in the deck. Plain-text export is not supported; Moxfield or Archidekt format is required.
+- **Update categories** — Your AI updates or reassigns categories using the preferred category names you provide. Preferred names are injected into the prompt; your AI may add new categories only when none of the preferred names fit.
+- Basic card types (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are excluded as categories. Your AI is instructed to use functional role labels instead (Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection, etc.).
 
 ### Commander Spellbook combo lookup
 
@@ -101,7 +101,7 @@ When either combo question is selected, the service queries the Commander Spellb
 
 - Returns up to 20 **included combos** (all pieces are in the deck) and up to 15 **almost-included combos** (exactly one card missing, within the deck's color identity).
 - Each combo entry lists the card names, results, and up to 300 characters of instructions.
-- Results are injected as a reference block in the prompt. ChatGPT is told to treat this data as authoritative.
+- Results are injected as a reference block in the prompt. Your AI is told to treat this data as authoritative.
 - API failures degrade gracefully — the analysis continues without combo data rather than failing.
 
 ## Artifact saving
