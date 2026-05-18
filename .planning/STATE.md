@@ -117,9 +117,9 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 Last session: 2026-05-18T17:34:20.588Z
 
-Stopped at: Phase 999.1 context gathered
+Stopped at: Session resumed 2026-05-18 — proceeding to plan Phase 999.1
 
-Next action on resume: `/gsd-execute-phase 13` to run 4-wave sequential rename (Models → Services → Controller+Views → Tests+build gate). Wave 4 emits 13-HUMAN-UAT.md with T1-T8 round-trip checklist (CLAUDE.md "VSTest unreliable in WSL" → manual gate). Per CLAUDE.md feedback memory: do NOT auto-start dev server; ask user to launch for UAT.
+Next action on resume: `/gsd-plan-phase 999.1` to decompose AI-agnostic prose adaptation in Razor views per `999.1-CONTEXT.md`. Stale `HANDOFF.json` (phase 15 wave 2) deleted on resume — phase 15 verified done at commit b762126.
 
 **Resume guidance:**
 
@@ -132,4 +132,4 @@ Next action on resume: `/gsd-execute-phase 13` to run 4-wave sequential rename (
 
 ## Operator Next Steps
 
-- Run `/gsd-plan-phase 12` to decompose Phase 12 (AI-Agnostic URL + Page Rename) per `12-CONTEXT.md` decisions D-01..D-16.
+- Run `/gsd-plan-phase 999.1` to decompose Phase 999.1 (AI-Agnostic Prose Adaptation in Razor Views) per `999.1-CONTEXT.md`.
