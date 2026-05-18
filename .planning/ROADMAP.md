@@ -225,18 +225,18 @@ Plans:
   9. README.md describes the multi-AI workflow generically; D-03 Ask-a-Judge paragraph preserved verbatim.
   10. `dotnet build DeckFlow.sln -c Release` exits 0 with zero new warnings vs baseline; manual UAT confirms all three pages render correctly for ChatGPT / Claude / Gemini selections.
 
-**Plans:** 7 plans
+**Plans:** 6/7 plans executed
 
 Plans:
 
 **Wave 1** *(parallel; zero file overlap)*
 
-- [ ] 999.1-01-PLAN.md — DeckAnalysis.cshtml Hybrid prose + AiPlatform.Normalize block + data-busy-title rename (28 hits → 1 lede)
-- [ ] 999.1-02-PLAN.md — DeckComparison.cshtml Hybrid prose + AiPlatform.Normalize block (12 hits → 1 lede)
-- [ ] 999.1-03-PLAN.md — CedhMetaGap.cshtml Hybrid prose + AiPlatform.Normalize block + Home.cshtml DeckComparison hub-card generalization (8 + 1 hits; D-03 carve-out on Home line 62 preserved)
-- [ ] 999.1-04-PLAN.md — C# user-facing exception messages: ResponseParsers.cs (6 strings) + MetaGapService.cs (2 strings) + DeckComparisonService.cs (2 strings); Phase 10 fallback Key strings preserved
-- [ ] 999.1-05-PLAN.md — Help markdown: deck-analysis.md (11 hits) + deck-comparison.md (6 hits) + cedh-meta-gap.md (1 hit); ask-a-judge.md carved out per D-03
-- [ ] 999.1-06-PLAN.md — DeckAnalysisPacketService.cs logger prefix rename (5 log lines); 2 doc comments + Phase 10 fallback Key preserved
+- [x] 999.1-01-PLAN.md — DeckAnalysis.cshtml Hybrid prose + AiPlatform.Normalize block + data-busy-title rename (28 hits → 1 lede)
+- [x] 999.1-02-PLAN.md — DeckComparison.cshtml Hybrid prose + AiPlatform.Normalize block (12 hits → 1 lede)
+- [x] 999.1-03-PLAN.md — CedhMetaGap.cshtml Hybrid prose + AiPlatform.Normalize block + Home.cshtml DeckComparison hub-card generalization (8 + 1 hits; D-03 carve-out on Home line 62 preserved)
+- [x] 999.1-04-PLAN.md — C# user-facing exception messages: ResponseParsers.cs (6 strings) + MetaGapService.cs (2 strings) + DeckComparisonService.cs (2 strings); Phase 10 fallback Key strings preserved
+- [x] 999.1-05-PLAN.md — Help markdown: deck-analysis.md (11 hits) + deck-comparison.md (6 hits) + cedh-meta-gap.md (1 hit); ask-a-judge.md carved out per D-03
+- [x] 999.1-06-PLAN.md — DeckAnalysisPacketService.cs logger prefix rename (5 log lines); 2 doc comments + Phase 10 fallback Key preserved
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -264,7 +264,7 @@ Plans:
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
 | 15. AiPlatform Value Object Refactor | v1.3 | 3/3 | Complete    | 2026-05-18 |
-| 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 0/7 | Planned | — |
+| 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 6/7 | In Progress|  |
 
 ---
 
