@@ -15,6 +15,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="DeckController"/> covering sync, convert, lookup, category suggestion, deck-analysis,
+/// deck-comparison, cEDH meta-gap, and judge-question action methods with faked service dependencies.
+/// </summary>
 public sealed class DeckControllerTests
 {
     [Fact]

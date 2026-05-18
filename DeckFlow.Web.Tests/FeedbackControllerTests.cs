@@ -8,6 +8,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="FeedbackController"/> covering form rendering, submission, rate limiting, and store interactions.
+/// </summary>
 public sealed class FeedbackControllerTests
 {
     [Fact]

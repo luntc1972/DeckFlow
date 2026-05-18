@@ -6,6 +6,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="AboutController"/> covering version rendering and view model population.
+/// </summary>
 public class AboutControllerTests
 {
     private sealed class FixedVersionService : IVersionService

@@ -14,6 +14,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="CommanderController"/> covering category data rendering, upstream error handling, and timeout behaviour.
+/// </summary>
 public sealed class CommanderControllerTests
 {
     [Fact]

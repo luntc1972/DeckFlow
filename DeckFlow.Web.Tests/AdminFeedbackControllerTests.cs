@@ -8,6 +8,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="AdminFeedbackController"/> covering feedback listing, status updates, and filtering.
+/// </summary>
 public sealed class AdminFeedbackControllerTests
 {
     [Fact]
