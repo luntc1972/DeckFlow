@@ -274,7 +274,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
-            new SuccessfulCardLookupService(),
+            new StubSuccessfulCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
@@ -952,7 +952,11 @@ public sealed class DeckControllerTests
             => Task.FromException<SingleCardLookupResult?>(_exception);
     }
 
-    private sealed class SuccessfulCardLookupService : ICardLookupService
+    /// <summary>
+    /// Canned-response stub that returns a fixed successful <see cref="CardLookupResult"/>
+    /// with "Sol Ring"; used to test successful card lookup flows without hitting Scryfall.
+    /// </summary>
+    private sealed class StubSuccessfulCardLookupService : ICardLookupService
     {
         public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
             => Task.FromResult(new CardLookupResult(new[] { "Sol Ring" }, Array.Empty<string>()));
