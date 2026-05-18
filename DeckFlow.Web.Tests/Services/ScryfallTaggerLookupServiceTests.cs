@@ -7,7 +7,7 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-public sealed class ScryfallTaggerServiceTests
+public sealed class ScryfallTaggerLookupServiceTests
 {
     // Scryfall REST response for cards/named?exact=Thrasios, Triton Hero
     private const string ScryfallCardJson = """
@@ -24,7 +24,7 @@ public sealed class ScryfallTaggerServiceTests
 {"data":{"card":{"taggings":[{"tag":{"name":"ramp","type":"ORACLE_CARD_TAG","slug":"ramp","weight":1,"status":"APPROVED"}}]}}}
 """;
 
-    private static ScryfallTaggerService CreateService(
+    private static ScryfallTaggerLookupService CreateService(
         MockHttpMessageHandler scryfallMock,
         MockHttpMessageHandler taggerMock,
         ITaggerSessionCache? sessionCache = null)
@@ -40,7 +40,7 @@ public sealed class ScryfallTaggerServiceTests
         var cache = sessionCache
             ?? new TaggerSessionCache(new MemoryCache(new MemoryCacheOptions()));
 
-        return new ScryfallTaggerService(
+        return new ScryfallTaggerLookupService(
             restClientFactory,
             typedTaggerClient,
             cache,
@@ -244,7 +244,7 @@ public sealed class ScryfallTaggerServiceTests
         // replayed by the handler — MockHttpMessageHandler bypasses the handler entirely,
         // so this test verifies the service code path only. Live UAT covers cookie replay.
         Assert.False(capturedPost!.Headers.Contains("Cookie"),
-            "ScryfallTaggerService must not write a manual Cookie header on the GraphQL POST.");
+            "ScryfallTaggerLookupService must not write a manual Cookie header on the GraphQL POST.");
         // X-CSRF-Token must still be set manually — that one is service-controlled.
         Assert.True(capturedPost.Headers.Contains("X-CSRF-Token"));
     }

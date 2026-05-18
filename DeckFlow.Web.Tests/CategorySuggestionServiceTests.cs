@@ -217,7 +217,7 @@ public sealed class CategorySuggestionServiceTests
         }
     }
 
-    private sealed class FakeTaggerService : IScryfallTaggerService
+    private sealed class FakeTaggerService : IScryfallTaggerLookupService
     {
         private readonly IReadOnlyList<string> _responses;
 

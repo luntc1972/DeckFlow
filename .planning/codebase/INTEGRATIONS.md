@@ -10,7 +10,7 @@
   - Wrapper: `DeckFlow.Web/Services/ScryfallRestClientFactory.cs` (`IScryfallRestClientFactory`) issues `RestClient` over the named `HttpClient`.
   - Throttle: `DeckFlow.Web/Services/ScryfallThrottle.cs` - Process-wide `SemaphoreSlim` enforcing 200ms pacing and 429 retry; wraps every Scryfall call.
   - Resilience pipeline: `"scryfall"` in `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs` (30s total timeout outermost, retry x2 on 5xx only - 429 deferred to throttle).
-  - Consumers: `ScryfallCardLookupService.cs`, `ScryfallCardSearchService.cs`, `ScryfallCommanderSearchService.cs`, `ScryfallSetService.cs`, `ScryfallTaggerService.cs` (set/number resolution), and `ChatGptDeckPacketService.cs` (batched in `ScryfallBatchSize = 75` chunks).
+  - Consumers: `ScryfallCardLookupService.cs`, `ScryfallCardSearchService.cs`, `ScryfallCommanderSearchService.cs`, `ScryfallSetService.cs`, `ScryfallTaggerLookupService.cs` (set/number resolution), and `ChatGptDeckPacketService.cs` (batched in `ScryfallBatchSize = 75` chunks).
   - Auth: None. User-Agent `DeckFlow/1.0 (+https://github.com/luntc1972/DeckFlow)`.
 
 - `https://tagger.scryfall.com/` - Community oracle/functional tag GraphQL endpoint (CSRF-protected).
@@ -18,7 +18,7 @@
   - Primary handler: `SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, PooledConnectionLifetime = 5min }`. CSRF tokens are explicitly replayed via headers (no `CookieContainer`).
   - Session cache: `DeckFlow.Web/Services/TaggerSessionCache.cs` (`ITaggerSessionCache`) with 270s TTL (30s buffer below the 5-min handler lifetime).
   - Pipelines: `"tagger"` (GET path - retry x3 exponential+jitter, 8s timeout, CB 50%/30s) and `"tagger-post"` (POST path, no retry because GraphQL POST is non-idempotent).
-  - Consumer: `DeckFlow.Web/Services/ScryfallTaggerService.cs` (`IScryfallTaggerService`).
+  - Consumer: `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs` (`IScryfallTaggerLookupService`).
 
 **Commander metadata:**
 - `https://mtgcommander.net/index.php/banned-list/` - HTML scrape of the official Commander banned list.

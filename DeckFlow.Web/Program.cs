@@ -259,7 +259,7 @@ public partial class Program
                     sp.GetRequiredService<IMemoryCache>(),
                     sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
-            builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
+            builder.Services.AddSingleton<IScryfallTaggerLookupService, ScryfallTaggerLookupService>();
             builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
                 new DeckAnalysisPacketService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),

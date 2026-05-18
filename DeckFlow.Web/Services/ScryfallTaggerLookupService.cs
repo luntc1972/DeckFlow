@@ -17,7 +17,7 @@ namespace DeckFlow.Web.Services;
 /// <summary>
 /// Fetches community-curated oracle tags from Scryfall Tagger for a given card.
 /// </summary>
-public interface IScryfallTaggerService
+public interface IScryfallTaggerLookupService
 {
     /// <summary>
     /// Looks up oracle/functional tags for the supplied card name via the Scryfall Tagger GraphQL endpoint.
@@ -26,15 +26,16 @@ public interface IScryfallTaggerService
 }
 
 /// <summary>
-/// Default implementation of <see cref="IScryfallTaggerService"/>.
-/// Resolves the card via the Scryfall REST API, then queries the Tagger GraphQL endpoint for oracle tags.
+/// Resolves a card to its Scryfall set+number, then looks up Tagger oracle tags
+/// via Scryfall Tagger's GraphQL endpoint. Manages the 270s CSRF session cache
+/// (HIGH-2) and respects the FLAG-04 kill-switch via in-process feature-flag cache.
 ///
 /// Phase 5 BUG-01: cookies are managed automatically by the typed Tagger HttpClient's
 /// SocketsHttpHandler.CookieContainer (Program.cs). This service only manages the CSRF token
 /// (via TaggerSessionCache) and emits structured logs at every step (Tagger.Resolve,
 /// Tagger.SessionFetch, Tagger.GraphQlPost, Tagger.Parse, Tagger.Lookup, Tagger.RefreshAndRetry).
 /// </summary>
-public sealed class ScryfallTaggerService : IScryfallTaggerService
+public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
 {
     private static readonly Uri TaggerCookieScopeUri = new("https://tagger.scryfall.com/");
 
@@ -48,7 +49,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     private readonly ResiliencePipeline<RestResponse> _taggerPipeline;
     private readonly ResiliencePipeline<RestResponse> _taggerPostPipeline;
     private readonly IFeatureFlagCache _flagCache;
-    private readonly ILogger<ScryfallTaggerService> _logger;
+    private readonly ILogger<ScryfallTaggerLookupService> _logger;
 
     /// <summary>
     /// HIGH-1 loop guard — flows correctly across async/await boundaries.
@@ -57,19 +58,20 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
     private static readonly AsyncLocal<bool> _attemptedRefresh = new();
 
     /// <summary>
-    /// Creates a Tagger service backed by the typed Tagger HttpClient (auto-cookies via
-    /// SocketsHttpHandler.CookieContainer per Phase 5 BUG-01), the IScryfallRestClientFactory
-    /// for Scryfall card lookups, the named Polly v8 pipelines (scryfall, tagger, tagger-post),
-    /// the 270s session cache (HIGH-2), and the in-process feature-flag cache used by the
-    /// FLAG-04 / D-11 kill-switch gate at the top of <see cref="LookupOracleTagsAsync"/>.
+    /// Creates a <see cref="ScryfallTaggerLookupService"/> backed by the typed Tagger HttpClient
+    /// (auto-cookies via SocketsHttpHandler.CookieContainer per Phase 5 BUG-01), the
+    /// IScryfallRestClientFactory for Scryfall card lookups, the named Polly v8 pipelines
+    /// (scryfall, tagger, tagger-post), the 270s session cache (HIGH-2), and the in-process
+    /// feature-flag cache used by the FLAG-04 / D-11 kill-switch gate at the top of
+    /// <see cref="LookupOracleTagsAsync"/>.
     /// </summary>
-    public ScryfallTaggerService(
+    public ScryfallTaggerLookupService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         IScryfallTaggerHttpClient taggerHttpClient,
         ITaggerSessionCache taggerSessionCache,
         ResiliencePipelineProvider<string> pipelineProvider,
         IFeatureFlagCache flagCache,
-        ILogger<ScryfallTaggerService>? logger = null)
+        ILogger<ScryfallTaggerLookupService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(taggerHttpClient);
@@ -83,7 +85,7 @@ public sealed class ScryfallTaggerService : IScryfallTaggerService
         _taggerPipeline = pipelineProvider.GetPipeline<RestResponse>("tagger");
         _taggerPostPipeline = pipelineProvider.GetPipeline<RestResponse>("tagger-post");
         _flagCache = flagCache;
-        _logger = logger ?? NullLogger<ScryfallTaggerService>.Instance;
+        _logger = logger ?? NullLogger<ScryfallTaggerLookupService>.Instance;
     }
 
     /// <inheritdoc />
