@@ -3,6 +3,9 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Derives category suggestions for a card from its appearances in crawled deck entries.
+/// </summary>
 public static class CategorySuggestionReporter
 {
     public static IReadOnlyList<string> SuggestCategories(IEnumerable<DeckEntry> entries, string cardName)

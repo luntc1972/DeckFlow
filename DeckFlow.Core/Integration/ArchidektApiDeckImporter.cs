@@ -8,6 +8,9 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Integration;
 
+/// <summary>
+/// Fetches and parses an Archidekt deck from the Archidekt REST API with exponential-backoff retry.
+/// </summary>
 public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
 {
     private readonly RestClient _restClient;

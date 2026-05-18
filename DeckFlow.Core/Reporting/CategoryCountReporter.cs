@@ -2,6 +2,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Aggregates deck entries by category and returns sorted counts for reporting.
+/// </summary>
 public static class CategoryCountReporter
 {
     public static IReadOnlyList<(string Category, int Count)> CountByQuantity(IEnumerable<DeckEntry> entries)

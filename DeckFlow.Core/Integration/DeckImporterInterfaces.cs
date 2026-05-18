@@ -2,17 +2,26 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Integration;
 
+/// <summary>
+/// Indicates whether Moxfield entries were fetched directly or via the Commander Spellbook fallback proxy.
+/// </summary>
 public enum MoxfieldImportSource
 {
     Direct,
     CommanderSpellbookFallback
 }
 
+/// <summary>
+/// Wraps the imported deck entries with metadata about the import source and any user-visible notice.
+/// </summary>
 public sealed record MoxfieldImportResult(
     List<DeckEntry> Entries,
     MoxfieldImportSource Source,
     string? FallbackNotice = null);
 
+/// <summary>
+/// Imports a Moxfield deck by URL or deck identifier.
+/// </summary>
 public interface IMoxfieldDeckImporter
 {
     Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default);
@@ -30,6 +39,9 @@ public interface IMoxfieldDeckImporter
     }
 }
 
+/// <summary>
+/// Imports an Archidekt deck by URL or deck identifier.
+/// </summary>
 public interface IArchidektDeckImporter
 {
     Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default);

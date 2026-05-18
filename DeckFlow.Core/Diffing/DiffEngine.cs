@@ -2,6 +2,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Diffing;
 
+/// <summary>
+/// Compares two deck lists and produces a <see cref="DeckDiff"/> describing the differences.
+/// </summary>
 public sealed class DiffEngine
 {
     private readonly MatchMode _matchMode;

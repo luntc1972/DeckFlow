@@ -1,5 +1,8 @@
 namespace DeckFlow.Core.Integration;
 
+/// <summary>
+/// Parses Archidekt deck URLs and constructs the corresponding REST API URIs.
+/// </summary>
 public static class ArchidektApiUrl
 {
     public static bool TryGetDeckId(string input, out string deckId)

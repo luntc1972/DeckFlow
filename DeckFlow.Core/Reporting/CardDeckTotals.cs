@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Aggregated deck-count statistics for a single card across all harvested decks, broken down by board.
+/// </summary>
 public sealed record CardDeckTotals(int TotalDeckCount, IReadOnlyDictionary<string, int> BoardDeckCounts)
 {
     /// <summary>

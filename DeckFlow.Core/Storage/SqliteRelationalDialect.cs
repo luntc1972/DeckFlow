@@ -1,5 +1,8 @@
 namespace DeckFlow.Core.Storage;
 
+/// <summary>
+/// SQLite-specific SQL fragments and column type definitions for the DeckFlow relational schema.
+/// </summary>
 public sealed class SqliteRelationalDialect : IRelationalDialect
 {
     public static readonly SqliteRelationalDialect Instance = new();

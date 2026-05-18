@@ -4,12 +4,18 @@ using Npgsql;
 
 namespace DeckFlow.Core.Storage;
 
+/// <summary>
+/// Identifies the relational database backend in use.
+/// </summary>
 public enum RelationalDatabaseProvider
 {
     Sqlite,
     Postgres
 }
 
+/// <summary>
+/// Holds the database provider and connection string, and exposes dialect-specific helpers for opening connections.
+/// </summary>
 public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Provider, string ConnectionString)
 {
     public IRelationalDialect Dialect

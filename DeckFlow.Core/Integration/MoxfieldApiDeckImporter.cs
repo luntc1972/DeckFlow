@@ -6,6 +6,9 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Integration;
 
+/// <summary>
+/// Fetches and parses a Moxfield deck from the Moxfield v2 API with Commander Spellbook proxy fallback.
+/// </summary>
 public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
 {
     private readonly RestClient _restClient;

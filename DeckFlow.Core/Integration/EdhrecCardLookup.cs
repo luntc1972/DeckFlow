@@ -5,6 +5,9 @@ using RestSharp;
 
 namespace DeckFlow.Core.Integration;
 
+/// <summary>
+/// Fetches card metadata and category suggestions from the EDHREC JSON API.
+/// </summary>
 public sealed partial class EdhrecCardLookup
 {
     private readonly RestClient _restClient;
