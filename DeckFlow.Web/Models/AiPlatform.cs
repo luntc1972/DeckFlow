@@ -37,6 +37,15 @@ public sealed record AiPlatform(string Key, string DisplayName, string Descripti
     public static AiPlatform Default => ChatGpt;
 
     /// <summary>
+    /// Test-only seam: returns the production <see cref="All"/> list with one
+    /// extra platform appended. Used by AiPlatformExtensionTests to prove that
+    /// adding a 4th platform requires no edits to switch expressions, request
+    /// model setters, the Razor partial, or RequestContextParser (Phase 15 SC5).
+    /// </summary>
+    internal static IReadOnlyList<AiPlatform> AllForTesting(AiPlatform extra) =>
+        [..All, extra];
+
+    /// <summary>
     /// Normalises a string from a form-post or zip request-context entry to a known platform.
     /// Out-of-set values fall back to <see cref="Default"/> (ChatGPT).
     /// Comparison is case-sensitive (Ordinal) to match the Phase 10 setter hardening contract.
