@@ -10,6 +10,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallCardSearchService"/> covering search result parsing, caching, and error handling.
+/// </summary>
 public sealed class CardSearchServiceTests
 {
     private static readonly IReadOnlyList<ScryfallCard> SampleCards = new[]

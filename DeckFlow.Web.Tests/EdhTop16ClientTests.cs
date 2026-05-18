@@ -10,6 +10,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="EdhTop16Client"/> covering metagame data parsing, deserialization, and error handling.
+/// </summary>
 public sealed class EdhTop16ClientTests
 {
     [Fact]

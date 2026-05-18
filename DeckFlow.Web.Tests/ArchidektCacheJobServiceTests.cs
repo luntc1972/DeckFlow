@@ -7,6 +7,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ArchidektCacheJobService"/> covering harvest scheduling, job control, and progress tracking.
+/// </summary>
 public sealed class ArchidektCacheJobServiceTests
 {
     [Theory]

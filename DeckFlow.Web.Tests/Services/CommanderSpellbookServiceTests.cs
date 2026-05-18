@@ -7,6 +7,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="CommanderSpellbookService"/> covering combo lookup, Moxfield fallback parsing, and API failure handling.
+/// </summary>
 public sealed class CommanderSpellbookServiceTests
 {
     // Helper to build a minimal DeckEntry for "mainboard"

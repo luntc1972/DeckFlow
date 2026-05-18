@@ -5,6 +5,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Integration tests for <see cref="FeedbackStore"/> covering submission persistence, status updates,
+/// and retrieval ordering against a temporary SQLite database.
+/// </summary>
 public sealed class FeedbackStoreTests : IDisposable
 {
     private readonly string _dbPath;

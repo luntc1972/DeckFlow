@@ -8,6 +8,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallCardLookupService"/> covering quantity preservation, missing-line collection,
+/// batch splitting, and fallback named-lookup behaviour.
+/// </summary>
 public sealed class CardLookupServiceTests
 {
     [Fact]

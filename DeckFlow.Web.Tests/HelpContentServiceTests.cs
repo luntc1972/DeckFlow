@@ -3,6 +3,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="HelpContentService"/> covering Markdown loading, caching, and not-found handling.
+/// </summary>
 public class HelpContentServiceTests : IDisposable
 {
     private readonly string _root;

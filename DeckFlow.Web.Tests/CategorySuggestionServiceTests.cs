@@ -17,6 +17,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="CategorySuggestionService"/> covering mode routing (cached, reference-deck, tagger, all),
+/// inferred-category precedence, and fallback behaviour when harvest data is unavailable.
+/// </summary>
 public sealed class CategorySuggestionServiceTests
 {
     [Fact]

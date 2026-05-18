@@ -7,6 +7,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallTaggerLookupService"/> covering tag fetching, CSRF session handling, kill-switch enforcement, and Scryfall card resolution.
+/// </summary>
 public sealed class ScryfallTaggerLookupServiceTests
 {
     // Scryfall REST response for cards/named?exact=Thrasios, Triton Hero
