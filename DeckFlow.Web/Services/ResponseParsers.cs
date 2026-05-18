@@ -17,7 +17,7 @@ internal static class ResponseParsers
     {
         if (string.IsNullOrWhiteSpace(input))
         {
-            throw new InvalidOperationException("Paste the deck_profile JSON returned from ChatGPT into Step 3.");
+            throw new InvalidOperationException("Paste the deck_profile JSON returned from your AI into Step 3.");
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
@@ -32,13 +32,13 @@ internal static class ResponseParsers
 
         if (payload.ValueKind != JsonValueKind.Object || !LooksLikeDeckProfile(payload))
         {
-            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_profile payload.");
+            throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
         }
 
         var result = JsonSerializer.Deserialize<DeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
         if (result is null || !HasMeaningfulDeckProfileContent(result))
         {
-            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_profile payload.");
+            throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
         }
 
         return result;
@@ -48,7 +48,7 @@ internal static class ResponseParsers
     {
         if (string.IsNullOrWhiteSpace(input))
         {
-            throw new InvalidOperationException("Paste the set_upgrade_report JSON returned from ChatGPT into Step 5.");
+            throw new InvalidOperationException("Paste the set_upgrade_report JSON returned from your AI into Step 5.");
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
@@ -63,13 +63,13 @@ internal static class ResponseParsers
 
         if (payload.ValueKind != JsonValueKind.Object || !LooksLikeSetUpgradeReport(payload))
         {
-            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid set_upgrade_report payload.");
+            throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
         }
 
         var result = JsonSerializer.Deserialize<SetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
         if (result is null || !HasMeaningfulSetUpgradeContent(result))
         {
-            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid set_upgrade_report payload.");
+            throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
         }
 
         return result;
