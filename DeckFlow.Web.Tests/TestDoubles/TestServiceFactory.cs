@@ -3,6 +3,11 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Comparison;
+using DeckFlow.Web.Services.PromptBuilders.FollowUp;
+using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using RestSharp;
@@ -120,6 +125,8 @@ internal static class TestServiceFactory
             commanderBanListService,
             scryfallSetService,
             commanderSpellbookService,
+            BuildAnalysisPromptRegistry(),
+            BuildSetUpgradePromptRegistry(),
             logger,
             null,
             executeCollectionAsync,
@@ -143,6 +150,8 @@ internal static class TestServiceFactory
             moxfieldParser,
             archidektParser,
             commanderSpellbookService,
+            BuildComparisonPromptRegistry(),
+            BuildFollowUpPromptRegistry(),
             logger,
             null,
             executeCollectionAsync,
@@ -166,9 +175,50 @@ internal static class TestServiceFactory
             archidektParser,
             edhTop16Client,
             commanderSpellbookService,
+            BuildMetaGapPromptRegistry(),
             null,
             executeCollectionAsync,
             executeSearchAsync);
+
+    private static AnalysisPromptVariantRegistry BuildAnalysisPromptRegistry()
+        => new(new IAnalysisPromptVariant[]
+        {
+            new ChatGptAnalysisPromptVariant(),
+            new ClaudeAnalysisPromptVariant(),
+            new GeminiAnalysisPromptVariant(),
+        });
+
+    private static SetUpgradePromptVariantRegistry BuildSetUpgradePromptRegistry()
+        => new(new ISetUpgradePromptVariant[]
+        {
+            new ChatGptSetUpgradePromptVariant(),
+            new ClaudeSetUpgradePromptVariant(),
+            new GeminiSetUpgradePromptVariant(),
+        });
+
+    private static ComparisonPromptVariantRegistry BuildComparisonPromptRegistry()
+        => new(new IComparisonPromptVariant[]
+        {
+            new ChatGptComparisonPromptVariant(),
+            new ClaudeComparisonPromptVariant(),
+            new GeminiComparisonPromptVariant(),
+        });
+
+    private static FollowUpPromptVariantRegistry BuildFollowUpPromptRegistry()
+        => new(new IFollowUpPromptVariant[]
+        {
+            new ChatGptFollowUpPromptVariant(),
+            new ClaudeFollowUpPromptVariant(),
+            new GeminiFollowUpPromptVariant(),
+        });
+
+    private static MetaGapPromptVariantRegistry BuildMetaGapPromptRegistry()
+        => new(new IMetaGapPromptVariant[]
+        {
+            new ChatGptMetaGapPromptVariant(),
+            new ClaudeMetaGapPromptVariant(),
+            new GeminiMetaGapPromptVariant(),
+        });
 
     private static FakeScryfallRestClientFactory CreateScryfallRestClientFactory()
         => new(new HttpClient
