@@ -4,6 +4,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Optional live-integration tests for the card lookup CLI that hit the real Scryfall API;
+/// skipped unless the <c>DECKSYNC_RUN_SCRYFALL_INTEGRATION</c> environment variable is set.
+/// </summary>
 public sealed class CardLookupIntegrationTests
 {
     private const string IntegrationFlag = "DECKSYNC_RUN_SCRYFALL_INTEGRATION";

@@ -8,6 +8,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Security;
 
+/// <summary>
+/// Integration tests for <see cref="AdminBruteForceTrackerStore"/> covering lockout tracking,
+/// attempt recording, and automatic expiry against a temporary SQLite database.
+/// </summary>
 public sealed class AdminBruteForceTrackerStoreTests : IDisposable
 {
     private readonly string _dbPath;

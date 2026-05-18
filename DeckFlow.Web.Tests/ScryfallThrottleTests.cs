@@ -6,6 +6,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallThrottle"/> covering rate-limit enforcement, 429/5xx exception throwing, and concurrency gating.
+/// </summary>
 public sealed class ScryfallThrottleTests
 {
     [Fact]

@@ -7,6 +7,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="BasicAuthMiddleware"/> covering credential validation, brute-force lockout, and 401/403 responses.
+/// </summary>
 public sealed class BasicAuthMiddlewareTests
 {
     private const string EnvUser = "FEEDBACK_ADMIN_USER";

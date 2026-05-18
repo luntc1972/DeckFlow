@@ -8,11 +8,19 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 // Database provider env vars are process-wide; serialize tests that mutate them.
+/// <summary>
+/// xUnit collection definition that serializes <see cref="DeckFlowDatabaseConnectionFactoryTests"/> to prevent
+/// parallel interference on shared database-provider environment variables.
+/// </summary>
 [CollectionDefinition("DeckFlowDatabaseConnectionFactoryTests", DisableParallelization = true)]
 public sealed class DeckFlowDatabaseConnectionFactoryTestsCollection
 {
 }
 
+/// <summary>
+/// Tests for <see cref="DeckFlowDatabaseConnectionFactory"/> covering SQLite path defaults, Postgres connection
+/// string parsing, and provider switching via environment variables.
+/// </summary>
 [Collection("DeckFlowDatabaseConnectionFactoryTests")]
 public sealed class DeckFlowDatabaseConnectionFactoryTests
 {

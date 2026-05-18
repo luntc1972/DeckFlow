@@ -4,6 +4,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="VersionService"/> covering assembly-version extraction and fallback behaviour.
+/// </summary>
 public class VersionServiceTests
 {
     [Fact]
