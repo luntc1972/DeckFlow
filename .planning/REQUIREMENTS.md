@@ -46,9 +46,9 @@ Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (Option A recommended: drop
 
 Source: `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization/10-AISEL-PLATFORM-DESIGN.md`.
 
-- [ ] **AIPLATFORM-01**: `string TargetAiPlatform` property replaced by `AiPlatform` sealed record value object on all three request DTOs (`DeckAnalysisRequest`, `DeckComparisonRequest`, `MetaGapRequest` — final names per CLASSRENAME-01). Value object encapsulates name, display label, enabled flag, response-extraction strategy. OCP forecast: 3/10 → 8/10.
-- [ ] **AIPLATFORM-02**: All five per-AI prompt builders (`BuildAnalysisPrompt`, `BuildSetUpgradePrompt`, `BuildComparisonPrompt`, `BuildFollowUpPrompt`, `BuildMetaGapPrompt`), the unified `<result>` extractor in `ExtractJsonPayload`, the artifact store round-trip (`LoadFromZip` / `BuildZip`), and view models switch over to the value-object API. `DECKFLOW_GEMINI_ENABLED` flag still gates Gemini option visibility.
-- [ ] **AIPLATFORM-03**: Zero user-visible behavior change. All three ChatGPT pages produce identical artifacts and round-trip identical zips before and after refactor. Verified by re-running manual integration tests T1-T8 + filename verify (full T1-T8 spec in `.planning/milestones/v1.2-MILESTONE-AUDIT.md`).
+- [x] **AIPLATFORM-01**: `string TargetAiPlatform` property replaced by `AiPlatform` sealed record value object on all three request DTOs (`DeckAnalysisRequest`, `DeckComparisonRequest`, `MetaGapRequest` — final names per CLASSRENAME-01). Value object encapsulates name, display label, enabled flag, response-extraction strategy. OCP forecast: 3/10 → 8/10.
+- [x] **AIPLATFORM-02**: All five per-AI prompt builders (`BuildAnalysisPrompt`, `BuildSetUpgradePrompt`, `BuildComparisonPrompt`, `BuildFollowUpPrompt`, `BuildMetaGapPrompt`), the unified `<result>` extractor in `ExtractJsonPayload`, the artifact store round-trip (`LoadFromZip` / `BuildZip`), and view models switch over to the value-object API. `DECKFLOW_GEMINI_ENABLED` flag still gates Gemini option visibility.
+- [x] **AIPLATFORM-03**: Zero user-visible behavior change. All three ChatGPT pages produce identical artifacts and round-trip identical zips before and after refactor. Verified by re-running manual integration tests T1-T8 + filename verify (full T1-T8 spec in `.planning/milestones/v1.2-MILESTONE-AUDIT.md`).
 
 ## Future Requirements (deferred from v1.3 — candidates for v1.4+)
 
