@@ -29,7 +29,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
@@ -155,7 +155,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -186,7 +186,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -215,7 +215,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -247,7 +247,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -279,7 +279,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -313,7 +313,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -348,7 +348,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -377,7 +377,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -407,7 +407,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -438,7 +438,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -466,7 +466,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -495,7 +495,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -529,7 +529,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -563,7 +563,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -598,7 +598,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -636,7 +636,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             capturingService,
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -681,7 +681,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
@@ -704,7 +704,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -742,7 +742,7 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
-            new FakeMetaGapService(),
+            new StubMetaGapService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -807,7 +807,11 @@ public sealed class DeckControllerTests
                 null));
     }
 
-    private sealed class FakeMetaGapService : IMetaGapService
+    /// <summary>
+    /// Test stub that returns a hardcoded <see cref="MetaGapResult"/> regardless of input.
+    /// Used to isolate controller tests from meta-gap service behavior.
+    /// </summary>
+    private sealed class StubMetaGapService : IMetaGapService
     {
         public Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
             => Task.FromResult(new MetaGapResult(
