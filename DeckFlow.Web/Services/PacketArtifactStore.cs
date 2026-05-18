@@ -308,7 +308,7 @@ internal static class PacketArtifactStore
 
             if (parsed.TargetAiPlatform is not null)
             {
-                request.TargetAiPlatform = parsed.TargetAiPlatform;
+                request.TargetAiPlatform = AiPlatform.Normalize(parsed.TargetAiPlatform).Key;
             }
         }
     }
@@ -384,7 +384,7 @@ internal static class PacketArtifactStore
             var parsed = RequestContextParser.Parse(requestContextText);
             if (parsed.TargetAiPlatform is not null)
             {
-                request.TargetAiPlatform = parsed.TargetAiPlatform;
+                request.TargetAiPlatform = AiPlatform.Normalize(parsed.TargetAiPlatform).Key;
             }
             if (parsed.DeckAName is not null)
             {
@@ -469,7 +469,7 @@ internal static class PacketArtifactStore
             var parsed = RequestContextParser.Parse(requestContextText);
             if (parsed.TargetAiPlatform is not null)
             {
-                request.TargetAiPlatform = parsed.TargetAiPlatform;
+                request.TargetAiPlatform = AiPlatform.Normalize(parsed.TargetAiPlatform).Key;
             }
             if (parsed.Commander is not null)
             {
