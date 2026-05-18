@@ -1,5 +1,10 @@
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Comparison;
+using DeckFlow.Web.Services.PromptBuilders.FollowUp;
+using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -19,6 +24,48 @@ public sealed class ResultContractTests
 {
     private static readonly string[] AiPlatforms = ["ChatGPT", "Claude", "Gemini"];
 
+    // Phase 15-02: static dispatch replaced by instance dispatch through registries.
+    // Minimal registries are constructed inline — no live HTTP/DI required.
+    private static AnalysisPromptVariantRegistry BuildAnalysisRegistry() =>
+        new AnalysisPromptVariantRegistry(new IAnalysisPromptVariant[]
+        {
+            new ChatGptAnalysisPromptVariant(),
+            new ClaudeAnalysisPromptVariant(),
+            new GeminiAnalysisPromptVariant(),
+        });
+
+    private static SetUpgradePromptVariantRegistry BuildSetUpgradeRegistry() =>
+        new SetUpgradePromptVariantRegistry(new ISetUpgradePromptVariant[]
+        {
+            new ChatGptSetUpgradePromptVariant(),
+            new ClaudeSetUpgradePromptVariant(),
+            new GeminiSetUpgradePromptVariant(),
+        });
+
+    private static ComparisonPromptVariantRegistry BuildComparisonRegistry() =>
+        new ComparisonPromptVariantRegistry(new IComparisonPromptVariant[]
+        {
+            new ChatGptComparisonPromptVariant(),
+            new ClaudeComparisonPromptVariant(),
+            new GeminiComparisonPromptVariant(),
+        });
+
+    private static FollowUpPromptVariantRegistry BuildFollowUpRegistry() =>
+        new FollowUpPromptVariantRegistry(new IFollowUpPromptVariant[]
+        {
+            new ChatGptFollowUpPromptVariant(),
+            new ClaudeFollowUpPromptVariant(),
+            new GeminiFollowUpPromptVariant(),
+        });
+
+    private static MetaGapPromptVariantRegistry BuildMetaGapRegistry() =>
+        new MetaGapPromptVariantRegistry(new IMetaGapPromptVariant[]
+        {
+            new ChatGptMetaGapPromptVariant(),
+            new ClaudeMetaGapPromptVariant(),
+            new GeminiMetaGapPromptVariant(),
+        });
+
     // ---- BuildAnalysisPrompt ----
 
     [Theory]
@@ -35,7 +82,9 @@ public sealed class ResultContractTests
             TargetCommanderBracket = "Cedh"
         };
 
-        var prompt = DeckAnalysisPacketService.BuildAnalysisPrompt(
+        var registry = BuildAnalysisRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize(request.TargetAiPlatform),
             request,
             decklistText: "1 Sol Ring\n1 Mana Crypt",
             referenceText: "Sol Ring: Add 2 mana.",
@@ -61,7 +110,9 @@ public sealed class ResultContractTests
             DeckName = "Test Deck"
         };
 
-        var prompt = DeckAnalysisPacketService.BuildSetUpgradePrompt(
+        var registry = BuildSetUpgradeRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize(request.TargetAiPlatform),
             request,
             decklistText: "1 Sol Ring",
             deckProfileJson: "{}",
@@ -83,7 +134,9 @@ public sealed class ResultContractTests
         var deckA = BuildSampleDeckSummary("Deck A", "Atraxa");
         var deckB = BuildSampleDeckSummary("Deck B", "Kraum");
 
-        var prompt = DeckComparisonService.BuildComparisonPrompt(
+        var registry = BuildComparisonRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize(platform),
             deckA,
             deckB,
             deckAListText: "1 Sol Ring (Atraxa list)",
@@ -91,8 +144,7 @@ public sealed class ResultContractTests
             deckAComboText: string.Empty,
             deckBComboText: string.Empty,
             comparisonContextText: "context",
-            comparisonSchemaJson: "{}",
-            targetAiPlatform: platform);
+            comparisonSchemaJson: "{}");
 
         AssertContainsResultWrap(prompt, platform);
     }
@@ -105,9 +157,10 @@ public sealed class ResultContractTests
     [InlineData("Gemini")]
     public void BuildFollowUpPrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
-        var prompt = DeckComparisonService.BuildFollowUpPrompt(
-            comparisonSchemaJson: "{\"type\":\"object\"}",
-            targetAiPlatform: platform);
+        var registry = BuildFollowUpRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize(platform),
+            comparisonSchemaJson: "{\"type\":\"object\"}");
 
         AssertContainsResultWrap(prompt, platform);
     }
@@ -120,15 +173,16 @@ public sealed class ResultContractTests
     [InlineData("Gemini")]
     public void CedhMetaGap_BuildPrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
-        var prompt = MetaGapService.BuildPrompt(
+        var registry = BuildMetaGapRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize(platform),
             commanderName: "Atraxa",
             myDeckEntries: Array.Empty<DeckFlow.Core.Models.DeckEntry>(),
             myDeckCombos: null,
             selectedEntries: Array.Empty<EdhTop16Entry>(),
             referenceDeckCombos: Array.Empty<DeckFlow.Web.Services.CommanderSpellbookResult?>(),
             oracleNameMap: new Dictionary<string, string>(),
-            schemaJson: "{}",
-            targetAiPlatform: platform);
+            schemaJson: "{}");
 
         AssertContainsResultWrap(prompt, platform);
     }
@@ -139,18 +193,22 @@ public sealed class ResultContractTests
     public void Every_dispatcher_returns_distinct_content_per_ai_platform()
     {
         // Sanity: the dispatcher is actually routing per platform — outputs are not byte-identical.
+        var registry = BuildAnalysisRegistry();
         var request = new DeckAnalysisRequest { TargetAiPlatform = "ChatGPT", Format = "Commander" };
-        var chatgpt = DeckAnalysisPacketService.BuildAnalysisPrompt(
+        var chatgpt = registry.Build(
+            AiPlatform.Normalize("ChatGPT"),
             request, "1 Sol Ring", "Sol Ring text", "{}", "Atraxa",
             Array.Empty<string>(), Array.Empty<string>());
 
         request.TargetAiPlatform = "Claude";
-        var claude = DeckAnalysisPacketService.BuildAnalysisPrompt(
+        var claude = registry.Build(
+            AiPlatform.Normalize("Claude"),
             request, "1 Sol Ring", "Sol Ring text", "{}", "Atraxa",
             Array.Empty<string>(), Array.Empty<string>());
 
         request.TargetAiPlatform = "Gemini";
-        var gemini = DeckAnalysisPacketService.BuildAnalysisPrompt(
+        var gemini = registry.Build(
+            AiPlatform.Normalize("Gemini"),
             request, "1 Sol Ring", "Sol Ring text", "{}", "Atraxa",
             Array.Empty<string>(), Array.Empty<string>());
 
@@ -162,8 +220,10 @@ public sealed class ResultContractTests
     [Fact]
     public void Claude_variant_uses_xml_skeleton_with_no_api_role_blocks()
     {
+        var registry = BuildAnalysisRegistry();
         var request = new DeckAnalysisRequest { TargetAiPlatform = "Claude", Format = "Commander" };
-        var claude = DeckAnalysisPacketService.BuildAnalysisPrompt(
+        var claude = registry.Build(
+            AiPlatform.Normalize("Claude"),
             request, "1 Sol Ring", "Sol Ring text", "{}", "Atraxa",
             Array.Empty<string>(), Array.Empty<string>());
 
@@ -202,7 +262,9 @@ public sealed class ResultContractTests
             Format = "Commander",
             TargetCommanderBracket = "Cedh"
         };
-        var prompt = DeckAnalysisPacketService.BuildAnalysisPrompt(
+        var registry = BuildAnalysisRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize("Gemini"),
             request,
             decklistText: "1 Sol Ring\n1 Mana Crypt",
             referenceText: "Sol Ring: Add 2 mana.",
