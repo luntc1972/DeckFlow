@@ -28,7 +28,7 @@ Select 1 to 3 EDH Top 16 reference decks and generate the prompt. While building
 - Queries Commander Spellbook for your deck and for each selected reference deck, then injects combo summaries into the prompt.
 - Caps the reference-deck count at 3 to keep the prompt size reasonable once decklists and combo references are included.
 
-ChatGPT is instructed to:
+Your AI is instructed to:
 
 - Write a concise human-readable meta-gap summary first.
 - Then return a fenced `json` block whose top-level object is `meta_gap`.
