@@ -308,7 +308,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
-            new SuccessfulSingleCardLookupService(),
+            new StubSuccessfulSingleCardLookupService(),
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
@@ -965,7 +965,11 @@ public sealed class DeckControllerTests
             => Task.FromResult<SingleCardLookupResult?>(new SingleCardLookupResult("Sol Ring", "Sol Ring", Array.Empty<string>()));
     }
 
-    private sealed class SuccessfulSingleCardLookupService : ICardLookupService
+    /// <summary>
+    /// Canned-response stub that returns a fixed successful single-card result for
+    /// "Monastery Swiftspear" with the Prowess mechanic; used to test single-card lookup flows.
+    /// </summary>
+    private sealed class StubSuccessfulSingleCardLookupService : ICardLookupService
     {
         public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
             => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
