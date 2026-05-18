@@ -192,7 +192,7 @@ Plans:
   4. Zero user-visible behavior change: full T1-T8 manual integration tests (per `.planning/milestones/v1.2-MILESTONE-AUDIT.md`) plus filename verify pass against post-refactor HEAD; all three pages produce byte-identical artifacts and round-trip identical zips before and after the refactor.
   5. Hypothetical 4th-platform extension test: adding `AiPlatform.Test` to `AiPlatform.All` + one stub variant per builder family does NOT require editing any switch expression, request-model setter, Razor partial, or context parser (proven by an actual test in the suite).
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 
 **Wave 1**
@@ -201,7 +201,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 15-02-PLAN.md — Extract 5 prompt-builder families to 25 new files under Services/PromptBuilders/{Analysis,SetUpgrade,Comparison,FollowUp,MetaGap}/; wire 20 DI registrations; delete dispatcher switches
+- [x] 15-02-PLAN.md — Extract 5 prompt-builder families to 25 new files under Services/PromptBuilders/{Analysis,SetUpgrade,Comparison,FollowUp,MetaGap}/; wire 20 DI registrations; delete dispatcher switches
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -228,7 +228,7 @@ Plans:
 | 12. AI-Agnostic URL + Page Rename | v1.3 | 5/5 | Complete    | 2026-05-17 |
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
-| 15. AiPlatform Value Object Refactor | v1.3 | 1/3 | In Progress|  |
+| 15. AiPlatform Value Object Refactor | v1.3 | 2/3 | In Progress|  |
 
 ---
 
