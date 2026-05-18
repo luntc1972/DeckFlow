@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Deck Comparison";
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
+    var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var presetBestPracticeHeader = """
 Use the decklists as the primary evidence base.
@@ -143,7 +144,7 @@ Deck B ([DECK B NAME]):
 <section class="hero">
     <h1>Deck Comparison</h1>
     <p class="page-lede">Generate a prompt comparing two decks. Paste into ChatGPT, Claude, or Gemini.</p>
-    <p class="lede">Compare two Commander decks side by side, generate a ChatGPT-ready comparison packet, and paste the returned <code>deck_comparison</code> JSON back here for a readable verdict.</p>
+    <p class="lede">Compare two Commander decks side by side, generate an AI-ready comparison packet, and paste the returned <code>deck_comparison</code> JSON back here for a readable verdict.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -155,7 +156,7 @@ Deck B ([DECK B NAME]):
 }
 
 <div class="info-banner">
-    Follow the steps in order: enter both decks, generate the comparison packet, paste <code>30-comparison-prompt.txt</code> into ChatGPT, then paste the returned <code>deck_comparison</code> JSON into Step 3.
+    Follow the steps in order: enter both decks, generate the comparison packet, paste <code>30-comparison-prompt.txt</code> into your AI, then paste the returned <code>deck_comparison</code> JSON into Step 3.
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.TimingSummary))
@@ -223,7 +224,7 @@ Deck B ([DECK B NAME]):
             <div>
                 <p class="chatgpt-step-eyebrow">Step 1</p>
                 <h2>Enter both decks</h2>
-                <p>Each side accepts the same sources as the current ChatGPT workflow: a public Moxfield or Archidekt URL, or pasted deck export text.</p>
+                <p>Each side accepts the same sources as the current Deck Analysis workflow: a public Moxfield or Archidekt URL, or pasted deck export text.</p>
             </div>
             <span class="chatgpt-step-badge">Required</span>
         </div>
@@ -231,7 +232,7 @@ Deck B ([DECK B NAME]):
         <details class="result-panel nested-panel">
             <summary>Show Commander bracket definitions</summary>
             <div class="chatgpt-context-note">
-                <p>Choose the bracket that best reflects each deck's intended power band. The comparison prompt includes these definitions so ChatGPT judges the lists against the selected bracket expectations instead of guessing.</p>
+                <p>Choose the bracket that best reflects each deck's intended power band. The comparison prompt includes these definitions so your AI judges the lists against the selected bracket expectations instead of guessing.</p>
                 <ul>
                     @foreach (var bracket in commanderBrackets)
                     {
@@ -313,7 +314,7 @@ Deck B ([DECK B NAME]):
             <div>
                 <p class="chatgpt-step-eyebrow">Step 2</p>
                 <h2>Generate the comparison packet</h2>
-                <p>Generate the packet, copy <code>30-comparison-prompt.txt</code>, paste it into ChatGPT, then ask for the final answer plus the fenced <code>deck_comparison</code> JSON block.</p>
+                <p>Generate the packet, copy <code>30-comparison-prompt.txt</code>, paste it into your AI, then ask for the final answer plus the fenced <code>deck_comparison</code> JSON block.</p>
             </div>
             <span class="chatgpt-step-badge">Packet output</span>
         </div>
@@ -323,9 +324,9 @@ Deck B ([DECK B NAME]):
             <ol>
                 <li>Click <code>Generate Comparison Packet</code>.</li>
                 <li>Copy <code>30-comparison-prompt.txt</code>.</li>
-                <li>Paste it into ChatGPT.</li>
-                <li>Have ChatGPT return the readable comparison plus a fenced <code>```json</code> block whose top-level object is <code>deck_comparison</code>.</li>
-                <li>Use <code>32-comparison-follow-up-prompt.txt</code> later if you continue the ChatGPT thread and want refreshed JSON.</li>
+                <li>Paste it into your AI.</li>
+                <li>Have your AI return the readable comparison plus a fenced <code>```json</code> block whose top-level object is <code>deck_comparison</code>.</li>
+                <li>Use <code>32-comparison-follow-up-prompt.txt</code> later if you continue the conversation with your AI and want refreshed JSON.</li>
                 <li>Paste that JSON into Step 3.</li>
             </ol>
         </div>
@@ -477,7 +478,7 @@ Deck B ([DECK B NAME]):
                 <div class="panel-heading">
                     <div>
                         <h3>30-comparison-prompt.txt</h3>
-                        <p>Paste this into ChatGPT to get the side-by-side comparison plus the required <code>deck_comparison</code> JSON.</p>
+                        <p>Paste this into @aiPlatform.DisplayName to get the side-by-side comparison plus the required <code>deck_comparison</code> JSON.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
                 </div>
@@ -492,7 +493,7 @@ Deck B ([DECK B NAME]):
                 <div class="panel-heading">
                     <div>
                         <h3>deck-comparison-schema.json</h3>
-                        <p>ChatGPT should return a <code>deck_comparison</code> JSON object matching this schema.</p>
+                        <p>@aiPlatform.DisplayName should return a <code>deck_comparison</code> JSON object matching this schema.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-schema-output">Copy</button>
                 </div>
@@ -506,7 +507,7 @@ Deck B ([DECK B NAME]):
                 <div class="panel-heading">
                     <div>
                         <h3>32-comparison-follow-up-prompt.txt</h3>
-                        <p>Paste this into the same ChatGPT thread after follow-up questions when you want an updated comparison and regenerated <code>deck_comparison</code> JSON.</p>
+                        <p>Paste this into the same @aiPlatform.DisplayName conversation after follow-up questions when you want an updated comparison and regenerated <code>deck_comparison</code> JSON.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-follow-up-prompt-output">Copy</button>
                 </div>
