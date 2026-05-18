@@ -47,7 +47,7 @@ public sealed class CommanderControllerTests
             CacheSweepPerformed: true);
 
         var controller = new CommanderController(
-            new DummyCommanderSearchService(),
+            new StubCommanderSearchService(),
             new FakeCommanderCategoryService(result),
             NullLogger<CommanderController>.Instance);
 
@@ -77,7 +77,7 @@ public sealed class CommanderControllerTests
             CacheSweepPerformed: false);
 
         var controller = new CommanderController(
-            new DummyCommanderSearchService(),
+            new StubCommanderSearchService(),
             new FakeCommanderCategoryService(result),
             NullLogger<CommanderController>.Instance);
 
@@ -114,7 +114,11 @@ public sealed class CommanderControllerTests
         Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", message);
     }
 
-    private sealed class DummyCommanderSearchService : ICommanderSearchService
+    /// <summary>
+    /// No-op stub that returns an empty search result for any query;
+    /// used to satisfy the <see cref="ICommanderSearchService"/> dependency in controller tests.
+    /// </summary>
+    private sealed class StubCommanderSearchService : ICommanderSearchService
     {
         public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
