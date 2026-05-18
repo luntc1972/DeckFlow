@@ -51,6 +51,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 13: ChatGpt* Class Rename + Summary Doc Comments** — Rename all `ChatGpt*` request/service/viewmodel/parser/store types to AI-agnostic names; backfill XML `<summary>` doc comments on every renamed class; update DI registrations, `InternalsVisibleTo`, namespaces, controller actions, test fixtures, and Razor `@model` directives with zero behavior change. (completed 2026-05-17)
 - [x] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings. (completed 2026-05-18)
 - [x] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite. (completed 2026-05-18)
+- [ ] **Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views** — Strip the hardcoded `"ChatGPT"` brand from every user-visible prose surface across the three AI-workflow pages (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`) so the visible text reads correctly for any AiPlatform selection. Apply Hybrid pattern (universal noun above `_AiSelector`, `@aiPlatform.DisplayName` injection below); generalize C# exception messages, `data-busy-title` attribute, 3 Help markdown files, and `DeckAnalysisPacketService` log prefix; honor JudgeQuestions D-03 carve-out and Phase 10 / Phase 13 D-08 / Phase 15 identifier invariants. (planned 2026-05-18 on `v1.3` branch)
 
 ## Phase Details
 
@@ -193,7 +194,6 @@ Plans:
   5. Hypothetical 4th-platform extension test: adding `AiPlatform.Test` to `AiPlatform.All` + one stub variant per builder family does NOT require editing any switch expression, request-model setter, Razor partial, or context parser (proven by an actual test in the suite).
 
 **Plans:** 3/3 plans complete
-Plans:
 
 **Wave 1**
 
@@ -206,6 +206,41 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 15-03-PLAN.md — Add internal AllForTesting seam + AiPlatformExtensionTests.cs (SC5 4th-platform proof) + full T1-T8 manual integration suite + byte-identical sha256 verification + final dotnet build clean + push-and-watch CI on v1.3
+
+### Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views
+
+**Goal**: Strip the hardcoded `"ChatGPT"` brand from every user-visible prose surface across the three AI-workflow pages (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`) so the visible text reads correctly whether the user picked ChatGPT, Claude, or Gemini in the Step 2 `_AiSelector`. Phase 12 already renamed URLs + H1s; Phase 13 renamed C# class symbols; Phase 15 shipped the `AiPlatform` value object plumbing. Phase 999.1 closes the remaining "brand leaks into copy" surface.
+**Depends on**: Phase 15 (uses `AiPlatform.Normalize(Model.Request.TargetAiPlatform).DisplayName` plumbing for below-selector Razor injection).
+**Requirements**: D-01..D-05 from `.planning/phases/999.1-ai-agnostic-prose-adaptation-razor-views/999.1-CONTEXT.md` (backlog phase — no formal REQ-IDs assigned; CONTEXT.md decisions are the binding contract).
+**Success Criteria** (what must be TRUE):
+
+  1. Above-selector Razor prose across `DeckAnalysis.cshtml`, `DeckComparison.cshtml`, `CedhMetaGap.cshtml` uses the universal noun `your AI` (D-05); Phase 12 enumerated `ChatGPT, Claude, or Gemini` ledes (one per page) are preserved per D-05 exception clause.
+  2. Below-selector Razor prose injects `@aiPlatform.DisplayName` via `AiPlatform.Normalize(Model.Request.TargetAiPlatform)` so the same view text reads correctly for ChatGPT / Claude / Gemini selections (D-01 Hybrid pattern).
+  3. User-facing exception messages in `ResponseParsers.cs`, `MetaGapService.cs`, `DeckComparisonService.cs` (8 in-scope strings) use the universal noun convention; the Phase 10 fallback Key `"ChatGPT"` passed to `NormalizeSingleLine(...)` on lines `MetaGapService.cs:266`, `DeckComparisonService.cs:229`, `DeckAnalysisPacketService.cs:1309` is preserved byte-identical.
+  4. `data-busy-title="Building ChatGPT Packets"` on `DeckAnalysis.cshtml:72` becomes `"Building Deck Analysis Packet"` (matches Phase 13 class naming + sibling pages' neutral busy titles). All other attributes on that line (Phase 10 / Phase 13 D-08 invariants) survive byte-identical.
+  5. The 3 Help markdown files (`deck-analysis.md`, `deck-comparison.md`, `cedh-meta-gap.md`) use the universal noun convention; `Help/ask-a-judge.md` is NOT modified (D-03 JudgeQuestions carve-out).
+  6. `DeckAnalysisPacketService.cs` log prefix renamed from "ChatGPT packet" to "Deck Analysis packet" across 5 `_logger.LogInformation` sites; the 2 doc comments mentioning ChatGPT are preserved per Phase 13 D-07.
+  7. JudgeQuestions D-03 carve-out preserved: `JudgeQuestions.cshtml` (6 hits), `Home.cshtml` line 62 hub card (1 hit), `Help/ask-a-judge.md` (2 hits) all unchanged.
+  8. Phase 13 D-08 TS/CSS-coupled identifiers preserved byte-identical: `data-cache-key="chatgpt-*"`, `data-chatgpt-*` attrs, `chatgpt-packets-form` + `chatgpt-step-eyebrow` CSS classes, `parseChatGptDownloadFilename` TS const. Phase 10 invariants preserved: AiPlatform.Key literals, `"chatgpt"` zip filename fallback in `PacketArtifactStore.cs`, `JsonTextFormatterService.ResultWrapInstruction` enumerated form.
+  9. README.md describes the multi-AI workflow generically; D-03 Ask-a-Judge paragraph preserved verbatim.
+  10. `dotnet build DeckFlow.sln -c Release` exits 0 with zero new warnings vs baseline; manual UAT confirms all three pages render correctly for ChatGPT / Claude / Gemini selections.
+
+**Plans:** 7 plans
+
+Plans:
+
+**Wave 1** *(parallel; zero file overlap)*
+
+- [ ] 999.1-01-PLAN.md — DeckAnalysis.cshtml Hybrid prose + AiPlatform.Normalize block + data-busy-title rename (28 hits → 1 lede)
+- [ ] 999.1-02-PLAN.md — DeckComparison.cshtml Hybrid prose + AiPlatform.Normalize block (12 hits → 1 lede)
+- [ ] 999.1-03-PLAN.md — CedhMetaGap.cshtml Hybrid prose + AiPlatform.Normalize block + Home.cshtml DeckComparison hub-card generalization (8 + 1 hits; D-03 carve-out on Home line 62 preserved)
+- [ ] 999.1-04-PLAN.md — C# user-facing exception messages: ResponseParsers.cs (6 strings) + MetaGapService.cs (2 strings) + DeckComparisonService.cs (2 strings); Phase 10 fallback Key strings preserved
+- [ ] 999.1-05-PLAN.md — Help markdown: deck-analysis.md (11 hits) + deck-comparison.md (6 hits) + cedh-meta-gap.md (1 hit); ask-a-judge.md carved out per D-03
+- [ ] 999.1-06-PLAN.md — DeckAnalysisPacketService.cs logger prefix rename (5 log lines); 2 doc comments + Phase 10 fallback Key preserved
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 999.1-07-PLAN.md — README brand audit + full-phase invariants grep gate (Phase 10 / Phase 13 D-08 / Phase 15 / D-03 carve-outs) + `dotnet build DeckFlow.sln -c Release` clean + HUMAN-UAT.md manual sign-off
 
 ---
 
@@ -229,26 +264,11 @@ Plans:
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
 | 15. AiPlatform Value Object Refactor | v1.3 | 3/3 | Complete    | 2026-05-18 |
+| 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 0/7 | Planned | — |
 
 ---
 
 ## Backlog
-
-### Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Captured 2026-05-17 during Phase 13 UAT. Hardcoded "ChatGPT" strings in Razor visible prose:
-- DeckAnalysis.cshtml: "Ask ChatGPT to return...", "How to push back on ChatGPT's conclusions" heading + body, "If ChatGPT makes a bad assumption...", "keep the conversation in ChatGPT going...", "Optional Follow-up JSON Refresh Prompt" intro ("if you asked additional questions in ChatGPT...")
-- DeckComparison.cshtml + CedhMetaGap.cshtml: same pattern CONFIRMED during Phase 13 UAT T5 (hardcoded "ChatGPT" prose in cEDH meta-gap workflow instructions)
-- Per-page `analysisFollowUpPrompt` raw-string literal + equivalents
-
-Should adapt per `request.TargetAiPlatform` (ChatGPT/Claude/Gemini). Out of Phase 13 scope per 13-CONTEXT.md D-07 #6 (Razor visible prose preserved — CLASSRENAME is code-symbol-only). Candidate to pair with AIPLATFORM-01 / Phase 15 value object plumbing (richer per-platform dispatch already planned) OR own follow-up phase.
-
-Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
 
 ### Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option (BACKLOG)
 
