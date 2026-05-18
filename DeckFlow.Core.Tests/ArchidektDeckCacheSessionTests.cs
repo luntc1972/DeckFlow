@@ -6,6 +6,10 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Integration tests for <see cref="ArchidektDeckCacheSession"/> covering harvest-run pagination,
+/// per-deck import, and knowledge-cache persistence against a temporary SQLite database.
+/// </summary>
 public sealed class ArchidektDeckCacheSessionTests : IDisposable
 {
     private readonly string _databasePath;
