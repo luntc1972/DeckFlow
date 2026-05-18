@@ -309,7 +309,7 @@ public sealed class DeckControllerTests
             new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new StubSuccessfulSingleCardLookupService(),
-            new SuccessfulMechanicLookupService(),
+            new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
@@ -373,7 +373,7 @@ public sealed class DeckControllerTests
             new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new AlternateNameSingleCardLookupService(),
-            new SuccessfulMechanicLookupService(),
+            new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
@@ -491,7 +491,7 @@ public sealed class DeckControllerTests
             new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
-            new SuccessfulMechanicLookupService(),
+            new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
@@ -1008,7 +1008,11 @@ public sealed class DeckControllerTests
             => Task.FromResult(MechanicLookupResult.NotFound(mechanicName, "https://magic.wizards.com/en/rules", null));
     }
 
-    private sealed class SuccessfulMechanicLookupService : IMechanicLookupService
+    /// <summary>
+    /// Canned-response stub that returns a fixed successful <see cref="MechanicLookupResult"/>
+    /// for Prowess; used to test mechanic lookup flows without invoking the rules service.
+    /// </summary>
+    private sealed class StubSuccessfulMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
             => Task.FromResult(new MechanicLookupResult(
