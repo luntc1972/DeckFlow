@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-18T19:09:02.152Z",
+  "phase": "999.1",
+  "phase_name": "ai-agnostic-prose-adaptation-razor-views",
+  "phase_dir": ".planning/phases/999.1-ai-agnostic-prose-adaptation-razor-views",
+  "plan": 7,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "paused_at_human_verify_checkpoint",
+  "completed_plans": [
+    {"id": "999.1-01", "name": "DeckAnalysis.cshtml hybrid prose", "status": "done", "merged_into_v1.3": "65c7b63"},
+    {"id": "999.1-02", "name": "DeckComparison.cshtml hybrid prose", "status": "done", "merged_into_v1.3": "faf8520"},
+    {"id": "999.1-03", "name": "CedhMetaGap + Home hub-card", "status": "done", "merged_into_v1.3": "f44b85d"},
+    {"id": "999.1-04", "name": "Service exception messages", "status": "done", "merged_into_v1.3": "984e5b5"},
+    {"id": "999.1-05", "name": "Help markdown rewrites", "status": "done", "merged_into_v1.3": "f887703"},
+    {"id": "999.1-06", "name": "Logger prefix renames", "status": "done", "merged_into_v1.3": "05739e2"}
+  ],
+  "in_progress_plan": {
+    "id": "999.1-07",
+    "name": "Final verification + brand audit",
+    "wave": 2,
+    "autonomous": false,
+    "completed_tasks": [
+      {"id": 1, "name": "README brand audit", "status": "done", "commit_in_worktree": "621549a"},
+      {"id": 2, "name": "Full-phase invariants grep gate + dotnet build", "status": "done", "commit_in_worktree": "(gate-only)"},
+      {"id": 3, "name": "Human UAT — UAT file written", "status": "checkpoint_awaiting_user", "commit_in_worktree": "da1cb34"}
+    ],
+    "worktree_path": "/mnt/c/users/chrislunt/source/personal/deckflow/.claude/worktrees/agent-a83bb674291ad3297",
+    "worktree_branch": "worktree-agent-a83bb674291ad3297",
+    "executor_agent_id": "a83bb674291ad3297",
+    "expected_base": "40164da2e3707a1e64030c1f9c2654e9c9386cbe",
+    "wave2_manifest_path": "/tmp/gsd-worktree-wave2-FM8ixm.json",
+    "summary_md_status": "NOT_YET_WRITTEN"
+  },
+  "blockers": [
+    {"description": "Human UAT not yet performed", "type": "human_action", "workaround": "User must start DeckFlow web, walk through 999.1-HUMAN-UAT.md, type 'approved' or 'issues: ...'"}
+  ],
+  "human_actions_pending": [
+    {"action": "Start DeckFlow web (dotnet run --project DeckFlow.Web)", "context": "User MEMORY.md feedback_user_starts_server.md — never auto-launch", "blocking": true},
+    {"action": "Walk through .planning/phases/999.1-ai-agnostic-prose-adaptation-razor-views/999.1-HUMAN-UAT.md (T1 + T4 + T5 + Hub/Help + JudgeQuestions regression)", "context": "checkpoint:human-verify task gate", "blocking": true},
+    {"action": "Type 'approved' or 'issues: <desc>' in chat to resume executor a83bb674291ad3297", "context": "Continuation agent resumption signal", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Build gate runs dotnet.exe (Windows host SDK) not native Linux dotnet", "rationale": "WSL has no native dotnet; SDK at /mnt/c/Program Files/dotnet/dotnet.exe per CLAUDE.md note that VSTest is unreliable in WSL — build-only gate", "phase": "999.1"},
+    {"decision": "Test gate skipped, build-only", "rationale": "CLAUDE.md: VSTest unreliable in WSL; rely on dotnet build clean + targeted manual harness or push-and-watch CI", "phase": "999.1"},
+    {"decision": "node_modules symlinks removed from worktrees before cleanup-wave", "rationale": "Untracked symlink at DeckFlow.Web/node_modules trips git status dirty check in worktree.cleanup-wave helper; .gitignore pattern 'node_modules/' (with trailing slash) does not match symlink-as-file", "phase": "999.1"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "After user types 'approved' in chat: (a) merge worktree-agent-a83bb674291ad3297 via gsd-sdk query worktree.cleanup-wave --manifest /tmp/gsd-worktree-wave2-FM8ixm.json; (b) SendMessage to executor agent a83bb674291ad3297 with 'approved' so it writes 999.1-07-SUMMARY.md OR spawn continuation agent per workflow checkpoint_handling; (c) update ROADMAP plan 999.1-07 complete; (d) run code-review gate, regression gate, schema/codebase drift gates, verify_phase_goal subagent; (e) phase.complete to mark 999.1 done.",
+  "context_notes": "Phase 999.1 is brand-neutralization rename — replace user-visible 'ChatGPT' prose with AI-agnostic phrasing across 3 multi-AI Razor views + services + Help docs + README. CONTEXT.md decisions D-01..D-05 are binding. Phase 13 D-08 (TS/CSS identifiers chatgpt-packets-form / data-cache-key='chatgpt-*' / chatgpt-step-eyebrow / parseChatGptDownloadFilename) intentionally deferred — must remain byte-identical. D-03 carve-outs (JudgeQuestions.cshtml, Home.cshtml line 62, Help/ask-a-judge.md) preserve ChatGPT-the-product name. Plans 01-06 all merged into v1.3. Plan 07 is at human-verify checkpoint."
+}
