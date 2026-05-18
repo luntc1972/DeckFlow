@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Deck Comparison";
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
+    var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var presetBestPracticeHeader = """
 Use the decklists as the primary evidence base.
