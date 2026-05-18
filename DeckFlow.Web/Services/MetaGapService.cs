@@ -835,7 +835,7 @@ public sealed class MetaGapService : IMetaGapService
     {
         if (string.IsNullOrWhiteSpace(input))
         {
-            throw new InvalidOperationException("Paste the meta_gap JSON returned from ChatGPT into Step 3.");
+            throw new InvalidOperationException("Paste the meta_gap JSON returned from your AI into Step 3.");
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
@@ -852,7 +852,7 @@ public sealed class MetaGapService : IMetaGapService
 
         if (result is null)
         {
-            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid meta_gap payload.");
+            throw new InvalidOperationException("The submitted AI response did not contain a valid meta_gap payload.");
         }
 
         return result;

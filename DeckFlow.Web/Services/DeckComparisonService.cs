@@ -812,7 +812,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
     {
         if (string.IsNullOrWhiteSpace(input))
         {
-            throw new InvalidOperationException("Paste the deck_comparison JSON returned from ChatGPT into Step 3.");
+            throw new InvalidOperationException("Paste the deck_comparison JSON returned from your AI into Step 3.");
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
@@ -832,7 +832,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
 
         if (result is null)
         {
-            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_comparison payload.");
+            throw new InvalidOperationException("The submitted AI response did not contain a valid deck_comparison payload.");
         }
 
         return result;
