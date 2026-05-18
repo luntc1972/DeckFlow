@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-18T03:34:14.480Z",
+  "phase": "15",
+  "phase_name": "aiplatform-value-object-refactor",
+  "phase_dir": ".planning/phases/15-aiplatform-value-object-refactor",
+  "plan": 2,
+  "task": 0,
+  "total_tasks": 5,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "15-01", "name": "AiPlatform value object + string-touchpoint migration", "status": "done", "commit": "c907b90", "merge_commit": "1f36d78", "tracking_commit": "a1196b8"}
+  ],
+  "remaining_tasks": [
+    {"id": "15-02", "name": "Prompt-builder strategy registries (25 files, DI wiring)", "status": "not_started", "wave": 2, "autonomous": true},
+    {"id": "15-03", "name": "SC5 proof test + T1-T8 manual integration + CI gate", "status": "not_started", "wave": 3, "autonomous": false}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Plan 15-03 is non-autonomous — requires manual T1-T8 integration test pass + byte-identical artifact-hash check + push-and-watch CI", "context": "Plan frontmatter has autonomous: false; orchestrator will surface checkpoint when wave 3 dispatches", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Use Windows dotnet.exe (/mnt/c/Program Files/dotnet/dotnet.exe) for post-merge build gates in WSL", "rationale": "No Linux dotnet installed; CLAUDE.md mandates dotnet build clean as sole local verification (VSTest unreliable in WSL); CI is push-and-watch", "phase": "15"},
+    {"decision": "RequestContextParser.cs deliberately left UNCHANGED in plan 15-01 despite being in files_modified", "rationale": "Plan 15-01 §'Migration of existing code' item 4 explicitly preserves parser surface; defensive Normalize lives at PacketArtifactStore consumer sites instead", "phase": "15"},
+    {"decision": "Worktree isolation per wave (parallel-style) despite linear wave-dependency chain", "rationale": "Project default workflow.use_worktrees=true; provides commit-level rollback and isolated build verification per wave", "phase": "15"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Resume wave 2: spawn gsd-executor for plan 15-02 with worktree isolation, EXPECTED_BASE=a1196b86335593cc64c99e51a83eb51e118e0df9, branch=v1.3. After 15-02 returns: merge worktree → dotnet build gate → update tracking → wave 3 (checkpoint).",
+  "context_notes": "Wave 1 of 3 complete. AiPlatform value object now lives at DeckFlow.Web/Models/AiPlatform.cs and is consumed by 3 DTO setters + Razor + PacketArtifactStore + test harness. Wave 2 owns the OCP-score jump (3→8) via 25-file strategy registry extraction. Wave 3 is non-autonomous (manual T1-T8 + CI gate). Phase chain flag was cleared on entry (manual invocation, not --auto). _auto_chain_active is currently false in config."
+}
