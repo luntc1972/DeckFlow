@@ -264,7 +264,7 @@ Plans:
 | 13. ChatGpt* Class Rename + Doc Comments | v1.3 | 4/4 | Complete    | 2026-05-17 |
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
 | 15. AiPlatform Value Object Refactor | v1.3 | 3/3 | Complete    | 2026-05-18 |
-| 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 7/7 | Complete   | 2026-05-19 |
+| 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 7/7 | Complete    | 2026-05-19 |
 
 ---
 
