@@ -44,8 +44,7 @@ internal sealed class ClaudeFollowUpPromptVariant : IFollowUpPromptVariant
         builder.AppendLine("For each revised conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
         builder.AppendLine("Return updated readable comparison prose first with 2-4 sentences per axis that changed, then a revised verdict.");
         builder.AppendLine("After the readable revision, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
-        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("Regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
     }

@@ -106,8 +106,7 @@ internal sealed class ClaudeMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("- TOP IMPROVEMENTS");
         builder.AppendLine("- META POSITIONING");
         builder.AppendLine("After the readable summary, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
-        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("Return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
     }

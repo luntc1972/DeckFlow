@@ -227,8 +227,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("- deck_needs: each item should be 1-2 sentences identifying a gap and what kind of card fills it.");
         builder.AppendLine("- weak_slots.reason: 2-3 sentences explaining why this slot is weak and what would improve it.");
         builder.AppendLine();
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
-        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine("</" + "task>");
 
         return builder.ToString().TrimEnd();

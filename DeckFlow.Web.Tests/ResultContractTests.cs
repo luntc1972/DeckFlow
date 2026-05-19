@@ -70,7 +70,6 @@ public sealed class ResultContractTests
 
     [Theory]
     [InlineData("ChatGPT")]
-    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void BuildAnalysisPrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
@@ -96,11 +95,40 @@ public sealed class ResultContractTests
         AssertContainsResultWrap(prompt, platform);
     }
 
+    // Phase 999.2: Claude variants emit a fenced ```json directive instead of the
+    // <result>...</result> wrapper. Parser (JsonTextFormatterService.ExtractJsonPayload)
+    // already falls through <result>-regex to brace-scan so fenced-only output parses.
+    [Fact]
+    public void BuildAnalysisPrompt_for_Claude_emits_fenced_json_directive_not_result_wrapper()
+    {
+        var request = new DeckAnalysisRequest
+        {
+            TargetAiPlatform = "Claude",
+            DeckName = "Test Deck",
+            Format = "Commander",
+            TargetCommanderBracket = "Cedh"
+        };
+
+        var registry = BuildAnalysisRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize("Claude"),
+            request,
+            decklistText: "1 Sol Ring\n1 Mana Crypt",
+            referenceText: "Sol Ring: Add 2 mana.",
+            deckProfileSchemaJson: "{\"type\":\"object\"}",
+            commanderName: "Atraxa",
+            selectedQuestionIds: Array.Empty<string>(),
+            bannedCards: Array.Empty<string>());
+
+        Assert.Contains("fenced ```json code block", prompt);
+        Assert.DoesNotContain("<result>", prompt);
+        Assert.DoesNotContain("</result>", prompt);
+    }
+
     // ---- BuildSetUpgradePrompt ----
 
     [Theory]
     [InlineData("ChatGPT")]
-    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void BuildSetUpgradePrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
@@ -123,11 +151,35 @@ public sealed class ResultContractTests
         AssertContainsResultWrap(prompt, platform);
     }
 
+    [Fact]
+    public void BuildSetUpgradePrompt_for_Claude_emits_fenced_json_directive_not_result_wrapper()
+    {
+        var request = new DeckAnalysisRequest
+        {
+            TargetAiPlatform = "Claude",
+            DeckName = "Test Deck"
+        };
+
+        var registry = BuildSetUpgradeRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize("Claude"),
+            request,
+            decklistText: "1 Sol Ring",
+            deckProfileJson: "{}",
+            commanderName: "Atraxa",
+            generatedSetPacket: "Sample set packet text",
+            bannedCards: Array.Empty<string>());
+
+        Assert.Contains("fenced ```json code block", prompt);
+        Assert.Contains("set_upgrade_report", prompt);
+        Assert.DoesNotContain("<result>", prompt);
+        Assert.DoesNotContain("</result>", prompt);
+    }
+
     // ---- BuildComparisonPrompt ----
 
     [Theory]
     [InlineData("ChatGPT")]
-    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void BuildComparisonPrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
@@ -149,11 +201,34 @@ public sealed class ResultContractTests
         AssertContainsResultWrap(prompt, platform);
     }
 
+    [Fact]
+    public void BuildComparisonPrompt_for_Claude_emits_fenced_json_directive_not_result_wrapper()
+    {
+        var deckA = BuildSampleDeckSummary("Deck A", "Atraxa");
+        var deckB = BuildSampleDeckSummary("Deck B", "Kraum");
+
+        var registry = BuildComparisonRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize("Claude"),
+            deckA,
+            deckB,
+            deckAListText: "1 Sol Ring (Atraxa list)",
+            deckBListText: "1 Mana Crypt (Kraum list)",
+            deckAComboText: string.Empty,
+            deckBComboText: string.Empty,
+            comparisonContextText: "context",
+            comparisonSchemaJson: "{}");
+
+        Assert.Contains("fenced ```json code block", prompt);
+        Assert.Contains("deck_comparison", prompt);
+        Assert.DoesNotContain("<result>", prompt);
+        Assert.DoesNotContain("</result>", prompt);
+    }
+
     // ---- BuildFollowUpPrompt ----
 
     [Theory]
     [InlineData("ChatGPT")]
-    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void BuildFollowUpPrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
@@ -165,11 +240,24 @@ public sealed class ResultContractTests
         AssertContainsResultWrap(prompt, platform);
     }
 
+    [Fact]
+    public void BuildFollowUpPrompt_for_Claude_emits_fenced_json_directive_not_result_wrapper()
+    {
+        var registry = BuildFollowUpRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize("Claude"),
+            comparisonSchemaJson: "{\"type\":\"object\"}");
+
+        Assert.Contains("fenced ```json code block", prompt);
+        Assert.Contains("deck_comparison", prompt);
+        Assert.DoesNotContain("<result>", prompt);
+        Assert.DoesNotContain("</result>", prompt);
+    }
+
     // ---- BuildPrompt (CedhMetaGap) ----
 
     [Theory]
     [InlineData("ChatGPT")]
-    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void CedhMetaGap_BuildPrompt_emits_result_wrap_directive_for_every_ai(string platform)
     {
@@ -185,6 +273,26 @@ public sealed class ResultContractTests
             schemaJson: "{}");
 
         AssertContainsResultWrap(prompt, platform);
+    }
+
+    [Fact]
+    public void CedhMetaGap_BuildPrompt_for_Claude_emits_fenced_json_directive_not_result_wrapper()
+    {
+        var registry = BuildMetaGapRegistry();
+        var prompt = registry.Build(
+            AiPlatform.Normalize("Claude"),
+            commanderName: "Atraxa",
+            myDeckEntries: Array.Empty<DeckFlow.Core.Models.DeckEntry>(),
+            myDeckCombos: null,
+            selectedEntries: Array.Empty<EdhTop16Entry>(),
+            referenceDeckCombos: Array.Empty<DeckFlow.Web.Services.CommanderSpellbookResult?>(),
+            oracleNameMap: new Dictionary<string, string>(),
+            schemaJson: "{}");
+
+        Assert.Contains("fenced ```json code block", prompt);
+        Assert.Contains("meta_gap", prompt);
+        Assert.DoesNotContain("<result>", prompt);
+        Assert.DoesNotContain("</result>", prompt);
     }
 
     // ---- Cross-AI matrix sanity ----

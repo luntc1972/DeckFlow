@@ -185,8 +185,7 @@ internal sealed class ClaudeSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("- A final cross-set ranked shortlist with must_test, optional, and skip recommendations.");
         builder.AppendLine("- A standalone discussion_summary.txt-style notes section that condenses the per-set analysis, final recommendations, key add/cut reasoning, and direct answers to the analysis questions.");
         builder.AppendLine("After the readable analysis, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
-        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("Return a complete set_upgrade_report JSON. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine("</" + "task>");
 
         return builder.ToString().TrimEnd();
