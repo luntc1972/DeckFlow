@@ -195,4 +195,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Active:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (started 2026-05-13 on `v1.3` branch).
 
 ---
-*Last updated: 2026-05-17 — Phase 12 (AI-agnostic URL + page rename) complete*
+*Last updated: 2026-05-19 — Phase 999.1 (AI-agnostic prose adaptation in Razor views) complete*
