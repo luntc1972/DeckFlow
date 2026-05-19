@@ -87,8 +87,7 @@ internal sealed class ClaudeComparisonPromptVariant : IComparisonPromptVariant
         builder.AppendLine("- Five concrete cards or packages that best explain the gap between the two decks, with one sentence of reasoning each.");
         builder.AppendLine("- A final verdict naming which deck is stronger overall and why, in 2-4 sentences.");
         builder.AppendLine("After the readable comparison, return a single JSON object matching <output_schema>.");
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
-        builder.AppendLine("Wrap your final structured output in <result>...</result> tags. Inside <result>, return a single JSON object matching <output_schema>. Place the readable answer prose BEFORE the <result> tag (outside it). Do not put prose inside <result>; do not put JSON outside <result>.");
+        builder.AppendLine("You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
     }
