@@ -52,6 +52,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings. (completed 2026-05-18)
 - [x] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite. (completed 2026-05-18)
 - [x] **Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views** — Strip the hardcoded `"ChatGPT"` brand from every user-visible prose surface across the three AI-workflow pages (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`) so the visible text reads correctly for any AiPlatform selection. Apply Hybrid pattern (universal noun above `_AiSelector`, `@aiPlatform.DisplayName` injection below); generalize C# exception messages, `data-busy-title` attribute, 3 Help markdown files, and `DeckAnalysisPacketService` log prefix; honor JudgeQuestions D-03 carve-out and Phase 10 / Phase 13 D-08 / Phase 15 identifier invariants. (planned 2026-05-18 on `v1.3` branch) (completed 2026-05-19)
+- [ ] **Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option** — Stop the 5 Claude prompt variants from instructing Claude to wrap JSON in `<result>...</result>` tags. Claude empirically emits BOTH the wrapper AND a duplicate fenced ```json block (Phase 13 UAT T4 observation, 2026-05-17), cluttering chat output. Remove the two wrap-instruction `AppendLine` calls from each Claude variant and replace them in-place with the verbatim ChatGPT-counterpart fenced-block directive. Parser stays untouched (legacy zips still parse via `<result>` regex branch per D-12). ChatGPT + Gemini variants stay untouched (D-02). Update `ResultContractTests.cs` Claude theory rows to reflect divergence (D-13). (planned 2026-05-19 on `v1.3` branch)
 
 ## Phase Details
 
@@ -242,6 +243,28 @@ Plans:
 
 - [x] 999.1-07-PLAN.md — README brand audit + full-phase invariants grep gate (Phase 10 / Phase 13 D-08 / Phase 15 / D-03 carve-outs) + `dotnet build DeckFlow.sln -c Release` clean + HUMAN-UAT.md manual sign-off
 
+### Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option
+
+**Goal**: Stop the 5 Claude prompt variants from instructing Claude to wrap JSON in `<result>...</result>` tags. Claude empirically emits BOTH the wrapper AND a duplicate fenced ```json block (observed during Phase 13 UAT T4, 2026-05-17), cluttering chat output without parser benefit. Remove the two wrap-instruction `AppendLine` calls from each of the 5 Claude prompt-variant files and replace them in-place with the verbatim fenced-block directive used by the matching ChatGPT counterpart. Parser stays untouched (`JsonTextFormatterService.ExtractJsonPayload` already falls through `<result>` regex to brace-scan, so legacy zip artifacts containing pre-999.2 Claude responses still parse via the `<result>` branch). ChatGPT + Gemini variants stay untouched. Test contract `ResultContractTests.cs` updated to reflect Claude's divergence from the ChatGPT/Gemini `<result>`-wrap convention.
+**Depends on**: Phase 15 (exercises the Phase 15 "registries are the per-platform strategy surface" claim — Claude variants diverge at the variant-class level without touching the `AiPlatform` record or adding any new strategy interface).
+**Requirements**: D-01..D-14 from `.planning/phases/999.2-claude-result-wrapper-direct-json-output/999.2-CONTEXT.md` (backlog-style phase — no formal REQ-IDs assigned; CONTEXT.md decisions are the binding contract).
+**Success Criteria** (what must be TRUE):
+
+  1. (D-01, D-02) Zero `ResultWrapInstruction` references in any `DeckFlow.Web/Services/PromptBuilders/*/Claude*PromptVariant.cs`; zero `<result>` substrings in any Claude variant; all 5 Claude prompt-variant families edited.
+  2. (D-03) The follow-on "Wrap your final structured output in `<result>...</result>` tags..." AppendLine deleted in every Claude variant alongside the `ResultWrapInstruction` line.
+  3. (D-04, D-05, D-06) Each Claude variant emits a fenced ```json code-block directive verbatim-copied from its ChatGPT family counterpart (with leading numbered-list / bullet whitespace prefix stripped per D-05 exception clause); the new directive lands in the exact same line slot the deleted lines occupied — immediately before `builder.AppendLine("</" + "task>");`.
+  4. (D-07) Per-version `deck_profile` and similar sub-object fenced-block directives in Claude variants are untouched.
+  5. (D-08) No new property on `AiPlatform` record; no new `IResultWrapPolicy` interface; no new helper method on `JsonTextFormatterService`; Phase 15 D-01 data-only-record invariant preserved.
+  6. (D-11) Phase grep gate passes: zero hits for `ResultWrapInstruction` and `<result>` in Claude variants; exactly 10 hits for `ResultWrapInstruction` across ChatGPT + Gemini variants; 5 hits each for Gemini `ResultWrapInstruction` and `GeminiJsonMandate`; `dotnet.exe build DeckFlow.sln -c Release` exits 0 with 0 new warnings; manual UAT T3 (Claude / deck-analysis) + T7 (Claude / cEDH meta-gap) + ad-hoc Claude / deck-comparison all show a single fenced ```json block in Claude's chat with no `<result>` tags AND round-trip paste-back parses cleanly.
+  7. (D-12) `JsonTextFormatterService.cs` byte-identical to pre-phase state; legacy zip artifacts with pre-999.2 Claude `<result>` responses still parse via the regex branch.
+  8. (D-13) `ResultContractTests.cs` updated: 5 `[InlineData("Claude")]` rows removed from prompt-body-asserting theories; 5 new Claude-specific facts assert the fenced-block substring AND `Assert.DoesNotContain("<result>", ...)`; ChatGPT + Gemini coverage intact via the unchanged `AssertContainsResultWrap` helper.
+
+**Plans:** 1 plan
+Plans:
+**Wave 1**
+
+- [ ] 999.2-01-PLAN.md — Drop `<result>` wrapper from all 5 Claude prompt variants (1 commit per variant per D-09, alphabetical: Analysis → Comparison → FollowUp → MetaGap → SetUpgrade) + D-13 test impact audit fix in `ResultContractTests.cs` (5 Claude theory rows replaced with Claude-specific fenced-block facts) + Task 7 manual UAT T3 + T7 + ad-hoc Claude / deck-comparison gate
+
 ---
 
 ## Progress
@@ -265,28 +288,11 @@ Plans:
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
 | 15. AiPlatform Value Object Refactor | v1.3 | 3/3 | Complete    | 2026-05-18 |
 | 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 7/7 | Complete    | 2026-05-19 |
+| 999.2 Claude `<result>` Wrapper — Direct JSON Output Option | v1.3 | 0/1 | Planned    | — |
 
 ---
 
 ## Backlog
-
-### Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Captured 2026-05-17 during Phase 13 UAT T4. Claude is currently instructed to wrap JSON response in `<result>...</result>` XML tags (`JsonTextFormatterService.ResultWrapInstruction` at `DeckFlow.Web/Services/JsonTextFormatterService.cs:13-14`) for unified parser extraction across ChatGPT/Claude/Gemini. User observation: Claude emits the wrapper AND duplicates the JSON in a fenced ```json block below, producing visible XML artifacts in the chat.
-
-Considered alternatives:
-- Drop the wrapper for Claude only (emit raw JSON via fenced block) — pro: cleaner Claude output; con: breaks unified parser (`JsonTextFormatterService` extracts `<result>...</result>` first, falls back to fenced); needs per-platform extractor; diverges Phase 10 design (D-? AISEL-02).
-- Tighten Claude prompt to suppress fenced-block duplication while keeping `<result>` wrapper.
-- Switch the parser to fenced-block-primary, `<result>` fallback.
-
-Design call. Forward-compatible candidate to pair with AIPLATFORM-01 / Phase 15 value object (per-platform dispatch already plumbed there).
-
-Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
 
 ### Phase 999.3: edhtop16 Filter Defaults vs DeckFlow Filter Defaults (BACKLOG)
 
