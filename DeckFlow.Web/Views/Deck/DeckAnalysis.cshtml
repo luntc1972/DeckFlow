@@ -1,7 +1,7 @@
 @model DeckFlow.Web.Models.DeckAnalysisViewModel
 @{
     ViewData["Title"] = "Deck Analysis";
-    var aiPlatform = DeckFlow.Web.Models.AiPlatform.Normalize(Model.Request.TargetAiPlatform);
+    var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = DeckFlow.Web.Models.AnalysisQuestionCatalog.Buckets;
@@ -126,7 +126,7 @@ Do not omit any fields from the schema.
             <div>
                 <p class="chatgpt-step-eyebrow">Step 1</p>
                 <h2>Paste the deck once for the whole workflow</h2>
-                <p>This deck input powers the analysigs packet and the optional set-upgrade packet.</p>
+                <p>This deck input powers the analysis packet and the optional set-upgrade packet.</p>
             </div>
             <span class="chatgpt-step-badge">Required</span>
         </div>
@@ -224,7 +224,7 @@ Do not omit any fields from the schema.
                     <li><strong>Strategy notes</strong> tell your AI what the deck is trying to do so it weighs the list against your intended game plan.</li>
                     <li><strong>Meta notes</strong> tell your AI what kinds of tables or threats you expect, which changes how it judges weaknesses and upgrades.</li>
                 </ul>
-                <p>If you leave these blank, the prompts still work. your AI will infer more from the decklist alone.</p>
+                <p>If you leave these blank, the prompts still work. Your AI will infer more from the decklist alone.</p>
             </div>
             <div class="sync-columns">
                 <label class="field">

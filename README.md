@@ -352,7 +352,7 @@ Paste your AI's JSON response back into the form. The page parses the `deck_comp
 - Shared themes and major differences
 - Key gap cards or packages
 - Recommended-for notes per deck
-- Confidence notes (when the AI flags uncertainty)
+- Confidence notes (when your AI flags uncertainty)
 
 If you continue asking follow-up questions in the same AI thread, use `32-comparison-follow-up-prompt.txt` to have your AI revise the readable comparison and regenerate the full `deck_comparison` JSON block.
 
