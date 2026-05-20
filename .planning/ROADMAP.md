@@ -52,7 +52,9 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 14: Broader Codebase Name-vs-Behavior Audit** — Sweep public classes across all 5 projects, rename any whose name doesn't describe current behavior, backfill missing XML `<summary>` doc comments, verify clean Release build with zero new warnings. (completed 2026-05-18)
 - [x] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite. (completed 2026-05-18)
 - [x] **Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views** — Strip the hardcoded `"ChatGPT"` brand from every user-visible prose surface across the three AI-workflow pages (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`) so the visible text reads correctly for any AiPlatform selection. Apply Hybrid pattern (universal noun above `_AiSelector`, `@aiPlatform.DisplayName` injection below); generalize C# exception messages, `data-busy-title` attribute, 3 Help markdown files, and `DeckAnalysisPacketService` log prefix; honor JudgeQuestions D-03 carve-out and Phase 10 / Phase 13 D-08 / Phase 15 identifier invariants. (planned 2026-05-18 on `v1.3` branch) (completed 2026-05-19)
-- [ ] **Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option** — Stop the 5 Claude prompt variants from instructing Claude to wrap JSON in `<result>...</result>` tags. Claude empirically emits BOTH the wrapper AND a duplicate fenced ```json block (Phase 13 UAT T4 observation, 2026-05-17), cluttering chat output. Remove the two wrap-instruction `AppendLine` calls from each Claude variant and replace them in-place with the verbatim ChatGPT-counterpart fenced-block directive. Parser stays untouched (legacy zips still parse via `<result>` regex branch per D-12). ChatGPT + Gemini variants stay untouched (D-02). Update `ResultContractTests.cs` Claude theory rows to reflect divergence (D-13). (planned 2026-05-19 on `v1.3` branch)
+- [x] **Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option** — Stop the 5 Claude prompt variants from instructing Claude to wrap JSON in `<result>...</result>` tags. Claude empirically emits BOTH the wrapper AND a duplicate fenced ```json block (Phase 13 UAT T4 observation, 2026-05-17), cluttering chat output. Remove the two wrap-instruction `AppendLine` calls from each Claude variant and replace them in-place with the verbatim ChatGPT-counterpart fenced-block directive. Parser stays untouched (legacy zips still parse via `<result>` regex branch per D-12). ChatGPT + Gemini variants stay untouched (D-02). Update `ResultContractTests.cs` Claude theory rows to reflect divergence (D-13). (planned 2026-05-19 on `v1.3` branch) (completed 2026-05-19)
+- [ ] **Phase 999.3: Packet Download Session Cache** — Eliminate full Scryfall pipeline replay on packet download. Today both `POST /deck-analysis` (preview) and `POST /deck-analysis/download` (zip) call `_deckAnalysisPacketService.BuildAsync(request, ...)` from scratch, so a large deck pays the multi-minute Scryfall round-trip cost twice. Add a per-request session cache (in-memory keyed by request hash, TTL bounded) so the download endpoint reuses the artifact built during preview when inputs match. Apply same pattern to `cedh-meta-gap` and `deck-comparison` download endpoints if they exhibit the same shape. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch)
+- [ ] **Phase 999.4: Truncated-JSON Response UX** — Catch `JsonReaderException` (and sibling `JsonException` shapes) thrown when user pastes a truncated Claude/ChatGPT/Gemini response into the AI-response textarea on `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`. Today the exception bubbles to the generic error page with a raw stack trace ("Expected end of string, but instead reached end of data. LineNumber: X | BytePositionInLine: Y"). Replace with a user-facing message ("The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit.") rendered inline on the workflow page. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch)
 
 ## Phase Details
 
@@ -259,11 +261,11 @@ Plans:
   7. (D-12) `JsonTextFormatterService.cs` byte-identical to pre-phase state; legacy zip artifacts with pre-999.2 Claude `<result>` responses still parse via the regex branch.
   8. (D-13) `ResultContractTests.cs` updated: 5 `[InlineData("Claude")]` rows removed from prompt-body-asserting theories; 5 new Claude-specific facts assert the fenced-block substring AND `Assert.DoesNotContain("<result>", ...)`; ChatGPT + Gemini coverage intact via the unchanged `AssertContainsResultWrap` helper.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 **Wave 1**
 
-- [ ] 999.2-01-PLAN.md — Drop `<result>` wrapper from all 5 Claude prompt variants (1 commit per variant per D-09, alphabetical: Analysis → Comparison → FollowUp → MetaGap → SetUpgrade) + D-13 test impact audit fix in `ResultContractTests.cs` (5 Claude theory rows replaced with Claude-specific fenced-block facts) + Task 7 manual UAT T3 + T7 + ad-hoc Claude / deck-comparison gate
+- [x] 999.2-01-PLAN.md — Drop `<result>` wrapper from all 5 Claude prompt variants (1 commit per variant per D-09, alphabetical: Analysis → Comparison → FollowUp → MetaGap → SetUpgrade) + D-13 test impact audit fix in `ResultContractTests.cs` (5 Claude theory rows replaced with Claude-specific fenced-block facts) + Task 7 manual UAT T3 + T7 + ad-hoc Claude / deck-comparison gate
 
 ---
 
@@ -288,7 +290,9 @@ Plans:
 | 14. Broader Codebase Name-vs-Behavior Audit | v1.3 | 4/4 | Complete   | 2026-05-18 |
 | 15. AiPlatform Value Object Refactor | v1.3 | 3/3 | Complete    | 2026-05-18 |
 | 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 7/7 | Complete    | 2026-05-19 |
-| 999.2 Claude `<result>` Wrapper — Direct JSON Output Option | v1.3 | 0/1 | Planned    | — |
+| 999.2 Claude `<result>` Wrapper — Direct JSON Output Option | v1.3 | 1/1 | Complete   | 2026-05-19 |
+| 999.3 Packet Download Session Cache | v1.3 | 0/0 | Planned    | — |
+| 999.4 Truncated-JSON Response UX | v1.3 | 0/0 | Planned    | — |
 
 ---
 
