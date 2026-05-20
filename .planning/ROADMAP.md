@@ -298,7 +298,7 @@ Plans:
 
 ## Backlog
 
-### Phase 999.3: edhtop16 Filter Defaults vs DeckFlow Filter Defaults (BACKLOG)
+### edhtop16 Filter Defaults vs DeckFlow Filter Defaults (BACKLOG — unnumbered, was 999.3 before collision with active Packet Download Session Cache phase; renumber when promoted)
 
 **Goal:** [Captured for future planning]
 **Requirements:** TBD
