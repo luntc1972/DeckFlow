@@ -1,37 +1,44 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-19T14:37:50.233Z",
-  "phase": "between-phases",
-  "phase_name": "999.1 shipped; 999.2 not started",
-  "phase_dir": null,
+  "timestamp": "2026-05-21T16:57:30.531Z",
+  "phase": "999.3",
+  "phase_name": "packet-download-session-cache",
+  "phase_dir": ".planning/phases/999.3-packet-download-session-cache",
   "plan": null,
   "task": null,
-  "total_tasks": 0,
-  "status": "idle_between_phases",
-  "milestone": "v1.3",
-  "milestone_status": "in_progress (999.1 of multiple backlog phases complete)",
+  "total_tasks": null,
+  "status": "paused",
+  "stage": "plan-review-convergence-loop",
+  "iteration": "pass-3-replan-complete-awaiting-codex-pass-3",
   "branch": "v1.3",
-  "head_commit": "fa1c756",
-  "just_completed": {
-    "phase": "999.1",
-    "name": "ai-agnostic-prose-adaptation-razor-views",
-    "plans": "7/7",
-    "verification": "passed (10/10 must-haves)",
-    "uat": "approved 2026-05-19",
-    "build": "dotnet.exe build DeckFlow.sln -c Release exits 0, 0 warnings",
-    "code_review": "2 warnings + 4 info; warnings + IN-02 + IN-03 fixed (73175b8); IN-01 + IN-04 deferred by design"
-  },
-  "blockers": [
-    {"description": "Phase 999.1 security gate open — no SECURITY.md, workflow.security_enforcement=true", "type": "milestone_hygiene", "workaround": "Run /gsd:secure-phase 999.1 OR set workflow.security_enforcement=false"},
-    {"description": "Phase 999.2 has placeholder goal + no CONTEXT.md", "type": "phase_prerequisite", "workaround": "Run /gsd:discuss-phase 999.2 before plan-phase"}
+  "head_commit": "8ca08c5",
+  "completed_tasks": [
+    {"id": "pass-1-plan", "name": "Initial 4-plan set written", "status": "done", "commit": "f1e6aa9"},
+    {"id": "pass-1-review", "name": "Codex pass-1 review (8 concerns: 4 HIGH H1-H4, 4 MEDIUM M1-M4)", "status": "done", "commit": "0aa5631"},
+    {"id": "pass-2-replan", "name": "Replan after pass-1 (async TryComputeCacheKeyAsync pivot)", "status": "done", "commit": "a84db55"},
+    {"id": "pass-2-review", "name": "Codex pass-2 review (H1 unresolved, 2 new MED, 1 new LOW)", "status": "done", "commit": "72c797a"},
+    {"id": "pass-3-replan", "name": "Replan after pass-2 (shared BuildDeckAnalysisCacheInputs + CachedEntry envelope + miss-path latency ack + Workflow E/D fixes)", "status": "done", "commit": "8ca08c5"}
   ],
-  "human_actions_pending": [],
+  "remaining_tasks": [
+    {"id": "pass-3-review", "name": "Codex pass-3 review via /gsd-review --phase 999.3", "status": "not_started"},
+    {"id": "execute", "name": "Execute phase 999.3 via /gsd-execute-phase (only after pass-3 clears HIGH-severity concerns)", "status": "blocked_on_review"}
+  ],
+  "blockers": [
+    {"description": "Codex pass-3 review not yet run", "type": "process_gate", "workaround": "Run /gsd-review --phase 999.3 to dispatch Codex"}
+  ],
+  "human_actions_pending": [
+    {"action": "Run /gsd-review --phase 999.3 for Codex pass-3 review", "context": "Per CLAUDE.md user rule 'Codex reviews plans' — authoritative HIGH-severity gate", "blocking": true},
+    {"action": "If pass-3 clears: run /gsd-execute-phase 999.3 to dispatch Codex executor", "context": "Per CLAUDE.md user rule 'Codex codes, Claude reviews'", "blocking": false}
+  ],
   "decisions": [
-    {"decision": "Build gate uses dotnet.exe (Windows host SDK) in WSL; test gate skipped (VSTest unreliable in WSL per CLAUDE.md); rely on dotnet build clean + manual harness", "rationale": "WSL has no native dotnet; CLAUDE.md pin", "phase": "999.1"},
-    {"decision": "node_modules symlinks removed pre-cleanup; worktree unlock before remove", "rationale": "Claude Code isolation=worktree locks + .gitignore pattern node_modules/ misses symlink-as-file", "phase": "999.1"},
-    {"decision": "Continuation at checkpoint via direct orchestrator write to worktree (not SendMessage)", "rationale": "SendMessage tool not surfaced in this runtime; .continue-here.md fallback contract", "phase": "999.1"}
+    {"decision": "Pre-Scryfall commander stage chosen for cache key", "rationale": "Deterministic from request inputs without external API mutation; both BuildAsync write and TryComputeCacheKeyAsync read use same stage via shared private BuildDeckAnalysisCacheInputs helper", "phase": "999.3"},
+    {"decision": "CachedEntry<TResult>(Result, SizeBytes) envelope", "rationale": "Recover real size on hit/eviction for D-13 observability; pass-2 LOW fix", "phase": "999.3"},
+    {"decision": "Wave restructure 1->2->3->4 sequential", "rationale": "Plan 03 depends_on Plan 02's TryComputeCacheKeyAsync helper; cannot run in parallel as ROADMAP originally suggested", "phase": "999.3"},
+    {"decision": "Miss-path latency accepted, not redesigned", "rationale": "D-11 silent fall-through accepts trade-off; HIT path is optimization target; alternative architectures rejected by earlier reviews", "phase": "999.3"},
+    {"decision": "Workflow D made mandatory empirical (restart+upload-first+download)", "rationale": "Code inspection insufficient for D-09 proof per pass-2 M3 PARTIAL feedback", "phase": "999.3"},
+    {"decision": "Workflow E asserts absence of 'Packet cache ' substring (trailing space)", "rationale": "D-13 emits only hit|miss|write|evicted; no 'lookup' event exists", "phase": "999.3"}
   ],
   "uncommitted_files": [],
-  "next_action": "User should pick one of: (1) /gsd:secure-phase 999.1 to clear security gate; (2) /gsd:discuss-phase 999.2 to start next backlog phase; (3) /gsd:progress to inspect overall milestone state.",
-  "context_notes": "Phase 999.1 was a prose-only brand-neutralization rename (ChatGPT → AI-agnostic phrasing). Zero behavior change. All Phase 10 / 13 D-08 / 15 invariants preserved byte-identical. D-03 carve-outs (JudgeQuestions, ask-a-judge, Home hub-card, README secondary paragraph) preserved. Milestone v1.3 has multiple 999.x backlog phases remaining; 999.2 is next (Claude <result> wrapper duplicate JSON issue captured 2026-05-17 during Phase 13 UAT T4)."
+  "next_action": "Run /gsd-review --phase 999.3 to dispatch Codex pass-3 review",
+  "context_notes": "Convergence loop pass-3 of plan-review iteration. Internal Claude plan-checker passed clean. Source line anchors (226/271/283/435/467 in DeckAnalysisPacketService; 198 in DeckComparisonService; 122/131-134/196 in MetaGapService; 584/705/727/956/971 in DeckController) verified against actual code by plan-checker. D-01..D-14 all mapped across 4 plans. DO NOT execute until Codex pass-3 clears. If pass-3 still flags HIGH, run another /gsd-plan-phase 999.3 --reviews iteration."
 }
