@@ -66,6 +66,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
     private readonly ILogger<DeckComparisonService> _logger;
     private readonly ComparisonPromptVariantRegistry _comparisonPromptRegistry;
     private readonly FollowUpPromptVariantRegistry _followUpPromptRegistry;
+    private readonly PacketSessionCache _packetCache;
 
     internal DeckComparisonService(
         IScryfallRestClientFactory scryfallRestClientFactory,
@@ -77,6 +78,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         ICommanderSpellbookService commanderSpellbookService,
         ComparisonPromptVariantRegistry comparisonPromptRegistry,
         FollowUpPromptVariantRegistry followUpPromptRegistry,
+        PacketSessionCache packetCache,
         ILogger<DeckComparisonService>? logger = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
@@ -91,6 +93,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(comparisonPromptRegistry);
         ArgumentNullException.ThrowIfNull(followUpPromptRegistry);
+        ArgumentNullException.ThrowIfNull(packetCache);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
@@ -99,6 +102,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         _commanderSpellbookService = commanderSpellbookService;
         _comparisonPromptRegistry = comparisonPromptRegistry;
         _followUpPromptRegistry = followUpPromptRegistry;
+        _packetCache = packetCache;
         _logger = logger ?? NullLogger<DeckComparisonService>.Instance;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
@@ -113,6 +117,82 @@ public sealed class DeckComparisonService : IDeckComparisonService
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
+    }
+
+    /// <summary>
+    /// SINGLE source of truth for the deck-comparison cache-input bag. Called from BOTH
+    /// <see cref="TryComputeCacheKeyAsync"/> (read side) AND the line-198 cache-write site
+    /// in <see cref="BuildAsync"/> (write side). Both sides pass the SAME deckA/deckB
+    /// LoadedDeck values — commander names are extracted once inside LoadDeckAsync and never
+    /// mutated downstream (ValidateSameCommander at line 147 is a pure assertion, not a mutation).
+    /// </summary>
+    private static DeckComparisonCacheInputs BuildDeckComparisonCacheInputs(
+        DeckComparisonRequest request,
+        LoadedDeck deckA,
+        LoadedDeck deckB)
+    {
+        return new DeckComparisonCacheInputs(
+            NormalizedDeckASource: BuildCanonicalDeckSourceText(deckA),
+            NormalizedDeckBSource: BuildCanonicalDeckSourceText(deckB),
+            DeckABracket: request.DeckABracket,
+            DeckBBracket: request.DeckBBracket,
+            TargetAiPlatformKey: request.TargetAiPlatform);
+    }
+
+    /// <summary>
+    /// Stable text representation of the LoadedDeck (D-02). Includes commander as a prefix line
+    /// + all entries sorted for byte-stable output regardless of input mode (URL vs paste).
+    /// </summary>
+    private static string BuildCanonicalDeckSourceText(LoadedDeck loadedDeck)
+    {
+        ArgumentNullException.ThrowIfNull(loadedDeck);
+        var builder = new StringBuilder();
+        builder.Append("commander|").Append(loadedDeck.CommanderName ?? string.Empty).Append('\n');
+        foreach (var entry in loadedDeck.AllEntries
+            .OrderBy(e => e.Board ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.SetCode ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.CollectorNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            builder.Append(entry.Board ?? string.Empty).Append('|')
+                   .Append(entry.Quantity).Append('|')
+                   .Append(entry.Name ?? string.Empty).Append('|')
+                   .Append(entry.SetCode ?? string.Empty).Append('|')
+                   .Append(entry.CollectorNumber ?? string.Empty).Append('\n');
+        }
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Composes the D-01 cache-input field bag for the given comparison request and returns the
+    /// canonical PacketSessionCache key. Re-runs the same private LoadDeckAsync path BuildAsync
+    /// uses for both decks. Returns null on any load failure or when either deck source is empty
+    /// (controller falls through to BuildAsync silently per D-11). Calls
+    /// <see cref="BuildDeckComparisonCacheInputs"/> for write↔read parity by code locality.
+    /// </summary>
+    public async Task<string?> TryComputeCacheKeyAsync(DeckComparisonRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.DeckASource) || string.IsNullOrWhiteSpace(request.DeckBSource))
+        {
+            return null;
+        }
+
+        LoadedDeck deckA;
+        LoadedDeck deckB;
+        try
+        {
+            deckA = await LoadDeckAsync("Deck A", request.DeckASource, cancellationToken).ConfigureAwait(false);
+            deckB = await LoadDeckAsync("Deck B", request.DeckBSource, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or DeckParseException or HttpRequestException)
+        {
+            return null;
+        }
+
+        var inputs = BuildDeckComparisonCacheInputs(request, deckA, deckB);
+        return PacketSessionCache.ComputeKey(inputs);
     }
 
     public async Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default)
@@ -195,7 +275,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
 
         var timingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
 
-        return new DeckComparisonResult(
+        var result = new DeckComparisonResult(
             inputSummary,
             deckAListText,
             deckBListText,
@@ -210,6 +290,15 @@ public sealed class DeckComparisonService : IDeckComparisonService
             ResolvedDeckACommander: deckA.CommanderName,
             ResolvedDeckBCommander: deckB.CommanderName,
             RequestContextText: BuildRequestContextText(request));
+
+        // Phase 999.3 cache write. Shared BuildDeckComparisonCacheInputs helper (called from BOTH
+        // here AND from TryComputeCacheKeyAsync) guarantees write↔read parity.
+        // `deckA` and `deckB` LoadedDeck locals are already in scope at line 198 (assigned at lines 140 + 144).
+        var cacheInputs = BuildDeckComparisonCacheInputs(request, deckA, deckB);
+        var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
+        _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
+
+        return result;
     }
 
     /// <summary>
