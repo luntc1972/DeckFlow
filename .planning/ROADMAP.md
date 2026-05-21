@@ -305,6 +305,23 @@ Plans:
 
 - [x] 999.3-04-PLAN.md — Manual UAT (incl. M3 empirical upload isolation + M4 absence-assertion in isolated log window) + grep gate + build gate + README/STATE/ROADMAP closure
 
+### Phase 999.4: Truncated-JSON Response UX
+
+**Goal**: Replace the raw `JsonReaderException` stack trace ("Expected end of string, but instead reached end of data. LineNumber: X | BytePositionInLine: Y") that bubbles to the generic error page when a user pastes a truncated Claude/ChatGPT/Gemini response into the AI-response textarea on `/deck-analysis`, `/deck-comparison`, or `/cedh-meta-gap`. Catch `JsonReaderException` and sibling `JsonException` shapes at the response-parse boundary, classify as truncation, and render an inline user-facing message ("The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit.") on the originating workflow page. Surfaced during Phase 999.2 UAT 2026-05-20.
+**Depends on**: Phase 999.2 (Claude variants now emit a single fenced JSON block, so the truncation surface is well-defined per-AI) and Phase 15 (`AiPlatform` value object available if per-AI copy differs).
+**Requirements**: D-01..D-XX from `.planning/phases/999.4-truncated-json-response-ux/999.4-CONTEXT.md` (backlog-style phase — no formal REQ-IDs; CONTEXT.md decisions are the binding contract).
+**Success Criteria** (what must be TRUE):
+
+  1. Pasting a truncated AI response on `/deck-analysis`, `/deck-comparison`, or `/cedh-meta-gap` renders the user-facing inline message instead of the generic error page; no raw stack trace surfaces to the browser.
+  2. The truncation-classifier branch is reached only for `JsonReaderException` / `JsonException` shapes consistent with truncated input; unrelated parse failures and upstream Scryfall errors keep their existing handling.
+  3. The inline message preserves the user's pasted response textarea content so they can edit/re-submit without re-pasting.
+  4. `dotnet build DeckFlow.sln -c Release` exits 0 with zero new warnings vs the post-Phase-999.3 baseline; README updated when user-visible behavior changes per `CLAUDE.md`.
+  5. Manual UAT confirms the new UX across all three pages for ChatGPT / Claude / Gemini selections; `D-03` carve-outs (if any) for non-AI-response pages preserved.
+
+**Plans:** 0/0 plans (to be created during /gsd-plan-phase 999.4)
+Plans:
+- [ ] TBD (created by /gsd-plan-phase after CONTEXT.md is captured)
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
