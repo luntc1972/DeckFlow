@@ -13,6 +13,9 @@ internal static class ResponseParsers
         PropertyNameCaseInsensitive = true
     };
 
+    internal const string TruncatedResponseMessage =
+        "The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit.";
+
     public static DeckAnalysisResponse ParseAnalysisResponse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -21,27 +24,38 @@ internal static class ResponseParsers
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
-        using var document = JsonDocument.Parse(json);
-
-        var payload = document.RootElement;
-        if (payload.ValueKind == JsonValueKind.Object
-            && payload.TryGetProperty("deck_profile", out var profileElement))
+        JsonDocument document;
+        try
         {
-            payload = profileElement;
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(TruncatedResponseMessage);
         }
 
-        if (payload.ValueKind != JsonValueKind.Object || !LooksLikeDeckProfile(payload))
+        using (document)
         {
-            throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
-        }
+            var payload = document.RootElement;
+            if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("deck_profile", out var profileElement))
+            {
+                payload = profileElement;
+            }
 
-        var result = JsonSerializer.Deserialize<DeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
-        if (result is null || !HasMeaningfulDeckProfileContent(result))
-        {
-            throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
-        }
+            if (payload.ValueKind != JsonValueKind.Object || !LooksLikeDeckProfile(payload))
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
+            }
 
-        return result;
+            var result = JsonSerializer.Deserialize<DeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
+            if (result is null || !HasMeaningfulDeckProfileContent(result))
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
+            }
+
+            return result;
+        }
     }
 
     public static SetUpgradeResponse ParseSetUpgradeResponse(string input)
@@ -52,27 +66,38 @@ internal static class ResponseParsers
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
-        using var document = JsonDocument.Parse(json);
-
-        var payload = document.RootElement;
-        if (payload.ValueKind == JsonValueKind.Object
-            && payload.TryGetProperty("set_upgrade_report", out var reportElement))
+        JsonDocument document;
+        try
         {
-            payload = reportElement;
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(TruncatedResponseMessage);
         }
 
-        if (payload.ValueKind != JsonValueKind.Object || !LooksLikeSetUpgradeReport(payload))
+        using (document)
         {
-            throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
-        }
+            var payload = document.RootElement;
+            if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("set_upgrade_report", out var reportElement))
+            {
+                payload = reportElement;
+            }
 
-        var result = JsonSerializer.Deserialize<SetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
-        if (result is null || !HasMeaningfulSetUpgradeContent(result))
-        {
-            throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
-        }
+            if (payload.ValueKind != JsonValueKind.Object || !LooksLikeSetUpgradeReport(payload))
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
+            }
 
-        return result;
+            var result = JsonSerializer.Deserialize<SetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
+            if (result is null || !HasMeaningfulSetUpgradeContent(result))
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
+            }
+
+            return result;
+        }
     }
 
     private static bool LooksLikeDeckProfile(JsonElement payload)
