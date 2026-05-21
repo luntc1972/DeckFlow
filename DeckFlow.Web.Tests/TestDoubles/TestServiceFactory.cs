@@ -127,6 +127,7 @@ internal static class TestServiceFactory
             commanderSpellbookService,
             BuildAnalysisPromptRegistry(),
             BuildSetUpgradePromptRegistry(),
+            new PacketSessionCache(),
             logger,
             null,
             executeCollectionAsync,
@@ -152,6 +153,7 @@ internal static class TestServiceFactory
             commanderSpellbookService,
             BuildComparisonPromptRegistry(),
             BuildFollowUpPromptRegistry(),
+            new PacketSessionCache(),
             logger,
             null,
             executeCollectionAsync,
@@ -176,6 +178,7 @@ internal static class TestServiceFactory
             edhTop16Client,
             commanderSpellbookService,
             BuildMetaGapPromptRegistry(),
+            new PacketSessionCache(),
             null,
             executeCollectionAsync,
             executeSearchAsync);
