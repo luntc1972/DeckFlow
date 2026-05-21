@@ -784,6 +784,9 @@ public sealed class DeckControllerTests
     {
         public Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
+        public Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     private sealed class FakeDeckComparisonService : IDeckComparisonService
@@ -813,6 +816,9 @@ public sealed class DeckControllerTests
                     ComboComparison = "Deck A has the cleaner combo finish."
                 },
                 null));
+
+        public Task<string?> TryComputeCacheKeyAsync(DeckComparisonRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     /// <summary>
@@ -838,6 +844,9 @@ public sealed class DeckControllerTests
                         OptimizationPath = "Optimization path."
                     }
                 }));
+
+        public Task<string?> TryComputeCacheKeyAsync(MetaGapRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     /// <summary>
@@ -855,6 +864,9 @@ public sealed class DeckControllerTests
 
         public Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
             => Task.FromResult(_result);
+
+        public Task<string?> TryComputeCacheKeyAsync(MetaGapRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     private sealed class ThrowingMetaGapService : IMetaGapService
@@ -868,6 +880,9 @@ public sealed class DeckControllerTests
 
         public Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
             => Task.FromException<MetaGapResult>(_exception);
+
+        public Task<string?> TryComputeCacheKeyAsync(MetaGapRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     private sealed class ThrowingDeckAnalysisPacketService : IDeckAnalysisPacketService
@@ -881,6 +896,9 @@ public sealed class DeckControllerTests
 
         public Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default)
             => Task.FromException<DeckAnalysisPacketResult>(_exception);
+
+        public Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     /// <summary>
@@ -904,6 +922,9 @@ public sealed class DeckControllerTests
                 null,
                 null));
         }
+
+        public Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
     }
 
     private sealed class FakeScryfallSetService : IScryfallSetService
