@@ -94,6 +94,14 @@ public sealed class MetaGapServiceTests
     }
 
     [Fact]
+    public void ParseResponse_TruncatedInput_ThrowsLockedMessage()
+    {
+        var truncated = """{"meta_gap":{"commander":"Tymna / Kraum","meta_summary":"Play more stack interac""";
+        var exception = Assert.Throws<InvalidOperationException>(() => MetaGapService.ParseResponse(truncated));
+        Assert.Equal(ResponseParsers.TruncatedResponseMessage, exception.Message);
+    }
+
+    [Fact]
     public async Task BuildAsync_GeneratesPromptFromDeckAndSortedReferenceEntries()
     {
         var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>

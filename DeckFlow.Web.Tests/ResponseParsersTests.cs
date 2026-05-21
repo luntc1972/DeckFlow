@@ -148,4 +148,20 @@ public sealed class ResponseParsersTests
         var mustTest = Assert.Single(shortlist.MustTest);
         Assert.Equal("Atraxa's Fall", mustTest.Card);
     }
+
+    [Fact]
+    public void ParseAnalysisResponse_TruncatedInput_ThrowsLockedMessage()
+    {
+        var truncated = """{"deck_profile":{"format":"commander","commander":"Plagon""";
+        var exception = Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse(truncated));
+        Assert.Equal(ResponseParsers.TruncatedResponseMessage, exception.Message);
+    }
+
+    [Fact]
+    public void ParseSetUpgradeResponse_TruncatedInput_ThrowsLockedMessage()
+    {
+        var truncated = """{"set_upgrade_report":{"sets":[{"set_code":"duskmourn","set_name":"Dusk""";
+        var exception = Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse(truncated));
+        Assert.Equal(ResponseParsers.TruncatedResponseMessage, exception.Message);
+    }
 }

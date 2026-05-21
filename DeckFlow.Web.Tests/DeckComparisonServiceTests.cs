@@ -218,6 +218,14 @@ Deck
     }
 
     [Fact]
+    public void ParseComparisonResponse_TruncatedInput_ThrowsLockedMessage()
+    {
+        var truncated = """{"deck_comparison":{"deck_a_name":"Atraxa Blink","deck_b_name":"Partn""";
+        var exception = Assert.Throws<InvalidOperationException>(() => DeckComparisonService.ParseComparisonResponse(truncated));
+        Assert.Equal(ResponseParsers.TruncatedResponseMessage, exception.Message);
+    }
+
+    [Fact]
     public async Task BuildAsync_UsesPerCardFallbackForMultipleRenamedCards()
     {
         var service = CreateService(
