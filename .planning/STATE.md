@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: planning
-stopped_at: Phase 999.4 context gathered
-last_updated: "2026-05-21T20:19:09.993Z"
-last_activity: 2026-05-21 -- Phase 999.3 closed (packet download session cache shipped)
+stopped_at: Phase 999.4 plan revised after Codex pass-1 review
+last_updated: "2026-05-21T16:08:00.000Z"
+last_activity: 2026-05-21 -- Phase 999.4 plan revised in-place to address Codex pass-1 review (D-06 upload-path carve-out + D-07 semantic-completeness deferral)
 progress:
   total_phases: 9
   completed_phases: 7
@@ -23,6 +23,7 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 | tech_debt | Gemini paste-limit workaround | flag-gated DECKFLOW_GEMINI_ENABLED |
 | debug | harvest-killed-by-suggestion (H1 hypothesis parked in `.planning/debug/`) | deferred from v1.3 — root-cause work is gating, not parallel-shippable |
 | archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; quick-task candidate for v1.4 cleanup |
+| tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` (mirror `HasMeaningful*Content` pattern from `ResponseParsers.cs:99-130`) | deferred — surfaced in Codex pass-1 999.4 review as MED-2; tracks the "valid JSON but semantically empty AI output" edge case (e.g., `{"deck_comparison":{"deck_a_name":"Atraxa"}}` parses into a mostly-empty object and bypasses both the existing wrong-shape guard and 999.4's truncation UX). Phase 999.4 D-07 captures the carve-out; promote when next AI-response phase is planned |
 
 # Project State
 
@@ -36,10 +37,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.4 truncated-json-response-ux — PENDING
-Plan: TBD
-Status: Ready to plan
-Last activity: 2026-05-21 -- Phase 999.3 closed (packet download session cache shipped)
+Phase: 999.4 truncated-json-response-ux — PLANNING (Codex pass-1 review converged, ready to execute)
+Plan: 999.4-01-PLAN.md (revised in-place 2026-05-21 to address Codex pass-1 MED-1/MED-2/MED-3 + LOW-1/LOW-2/LOW-3)
+Status: Ready to execute
+Last activity: 2026-05-21 -- Phase 999.4 plan revised in-place to address Codex pass-1 review (D-06 upload-path carve-out + D-07 semantic-completeness deferral)
 Progress: [██████████] 100%
 
 ## Performance Metrics
@@ -116,11 +117,11 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-21T20:19:09.963Z
+Last session: 2026-05-21T16:08:00.000Z
 
-Stopped at: Phase 999.4 context gathered
+Stopped at: Phase 999.4 plan revised after Codex pass-1 review
 
-Next action on resume: `/gsd-plan-phase 999.4` to decompose the truncated-JSON response UX phase.
+Next action on resume: `/gsd-execute-phase 999.4` to run the revised single-plan 6-commit phase (Codex executor per CLAUDE.md cross-AI execution rule).
 
 **Resume guidance:**
 
@@ -133,4 +134,4 @@ Next action on resume: `/gsd-plan-phase 999.4` to decompose the truncated-JSON r
 
 ## Operator Next Steps
 
-- Run `/gsd-plan-phase 999.4` to decompose the truncated-JSON response UX phase.
+- Run `/gsd-execute-phase 999.4` to execute the revised plan (Codex executor; 6 commits per D-05; D-06 upload-path carve-out + D-07 semantic-completeness deferred per Codex pass-1 review convergence).
