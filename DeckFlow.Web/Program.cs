@@ -240,6 +240,7 @@ public partial class Program
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMemoryCache>()));
             builder.Services.AddSingleton<CardLookupCache>();
+            builder.Services.AddSingleton<PacketSessionCache>();
             builder.Services.AddSingleton<ICardLookupService>(sp =>
                 new ScryfallCardLookupService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
