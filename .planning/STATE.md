@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: planning
-stopped_at: Phase 999.4 plan revised after Codex pass-1 review
-last_updated: "2026-05-21T16:08:00.000Z"
-last_activity: 2026-05-21 -- Phase 999.4 plan revised in-place to address Codex pass-1 review (D-06 upload-path carve-out + D-07 semantic-completeness deferral)
+status: ready_to_ship
+stopped_at: Phase 999.4 closed — v1.3 milestone fully complete (9/9 phases)
+last_updated: "2026-05-21T23:55:00.000Z"
+last_activity: 2026-05-21 -- Phase 999.4 closed via /gsd-execute-phase (Codex executor T1-T5 + user UAT T6). 6-commit sequence landed; SUMMARY + ROADMAP + STATE updated; v1.3 ready for ship sequence.
 progress:
   total_phases: 9
-  completed_phases: 7
-  total_plans: 38
-  completed_plans: 37
-  percent: 78
+  completed_phases: 9
+  total_plans: 39
+  completed_plans: 39
+  percent: 100
 ---
 
 ## Deferred Items
@@ -32,15 +32,15 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 999.4 — truncated-json-response-ux
+**Current focus:** v1.3 milestone ship sequence (all phases complete).
 
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.4 truncated-json-response-ux — PLANNING (Codex pass-1 review converged, ready to execute)
-Plan: 999.4-01-PLAN.md (revised in-place 2026-05-21 to address Codex pass-1 MED-1/MED-2/MED-3 + LOW-1/LOW-2/LOW-3)
-Status: Ready to execute
-Last activity: 2026-05-21 -- Phase 999.4 plan revised in-place to address Codex pass-1 review (D-06 upload-path carve-out + D-07 semantic-completeness deferral)
+Phase: 999.4 truncated-json-response-ux — COMPLETE (closed 2026-05-21)
+Plan: 999.4-01-PLAN.md — 6/6 commits landed (T1-T5 by Codex executor; T6 UAT user-attested PASS)
+Status: v1.3 ready to ship — all 9 phases complete, 39/39 plans complete
+Last activity: 2026-05-21 -- Phase 999.4 closed via /gsd-execute-phase (Codex T1-T5 + user UAT T6). D-06 upload-path carve-out shipped to 3 sites; D-07 semantic-completeness guards deferred to backlog per Codex pass-1 MED-2.
 Progress: [██████████] 100%
 
 ## Performance Metrics
@@ -117,11 +117,11 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-21T16:08:00.000Z
+Last session: 2026-05-21T23:55:00.000Z
 
-Stopped at: Phase 999.4 plan revised after Codex pass-1 review
+Stopped at: Phase 999.4 closed — v1.3 milestone fully complete (9/9 phases, 39/39 plans).
 
-Next action on resume: `/gsd-execute-phase 999.4` to run the revised single-plan 6-commit phase (Codex executor per CLAUDE.md cross-AI execution rule).
+Next action on resume: v1.3 ship sequence — `/gsd-audit-milestone` then `/gsd-complete-milestone` or `/gsd-ship` per project workflow.
 
 **Resume guidance:**
 
@@ -134,4 +134,5 @@ Next action on resume: `/gsd-execute-phase 999.4` to run the revised single-plan
 
 ## Operator Next Steps
 
-- Run `/gsd-execute-phase 999.4` to execute the revised plan (Codex executor; 6 commits per D-05; D-06 upload-path carve-out + D-07 semantic-completeness deferred per Codex pass-1 review convergence).
+- v1.3 milestone closure: run `/gsd-audit-milestone` to verify all v1.3 REQ-IDs satisfied, then `/gsd-complete-milestone` to archive v1.3 phase dirs and prep v1.4. Optionally `/gsd-ship` to open the v1.3 → main PR.
+- Deferred items to revisit in v1.4 planning: D-07 semantic-completeness guards (`HasMeaningful*Content` mirror for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse`); v1.1 phase-dir archive move; harvest-killed-by-suggestion debug.
