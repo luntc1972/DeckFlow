@@ -62,6 +62,7 @@ public sealed class MetaGapService : IMetaGapService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly MetaGapPromptVariantRegistry _metaGapPromptRegistry;
+    private readonly PacketSessionCache _packetCache;
 
     internal MetaGapService(
         IScryfallRestClientFactory scryfallRestClientFactory,
@@ -73,6 +74,7 @@ public sealed class MetaGapService : IMetaGapService
         IEdhTop16Client edhTop16Client,
         ICommanderSpellbookService commanderSpellbookService,
         MetaGapPromptVariantRegistry metaGapPromptRegistry,
+        PacketSessionCache packetCache,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
@@ -86,6 +88,7 @@ public sealed class MetaGapService : IMetaGapService
         ArgumentNullException.ThrowIfNull(edhTop16Client);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(metaGapPromptRegistry);
+        ArgumentNullException.ThrowIfNull(packetCache);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
@@ -94,6 +97,7 @@ public sealed class MetaGapService : IMetaGapService
         _edhTop16Client = edhTop16Client;
         _commanderSpellbookService = commanderSpellbookService;
         _metaGapPromptRegistry = metaGapPromptRegistry;
+        _packetCache = packetCache;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
@@ -107,6 +111,90 @@ public sealed class MetaGapService : IMetaGapService
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
+    }
+
+    /// <summary>
+    /// SINGLE source of truth for the meta-gap cache-input bag. Called from BOTH
+    /// <see cref="TryComputeCacheKeyAsync"/> (read side) AND the line-196 cache-write site
+    /// in <see cref="BuildAsync"/> (write side). Both sides pass the SAME loadedDeck +
+    /// resolvedCommanderName values — the commander resolution at lines 132-134 is deterministic
+    /// from request + loadedDeck and never mutated downstream.
+    /// </summary>
+    private static MetaGapCacheInputs BuildMetaGapCacheInputs(
+        MetaGapRequest request,
+        LoadedDeck loadedDeck,
+        string resolvedCommanderName)
+    {
+        return new MetaGapCacheInputs(
+            CommanderName: resolvedCommanderName,
+            NormalizedDeckSource: BuildCanonicalDeckSourceText(loadedDeck),
+            TimePeriod: request.TimePeriod,
+            SortBy: request.SortBy,
+            MinEventSize: request.MinEventSize,
+            MaxStanding: request.MaxStanding,
+            SelectedReferenceIndexes: (request.SelectedReferenceIndexes ?? new List<int>())
+                .OrderBy(static i => i)
+                .ToArray(),
+            TargetAiPlatformKey: request.TargetAiPlatform);
+    }
+
+    private static string BuildCanonicalDeckSourceText(LoadedDeck loadedDeck)
+    {
+        ArgumentNullException.ThrowIfNull(loadedDeck);
+        var builder = new StringBuilder();
+        foreach (var entry in loadedDeck.AllEntries
+            .OrderBy(e => e.Board ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.SetCode ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.CollectorNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            builder.Append(entry.Board ?? string.Empty).Append('|')
+                   .Append(entry.Quantity).Append('|')
+                   .Append(entry.Name ?? string.Empty).Append('|')
+                   .Append(entry.SetCode ?? string.Empty).Append('|')
+                   .Append(entry.CollectorNumber ?? string.Empty).Append('\n');
+        }
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Composes the D-01 cache-input field bag for the given meta-gap request and returns the
+    /// canonical PacketSessionCache key. Re-runs the same private LoadDeckAsync path BuildAsync
+    /// uses and resolves the commander using the same fallback BuildAsync uses at lines 132-134.
+    /// Returns null on load failure or empty deck (controller falls through to BuildAsync silently
+    /// per D-11). Calls <see cref="BuildMetaGapCacheInputs"/> for write↔read parity by code locality.
+    /// </summary>
+    public async Task<string?> TryComputeCacheKeyAsync(MetaGapRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.DeckSource))
+        {
+            return null;
+        }
+
+        LoadedDeck loadedDeck;
+        try
+        {
+            loadedDeck = await LoadDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or DeckParseException or HttpRequestException)
+        {
+            return null;
+        }
+
+        // Mirror BuildAsync lines 132-134 exactly.
+        var resolvedCommanderName = string.IsNullOrWhiteSpace(request.CommanderName)
+            ? loadedDeck.CommanderName
+            : request.CommanderName.Trim();
+
+        if (string.IsNullOrWhiteSpace(resolvedCommanderName))
+        {
+            return null;
+        }
+
+        var inputs = BuildMetaGapCacheInputs(request, loadedDeck, resolvedCommanderName);
+        return PacketSessionCache.ComputeKey(inputs);
     }
 
     public async Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
@@ -193,7 +281,7 @@ public sealed class MetaGapService : IMetaGapService
                 request.TargetAiPlatform);
         }
 
-        return new MetaGapResult(
+        var result = new MetaGapResult(
             inputSummary,
             resolvedCommanderName,
             fetchedEntries,
@@ -202,6 +290,15 @@ public sealed class MetaGapService : IMetaGapService
             analysisResponse,
             BuildRequestContextText(request),
             DecklistText: BuildCanonicalDecklistText(loadedDeck.AllEntries));
+
+        // Phase 999.3 cache write. Shared BuildMetaGapCacheInputs helper (called from BOTH here AND
+        // from TryComputeCacheKeyAsync) guarantees write↔read parity.
+        // `loadedDeck` and `resolvedCommanderName` are already in scope at line 196 (assigned at lines 131-134).
+        var cacheInputs = BuildMetaGapCacheInputs(request, loadedDeck, resolvedCommanderName);
+        var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
+        _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
+
+        return result;
     }
 
     /// <summary>
