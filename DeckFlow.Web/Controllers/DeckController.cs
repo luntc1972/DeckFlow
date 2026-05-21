@@ -29,6 +29,7 @@ public sealed class DeckController : Controller
     private readonly IDeckAnalysisPacketService _deckAnalysisPacketService;
     private readonly IDeckComparisonService _deckComparisonService;
     private readonly IMetaGapService _metaGapService;
+    private readonly PacketSessionCache _packetCache;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
@@ -45,6 +46,7 @@ public sealed class DeckController : Controller
         IDeckAnalysisPacketService deckAnalysisPacketService,
         IDeckComparisonService deckComparisonService,
         IMetaGapService metaGapService,
+        PacketSessionCache packetCache,
         IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
@@ -57,6 +59,7 @@ public sealed class DeckController : Controller
         _deckAnalysisPacketService = deckAnalysisPacketService;
         _deckComparisonService = deckComparisonService;
         _metaGapService = metaGapService;
+        _packetCache = packetCache;
         _scryfallSetService = scryfallSetService;
         _logger = logger;
     }
@@ -509,6 +512,33 @@ public sealed class DeckController : Controller
 
         try
         {
+            // Phase 999.3 D-10: service-owned cache-key parity before BuildAsync; misses fall through silently.
+            // Misses intentionally pay one extra deck load here before BuildAsync (D-11 accepted trade-off).
+            var cacheKey = await _deckAnalysisPacketService.TryComputeCacheKeyAsync(request, HttpContext.RequestAborted);
+            if (cacheKey is not null
+                && _packetCache.TryGet<DeckAnalysisPacketResult>(cacheKey, out var cachedResult)
+                && cachedResult is not null)
+            {
+                var cachedCommanderName = !string.IsNullOrWhiteSpace(cachedResult.ResolvedCommanderName)
+                    ? cachedResult.ResolvedCommanderName
+                    : cachedResult.AnalysisResponse?.Commander ?? request.DeckName;
+                var cachedRequestContextText = cachedResult.RequestContextText ?? DeckAnalysisPacketService.BuildRequestContextText(request, cachedCommanderName);
+                var cachedBytes = PacketArtifactStore.BuildZip(
+                    request,
+                    cachedCommanderName,
+                    cachedResult.InputSummary,
+                    cachedRequestContextText,
+                    cachedResult.ReferenceText,
+                    cachedResult.AnalysisPromptText,
+                    cachedResult.DeckProfileSchemaJson,
+                    cachedResult.SetUpgradePromptText,
+                    canonicalDeckListText: cachedResult.DecklistText,
+                    originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                var cachedFileName = PacketArtifactStore.SuggestPacketZipFileName(cachedCommanderName, request.TargetAiPlatform);
+                Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
+                return File(cachedBytes, "application/zip", cachedFileName);
+            }
+
             var result = await _deckAnalysisPacketService.BuildAsync(request, HttpContext.RequestAborted);
             var commanderName = !string.IsNullOrWhiteSpace(result.ResolvedCommanderName)
                 ? result.ResolvedCommanderName
@@ -722,6 +752,36 @@ public sealed class DeckController : Controller
                     string.Empty,
                     DeckComparisonService.BuildRequestContextText(request));
                 return File(fallbackBytes, "application/zip", fallbackFileName);
+            }
+
+            // Phase 999.3 D-10: cache lookup runs after the response-json-only short-circuit and before BuildAsync.
+            // Misses intentionally pay one extra deck load here before BuildAsync (D-11 accepted trade-off).
+            var cacheKey = await _deckComparisonService.TryComputeCacheKeyAsync(request, HttpContext.RequestAborted);
+            if (cacheKey is not null
+                && _packetCache.TryGet<DeckComparisonResult>(cacheKey, out var cachedResult)
+                && cachedResult is not null)
+            {
+                var cachedBytes = PacketArtifactStore.BuildComparisonZip(
+                    request,
+                    cachedResult.InputSummary,
+                    cachedResult.DeckAListText,
+                    cachedResult.DeckBListText,
+                    cachedResult.DeckAComboText,
+                    cachedResult.DeckBComboText,
+                    cachedResult.ComparisonContextText,
+                    cachedResult.ComparisonPromptText,
+                    cachedResult.FollowUpPromptText,
+                    cachedResult.ComparisonSchemaJson,
+                    cachedResult.RequestContextText,
+                    deckAOriginalText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckASource),
+                    deckBOriginalText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckBSource));
+                // Cached results were produced by BuildAsync, so the resolved commander invariant still applies.
+                var cachedFileNameCommander = !string.IsNullOrWhiteSpace(cachedResult.ResolvedDeckACommander)
+                    ? cachedResult.ResolvedDeckACommander!
+                    : (!string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName);
+                var cachedFileName = PacketArtifactStore.SuggestComparisonZipFileName(cachedFileNameCommander, request.TargetAiPlatform);
+                Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
+                return File(cachedBytes, "application/zip", cachedFileName);
             }
 
             var result = await _deckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
@@ -966,6 +1026,28 @@ public sealed class DeckController : Controller
                     fetchedEntries: Array.Empty<EdhTop16Entry>());
                 Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
                 return File(fallbackBytes, "application/zip", fallbackFileName);
+            }
+
+            // Phase 999.3 D-10: cache lookup runs after the response-json-only short-circuit and before BuildAsync.
+            // Misses intentionally pay one extra deck load here before BuildAsync (D-11 accepted trade-off).
+            var cacheKey = await _metaGapService.TryComputeCacheKeyAsync(request, HttpContext.RequestAborted);
+            if (cacheKey is not null
+                && _packetCache.TryGet<MetaGapResult>(cacheKey, out var cachedResult)
+                && cachedResult is not null)
+            {
+                var cachedBytes = PacketArtifactStore.BuildCedhMetaGapZip(
+                    request,
+                    cachedResult.InputSummary ?? string.Empty,
+                    cachedResult.PromptText ?? string.Empty,
+                    cachedResult.SchemaJson ?? string.Empty,
+                    cachedResult.RequestContextText,
+                    canonicalDeckListText: cachedResult.DecklistText,
+                    originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                    fetchedEntries: cachedResult.FetchedEntries);
+                var cachedFileNameCommander = cachedResult.ResolvedCommanderName ?? string.Empty;
+                var cachedFileName = PacketArtifactStore.SuggestCedhMetaGapZipFileName(cachedFileNameCommander, request.TargetAiPlatform);
+                Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
+                return File(cachedBytes, "application/zip", cachedFileName);
             }
 
             var result = await _metaGapService.BuildAsync(request, HttpContext.RequestAborted);

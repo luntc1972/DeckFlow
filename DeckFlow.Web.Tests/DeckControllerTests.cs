@@ -34,6 +34,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
@@ -71,6 +72,7 @@ public sealed class DeckControllerTests
                 null,
                 "{}",
                 null)),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -106,6 +108,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new ThrowingMetaGapService(new HttpRequestException("Too many requests", null, HttpStatusCode.TooManyRequests)),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -160,6 +163,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -191,6 +195,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -220,6 +225,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -252,6 +258,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -284,6 +291,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -318,6 +326,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -353,6 +362,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -382,6 +392,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -412,6 +423,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -443,6 +455,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -471,6 +484,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -500,6 +514,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -534,6 +549,7 @@ public sealed class DeckControllerTests
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -568,6 +584,7 @@ public sealed class DeckControllerTests
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -603,6 +620,7 @@ public sealed class DeckControllerTests
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -641,6 +659,7 @@ public sealed class DeckControllerTests
             capturingService,
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -686,6 +705,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
@@ -709,6 +729,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -747,6 +768,7 @@ public sealed class DeckControllerTests
             new StubDeckAnalysisPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
+            new PacketSessionCache(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
