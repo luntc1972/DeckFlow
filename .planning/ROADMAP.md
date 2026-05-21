@@ -53,7 +53,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 15: AiPlatform Value Object Refactor** — Replace `string TargetAiPlatform` with sealed `AiPlatform` record value object across request DTOs, prompt builders, response extractor, artifact store, and view models; preserve `DECKFLOW_GEMINI_ENABLED` gating; zero user-visible behavior change verified via full T1-T8 manual integration suite. (completed 2026-05-18)
 - [x] **Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views** — Strip the hardcoded `"ChatGPT"` brand from every user-visible prose surface across the three AI-workflow pages (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`) so the visible text reads correctly for any AiPlatform selection. Apply Hybrid pattern (universal noun above `_AiSelector`, `@aiPlatform.DisplayName` injection below); generalize C# exception messages, `data-busy-title` attribute, 3 Help markdown files, and `DeckAnalysisPacketService` log prefix; honor JudgeQuestions D-03 carve-out and Phase 10 / Phase 13 D-08 / Phase 15 identifier invariants. (planned 2026-05-18 on `v1.3` branch) (completed 2026-05-19)
 - [x] **Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option** — Stop the 5 Claude prompt variants from instructing Claude to wrap JSON in `<result>...</result>` tags. Claude empirically emits BOTH the wrapper AND a duplicate fenced ```json block (Phase 13 UAT T4 observation, 2026-05-17), cluttering chat output. Remove the two wrap-instruction `AppendLine` calls from each Claude variant and replace them in-place with the verbatim ChatGPT-counterpart fenced-block directive. Parser stays untouched (legacy zips still parse via `<result>` regex branch per D-12). ChatGPT + Gemini variants stay untouched (D-02). Update `ResultContractTests.cs` Claude theory rows to reflect divergence (D-13). (planned 2026-05-19 on `v1.3` branch) (completed 2026-05-19)
-- [ ] **Phase 999.3: Packet Download Session Cache** — Eliminate full Scryfall pipeline replay on packet download. Today both `POST /deck-analysis` (preview) and `POST /deck-analysis/download` (zip) call `_deckAnalysisPacketService.BuildAsync(request, ...)` from scratch, so a large deck pays the multi-minute Scryfall round-trip cost twice. Add a per-request session cache (in-memory keyed by request hash, TTL bounded) so the download endpoint reuses the artifact built during preview when inputs match. Apply same pattern to `cedh-meta-gap` and `deck-comparison` download endpoints if they exhibit the same shape. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch)
+- [x] **Phase 999.3: Packet Download Session Cache** — Eliminate full Scryfall pipeline replay on packet download. Today both `POST /deck-analysis` (preview) and `POST /deck-analysis/download` (zip) call `_deckAnalysisPacketService.BuildAsync(request, ...)` from scratch, so a large deck pays the multi-minute Scryfall round-trip cost twice. Add a per-request session cache (in-memory keyed by request hash, TTL bounded) so the download endpoint reuses the artifact built during preview when inputs match. Apply same pattern to `cedh-meta-gap` and `deck-comparison` download endpoints if they exhibit the same shape. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch) (completed 2026-05-21)
 - [ ] **Phase 999.4: Truncated-JSON Response UX** — Catch `JsonReaderException` (and sibling `JsonException` shapes) thrown when user pastes a truncated Claude/ChatGPT/Gemini response into the AI-response textarea on `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`. Today the exception bubbles to the generic error page with a raw stack trace ("Expected end of string, but instead reached end of data. LineNumber: X | BytePositionInLine: Y"). Replace with a user-facing message ("The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit.") rendered inline on the workflow page. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch)
 
 ## Phase Details
@@ -287,20 +287,23 @@ Plans:
   9. (D-14) Test gate: manual UAT (large Commander deck, preview→download click <2s vs today's 2+ min) + `dotnet.exe build DeckFlow.sln -c Release` exits 0 with 0 new warnings + grep gate confirming `TryGetValue` + `Set` symmetry across all 3 services + the cache wrapper file is present. xUnit unit tests on the cache wrapper (pure-value key normalization) are planner-discretion IF they avoid VSTest WSL flakiness.
   10. README updated when behavior changes per `CLAUDE.md`. Plain default-author commits, no `Co-Authored-By` trailer.
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
 **Wave 1**
 
-- [ ] 999.3-01-PLAN.md — Create `PacketSessionCache` wrapper + Program.cs DI registration (D-03, D-04, D-05, D-06, D-07, D-11, D-12, D-13)
+- [x] 999.3-01-PLAN.md — Create PacketSessionCache wrapper (with CachedEntry size-recoverable envelope) + PacketSizeEstimator + Program.cs DI registration + warning baseline
 
-**Wave 2** (parallel — non-overlapping files)
+**Wave 2**
 
-- [ ] 999.3-02-PLAN.md — Wire cache write at end of `BuildAsync` in `DeckAnalysisPacketService` + `DeckComparisonService` + `MetaGapService` + update 3 Program.cs factory blocks (D-01, D-02, D-07, D-08, D-09)
-- [ ] 999.3-03-PLAN.md — Layer cache-read precedence onto 3 download handlers in `DeckController.cs` between existing response-json-only short-circuit and BuildAsync (D-10, D-11, D-12)
+- [x] 999.3-02-PLAN.md — Cache write at end of BuildAsync in 3 services + shared private BuildXxxCacheInputs helpers (single source of truth for write↔read parity) + per-service async TryComputeCacheKeyAsync helpers + Program.cs factory blocks
 
 **Wave 3**
 
-- [ ] 999.3-04-PLAN.md — Manual UAT (preview→download timing on Phase 999.2 reference deck) + grep gate + `dotnet build` clean + README + STATE + ROADMAP closure (D-14)
+- [x] 999.3-03-PLAN.md — Layer cache-read precedence onto 3 download handlers in DeckController.cs (D-10), calling Plan 02's async helpers; miss-path latency accepted
+
+**Wave 4**
+
+- [x] 999.3-04-PLAN.md — Manual UAT (incl. M3 empirical upload isolation + M4 absence-assertion in isolated log window) + grep gate + build gate + README/STATE/ROADMAP closure
 
 ## Progress
 
@@ -324,7 +327,7 @@ Plans:
 | 15. AiPlatform Value Object Refactor | v1.3 | 3/3 | Complete    | 2026-05-18 |
 | 999.1 AI-Agnostic Prose Adaptation in Razor Views | v1.3 | 7/7 | Complete    | 2026-05-19 |
 | 999.2 Claude `<result>` Wrapper — Direct JSON Output Option | v1.3 | 1/1 | Complete   | 2026-05-19 |
-| 999.3 Packet Download Session Cache | v1.3 | 0/0 | Planned    | — |
+| 999.3 Packet Download Session Cache | v1.3 | 4/4 | Complete   | 2026-05-21 |
 | 999.4 Truncated-JSON Response UX | v1.3 | 0/0 | Planned    | — |
 
 ---
