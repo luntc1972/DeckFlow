@@ -318,9 +318,9 @@ Plans:
   4. `dotnet build DeckFlow.sln -c Release` exits 0 with zero new warnings vs the post-Phase-999.3 baseline; README updated when user-visible behavior changes per `CLAUDE.md`.
   5. Manual UAT confirms the new UX across all three pages for ChatGPT / Claude / Gemini selections; `D-03` carve-outs (if any) for non-AI-response pages preserved.
 
-**Plans:** 0/0 plans (to be created during /gsd-plan-phase 999.4)
+**Plans:** 1 plan
 Plans:
-- [ ] TBD (created by /gsd-plan-phase after CONTEXT.md is captured)
+- [ ] 999.4-01-PLAN.md — Catch truncated JSON at 4 AI-response parse sites (ResponseParsers analysis + set-upgrade, DeckComparisonService.ParseComparisonResponse, MetaGapService.ParseResponse) + 4 xUnit truncation facts + manual UAT closure across 4 pages and 2+ AI selections (5 commits per D-05)
 
 ## Progress
 
