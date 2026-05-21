@@ -269,6 +269,39 @@ Plans:
 
 ---
 
+### Phase 999.3: Packet Download Session Cache
+
+**Goal**: Eliminate full Scryfall pipeline replay on packet download. The three workflow services (`DeckAnalysisPacketService`, `DeckComparisonService`, `MetaGapService`) each expose preview + download endpoint pairs where both endpoints call `BuildAsync(request, ...)` from scratch — a large Commander deck pays the multi-minute Scryfall round-trip cost twice. Phase 999.3 adds an in-memory result cache keyed off the BuildAsync-relevant input fields so the download endpoint reuses the artifact built during preview when the same inputs are resubmitted. Layered BENEATH the existing response-json-only short-circuit on deck-comparison/cedh-meta-gap downloads (D-10). Pure optimization, never a correctness contract — cache miss falls through silently to `BuildAsync` (D-11). In-memory only, dedicated `MemoryCache` instance with `SizeLimit = 10_000_000` and 5-minute absolute TTL (D-05, D-06). All 3 workflow services symmetric scope (D-08).
+**Depends on**: Phase 15 (`AiPlatform.Key` as cache-key dimension per D-01 keyed inputs).
+**Requirements**: D-01..D-14 from `.planning/phases/999.3-packet-download-session-cache/999.3-CONTEXT.md` (backlog-style phase — no formal REQ-IDs assigned; CONTEXT.md decisions are the binding contract).
+**Success Criteria** (what must be TRUE):
+
+  1. (D-01, D-02) Cache key built from only Scryfall-pipeline-relevant fields (`commander`, normalized `DeckSource`, include flags, `AiPlatform.Key`, `selectedQuestionIds[]` for analysis; per-service equivalents for comparison + meta-gap). `WorkflowStep`, `*ResponseJson`, parsed-response objects, `ImportWarning` excluded. URL-mode and paste-mode of the same deck collapse to one key.
+  2. (D-03) Key is lowercase hex SHA-256 of canonical-JSON-serialized field bag via `System.Text.Json` + `SHA256.HashData`. ~64-char string keys consistent with existing `IMemoryCache` string-key pattern.
+  3. (D-04) Global key scope — no per-IP / per-session salt; matches existing `CardLookupCache` / `CommanderSpellbookService` patterns.
+  4. (D-05, D-06, D-07) Dedicated `MemoryCache` instance with `SizeLimit = 10_000_000`, 5-minute absolute TTL, per-entry `Size` = sum of result payload char-lengths. NOT the shared singleton `IMemoryCache`.
+  5. (D-08, D-09) All 3 services participate: `DeckAnalysisPacketService`, `DeckComparisonService`, `MetaGapService`. `/deck-analysis/upload` also writes to the cache (same shape as preview). `deck-comparison` and `cedh-meta-gap` have no `/upload` endpoint — out of scope.
+  6. (D-10) Download endpoint precedence preserved: (1) existing response-json-only short-circuit FIRST (deck-comparison line 705, cedh-meta-gap line 956), (2) packet cache lookup SECOND, (3) `BuildAsync` fallthrough THIRD. The existing fast paths are byte-identical post-phase.
+  7. (D-11, D-12) Cache miss falls through silently to `BuildAsync` (no "session expired" UX). Stampede accepted — no per-key SemaphoreSlim, no Lazy<Task<T>> singleflight. Matches existing cache patterns.
+  8. (D-13) Structured Serilog log line per lookup: `_logger.LogInformation("Packet cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)", outcome, key.Substring(0,8), sizeEstimate)` where `Outcome ∈ {hit, miss, write, evicted}`. Greppable from `/data/logs/web-*.log`.
+  9. (D-14) Test gate: manual UAT (large Commander deck, preview→download click <2s vs today's 2+ min) + `dotnet.exe build DeckFlow.sln -c Release` exits 0 with 0 new warnings + grep gate confirming `TryGetValue` + `Set` symmetry across all 3 services + the cache wrapper file is present. xUnit unit tests on the cache wrapper (pure-value key normalization) are planner-discretion IF they avoid VSTest WSL flakiness.
+  10. README updated when behavior changes per `CLAUDE.md`. Plain default-author commits, no `Co-Authored-By` trailer.
+
+**Plans:** 4 plans
+Plans:
+**Wave 1**
+
+- [ ] 999.3-01-PLAN.md — Create `PacketSessionCache` wrapper + Program.cs DI registration (D-03, D-04, D-05, D-06, D-07, D-11, D-12, D-13)
+
+**Wave 2** (parallel — non-overlapping files)
+
+- [ ] 999.3-02-PLAN.md — Wire cache write at end of `BuildAsync` in `DeckAnalysisPacketService` + `DeckComparisonService` + `MetaGapService` + update 3 Program.cs factory blocks (D-01, D-02, D-07, D-08, D-09)
+- [ ] 999.3-03-PLAN.md — Layer cache-read precedence onto 3 download handlers in `DeckController.cs` between existing response-json-only short-circuit and BuildAsync (D-10, D-11, D-12)
+
+**Wave 3**
+
+- [ ] 999.3-04-PLAN.md — Manual UAT (preview→download timing on Phase 999.2 reference deck) + grep gate + `dotnet build` clean + README + STATE + ROADMAP closure (D-14)
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
