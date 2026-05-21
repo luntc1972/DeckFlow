@@ -19,6 +19,7 @@ namespace DeckFlow.Web.Controllers;
 /// </summary>
 public sealed class DeckController : Controller
 {
+    private const string CorruptedZipMessage = "The uploaded zip contains an incomplete response payload. Re-export from the originating session or paste a fresh response.";
     private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromSeconds(20);
     private readonly IDeckSyncService _deckSyncService;
     private readonly IDeckConvertService _deckConvertService;
@@ -631,11 +632,12 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "Deck-analysis packet upload failed validation.");
+            string errorMessage = exception.Message == ResponseParsers.TruncatedResponseMessage ? CorruptedZipMessage : exception.Message;
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = new DeckAnalysisRequest(),
-                ErrorMessage = exception.Message
+                ErrorMessage = errorMessage
             });
         }
         catch (InvalidDataException)
@@ -912,11 +914,12 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "Deck-comparison upload failed validation.");
+            string errorMessage = exception.Message == ResponseParsers.TruncatedResponseMessage ? CorruptedZipMessage : exception.Message;
             return View("DeckComparison", new DeckComparisonViewModel
             {
                 ActiveTab = DeckPageTab.DeckComparison,
                 Request = new DeckComparisonRequest(),
-                ErrorMessage = exception.Message
+                ErrorMessage = errorMessage
             });
         }
         catch (InvalidDataException)
@@ -1163,11 +1166,12 @@ public sealed class DeckController : Controller
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "cEDH meta-gap upload failed validation.");
+            string errorMessage = exception.Message == ResponseParsers.TruncatedResponseMessage ? CorruptedZipMessage : exception.Message;
             return View("CedhMetaGap", new MetaGapViewModel
             {
                 ActiveTab = DeckPageTab.CedhMetaGap,
                 Request = new MetaGapRequest(),
-                ErrorMessage = exception.Message,
+                ErrorMessage = errorMessage,
             });
         }
         catch (InvalidDataException)
