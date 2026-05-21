@@ -943,23 +943,35 @@ public sealed class MetaGapService : IMetaGapService
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
-        using var document = JsonDocument.Parse(json);
 
-        JsonElement payload = document.RootElement;
-        if (payload.ValueKind == JsonValueKind.Object
-            && payload.TryGetProperty("meta_gap", out var metaGapElement))
+        JsonDocument document;
+        try
         {
-            payload = JsonSerializer.SerializeToElement(new { meta_gap = metaGapElement });
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(ResponseParsers.TruncatedResponseMessage);
         }
 
-        var result = JsonSerializer.Deserialize<MetaGapResponse>(payload.GetRawText(), JsonOptions);
-
-        if (result is null)
+        using (document)
         {
-            throw new InvalidOperationException("The submitted AI response did not contain a valid meta_gap payload.");
-        }
+            JsonElement payload = document.RootElement;
+            if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("meta_gap", out var metaGapElement))
+            {
+                payload = JsonSerializer.SerializeToElement(new { meta_gap = metaGapElement });
+            }
 
-        return result;
+            var result = JsonSerializer.Deserialize<MetaGapResponse>(payload.GetRawText(), JsonOptions);
+
+            if (result is null)
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid meta_gap payload.");
+            }
+
+            return result;
+        }
     }
 
     /// <summary>
