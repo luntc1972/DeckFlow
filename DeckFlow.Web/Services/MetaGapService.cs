@@ -25,6 +25,13 @@ public interface IMetaGapService
     /// <param name="request">cEDH meta-gap workflow request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attempts to compute the packet-session cache key for the supplied cEDH meta-gap request.
+    /// </summary>
+    /// <param name="request">cEDH meta-gap workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<string?> TryComputeCacheKeyAsync(MetaGapRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>

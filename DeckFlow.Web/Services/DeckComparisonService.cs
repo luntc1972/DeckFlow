@@ -28,6 +28,13 @@ public interface IDeckComparisonService
     /// <param name="request">Comparison workflow request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attempts to compute the packet-session cache key for the supplied comparison request.
+    /// </summary>
+    /// <param name="request">Comparison workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<string?> TryComputeCacheKeyAsync(DeckComparisonRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>

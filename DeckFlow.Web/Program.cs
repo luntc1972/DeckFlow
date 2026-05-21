@@ -302,6 +302,7 @@ public partial class Program
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                     sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
                     sp.GetService<ILogger<DeckAnalysisPacketService>>()));
             builder.Services.AddScoped<IDeckComparisonService>(sp =>
                 new DeckComparisonService(
@@ -314,6 +315,7 @@ public partial class Program
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
                     sp.GetRequiredService<FollowUpPromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
                     sp.GetService<ILogger<DeckComparisonService>>()));
             builder.Services.AddScoped<IMetaGapService>(sp =>
                 new MetaGapService(
@@ -325,7 +327,8 @@ public partial class Program
                     sp.GetRequiredService<ArchidektParser>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetRequiredService<MetaGapPromptVariantRegistry>()));
+                    sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>()));
             builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
             builder.Services.AddSingleton<ArchidektCacheJobService>();
             builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());

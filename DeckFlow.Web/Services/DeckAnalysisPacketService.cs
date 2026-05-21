@@ -28,6 +28,13 @@ public interface IDeckAnalysisPacketService
     /// <param name="request">Current workflow request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attempts to compute the packet-session cache key for the supplied request.
+    /// </summary>
+    /// <param name="request">Current workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
