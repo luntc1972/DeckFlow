@@ -912,26 +912,38 @@ public sealed class DeckComparisonService : IDeckComparisonService
         }
 
         var json = JsonTextFormatterService.ExtractJsonPayload(input);
-        using var document = JsonDocument.Parse(json);
 
-        JsonElement payload = document.RootElement;
-        if (payload.ValueKind == JsonValueKind.Object
-            && payload.TryGetProperty("deck_comparison", out var comparisonElement))
+        JsonDocument document;
+        try
         {
-            payload = comparisonElement;
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(ResponseParsers.TruncatedResponseMessage);
         }
 
-        var result = JsonSerializer.Deserialize<DeckComparisonResponse>(payload.GetRawText(), new JsonSerializerOptions
+        using (document)
         {
-            PropertyNameCaseInsensitive = true
-        });
+            JsonElement payload = document.RootElement;
+            if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("deck_comparison", out var comparisonElement))
+            {
+                payload = comparisonElement;
+            }
 
-        if (result is null)
-        {
-            throw new InvalidOperationException("The submitted AI response did not contain a valid deck_comparison payload.");
+            var result = JsonSerializer.Deserialize<DeckComparisonResponse>(payload.GetRawText(), new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (result is null)
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid deck_comparison payload.");
+            }
+
+            return result;
         }
-
-        return result;
     }
 
     private static string BuildTimingSummary(IReadOnlyList<(string Label, long Ms, string? Detail)> timings, long totalMs)
