@@ -73,6 +73,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly ILogger<DeckAnalysisPacketService> _logger;
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
+    private readonly PacketSessionCache _packetCache;
 
     internal DeckAnalysisPacketService(
         IScryfallRestClientFactory scryfallRestClientFactory,
@@ -87,6 +88,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ICommanderSpellbookService commanderSpellbookService,
         AnalysisPromptVariantRegistry analysisPromptRegistry,
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
+        PacketSessionCache packetCache,
         ILogger<DeckAnalysisPacketService>? logger = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
@@ -105,6 +107,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(analysisPromptRegistry);
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
+        ArgumentNullException.ThrowIfNull(packetCache);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
@@ -116,6 +119,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _commanderSpellbookService = commanderSpellbookService;
         _analysisPromptRegistry = analysisPromptRegistry;
         _setUpgradePromptRegistry = setUpgradePromptRegistry;
+        _packetCache = packetCache;
         _logger = logger ?? NullLogger<DeckAnalysisPacketService>.Instance;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride
@@ -130,6 +134,188 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
                 async pollyCt => await client.ExecuteAsync<ScryfallCard>(request, pollyCt).ConfigureAwait(false),
                 token).AsTask(), cancellationToken));
+    }
+
+    /// <summary>
+    /// PASS-4 H1 FIX — SINGLE source of truth for pre-Scryfall commander state used by BOTH
+    /// <see cref="BuildAsync"/> (write path) and <see cref="TryComputeCacheKeyAsync"/> (read path).
+    /// Mirrors lines 226-271 of BuildAsync EXACTLY, including the reflag mutation at lines 257-267
+    /// that sets Board="commander" on inferred commander entries in BOTH the entries collection
+    /// AND the deckEntries collection.
+    ///
+    /// SKIPS the line-283 ValidateCommanderAsync (Scryfall) and line-435 oracle remap (also Scryfall)
+    /// — those happen post-key-computation in BuildAsync only. The post-validation / post-oracle
+    /// commander is used in the result itself (correct — user sees the validated name) but NOT in
+    /// the cache key. Cache key uses commander as extracted from parsed deck entries at the
+    /// pre-Scryfall stage WITH the inferred-commander reflag mutation applied.
+    ///
+    /// EXPLICIT STAGE DECISION: cache key uses pre-Scryfall commander + pre-Scryfall (but
+    /// reflag-mutated) entries. Key parity between write and read paths is enforced by code
+    /// locality — both call this helper with the same upstream value, then both call
+    /// <see cref="BuildDeckAnalysisCacheInputs"/> with this helper's returned values.
+    /// </summary>
+    private static (List<DeckEntry> Entries, List<DeckEntry> DeckEntries, string? CommanderName, bool InferredCommanderFromMoxfieldOrdering) ResolvePreScryfallCommanderState(List<DeckEntry> entries)
+    {
+        var deckEntries = entries
+            .Where(entry =>
+                !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var commanderName = deckEntries
+            .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            ?.Name;
+        var inferredCommanderFromMoxfieldOrdering = false;
+
+        // Fallback for Moxfield exports without a Commander section header.
+        // By convention the commander (or partner pair) appears first in the list.
+        if (commanderName is null && entries.Count > 0)
+        {
+            var leadingOneOfs = entries
+                .TakeWhile(entry => entry.Quantity == 1
+                    && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+
+            // Third-entry alphabetical guard — mirrors BuildAsync lines 246-253.
+            if (leadingOneOfs.Count == 2 && entries.Count > 2)
+            {
+                var thirdEntry = entries[2];
+                if (string.Compare(leadingOneOfs[1].Name, thirdEntry.Name, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    leadingOneOfs = leadingOneOfs.Take(1).ToList();
+                }
+            }
+
+            if (leadingOneOfs.Count > 0)
+            {
+                var commanderNames = leadingOneOfs.Select(e => e.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // REFLAG MUTATION — mirrors BuildAsync lines 257-267 EXACTLY. Both `entries` and
+                // `deckEntries` collections get inferred commander entries reflagged Board="commander".
+                // Without this mutation, BuildCanonicalDeckSourceText would sort the same logical
+                // deck differently in read vs write paths because Board is the primary sort key.
+                entries = entries
+                    .Select(entry => commanderNames.Contains(entry.Name)
+                        ? entry with { Board = "commander" }
+                        : entry)
+                    .ToList();
+                deckEntries = deckEntries
+                    .Select(entry => commanderNames.Contains(entry.Name)
+                        ? entry with { Board = "commander" }
+                        : entry)
+                    .ToList();
+                commanderName = leadingOneOfs[0].Name;
+                inferredCommanderFromMoxfieldOrdering = true;
+            }
+        }
+
+        return (entries, deckEntries, commanderName, inferredCommanderFromMoxfieldOrdering);
+    }
+
+    /// <summary>
+    /// PASS-4 H1 fix — SINGLE source of truth for the deck-analysis cache-input bag.
+    ///
+    /// Called from BOTH (a) <see cref="TryComputeCacheKeyAsync"/> (read side) and (b) the line-467
+    /// cache-write site in <see cref="BuildAsync"/> (write side). Both sides pass the
+    /// SAME pre-Scryfall (entries, commanderName) tuple as returned by
+    /// <see cref="ResolvePreScryfallCommanderState"/> — meaning the reflag mutation has already been
+    /// applied to <paramref name="entries"/> for inferred-commander Moxfield decks. This guarantees
+    /// <see cref="BuildCanonicalDeckSourceText"/> sees identical Board values on identical logical
+    /// input in both paths, producing identical SHA-256 cache keys.
+    /// </summary>
+    private static DeckAnalysisCacheInputs BuildDeckAnalysisCacheInputs(
+        DeckAnalysisRequest request,
+        IReadOnlyList<DeckEntry> entries,
+        string? commanderName)
+    {
+        return new DeckAnalysisCacheInputs(
+            Commander: commanderName ?? string.Empty,
+            NormalizedDeckSource: BuildCanonicalDeckSourceText(entries),
+            IncludeCardVersions: request.IncludeCardVersions,
+            IncludeSideboardInAnalysis: request.IncludeSideboardInAnalysis,
+            IncludeMaybeboardInAnalysis: request.IncludeMaybeboardInAnalysis,
+            TargetAiPlatformKey: request.TargetAiPlatform,
+            SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? new List<string>())
+                .OrderBy(static id => id, StringComparer.Ordinal)
+                .ToArray());
+    }
+
+    /// <summary>
+    /// Stable canonical text representation of the loaded deck entries (D-02). Sort by board,
+    /// then name, then set, then collector number for byte-stable output across URL vs paste mode.
+    /// Because Board is the primary sort key, the inferred-commander reflag mutation in
+    /// <see cref="ResolvePreScryfallCommanderState"/> MUST be applied before this is called —
+    /// otherwise read and write paths produce different canonical text for the same logical deck.
+    /// </summary>
+    private static string BuildCanonicalDeckSourceText(IReadOnlyList<DeckEntry> entries)
+    {
+        var builder = new StringBuilder();
+        foreach (var entry in entries
+            .OrderBy(e => e.Board ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.SetCode ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.CollectorNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            builder.Append(entry.Board ?? string.Empty).Append('|')
+                   .Append(entry.Quantity).Append('|')
+                   .Append(entry.Name ?? string.Empty).Append('|')
+                   .Append(entry.SetCode ?? string.Empty).Append('|')
+                   .Append(entry.CollectorNumber ?? string.Empty).Append('\n');
+        }
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Composes the D-01 cache-input field bag and returns the canonical PacketSessionCache key
+    /// for this request. Re-runs the same private <see cref="LoadDeckEntriesAsync"/> path
+    /// <see cref="BuildAsync"/> uses, then calls <see cref="ResolvePreScryfallCommanderState"/>
+    /// (the SAME helper BuildAsync calls in its pre-Scryfall stage) to apply the inferred-commander
+    /// reflag mutation, then calls <see cref="BuildDeckAnalysisCacheInputs"/> (the SAME helper
+    /// BuildAsync calls at the line-467 write site) to compose the field bag.
+    ///
+    /// Returns null on load failure or empty deck — silent fall-through to BuildAsync (D-11).
+    /// PASS-4 H1 fix: write↔read parity is now enforced by TWO shared helpers
+    /// (ResolvePreScryfallCommanderState + BuildDeckAnalysisCacheInputs), eliminating the
+    /// pass-3 gap where the inline inference block lacked the reflag mutation.
+    /// </summary>
+    public async Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.DeckSource))
+        {
+            return null;
+        }
+
+        List<DeckEntry> entries;
+        try
+        {
+            entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or DeckParseException or HttpRequestException)
+        {
+            return null;
+        }
+
+        if (entries.Count == 0)
+        {
+            return null;
+        }
+
+        // PASS-4 H1 FIX: route through the shared helper that mirrors BuildAsync lines 226-271
+        // INCLUDING the reflag mutation at lines 257-267. The helper returns the (possibly
+        // reflagged) entries — we MUST use its returned Entries in the cache-input call below,
+        // not the local `entries` from before the call.
+        var preScryfall = ResolvePreScryfallCommanderState(entries);
+
+        if (preScryfall.DeckEntries.Count == 0)
+        {
+            return null;
+        }
+
+        var inputs = BuildDeckAnalysisCacheInputs(request, preScryfall.Entries, preScryfall.CommanderName);
+        return PacketSessionCache.ComputeKey(inputs);
     }
 
     /// <summary>
@@ -223,52 +409,20 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             throw new InvalidOperationException("The submitted deck did not contain any commander or mainboard cards.");
         }
 
-        var commanderName = deckEntries
-            .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            ?.Name;
-        var inferredCommanderFromMoxfieldOrdering = false;
+        // PASS-4 H1 FIX: route pre-Scryfall commander resolution through the shared helper. This
+        // applies the inferred-commander reflag mutation to BOTH `entries` and `deckEntries`. The
+        // helper's returned values are the canonical pre-Scryfall state used by the cache key.
+        var preScryfallState = ResolvePreScryfallCommanderState(entries);
+        entries = preScryfallState.Entries;
+        deckEntries = preScryfallState.DeckEntries;
+        var commanderName = preScryfallState.CommanderName;
+        var inferredCommanderFromMoxfieldOrdering = preScryfallState.InferredCommanderFromMoxfieldOrdering;
 
-        // Fallback for Moxfield exports without a Commander section header.
-        // By convention the commander (or partner pair) appears first in the list.
-        if (commanderName is null && entries.Count > 0)
-        {
-            var leadingOneOfs = entries
-                .TakeWhile(entry => entry.Quantity == 1
-                    && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
-                .Take(2)
-                .ToList();
-
-            // If two candidates were found, confirm the second is a partner commander and not the
-            // first card of an A-Z-sorted mainboard. When the second entry sorts alphabetically
-            // before the third entry it fits naturally in a sorted mainboard sequence; in that case
-            // only the first entry is the commander.
-            if (leadingOneOfs.Count == 2 && entries.Count > 2)
-            {
-                var thirdEntry = entries[2];
-                if (string.Compare(leadingOneOfs[1].Name, thirdEntry.Name, StringComparison.OrdinalIgnoreCase) < 0)
-                {
-                    leadingOneOfs = leadingOneOfs.Take(1).ToList();
-                }
-            }
-
-            if (leadingOneOfs.Count > 0)
-            {
-                var commanderNames = leadingOneOfs.Select(e => e.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                entries = entries
-                    .Select(entry => commanderNames.Contains(entry.Name)
-                        ? entry with { Board = "commander" }
-                        : entry)
-                    .ToList();
-                deckEntries = deckEntries
-                    .Select(entry => commanderNames.Contains(entry.Name)
-                        ? entry with { Board = "commander" }
-                        : entry)
-                    .ToList();
-                commanderName = leadingOneOfs[0].Name;
-                inferredCommanderFromMoxfieldOrdering = true;
-            }
-        }
+        // Capture the pre-Scryfall state for the line-467 cache write BEFORE any subsequent
+        // mutation (the line-273 Commander-format branch may call ValidateCommanderAsync at
+        // line 283 and reassign `entries`/`commanderName` to post-Scryfall values).
+        var preScryfallEntries = entries;
+        var preScryfallCommanderName = commanderName;
 
         if (string.Equals(request.Format, "Commander", StringComparison.OrdinalIgnoreCase) && inferredCommanderFromMoxfieldOrdering)
         {
@@ -464,7 +618,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         var suggestedChatTitle = BuildSuggestedChatTitle(request, commanderName);
 
-        return new DeckAnalysisPacketResult(
+        var result = new DeckAnalysisPacketResult(
             inputSummary,
             suggestedChatTitle,
             deckProfileSchemaJson,
@@ -478,6 +632,18 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
             DecklistText: decklistText);
+
+        // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
+        // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
+        // Both BuildAsync and TryComputeCacheKeyAsync route through the SAME two shared helpers
+        // (ResolvePreScryfallCommanderState + BuildDeckAnalysisCacheInputs), guaranteeing
+        // identical SHA-256 keys for identical logical inputs — including for Moxfield decks
+        // without an explicit commander section (the case Codex pass-3 flagged).
+        var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
+        var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
+        _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
+
+        return result;
     }
 
 
