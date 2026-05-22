@@ -1,44 +1,54 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-21T16:57:30.531Z",
-  "phase": "999.3",
-  "phase_name": "packet-download-session-cache",
-  "phase_dir": ".planning/phases/999.3-packet-download-session-cache",
+  "timestamp": "2026-05-22T20:39:59Z",
+  "phase": "999.7",
+  "phase_name": "v1-3-audit-cleanup",
+  "phase_dir": ".planning/phases/999.7-v1-3-audit-cleanup",
   "plan": null,
   "task": null,
-  "total_tasks": null,
+  "total_tasks": 4,
   "status": "paused",
-  "stage": "plan-review-convergence-loop",
-  "iteration": "pass-3-replan-complete-awaiting-codex-pass-3",
+  "stage": "post-plan-codex-review-2HIGH-pending-replan-AND-prod-harvester-bug-surfaced",
   "branch": "v1.3",
-  "head_commit": "8ca08c5",
+  "head_commit": "664f1da",
   "completed_tasks": [
-    {"id": "pass-1-plan", "name": "Initial 4-plan set written", "status": "done", "commit": "f1e6aa9"},
-    {"id": "pass-1-review", "name": "Codex pass-1 review (8 concerns: 4 HIGH H1-H4, 4 MEDIUM M1-M4)", "status": "done", "commit": "0aa5631"},
-    {"id": "pass-2-replan", "name": "Replan after pass-1 (async TryComputeCacheKeyAsync pivot)", "status": "done", "commit": "a84db55"},
-    {"id": "pass-2-review", "name": "Codex pass-2 review (H1 unresolved, 2 new MED, 1 new LOW)", "status": "done", "commit": "72c797a"},
-    {"id": "pass-3-replan", "name": "Replan after pass-2 (shared BuildDeckAnalysisCacheInputs + CachedEntry envelope + miss-path latency ack + Workflow E/D fixes)", "status": "done", "commit": "8ca08c5"}
+    {"id": "plan-999.7", "name": "Plan Phase 999.7 (4 plans, 1 wave, all autonomous; plan-checker iteration 2/3 passed)", "status": "done", "commit": "254df9e"},
+    {"id": "review-999.7", "name": "Codex peer review of 999.7 plans — 2 HIGH + 4 MED + 4 LOW findings, all clustered on Plan 03", "status": "done", "commit": "664f1da"}
   ],
   "remaining_tasks": [
-    {"id": "pass-3-review", "name": "Codex pass-3 review via /gsd-review --phase 999.3", "status": "not_started"},
-    {"id": "execute", "name": "Execute phase 999.3 via /gsd-execute-phase (only after pass-3 clears HIGH-severity concerns)", "status": "blocked_on_review"}
+    {"id": "harvester-bug-prod", "name": "URGENT: /Admin/Harvest broken on prod v1.3 — jobs stuck Queued, worker likely dead. Diagnose + Codex applies fix.", "status": "not_started", "urgency": "production"},
+    {"id": "999.7-replan", "name": "Replan Plan 03 via /gsd:plan-phase 999.7 --reviews — Codex HIGH: repo has 5 Claude variants with 'result-wrapped output', Plan 03 only targets 3", "status": "not_started"},
+    {"id": "999.7-execute", "name": "Execute Phase 999.7 plans via /gsd-execute-phase 999.7 (Codex executor per CLAUDE.md cross-AI rule)", "status": "blocked_on_replan"},
+    {"id": "redirects-removal", "name": "Remove 11 chatgpt-* 301 redirects from Phase 12 — user requested 2026-05-22; capture as Phase 999.8 or v1.4 scope", "status": "not_started"},
+    {"id": "milestone-audit-tracking", "name": "Commit or .gitignore .planning/v1.3-MILESTONE-AUDIT.md (currently untracked; Codex flagged plans depend on it)", "status": "not_started"}
   ],
   "blockers": [
-    {"description": "Codex pass-3 review not yet run", "type": "process_gate", "workaround": "Run /gsd-review --phase 999.3 to dispatch Codex"}
+    {
+      "description": "Production /Admin/Harvest broken — POST /Admin/Harvest/run returns state:Queued, jobId set, startedUtc:null. Never transitions Running.",
+      "type": "technical",
+      "workaround": "Restart Render web service. D-02 startup reaper (HarvestRunStore.cs:475-489) flips Queued/Running/Stopping rows to Failed at EnsureSchemaAsync first-call; ExecuteAsync restarts fresh from empty channel."
+    },
+    {
+      "description": "Phase 999.7 Plan 03 grep gate `grep -rln 'result-wrapped' .../PromptBuilders/ returns 0` will fail — independently verified 5 matches (Analysis, Comparison, FollowUp, MetaGap, SetUpgrade). Audit F-01 evidence inventory was incomplete (only listed 3).",
+      "type": "technical",
+      "workaround": "Re-plan via /gsd:plan-phase 999.7 --reviews — picks Option A (expand SC3 to 5 files) or Option B (keep 3 + scope grep to those paths only)"
+    }
   ],
   "human_actions_pending": [
-    {"action": "Run /gsd-review --phase 999.3 for Codex pass-3 review", "context": "Per CLAUDE.md user rule 'Codex reviews plans' — authoritative HIGH-severity gate", "blocking": true},
-    {"action": "If pass-3 clears: run /gsd-execute-phase 999.3 to dispatch Codex executor", "context": "Per CLAUDE.md user rule 'Codex codes, Claude reviews'", "blocking": false}
+    {"action": "Restart Render web service immediately to unstick prod harvester", "context": "Reaper flips Queued rows on next startup. Operator unblocked; debug investigation can run in parallel.", "blocking": true},
+    {"action": "Decide SC3 scope for 999.7 Plan 03: Option A (5 files — all Claude variants) vs Option B (3 files — only Analysis/Comparison/MetaGap; assume FollowUp+SetUpgrade prompt bodies still emit <result> wrapper)", "context": "Codex HIGH #1. Resolution requires checking whether Phase 999.2 stripped <result> from FollowUp+SetUpgrade BuildAsync methods or only from the 3 audit-listed variants.", "blocking": false},
+    {"action": "Confirm scope for redirect-removal task: new Phase 999.8 in v1.3 OR v1.4 milestone", "context": "User said past links can be retired. Phase 12 added 11 301 redirects in Program.cs UseRewriter block.", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Pre-Scryfall commander stage chosen for cache key", "rationale": "Deterministic from request inputs without external API mutation; both BuildAsync write and TryComputeCacheKeyAsync read use same stage via shared private BuildDeckAnalysisCacheInputs helper", "phase": "999.3"},
-    {"decision": "CachedEntry<TResult>(Result, SizeBytes) envelope", "rationale": "Recover real size on hit/eviction for D-13 observability; pass-2 LOW fix", "phase": "999.3"},
-    {"decision": "Wave restructure 1->2->3->4 sequential", "rationale": "Plan 03 depends_on Plan 02's TryComputeCacheKeyAsync helper; cannot run in parallel as ROADMAP originally suggested", "phase": "999.3"},
-    {"decision": "Miss-path latency accepted, not redesigned", "rationale": "D-11 silent fall-through accepts trade-off; HIT path is optimization target; alternative architectures rejected by earlier reviews", "phase": "999.3"},
-    {"decision": "Workflow D made mandatory empirical (restart+upload-first+download)", "rationale": "Code inspection insufficient for D-09 proof per pass-2 M3 PARTIAL feedback", "phase": "999.3"},
-    {"decision": "Workflow E asserts absence of 'Packet cache ' substring (trailing space)", "rationale": "D-13 emits only hit|miss|write|evicted; no 'lookup' event exists", "phase": "999.3"}
+    {"decision": "Skip discuss-phase + research for 999.7", "rationale": "ROADMAP scope already concrete (file paths + line numbers + 7 verifiable SCs); audit doc binding contract", "phase": "999.7"},
+    {"decision": "4 plans, Wave 1, zero files_modified overlap, all autonomous:true", "rationale": "Codex executes per project cross-AI rule; parallel-safe within wave", "phase": "999.7"},
+    {"decision": "Plan 01 writes SC1 literal target values (11/11/46/46/100) verbatim", "rationale": "Option A from plan-checker revision — execution-order-independent; no depends_on chain needed; 999.7 treated as meta-audit phase excluded from v1.3 total by convention", "phase": "999.7"},
+    {"decision": "Pause to address prod harvester before continuing 999.7 cycle", "rationale": "Production broken > planning artifacts. Per project CLAUDE.md Claude investigates, Codex applies fix.", "phase": "ops"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Run /gsd-review --phase 999.3 to dispatch Codex pass-3 review",
-  "context_notes": "Convergence loop pass-3 of plan-review iteration. Internal Claude plan-checker passed clean. Source line anchors (226/271/283/435/467 in DeckAnalysisPacketService; 198 in DeckComparisonService; 122/131-134/196 in MetaGapService; 584/705/727/956/971 in DeckController) verified against actual code by plan-checker. D-01..D-14 all mapped across 4 plans. DO NOT execute until Codex pass-3 clears. If pass-3 still flags HIGH, run another /gsd-plan-phase 999.3 --reviews iteration."
+  "uncommitted_files": [
+    ".planning/v1.3-MILESTONE-AUDIT.md (untracked — audit report; all 999.7 plans depend on it)",
+    ".planning/phases/999.7-v1-3-audit-cleanup/.gitkeep (untracked placeholder)"
+  ],
+  "next_action": "Triage in order: (1) ask user to restart Render web service to unstick prod harvester, (2) spawn /gsd-debug 'AdminHarvest worker dies on terminal-write exception' — investigation thread leads to ArchidektCacheJobService.cs:343-377 inner UpdateStateAsync lacking try/catch wrapper (contrast line 304-323 host-shutdown path which has it), (3) return to /gsd:plan-phase 999.7 --reviews for Plan 03 revision once user decides SC3 Option A vs B, (4) capture redirect-removal as separate task.",
+  "context_notes": "Three open threads when paused. Harvester bug surfaced mid-/gsd-review for 999.7; orthogonal but prod-urgent. Phase 999.7 planning is sound — only Plan 03's evidence-inventory scope drift is broken. Per project CLAUDE.md: Codex codes (executor + plan reviewer); Claude reviews + investigates + orchestrates. /gsd-debug should investigate harvester; Codex applies the fix. /gsd:plan-phase --reviews replans 999.7 with Codex feedback. Mind: prod v1.3 deploy is the bug surface; v1.2 prod is the prior stable. Failure mode hypothesis: ExecuteAsync's catch at 343-364 (unexpected OCE) and catch at 365-377 (general Exception) both perform inner UpdateStateAsync to flip Failed but lack try/catch wrappers — if PG write itself throws (timeout/connection blip), exception escapes catch + escapes await foreach → worker dead until process restart. Channel still receives TryWrites but nothing reads them."
 }
