@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: planning
-stopped_at: Phase 999.5 scaffolded — v1.3 backlog catch-up + test hardening (3 plans) opened to close quality debt before ship
-last_updated: "2026-05-22T01:25:00.000Z"
-last_activity: 2026-05-22 -- Phase 999.5 added to ROADMAP: P01 test-suite hardening (4 fixes), P02 D-07 semantic-completeness guards, P03 harvest-killed-by-suggestion fix. Project-local git author flipped to luntc1972 / luntc1972@yahoo.com for public-repo identity. Single-checkbox refactor shipped on v1.3 at 64e1d1c.
+stopped_at: Phase 999.5 context gathered — CONTEXT + DISCUSSION-LOG committed; ready for /gsd-plan-phase
+last_updated: "2026-05-22T01:35:00.000Z"
+last_activity: 2026-05-22 -- Phase 999.5 discuss-phase complete (commit 9327df4); 23 decisions D-01..D-23 captured across P01 test-fixes / P02 D-07 semantic guards / P03 harvest archival. P03 collapsed after grep confirmed fix already shipped 2026-05-03.
 progress:
   total_phases: 10
   completed_phases: 9
@@ -37,10 +37,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.5 v1.3-backlog-catchup-test-hardening — PLANNING (scaffolded, ready for /gsd-discuss-phase)
-Plan: 3 plans (P01 test-fixes, P02 D-07 semantic guards, P03 harvest-killed-by-suggestion fix)
-Status: Awaiting /gsd-discuss-phase 999.5 → /gsd-plan-phase → /gsd-review → /gsd-execute-phase
-Last activity: 2026-05-22 -- Phase 999.5 scaffolded in ROADMAP + STATE; v1.3 reopened from ready_to_ship → planning to absorb backlog catch-up before milestone close.
+Phase: 999.5 v1.3-backlog-catchup-test-hardening — PLANNING (CONTEXT.md committed; ready for /gsd-plan-phase)
+Plan: 3 plans (P01 test-fixes, P02 D-07 semantic guards, P03 harvest archival) — 23 decisions D-01..D-23 captured in CONTEXT.md
+Status: Awaiting /gsd-plan-phase 999.5 → /gsd-review → /gsd-execute-phase
+Last activity: 2026-05-22 -- Phase 999.5 discuss-phase complete (commit 9327df4). P03 collapsed to doc cleanup + regression facts after grep confirmed gate-starvation fix already shipped 2026-05-03.
 Progress: [█████████░] 92%
 
 ## Performance Metrics
@@ -117,9 +117,9 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-22T01:25:00.000Z
+Last session: 2026-05-22T01:25:25.040Z
 
-Stopped at: Phase 999.5 scaffolded in ROADMAP + STATE — discuss-phase not yet dispatched.
+Stopped at: Phase 999.5 context gathered
 
 Next action on resume: `/gsd-discuss-phase 999.5` to gather plan-decisions (xunit isolation strategy for FeedbackStoreTests, throttle-test tolerance, semantic-guard wording, harvest H1 hypothesis resume), then `/gsd-plan-phase 999.5` → Codex peer review → `/gsd-execute-phase 999.5`.
 
