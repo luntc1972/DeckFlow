@@ -180,6 +180,9 @@ public sealed class FeedbackStoreTests : IDisposable
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             if (File.Exists(otherDb)) File.Delete(otherDb);
         }
     }
