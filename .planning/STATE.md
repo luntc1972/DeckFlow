@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: planning
-stopped_at: Phase 999.6 opened 2026-05-22 — ship-gate test residual cleanup; v1.3 ready_to_ship REVOKED until full suite reports Failed 0 per new no-ship-failing-tests rule. 9 residual failures from 999.5 close-out (6 stale, 1 flaky, 2 ambiguous) must be triaged + fixed before ship restoration.
-last_updated: "2026-05-22T15:01:00.000Z"
-last_activity: 2026-05-22 -- v1.3 ship blocked by new memory rule [[feedback-no-ship-failing-tests]] established during 999.5 UAT. Phase 999.6 added to ROADMAP to triage + fix 9 residual failures: PacketArtifactStoreTests msg-string drift (1), AiPlatformPhase10RoundTripTests compare2→comparison rename (4), PacketArtifactStoreRoundTripTests dev-machine fixture path (1), BasicAuthMiddlewareTests state-leak between facts (1), ArchidektCacheJobServiceTests background-service race-or-real-bug (2). Acceptance: full DeckFlow.sln test gate exits Failed 0 before ship sequence resumes.
+status: executing
+stopped_at: Phase 999.5 execute-phase complete (4 plans, 15 commits, full-suite 445/433/9/3)
+last_updated: "2026-05-22T16:04:41.865Z"
+last_activity: 2026-05-22 -- Phase 999.6 planning complete
 progress:
   total_phases: 11
-  completed_phases: 10
-  total_plans: 43
-  completed_plans: 43
-  percent: 91
+  completed_phases: 9
+  total_plans: 46
+  completed_plans: 42
+  percent: 82
 ---
 
 ## Deferred Items
@@ -38,8 +38,8 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 Phase: 999.6 v1.3-ship-gate-test-residual-cleanup — PLANNING (added 2026-05-22; reverses 999.5 D-22 "out-of-scope deferral" of 9 residual failures)
 Plan: 0 plans yet — running /gsd-discuss-phase 999.6 to capture triage decisions before plan-phase.
-Status: v1.3 ship REVOKED. Phase 999.5 stays closed (its scope was met) but the milestone ship gate now requires 999.6 closure first.
-Last activity: 2026-05-22 -- During 999.5 UAT, user established hard rule: no ship with failing tests. Triage of 9 residuals: 6 stale (`PacketArtifactStoreTests.LoadFromZip_throws_when_no_response_json_present` msg-string drift; 3× `AiPlatformPhase10RoundTripTests.SuggestComparisonZipFileName_includes_lowercased_ai_name(Claude|ChatGPT|Gemini)` compare2→comparison rename; `AiPlatformPhase10RoundTripTests.SuggestComparisonZipFileName_includes_compare2_page_segment` dead premise; `PacketArtifactStoreRoundTripTests.LoadFromZip_AlsoRestoresUserInputs_FromArnaFixture` hard-coded `C:\tmp\arna-test\` dev path). 1 flaky (`BasicAuthMiddlewareTests.CorrectCredentials_InvokesNext` passes 5/5 isolated, fails in full suite — state leak). 2 ambiguous (`ArchidektCacheJobServiceTests.BackgroundService_SucceedsAndUpdatesProcessedCounts` + `GetActiveJob_ReturnsNullAfterCompletedJob` — likely race; 2nd has name-vs-assertion conflict suggesting real bug).
+Status: Ready to execute
+Last activity: 2026-05-22 -- Phase 999.6 planning complete
 Progress: [█████████░] 91%
 
 ## Performance Metrics
