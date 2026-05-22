@@ -54,7 +54,7 @@ public sealed class PacketArtifactStoreTests
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
             PacketArtifactStore.LoadFromZip(memoryStream, new DeckAnalysisRequest()));
-        Assert.Equal("Imported zip did not contain 40-deck-profile.json or 51-set-upgrade-response.json.", exception.Message);
+        Assert.Equal("Imported zip did not contain a recognized DeckFlow session — expected 01-request-context.txt, 40-deck-profile.json, or 51-set-upgrade-response.json.", exception.Message);
     }
 
     [Fact]
