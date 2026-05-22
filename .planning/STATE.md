@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: executing
-stopped_at: Phase 999.6 P01 complete (4 atomic mechanical fix commits + 1 SUMMARY commit, full-suite 443/437/3/3; 6/9 residual failures resolved; D-06 Branch B taken)
-last_updated: "2026-05-22T17:18:00.000Z"
-last_activity: 2026-05-22 -- Phase 999.6 P01 mechanical stale-test cleanup complete
+stopped_at: Phase 999.6 P02 complete — fix commit a62f608 (F-ENV-COLLECTION: shared EnvScope helper + AdminEnvSerial collection-serialization closes BasicAuth flaky; H2 falsified so no SUT touched) + SUMMARY commit 360dee0. Full-suite 443/438/2/3 (Failed 3 → 2 across 5/5 deterministic runs; focused BasicAuth 5/5 Failed:0). 2 residuals (ArchidektCacheJobService BackgroundService_SucceedsAndUpdatesProcessedCounts + GetActiveJob_ReturnsNullAfterCompletedJob) carry forward to P03.
+last_updated: "2026-05-22T17:45:12.505Z"
+last_activity: 2026-05-22 -- Phase 999.6 P02 BasicAuth flaky stabilization complete (2/3 plans)
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 46
-  completed_plans: 43
-  percent: 93
+  completed_plans: 44
+  percent: 96
 ---
 
 ## Deferred Items
@@ -37,10 +37,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 Phase: 999.6 (v1-3-ship-gate-test-residual-cleanup) — EXECUTING
-Plan: 2 of 3 (P01 complete, P02 BasicAuth flaky-test debug+fix next)
-Status: Executing Phase 999.6 — P01 closed; full-suite 9 → 3 residuals (P02 + P03 carry-forwards enumerated in 999.6-01-SUMMARY.md)
-Last activity: 2026-05-22 -- Phase 999.6 P01 mechanical stale-test cleanup complete
-Progress: [█████████░] 93%
+Plan: 3 of 3 (P01 + P02 complete, P03 ArchidektCacheJob debug+fix next)
+Status: Executing Phase 999.6 — P02 closed; full-suite 3 → 2 residuals (2 ArchidektCacheJob carry-forwards enumerated in 999.6-02-SUMMARY.md)
+Last activity: 2026-05-22 -- Phase 999.6 P02 BasicAuth flaky stabilization complete
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 93%
 | 15 — AiPlatform Refactor | 3-4 | Value object + per-builder registries + DI wiring + T1-T8 reverify |
 | Phase 14-broader-codebase-name-vs-behavior-audit P02 | 30m | 2 tasks | 14 files |
 | Phase 14-broader-codebase-name-vs-behavior-audit P04 | 30m | 3 tasks | 7 files |
+| Phase 999.6 P02 | 15m | 5 tasks | 5 files (1 Codex dispatch + 5/5 focused + 5/5 full-suite stability gates) |
 
 ## Accumulated Context
 
@@ -101,6 +102,7 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 - Phase 15 acceptance: `AiPlatform.All` extension test must prove adding a hypothetical 4th platform requires no switch-expression / request-setter / Razor partial / context-parser edits.
 - Phase 999.6 P01 (2026-05-22): D-06 Branch B taken — `PacketArtifactStoreRoundTripTests.cs` deleted because both authorized probe paths (`/tmp/arna-test/` and `/mnt/c/tmp/arna-test/`) missing the Arna fixture files. Branch B is an authorized fallback per D-06; the integration assertion is fixture-less and has no value without the source data. Total dropped 445 → 443.
 - Phase 999.6 P01 (2026-05-22): Mechanical stale-test fixes catch tests up to shipped production renames (PacketArtifactStore msg generalization at D-04, Phase 12 `compare2`→`comparison` page rename at D-05/D-07). 6 of 9 residual failures closed. Codex authored every edit via shell-pipe `codex exec`; orchestrator ran Windows-dotnet gate + committed (hybrid pattern inherited from 999.5 P01).
+- Phase 999.6 P02 (2026-05-22): F-ENV-COLLECTION applied — shared `EnvScope` helper at `DeckFlow.Web.Tests/Infrastructure/EnvScope.cs` + `AdminEnvCollection` with `[CollectionDefinition(DisableParallelization=true)]` serialize both env-mutating test classes (`BasicAuthMiddlewareTests` + `Security/AdminBruteForceTrackerStoreTests`). Closes the BasicAuth flaky-fact root cause (cross-class race on process-wide `FEEDBACK_ADMIN_USER`/`FEEDBACK_ADMIN_PASSWORD`). H2 falsified (middleware already reads env vars fresh per InvokeAsync — no SUT touched). 10/10 deterministic stability gate (focused 5/5 Failed:0,Passed:5,Total:5; full-suite 5/5 Failed:2,Passed:438,Skipped:3,Total:443). 2 ArchidektCacheJob failures carry forward to P03 (commit a62f608 fix + 360dee0 SUMMARY).
 
 ### Constraints Carried Forward (per PROJECT.md + CLAUDE.md)
 
@@ -118,22 +120,21 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-22T17:18:00.000Z
+Last session: 2026-05-22T17:44:58.133Z
 
-Stopped at: Phase 999.6 P01 complete — 4 atomic mechanical fix commits (d9aeb65 D-04 → 9379356 D-05 → 420fbfb D-07 → 01534e3 D-06 Branch B) + 1 SUMMARY commit (905ef8f). Full-suite 443/437/3/3 (Failed 9 → 3; Total 445 → 443 under D-06 Branch B). 6/9 residual failures closed; 3 residuals (1 BasicAuth + 2 ArchidektCacheJob) carry forward to P02 + P03.
+Stopped at: Phase 999.6 P02 complete — F-ENV-COLLECTION fix commit a62f608 (shared EnvScope helper + AdminEnvSerial collection-serialization + debug doc bundled per D-18) + SUMMARY commit 360dee0. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:5). Full-suite gate 5/5 deterministic (Failed:2,Passed:438,Skipped:3,Total:443 — Failed delta 3→2). H2 falsified, no SUT touched. 2 ArchidektCacheJob residuals carry forward to P03.
 
-Next action on resume: P02 dispatch — `999.6-02-PLAN.md` (BasicAuth flaky-test root-cause + fix). Per CONTEXT D-09, Claude runs `/gsd-debug 999.6-basicauth-flaky` first; Codex applies fix per the debug verdict.
+Next action on resume: P03 dispatch — `999.6-03-PLAN.md` (ArchidektCacheJobService debug+fix). Per CONTEXT D-12, Claude runs 1 shared `/gsd-debug 999.6-archidekt-cache-job` session covering both failures; Codex applies fix per the debug verdict (test-only OR SUT real-bug per D-15).
 
 **Resume guidance:**
 
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-CONTEXT.md` for D-09/D-10/D-11 P02 binding decisions.
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-02-PLAN.md` for P02 task-level binding contract.
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-01-SUMMARY.md` for the 3 residual failures explicitly enumerated.
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-CONTEXT.md` for D-12/D-13/D-15/D-16 P03 binding decisions.
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-03-PLAN.md` for P03 task-level binding contract (when authored).
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-02-SUMMARY.md` for the 2 residual failures explicitly enumerated.
 - Branch: `v1.3` (created 2026-05-13 from `main` at `7ed0cde`).
 
 ## Operator Next Steps
 
-- P02 dispatch: `/gsd-debug 999.6-basicauth-flaky` (Claude investigation) → Codex applies fix → orchestrator runs Windows-dotnet gate + commits.
-- P03 dispatch (after P02 lands): `/gsd-debug 999.6-archidekt-cache-job` (1 shared session per D-12) → Codex applies fix (test-only or SUT real-bug per D-15).
+- P03 dispatch: `/gsd-debug 999.6-archidekt-cache-job` (Claude investigation, 1 shared session per D-12) → Codex applies fix (test-only OR SUT real-bug per D-15) → orchestrator runs Windows-dotnet gate + commits.
 - After P03 lands and full-suite hits `Failed: 0`: `/gsd-verify-work 999.6` to restore STATE.md `ready_to_ship` per D-23 → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship` to publish v1.3 to main.
 - Other deferred (NOT in 999.6 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.

@@ -359,7 +359,7 @@ Plans:
   5. README + STATE.md updated to record ship-gate compliance: v1.3 ready_to_ship status revoked at phase start (was set 2026-05-21 by 999.5 close), restored only when this phase closes with `Failed 0`.
   6. `dotnet build DeckFlow.sln -c Release` exits 0 with warning count <= post-Phase-999.5 baseline.
 
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 Plans:
 **Wave 1**
 
@@ -367,7 +367,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 999.6-02-PLAN.md — BasicAuth flaky-test stabilization: Claude orchestrates /gsd-debug 999.6-basicauth-flaky (D-09 hypothesis priority) then Codex applies fix per verdict (D-10 — test-side reset, fixture redesign, or BasicAuthMiddleware change per D-15); 5/5 focused + 5/5 full-suite verification per D-11; full-suite gate moves 3→2
+- [x] 999.6-02-PLAN.md — BasicAuth flaky-test stabilization: Claude orchestrates /gsd-debug 999.6-basicauth-flaky (D-09 hypothesis priority) then Codex applies fix per verdict (D-10 — test-side reset, fixture redesign, or BasicAuthMiddleware change per D-15); 5/5 focused + 5/5 full-suite verification per D-11; full-suite gate moves 3→2
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -398,7 +398,7 @@ Plans:
 | 999.3 Packet Download Session Cache | v1.3 | 4/4 | Complete   | 2026-05-21 |
 | 999.4 Truncated-JSON Response UX | v1.3 | 1/1 | Complete   | 2026-05-21 |
 | 999.5 v1.3 Backlog Catch-up + Test Hardening | v1.3 | 4/4 | Complete   | 2026-05-21 |
-| 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 1/3 | In Progress | — |
+| 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 2/3 | In Progress|  |
 
 ---
 
