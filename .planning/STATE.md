@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: ready_to_ship
-stopped_at: Phase 999.4 closed — v1.3 milestone fully complete (9/9 phases)
-last_updated: "2026-05-21T23:55:00.000Z"
-last_activity: 2026-05-21 -- Phase 999.4 closed via /gsd-execute-phase (Codex executor T1-T5 + user UAT T6). 6-commit sequence landed; SUMMARY + ROADMAP + STATE updated; v1.3 ready for ship sequence.
+status: planning
+stopped_at: Phase 999.5 scaffolded — v1.3 backlog catch-up + test hardening (3 plans) opened to close quality debt before ship
+last_updated: "2026-05-22T01:25:00.000Z"
+last_activity: 2026-05-22 -- Phase 999.5 added to ROADMAP: P01 test-suite hardening (4 fixes), P02 D-07 semantic-completeness guards, P03 harvest-killed-by-suggestion fix. Project-local git author flipped to luntc1972 / luntc1972@yahoo.com for public-repo identity. Single-checkbox refactor shipped on v1.3 at 64e1d1c.
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 9
-  total_plans: 39
+  total_plans: 42
   completed_plans: 39
-  percent: 100
+  percent: 92
 ---
 
 ## Deferred Items
@@ -32,16 +32,16 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** v1.3 milestone ship sequence (all phases complete).
+**Current focus:** Phase 999.5 — v1.3 backlog catch-up + test hardening (omnibus pre-ship cleanup).
 
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.4 truncated-json-response-ux — COMPLETE (closed 2026-05-21)
-Plan: 999.4-01-PLAN.md — 6/6 commits landed (T1-T5 by Codex executor; T6 UAT user-attested PASS)
-Status: v1.3 ready to ship — all 9 phases complete, 39/39 plans complete
-Last activity: 2026-05-21 -- Phase 999.4 closed via /gsd-execute-phase (Codex T1-T5 + user UAT T6). D-06 upload-path carve-out shipped to 3 sites; D-07 semantic-completeness guards deferred to backlog per Codex pass-1 MED-2.
-Progress: [██████████] 100%
+Phase: 999.5 v1.3-backlog-catchup-test-hardening — PLANNING (scaffolded, ready for /gsd-discuss-phase)
+Plan: 3 plans (P01 test-fixes, P02 D-07 semantic guards, P03 harvest-killed-by-suggestion fix)
+Status: Awaiting /gsd-discuss-phase 999.5 → /gsd-plan-phase → /gsd-review → /gsd-execute-phase
+Last activity: 2026-05-22 -- Phase 999.5 scaffolded in ROADMAP + STATE; v1.3 reopened from ready_to_ship → planning to absorb backlog catch-up before milestone close.
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -117,11 +117,11 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-21T23:55:00.000Z
+Last session: 2026-05-22T01:25:00.000Z
 
-Stopped at: Phase 999.4 closed — v1.3 milestone fully complete (9/9 phases, 39/39 plans).
+Stopped at: Phase 999.5 scaffolded in ROADMAP + STATE — discuss-phase not yet dispatched.
 
-Next action on resume: v1.3 ship sequence — `/gsd-audit-milestone` then `/gsd-complete-milestone` or `/gsd-ship` per project workflow.
+Next action on resume: `/gsd-discuss-phase 999.5` to gather plan-decisions (xunit isolation strategy for FeedbackStoreTests, throttle-test tolerance, semantic-guard wording, harvest H1 hypothesis resume), then `/gsd-plan-phase 999.5` → Codex peer review → `/gsd-execute-phase 999.5`.
 
 **Resume guidance:**
 
@@ -134,5 +134,7 @@ Next action on resume: v1.3 ship sequence — `/gsd-audit-milestone` then `/gsd-
 
 ## Operator Next Steps
 
-- v1.3 milestone closure: run `/gsd-audit-milestone` to verify all v1.3 REQ-IDs satisfied, then `/gsd-complete-milestone` to archive v1.3 phase dirs and prep v1.4. Optionally `/gsd-ship` to open the v1.3 → main PR.
-- Deferred items to revisit in v1.4 planning: D-07 semantic-completeness guards (`HasMeaningful*Content` mirror for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse`); v1.1 phase-dir archive move; harvest-killed-by-suggestion debug.
+- `/gsd-discuss-phase 999.5` — capture decisions for the 3-plan omnibus: xunit collection / WAL / temp-file-naming strategy for FeedbackStoreTests, throttle-test 429 retry-tolerance call, semantic-guard error-message wording for DeckComparison + MetaGap, harvest H1 hypothesis resume path.
+- After discuss: `/gsd-plan-phase 999.5` produces PLAN.md across 3 plans; Codex peer-reviews via `/gsd-review`; `/gsd-execute-phase 999.5` ships.
+- v1.3 ship-sequence (after 999.5 closes): `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship`.
+- Other deferred (NOT in 999.5 scope): #1 Gemini paste-limit workaround (flag-gated), #3 v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.

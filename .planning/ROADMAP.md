@@ -55,6 +55,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output Option** — Stop the 5 Claude prompt variants from instructing Claude to wrap JSON in `<result>...</result>` tags. Claude empirically emits BOTH the wrapper AND a duplicate fenced ```json block (Phase 13 UAT T4 observation, 2026-05-17), cluttering chat output. Remove the two wrap-instruction `AppendLine` calls from each Claude variant and replace them in-place with the verbatim ChatGPT-counterpart fenced-block directive. Parser stays untouched (legacy zips still parse via `<result>` regex branch per D-12). ChatGPT + Gemini variants stay untouched (D-02). Update `ResultContractTests.cs` Claude theory rows to reflect divergence (D-13). (planned 2026-05-19 on `v1.3` branch) (completed 2026-05-19)
 - [x] **Phase 999.3: Packet Download Session Cache** — Eliminate full Scryfall pipeline replay on packet download. Today both `POST /deck-analysis` (preview) and `POST /deck-analysis/download` (zip) call `_deckAnalysisPacketService.BuildAsync(request, ...)` from scratch, so a large deck pays the multi-minute Scryfall round-trip cost twice. Add a per-request session cache (in-memory keyed by request hash, TTL bounded) so the download endpoint reuses the artifact built during preview when inputs match. Apply same pattern to `cedh-meta-gap` and `deck-comparison` download endpoints if they exhibit the same shape. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch) (completed 2026-05-21)
 - [x] **Phase 999.4: Truncated-JSON Response UX** — Catch `JsonReaderException` (and sibling `JsonException` shapes) thrown when user pastes a truncated Claude/ChatGPT/Gemini response into the AI-response textarea on `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`. Today the exception bubbles to the generic error page with a raw stack trace ("Expected end of string, but instead reached end of data. LineNumber: X | BytePositionInLine: Y"). Replace with a user-facing message ("The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit.") rendered inline on the workflow page. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch) (completed 2026-05-21)
+- [ ] **Phase 999.5: v1.3 Backlog Catch-up + Test Hardening** — Three-plan omnibus closing v1.3 quality debt before milestone ship. P01 test-suite hardening: fix 4 pre-existing test failures surfaced by full `dotnet test` run on 2026-05-21 (FeedbackStoreTests SQLite file-lock race ~10 fails, ScryfallThrottleTests 429-no-retry-after timing 2 fails, DeckAnalysisPacketServiceTests:360 stale "ChatGPT" assertion vs Phase 999.1 "AI" message, DeckComparisonServiceTests:286 CRLF vs LF assertion). P02 D-07 semantic-completeness guards: mirror `HasMeaningful*Content` pattern (`ResponseParsers.cs:99-130`) into `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` to reject valid-JSON-but-semantically-empty AI responses (Codex pass-1 999.4 MED-2 carve-out). P03 harvest-killed-by-suggestion: resume H1 hypothesis from `.planning/debug/`, complete root-cause investigation, ship fix. (planned 2026-05-21 on `v1.3` branch)
 
 ## Phase Details
 
@@ -322,6 +323,25 @@ Plans:
 Plans:
 - [x] 999.4-01-PLAN.md — Catch truncated JSON at 4 AI-response parse sites (ResponseParsers analysis + set-upgrade, DeckComparisonService.ParseComparisonResponse, MetaGapService.ParseResponse) + 4 xUnit truncation facts + manual UAT closure across 4 pages and 2+ AI selections (6 commits per revised D-05; D-06 upload-path carve-out added)
 
+### Phase 999.5: v1.3 Backlog Catch-up + Test Hardening
+
+**Goal**: Close three v1.3 quality-debt items before milestone ship. (1) Stabilize the test suite — `dotnet test DeckFlow.sln -c Release` on 2026-05-21 reported `441 total / 414 passed / 24 failed / 3 skipped`. None of the failures touch shipped 999.1-999.4 service code, but they prevent a clean CI gate. Fix `FeedbackStoreTests` SQLite file-lock race (~10 fails — xunit parallel cleanup contention on `%TEMP%\feedback-test-*.db`), `ScryfallThrottleTests.ExecuteAsync_*_DoesNotRetryFor429WithoutRetryAfter` timing flake (2 fails — `Expected 1, Actual 3`), `DeckAnalysisPacketServiceTests.BuildAsync_ThrowsValidationError_WhenDeckProfileJsonDoesNotMatchSchema:360` stale "ChatGPT response" assertion vs the Phase 999.1 "AI response" message, `DeckComparisonServiceTests.BuildAsync_EmitsCommanderSection_*:286` CRLF-vs-LF expectation. (2) Mirror the `HasMeaningful*Content` semantic-completeness pattern from `ResponseParsers.cs:99-130` into `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` so valid-JSON-but-semantically-empty AI responses (e.g., `{"deck_comparison":{"deck_a_name":"Atraxa"}}`) raise the same `InvalidOperationException` that wrong-shape and truncated inputs already raise. (3) Resume the `harvest-killed-by-suggestion` H1 hypothesis parked in `.planning/debug/`, complete the root-cause investigation, ship the fix.
+**Depends on**: Phase 999.1 (AI-agnostic prose — surfaces the test-rot drift), Phase 999.4 (D-07 deferral creates the semantic-completeness scope).
+**Requirements**: D-01..D-XX from `.planning/phases/999.5-v1.3-backlog-catchup-test-hardening/999.5-CONTEXT.md` (backlog-style phase — no formal REQ-IDs; CONTEXT.md decisions are the binding contract).
+**Success Criteria** (what must be TRUE):
+
+  1. `dotnet test DeckFlow.sln -c Release` exits 0 with all previously-failing facts resolved (FeedbackStore + ScryfallThrottle + DeckAnalysisPacket validation message + DeckComparison commander-section CRLF). Skipped tests stay skipped; no regressions in TruncatedInput / 999.4 facts.
+  2. `DeckComparisonService.ParseComparisonResponse` and `MetaGapService.ParseResponse` raise `InvalidOperationException` carrying a service-appropriate "did not contain a valid X payload" message on semantically-empty input that previously parsed silently; new xUnit facts cover both services.
+  3. `harvest-killed-by-suggestion` root cause identified and fixed; debug log in `.planning/debug/` updated with resolution; no harvest-crash recurrence in subsequent operator UAT.
+  4. `dotnet build DeckFlow.sln -c Release` exits 0 with warning count <= post-Phase-999.4 baseline (commit `4af092a`).
+  5. CLAUDE.md "README updated when behavior changes" gate: README sweep `grep -i "harvest\|killed-by" README.md` returns existing baseline (no new user-visible behavior changes from this phase — fixes restore prior contracts).
+
+**Plans:** 3 plans
+Plans:
+- [ ] 999.5-01-PLAN.md — Test-suite hardening: fix FeedbackStore SQLite file-lock race + ScryfallThrottle 429-no-retry timing flake + DeckAnalysisPacketService validation-message rot + DeckComparisonService CRLF assertion
+- [ ] 999.5-02-PLAN.md — D-07 semantic-completeness guards: mirror `HasMeaningful*Content` pattern into `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` + xUnit coverage for both services
+- [ ] 999.5-03-PLAN.md — `harvest-killed-by-suggestion` resume + fix: confirm H1 hypothesis from `.planning/debug/`, root-cause, ship fix, update debug log
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -346,6 +366,7 @@ Plans:
 | 999.2 Claude `<result>` Wrapper — Direct JSON Output Option | v1.3 | 1/1 | Complete   | 2026-05-19 |
 | 999.3 Packet Download Session Cache | v1.3 | 4/4 | Complete   | 2026-05-21 |
 | 999.4 Truncated-JSON Response UX | v1.3 | 1/1 | Complete   | 2026-05-21 |
+| 999.5 v1.3 Backlog Catch-up + Test Hardening | v1.3 | 0/3 | Planned    | — |
 
 ---
 
