@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: planning
-stopped_at: Phase 999.5 plan-phase complete — 4 PLAN.md files (P01/P02/P03/P04) committed; Codex pass-3 convergence PASS; ready for /gsd-execute-phase
-last_updated: "2026-05-22T02:25:00.000Z"
-last_activity: 2026-05-22 -- Phase 999.5 plan-phase complete. 4 plans generated (28 decisions D-01..D-28). P04 added mid-session from user report (ChatGPT <result> cosmetic noise — Phase 10 unified-extraction directive removed per Phase 999.2 D-13 pattern). Codex pass-1 review surfaced 3 HIGH (D-12 fixture/OR-chain contradiction + P04 frontmatter missing threat_model) + 3 MED (P01 try/catch masks D-01 promise + P02/P03 fenced-code-block violations); pass-2 cleared 4/6 and surfaced 3 propagation HIGHs in P02 must_haves/artifacts/grep cmds; pass-3 cleared all. Net: 28 decisions, 4 plans, 0 outstanding review findings.
+status: ready_to_ship
+stopped_at: Phase 999.5 execute-phase complete — 4 PLAN.md files all green; 15 commits landed on v1.3; full-suite delta 414→433 passed, 24→9 failed (P01-P04 closed 14/14 targeted failures + added 4 net new facts; 9 pre-existing residual deferred per D-22).
+last_updated: "2026-05-22T03:10:00.000Z"
+last_activity: 2026-05-22 -- Phase 999.5 execute-phase complete. All 4 plans landed in 15 commits (P01: 6 [71f9171/5853b05/fd062b9/3363206/a995166/b19b7de], P02: 3 [252a32b/7eaca54/b5ed300], P03: 3 [c330ea7/6c95c50/4cf5ed5], P04: 2 [5aa9fd1/ab06aa9]). Execution deviation: Codex sandbox could not reach Windows-side dotnet.exe via WSL vsock interop; orchestrator owned D-21/D-22 build+test gate + commit ceremony while Codex retained code authorship. P01 surfaced one D-03 sweep miss (in-method File.Delete) closed in commit a995166. Test suite delta: 441/414/24/3 → 445/433/9/3 (+19 passed, -15 failed, +4 facts; 9 pre-existing residual outside 999.5 scope). v1.3 milestone now ready for ship sequence.
 progress:
   total_phases: 10
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 43
-  completed_plans: 39
-  percent: 91
+  completed_plans: 43
+  percent: 100
 ---
 
 ## Deferred Items
@@ -31,16 +31,16 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 999.5 — v1.3 backlog catch-up + test hardening (omnibus pre-ship cleanup).
+**Current focus:** v1.3 milestone ship sequence — Phase 999.5 closed 2026-05-21; ready for /gsd-verify-work → /gsd-audit-milestone → /gsd-complete-milestone → /gsd-ship.
 
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.5 v1.3-backlog-catchup-test-hardening — PLAN-PHASE COMPLETE (4 PLAN.md files committed; Codex pass-3 PASS; ready for /gsd-execute-phase)
-Plan: 4 plans (P01 test-fixes, P02 D-07 semantic guards, P03 harvest archival, P04 ChatGPT <result> strip — added 2026-05-21 from user report) — 28 decisions D-01..D-28 captured in CONTEXT.md. Wave structure: P01 wave 1, P02/P03/P04 wave 2 depends_on P01.
-Status: Awaiting /gsd-execute-phase 999.5 (cross-AI execution via Codex; workflow.cross_ai_execution=true)
-Last activity: 2026-05-22 -- Phase 999.5 plan-phase complete. 4 plans + Codex pass-3 convergence loop landed 7 fix-edits across CONTEXT.md (D-12 fixture correction) + P01 (try/catch removed) + P02 (8 sites updated to empty-body fixtures + fenced-code-block removal) + P03 (fenced-code-block removal) + P04 (frontmatter threat_model added).
-Progress: [█████████░] 91%
+Phase: 999.5 v1.3-backlog-catchup-test-hardening — COMPLETE (4/4 plans landed in 15 commits; phase-final suite 445/433/9/3 = +19 passed / -15 failed vs pre-P01 baseline 441/414/24/3)
+Plan: 4 plans complete. P01 closed 14/14 targeted failures (FeedbackStore SQLite race incl. D-03 sweep extension to in-method File.Delete; ScryfallThrottle 429 timing; DeckAnalysisPacket prose; DeckComparison CRLF). P02 added 2 semantic-completeness guards (DeckComparison + MetaGap) closing 999.4 D-07 carve-out. P03 archived harvest-killed-by-suggestion debug logs (git mv preserves history) + added 2 regression facts. P04 stripped ChatGPT <result> directive atomically per D-28.
+Status: Phase 999.5 closed. v1.3 milestone (10/10 phases) ready for ship sequence.
+Last activity: 2026-05-22 -- Phase 999.5 execute-phase complete. Cross-AI dispatch via Codex (workflow.cross_ai_execution=true) hit WSL vsock interop limitation; orchestrator-led hybrid pattern owned D-21/D-22 build+test gate + commits while Codex retained code authorship. 15 commits landed on v1.3 branch under plain luntc1972 author per D-20. 9 pre-existing failures remain (PacketArtifact / ArchidektCacheJob / AiPlatformPhase10 / BasicAuth) — outside 999.5 scope per D-22, deferred to v1.4.
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -116,11 +116,11 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-22T02:25:00.000Z
+Last session: 2026-05-22T03:10:00.000Z
 
-Stopped at: Phase 999.5 plan-phase complete (4 plans, Codex pass-3 PASS)
+Stopped at: Phase 999.5 execute-phase complete (4 plans, 15 commits, full-suite 445/433/9/3)
 
-Next action on resume: `/gsd-execute-phase 999.5` to dispatch the 4 plans through Codex (cross-AI execution per `workflow.cross_ai_execution=true`). Wave structure: P01 runs alone in wave 1; P02/P03/P04 run in wave 2 with `depends_on: ["999.5-01-PLAN"]`. After all 4 plans report green (D-21/D-22 build+test gate per task), follow with /gsd-verify-work → /gsd-audit-milestone → /gsd-complete-milestone → /gsd-ship for the v1.3 ship sequence.
+Next action on resume: v1.3 ship sequence. Run `/gsd-verify-work 999.5` (orchestrator-led UAT — phase had no UI changes so verify is primarily test-suite + regression-fact attestation). Then `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship` to publish v1.3 to main.
 
 **Resume guidance:**
 
@@ -131,6 +131,6 @@ Next action on resume: `/gsd-execute-phase 999.5` to dispatch the 4 plans throug
 
 ## Operator Next Steps
 
-- `/gsd-execute-phase 999.5` — dispatch 4 plans through Codex (cross-AI). P01 alone in wave 1; P02/P03/P04 parallel in wave 2 (no file overlap). Each task runs Windows-side `/mnt/c/Program Files/dotnet/dotnet.exe` build+test gate per D-21/D-22 and reports test deltas in commit body per D-23.
-- v1.3 ship-sequence (after 999.5 closes): `/gsd-verify-work 999.5` → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship`.
-- Other deferred (NOT in 999.5 scope): #1 Gemini paste-limit workaround (flag-gated), #3 v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
+- v1.3 ship-sequence: `/gsd-verify-work 999.5` → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship`.
+- Investigate 9 pre-existing test failures NOT in 999.5 scope when v1.4 opens: `PacketArtifactStoreTests` × 2, `ArchidektCacheJobServiceTests` × 2, `AiPlatformPhase10RoundTripTests` × 4, `BasicAuthMiddlewareTests` × 1. None touch shipped 999.x service code; CI baseline can absorb until a v1.4 hardening phase.
+- Other deferred (NOT in 999.5 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
