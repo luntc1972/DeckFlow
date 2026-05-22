@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: planning
-stopped_at: Phase 999.5 context gathered — CONTEXT + DISCUSSION-LOG committed; ready for /gsd-plan-phase
-last_updated: "2026-05-22T01:35:00.000Z"
-last_activity: 2026-05-22 -- Phase 999.5 discuss-phase complete (commit 9327df4); 23 decisions D-01..D-23 captured across P01 test-fixes / P02 D-07 semantic guards / P03 harvest archival. P03 collapsed after grep confirmed fix already shipped 2026-05-03.
+stopped_at: Phase 999.5 plan-phase complete — 4 PLAN.md files (P01/P02/P03/P04) committed; Codex pass-3 convergence PASS; ready for /gsd-execute-phase
+last_updated: "2026-05-22T02:25:00.000Z"
+last_activity: 2026-05-22 -- Phase 999.5 plan-phase complete. 4 plans generated (28 decisions D-01..D-28). P04 added mid-session from user report (ChatGPT <result> cosmetic noise — Phase 10 unified-extraction directive removed per Phase 999.2 D-13 pattern). Codex pass-1 review surfaced 3 HIGH (D-12 fixture/OR-chain contradiction + P04 frontmatter missing threat_model) + 3 MED (P01 try/catch masks D-01 promise + P02/P03 fenced-code-block violations); pass-2 cleared 4/6 and surfaced 3 propagation HIGHs in P02 must_haves/artifacts/grep cmds; pass-3 cleared all. Net: 28 decisions, 4 plans, 0 outstanding review findings.
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 42
+  total_plans: 43
   completed_plans: 39
-  percent: 92
+  percent: 91
 ---
 
 ## Deferred Items
@@ -23,7 +23,7 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 | tech_debt | Gemini paste-limit workaround | flag-gated DECKFLOW_GEMINI_ENABLED |
 | debug | harvest-killed-by-suggestion (H1 hypothesis parked in `.planning/debug/`) | deferred from v1.3 — root-cause work is gating, not parallel-shippable |
 | archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; quick-task candidate for v1.4 cleanup |
-| tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` (mirror `HasMeaningful*Content` pattern from `ResponseParsers.cs:99-130`) | deferred — surfaced in Codex pass-1 999.4 review as MED-2; tracks the "valid JSON but semantically empty AI output" edge case (e.g., `{"deck_comparison":{"deck_a_name":"Atraxa"}}` parses into a mostly-empty object and bypasses both the existing wrong-shape guard and 999.4's truncation UX). Phase 999.4 D-07 captures the carve-out; promote when next AI-response phase is planned |
+| tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` (mirror `HasMeaningful*Content` pattern from `ResponseParsers.cs:99-130`) | **PROMOTED to Phase 999.5 P02** (planned 2026-05-21) — see CONTEXT D-09/D-10/D-11/D-12 in `.planning/phases/999.5-v1-3-backlog-catch-up-test-hardening/999.5-CONTEXT.md`; tracks the "valid JSON but semantically empty AI output" edge case (e.g., `{"deck_comparison":{}}` parses into a default-init DeckComparisonResponse and bypasses both the existing wrong-shape guard and 999.4's truncation UX). Closes 999.4 D-07 carve-out via 999.5 plans 02 |
 
 # Project State
 
@@ -37,11 +37,11 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.5 v1.3-backlog-catchup-test-hardening — PLANNING (CONTEXT.md committed; ready for /gsd-plan-phase)
-Plan: 3 plans (P01 test-fixes, P02 D-07 semantic guards, P03 harvest archival) — 23 decisions D-01..D-23 captured in CONTEXT.md
-Status: Awaiting /gsd-plan-phase 999.5 → /gsd-review → /gsd-execute-phase
-Last activity: 2026-05-22 -- Phase 999.5 discuss-phase complete (commit 9327df4). P03 collapsed to doc cleanup + regression facts after grep confirmed gate-starvation fix already shipped 2026-05-03.
-Progress: [█████████░] 92%
+Phase: 999.5 v1.3-backlog-catchup-test-hardening — PLAN-PHASE COMPLETE (4 PLAN.md files committed; Codex pass-3 PASS; ready for /gsd-execute-phase)
+Plan: 4 plans (P01 test-fixes, P02 D-07 semantic guards, P03 harvest archival, P04 ChatGPT <result> strip — added 2026-05-21 from user report) — 28 decisions D-01..D-28 captured in CONTEXT.md. Wave structure: P01 wave 1, P02/P03/P04 wave 2 depends_on P01.
+Status: Awaiting /gsd-execute-phase 999.5 (cross-AI execution via Codex; workflow.cross_ai_execution=true)
+Last activity: 2026-05-22 -- Phase 999.5 plan-phase complete. 4 plans + Codex pass-3 convergence loop landed 7 fix-edits across CONTEXT.md (D-12 fixture correction) + P01 (try/catch removed) + P02 (8 sites updated to empty-body fixtures + fenced-code-block removal) + P03 (fenced-code-block removal) + P04 (frontmatter threat_model added).
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -117,24 +117,21 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-22T01:25:25.040Z
+Last session: 2026-05-22T02:25:00.000Z
 
-Stopped at: Phase 999.5 context gathered
+Stopped at: Phase 999.5 plan-phase complete (4 plans, Codex pass-3 PASS)
 
-Next action on resume: `/gsd-discuss-phase 999.5` to gather plan-decisions (xunit isolation strategy for FeedbackStoreTests, throttle-test tolerance, semantic-guard wording, harvest H1 hypothesis resume), then `/gsd-plan-phase 999.5` → Codex peer review → `/gsd-execute-phase 999.5`.
+Next action on resume: `/gsd-execute-phase 999.5` to dispatch the 4 plans through Codex (cross-AI execution per `workflow.cross_ai_execution=true`). Wave structure: P01 runs alone in wave 1; P02/P03/P04 run in wave 2 with `depends_on: ["999.5-01-PLAN"]`. After all 4 plans report green (D-21/D-22 build+test gate per task), follow with /gsd-verify-work → /gsd-audit-milestone → /gsd-complete-milestone → /gsd-ship for the v1.3 ship sequence.
 
 **Resume guidance:**
 
-- Read `.planning/PROJECT.md` for v1.3 milestone goals + execution order rationale.
-- Read `.planning/REQUIREMENTS.md` for 22 v1.3 REQ-IDs with phase assignments.
-- Read `.planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md` for the 10 sweep PRs that decompose Phase 11.
-- Read `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` for Mock A naming decisions feeding Phase 12.
-- Read `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization/10-AISEL-PLATFORM-DESIGN.md` for Phase 15 design.
+- Read `.planning/phases/999.5-v1-3-backlog-catch-up-test-hardening/999.5-CONTEXT.md` for the 28 locked decisions D-01..D-28 (binding contract for execute-phase).
+- Read each `999.5-0X-PLAN.md` for task-level `<read_first>` + `<acceptance_criteria>` + `<action>` blocks Codex will consume cold.
+- Read `.planning/PROJECT.md` for v1.3 milestone goals + ship-sequence rationale.
 - Branch: `v1.3` (created 2026-05-13 from `main` at `7ed0cde`).
 
 ## Operator Next Steps
 
-- `/gsd-discuss-phase 999.5` — capture decisions for the 3-plan omnibus: xunit collection / WAL / temp-file-naming strategy for FeedbackStoreTests, throttle-test 429 retry-tolerance call, semantic-guard error-message wording for DeckComparison + MetaGap, harvest H1 hypothesis resume path.
-- After discuss: `/gsd-plan-phase 999.5` produces PLAN.md across 3 plans; Codex peer-reviews via `/gsd-review`; `/gsd-execute-phase 999.5` ships.
-- v1.3 ship-sequence (after 999.5 closes): `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship`.
+- `/gsd-execute-phase 999.5` — dispatch 4 plans through Codex (cross-AI). P01 alone in wave 1; P02/P03/P04 parallel in wave 2 (no file overlap). Each task runs Windows-side `/mnt/c/Program Files/dotnet/dotnet.exe` build+test gate per D-21/D-22 and reports test deltas in commit body per D-23.
+- v1.3 ship-sequence (after 999.5 closes): `/gsd-verify-work 999.5` → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship`.
 - Other deferred (NOT in 999.5 scope): #1 Gemini paste-limit workaround (flag-gated), #3 v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
