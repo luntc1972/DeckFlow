@@ -226,6 +226,14 @@ Deck
     }
 
     [Fact]
+    public void ParseComparisonResponse_SemanticallyEmptyInput_ThrowsValidationError()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() => DeckComparisonService.ParseComparisonResponse("{\"deck_comparison\":{}}"));
+
+        Assert.Equal("The submitted AI response did not contain a valid deck_comparison payload.", exception.Message);
+    }
+
+    [Fact]
     public async Task BuildAsync_UsesPerCardFallbackForMultipleRenamedCards()
     {
         var service = CreateService(

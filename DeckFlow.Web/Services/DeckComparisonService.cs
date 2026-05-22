@@ -937,7 +937,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
                 PropertyNameCaseInsensitive = true
             });
 
-            if (result is null)
+            if (result is null || !HasMeaningfulComparisonContent(result))
             {
                 throw new InvalidOperationException("The submitted AI response did not contain a valid deck_comparison payload.");
             }
@@ -945,6 +945,23 @@ public sealed class DeckComparisonService : IDeckComparisonService
             return result;
         }
     }
+
+    private static bool HasMeaningfulComparisonContent(DeckComparisonResponse response)
+        => !string.IsNullOrWhiteSpace(response.DeckAName)
+            || !string.IsNullOrWhiteSpace(response.DeckBName)
+            || !string.IsNullOrWhiteSpace(response.DeckACommander)
+            || !string.IsNullOrWhiteSpace(response.DeckBCommander)
+            || !string.IsNullOrWhiteSpace(response.DeckAGameplan)
+            || !string.IsNullOrWhiteSpace(response.DeckBGameplan)
+            || response.SharedThemes.Count > 0
+            || response.MajorDifferences.Count > 0
+            || response.DeckAStrengths.Count > 0
+            || response.DeckAWeaknesses.Count > 0
+            || response.DeckBStrengths.Count > 0
+            || response.DeckBWeaknesses.Count > 0
+            || !string.IsNullOrWhiteSpace(response.OverallVerdict)
+            || response.RecommendedFor.DeckA.Count > 0
+            || response.RecommendedFor.DeckB.Count > 0;
 
     private static string BuildTimingSummary(IReadOnlyList<(string Label, long Ms, string? Detail)> timings, long totalMs)
     {
