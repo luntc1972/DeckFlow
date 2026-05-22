@@ -189,7 +189,10 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             requestedUtc,
             cancellationToken).ConfigureAwait(false);
 
-        _queue.Writer.TryWrite(new QueuedJobSignal(jobId, durationSeconds));
+        var writeAccepted = _queue.Writer.TryWrite(new QueuedJobSignal(jobId, durationSeconds));
+        _logger.LogInformation(
+            "Harvest.Worker.SignalEnqueued jobId={JobId} writeAccepted={WriteAccepted}",
+            jobId, writeAccepted);
 
         var status = new ArchidektCacheJobStatus(
             jobId,
@@ -244,8 +247,10 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Harvest.Worker.LoopEntered");
         await foreach (var signal in _queue.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
         {
+            _logger.LogInformation("Harvest.Worker.SignalDequeued jobId={JobId}", signal.JobId);
             // D-05: link host stoppingToken with a per-job CTS for graceful operator cancel.
             using var jobCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             lock (_ctsLock)
