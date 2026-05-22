@@ -965,7 +965,7 @@ public sealed class MetaGapService : IMetaGapService
 
             var result = JsonSerializer.Deserialize<MetaGapResponse>(payload.GetRawText(), JsonOptions);
 
-            if (result is null)
+            if (result is null || !HasMeaningfulMetaGapContent(result))
             {
                 throw new InvalidOperationException("The submitted AI response did not contain a valid meta_gap payload.");
             }
@@ -973,6 +973,20 @@ public sealed class MetaGapService : IMetaGapService
             return result;
         }
     }
+
+    private static bool HasMeaningfulMetaGapContent(MetaGapResponse response)
+        => !string.IsNullOrWhiteSpace(response.MetaGap.Commander)
+            || !string.IsNullOrWhiteSpace(response.MetaGap.ColorId)
+            || response.MetaGap.ReadinessScore > 0
+            || !string.IsNullOrWhiteSpace(response.MetaGap.ReadinessJustification)
+            || response.MetaGap.WinLines is not null
+            || response.MetaGap.Interaction is not null
+            || response.MetaGap.Speed is not null
+            || response.MetaGap.ManaEfficiency is not null
+            || response.MetaGap.CoreConvergence.Count > 0
+            || response.MetaGap.MissingStaples.Count > 0
+            || response.MetaGap.Top10Adds.Count > 0
+            || response.MetaGap.Top10Cuts.Count > 0;
 
     /// <summary>
     /// Parsed-deck snapshot. <c>PlayableEntries</c> drives prompt + analysis paths

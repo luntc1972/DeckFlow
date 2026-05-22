@@ -102,6 +102,14 @@ public sealed class MetaGapServiceTests
     }
 
     [Fact]
+    public void ParseResponse_SemanticallyEmptyInput_ThrowsValidationError()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() => MetaGapService.ParseResponse("{\"meta_gap\":{}}"));
+
+        Assert.Equal("The submitted AI response did not contain a valid meta_gap payload.", exception.Message);
+    }
+
+    [Fact]
     public async Task BuildAsync_GeneratesPromptFromDeckAndSortedReferenceEntries()
     {
         var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
