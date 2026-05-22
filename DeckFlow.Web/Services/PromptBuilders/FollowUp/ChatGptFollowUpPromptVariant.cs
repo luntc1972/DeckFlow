@@ -45,7 +45,6 @@ internal sealed class ChatGptFollowUpPromptVariant : IFollowUpPromptVariant
         builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
         builder.AppendLine("- Include a revised verdict.");
         builder.AppendLine("- Then regenerate the full JSON inside a fenced ```json code block (triple-backtick json) with the top-level object named deck_comparison. Do not return raw JSON outside a code block.");
-        builder.AppendLine($"- {JsonTextFormatterService.ResultWrapInstruction}");
         builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
         builder.AppendLine();
         builder.AppendLine("```json");

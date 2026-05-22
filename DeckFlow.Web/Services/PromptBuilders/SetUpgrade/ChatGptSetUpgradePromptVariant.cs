@@ -124,7 +124,6 @@ internal sealed class ChatGptSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine();
         builder.AppendLine("C. Return a complete set_upgrade_report JSON matching the schema at the end of this prompt. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine();
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine();
         builder.AppendLine("D. Return a second fenced code block tagged as ```text named discussion_summary.txt.");
         builder.AppendLine("   Include the per-set analysis in condensed form, final recommendations, reasoning behind key adds and cuts, and direct answers to the analysis questions — a standalone notes document.");

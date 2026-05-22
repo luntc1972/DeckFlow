@@ -203,7 +203,6 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("   Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.");
         builder.AppendLine("   Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.");
         builder.AppendLine();
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         if (requiresFullDecklists)
         {
             builder.AppendLine("   The deck_versions array must contain one entry per requested deck version or upgrade path.");

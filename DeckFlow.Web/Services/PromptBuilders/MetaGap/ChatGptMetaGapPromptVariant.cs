@@ -141,7 +141,6 @@ internal sealed class ChatGptMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("OUTPUT CONTRACT:");
         builder.AppendLine("- First, provide a concise human-readable meta gap summary.");
         builder.AppendLine("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
-        builder.AppendLine($"- {JsonTextFormatterService.ResultWrapInstruction}");
         builder.AppendLine("- The prose summary must come before the JSON block.");
         builder.AppendLine("- Fill every field in meta_gap.");
         builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");

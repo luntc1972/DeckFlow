@@ -78,7 +78,6 @@ internal sealed class ChatGptComparisonPromptVariant : IComparisonPromptVariant
         builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
         builder.AppendLine("D. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block. The top-level object must be named deck_comparison.");
         builder.AppendLine();
-        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
         builder.AppendLine();
         builder.AppendLine("JSON requirements:");
         builder.AppendLine("- Return valid JSON only inside the fenced ```json code block.");
