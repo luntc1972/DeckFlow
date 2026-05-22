@@ -363,7 +363,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 999.6-01-PLAN.md — Mechanical stale-test cleanup: PacketArtifactStore msg-string update (D-04) + AiPlatform Theory prefix `compare2`→`comparison` (D-05) + dead-premise compare2_page_segment Fact deletion (D-07) + Arna fixture embed-or-delete (D-06); 4 atomic commits per D-08; full-suite gate moves 9→3
+- [x] 999.6-01-PLAN.md — Mechanical stale-test cleanup: PacketArtifactStore msg-string update (D-04) + AiPlatform Theory prefix `compare2`→`comparison` (D-05) + dead-premise compare2_page_segment Fact deletion (D-07) + Arna fixture deletion under D-06 Branch B (both probe paths missing); 4 atomic commits per D-08; full-suite gate moved 9→3 (Total 443 — Branch B). (completed 2026-05-22)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -398,7 +398,7 @@ Plans:
 | 999.3 Packet Download Session Cache | v1.3 | 4/4 | Complete   | 2026-05-21 |
 | 999.4 Truncated-JSON Response UX | v1.3 | 1/1 | Complete   | 2026-05-21 |
 | 999.5 v1.3 Backlog Catch-up + Test Hardening | v1.3 | 4/4 | Complete   | 2026-05-21 |
-| 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 0/3 | Planning   | — |
+| 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 1/3 | In Progress | — |
 
 ---
 

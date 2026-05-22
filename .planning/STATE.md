@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: executing
-stopped_at: Phase 999.5 execute-phase complete (4 plans, 15 commits, full-suite 445/433/9/3)
-last_updated: "2026-05-22T16:04:41.865Z"
-last_activity: 2026-05-22 -- Phase 999.6 planning complete
+stopped_at: Phase 999.6 P01 complete (4 atomic mechanical fix commits + 1 SUMMARY commit, full-suite 443/437/3/3; 6/9 residual failures resolved; D-06 Branch B taken)
+last_updated: "2026-05-22T17:18:00.000Z"
+last_activity: 2026-05-22 -- Phase 999.6 P01 mechanical stale-test cleanup complete
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 46
-  completed_plans: 42
-  percent: 82
+  completed_plans: 43
+  percent: 93
 ---
 
 ## Deferred Items
@@ -31,16 +31,16 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 999.6 — drive full DeckFlow.sln test suite to Failed 0 so v1.3 can ship. New memory rule [[feedback-no-ship-failing-tests]] (established 2026-05-22) blocks ship sequence while any tests fail.
+**Current focus:** Phase 999.6 — v1-3-ship-gate-test-residual-cleanup
 
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.6 v1.3-ship-gate-test-residual-cleanup — PLANNING (added 2026-05-22; reverses 999.5 D-22 "out-of-scope deferral" of 9 residual failures)
-Plan: 0 plans yet — running /gsd-discuss-phase 999.6 to capture triage decisions before plan-phase.
-Status: Ready to execute
-Last activity: 2026-05-22 -- Phase 999.6 planning complete
-Progress: [█████████░] 91%
+Phase: 999.6 (v1-3-ship-gate-test-residual-cleanup) — EXECUTING
+Plan: 2 of 3 (P01 complete, P02 BasicAuth flaky-test debug+fix next)
+Status: Executing Phase 999.6 — P01 closed; full-suite 9 → 3 residuals (P02 + P03 carry-forwards enumerated in 999.6-01-SUMMARY.md)
+Last activity: 2026-05-22 -- Phase 999.6 P01 mechanical stale-test cleanup complete
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -99,6 +99,8 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 - Phase 11 stays as ONE phase with 10 plans rather than splitting. The 10 sweep PRs in FINDINGS.md are already sequenced by leverage; no hard dependency forces a split.
 - Phases 12 and 13 stay separate (not combined). User intent is URL + class rename ship together conceptually but execution is cleaner with two phases — URL rename ships first to validate user-facing terminology, class rename follows to bring code in line.
 - Phase 15 acceptance: `AiPlatform.All` extension test must prove adding a hypothetical 4th platform requires no switch-expression / request-setter / Razor partial / context-parser edits.
+- Phase 999.6 P01 (2026-05-22): D-06 Branch B taken — `PacketArtifactStoreRoundTripTests.cs` deleted because both authorized probe paths (`/tmp/arna-test/` and `/mnt/c/tmp/arna-test/`) missing the Arna fixture files. Branch B is an authorized fallback per D-06; the integration assertion is fixture-less and has no value without the source data. Total dropped 445 → 443.
+- Phase 999.6 P01 (2026-05-22): Mechanical stale-test fixes catch tests up to shipped production renames (PacketArtifactStore msg generalization at D-04, Phase 12 `compare2`→`comparison` page rename at D-05/D-07). 6 of 9 residual failures closed. Codex authored every edit via shell-pipe `codex exec`; orchestrator ran Windows-dotnet gate + committed (hybrid pattern inherited from 999.5 P01).
 
 ### Constraints Carried Forward (per PROJECT.md + CLAUDE.md)
 
@@ -116,21 +118,22 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-22T03:10:00.000Z
+Last session: 2026-05-22T17:18:00.000Z
 
-Stopped at: Phase 999.5 execute-phase complete (4 plans, 15 commits, full-suite 445/433/9/3)
+Stopped at: Phase 999.6 P01 complete — 4 atomic mechanical fix commits (d9aeb65 D-04 → 9379356 D-05 → 420fbfb D-07 → 01534e3 D-06 Branch B) + 1 SUMMARY commit (905ef8f). Full-suite 443/437/3/3 (Failed 9 → 3; Total 445 → 443 under D-06 Branch B). 6/9 residual failures closed; 3 residuals (1 BasicAuth + 2 ArchidektCacheJob) carry forward to P02 + P03.
 
-Next action on resume: v1.3 ship sequence. Run `/gsd-verify-work 999.5` (orchestrator-led UAT — phase had no UI changes so verify is primarily test-suite + regression-fact attestation). Then `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship` to publish v1.3 to main.
+Next action on resume: P02 dispatch — `999.6-02-PLAN.md` (BasicAuth flaky-test root-cause + fix). Per CONTEXT D-09, Claude runs `/gsd-debug 999.6-basicauth-flaky` first; Codex applies fix per the debug verdict.
 
 **Resume guidance:**
 
-- Read `.planning/phases/999.5-v1-3-backlog-catch-up-test-hardening/999.5-CONTEXT.md` for the 28 locked decisions D-01..D-28 (binding contract for execute-phase).
-- Read each `999.5-0X-PLAN.md` for task-level `<read_first>` + `<acceptance_criteria>` + `<action>` blocks Codex will consume cold.
-- Read `.planning/PROJECT.md` for v1.3 milestone goals + ship-sequence rationale.
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-CONTEXT.md` for D-09/D-10/D-11 P02 binding decisions.
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-02-PLAN.md` for P02 task-level binding contract.
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-01-SUMMARY.md` for the 3 residual failures explicitly enumerated.
 - Branch: `v1.3` (created 2026-05-13 from `main` at `7ed0cde`).
 
 ## Operator Next Steps
 
-- v1.3 ship-sequence: `/gsd-verify-work 999.5` → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship`.
-- Investigate 9 pre-existing test failures NOT in 999.5 scope when v1.4 opens: `PacketArtifactStoreTests` × 2, `ArchidektCacheJobServiceTests` × 2, `AiPlatformPhase10RoundTripTests` × 4, `BasicAuthMiddlewareTests` × 1. None touch shipped 999.x service code; CI baseline can absorb until a v1.4 hardening phase.
-- Other deferred (NOT in 999.5 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
+- P02 dispatch: `/gsd-debug 999.6-basicauth-flaky` (Claude investigation) → Codex applies fix → orchestrator runs Windows-dotnet gate + commits.
+- P03 dispatch (after P02 lands): `/gsd-debug 999.6-archidekt-cache-job` (1 shared session per D-12) → Codex applies fix (test-only or SUT real-bug per D-15).
+- After P03 lands and full-suite hits `Failed: 0`: `/gsd-verify-work 999.6` to restore STATE.md `ready_to_ship` per D-23 → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship` to publish v1.3 to main.
+- Other deferred (NOT in 999.6 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
