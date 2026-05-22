@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: ready_to_ship
-stopped_at: Phase 999.5 execute-phase complete — 4 PLAN.md files all green; 15 commits landed on v1.3; full-suite delta 414→433 passed, 24→9 failed (P01-P04 closed 14/14 targeted failures + added 4 net new facts; 9 pre-existing residual deferred per D-22).
-last_updated: "2026-05-22T03:10:00.000Z"
-last_activity: 2026-05-22 -- Phase 999.5 execute-phase complete. All 4 plans landed in 15 commits (P01: 6 [71f9171/5853b05/fd062b9/3363206/a995166/b19b7de], P02: 3 [252a32b/7eaca54/b5ed300], P03: 3 [c330ea7/6c95c50/4cf5ed5], P04: 2 [5aa9fd1/ab06aa9]). Execution deviation: Codex sandbox could not reach Windows-side dotnet.exe via WSL vsock interop; orchestrator owned D-21/D-22 build+test gate + commit ceremony while Codex retained code authorship. P01 surfaced one D-03 sweep miss (in-method File.Delete) closed in commit a995166. Test suite delta: 441/414/24/3 → 445/433/9/3 (+19 passed, -15 failed, +4 facts; 9 pre-existing residual outside 999.5 scope). v1.3 milestone now ready for ship sequence.
+status: planning
+stopped_at: Phase 999.6 opened 2026-05-22 — ship-gate test residual cleanup; v1.3 ready_to_ship REVOKED until full suite reports Failed 0 per new no-ship-failing-tests rule. 9 residual failures from 999.5 close-out (6 stale, 1 flaky, 2 ambiguous) must be triaged + fixed before ship restoration.
+last_updated: "2026-05-22T15:01:00.000Z"
+last_activity: 2026-05-22 -- v1.3 ship blocked by new memory rule [[feedback-no-ship-failing-tests]] established during 999.5 UAT. Phase 999.6 added to ROADMAP to triage + fix 9 residual failures: PacketArtifactStoreTests msg-string drift (1), AiPlatformPhase10RoundTripTests compare2→comparison rename (4), PacketArtifactStoreRoundTripTests dev-machine fixture path (1), BasicAuthMiddlewareTests state-leak between facts (1), ArchidektCacheJobServiceTests background-service race-or-real-bug (2). Acceptance: full DeckFlow.sln test gate exits Failed 0 before ship sequence resumes.
 progress:
-  total_phases: 10
+  total_phases: 11
   completed_phases: 10
   total_plans: 43
   completed_plans: 43
-  percent: 100
+  percent: 91
 ---
 
 ## Deferred Items
@@ -31,16 +31,16 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** v1.3 milestone ship sequence — Phase 999.5 closed 2026-05-21; ready for /gsd-verify-work → /gsd-audit-milestone → /gsd-complete-milestone → /gsd-ship.
+**Current focus:** Phase 999.6 — drive full DeckFlow.sln test suite to Failed 0 so v1.3 can ship. New memory rule [[feedback-no-ship-failing-tests]] (established 2026-05-22) blocks ship sequence while any tests fail.
 
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.5 v1.3-backlog-catchup-test-hardening — COMPLETE (4/4 plans landed in 15 commits; phase-final suite 445/433/9/3 = +19 passed / -15 failed vs pre-P01 baseline 441/414/24/3)
-Plan: 4 plans complete. P01 closed 14/14 targeted failures (FeedbackStore SQLite race incl. D-03 sweep extension to in-method File.Delete; ScryfallThrottle 429 timing; DeckAnalysisPacket prose; DeckComparison CRLF). P02 added 2 semantic-completeness guards (DeckComparison + MetaGap) closing 999.4 D-07 carve-out. P03 archived harvest-killed-by-suggestion debug logs (git mv preserves history) + added 2 regression facts. P04 stripped ChatGPT <result> directive atomically per D-28.
-Status: Phase 999.5 closed. v1.3 milestone (10/10 phases) ready for ship sequence.
-Last activity: 2026-05-22 -- Phase 999.5 execute-phase complete. Cross-AI dispatch via Codex (workflow.cross_ai_execution=true) hit WSL vsock interop limitation; orchestrator-led hybrid pattern owned D-21/D-22 build+test gate + commits while Codex retained code authorship. 15 commits landed on v1.3 branch under plain luntc1972 author per D-20. 9 pre-existing failures remain (PacketArtifact / ArchidektCacheJob / AiPlatformPhase10 / BasicAuth) — outside 999.5 scope per D-22, deferred to v1.4.
-Progress: [██████████] 100%
+Phase: 999.6 v1.3-ship-gate-test-residual-cleanup — PLANNING (added 2026-05-22; reverses 999.5 D-22 "out-of-scope deferral" of 9 residual failures)
+Plan: 0 plans yet — running /gsd-discuss-phase 999.6 to capture triage decisions before plan-phase.
+Status: v1.3 ship REVOKED. Phase 999.5 stays closed (its scope was met) but the milestone ship gate now requires 999.6 closure first.
+Last activity: 2026-05-22 -- During 999.5 UAT, user established hard rule: no ship with failing tests. Triage of 9 residuals: 6 stale (`PacketArtifactStoreTests.LoadFromZip_throws_when_no_response_json_present` msg-string drift; 3× `AiPlatformPhase10RoundTripTests.SuggestComparisonZipFileName_includes_lowercased_ai_name(Claude|ChatGPT|Gemini)` compare2→comparison rename; `AiPlatformPhase10RoundTripTests.SuggestComparisonZipFileName_includes_compare2_page_segment` dead premise; `PacketArtifactStoreRoundTripTests.LoadFromZip_AlsoRestoresUserInputs_FromArnaFixture` hard-coded `C:\tmp\arna-test\` dev path). 1 flaky (`BasicAuthMiddlewareTests.CorrectCredentials_InvokesNext` passes 5/5 isolated, fails in full suite — state leak). 2 ambiguous (`ArchidektCacheJobServiceTests.BackgroundService_SucceedsAndUpdatesProcessedCounts` + `GetActiveJob_ReturnsNullAfterCompletedJob` — likely race; 2nd has name-vs-assertion conflict suggesting real bug).
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
