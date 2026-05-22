@@ -207,18 +207,8 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// <inheritdoc />
     public ArchidektCacheJobStatus? GetJob(Guid jobId)
     {
-        // T-07-10: sync wrapper on PG read. Admin/API surface only; sub-1RPS so no
-        // thread-pool starvation risk. We don't have a GetByIdAsync on IHarvestRunStore
-        // yet — Plan 04 will add one when it needs per-run history. For now: if the
-        // requested id matches the active row, return it; otherwise null. Existing
-        // callers of this method (ArchidektCacheJobsController.GetByIdAsync) only ever
-        // hit it with a JobId returned by EnqueueAsync, which is the active row.
-        var active = _runStore.GetActiveAsync(CancellationToken.None).GetAwaiter().GetResult();
-        if (active is not null && active.Id == jobId)
-        {
-            return MapToStatus(active);
-        }
-        return null;
+        var row = _runStore.GetByIdAsync(jobId, CancellationToken.None).GetAwaiter().GetResult();
+        return row is null ? null : MapToStatus(row);
     }
 
     /// <inheritdoc />

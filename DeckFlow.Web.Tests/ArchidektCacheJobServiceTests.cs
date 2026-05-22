@@ -279,6 +279,8 @@ public sealed class ArchidektCacheJobServiceTests
 
         public HarvestRunRow? GetById(Guid id) => _rows.TryGetValue(id, out var row) ? row : null;
 
+        public Task<HarvestRunRow?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(GetById(id));
+
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<Guid> InsertQueuedAsync(
