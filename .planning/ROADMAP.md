@@ -56,6 +56,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] **Phase 999.3: Packet Download Session Cache** — Eliminate full Scryfall pipeline replay on packet download. Today both `POST /deck-analysis` (preview) and `POST /deck-analysis/download` (zip) call `_deckAnalysisPacketService.BuildAsync(request, ...)` from scratch, so a large deck pays the multi-minute Scryfall round-trip cost twice. Add a per-request session cache (in-memory keyed by request hash, TTL bounded) so the download endpoint reuses the artifact built during preview when inputs match. Apply same pattern to `cedh-meta-gap` and `deck-comparison` download endpoints if they exhibit the same shape. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch) (completed 2026-05-21)
 - [x] **Phase 999.4: Truncated-JSON Response UX** — Catch `JsonReaderException` (and sibling `JsonException` shapes) thrown when user pastes a truncated Claude/ChatGPT/Gemini response into the AI-response textarea on `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`. Today the exception bubbles to the generic error page with a raw stack trace ("Expected end of string, but instead reached end of data. LineNumber: X | BytePositionInLine: Y"). Replace with a user-facing message ("The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit.") rendered inline on the workflow page. Surfaced during Phase 999.2 UAT 2026-05-20. (planned 2026-05-20 on `v1.3` branch) (completed 2026-05-21)
 - [x] **Phase 999.5: v1.3 Backlog Catch-up + Test Hardening** — Four-plan omnibus closing v1.3 quality debt before milestone ship. P01 test-suite hardening: fix 4 pre-existing test failures surfaced by full `dotnet test` run on 2026-05-21 (FeedbackStoreTests SQLite file-lock race ~10 fails, ScryfallThrottleTests 429-no-retry-after timing 2 fails, DeckAnalysisPacketServiceTests:360 stale "ChatGPT" assertion vs Phase 999.1 "AI" message, DeckComparisonServiceTests:286 CRLF vs LF assertion). P02 D-07 semantic-completeness guards: mirror `HasMeaningful*Content` pattern (`ResponseParsers.cs:99-130`) into `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` to reject valid-JSON-but-semantically-empty AI responses (Codex pass-1 999.4 MED-2 carve-out). P03 harvest-killed-by-suggestion: verify gate-starvation fix shipped 2026-05-03, archive debug logs, add named regression facts. P04 ChatGPT `<result>` directive strip (added 2026-05-21 from user report): remove `JsonTextFormatterService.ResultWrapInstruction` from 5 ChatGptXxxPromptVariant files (cosmetic noise — ChatGPT honors fenced ```json reliably); Gemini variants stay (validated by 2026-05-09 integration test); parser stays (backward-compatible). (planned 2026-05-21 on `v1.3` branch)
+- [ ] **Phase 999.7: v1.3 Audit Cleanup — STATE Arithmetic + WDG Checkboxes + Stale Doc-Comments** — Land the documentation + state-tracking cleanup surfaced by `/gsd-audit-milestone v1.3` (audit at `.planning/v1.3-MILESTONE-AUDIT.md`): correct STATE.md progress arithmetic (`completed_phases:9 → 11`, `completed_plans:66 → 46`), flip 10 WDG-* REQUIREMENTS.md checkboxes from `[ ]` to `[x]`, update 3 stale Claude variant `<summary>` doc-comments (audit F-01), document the intentional `/deck-analysis/download` short-circuit-tier omission (audit F-02), and finalize 999.5-UAT.md `status: testing → superseded-by-999.6`. No production-code behavior change. (planned 2026-05-22 on `v1.3` branch)
 - [x] **Phase 999.6: v1.3 Ship-Gate Test Residual Cleanup** — Resolve 9 residual test failures blocking v1.3 ship per the new `no-ship-failing-tests` rule (established 2026-05-22). Triage breakdown from 999.5 close-out full-suite gate (`Failed 9, Passed 433, Skipped 3, Total 445`): (a) **6 stale tests** drifted behind shipped production renames — `PacketArtifactStoreTests.LoadFromZip_throws_when_no_response_json_present` (msg string drift, expects `"40-deck-profile.json"` but SUT emits `"recognized DeckFlow"`), 3× `AiPlatformPhase10RoundTripTests.SuggestComparisonZipFileName_includes_lowercased_ai_name(Claude|ChatGPT|Gemini)` (expect `atraxa-compare2-` prefix; production renamed page to `comparison`), `AiPlatformPhase10RoundTripTests.SuggestComparisonZipFileName_includes_compare2_page_segment` (expects `-compare2-` substring; dead premise), `PacketArtifactStoreRoundTripTests.LoadFromZip_AlsoRestoresUserInputs_FromArnaFixture` (reads hard-coded `C:\tmp\arna-test\00-input-summary.txt` dev-only fixture path absent from repo). (b) **1 flaky test** — `BasicAuthMiddlewareTests.CorrectCredentials_InvokesNext` passes 5/5 in isolation but fails in full-suite run (state-leak between facts; find shared mutable static or env var bleed). (c) **2 ambiguous** — `ArchidektCacheJobServiceTests.BackgroundService_SucceedsAndUpdatesProcessedCounts` + `GetActiveJob_ReturnsNullAfterCompletedJob` both fire `Assert.NotNull` on background-service job state. Smells like race (job polled before scheduler runs SUT) but warrants `/gsd-debug` pass before fix-or-update verdict; the second test's name vs assertion conflict ("ReturnsNullAfterCompletedJob" asserting NotNull) suggests genuine test-logic confusion. Acceptance: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.sln -c Release` reports `Failed 0` before v1.3 ship. (planned 2026-05-22 on `v1.3` branch)
 
 ## Phase Details
@@ -322,6 +323,7 @@ Plans:
 
 **Plans:** 1 plan
 Plans:
+
 - [x] 999.4-01-PLAN.md — Catch truncated JSON at 4 AI-response parse sites (ResponseParsers analysis + set-upgrade, DeckComparisonService.ParseComparisonResponse, MetaGapService.ParseResponse) + 4 xUnit truncation facts + manual UAT closure across 4 pages and 2+ AI selections (6 commits per revised D-05; D-06 upload-path carve-out added)
 
 ### Phase 999.5: v1.3 Backlog Catch-up + Test Hardening
@@ -340,6 +342,7 @@ Plans:
 
 **Plans:** 4 plans
 Plans:
+
 - [x] 999.5-01-PLAN.md — Test-suite hardening: fix FeedbackStore SQLite file-lock race + ScryfallThrottle 429-no-retry timing flake + DeckAnalysisPacketService validation-message rot + DeckComparisonService CRLF assertion
 - [x] 999.5-02-PLAN.md — D-07 semantic-completeness guards: mirror `HasMeaningful*Content` pattern into `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` + xUnit coverage for both services
 - [x] 999.5-03-PLAN.md — `harvest-killed-by-suggestion` archival: verify D-14 fix shipped 2026-05-03, `git mv` debug docs to archive, prune STATE row, add 2 regression facts (CategorySuggestionService + CommanderCategoryService)
@@ -373,6 +376,34 @@ Plans:
 
 - [x] 999.6-03-PLAN.md — Archidekt cache-job ambiguous-failure resolution: F-PROD-CONTRACT applied (D-15 fired — real production bug ships inside 999.6). Added `Task<HarvestRunRow?> GetByIdAsync(Guid, CancellationToken)` to `IHarvestRunStore` + production impl in `HarvestRunStore` (provider-specific SQLite-vs-Postgres Guid binding matching three precedents) + rewired `ArchidektCacheJobService.GetJob` to delegate to `GetByIdAsync` + extended inline `FakeHarvestRunStore` with async wrapper. Closes both `Assert.NotNull(service.GetJob(jobId))` failures (lines 118 + 170) with one atomic commit. D-16 NOT fired (test names accurate for F-PROD-CONTRACT branch). 10/10 deterministic PHASE EXIT GATE (focused 5/5 Failed:0/Passed:14/Total:14; full-suite 5/5 Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57). Phase-wide net delta 9 → 0 failures. STATE.md ready_to_ship restoration handed off to /gsd-verify-work 999.6 per D-23 (commits d758609 fix + 1adf65b SUMMARY). (completed 2026-05-22)
 
+### Phase 999.7: v1.3 Audit Cleanup — STATE Arithmetic + WDG Checkboxes + Stale Doc-Comments (INSERTED)
+
+**Goal**: Land the documentation + state-tracking cleanup surfaced by `/gsd-audit-milestone v1.3` (audit report at `.planning/v1.3-MILESTONE-AUDIT.md`) so the milestone archive is consistent with shipped reality. The audit found 0 BLOCKERs, 0 unsatisfied requirements, and all 10 E2E flows wired — but accumulated documentation drift across 3 surfaces blocks a clean `/gsd-complete-milestone v1.3` handoff. Scope: (a) **STATE.md progress arithmetic** — `completed_phases: 9 / total_phases: 11` should be `11/11` (Phase 999.6 closure committed the wrong counter); `completed_plans: 66 / total_plans: 46` is mathematically impossible (66 > 46; user-flagged 2026-05-22); reconcile both counters against the actual 11-phase / 46-plan totals shown in the ROADMAP Progress table rows 391-401. (b) **REQUIREMENTS.md WDG-01..10 checkboxes** — all 10 still `[ ]` despite Phase 11 closure on 2026-05-13 (11-VERIFICATION.md status:passed); flip to `[x]` to match the 22/22 satisfied count in the audit report. (c) **Stale Claude variant doc-comments** — `ClaudeAnalysisPromptVariant.cs:14`, `ClaudeComparisonPromptVariant.cs:11`, `ClaudeMetaGapPromptVariant.cs:13` still describe behavior as "result-wrapped output" though Phase 999.2 stripped the `<result>` wrapper from those variants 2026-05-19 (audit finding F-01); replace with "direct JSON fenced-block output" or equivalent matching the actual emitted prompt body. (d) **Undocumented `/deck-analysis/download` asymmetry** — `DeckController.cs:508-521` lacks the response-json-only short-circuit tier that comparison + cedh-meta-gap implement per Phase 999.3 D-10; this is intentional (deck-analysis has no paste-response-only re-download path) but undocumented (audit finding F-02); add a one-line comment explaining the intentional omission. (e) **999.5-UAT.md frontmatter** — `status: testing` is stale (superseded by Phase 999.6 full-suite gate); update to `status: superseded-by-999.6` for archival clarity (optional polish per audit recommendation 5). Out of scope: WDG-04 deferred onsubmit (already overridden 2026-05-16; v1.4 modal); DeckFlow.Web.csproj NoWarn 1591;1573;1587 deferral (Phase 14 CONTEXT "Deferred Ideas"); Phase 15 SC4 empirical hash gate bypass (user-accepted residual risk); IN-01 _AiSelector vs view-level Normalize Gemini-flag fallback divergence (pre-existing).
+**Depends on**: Phase 999.6 (closes the test gate that the audit verified against; this phase reads VERIFICATION.md tables and audit report as inputs).
+**Requirements**: D-01..D-XX from `.planning/phases/999.7-v1-3-audit-cleanup/999.7-CONTEXT.md` (backlog-style phase — no formal REQ-IDs; CONTEXT.md decisions are the binding contract).
+**Success Criteria** (what must be TRUE):
+
+  1. `.planning/STATE.md` progress block reports `completed_phases: 11`, `total_phases: 11`, `completed_plans: 46`, `total_plans: 46`, `percent: 100` (or whatever reconciled counts match the 11-row v1.3 Progress table in ROADMAP.md lines 391-401).
+  2. `.planning/REQUIREMENTS.md` WDG-01 through WDG-10 checkboxes (lines 14-23) all read `[x]`; no other checkbox state changes; traceability table at lines 73-94 untouched.
+  3. The 3 Claude variant files (`DeckFlow.Web/Services/PromptBuilders/Analysis/ClaudeAnalysisPromptVariant.cs`, `Comparison/ClaudeComparisonPromptVariant.cs`, `MetaGap/ClaudeMetaGapPromptVariant.cs`) have their class-level `/// <summary>` doc-comments updated to drop "result-wrapped output" and replace with "direct JSON fenced-block output" (or equivalent matching the actual stripped behavior); ClaudeFollowUp + ClaudeSetUpgrade variants left untouched (their summaries don't carry the stale phrase per audit F-01 evidence inventory).
+  4. `DeckFlow.Web/Controllers/DeckController.cs` line 514 (or wherever the deck-analysis download handler enters the cache-lookup block) carries a one-line comment documenting the intentional omission of the response-json short-circuit tier — explaining deck-analysis has no paste-response-only re-download path (cited reference: Phase 999.3 D-10 + audit F-02).
+  5. `.planning/phases/999.5-v1-3-backlog-catch-up-test-hardening/999.5-UAT.md` frontmatter `status: testing` updated to `status: superseded-by-999.6` (or equivalent terminal label); body untouched (the test results documented in the UAT remain accurate as-of their capture timestamp).
+  6. `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.sln -c Release` exits 0 with warning count <= post-Phase-999.6 baseline (build is documentation-only sweep — should be byte-symmetric in compiled output; doc-comment text changes don't affect IL).
+  7. `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.sln -c Release` reports `Failed: 0, Passed: 497 (Web 440 + Core 57), Skipped: 3, Total: 500` (Phase 999.6 PHASE EXIT GATE baseline preserved; no test regressions from doc-comment / Razor-untouched / state-file-only edits).
+
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 999.7-01-PLAN.md — Reconcile STATE.md progress counters against ROADMAP Progress table (SC1)
+- [ ] 999.7-02-PLAN.md — Flip REQUIREMENTS.md WDG-01..10 checkboxes to `[x]` (SC2)
+- [ ] 999.7-03-PLAN.md — Update 3 Claude variant class summaries (drop "result-wrapped output"); audit F-01 (SC3, SC6, SC7)
+- [ ] 999.7-04-PLAN.md — Add DeckController F-02 asymmetry comment + finalize 999.5-UAT.md status (SC4, SC5, SC6, SC7)
+
+**Cross-cutting constraints:**
+
+- `dotnet test DeckFlow.sln -c Release` reports Failed:0 Passed:497 Skipped:3 Total:500.
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -399,6 +430,7 @@ Plans:
 | 999.4 Truncated-JSON Response UX | v1.3 | 1/1 | Complete   | 2026-05-21 |
 | 999.5 v1.3 Backlog Catch-up + Test Hardening | v1.3 | 4/4 | Complete   | 2026-05-21 |
 | 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 3/3 | Complete    | 2026-05-22 |
+| 999.7 v1.3 Audit Cleanup — STATE Arithmetic + WDG Checkboxes + Stale Doc-Comments | v1.3 | 0/4 | Not started | — |
 
 ---
 
@@ -413,18 +445,21 @@ Plans:
 Captured 2026-05-17 during Phase 13 UAT T5. cEDH Meta-Gap fails to find Plagon, Lord of the Beach decks even though edhtop16.com shows multiple recent entries (2025-05 through 2026-01). DeckFlow filters (Six Months + Top Performing + minEventSize) return zero matches; edhtop16.com site UI likely uses different default filter window/event-size threshold/standing cutoff.
 
 Repro (2026-05-17 14:18:57 + 14:19:09 in `web-20260517.log`):
+
 - Commander: "Plagon, Lord of the Beach"
 - Filters: SixMonths, TopPerforming, minEventSize=default, maxStanding=default
 - Result: `InvalidOperationException` at `MetaGapService.cs:160` — "No EDH Top 16 decks matched your filters..."
 - edhtop16.com browser shows entries from 2026-01-04, 2026-01-18, 2025-09-27, 2025-05-24
 
 Pre-existing — predates Phase 13 (MetaGapService logic unchanged by rename). Investigate:
+
 1. edhtop16 GraphQL `commander(name)` lookup: does "Plagon, Lord of the Beach" match the stored canonical name exactly?
 2. Default DeckFlow form filter values vs site UI defaults — alignment audit.
 3. minEventSize=50 default may be too restrictive — site UI may use 30.
 4. timePeriod=SixMonths may map to ≤180 days where site uses calendar months (sometimes 183-184 days).
 
 Plans:
+
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
 ---

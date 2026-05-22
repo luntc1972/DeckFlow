@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: milestone_complete
-stopped_at: Milestone complete (Phase 999.6 was final phase)
-last_updated: 2026-05-22T19:31:14.780Z
-last_activity: 2026-05-22 -- Phase 999.6 P03 ArchidektCacheJob by-id lookup complete (3/3 plans; PHASE EXIT GATE SATISFIED)
+status: executing
+stopped_at: "Phase 999.6 P03 complete — atomic F-PROD-CONTRACT fix commit d758609 (debug doc + `IHarvestRunStore.GetByIdAsync` + `HarvestRunStore` SQLite/Postgres impl with `_connectionInfo.IsPostgres ? (object)id : id.ToString()` binding + `ArchidektCacheJobService.GetJob` rewire + `FakeHarvestRunStore` async wrapper bundled per D-18) + SUMMARY commit 1adf65b. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:14,Total:14). Full-suite gate 5/5 deterministic (Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57 — Failed delta 2→0; phase-wide 9→0). D-15 fired (real production bug shipped inside 999.6). D-23 STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 (NOT toggled by execute-plan agent)."
+last_updated: "2026-05-22T20:19:31.894Z"
+last_activity: 2026-05-22 -- Phase 999.7 planning complete
 progress:
-  total_phases: 11
-  completed_phases: 9
-  total_plans: 46
-  completed_plans: 66
-  percent: 82
+  total_phases: 12
+  completed_phases: 10
+  total_plans: 50
+  completed_plans: 45
+  percent: 83
 ---
 
 ## Deferred Items
@@ -36,11 +36,11 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.6
+Phase: 999.7
 Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-22
-Progress: [██████████] 100% (within 999.6; v1.3 milestone overall now post-test-residual-cleanup)
+Status: Ready to execute
+Last activity: 2026-05-22 -- Phase 999.7 planning complete
+Progress: v1.3 11/11 production+backlog phases complete (Phases 11-15 + 999.1-999.6); Phase 999.7 inserted for doc/state cleanup before milestone archive
 
 ## Performance Metrics
 
@@ -76,6 +76,10 @@ Progress: [██████████] 100% (within 999.6; v1.3 milestone ov
 | Phase 999.6 P03 | 20m | 4 tasks | 5 files (1 Codex dispatch + 5/5 focused + 5/5 full-suite PHASE EXIT GATE) |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 999.7 inserted after Phase 999.6: v1.3 audit cleanup: STATE arithmetic + WDG checkboxes + stale doc-comments (audit findings F-01, F-02) (URGENT)
 
 ### v1.1 Shipped
 
