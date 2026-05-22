@@ -357,7 +357,7 @@ Commander
 """
         }));
 
-        Assert.Equal("The submitted ChatGPT response did not contain a valid deck_profile payload.", exception.Message);
+        Assert.Equal("The submitted AI response did not contain a valid deck_profile payload.", exception.Message);
     }
 
     [Fact]
