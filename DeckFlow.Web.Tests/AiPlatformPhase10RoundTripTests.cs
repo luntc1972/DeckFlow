@@ -701,7 +701,7 @@ public sealed class AiPlatformPhase10RoundTripTests
         var expectedSegment = platform.ToLowerInvariant();
         var fileName = PacketArtifactStore.SuggestComparisonZipFileName("Atraxa", platform);
         Assert.Contains($"-{expectedSegment}-", fileName);
-        Assert.StartsWith("atraxa-compare2-", fileName);
+        Assert.StartsWith("atraxa-comparison-", fileName);
     }
 
     [Theory]
