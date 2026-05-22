@@ -283,8 +283,10 @@ Deck
             DeckBSource = deckText
         });
 
-        Assert.StartsWith("Commander\n1 Atraxa, Praetors' Voice", result.DeckAListText, StringComparison.Ordinal);
-        Assert.Contains("\nMainboard\n", result.DeckAListText, StringComparison.Ordinal);
+        var deckAListText = result.DeckAListText.Replace("\r\n", "\n");
+
+        Assert.StartsWith("Commander\n1 Atraxa, Praetors' Voice", deckAListText, StringComparison.Ordinal);
+        Assert.Contains("\nMainboard\n", deckAListText, StringComparison.Ordinal);
         Assert.Equal("Atraxa, Praetors' Voice", result.ResolvedDeckACommander);
     }
 
