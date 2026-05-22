@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: executing
-stopped_at: Phase 999.6 P03 complete — atomic fix commit d758609 (F-PROD-CONTRACT per D-15: IHarvestRunStore.GetByIdAsync added + HarvestRunStore SQLite/Postgres provider-binding impl + ArchidektCacheJobService.GetJob rewired + FakeHarvestRunStore async wrapper + debug doc) + SUMMARY commit 1adf65b. Full-suite 5/5 deterministic Failed:0/Passed:440/Skipped:3/Total:443 (Web) + Failed:0/Passed:57/Skipped:0/Total:57 (Core); focused ArchidektCacheJobServiceTests 5/5 Failed:0/Passed:14/Total:14. Phase-wide net delta 9 → 0 failures. PHASE EXIT GATE SATISFIED — awaiting /gsd-verify-work 999.6 to restore status:ready_to_ship per D-23.
-last_updated: "2026-05-22T18:09:00.000Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 999.6 was final phase)
+last_updated: 2026-05-22T19:31:14.780Z
 last_activity: 2026-05-22 -- Phase 999.6 P03 ArchidektCacheJob by-id lookup complete (3/3 plans; PHASE EXIT GATE SATISFIED)
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 46
-  completed_plans: 44
-  percent: 96
+  completed_plans: 66
+  percent: 82
 ---
 
 ## Deferred Items
@@ -31,15 +31,15 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 999.6 — v1-3-ship-gate-test-residual-cleanup
+**Current focus:** Milestone complete
 
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.6 (v1-3-ship-gate-test-residual-cleanup) — CODE COMPLETE (awaiting /gsd-verify-work close-out per D-23)
-Plan: 3 of 3 (P01 + P02 + P03 all complete; full-suite Failed: 0 across 5/5 runs)
-Status: Phase 999.6 closed at the code level — PHASE EXIT GATE SATISFIED. STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 per CONTEXT D-23 (NOT toggled here by execute-plan agent).
-Last activity: 2026-05-22 -- Phase 999.6 P03 ArchidektCacheJob by-id lookup complete (F-PROD-CONTRACT per D-15)
+Phase: 999.6
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-05-22
 Progress: [██████████] 100% (within 999.6; v1.3 milestone overall now post-test-residual-cleanup)
 
 ## Performance Metrics
@@ -59,6 +59,7 @@ Progress: [██████████] 100% (within 999.6; v1.3 milestone ov
 | 13 | 4 | - | - |
 | 15 | 3 | - | - |
 | 999.1 | 7 | - | - |
+| 999.6 | 3 | - | - |
 
 **v1.3 Forecast:**
 

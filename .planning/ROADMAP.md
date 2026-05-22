@@ -359,7 +359,7 @@ Plans:
   5. README + STATE.md updated to record ship-gate compliance: v1.3 ready_to_ship status revoked at phase start (was set 2026-05-21 by 999.5 close), restored only when this phase closes with `Failed 0`.
   6. `dotnet build DeckFlow.sln -c Release` exits 0 with warning count <= post-Phase-999.5 baseline.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 **Wave 1**
 
@@ -398,7 +398,7 @@ Plans:
 | 999.3 Packet Download Session Cache | v1.3 | 4/4 | Complete   | 2026-05-21 |
 | 999.4 Truncated-JSON Response UX | v1.3 | 1/1 | Complete   | 2026-05-21 |
 | 999.5 v1.3 Backlog Catch-up + Test Hardening | v1.3 | 4/4 | Complete   | 2026-05-21 |
-| 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 3/3 | Code Complete (awaiting /gsd-verify-work close-out per D-23) | 2026-05-22 |
+| 999.6 v1.3 Ship-Gate Test Residual Cleanup | v1.3 | 3/3 | Complete    | 2026-05-22 |
 
 ---
 
