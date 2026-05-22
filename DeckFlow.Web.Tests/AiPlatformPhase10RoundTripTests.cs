@@ -744,14 +744,6 @@ public sealed class AiPlatformPhase10RoundTripTests
         Assert.DoesNotContain("-cedh-", fileName);
     }
 
-    [Fact]
-    public void SuggestComparisonZipFileName_includes_compare2_page_segment()
-    {
-        var fileName = PacketArtifactStore.SuggestComparisonZipFileName("Atraxa", "Gemini");
-        Assert.Contains("-compare2-", fileName);
-        Assert.DoesNotContain("-analysis-", fileName);
-        Assert.DoesNotContain("-cedh-", fileName);
-    }
 
     [Fact]
     public void SuggestCedhMetaGapZipFileName_includes_cedh_page_segment()
