@@ -174,7 +174,7 @@ Do not omit any fields from the schema.
             <ol>
                 <li>Choose the target Commander bracket.</li>
                 <li>Select one or more question buckets, individual questions, or both.</li>
-                <li>Optionally include sideboard and/or maybeboard cards as candidate references.</li>
+                <li>Optionally include sideboard/maybeboard cards as candidate references.</li>
                 <li>Click <code>Generate Analysis Packet</code>.</li>
                 <li>Copy <code>analysis.txt</code> and paste it into your AI.</li>
                 <li>Ask your AI to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
@@ -247,12 +247,8 @@ Do not omit any fields from the schema.
         </details>
         <div class="result-panel nested-panel">
             <label class="chatgpt-question-option">
-                <input type="checkbox" name="IncludeSideboardInAnalysis" value="true" @(Model.Request.IncludeSideboardInAnalysis ? "checked" : "") />
-                <span>Include sideboard cards as candidate references in the analysis prompt</span>
-            </label>
-            <label class="chatgpt-question-option">
-                <input type="checkbox" name="IncludeMaybeboardInAnalysis" value="true" @(Model.Request.IncludeMaybeboardInAnalysis ? "checked" : "") />
-                <span>Include maybeboard cards as candidate references in the analysis prompt</span>
+                <input type="checkbox" name="IncludeCandidateReferencesInAnalysis" value="true" @(Model.Request.IncludeCandidateReferencesInAnalysis ? "checked" : "") />
+                <span>Include sideboard/maybeboard cards as candidate references in the analysis prompt</span>
             </label>
             <small class="sync-column__hint">Current-deck card definitions are always included. These options only add authoritative references for optional candidate cards and keep them labeled as candidates, not active deck cards.</small>
         </div>

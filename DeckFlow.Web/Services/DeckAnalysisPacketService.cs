@@ -240,8 +240,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             Commander: commanderName ?? string.Empty,
             NormalizedDeckSource: BuildCanonicalDeckSourceText(entries),
             IncludeCardVersions: request.IncludeCardVersions,
-            IncludeSideboardInAnalysis: request.IncludeSideboardInAnalysis,
-            IncludeMaybeboardInAnalysis: request.IncludeMaybeboardInAnalysis,
+            IncludeCandidateReferencesInAnalysis: request.IncludeCandidateReferencesInAnalysis,
             TargetAiPlatformKey: request.TargetAiPlatform,
             SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? new List<string>())
                 .OrderBy(static id => id, StringComparer.Ordinal)
@@ -552,8 +551,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             {
                 var analysisPossibleIncludeEntries = possibleIncludeEntries
                     .Where(entry =>
-                        (request.IncludeSideboardInAnalysis && string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
-                        || (request.IncludeMaybeboardInAnalysis && string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)))
+                        (request.IncludeCandidateReferencesInAnalysis
+                            && (string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))))
                     .ToList();
                 var cardReferenceRequests = BuildAnalysisCardReferenceRequests(deckEntries, analysisPossibleIncludeEntries);
 
@@ -1480,8 +1480,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");
         builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
         builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
-        builder.AppendLine($"include_sideboard_in_analysis: {request.IncludeSideboardInAnalysis}");
-        builder.AppendLine($"include_maybeboard_in_analysis: {request.IncludeMaybeboardInAnalysis}");
+        builder.AppendLine($"include_candidate_references_in_analysis: {request.IncludeCandidateReferencesInAnalysis}");
         builder.AppendLine("card_specific_question_card_names:");
         foreach (var cardName in request.CardSpecificQuestionCardNames)
         {

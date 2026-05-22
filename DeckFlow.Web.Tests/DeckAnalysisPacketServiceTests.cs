@@ -204,8 +204,7 @@ Maybeboard
 """,
             TargetCommanderBracket = "Upgraded",
             SelectedAnalysisQuestions = ["strengths-weaknesses"],
-            IncludeSideboardInAnalysis = true,
-            IncludeMaybeboardInAnalysis = true
+            IncludeCandidateReferencesInAnalysis = true
         });
 
         Assert.NotNull(result.ReferenceText);

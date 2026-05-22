@@ -256,14 +256,9 @@ internal static class PacketArtifactStore
                 request.TargetCommanderBracket = parsed.TargetCommanderBracket;
             }
 
-            if (parsed.IncludeSideboardInAnalysis is { } includeSideboard)
+            if (parsed.IncludeCandidateReferencesInAnalysis is { } includeCandidateReferences)
             {
-                request.IncludeSideboardInAnalysis = includeSideboard;
-            }
-
-            if (parsed.IncludeMaybeboardInAnalysis is { } includeMaybeboard)
-            {
-                request.IncludeMaybeboardInAnalysis = includeMaybeboard;
+                request.IncludeCandidateReferencesInAnalysis = includeCandidateReferences;
             }
 
             if (parsed.CardSpecificQuestionCardNames.Count > 0)

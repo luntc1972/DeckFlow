@@ -33,8 +33,7 @@ public sealed class PacketArtifactStoreRoundTripTests
         Assert.Equal("Upgraded", request.TargetCommanderBracket);
         Assert.Single(request.SelectedSetCodes);
         Assert.Contains("sos", request.SelectedSetCodes);
-        Assert.False(request.IncludeSideboardInAnalysis);
-        Assert.False(request.IncludeMaybeboardInAnalysis);
+        Assert.False(request.IncludeCandidateReferencesInAnalysis);
         Assert.Equal("Commander", request.Format);
         Assert.True(request.StrategyNotes.Length > 1000);
         Assert.Contains("Arna Kennerüd Aura Engine", request.StrategyNotes, StringComparison.Ordinal);

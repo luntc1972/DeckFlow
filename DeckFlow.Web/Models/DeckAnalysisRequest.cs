@@ -216,14 +216,10 @@ public sealed class DeckAnalysisRequest
     public bool IncludeCardVersions { get; set; }
 
     /// <summary>
-    /// When true, includes the deck's sideboard cards in the analysis prompt.
+    /// When true, includes the deck's sideboard and maybeboard cards in the analysis prompt
+    /// as authoritative candidate references (still labeled as candidates, not active deck cards).
     /// </summary>
-    public bool IncludeSideboardInAnalysis { get; set; }
-
-    /// <summary>
-    /// When true, includes the deck's maybeboard cards in the analysis prompt.
-    /// </summary>
-    public bool IncludeMaybeboardInAnalysis { get; set; }
+    public bool IncludeCandidateReferencesInAnalysis { get; set; }
 
     /// <summary>
     /// User-supplied preferred categories to weight when the AI suggests deck organization.

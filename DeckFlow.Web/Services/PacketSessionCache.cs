@@ -181,8 +181,7 @@ internal sealed record DeckAnalysisCacheInputs(
     string Commander,
     string NormalizedDeckSource,
     bool IncludeCardVersions,
-    bool IncludeSideboardInAnalysis,
-    bool IncludeMaybeboardInAnalysis,
+    bool IncludeCandidateReferencesInAnalysis,
     string TargetAiPlatformKey,
     IReadOnlyList<string> SelectedQuestionIds);
 

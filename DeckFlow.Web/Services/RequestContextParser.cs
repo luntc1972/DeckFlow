@@ -46,8 +46,7 @@ internal static partial class RequestContextParser
         string? deckBName = null;
         string? deckABracket = null;
         string? deckBBracket = null;
-        bool? includeSideboardInAnalysis = null;
-        bool? includeMaybeboardInAnalysis = null;
+        bool? includeCandidateReferencesInAnalysis = null;
         List<string> cardSpecificQuestionCardNames = [];
         string? budgetUpgradeAmount = null;
         List<string> selectedAnalysisQuestions = [];
@@ -103,11 +102,20 @@ internal static partial class RequestContextParser
                     case "deck_b_bracket":
                         deckBBracket = inlineValue.Trim();
                         break;
+                    case "include_candidate_references_in_analysis":
+                        includeCandidateReferencesInAnalysis = ParseBool(inlineValue);
+                        break;
                     case "include_sideboard_in_analysis":
-                        includeSideboardInAnalysis = ParseBool(inlineValue);
+                        if (ParseBool(inlineValue) is { } includeSideboard)
+                        {
+                            includeCandidateReferencesInAnalysis = (includeCandidateReferencesInAnalysis ?? false) || includeSideboard;
+                        }
                         break;
                     case "include_maybeboard_in_analysis":
-                        includeMaybeboardInAnalysis = ParseBool(inlineValue);
+                        if (ParseBool(inlineValue) is { } includeMaybeboard)
+                        {
+                            includeCandidateReferencesInAnalysis = (includeCandidateReferencesInAnalysis ?? false) || includeMaybeboard;
+                        }
                         break;
                     case "budget_upgrade_amount":
                         budgetUpgradeAmount = inlineValue.Trim();
@@ -186,8 +194,7 @@ internal static partial class RequestContextParser
             DeckName = string.IsNullOrEmpty(deckName) ? null : deckName,
             Commander = string.IsNullOrEmpty(commander) ? null : commander,
             TargetCommanderBracket = string.IsNullOrEmpty(targetCommanderBracket) ? null : targetCommanderBracket,
-            IncludeSideboardInAnalysis = includeSideboardInAnalysis,
-            IncludeMaybeboardInAnalysis = includeMaybeboardInAnalysis,
+            IncludeCandidateReferencesInAnalysis = includeCandidateReferencesInAnalysis,
             CardSpecificQuestionCardNames = cardSpecificQuestionCardNames,
             BudgetUpgradeAmount = string.IsNullOrEmpty(budgetUpgradeAmount) ? null : budgetUpgradeAmount,
             SelectedAnalysisQuestions = selectedAnalysisQuestions,
@@ -315,9 +322,7 @@ internal sealed record ParsedRequestContext
 
     public string? TargetCommanderBracket { get; init; }
 
-    public bool? IncludeSideboardInAnalysis { get; init; }
-
-    public bool? IncludeMaybeboardInAnalysis { get; init; }
+    public bool? IncludeCandidateReferencesInAnalysis { get; init; }
 
     public IReadOnlyList<string> CardSpecificQuestionCardNames { get; init; } = Array.Empty<string>();
 
