@@ -1,6 +1,7 @@
 using System.IO;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -24,6 +25,9 @@ public sealed class FeedbackStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
         }
     }

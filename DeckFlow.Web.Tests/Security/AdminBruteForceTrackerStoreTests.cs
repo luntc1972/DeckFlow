@@ -3,6 +3,7 @@ using System.Text;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -27,6 +28,9 @@ public sealed class AdminBruteForceTrackerStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             try { File.Delete(_dbPath); } catch { /* sqlite handle release timing */ }
         }
     }
