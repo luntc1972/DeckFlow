@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: executing
-stopped_at: Phase 999.6 P02 complete — fix commit a62f608 (F-ENV-COLLECTION: shared EnvScope helper + AdminEnvSerial collection-serialization closes BasicAuth flaky; H2 falsified so no SUT touched) + SUMMARY commit 360dee0. Full-suite 443/438/2/3 (Failed 3 → 2 across 5/5 deterministic runs; focused BasicAuth 5/5 Failed:0). 2 residuals (ArchidektCacheJobService BackgroundService_SucceedsAndUpdatesProcessedCounts + GetActiveJob_ReturnsNullAfterCompletedJob) carry forward to P03.
-last_updated: "2026-05-22T17:45:12.505Z"
-last_activity: 2026-05-22 -- Phase 999.6 P02 BasicAuth flaky stabilization complete (2/3 plans)
+stopped_at: Phase 999.6 P03 complete — atomic fix commit d758609 (F-PROD-CONTRACT per D-15: IHarvestRunStore.GetByIdAsync added + HarvestRunStore SQLite/Postgres provider-binding impl + ArchidektCacheJobService.GetJob rewired + FakeHarvestRunStore async wrapper + debug doc) + SUMMARY commit 1adf65b. Full-suite 5/5 deterministic Failed:0/Passed:440/Skipped:3/Total:443 (Web) + Failed:0/Passed:57/Skipped:0/Total:57 (Core); focused ArchidektCacheJobServiceTests 5/5 Failed:0/Passed:14/Total:14. Phase-wide net delta 9 → 0 failures. PHASE EXIT GATE SATISFIED — awaiting /gsd-verify-work 999.6 to restore status:ready_to_ship per D-23.
+last_updated: "2026-05-22T18:09:00.000Z"
+last_activity: 2026-05-22 -- Phase 999.6 P03 ArchidektCacheJob by-id lookup complete (3/3 plans; PHASE EXIT GATE SATISFIED)
 progress:
   total_phases: 11
   completed_phases: 9
@@ -36,11 +36,11 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.6 (v1-3-ship-gate-test-residual-cleanup) — EXECUTING
-Plan: 3 of 3 (P01 + P02 complete, P03 ArchidektCacheJob debug+fix next)
-Status: Executing Phase 999.6 — P02 closed; full-suite 3 → 2 residuals (2 ArchidektCacheJob carry-forwards enumerated in 999.6-02-SUMMARY.md)
-Last activity: 2026-05-22 -- Phase 999.6 P02 BasicAuth flaky stabilization complete
-Progress: [██████████] 96%
+Phase: 999.6 (v1-3-ship-gate-test-residual-cleanup) — CODE COMPLETE (awaiting /gsd-verify-work close-out per D-23)
+Plan: 3 of 3 (P01 + P02 + P03 all complete; full-suite Failed: 0 across 5/5 runs)
+Status: Phase 999.6 closed at the code level — PHASE EXIT GATE SATISFIED. STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 per CONTEXT D-23 (NOT toggled here by execute-plan agent).
+Last activity: 2026-05-22 -- Phase 999.6 P03 ArchidektCacheJob by-id lookup complete (F-PROD-CONTRACT per D-15)
+Progress: [██████████] 100% (within 999.6; v1.3 milestone overall now post-test-residual-cleanup)
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [██████████] 96%
 | Phase 14-broader-codebase-name-vs-behavior-audit P02 | 30m | 2 tasks | 14 files |
 | Phase 14-broader-codebase-name-vs-behavior-audit P04 | 30m | 3 tasks | 7 files |
 | Phase 999.6 P02 | 15m | 5 tasks | 5 files (1 Codex dispatch + 5/5 focused + 5/5 full-suite stability gates) |
+| Phase 999.6 P03 | 20m | 4 tasks | 5 files (1 Codex dispatch + 5/5 focused + 5/5 full-suite PHASE EXIT GATE) |
 
 ## Accumulated Context
 
@@ -103,6 +104,7 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 - Phase 999.6 P01 (2026-05-22): D-06 Branch B taken — `PacketArtifactStoreRoundTripTests.cs` deleted because both authorized probe paths (`/tmp/arna-test/` and `/mnt/c/tmp/arna-test/`) missing the Arna fixture files. Branch B is an authorized fallback per D-06; the integration assertion is fixture-less and has no value without the source data. Total dropped 445 → 443.
 - Phase 999.6 P01 (2026-05-22): Mechanical stale-test fixes catch tests up to shipped production renames (PacketArtifactStore msg generalization at D-04, Phase 12 `compare2`→`comparison` page rename at D-05/D-07). 6 of 9 residual failures closed. Codex authored every edit via shell-pipe `codex exec`; orchestrator ran Windows-dotnet gate + committed (hybrid pattern inherited from 999.5 P01).
 - Phase 999.6 P02 (2026-05-22): F-ENV-COLLECTION applied — shared `EnvScope` helper at `DeckFlow.Web.Tests/Infrastructure/EnvScope.cs` + `AdminEnvCollection` with `[CollectionDefinition(DisableParallelization=true)]` serialize both env-mutating test classes (`BasicAuthMiddlewareTests` + `Security/AdminBruteForceTrackerStoreTests`). Closes the BasicAuth flaky-fact root cause (cross-class race on process-wide `FEEDBACK_ADMIN_USER`/`FEEDBACK_ADMIN_PASSWORD`). H2 falsified (middleware already reads env vars fresh per InvokeAsync — no SUT touched). 10/10 deterministic stability gate (focused 5/5 Failed:0,Passed:5,Total:5; full-suite 5/5 Failed:2,Passed:438,Skipped:3,Total:443). 2 ArchidektCacheJob failures carry forward to P03 (commit a62f608 fix + 360dee0 SUMMARY).
+- Phase 999.6 P03 (2026-05-22): F-PROD-CONTRACT applied (D-15 fired — real production bug ships inside 999.6). Added `Task<HarvestRunRow?> GetByIdAsync(Guid, CancellationToken)` to `IHarvestRunStore` + production impl in `HarvestRunStore` (provider-specific Guid binding via `_connectionInfo.IsPostgres ? (object)id : id.ToString()` matching three precedents at lines 117-119 / 164-166 / 200-202) + rewired `ArchidektCacheJobService.GetJob` from 16-line `GetActiveAsync`+id-filter to 5-line `GetByIdAsync` delegate + extended inline `FakeHarvestRunStore` with async wrapper. SUT's own forward-reference comment ("Plan 04 will add one") resolved by THIS plan. H2 (`_activeJob` field race) stays falsified — field does not exist; only `_activeJobCts` (lifecycle CTS) exists. 10/10 deterministic PHASE EXIT GATE (focused 5/5 Failed:0/Passed:14/Total:14; full-suite 5/5 Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57). Phase-wide net delta 9 → 0 failures across 3 plans (P01: 6 stale closed, P02: 1 flaky closed, P03: 2 ambiguous closed). Atomic commit d758609 (debug doc + 4 code files) per D-18; SUMMARY commit 1adf65b. STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 per D-23.
 
 ### Constraints Carried Forward (per PROJECT.md + CLAUDE.md)
 
@@ -120,21 +122,21 @@ v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) 
 
 ## Session Continuity
 
-Last session: 2026-05-22T17:44:58.133Z
+Last session: 2026-05-22T18:09:00.000Z
 
-Stopped at: Phase 999.6 P02 complete — F-ENV-COLLECTION fix commit a62f608 (shared EnvScope helper + AdminEnvSerial collection-serialization + debug doc bundled per D-18) + SUMMARY commit 360dee0. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:5). Full-suite gate 5/5 deterministic (Failed:2,Passed:438,Skipped:3,Total:443 — Failed delta 3→2). H2 falsified, no SUT touched. 2 ArchidektCacheJob residuals carry forward to P03.
+Stopped at: Phase 999.6 P03 complete — atomic F-PROD-CONTRACT fix commit d758609 (debug doc + `IHarvestRunStore.GetByIdAsync` + `HarvestRunStore` SQLite/Postgres impl with `_connectionInfo.IsPostgres ? (object)id : id.ToString()` binding + `ArchidektCacheJobService.GetJob` rewire + `FakeHarvestRunStore` async wrapper bundled per D-18) + SUMMARY commit 1adf65b. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:14,Total:14). Full-suite gate 5/5 deterministic (Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57 — Failed delta 2→0; phase-wide 9→0). D-15 fired (real production bug shipped inside 999.6). D-23 STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 (NOT toggled by execute-plan agent).
 
-Next action on resume: P03 dispatch — `999.6-03-PLAN.md` (ArchidektCacheJobService debug+fix). Per CONTEXT D-12, Claude runs 1 shared `/gsd-debug 999.6-archidekt-cache-job` session covering both failures; Codex applies fix per the debug verdict (test-only OR SUT real-bug per D-15).
+Next action on resume: `/gsd-verify-work 999.6` — re-validate the closing full-suite gate (`Failed: 0`), confirm STATE.md + ROADMAP.md reflect 3/3 plans complete, and atomically transition `.planning/STATE.md` `status` field from `executing` back to `ready_to_ship` per CONTEXT D-23. Then `/gsd-audit-milestone v1.3` → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` per Operator Next Steps.
 
 **Resume guidance:**
 
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-CONTEXT.md` for D-12/D-13/D-15/D-16 P03 binding decisions.
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-03-PLAN.md` for P03 task-level binding contract (when authored).
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-02-SUMMARY.md` for the 2 residual failures explicitly enumerated.
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-03-SUMMARY.md` for P03 closure detail + phase-level closure note (9 → 0 failure delta, Codex review-feedback blocker resolution table, commit hash sequence).
+- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-CONTEXT.md` D-23 for the STATE.md status-toggle protocol.
+- Read `.planning/debug/999.6-archidekt-cache-job.md` for the verdict + the SOLID review proving F-PROD-CONTRACT's additive interface method is correct.
 - Branch: `v1.3` (created 2026-05-13 from `main` at `7ed0cde`).
 
 ## Operator Next Steps
 
-- P03 dispatch: `/gsd-debug 999.6-archidekt-cache-job` (Claude investigation, 1 shared session per D-12) → Codex applies fix (test-only OR SUT real-bug per D-15) → orchestrator runs Windows-dotnet gate + commits.
-- After P03 lands and full-suite hits `Failed: 0`: `/gsd-verify-work 999.6` to restore STATE.md `ready_to_ship` per D-23 → `/gsd-audit-milestone` → `/gsd-complete-milestone` → `/gsd-ship` to publish v1.3 to main.
+- **P03 COMPLETE** (2026-05-22, commits d758609 + 1adf65b). PHASE EXIT GATE SATISFIED: full-suite 5/5 deterministic `Failed: 0, Passed: 440 + 57 = 497, Skipped: 3, Total: 443 + 57 = 500` across DeckFlow.Web.Tests + DeckFlow.Core.Tests.
+- **Next:** `/gsd-verify-work 999.6` to restore STATE.md `ready_to_ship` per D-23 → `/gsd-audit-milestone v1.3` → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` to publish v1.3 to main.
 - Other deferred (NOT in 999.6 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
