@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using DeckFlow.Web.Tests.Infrastructure;
 
 namespace DeckFlow.Web.Tests.Security;
 
@@ -13,6 +14,7 @@ namespace DeckFlow.Web.Tests.Security;
 /// Integration tests for <see cref="AdminBruteForceTrackerStore"/> covering lockout tracking,
 /// attempt recording, and automatic expiry against a temporary SQLite database.
 /// </summary>
+[Collection("AdminEnvSerial")]
 public sealed class AdminBruteForceTrackerStoreTests : IDisposable
 {
     private readonly string _dbPath;
@@ -153,19 +155,5 @@ public sealed class AdminBruteForceTrackerStoreTests : IDisposable
             await _store.RecordFailureAsync("admin:unknown", now);
         var (throttled, _) = await _store.IsThrottledAsync("admin:unknown", now);
         Assert.True(throttled);
-    }
-
-    private sealed class EnvScope : IDisposable
-    {
-        private readonly string _name;
-        private readonly string? _previous;
-        private EnvScope(string name) { _name = name; _previous = Environment.GetEnvironmentVariable(name); }
-        public static EnvScope Set(string name, string value)
-        {
-            var s = new EnvScope(name);
-            Environment.SetEnvironmentVariable(name, value);
-            return s;
-        }
-        public void Dispose() => Environment.SetEnvironmentVariable(_name, _previous);
     }
 }
