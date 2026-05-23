@@ -54,10 +54,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 ## Current Position
 
-Phase: Milestone v1.3 complete
+Phase: Milestone v1.3 shipped — PR #1 awaiting merge
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-23 — Milestone v1.3 completed and archived
+Status: PR open https://github.com/luntc1972/DeckFlow/pull/1 (v1.3 → main); post-merge: Render auto-deploys; operator runs SC6 curl verification
+Last activity: 2026-05-23 — v1.3 PR #1 created (370 commits ahead of main, +47,724 / -5,385 LOC across 386 files)
 
 ## Performance Metrics
 
