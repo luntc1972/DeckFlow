@@ -2,36 +2,30 @@
 
 ## What This Is
 
-DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander players, deployed live at https://www.deckflow.gg. It pulls deck data from Archidekt and Moxfield, generates ChatGPT-ready prompt artifacts for deck analysis, and provides synergy/category knowledge derived from the user's own crawled deck history. Audience: serious deck-builders who want a structured "compare, analyze, decide" workflow rather than a one-click recommender.
+DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander players, deployed live at https://www.deckflow.gg. It pulls deck data from Archidekt and Moxfield, generates AI-agnostic prompt artifacts (ChatGPT / Claude / Gemini) for deck analysis, and provides synergy/category knowledge derived from the user's own crawled deck history. Audience: serious deck-builders who want a structured "compare, analyze, decide" workflow rather than a one-click recommender.
 
 ## Core Value
 
-**Every supported workflow must produce output the user can paste into ChatGPT and get back a useful answer in one round-trip — without the user reformatting anything.** Visual polish, theme variety, and admin tooling all serve that core. If the prompt artifacts are wrong or missing, nothing else matters.
+**Every supported workflow must produce output the user can paste into ChatGPT, Claude, or Gemini and get back a useful answer in one round-trip — without the user reformatting anything.** Visual polish, theme variety, and admin tooling all serve that core. If the prompt artifacts are wrong or missing, nothing else matters.
 
 ## Current State
 
-**Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — AI target selector (ChatGPT / Claude / Gemini) live on all three ChatGPT analysis pages with zip round-trip; Claude-optimized XML prompt structure; cEDH meta-gap Step 1 state round-trip; Gemini gated behind `DECKFLOW_GEMINI_ENABLED` env flag because the full packet exceeds gemini.google.com's paste cap.
+**Shipped:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (2026-05-23) — 5 production phases (11-15) + 8 backlog/closure phases (999.1-999.8); 22/22 REQ-IDs satisfied (WDG-01..10 + RENAME-01..03 + CLASSRENAME-01..03 + AUDIT-01..03 + AIPLATFORM-01..03); AI-agnostic URLs/labels live, ChatGpt* C# types renamed, sealed `AiPlatform` value object (OCP 3→8/10), full test suite `Failed: 0, Passed: 497, Skipped: 3, Total: 500`, 8/8 SECURITY threats closed, legacy chatgpt-* 301 redirects retired.
 
-**Active:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (started 2026-05-13 on `v1.3` branch).
+**Active:** v1.4 — TBD (start via `/gsd-new-milestone`).
 
-## Current Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
+## Next Milestone: v1.4 (TBD)
 
-**Goal:** Ship audit-driven a11y/quality fixes, drop "ChatGPT" branding from AI-target-agnostic surfaces (URLs + classes), bring class names in line with behavior across the codebase, refactor `AiPlatform` string to value object.
+To be defined via `/gsd-new-milestone`. Candidates surfaced during v1.3:
 
-**Target features (in execution order):**
-
-1. Web Design Guidelines audit fixes — 10 sweep PRs from `.planning/quick/260513-wdg-web-design-guidelines-audit-findings/FINDINGS.md` (P1 a11y bugs first: admin focus-visible, df-typeahead keyboard nav, ARIA tablist server-render, CSP inline-handler removal, info-tooltip a11y, then P2 guideline violations).
-2. AI-agnostic rename — URL + page layer (`/chatgpt-packets`, `/chatgpt-deck-comparison`, `/chatgpt-cedh-meta-gap` → AI-agnostic URLs; H1/nav/hub labels updated; permanent redirects from old URLs; explainer lines preserve "this is for an AI" cue). Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` (Option A recommended).
-3. ChatGpt* class rename — code layer (`ChatGptDeckRequest`, `ChatGptDeckPacketService`, `ChatGptRequestContextParser`, `ChatGptPacketArtifactStore`, `ChatGptDeckComparisonService`, `ChatGptCedhMetaGapService`, etc.) renamed to AI-agnostic terms; XML `<summary>` doc comments added on every renamed class; DI registrations + `InternalsVisibleTo` updated.
-4. Broader codebase audit — name-vs-behavior pass. Scan all classes (services, models, controllers, helpers). Flag and rename any whose name doesn't match current responsibility; add `<summary>` doc comments where missing.
-5. `AiPlatform` value object refactor — replace string `TargetAiPlatform` with sealed record value object per `.planning/milestones/v1.2-phases/10-claude-gemini-artifact-optimization/10-AISEL-PLATFORM-DESIGN.md` design. OCP forecast 3/10 → 8/10. Zero user-visible behavior change.
-
-**Key context:**
-
-- Branch: `v1.3` (created from `main` at commit `7ed0cde` on 2026-05-13).
-- Phase numbering continues from v1.2 — starts at Phase 11.
-- Order rationale: #1 first (independent, low-risk, visible quality wins); #2+#3 paired (URL + class rename in single conceptual unit); #4 broader audit uses #3 as template; #5 last (refactor sits on clean class names).
-- Deferred (NOT in v1.3 scope): `harvest-killed-by-suggestion` debug (parked at H1 hypothesis in `.planning/debug/`), Gemini paste-limit workaround (kept flag-gated via `DECKFLOW_GEMINI_ENABLED`).
+- WDG-04 styled focus-trapped modal (deferred from Phase 11 override 2026-05-16)
+- DeckFlow.Web.csproj NoWarn 1591;1573;1587 backlog (~88 v1.1-era undocumented Web types)
+- IN-01 _AiSelector vs view-level Normalize Gemini-flag fallback divergence (pre-existing)
+- v1.1 phase-dir archive move (06, 07, 07.1, 08 → `.planning/milestones/v1.1-phases/`)
+- CSS-class / data-attribute / TS-constant chatgpt-* cleanup (AI-agnostic styling backlog)
+- Gemini paste-limit workaround (flag-gated DECKFLOW_GEMINI_ENABLED; needs paste-cap raise OR API-key strategy)
+- v13-harvest-worker-stalled debug follow-up (diagnostic logging deployed 2026-05-22)
+- edhtop16 filter-defaults mismatch (Plagon, Lord of the Beach 0-entries case)
 
 ## Requirements
 
@@ -64,13 +58,22 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - ✓ Gemini-optimized artifact format + instructions — v1.2 (AISEL-03, flag-gated since 2026-05-13)
 - ✓ AI selection preserved in zip round-trip — v1.2 (AISEL-04)
 - ✓ cEDH meta-gap Step 1 state preserved in zip round-trip (fetched entries + filters + selections, regenerate without re-fetching edhtop16) — v1.2 (AISEL-04 closeout, 10-05)
-- ✓ AI-agnostic URLs + page labels (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap` with 301 redirects from old chatgpt-* slugs; H1/nav/hub labels + Mock A explainer lines; site-common.css `.page-lede`; AI-agnostic zip artifact filenames preserving Phase 10 AI-segment invariant) — v1.3 (RENAME-01, RENAME-02, RENAME-03; Phase 12)
+- ✓ AI-agnostic URLs + page labels (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`; H1/nav/hub labels + Mock A explainer lines; site-common.css `.page-lede`; AI-agnostic zip artifact filenames preserving Phase 10 AI-segment invariant) — v1.3 (RENAME-01..03; Phase 12). Legacy chatgpt-* 301 redirects shipped 2026-05-08 (Phase 12) and retired 2026-05-22 (Phase 999.8) after 2+ weeks live.
+- ✓ Web Design Guidelines audit fixes (10 sweep PRs: site-common.css a11y primitives, admin focus-visible, df-typeahead keyboard nav + ARIA combobox, ARIA tablist server-render, CSP inline-handler removal, info-tooltip a11y, table semantics, URL/textarea autocomplete, Razor `selected=` bool sweep, AdminHarvest live-region) — v1.3 (WDG-01..10; Phase 11)
+- ✓ ChatGpt* C# class rename to AI-agnostic names with XML `<summary>` doc-comment backfill on every renamed type — v1.3 (CLASSRENAME-01..03; Phase 13)
+- ✓ Broader codebase name-vs-behavior audit across 5 projects + missing doc-comment backfill, Release build clean — v1.3 (AUDIT-01..03; Phase 14)
+- ✓ Sealed `AiPlatform` record value object replacing stringly-typed `TargetAiPlatform` (OCP 3/10 → 8/10) — v1.3 (AIPLATFORM-01..03; Phase 15)
+- ✓ AI-agnostic prose adaptation across 3 workflow Razor views + C# exception messages + Help markdown (hybrid pattern: universal noun above `_AiSelector`, `@aiPlatform.DisplayName` injection below) — v1.3 (Phase 999.1)
+- ✓ Claude `<result>` wrapper stripped from 5 prompt variants (direct JSON fenced-block output) — v1.3 (Phase 999.2)
+- ✓ Packet download session cache (per-request in-memory cache keyed by request hash, TTL bounded; eliminates full Scryfall pipeline replay on preview → download) — v1.3 (Phase 999.3)
+- ✓ Truncated-JSON response UX (user-facing "wait for AI to finish generating" message replaces raw stack trace on `JsonReaderException`) — v1.3 (Phase 999.4)
+- ✓ v1.3 ship-gate test hardening: 9→0 residual test failures resolved across 3 plans (stale tests caught up to shipped renames, F-ENV-COLLECTION serialization for env-mutating tests, F-PROD-CONTRACT `IHarvestRunStore.GetByIdAsync` production-bug fix) — v1.3 (Phase 999.6)
 
 ### Active
 
-<!-- v1.3 not yet scoped — run /gsd-new-milestone to define. -->
+<!-- v1.4 not yet scoped — run /gsd-new-milestone to define. -->
 
-(none — v1.3 pending definition)
+(none — v1.4 pending definition)
 
 ### Out of Scope
 
@@ -167,7 +170,14 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 | Unified `<result>...</result>` wrapper for AI responses (v1.2 Phase 10-03) | One regex extracts JSON from any AI's response with the fenced ` ```json ` block preserved as fallback. Closes AISEL-04 in a single seam rather than 3 page-specific parsers. | ✓ Good (one extractor, 3 pages, no per-page paste logic) |
 | Hybrid deck text storage in session zips (v1.2 Phase 10 hardening) | Store both original (user-pasted) and canonical (BuildDecklistText output) in every zip. Original-prefers-canonical loader precedence handles the alphabetize-vs-preserve mismatch on re-upload. | ✓ Good (62ee45b; 11 new tests) |
 | Hidden form field carries cEDH Step 1 state between Step 2 submits (v1.2 Phase 10-05) | Stateless server, no session-affinity required, sidesteps edhtop16 rate-limit on regenerate. ~50-200KB per form post is acceptable. | ✓ Good (T3 retest passed 2026-05-13) |
-| Gemini hidden behind `DECKFLOW_GEMINI_ENABLED` flag at v1.2 close | Full packet exceeds gemini.google.com paste cap, truncating instructions. Server logic preserved; flip env var to re-enable. | ⚠️ Revisit in v1.3 (needs split-message prompt or direct API integration) |
+| Gemini hidden behind `DECKFLOW_GEMINI_ENABLED` flag at v1.2 close | Full packet exceeds gemini.google.com paste cap, truncating instructions. Server logic preserved; flip env var to re-enable. | ⚠️ Revisit in v1.4 (still flag-gated through v1.3; needs split-message prompt or direct API integration) |
+| Cross-AI execution pattern (Codex codes, Claude reviews) established 2026-05-19 | Codex authored production edits; Claude orchestrated planning + verification + cross-AI peer review. Sustained zero friction across 6+ consecutive phase closures (999.5 → 999.8). | ✓ Good (v1.3 shipped 13 phases / 51 plans through pattern) |
+| Backlog-phase numbering 999.x for in-milestone catch-up work | Allows v1.3 to absorb quality-debt phases (999.1 prose adaptation, 999.2 wrapper strip, 999.3 cache, 999.4 truncation UX, 999.5 test hardening, 999.6 ship-gate cleanup, 999.7 audit cleanup, 999.8 redirect removal) without disrupting the production phase numbering (11-15). | ✓ Good (8 backlog phases closed; v1.3 shipped 22/22 reqs) |
+| Retire legacy `chatgpt-*` 301 redirects 2+ weeks after Phase 12 rename | User-decided 2026-05-22 that past links can be retired after the graceful-deprecation tier had been live since 2026-05-08. Removes 22-line middleware block, 0 added. 11 URLs now 404. | ✓ Good (Phase 999.8; net deletion, build clean, baseline preserved) |
+| Cross-AI plan review (Codex reviews Claude's plans) | After `/gsd-plan-phase` produces PLAN.md, route through Codex via `/gsd-review` before execute. Reduces single-model blind spots. | ✓ Good (caught 2 BLOCKER issues in 999.7 P01 before execution) |
+| `no-ship-failing-tests` rule (established 2026-05-22) | Prior milestone closures shipped with deferred failures; rule mandates Failed:0 before milestone PR + merge. Phase 999.6 created specifically to honor this. | ✓ Good (v1.3 ships with Failed:0 across 500 tests) |
+| Phase 15 SC4 empirical sha256 byte-identical hash gate BYPASS (user-authorized 2026-05-18) | Substituted evidence: clean build + variant Build bodies extracted byte-for-byte + ResultContractTests + AiPlatformPhase10RoundTripTests migrated. Residual silent byte-drift risk accepted. | ⚠️ Revisit if any AI-output divergence reported in v1.4 |
+| WDG-04 deferred `onsubmit` retained in AdminFeedback/Detail (override 2026-05-16) | v1.4 will replace with styled focus-trapped modal; v1.3 accepts the inline JS confirm() for admin-only single-operator surface. | ⚠️ Revisit v1.4 |
 
 ## Evolution
 
@@ -191,8 +201,9 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.0 Polish & Quality (2026-05-02) — all 15 v1 requirements landed across 5 phases, 17 plans, 63 commits.
 **Shipped:** v1.1 Admin Console (2026-05-08) — all 27 requirements landed across Phases 6–8 + Phase 7.1 insert.
 **Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — 5 requirements across Phases 9-10 (8 plans). AI target selector + Claude-optimized artifacts + cEDH Step 1 round-trip live. Gemini flag-gated.
+**Shipped:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (2026-05-23) — 22 REQ-IDs across Phases 11-15 + 999.1-999.8 (13 phases, 51 plans, 370 commits, +47,724 / -5,385 LOC across 386 files, 10-day timeline 2026-05-13 → 2026-05-23). Test suite Failed:0 / Passed:497 / Skipped:3. 8/8 security threats closed.
 
-**Active:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (started 2026-05-13 on `v1.3` branch).
+**Active:** v1.4 — TBD (start via `/gsd-new-milestone`).
 
 ---
-*Last updated: 2026-05-19 — Phase 999.1 (AI-agnostic prose adaptation in Razor views) complete*
+*Last updated: 2026-05-23 — v1.3 milestone shipped and archived*

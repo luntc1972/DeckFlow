@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: executing
-stopped_at: "Phase 999.7 execution complete (4/4 plans, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04). All 7 success criteria satisfied: SC1 STATE.md 11/11/46/46/100, SC2 WDG-01..10 [x], SC3 5 Claude variants updated (full-grep scope per Codex review HIGH #1 Option A), SC4 DeckController F-02 asymmetry comment, SC5 999.5-UAT status superseded-by-999.6, SC6 Release build 0 warnings/0 errors, SC7 test suite Failed:0 Passed:497 Skipped:3 Total:500 (Phase 999.6 PHASE EXIT GATE baseline preserved). All edits via Codex cross-AI dispatch per CLAUDE.md rule; orchestrator (Claude) committed + ran build/test gates. Plan 04 PLAN.md acceptance criterion `grep -c D-11 returns 1` was a planning-time miscount (HEAD already had 3 instances, all preserved verbatim); numstat 1 0 proves zero deletions. Phase 999.8 (legacy chatgpt-* redirect removal) is next on v1.3."
-last_updated: "2026-05-23T05:45:00.000Z"
-last_activity: 2026-05-22
+status: Awaiting next milestone
+stopped_at: "Phase 999.6 P03 complete — atomic F-PROD-CONTRACT fix commit d758609 (debug doc + `IHarvestRunStore.GetByIdAsync` + `HarvestRunStore` SQLite/Postgres impl with `_connectionInfo.IsPostgres ? (object)id : id.ToString()` binding + `ArchidektCacheJobService.GetJob` rewire + `FakeHarvestRunStore` async wrapper bundled per D-18) + SUMMARY commit 1adf65b. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:14,Total:14). Full-suite gate 5/5 deterministic (Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57 — Failed delta 2→0; phase-wide 9→0). D-15 fired (real production bug shipped inside 999.6). D-23 STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 (NOT toggled by execute-plan agent)."
+last_updated: "2026-05-23T14:21:12.981Z"
+last_activity: 2026-05-23 — Milestone v1.3 completed and archived
 progress:
-  total_phases: 11
-  completed_phases: 11
-  total_plans: 46
-  completed_plans: 46
-  percent: 100
+  total_phases: 13
+  completed_phases: 12
+  total_plans: 51
+  completed_plans: 50
+  percent: 92
 ---
 
 ## Deferred Items
@@ -24,6 +24,25 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 | archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; quick-task candidate for v1.4 cleanup |
 | tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` (mirror `HasMeaningful*Content` pattern from `ResponseParsers.cs:99-130`) | **PROMOTED to Phase 999.5 P02** (planned 2026-05-21) — see CONTEXT D-09/D-10/D-11/D-12 in `.planning/phases/999.5-v1-3-backlog-catch-up-test-hardening/999.5-CONTEXT.md`; tracks the "valid JSON but semantically empty AI output" edge case (e.g., `{"deck_comparison":{}}` parses into a default-init DeckComparisonResponse and bypasses both the existing wrong-shape guard and 999.4's truncation UX). Closes 999.4 D-07 carve-out via 999.5 plans 02 |
 
+### Acknowledged at v1.3 close (2026-05-23)
+
+Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. All triaged and acknowledged for deferral per user `[A]` choice 2026-05-23.
+
+| Category | Item | Status | Disposition |
+|----------|------|--------|-------------|
+| debug | 999.6-archidekt-cache-job | unknown | CLOSED — investigation resolved by 999.6 P03 commit d758609 (F-PROD-CONTRACT applied: `IHarvestRunStore.GetByIdAsync` added); audit-open scanner reads stale `unknown` status from debug doc frontmatter (housekeeping defer to v1.4) |
+| debug | 999.6-basicauth-flaky | unknown | CLOSED — investigation resolved by 999.6 P02 commit a62f608 (F-ENV-COLLECTION: `AdminEnvCollection` + `EnvScope` helper); audit-open scanner reads stale `unknown` status; housekeeping defer to v1.4 |
+| debug | v13-harvest-worker-stalled | investigation_inconclusive | DEFERRED — production harvester diagnostic from 2026-05-22; diagnostic logging committed (commit 4372de5) and deployed; v1.3 ship continues, post-ship monitoring + follow-up debug deferred to v1.4 |
+| uat-gap | Phase 11/13/15/999.1-999.8 UAT files (10 phases) | "unknown" / "bypassed" / "superseded-by-999.6" | FALSE POSITIVE — audit-open scanner expects `status: complete` / `passed`, but project convention uses `passed` / `superseded-by-999.6` / `bypassed`. All 10 phases verified passed per `.planning/v1.3-MILESTONE-AUDIT.md` (audit status: passed, 22/22 reqs satisfied). 0 pending scenarios across all. Defer scanner-vocabulary alignment to v1.4 housekeeping. |
+| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing | DEFERRED — pre-v1.3 capture; out of v1.3 milestone scope (v1.1/v1.2 cleanup) |
+| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing | DEFERRED — pre-v1.3 capture; ChatGPT artifact local round-trip; v1.4 backlog |
+| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | missing | DEFERRED — pre-v1.3 capture; ChatGPT zip download button polish; v1.4 backlog |
+| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | missing | DEFERRED — pre-v1.3 capture; ChatGPT packets saved-session upload; v1.4 backlog |
+| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | missing | DEFERRED — pre-v1.3 capture; admin harvest decks counter + recent decks list; v1.4 backlog |
+| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | missing | DEFERRED — pre-v1.3 capture; admin analytics auto-refresh via meta-refresh; v1.4 backlog |
+| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | missing | DEFERRED — pre-v1.3 capture; restore full round-trip on ChatGPT saved sessions; v1.4 backlog |
+| quick_task | 260513-wdg-web-design-guidelines-audit-findings | missing | CLOSED — WDG-01..10 SHIPPED in v1.3 Phase 11 (10/10 plans, 11-VERIFICATION.md passed, REQUIREMENTS.md checkboxes flipped via 999.7-02). Quick-task index entry stale; v1.4 housekeeping. |
+
 # Project State
 
 ## Project Reference
@@ -35,12 +54,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 ## Current Position
 
-Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.8
-Plan: 1/1 complete
-Status: Completed (awaiting /gsd-verify-work)
-Last activity: 2026-05-22 -- Phase 999.8 execution complete (commit ec47195 — UseRewriter block + Rewrite using directive stripped, 22 deletions, tests at 999.7 baseline)
-Progress: v1.3 11/11 production+backlog phases complete + 999.7 meta-audit cleanup done + 999.8 legacy redirect removal done; ready for /gsd-audit-milestone v1.3 → /gsd-complete-milestone v1.3 → /gsd-ship v1.3
+Phase: Milestone v1.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-23 — Milestone v1.3 completed and archived
 
 ## Performance Metrics
 
@@ -142,7 +159,4 @@ Next action on resume: `/gsd-verify-work 999.6` — re-validate the closing full
 
 ## Operator Next Steps
 
-- **Phase 999.7 COMPLETE** (2026-05-22, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04 + 715c5b3 closure + 38241e4 UAT). All 7 SCs satisfied; UAT pass.
-- **Phase 999.8 COMPLETE** (2026-05-22, commit ec47195). SC1: 0 UseRewriter/AddRedirect/Microsoft.AspNetCore.Rewrite refs in Program.cs. SC2: using directive removed. SC3: 0 orphan chatgpt-* URL refs in Program.cs. SC4: build 0/0 warnings/errors. SC5: tests Failed:0 Passed:497 Skipped:3 Total:500 (999.7 baseline preserved). SC6: post-deploy curl verification deferred to operator after Render deploy.
-- **Next:** `/gsd-verify-work 999.8` → `/gsd-audit-milestone v1.3` (re-audit) → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` to publish v1.3 to main.
-- Other deferred (NOT in 999.7 or 999.8 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row, CSS-class/data-attribute/TS-constant chatgpt-* cleanup (v1.4 AI-agnostic styling backlog).
+- Start the next milestone with /gsd-new-milestone
