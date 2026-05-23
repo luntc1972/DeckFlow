@@ -7,6 +7,10 @@ using Xunit.Sdk;
 
 namespace DeckFlow.Web.Tests.Integration;
 
+/// <summary>
+/// xUnit class fixture that starts a Testcontainers PostgreSQL container for integration tests
+/// and exposes the connection string; skips the test if Docker is unavailable.
+/// </summary>
 public sealed class PostgresContainerFixture : IAsyncLifetime
 {
     private readonly SemaphoreSlim _gate = new(1, 1);

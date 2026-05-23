@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Pure parsing helpers for <see cref="ScryfallTaggerService"/>.
+/// Pure parsing helpers for <see cref="ScryfallTaggerLookupService"/>.
 /// </summary>
 internal static partial class ScryfallTaggerParsers
 {

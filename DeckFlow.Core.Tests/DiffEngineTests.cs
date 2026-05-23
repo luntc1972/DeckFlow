@@ -5,6 +5,10 @@ using DeckFlow.Core.Parsing;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Unit tests for <see cref="DiffEngine"/> covering loose-mode, strict-mode, printing-conflict detection,
+/// commander-fallback matching, and quantity-delta consolidation.
+/// </summary>
 public sealed class DiffEngineTests
 {
     [Fact]

@@ -93,6 +93,18 @@ public interface IHarvestRunStore
     Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the run row with the matching <paramref name="id"/>, or null when no
+    /// such row exists. Unlike <see cref="GetActiveAsync"/>, this returns terminal-state
+    /// rows (Succeeded / Failed / Cancelled) so callers can re-fetch the row after the
+    /// background worker has cleared it from the active set. Used by
+    /// <c>ArchidektCacheJobService.GetJob(Guid)</c> so completed jobs remain
+    /// queryable by id from admin/API surfaces.
+    /// </summary>
+    /// <param name="id">UUID primary key of the row to retrieve.</param>
+    /// <param name="cancellationToken">Token used to cancel the read.</param>
+    Task<HarvestRunRow?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns the most recent <paramref name="n"/> rows ordered by
     /// <c>started_utc DESC NULLS LAST</c> (D-16 #5). Powers the recent-runs panel.
     /// </summary>

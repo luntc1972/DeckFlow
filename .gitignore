@@ -13,6 +13,7 @@ DeckFlow.Web/wwwroot/extensions/*.zip
 DeckFlow.Web/wwwroot/js/*.js
 /.codex
 docs/superpowers/
+.claude/worktrees/
 
 # Probe scratch files
 *_probe.json

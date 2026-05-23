@@ -4,6 +4,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Services;
 
+/// <summary>
+/// Tests for <see cref="DeckFlowDatabaseConnectionFactory"/> Postgres URI parsing covering
+/// host, port, user, password, and database extraction from postgresql:// and postgres:// schemes.
+/// </summary>
 public sealed class DeckFlowDatabaseConnectionFactoryPostgresUriTests
 {
     [Theory]

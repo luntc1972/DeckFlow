@@ -29,22 +29,22 @@
         <label class="mode-picker">
             <span>Convert from</span>
             <select name="SourceFormat" data-convert-source data-df-select>
-                <option value="Moxfield" selected="@(string.Equals(Model.Request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
-                <option value="Archidekt" selected="@(string.Equals(Model.Request.SourceFormat, "Archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
+                <option value="Moxfield" selected="@(string.Equals(Model.Request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Moxfield</option>
+                <option value="Archidekt" selected="@(string.Equals(Model.Request.SourceFormat, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Archidekt</option>
             </select>
         </label>
         <label class="mode-picker">
             <span>Convert to</span>
             <select name="TargetFormat" data-df-select>
-                <option value="Archidekt" selected="@(string.Equals(Model.Request.TargetFormat, "Archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
-                <option value="Moxfield" selected="@(string.Equals(Model.Request.TargetFormat, "Moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
+                <option value="Archidekt" selected="@(string.Equals(Model.Request.TargetFormat, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Archidekt</option>
+                <option value="Moxfield" selected="@(string.Equals(Model.Request.TargetFormat, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Moxfield</option>
             </select>
         </label>
         <label class="mode-picker">
             <span>Input method</span>
             <select name="InputSource" data-df-select>
-                <option value="PasteText" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText)">Paste text</option>
-                <option value="PublicUrl" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl)">Public deck URL</option>
+                <option value="PasteText" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? "selected" : null)">Paste text</option>
+                <option value="PublicUrl" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? "selected" : null)">Public deck URL</option>
             </select>
         </label>
         <button type="submit" class="run-button">Convert</button>
@@ -53,7 +53,7 @@
 
     <label class="field @(inputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-convert-panel="url">
         <span>Public deck URL</span>
-        <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" placeholder="https://moxfield.com/decks/... or https://archidekt.com/decks/..." />
+        <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" autocomplete="url" inputmode="url" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
         @if (isMoxfieldSource)
         {
             @await Html.PartialAsync("_DeckFlowBridgeHint")
@@ -61,7 +61,7 @@
     </label>
     <label class="field @(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-convert-panel="text">
         <span>Deck export text</span>
-        <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+        <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
         @if (isMoxfieldSource)
         {
             @await Html.PartialAsync("_MoxfieldBulkEditHint", "Convert")
@@ -91,7 +91,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="deck-convert-output">Copy</button>
         </div>
-        <textarea id="deck-convert-output" readonly spellcheck="false">@Model.ConvertedText</textarea>
+        <textarea autocomplete="off" id="deck-convert-output" readonly spellcheck="false">@Model.ConvertedText</textarea>
     </section>
 }
 

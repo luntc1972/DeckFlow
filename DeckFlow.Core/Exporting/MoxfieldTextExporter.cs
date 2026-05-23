@@ -3,6 +3,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Exporting;
 
+/// <summary>
+/// Serializes deck entries to Moxfield plain-text import format.
+/// </summary>
 public static class MoxfieldTextExporter
 {
     public static void WriteFile(List<DeckEntry> entries, string outputPath)

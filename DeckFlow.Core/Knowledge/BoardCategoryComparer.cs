@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace DeckFlow.Core.Knowledge;
 
+/// <summary>
+/// Case-insensitive equality comparer for (CardName, Category, Board) tuples used in knowledge-cache deduplication.
+/// </summary>
 public sealed class BoardCategoryComparer : IEqualityComparer<(string CardName, string Category, string Board)>
 {
     public static BoardCategoryComparer Instance { get; } = new();

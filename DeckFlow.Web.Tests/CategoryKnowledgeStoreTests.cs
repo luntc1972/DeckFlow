@@ -6,11 +6,18 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 // MTG_DATA_DIR is process-wide, so these tests are serialized to avoid cross-test interference.
+/// <summary>
+/// xUnit collection definition that serializes <see cref="CategoryKnowledgeStoreTests"/> to prevent
+/// parallel interference on the shared <c>MTG_DATA_DIR</c> environment variable.
+/// </summary>
 [CollectionDefinition("CategoryKnowledgeStoreTests", DisableParallelization = true)]
 public sealed class CategoryKnowledgeStoreTestsCollection
 {
 }
 
+/// <summary>
+/// Tests for <see cref="CategoryKnowledgeStore"/> covering database-path resolution and category-data persistence.
+/// </summary>
 [Collection("CategoryKnowledgeStoreTests")]
 public sealed class CategoryKnowledgeStoreTests
 {

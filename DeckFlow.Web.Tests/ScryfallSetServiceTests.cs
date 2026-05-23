@@ -6,6 +6,9 @@ using System.Net;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallSetService"/> covering set listing, release-date ordering, and caching.
+/// </summary>
 public sealed class ScryfallSetServiceTests
 {
     [Fact]

@@ -3,6 +3,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Exporting;
 
+/// <summary>
+/// Exports the add-delta portion of a deck diff to a text file or string.
+/// </summary>
 public static class DeltaExporter
 {
     public static void WriteFile(List<DeckEntry> toAdd, string outputPath)

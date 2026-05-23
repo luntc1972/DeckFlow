@@ -78,7 +78,7 @@ public sealed class ScryfallTaggerCookieReplayTests : IDisposable
         var restFactory = new FakeScryfallRestClientFactory(scryfallHttpClient);
         var sessionCache = new TaggerSessionCache(new MemoryCache(new MemoryCacheOptions()));
 
-        var sut = new ScryfallTaggerService(
+        var sut = new ScryfallTaggerLookupService(
             restFactory,
             typedTaggerClient,
             sessionCache,
@@ -111,7 +111,7 @@ public sealed class ScryfallTaggerCookieReplayTests : IDisposable
         var restFactory = new FakeScryfallRestClientFactory(scryfallHttpClient);
         var sessionCache = new TaggerSessionCache(new MemoryCache(new MemoryCacheOptions()));
 
-        var sut = new ScryfallTaggerService(
+        var sut = new ScryfallTaggerLookupService(
             restFactory,
             typedTaggerClient,
             sessionCache,

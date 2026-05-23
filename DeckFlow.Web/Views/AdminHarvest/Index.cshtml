@@ -37,7 +37,7 @@
             @foreach (var durationSeconds in Model.DurationOptions)
             {
                 var minutes = durationSeconds / 60;
-                <option value="@durationSeconds" selected="@(durationSeconds == 3600)">@minutes minutes</option>
+                <option value="@durationSeconds" selected="@(durationSeconds == 3600 ? "selected" : null)">@minutes minutes</option>
             }
         </select>
         <button type="submit">Run Now</button>
@@ -51,7 +51,7 @@
         </form>
     }
 
-    <div id="harvest-status-live" data-harvest-status data-state="@activeState">
+    <div id="harvest-status-live" role="status" aria-live="polite" data-harvest-status data-state="@activeState">
         <strong>Status:</strong> <span class="admin-harvest__state">@activeState</span>
         @if (Model.ActiveRun is not null)
         {
@@ -73,7 +73,7 @@
     <form method="post" asp-action="SubmitUrl" class="admin-action-form">
         @Html.AntiForgeryToken()
         <label for="url">Archidekt URL</label>
-        <input id="url" type="url" name="url" placeholder="https://archidekt.com/decks/..." required />
+        <input id="url" type="url" name="url" autocomplete="url" inputmode="url" placeholder="https://archidekt.com/decks/…" required />
         <button type="submit">Submit</button>
     </form>
 </section>
@@ -87,7 +87,7 @@
             <option value="">Off</option>
             @foreach (var intervalHours in Model.IntervalOptions)
             {
-                <option value="@intervalHours" selected="@(Model.Schedule.IntervalHours == intervalHours)">Every @intervalHours hours</option>
+                <option value="@intervalHours" selected="@(Model.Schedule.IntervalHours == intervalHours ? "selected" : null)">Every @intervalHours hours</option>
             }
         </select>
         <input type="hidden" name="paused" value="@(Model.Schedule.Paused.ToString().ToLowerInvariant())" />
@@ -138,12 +138,13 @@
     {
         <h3>Recent Runs</h3>
         <table class="admin-table">
+            <caption class="sr-only">Recent harvest runs with start, completion, state, and decks processed</caption>
             <thead>
                 <tr>
-                    <th>Started</th>
-                    <th>Completed</th>
-                    <th>State</th>
-                    <th>Decks Processed</th>
+                    <th scope="col">Started</th>
+                    <th scope="col">Completed</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Decks Processed</th>
                 </tr>
             </thead>
             <tbody>
@@ -167,14 +168,15 @@
     {
         <h3>Run Log</h3>
         <table class="admin-table">
+            <caption class="sr-only">Harvest run log with timing, state, deck counts, and any error message</caption>
             <thead>
                 <tr>
-                    <th>Started</th>
-                    <th>Kind</th>
-                    <th>State</th>
-                    <th>Decks</th>
-                    <th>Duration</th>
-                    <th>Error</th>
+                    <th scope="col">Started</th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Decks</th>
+                    <th scope="col">Duration</th>
+                    <th scope="col">Error</th>
                 </tr>
             </thead>
             <tbody>

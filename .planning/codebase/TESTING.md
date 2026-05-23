@@ -63,7 +63,7 @@ DeckFlow.Web.Tests/
 ├── CategoryKnowledgeStoreTests.cs
 ├── Services/
 │   ├── CommanderSpellbookServiceTests.cs
-│   └── ScryfallTaggerServiceTests.cs
+│   └── ScryfallTaggerLookupServiceTests.cs
 └── TestDoubles/
     ├── StubHttpMessageHandler.cs     # internal sealed
     ├── FakeHttpClientFactory.cs      # internal sealed
@@ -249,7 +249,7 @@ dotnet test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj \
 - Examples: every file in `DeckFlow.Core.Tests/` and most of `DeckFlow.Web.Tests/`.
 
 **Service-level integration-ish tests:**
-- `CommanderSpellbookServiceTests` and `ScryfallTaggerServiceTests` exercise the full `IHttpClientFactory` + Polly + RestSharp pipeline against a `StubHttpMessageHandler`. They count HTTP calls (`stub.RecordedRequests`, `stub.CallCount`) to verify caching/retry behavior.
+- `CommanderSpellbookServiceTests` and `ScryfallTaggerLookupServiceTests` exercise the full `IHttpClientFactory` + Polly + RestSharp pipeline against a `StubHttpMessageHandler`. They count HTTP calls (`stub.RecordedRequests`, `stub.CallCount`) to verify caching/retry behavior.
 - `CategoryKnowledgeStoreTests` exercises real SQLite paths via `MTG_DATA_DIR` redirection in temp dirs.
 
 **End-to-end / live integration:**

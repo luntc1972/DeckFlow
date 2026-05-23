@@ -6,6 +6,9 @@ using RestSharp;
 
 namespace DeckFlow.Core.Integration;
 
+/// <summary>
+/// Fetches recent public Archidekt deck IDs for the knowledge-cache harvest job.
+/// </summary>
 public interface IArchidektRecentDecksImporter
 {
     Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default);
@@ -13,6 +16,9 @@ public interface IArchidektRecentDecksImporter
     Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Crawls Archidekt's recent-decks endpoint with retry/back-off to retrieve paginated deck IDs.
+/// </summary>
 public sealed partial class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
 {
     private readonly RestClient _restClient;

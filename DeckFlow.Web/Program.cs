@@ -20,6 +20,11 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Analytics;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Comparison;
+using DeckFlow.Web.Services.PromptBuilders.FollowUp;
+using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 
 namespace DeckFlow.Web;
 
@@ -234,6 +239,7 @@ public partial class Program
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMemoryCache>()));
             builder.Services.AddSingleton<CardLookupCache>();
+            builder.Services.AddSingleton<PacketSessionCache>();
             builder.Services.AddSingleton<ICardLookupService>(sp =>
                 new ScryfallCardLookupService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
@@ -258,9 +264,31 @@ public partial class Program
                     sp.GetRequiredService<IMemoryCache>(),
                     sp.GetRequiredService<IMechanicLookupService>()));
             builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
-            builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
-            builder.Services.AddScoped<IChatGptDeckPacketService>(sp =>
-                new ChatGptDeckPacketService(
+            builder.Services.AddSingleton<IScryfallTaggerLookupService, ScryfallTaggerLookupService>();
+            // AiPlatform prompt-builder strategy registries (Phase 15-02)
+            builder.Services.AddSingleton<IAnalysisPromptVariant, ChatGptAnalysisPromptVariant>();
+            builder.Services.AddSingleton<IAnalysisPromptVariant, ClaudeAnalysisPromptVariant>();
+            builder.Services.AddSingleton<IAnalysisPromptVariant, GeminiAnalysisPromptVariant>();
+            builder.Services.AddSingleton<AnalysisPromptVariantRegistry>();
+            builder.Services.AddSingleton<ISetUpgradePromptVariant, ChatGptSetUpgradePromptVariant>();
+            builder.Services.AddSingleton<ISetUpgradePromptVariant, ClaudeSetUpgradePromptVariant>();
+            builder.Services.AddSingleton<ISetUpgradePromptVariant, GeminiSetUpgradePromptVariant>();
+            builder.Services.AddSingleton<SetUpgradePromptVariantRegistry>();
+            builder.Services.AddSingleton<IComparisonPromptVariant, ChatGptComparisonPromptVariant>();
+            builder.Services.AddSingleton<IComparisonPromptVariant, ClaudeComparisonPromptVariant>();
+            builder.Services.AddSingleton<IComparisonPromptVariant, GeminiComparisonPromptVariant>();
+            builder.Services.AddSingleton<ComparisonPromptVariantRegistry>();
+            builder.Services.AddSingleton<IFollowUpPromptVariant, ChatGptFollowUpPromptVariant>();
+            builder.Services.AddSingleton<IFollowUpPromptVariant, ClaudeFollowUpPromptVariant>();
+            builder.Services.AddSingleton<IFollowUpPromptVariant, GeminiFollowUpPromptVariant>();
+            builder.Services.AddSingleton<FollowUpPromptVariantRegistry>();
+            builder.Services.AddSingleton<IMetaGapPromptVariant, ChatGptMetaGapPromptVariant>();
+            builder.Services.AddSingleton<IMetaGapPromptVariant, ClaudeMetaGapPromptVariant>();
+            builder.Services.AddSingleton<IMetaGapPromptVariant, GeminiMetaGapPromptVariant>();
+            builder.Services.AddSingleton<MetaGapPromptVariantRegistry>();
+
+            builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
+                new DeckAnalysisPacketService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMoxfieldDeckImporter>(),
@@ -271,9 +299,12 @@ public partial class Program
                     sp.GetRequiredService<ICommanderBanListService>(),
                     sp.GetRequiredService<IScryfallSetService>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetService<ILogger<ChatGptDeckPacketService>>()));
-            builder.Services.AddScoped<IChatGptDeckComparisonService>(sp =>
-                new ChatGptDeckComparisonService(
+                    sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
+                    sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetService<ILogger<DeckAnalysisPacketService>>()));
+            builder.Services.AddScoped<IDeckComparisonService>(sp =>
+                new DeckComparisonService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMoxfieldDeckImporter>(),
@@ -281,9 +312,12 @@ public partial class Program
                     sp.GetRequiredService<MoxfieldParser>(),
                     sp.GetRequiredService<ArchidektParser>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetService<ILogger<ChatGptDeckComparisonService>>()));
-            builder.Services.AddScoped<IChatGptCedhMetaGapService>(sp =>
-                new ChatGptCedhMetaGapService(
+                    sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
+                    sp.GetRequiredService<FollowUpPromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetService<ILogger<DeckComparisonService>>()));
+            builder.Services.AddScoped<IMetaGapService>(sp =>
+                new MetaGapService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IMoxfieldDeckImporter>(),
@@ -291,7 +325,9 @@ public partial class Program
                     sp.GetRequiredService<MoxfieldParser>(),
                     sp.GetRequiredService<ArchidektParser>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
-                    sp.GetRequiredService<ICommanderSpellbookService>()));
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>()));
             builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
             builder.Services.AddSingleton<ArchidektCacheJobService>();
             builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());

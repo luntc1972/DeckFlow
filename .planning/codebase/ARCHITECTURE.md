@@ -73,7 +73,7 @@
 | `ICategorySuggestionService` | Mode-routed category suggestion (cached, reference deck, tagger, all) | `DeckFlow.Web/Services/CategorySuggestionService.cs` |
 | `IChatGptDeckPacketService` | Builds ChatGPT prompt packets and stores artifacts | `DeckFlow.Web/Services/ChatGptDeckPacketService.cs` |
 | `IScryfallCardLookupService` / `Search` / `Set` / `CommanderSearch` | Scryfall REST adapters (RestSharp + Polly) | `DeckFlow.Web/Services/Scryfall*.cs`, `CardLookupService.cs`, `CardSearchService.cs` |
-| `IScryfallTaggerService` | Scrapes tagger.scryfall.com via cookie-disabled `SocketsHttpHandler` + CSRF session cache | `DeckFlow.Web/Services/ScryfallTaggerService.cs`, `TaggerSessionCache.cs` |
+| `IScryfallTaggerLookupService` | Scrapes tagger.scryfall.com via cookie-disabled `SocketsHttpHandler` + CSRF session cache | `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs`, `TaggerSessionCache.cs` |
 | `ICommanderBanListService` | Fetches banlist HTML from mtgcommander.net | `DeckFlow.Web/Services/CommanderBanListService.cs` |
 | `ICommanderSpellbookService` | Combo lookup via backend.commanderspellbook.com | `DeckFlow.Web/Services/CommanderSpellbookService.cs` |
 | `IEdhTop16Client` | EDH metagame data | `DeckFlow.Web/Services/EdhTop16Client.cs` |
@@ -171,7 +171,7 @@
 
 ### Tagger Session Flow
 
-1. `ScryfallTaggerService` requests `IScryfallTaggerHttpClient` (typed client with cookies disabled, `Program.cs:85`).
+1. `ScryfallTaggerLookupService` requests `IScryfallTaggerHttpClient` (typed client with cookies disabled, `Program.cs:85`).
 2. Service consults `ITaggerSessionCache` (singleton, 270s TTL — 30s under handler 5min lifetime) for a CSRF token + cookie set.
 3. Cache miss: GET tagger landing, scrape CSRF, store in cache.
 4. POST card lookup with stored CSRF/cookies, deserialize via `ScryfallTaggerParsers`.
@@ -179,7 +179,7 @@
 ### CategorySuggestion Mode Routing
 
 1. UI POSTs `CategorySuggestionRequest` with `Mode` enum (`CachedData=0`, `ReferenceDeck=1`, `ScryfallTagger=2`, `All=3`).
-2. `CategorySuggestionService` switches: cache (`ICategoryKnowledgeStore`), reference (`ArchidektDeckCacheSession`), tagger (`IScryfallTaggerService`), or merges all three.
+2. `CategorySuggestionService` switches: cache (`ICategoryKnowledgeStore`), reference (`ArchidektDeckCacheSession`), tagger (`IScryfallTaggerLookupService`), or merges all three.
 3. Result formatted by `CategorySuggestionMessageBuilder`.
 
 **State Management:**

@@ -10,6 +10,9 @@
     "verifier": true,
     "nyquist_validation": false,
     "auto_advance": true,
-    "_auto_chain_active": false
+    "_auto_chain_active": false,
+    "cross_ai_execution": true,
+    "cross_ai_command": "codex exec --full-auto --color never --skip-git-repo-check -",
+    "cross_ai_timeout": 1800
   }
 }

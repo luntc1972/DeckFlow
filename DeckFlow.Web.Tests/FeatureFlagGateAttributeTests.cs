@@ -13,6 +13,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="FeatureFlagGateAttribute"/> covering gate behaviour for disabled flags,
+/// maintenance-page redirect, and pass-through when flags are enabled.
+/// </summary>
 public sealed class FeatureFlagGateAttributeTests
 {
     [Fact]

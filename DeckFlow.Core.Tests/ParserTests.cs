@@ -4,6 +4,10 @@ using DeckFlow.Core.Parsing;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Unit tests for <see cref="MoxfieldParser"/> and <see cref="ArchidektParser"/> covering name normalization,
+/// MDFC handling, board assignment, set code parsing, and category tag parsing.
+/// </summary>
 public sealed class ParserTests
 {
     [Fact]

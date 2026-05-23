@@ -1,5 +1,8 @@
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Filters out generic card-type categories (Creature, Instant, etc.) that carry no deck-strategy value.
+/// </summary>
 public static class CategoryFilter
 {
     private static readonly HashSet<string> ExcludedCategories = new(StringComparer.OrdinalIgnoreCase)

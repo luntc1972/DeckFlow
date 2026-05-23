@@ -4,6 +4,9 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Parsing;
 
+/// <summary>
+/// Parses Moxfield plain-text deck exports into <see cref="DeckFlow.Core.Models.DeckEntry"/> lists.
+/// </summary>
 public sealed partial class MoxfieldParser : IParser
 {
     public List<DeckEntry> ParseFile(string filePath)

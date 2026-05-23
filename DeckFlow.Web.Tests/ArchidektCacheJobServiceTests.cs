@@ -7,6 +7,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ArchidektCacheJobService"/> covering harvest scheduling, job control, and progress tracking.
+/// </summary>
 public sealed class ArchidektCacheJobServiceTests
 {
     [Theory]
@@ -275,6 +278,8 @@ public sealed class ArchidektCacheJobServiceTests
         private readonly ConcurrentDictionary<Guid, HarvestRunRow> _rows = new();
 
         public HarvestRunRow? GetById(Guid id) => _rows.TryGetValue(id, out var row) ? row : null;
+
+        public Task<HarvestRunRow?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(GetById(id));
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 

@@ -6,6 +6,10 @@ using DeckFlow.Core.Parsing;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Tests for Core reporting helpers including category suggestion, count aggregation, inference,
+/// and knowledge-row generation from <see cref="DeckFlow.Core.Reporting"/> reporters.
+/// </summary>
 public sealed class ReportingTests
 {
     [Fact]

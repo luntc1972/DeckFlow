@@ -2,6 +2,9 @@ using DeckFlow.Core.Integration;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Tests for <see cref="EdhrecCardLookup"/> covering name slugification and EDHREC API URL construction.
+/// </summary>
 public sealed class EdhrecLookupTests
 {
     [Fact]

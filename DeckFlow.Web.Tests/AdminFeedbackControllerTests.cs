@@ -8,6 +8,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="AdminFeedbackController"/> covering feedback listing, status updates, and filtering.
+/// </summary>
 public sealed class AdminFeedbackControllerTests
 {
     [Fact]
@@ -93,7 +96,7 @@ public sealed class AdminFeedbackControllerTests
         return new AdminFeedbackController(store)
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
-            TempData = new TempDataDictionary(httpContext, new NullTempDataProvider()),
+            TempData = new TempDataDictionary(httpContext, new StubTempDataProvider()),
         };
     }
 
@@ -141,7 +144,11 @@ public sealed class AdminFeedbackControllerTests
         public string HashIp(string? ip) => ip ?? "";
     }
 
-    private sealed class NullTempDataProvider : ITempDataProvider
+    /// <summary>
+    /// No-op stub that returns empty temp-data and discards saves;
+    /// satisfies the <see cref="ITempDataProvider"/> contract for controller tests.
+    /// </summary>
+    private sealed class StubTempDataProvider : ITempDataProvider
     {
         public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
         public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }

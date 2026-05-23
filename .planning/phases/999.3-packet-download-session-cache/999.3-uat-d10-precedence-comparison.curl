@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# 999.3 UAT D-10 precedence — deck-comparison response-json-only fast path.
+#
+# M4 fix (Codex pass-1): replaces brittle UI field surgery with a reproducible POST recipe.
+# M4 pass-2 fix: paired with isolated-log-window absence assertion in 999.3-UAT.md Workflow E.
+#
+# HOW TO USE:
+# 1. Open browser DevTools → Network tab.
+# 2. Submit a deck-comparison preview, then submit the download.
+# 3. Right-click the download POST → Copy → Copy as cURL (POSIX).
+# 4. Paste the resulting `curl` command BELOW (replacing this placeholder).
+# 5. Edit the request body:
+#    - Clear DeckASource and DeckBSource values (empty strings).
+#    - Leave ComparisonResponseJson populated with any plausible JSON.
+#    - Keep other form fields verbatim.
+# 6. RESTART dev server (to start fresh log).
+# 7. Capture T_before timestamp, run `bash 999.3-uat-d10-precedence-comparison.curl`, capture T_after.
+# 8. Grep logs/web-*.log for any line in [T_before, T_after] containing 'Packet cache '. Expect 0 matches.
+
+# ---PASTE EDITED CURL COMMAND BELOW---
+curl --fail --output deck-comparison-download.zip \
+  'http://localhost:5173/deck-comparison/download' \
+  -X POST \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'DeckASource=' \
+  --data-urlencode 'DeckBSource=' \
+  --data-urlencode 'ComparisonResponseJson={"deckABlurb":"placeholder","deckBBlurb":"placeholder"}' \
+  --data-urlencode 'WorkflowStep=3' \
+  --data-urlencode 'TargetAiPlatform=ChatGPT'
+# ---END---

@@ -4,6 +4,10 @@ using Xunit;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Tests for <see cref="MoxfieldApiDeckImporter"/> covering board preservation, API response parsing,
+/// and Commander Spellbook fallback behaviour.
+/// </summary>
 public sealed class MoxfieldApiDeckImporterTests
 {
     [Fact]

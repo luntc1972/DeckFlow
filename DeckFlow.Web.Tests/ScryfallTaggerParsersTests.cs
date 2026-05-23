@@ -3,6 +3,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for Scryfall Tagger tag-slug parsing and GraphQL response deserialization helpers.
+/// </summary>
 public sealed class ScryfallTaggerParsersTests
 {
     [Theory]

@@ -3,6 +3,10 @@ using DeckFlow.Core.Knowledge;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Integration tests for <see cref="CategoryKnowledgeRepository"/> covering read, write,
+/// and deduplication of card-category knowledge rows against a temporary SQLite database.
+/// </summary>
 public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 {
     private readonly string _databasePath;

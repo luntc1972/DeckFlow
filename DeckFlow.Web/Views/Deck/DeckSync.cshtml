@@ -48,26 +48,26 @@
             <label class="mode-picker">
                 <span>Sync direction</span>
                 <select name="Direction" data-df-select>
-                    <option value="@SyncDirection.MoxfieldToArchidekt" selected="@(direction == SyncDirection.MoxfieldToArchidekt)">Moxfield to Archidekt</option>
-                    <option value="@SyncDirection.ArchidektToMoxfield" selected="@(direction == SyncDirection.ArchidektToMoxfield)">Archidekt to Moxfield</option>
-                    <option value="@SyncDirection.MoxfieldToMoxfield" selected="@(direction == SyncDirection.MoxfieldToMoxfield)">Moxfield to Moxfield</option>
-                    <option value="@SyncDirection.ArchidektToArchidekt" selected="@(direction == SyncDirection.ArchidektToArchidekt)">Archidekt to Archidekt</option>
+                    <option value="@SyncDirection.MoxfieldToArchidekt" selected="@(direction == SyncDirection.MoxfieldToArchidekt ? "selected" : null)">Moxfield to Archidekt</option>
+                    <option value="@SyncDirection.ArchidektToMoxfield" selected="@(direction == SyncDirection.ArchidektToMoxfield ? "selected" : null)">Archidekt to Moxfield</option>
+                    <option value="@SyncDirection.MoxfieldToMoxfield" selected="@(direction == SyncDirection.MoxfieldToMoxfield ? "selected" : null)">Moxfield to Moxfield</option>
+                    <option value="@SyncDirection.ArchidektToArchidekt" selected="@(direction == SyncDirection.ArchidektToArchidekt ? "selected" : null)">Archidekt to Archidekt</option>
                 </select>
             </label>
         </div>
         <label class="mode-picker">
             <span>Match mode</span>
             <select name="Mode" data-df-select>
-                <option value="@MatchMode.Loose" selected="@(Model.Request.Mode == MatchMode.Loose)">Loose</option>
-                <option value="@MatchMode.Strict" selected="@(Model.Request.Mode == MatchMode.Strict)">Strict</option>
+                <option value="@MatchMode.Loose" selected="@(Model.Request.Mode == MatchMode.Loose ? "selected" : null)">Loose</option>
+                <option value="@MatchMode.Strict" selected="@(Model.Request.Mode == MatchMode.Strict ? "selected" : null)">Strict</option>
             </select>
         </label>
         <label class="mode-picker">
             <span>Category sync</span>
             <select name="CategorySyncMode" data-df-select>
-                <option value="@CategorySyncMode.TargetCategories" data-sync-role="category-mode-target" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.TargetCategories)">Use target @targetLabelKind</option>
-                <option value="@CategorySyncMode.SourceTags" data-sync-role="category-mode-source" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.SourceTags)">Use source @sourceLabelKind</option>
-                <option value="@CategorySyncMode.Combined" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.Combined)">Combine both</option>
+                <option value="@CategorySyncMode.TargetCategories" data-sync-role="category-mode-target" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.TargetCategories ? "selected" : null)">Use target @targetLabelKind</option>
+                <option value="@CategorySyncMode.SourceTags" data-sync-role="category-mode-source" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.SourceTags ? "selected" : null)">Use source @sourceLabelKind</option>
+                <option value="@CategorySyncMode.Combined" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.Combined ? "selected" : null)">Combine both</option>
             </select>
         </label>
         <button type="submit" class="run-button" data-enable-on-ready>Run Compare</button>
@@ -90,14 +90,14 @@
             <label class="field">
                 <span>Input method</span>
                 <select name="MoxfieldInputSource" data-df-select>
-                    <option value="@DeckInputSource.PasteText" selected="@(moxfieldInputSource == DeckInputSource.PasteText)">Paste text</option>
-                    <option value="@DeckInputSource.PublicUrl" selected="@(moxfieldInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+                    <option value="@DeckInputSource.PasteText" selected="@(moxfieldInputSource == DeckInputSource.PasteText ? "selected" : null)">Paste text</option>
+                    <option value="@DeckInputSource.PublicUrl" selected="@(moxfieldInputSource == DeckInputSource.PublicUrl ? "selected" : null)">Use public deck URL</option>
                 </select>
             </label>
             <div class="sync-column__body">
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="moxfield-url">
                     <span data-sync-role="moxfield-url-label">@leftSystem public deck URL</span>
-                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="@(string.Equals(leftSystem, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "https://archidekt.com/decks/..." : "https://moxfield.com/decks/...")" />
+                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" autocomplete="url" inputmode="url" placeholder="@(string.Equals(leftSystem, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "https://archidekt.com/decks/…" : "https://moxfield.com/decks/…")" />
                     @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
                         @await Html.PartialAsync("_DeckFlowBridgeHint")
@@ -105,7 +105,7 @@
                 </label>
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="moxfield-text">
                     <span data-sync-role="moxfield-text-label">@leftSystem export text</span>
-                    <textarea name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
+                    <textarea autocomplete="off" name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
                     <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target").</small>
                     @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
@@ -125,14 +125,14 @@
             <label class="field">
                 <span>Input method</span>
                 <select name="ArchidektInputSource" data-df-select>
-                    <option value="@DeckInputSource.PasteText" selected="@(archidektInputSource == DeckInputSource.PasteText)">Paste text</option>
-                    <option value="@DeckInputSource.PublicUrl" selected="@(archidektInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+                    <option value="@DeckInputSource.PasteText" selected="@(archidektInputSource == DeckInputSource.PasteText ? "selected" : null)">Paste text</option>
+                    <option value="@DeckInputSource.PublicUrl" selected="@(archidektInputSource == DeckInputSource.PublicUrl ? "selected" : null)">Use public deck URL</option>
                 </select>
             </label>
             <div class="sync-column__body">
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="archidekt-url">
                     <span data-sync-role="archidekt-url-label">@rightSystem public deck URL</span>
-                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="@(string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "https://moxfield.com/decks/..." : "https://archidekt.com/decks/...")" />
+                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" autocomplete="url" inputmode="url" placeholder="@(string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "https://moxfield.com/decks/…" : "https://archidekt.com/decks/…")" />
                     @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
                         @await Html.PartialAsync("_DeckFlowBridgeHint")
@@ -140,7 +140,7 @@
                 </label>
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="archidekt-text">
                     <span data-sync-role="archidekt-text-label">@rightSystem export text</span>
-                    <textarea name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
+                    <textarea autocomplete="off" name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
                     <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source").</small>
                     @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
@@ -169,7 +169,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="delta-output">Copy</button>
         </div>
-        <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
+        <textarea autocomplete="off" id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
     </section>
 
     <section class="result-panel">
@@ -180,7 +180,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="full-import-output">Copy</button>
         </div>
-        <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
+        <textarea autocomplete="off" id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
     </section>
 
 <section class="result-panel @(Model.Diff?.PrintingConflicts.Count > 0 ? string.Empty : "hidden")" id="deck-sync-conflicts-js">
@@ -191,11 +191,12 @@
             </div>
         </div>
         <table class="conflicts-table">
+            <caption class="sr-only">Printing conflicts between source and target decks</caption>
             <thead>
                 <tr>
-                    <th>Card</th>
-                    <th id="deck-sync-conflict-target"><span data-sync-result="target-system">@targetName</span></th>
-                    <th id="deck-sync-conflict-source"><span data-sync-result="source-system">@sourceName</span></th>
+                    <th scope="col">Card</th>
+                    <th scope="col" id="deck-sync-conflict-target"><span data-sync-result="target-system">@targetName</span></th>
+                    <th scope="col" id="deck-sync-conflict-source"><span data-sync-result="source-system">@sourceName</span></th>
                 </tr>
             </thead>
             <tbody id="deck-sync-conflicts-body">
@@ -252,7 +253,7 @@
                 </div>
                 <button type="button" class="copy-button" data-copy-target="delta-output">Copy</button>
             </div>
-            <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
+            <textarea autocomplete="off" id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
         </section>
 
         <section class="result-panel">
@@ -263,7 +264,7 @@
                 </div>
                 <button type="button" class="copy-button" data-copy-target="full-import-output">Copy</button>
             </div>
-            <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
+            <textarea autocomplete="off" id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
         </section>
 
         @if (Model.Diff.PrintingConflicts.Count > 0)
@@ -291,12 +292,13 @@
                     </div>
                 </div>
                 <table class="conflicts-table">
+                    <caption class="sr-only">Printing conflicts between source and target decks with selection for each card</caption>
                     <thead>
                         <tr>
-                            <th>Card</th>
-                            <th>@targetName</th>
-                            <th>@sourceName</th>
-                            <th>Use</th>
+                            <th scope="col">Card</th>
+                            <th scope="col">@targetName</th>
+                            <th scope="col">@sourceName</th>
+                            <th scope="col">Use</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -327,7 +329,7 @@
                     </div>
                     <button type="button" class="copy-button" data-copy-target="swap-output">Copy</button>
                 </div>
-                <textarea id="swap-output" readonly spellcheck="false">@Model.SwapChecklistText</textarea>
+                <textarea autocomplete="off" id="swap-output" readonly spellcheck="false">@Model.SwapChecklistText</textarea>
             </section>
         }
 

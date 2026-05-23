@@ -4,6 +4,9 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Tests for the deck-category cache writer that persists harvested category knowledge to a SQLite database.
+/// </summary>
 public sealed class DeckCategoryCacheWriterTests : IDisposable
 {
     private readonly string _databasePath;

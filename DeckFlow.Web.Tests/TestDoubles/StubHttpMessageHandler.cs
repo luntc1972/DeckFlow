@@ -3,6 +3,10 @@ using System.Net.Http;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Queue-driven stub <see cref="HttpMessageHandler"/> that returns pre-enqueued responses and records
+/// outgoing requests for assertion in tests.
+/// </summary>
 internal sealed class StubHttpMessageHandler : HttpMessageHandler
 {
     /// <summary>Immutable snapshot of a recorded HTTP request. Safe to read after the request is disposed.</summary>

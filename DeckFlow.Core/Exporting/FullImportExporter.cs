@@ -3,6 +3,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Exporting;
 
+/// <summary>
+/// Exports a full merged deck list by overlaying source entries onto target metadata (board, set, category).
+/// </summary>
 public static class FullImportExporter
 {
     public static void WriteFile(List<DeckEntry> moxfield, List<DeckEntry> archidekt, MatchMode matchMode, string outputPath, IReadOnlyList<PrintingConflict>? conflicts = null)

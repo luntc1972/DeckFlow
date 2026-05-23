@@ -9,6 +9,9 @@ using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Core.Knowledge;
 
+/// <summary>
+/// Reads and writes card-category knowledge rows in the SQLite or Postgres knowledge-cache database.
+/// </summary>
 public sealed class CategoryKnowledgeRepository
 {
     private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(1);

@@ -65,7 +65,7 @@
 
 **Scryfall Tagger returns 404 for valid card names:**
 - Symptoms: Tagger lookup for "Sol Ring" returns HTTP 200 with empty suggestions; raw Scryfall Tagger responds 404 for all card lookups (per memory observations 2722, 2724-2725).
-- Files: `DeckFlow.Web/Services/ScryfallTaggerService.cs:90-117`, `DeckFlow.Web/Services/ScryfallTaggerService.cs` set/collector resolution path
+- Files: `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs:90-117`, `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs` set/collector resolution path
 - Trigger: Use the AI Category Suggestions page in `ScryfallTagger` mode for any card.
 - Cause: URL construction uses the wrong set code for the card lookup (memory 2725).
 - Workaround: `CategorySuggestionMode.All` falls back to cached store + EDHREC, so users still get suggestions via other paths. Pure-Tagger mode is effectively broken.
@@ -123,18 +123,18 @@
 - Improvement path: Add a disk-backed JSON snapshot under `MTG_DATA_DIR/cache/scryfall-sets.json` with the same 6-hour TTL so multi-instance deployments and restarts skip the cold load.
 
 **Background tagger session refresh fires unawaited:**
-- Problem: `ScryfallTaggerService.RecordHit` line 102 spawns `Task.Run(async () => ...)` to refresh the session; failures only log at `Debug`. If the refresh enters a 4xx/5xx loop, the next user-facing call still sees the stale cached session for up to 30s.
-- Files: `DeckFlow.Web/Services/ScryfallTaggerService.cs:96-114`
+- Problem: `ScryfallTaggerLookupService.RecordHit` line 102 spawns `Task.Run(async () => ...)` to refresh the session; failures only log at `Debug`. If the refresh enters a 4xx/5xx loop, the next user-facing call still sees the stale cached session for up to 30s.
+- Files: `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs:96-114`
 - Cause: Fire-and-forget pattern with no observability.
 - Improvement path: Use `IHostedService` with a `Channel<TaggerRefreshRequest>` consumer. Surface refresh failures at `Warning`. Cap concurrent in-flight refreshes to 1.
 
 ## Fragile Areas
 
 **HTTP service constructor wiring:**
-- Files: `DeckFlow.Web/Services/CommanderSpellbookService.cs:67-103`, `DeckFlow.Web/Services/ScryfallTaggerService.cs`, `DeckFlow.Web/Services/ChatGptDeckPacketService.cs`
+- Files: `DeckFlow.Web/Services/CommanderSpellbookService.cs:67-103`, `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs`, `DeckFlow.Web/Services/ChatGptDeckPacketService.cs`
 - Why fragile: Multi-overload ctors with `[ActivatorUtilitiesConstructor]`-style ambiguity already caused a runtime DI crash (memory 2710-2712). Test-compat ctors use `internal` visibility to avoid binding, which means publishing `DeckFlow.Web` as a library would re-expose them. Per-call `new RestClient(_taggerHttpClient.Inner)` couples consumers to RestSharp's `HttpClient` wrapping pattern.
 - Safe modification: Resolve via the public ctor only; do not add overloads. Run the full test suite after changing any ctor signature.
-- Test coverage: 328 tests; ctor binding regressions already exercised through `DeckFlow.Web.Tests/Services/CommanderSpellbookServiceTests.cs` and `DeckFlow.Web.Tests/Services/ScryfallTaggerServiceTests.cs`.
+- Test coverage: 328 tests; ctor binding regressions already exercised through `DeckFlow.Web.Tests/Services/CommanderSpellbookServiceTests.cs` and `DeckFlow.Web.Tests/Services/ScryfallTaggerLookupServiceTests.cs`.
 
 **Dual database-provider abstraction:**
 - Files: `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs` (747 lines), `DeckFlow.Core/Storage/RelationalDatabaseConnection.cs`, `DeckFlow.Web/Services/FeedbackStore.cs`

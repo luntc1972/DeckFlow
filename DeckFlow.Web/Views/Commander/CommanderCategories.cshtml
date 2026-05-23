@@ -64,18 +64,22 @@
     <div class="panel-heading">
         <div>
             <h2>Categories for @Model.Request.CommanderName</h2>
-            <span class="info-tooltip" title="Categories sorted by how many cached commander decks included this card (descending).">i</span>
+            <details class="info-tooltip">
+                <summary>i</summary>
+                <p>Categories sorted by how many cached commander decks included this card (descending).</p>
+            </details>
             <p data-api-field="commander-cards-count">@Model.CategoryRows.Count cards contributed to this summary.</p>
             <p data-api-field="commander-deck-count">Derived from @Model.HarvestedDeckCount cached decks with @Model.CategorySummaries.Count distinct categories.</p>
             <p data-api-field="commander-card-deck-count">@Model.Request.CommanderName appears in <strong data-api-field="commander-card-count">@Model.CardDeckTotals.TotalDeckCount</strong> cached commander deck(s).</p>
         </div>
     </div>
     <table class="conflicts-table">
+        <caption class="sr-only">Commander category breakdown sorted by inclusion count</caption>
         <thead>
             <tr>
-                <th>Category</th>
-                <th>Inclusion count</th>
-                <th>Decks</th>
+                <th scope="col">Category</th>
+                <th scope="col">Inclusion count</th>
+                <th scope="col">Decks</th>
             </tr>
         </thead>
         <tbody data-api-field="commander-summary-body">

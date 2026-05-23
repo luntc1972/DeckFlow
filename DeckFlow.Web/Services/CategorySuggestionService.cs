@@ -68,7 +68,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
     private readonly ILogger<CategorySuggestionService> _logger;
     private readonly ArchidektParser _archidektParser;
     private readonly IArchidektDeckImporter _archidektImporter;
-    private readonly IScryfallTaggerService _taggerService;
+    private readonly IScryfallTaggerLookupService _taggerService;
 
     /// <summary>
     /// Initializes a new instance of <see cref="CategorySuggestionService"/>.
@@ -78,7 +78,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
         IArchidektCacheJobService harvestJobService,
         ArchidektParser archidektParser,
         IArchidektDeckImporter archidektImporter,
-        IScryfallTaggerService taggerService,
+        IScryfallTaggerLookupService taggerService,
         ILogger<CategorySuggestionService> logger)
     {
         _knowledgeStore = knowledgeStore;

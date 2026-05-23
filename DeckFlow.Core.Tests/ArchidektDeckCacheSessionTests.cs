@@ -6,6 +6,10 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Integration tests for <see cref="ArchidektDeckCacheSession"/> covering harvest-run pagination,
+/// per-deck import, and knowledge-cache persistence against a temporary SQLite database.
+/// </summary>
 public sealed class ArchidektDeckCacheSessionTests : IDisposable
 {
     private readonly string _databasePath;
@@ -46,7 +50,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var session = new ArchidektDeckCacheSession(
             repository,
             new FakeDeckImporter(),
-            new FailingRecentDecksImporter(),
+            new ThrowingRecentDecksImporter(),
             idlePollDelay: TimeSpan.FromMilliseconds(20));
 
         var stopwatch = Stopwatch.StartNew();
@@ -113,7 +117,11 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 
-    private sealed class FailingRecentDecksImporter : IArchidektRecentDecksImporter
+    /// <summary>
+    /// Exception-injection double that throws <see cref="HttpRequestException"/> on every import call;
+    /// used to test that <see cref="ArchidektDeckCacheSession"/> handles Archidekt fetch failures gracefully.
+    /// </summary>
+    private sealed class ThrowingRecentDecksImporter : IArchidektRecentDecksImporter
     {
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
             => throw new HttpRequestException("Simulated Archidekt recent deck failure.");

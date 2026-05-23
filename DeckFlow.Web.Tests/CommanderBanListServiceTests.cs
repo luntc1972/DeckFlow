@@ -4,6 +4,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="CommanderBanListService"/> covering HTML parsing, caching, and ban-list lookup.
+/// </summary>
 public sealed class CommanderBanListServiceTests
 {
     [Fact]

@@ -6,6 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Core.Knowledge;
 
+/// <summary>
+/// Orchestrates a paginated Archidekt harvest run, persisting card-category knowledge to the repository.
+/// </summary>
 public sealed class ArchidektDeckCacheSession
 {
     private static readonly TimeSpan IdlePollDelay = TimeSpan.FromSeconds(5);
@@ -179,6 +182,9 @@ internal enum DeckCacheWriteResult
     Updated,
 }
 
+/// <summary>
+/// Holds aggregate statistics for a completed Archidekt deck-cache run.
+/// </summary>
 public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksSkipped, TimeSpan Duration)
 {
     public int DecksProcessed => DecksAdded + DecksUpdated;

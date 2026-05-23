@@ -8,6 +8,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ArchidektCacheJobsController"/> covering job start, stop, and status endpoints.
+/// </summary>
 public sealed class ArchidektCacheJobsControllerTests
 {
     [Fact]

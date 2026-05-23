@@ -4,9 +4,9 @@ summary: Compare your deck against recent EDH Top 16 lists for the same commande
 order: 30
 ---
 
-# ChatGPT cEDH Meta Gap
+# cEDH Meta Gap
 
-The cEDH Meta Gap page (`/chatgpt-cedh-meta-gap`) generates a structured ChatGPT workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
+The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
 
 ## Step 1 — Load Deck And Fetch References
 
@@ -28,7 +28,7 @@ Select 1 to 3 EDH Top 16 reference decks and generate the prompt. While building
 - Queries Commander Spellbook for your deck and for each selected reference deck, then injects combo summaries into the prompt.
 - Caps the reference-deck count at 3 to keep the prompt size reasonable once decklists and combo references are included.
 
-ChatGPT is instructed to:
+Your AI is instructed to:
 
 - Write a concise human-readable meta-gap summary first.
 - Then return a fenced `json` block whose top-level object is `meta_gap`.
