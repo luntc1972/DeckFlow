@@ -100,7 +100,9 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
   2. Tab + Shift+Tab cycle stays inside the modal across native form controls AND nested `df-select` / `df-typeahead` custom elements (verified by HUMAN-UAT in a Razor view containing both)
   3. Escape closes the modal AND restores focus to the trigger button; cancel button + click-outside also close it
   4. New modal CSS lands in `wwwroot/css/admin.css` (or new `_AdminConfirmModal.cshtml` partial), uses existing `:root` tokens, and does not leak any unscoped element selectors into the 22 guild themes (Pitfall 10 mitigation)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 01-01-PLAN.md — Native <dialog> showConfirm primitive + structural partial + scoped CSS + Detail.cshtml wire-up (MODAL-01)
 
 ### Phase 2: Doc-Comment Backfill — Part 1 (Controllers + Services)
 **Goal**: Documentation debt is reduced on the highest-traffic Web surface (~50 of 88 v1.1-era types) without flipping the NoWarn gate, so the warning suppression stays in place until Phase 8 lands the rest of the v1.4 surface.
@@ -192,7 +194,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. WDG-04 Focus-Trapped Modal | 0/TBD | Not started | - |
+| 1. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
 | 2. Doc-Comment Backfill Part 1 | 0/TBD | Not started | - |
 | 3. Admin Mobile-Responsive Sweep | 0/TBD | Not started | - |
 | 4. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
