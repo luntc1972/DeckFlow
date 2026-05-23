@@ -1,259 +1,120 @@
-# Research Summary — v1.1 Admin Console
+# v1.4 Research Synthesis — Roadmapper Input
+
+**Milestone:** DeckFlow v1.4 — Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
+**Synthesized:** 2026-05-23
+**Confidence:** HIGH for existing-pattern reuse + library version selection; MEDIUM for Gemini-unblock path choice (UAT-dependent) and Whisper $/min figures (vendor-pricing volatility).
+
+## 1. Stack Additions Quick-Ref
+
+- **YoutubeExplode 6.6.0** — YouTube transcript + ASR caption fetch (no API key, no quota); the only viable path because `Google.Apis.YouTube.v3.captions.download` returns 403 for third-party videos (Issue Tracker 241669016 verified)
+- **OpenAI 2.10.0** — single SDK for Whisper transcription (`AudioClient`) + chat summarization + Structured Outputs tagging; integrated via `HttpClientPipelineTransport(httpClient)` seam to stay inside `IHttpClientFactory` lifecycle
+- **System.ServiceModel.Syndication 10.0.2** — Microsoft RSS/Atom for podcast feeds; iTunes namespace via `ElementExtensions` (~30 LOC helper)
+- **(Gemini, no new package)** — hand-roll Gemini REST via existing RestSharp + named Polly pipeline if Path B chosen; reject `Google.GenAI` 1.7.0 + `Google_GenerativeAI` 3.6.6 (transitive `Microsoft.Extensions.AI` / Newtonsoft baggage)
+- **(Spend ledger, no new package)** — new `whisper_spend_ledger` table via existing `IRelationalDialect` + `RelationalDatabaseConnection`; `numeric(10,4)` (PG) / TEXT (SQLite)
+- **(Admin mobile + modal + doc-comments, no packages)** — CSS factoring + native `<dialog>` + csproj NoWarn strip; explicitly NO Bootstrap/Tailwind/StyleCop
+
+**Five new named HttpClients:** `youtube-explode`, `podcast-rss`, `podcast-audio`, `openai`, `gemini-rest` (each with matching named Polly pipeline). **Five new env vars:** `OPENAI_API_KEY`, `DECKFLOW_GEMINI_API_KEY`, `DECKFLOW_WHISPER_MONTHLY_CAP_USD`, optional `DECKFLOW_WHISPER_CAP_THRESHOLD_PCT`, `DECKFLOW_WHISPER_KILL_SWITCH` — all `sync: false` on Render.
+
+## 2. Feature Cluster Quick-Map
+
+| Cluster | Features (FEATURES.md) | Complexity | Critical Dep | Risk |
+|---------|------------------------|------------|--------------|------|
+| **A. WDG-04 Focus-Trapped Modal** | Feature 6 | S (1-2 plans) | None — pre-req for C + E | LOW |
+| **B. Doc-Comment NoWarn Backlog** | Feature 7 (~88 types) | M (2-4 plans, mechanical) | None; split into early + late halves | LOW (sequencing trap if NoWarn stripped before backfill) |
+| **C. Admin Mobile Sweep** | Feature 4 | S-M (2-4 plans) | Cluster A modal lands first | MED — 22-guild-theme CSS bleed risk |
+| **D. Gemini Paste-Limit Unblock** | Feature 5 | S-M (2-4 plans) | Independent; UAT-gated path choice | MED — split-message UX may fail UAT, forcing Path B Gemini API |
+| **E. Content KB Phase 1** | Features 1+2+3 (ingestion, source CRUD, spend cap) | L (6-8 plans) | Schema before HTTP before orchestrator before UI; spend-ledger before adapters fire | MED-HIGH — 4 new upstream surfaces + Whisper budget exposure + Render IP-block risk |
+
+## 3. Suggested Phase Sequence
+
+| # | Phase | Why this order | Deps | Risk |
+|---|-------|----------------|------|------|
+| 1 | **WDG-04 Modal (Cluster A)** | Closes v1.3 carry-over. Tiny: 1 TS + 1 view + small CSS. Zero coupling. Lands first as proof | None | LOW |
+| 2 | **Doc-Comment Backlog Part 1 — Controllers + Services (B subset)** | ~50 of 88 types. Mechanical. NoWarn stays until Part 2 | None | LOW |
+| 3 | **Gemini Unblock — split-message (D Path 1)** | Closes v1.2 deferred flag. 5 PromptBuilder files + 3 views. Preserves Phase 999.2 D-08. Regression-tested before admin sweep | None | MED — UAT-gated |
+| 4 | **Admin Mobile Sweep (C)** | AFTER WDG-04 so modal CSS doesn't need re-architecting mid-factoring. Splits `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim | Cluster A | MED — full admin regression |
+| 5 | **Content KB Stores + Schema (E foundation)** | First half. 8 new `content_*` tables. Zero UI; zero outbound HTTP. Validates schema before HTTP services depend on it | None within v1.4 | MED — F-PROD-CONTRACT test-isolation (999.6 lesson) |
+| 6 | **Content KB Outbound HTTP Services (E ingestion)** | YouTube + Podcast + Whisper + LLM. IHttpClientFactory + RestSharp + Polly. WhisperSpendLedger cap-gate integrated. MockHttp tests | #5 | MED-HIGH — 4 new upstream surfaces |
+| 7 | **Content KB Orchestrator + Harvest Runs (E coordination)** | `ContentHarvestOrchestrator` + `ContentHarvestRunStore`. Wires #5 + #6. Tests assert cap-abort, idempotent re-run, partial-success | #5, #6 | MED |
+| 8 | **Content KB Admin UI (E UI)** | 3 admin controllers + 7 Razor views + sidebar additions. Inherits Cluster C's CSS. SameOriginRequestValidator on every POST | #4, #5-7 | LOW |
+| 9 | **Doc-Comment Backlog Part 2 + strip `NoWarn` (B finish)** | Remaining ~38 types. LAST is csproj edit. Triggers warnings-as-future-gate. Lands last so v1.4 new types (D + E) are documented before gate flips | All prior | LOW |
+
+**Critical path:** A → C → E (#5 → #6 → #7 → #8). Off-critical-path: B (parallelizable), D (independent).
+**Total scope estimate:** 5-8 numbered phases / ~25-35 plans (~v1.1 + v1.2 combined).
+
+## 4. Top Pitfalls That Drive Phase Design
+
+Ranked by likelihood × impact:
+
+1. **P1 — YouTube `captions.download` returns 403 for non-owned videos** → **Phase 6 (Outbound HTTP Services)** → Use YoutubeExplode (NOT Google.Apis.YouTube.v3); prove against 5 real cEDH channels before writing service code.
+2. **P2 — YouTube IP-blocks Render egress (cloud IP blacklist)** → **Phase 6** → Design `IYouTubeTranscriptFetcher` with proxy-pluggable abstraction day 1; track `whisper_fallback_ratio` >25% as IP-block signal; harvest from deployed Render, NOT WSL, before ship.
+3. **P3 — Whisper cap TOCTOU race (two admin tabs double-spend)** → **Phase 7 (Orchestrator)** + Phase 6 → Postgres `pg_try_advisory_lock` per month-key; SERIALIZABLE transaction wrapping check-and-insert; pre-flight estimate BEFORE Whisper call; UTC month boundary; hard kill-switch env var.
+4. **P4 — LLM JSON parse failure mid-harvest after Whisper cost incurred** → **Phase 6 + Phase 7** → OpenAI Structured Outputs (`strict: true`, <0.1% failure); staged-pipeline persistence (transcript/summary/tags each own row + status); KnownTagSet allowlist; never re-Whisper on resume.
+5. **P6 — Postgres pool starvation from connections held across `await`** → **Phase 6 + Phase 7** → NEVER hold connection across HTTP call; cap pool ~10-15 explicitly; single-worker hosted harvest; release-acquire pattern documented in plan-checker rule.
+
+**Secondary critical:** P7 (Whisper 25MB / 10min timeout) needs Dockerfile `apt-get install ffmpeg` + client-side audio chunking. P11 (admin POST missing anti-forgery) — global `AutoValidateAntiforgeryTokenAttribute` filter recommended. P12 (schema name collision with v1.1 `harvest_runs`) — strict `content_*` prefix; `ContentHarvestRunStore` is parallel impl, NOT subclass.
+
+## 5. Cross-Cutting Invariants (MUST/MUST NOT)
+
+1. **MUST** route all outbound HTTP through `IHttpClientFactory` named clients + named Polly pipelines via `ResiliencePipelineProvider<string>`. **MUST NOT** migrate to `Microsoft.Extensions.Http.Resilience` standard handler. **MUST NOT** `new HttpClient()` anywhere.
+2. **MUST NOT** touch the `AiPlatform` value object for server-side LLM summarization; admin ingestion is a single dedicated provider. AiPlatform variant added ONLY if Gemini Path B chosen.
+3. **MUST NOT** widen the v1.1 `harvest_runs.kind` CHECK or extend `HarvestRunStore`; fork to a parallel `ContentHarvestRunStore` on `content_harvest_runs` table.
+4. **MUST** namespace all new tables with `content_*` prefix (except `whisper_spend_ledger`); zero overlap with v1.1 names.
+5. **MUST** call `IWhisperSpendLedger.WouldExceedCapAsync(estimate)` BEFORE every Whisper API invocation; cap-gate is correctness-critical. **MUST** record ledger row on success only.
+6. **MUST** use env var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` for the cap (typed decimal); **MUST NOT** route cap through `IFeatureFlagStore` (wrong tool for $-cap).
+7. **MUST** put `SameOriginRequestValidator` on every `/api/*` POST AND `[ValidateAntiForgeryToken]` (or global filter) on every `/Admin/*` POST — two separate CSRF mechanisms.
+8. **MUST** preserve `{ get; init; }` on every new record type (System.Text.Json silently skips get-only props in .NET 9+ — already broke `EdhTop16Client` once).
+9. **MUST** preserve C# raw-string literals byte-for-byte in `SummaryPrompt.cs` and DDL constants; no auto-reformat passes.
+10. **MUST** use native HTML `<dialog>` element with `showModal()`; **MUST NOT** add a focus-trap npm dependency.
+11. **MUST** scope new admin CSS to `.admin-shell` parent class; **MUST NOT** add unscoped element selectors (`table`, `button`, `input`) — 22-guild-theme bleed risk. Use `@layer admin { ... }` for cascade discipline.
+12. **MUST** put layout CSS in `site-common.css` / new `admin-common.css`, NOT in `site.css` or `admin.css` directly.
+13. **MUST** isolate every store test (own SQLite file or `:memory:` per-fact scope) — F-PROD-CONTRACT lesson from 999.6.
+14. **MUST** keep all API keys in Render env vars with `sync: false`; **MUST NOT** ever commit secrets to public repo. Pre-commit Gitleaks recommended.
+15. **MUST** route every plan through Codex peer review (`/gsd-review`) before execute-phase dispatch; Codex codes, Claude reviews.
+
+## 6. Recurring v1.3 Patterns (Process Pitfalls — DO NOT REPEAT)
+
+- **R-1 STATE.md arithmetic drift** — auto-compute counters on phase close; CI gate `gsd-sdk verify-state` asserts `completed_phases ≤ total_phases`.
+- **R-2 REQUIREMENTS.md checkbox drift** — auto-flip `[x]` from SUMMARY frontmatter `requirements-completed:`; reject SUMMARYs missing it at plan-check time.
+- **R-3 Planning-time grep miscounts** — every SC grep MUST be anchored (`grep -cE '^[[:space:]]*\[HttpPost'`, not `grep -c HttpPost`); plan-checker validates anchoring.
+- **R-4 Cross-AI plan review catches what Claude misses** — every v1.4 plan goes through `/gsd-review` with Codex; no exceptions for "small" plans.
+- **R-5 `no-ship-failing-tests`** — Failed:0 mandatory before milestone PR. Roadmapper pre-allocates a `999.x` test-hardening backlog phase before ship.
+- **R-6 Formatting paranoia** — no Format Document; no `{ get; init; }` → `{ get; }`; no inline `[Attribute]`; no raw-string re-indent; touch only lines that need touching. Codex reminded in every CONTEXT.md.
+- **R-7 HANDOFF.json / origin staleness on resume** — every session resume `git fetch` + compare `HEAD` vs `origin/<branch>` BEFORE reading planning artifacts. Critical for v1.4's long-running harvest phases that span sessions.
+
+## 7. Open Decisions Needed at Plan Time
+
+| Decision | Blocks | Defer? |
+|----------|--------|--------|
+| **Gemini unblock path: split-message (Path A) vs direct API (Path B)** | Cluster D / Phase 3 | NO — `/gsd-discuss-phase` at Phase 3; recommend Path A (preserves Phase 999.2 D-08; no new key, no spend exposure) |
+| **YouTube transcript provider: YoutubeExplode direct vs paid proxy** | Phase 6 | NO at design time — interface MUST support both day 1; default = YoutubeExplode direct; flip via `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER` env var post-Render UAT |
+| **Admin table responsive strategy per-table: overflow-x vs card-stack** | Phase 4 | NO — decide per-table during plan; Analytics + HarvestRunStore → overflow-x; Feedback list + Sources list → card-stack candidates |
+| **Content KB feature flag default** | Phase 5+ | YES — defer to first admin UAT; `content_kb_enabled=false` until verified end-to-end |
+| **Tag inference vocabulary exact enum values** | Phase 6 (LLM tagging) | NO — derive at plan time; use `static class ContentTagVocabulary` (controlled vocab in code, not DB) |
+| **Render Dockerfile ffmpeg install** | Phase 6 (Whisper chunking) | NO — verify at Phase 5/6 start; if missing AND podcasts >25MB → `RUN apt-get install -y ffmpeg` required |
+| **Whisper monthly cap initial $ value** | Phase 5 + 7 | NO — set `DECKFLOW_WHISPER_MONTHLY_CAP_USD=15.00` per STACK.md cost model (expected ~$13.32 + 12% headroom) |
+| **Razor `.cshtml`-generated CS1591 handling post-NoWarn-strip** | Phase 9 | NO — Phase 9 plan verifies via `dotnet build -warnaserror:CS1591` from clean obj/; scoped 1591 retention for generated Razor partials only |
+| **Whisper-vs-LLM cap separation (single ledger or two)** | Phase 5 schema | NO — design `content_spend_ledger` with `provider` + `kind` columns day 1; per-provider caps are future drop-in |
+
+## 8. Watch Out For (Top 3 Worst-Case Failures)
+
+The roadmapper MUST price these into phase Success Criteria so they are not discovered mid-execution:
 
-**Project:** DeckFlow v1.1 Admin Console
-**Domain:** Brownfield ASP.NET 10 MVC admin console extension (single-operator, BasicAuth, Postgres-backed)
-**Researched:** 2026-05-02
-**Confidence:** HIGH
+1. **P1 — Building Phase 5/6 around `Google.Apis.YouTube.v3` for captions.** Every cEDH channel returns 403. Pipeline is dead before Whisper fallback rate signals anything. **SC for Phase 6 MUST be:** "Successfully fetch captions for 5 real third-party MTG channels (MTGGoldfish + Command Zone + EDHRECast + Tolarian + Playing With Power) via `IYouTubeTranscriptFetcher` from deployed Render env." NOT "via YouTube Data API."
 
----
+2. **P2 — YouTube IP-blocks the Render egress pool silently.** WSL dev sees green; production sees `whisper_fallback_ratio=100%`; $15 monthly cap blown on day 1 because every "free" caption fell back to paid Whisper. **SC for Phase 6 MUST include:** "Pre-ship UAT: harvest 5 videos from deployed Render env; inspect `transcript_source` distribution; if any unexpected `whisper-fallback`, debug before ship. Proxy abstraction in `IYouTubeTranscriptFetcher` interface from day 1."
 
-## Executive Summary
-
-The v1.1 Admin Console is a brownfield extension of an existing deployed ASP.NET 10 / Razor / Postgres app. It adds four admin sections (Landing Shell, Harvest controls, Analytics, Flags) under the existing BasicAuth path-prefix gate. The architectural approach is conservative: one new NuGet package (NCrontab 3.4.0), all other capabilities built from BCL types and patterns already proven in the codebase (`BackgroundService` + `Channel<T>`, `IMemoryCache`, `IRelationalDialect`, `EnsureSchemaAsync`). No SPA, no charting library, no external scheduler, no third-party feature flag service.
-
-The recommended build order is Shell first, then Harvest + Flags (both depend only on the shell), then Analytics. Shell must come first because all four admin pages reference `_AdminLayout.cshtml` and the sidebar partial — building any feature page without it creates throwaway scaffolding. Feature flags should be wired in Phase 1 because the `feature_flags` table seeds kill-switches for live features (Tagger) that must default-on, and because the Harvest pause flag is an immediate consumer.
-
-The dominant risk is the Phase 4 trap identified in the v1.0 post-mortem: features that pass `dotnet build` and unit tests but fail on the actual Render deployment due to Cloudflare header topology, in-process singleton state, or Postgres network behavior. Each phase must include a mandatory live verification step — not optional UAT — with specific pass/fail criteria defined before coding starts. The second highest risk is silent data corruption from two known SQL dialect divergences (ambiguous upsert column references; `EXISTS` cast mismatch) — every new SQL block must be verified against Postgres before the phase closes.
-
----
-
-## Key Findings
-
-### Recommended Stack
-
-The stack requires exactly one new NuGet package: **NCrontab 3.4.0** (pure cron expression parser, netstandard1.0, zero runtime overhead). Everything else is built from BCL types and patterns already in the repo. `System.Threading.Channels` (already used by `ArchidektCacheJobService`) handles the harvest job queue and the analytics write-behind buffer. `IMemoryCache` (already registered) handles the feature flag 30-second poll cache. Inline SVG via Razor server-side coordinate math handles sparklines — no Chart.js, no D3.
-
-Rejected alternatives are fully documented in STACK.md. Key rejections: Quartz.NET (heavyweight, own thread pool, own job store — duplicates existing `Channel` pattern), `Microsoft.FeatureManagement.AspNetCore` (Azure App Configuration transitive dep, 400KB+, IConfiguration coupling — 6-10 boolean flags need ~100 lines not a framework), Hangfire (memory leak history, dashboard conflicts, Postgres schema overhead), Chart.js/ApexCharts (JS dependency for sparklines solvable in 15 lines of Razor math).
-
-**New packages:**
-- `NCrontab` 3.4.0 — cron expression parsing for harvest scheduler; add to `DeckFlow.Web.csproj` only
-
-**BCL-built capabilities (no new package):**
-- Feature flags — `IFeatureFlagStore` + singleton `IFeatureFlagCache` with 30s `PeriodicTimer` poll
-- Analytics accumulator — `Channel.CreateBounded<MetricEvent>(2000, DropOldest)` + `BackgroundService` flusher
-- Job cancel — `CancellationTokenSource` linked to `stoppingToken`; graceful stop after current deck
-- Sparklines — server-rendered `<polyline>` in a Razor partial; `(i, maxVal - counts[i])` coordinate math
-
-### Expected Features
-
-**Must have (table stakes per section):**
-
-Shell:
-- `_AdminLayout.cshtml` with sidebar nav (Feedback / Harvest / Analytics / Flags) — all child pages depend on it
-- Folder-scoped `Views/Admin/_ViewStart.cshtml` — eliminates per-view `Layout =` assignments
-- Active-link indicator via `aria-current="page"` on matching sidebar anchor
-- `Views/AdminFeedback/_ViewStart.cshtml` to re-wrap existing feedback page (zero view renames)
-- Admin layout CSS in `site-common.css` only — never in any guild theme or `site.css`
-
-Harvest:
-- Run-now with preset duration selector (15/30/60 min) POST form
-- Active-job status display with 5-second poll (state, decks processed, elapsed, error)
-- Cancel active job (graceful — stop after current deck, not mid-HTTP-kill)
-- Stats: total decks, total observations, storage size (Postgres + SQLite dialects), in-memory recent-runs log (last 10)
-- Top-20 commanders by deck count
-
-Analytics:
-- `request_metrics` table + `RequestMetricsMiddleware` (route template key, not raw path; write-behind channel)
-- Top routes table with time-window filter (today / 7d / 30d)
-- Daily sparkline per route (inline SVG, server-rendered)
-
-Flags:
-- `feature_flags` table with seed rows for all kill-switch flags (must default-on when row missing)
-- List all flags with inline bool toggle (`[ValidateAntiForgeryToken]` on every POST)
-- Hot reload: 30s poll cache + explicit `IMemoryCache.Remove` on admin write (not TTL-expiry wait)
-- New flag creation (key + bool + description); flag deletion with confirm step
-
-**Should have (add after validation):**
-- Persist harvest run history to Postgres `harvest_runs` table — in-memory history lost on Render redeploy
-- Single Archidekt URL harvest — new `EnqueueSingleUrlAsync` on `IArchidektCacheJobService`
-- Interval/cron harvest schedule — friendly "Every N hours" picker stored in `harvest_schedules` table
-- Flags audit log (`flag_audit_log` table — append on every update)
-- String/int flag types beyond bool
-
-**Defer to v1.2+:**
-- Referer breakdown on analytics (needs column + backfill plan)
-- Scheduled flag flips (significant complexity, no immediate use case)
-- Sidebar status badges with live counts (polish, not blocking)
-- Collapsible sidebar, breadcrumbs, role-based nav visibility (anti-features)
-
-### Architecture Approach
-
-The admin console extends the existing Controller-per-feature MVC pattern with one new layout layer and three new service abstractions. `_AdminLayout.cshtml` + folder-scoped `_ViewStart.cshtml` replace the public layout for all admin views without touching the root `_ViewStart.cshtml`. A new `IHarvestAdminService` wrapper isolates the admin controller from `IArchidektCacheJobService` internals — the controller gets a clean interface for RunNow / Cancel / Stats / Schedule. `IFeatureFlagCache` is a singleton holding an `ImmutableDictionary<string, bool>` snapshot refreshed every 30 seconds by a `BackgroundService`; flag reads are synchronous, zero I/O on the hot path. `RequestMetricsMiddleware` sits between `UseSerilogRequestLogging()` and `UseAuthorization()`, writes to a bounded `Channel<MetricEvent>` without awaiting, and the `RequestMetricsFlushService` drains and batch-INSERTs every 5 seconds.
-
-**Major components:**
-1. `Views/Shared/_AdminLayout.cshtml` + `_AdminSidebar.cshtml` — layout shell; folder `_ViewStart` eliminates per-view overrides
-2. `IHarvestAdminService` / `HarvestAdminService` — wraps `IArchidektCacheJobService` + `ICategoryKnowledgeStore` + `IHarvestRunStore`; sole harvest controller dependency
-3. `RequestMetricsMiddleware` + `RequestMetricsFlushService` — write-behind analytics accumulator; positioned after `UseRouting()` so route template is available
-4. `IFeatureFlagCache` / `FeatureFlagCache` + `FeatureFlagRefreshService` — singleton flag dict, 30s background refresh, immediate invalidation on admin write
-5. Four new Postgres tables (`harvest_runs`, `feature_flags`, `request_metrics`, `harvest_schedules`) following `EnsureSchemaAsync` + dual-dialect SQL pattern from existing stores
-6. Three new admin controllers under `[Route("Admin/...")]` — covered by existing `UseWhen(/Admin)` BasicAuth branch with zero changes to auth wiring
-
-**Existing classes touched (minimal):**
-- `ArchidektCacheJobService` — add `CancelCurrentJobAsync()` + per-job `CancellationTokenSource` (Phase 2)
-- `DeckFlowDatabaseConnectionFactory` — add `CreateAdminConnection()` reusing same DB (Phase 2)
-- `Program.cs` — register new services, add `UseMiddleware<RequestMetricsMiddleware>()`, extend `ValidateDatabaseConnectionsAsync` (Phases 2-4)
-- `site-common.css` — add `.admin-shell`, `.admin-sidebar`, `.admin-content` layout rules (Phase 1 only)
-
-### Critical Pitfalls
-
-1. **Phase 4 trap — static checks pass, live fails (G1)** — Define a live verification step before coding each phase. Four mandatory live checks: analytics IP reads `CF-Connecting-IP` (not "unknown"), flag cache invalidates within 2 seconds of admin write, harvest cancel transitions to Failed within one HTTP timeout budget, cron schedule fires within 60 seconds of scheduled UTC time. If a live check fails, stop and replan — do not press forward as in v1.0 Phase 4.
-
-2. **Guild theme CSS leaking into admin pages (A1)** — `_AdminLayout.cshtml` must load only `site-common.css` plus a neutral `admin.css`; never reference `site.css` or any guild stylesheet. Admin layout selectors go in `site-common.css` only. Verify by loading `/Admin` under three guild themes and confirming `--accent-strong` is not a guild-specific hue.
-
-3. **Analytics route cardinality blow-up (C1 + C2)** — Use `RouteData.Values[controller]/[action]` as the route key, never raw `Request.Path`. Direct `await INSERT` per request is forbidden — always write-behind channel. Both errors combine into a table with millions of near-unique rows and visible p95 latency regression.
-
-4. **Feature flag default-off kills live feature (D3 + D2)** — Kill-switch flags for live features (Tagger) must default-on when the row is missing. `EnsureSchemaAsync` must seed these rows with `INSERT ... ON CONFLICT DO NOTHING`. Cache must be explicitly invalidated (`IMemoryCache.Remove`) on admin write — do not wait for 30-second TTL expiry.
-
-5. **Archidekt importer's legacy Polly loop swallowing cancellation (B3)** — `ArchidektApiDeckImporter` uses legacy `AsyncRetryPolicy` directly (CLAUDE.md-confirmed). Audit cancellation token threading before implementing harvest cancel. Hard pre-condition: without it, operator cancel waits for all retries on the current card batch to complete before the job stops.
-
-6. **SQLite/Postgres SQL dialect divergence (E2)** — Known project pattern: qualify upsert columns with table name (`page_hits.hit_count + EXCLUDED.hit_count`); use `COUNT(1)` not `EXISTS`. Local SQLite passes both; Postgres rejects ambiguous references at runtime. Every new SQL block requires Postgres verification before the phase closes.
-
----
-
-## Implications for Roadmap
-
-Based on research, suggested phase structure:
-
-### Phase 1: Admin Shell + Flags Foundation
-
-**Rationale:** All four admin pages depend on `_AdminLayout.cshtml` and the sidebar partial — no child page can ship without it without creating throwaway scaffolding. The `feature_flags` table comes here too: kill-switch seed rows gate live features (Tagger is live in v1.0), and the harvest pause flag is a near-immediate consumer. Stub actions for all sidebar links must exist by end of this phase to avoid guild-themed 404s behind BasicAuth.
-
-**Delivers:**
-- `_AdminLayout.cshtml` + `_AdminSidebar.cshtml` + `Views/Admin/_ViewStart.cshtml`
-- Admin landing page (`/Admin`) with stub actions for all sidebar sections
-- `Views/AdminFeedback/_ViewStart.cshtml` — re-wraps existing feedback in new shell (zero view renames)
-- `site-common.css` admin layout selectors (`.admin-shell`, `.admin-sidebar`, `.admin-content`)
-- `feature_flags` table + `IFeatureFlagStore` + `IFeatureFlagCache` (30s poll) + `FeatureFlagRefreshService`
-- `/Admin/Flags` list + bool toggle UI with `[ValidateAntiForgeryToken]` — establishes antiforgery pattern for all subsequent admin forms
-- Seed rows for all kill-switch flags in `EnsureSchemaAsync`
-
-**Avoids:** A1 (guild CSS leak), A2 (dead sidebar links), A3 (BasicAuth bypass), F1 (admin form CSRF), D3 (default-off kills Tagger)
-
-**Live verification:** Load `/Admin` under 3 guild themes — neutral palette confirmed. GET every sidebar link — 200. `curl` without credentials — 401. Disable flag via admin, reload public page within 2 seconds — feature off.
-
----
-
-### Phase 2: Harvest Controls + Stats
-
-**Rationale:** Harvest is the most operationally critical section (the only way to populate the knowledge base) and the most architecturally complex (per-job CTS, service wrapper, schedule storage, background scheduler). Doing it while Phase 1 context is fresh reduces re-read cost. Stats ship with controls — the in-memory recent-runs log requires no new DB table for the table-stakes version, but `harvest_runs` persistence is included here because Render redeploys wipe in-memory state.
-
-**Delivers:**
-- `IHarvestAdminService` + `HarvestAdminService` wrapper (RunNow / Cancel / Stats / Schedule)
-- `HarvestAdminController` + `Views/Admin/Harvest.cshtml`
-- Run-now POST form (preset 15/30/60 min durations); active-job status (5-second JS poll)
-- Cancel support: `CancelCurrentJobAsync()` on `IArchidektCacheJobService` + per-job `CancellationTokenSource`
-- Stats panel: total decks, observations, storage size (both dialects), top-20 commanders
-- `harvest_runs` table + `IHarvestRunStore` (persist run history across Render redeploys)
-- `harvest_schedules` single-row table + `HarvestSchedulerService` + friendly "Every N hours" picker
-- `DeckFlowDatabaseConnectionFactory.CreateAdminConnection()` (reuses same DB)
-- New stores added to `ValidateDatabaseConnectionsAsync`
-
-**Pre-condition:** Audit `ArchidektApiDeckImporter` cancellation token threading before designing cancel UI (pitfall B3).
-
-**Avoids:** B1 (orphaned task on redeploy), B2 (double-run cron race), B3 (cancel not propagating), B4 (cron UTC foot-gun), B5 (cron string injection), E1 (new stores missing from startup validation), E2 (SQL dialect divergence), E3 (ALTER TABLE without IF NOT EXISTS)
-
-**Live verification:** Start harvest, push deploy, confirm clean exit within 30s. Start harvest, cancel, confirm `Failed` within one HTTP timeout. Set cron 2 minutes ahead, confirm fires within 60 seconds.
-
----
-
-### Phase 3: Analytics
-
-**Rationale:** Analytics depends only on the shell (Phase 1) and is independent of Harvest and Flags. Placing it after Harvest means the middleware captures real job-trigger data from day one, giving non-trivial data to validate against. All analytics pitfalls (C1-C4) are detectable on day one if live verification criteria are defined before coding.
-
-**Delivers:**
-- `RequestMetricsMiddleware` + `RequestMetricsFlushService` (write-behind bounded channel)
-- `request_metrics` table + `IRequestMetricsStore` (dual-dialect; route template key; hashed IP)
-- `AnalyticsAdminController` + `Views/Admin/Analytics.cshtml`
-- Top routes table with time-window filter (today / 7d / 30d)
-- Daily sparkline per route (server-rendered `<polyline>`, no JS library)
-- Middleware registered after `UseSerilogRequestLogging()`, before `UseAuthorization()`
-- Store added to `ValidateDatabaseConnectionsAsync`
-
-**Avoids:** C1 (high-cardinality route keys), C2 (per-request synchronous DB write), C3 (static assets in analytics), C4 (raw IP / PII), E1 (startup validation gap), E2 (SQL dialect divergence)
-
-**Live verification:** After 5 minutes of use, `SELECT DISTINCT route_key FROM request_metrics LIMIT 20` — confirm template strings not literal paths. `SELECT COUNT(*) FROM request_metrics WHERE route_key LIKE '%css%'` — must be 0. Confirm `ip_hash` column only; no raw IPs visible. p95 on Render dashboard must not regress vs pre-analytics baseline.
-
----
-
-### Phase 4: Deferred Polish
-
-**Rationale:** Items that require Phases 1-3 stable and data-populated before they add value. The Phase 4 label is a deliberate callback to the v1.0 post-mortem — every item here still requires live verification, not just `dotnet build clean`.
-
-**Candidates (P2/P3 from FEATURES.md):**
-- Flags audit log (`flag_audit_log` table)
-- String/int flag types beyond bool
-- Sidebar status badges (live job count, unread feedback count)
-- Referer breakdown on analytics (column addition + backfill plan)
-- Error-rate trend across last N harvest runs (requires persisted `harvest_runs` data)
-
----
-
-### Phase Ordering Rationale
-
-- Shell first: `_AdminLayout` + sidebar is a shared dependency for all four admin sections. No child page can ship without it.
-- Flags in Phase 1: Kill-switch seed rows gate live features already in production. Simplest new schema, immediate operational value.
-- Harvest second: Highest operational value, highest complexity, benefits from fresh context. Stats and cancel ship together.
-- Analytics third: Independent of Harvest/Flags. Placing it after Harvest means real job-trigger data exists for validation.
-- Phase 4 polish last: Requires Phases 1-3 stable and data-populated before trend/audit features are worth building.
-
-### Research Flags
-
-**Phases needing deeper investigation during planning:**
-
-- **Phase 2 (pre-condition):** Audit `ArchidektApiDeckImporter` cancellation token threading before designing cancel UI. Code-read task — hard pre-condition for cancel reliability (pitfall B3).
-- **Phase 2 (cron sub-task):** `HarvestSchedulerService` combining `Channel` reads with 60-second ticks needs a concrete implementation plan before coding. STACK.md pseudo-pattern is a starting point.
-- **Phase 3 (middleware position):** Exact insertion point in `Program.cs` pipeline needs confirmation against current line numbers before writing the registration.
-
-**Phases with standard patterns (skip research-phase):**
-
-- **Phase 1 (shell + flags):** Razor folder-scoped `_ViewStart`, `[ValidateAntiForgeryToken]`, `EnsureSchemaAsync` pattern, `IMemoryCache` wrapping — all established in existing stores/views.
-- **Phase 3 (sparklines):** SVG coordinate math is fully specified in STACK.md. Zero additional research needed.
-- **Phase 4 (polish):** Audit log and string flag types are additive schema changes following identical patterns to Phase 1 flags work.
-
----
+3. **P3 — Admin double-click bypasses the Whisper cap.** Two browser tabs, two harvest dispatches, both pre-flight checks read same pre-spend value, both proceed; monthly Whisper budget 2× over. Cost is real money. **SC for Phase 7 MUST be:** "Concurrent test: 5 parallel `POST /Admin/ContentHarvest/Trigger` against stub Whisper client; assert ≤1 harvest run row created AND ≤N seconds billed (N = cap). Postgres `pg_try_advisory_lock` per `YYYY-MM` key acquired BEFORE any Whisper call. Hard `DECKFLOW_WHISPER_KILL_SWITCH=true` env var evaluated first."
 
 ## Confidence Assessment
 
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | Single new package (NCrontab); all other patterns derived from live codebase. Rejections documented with version-specific rationale. |
-| Features | HIGH | Derived from live codebase contracts + operator constraints + explicit anti-feature reasoning. Priority matrix grounded in actual `IArchidektCacheJobService` interface gaps. |
-| Architecture | HIGH | All findings from direct source reading. File paths, DI patterns, pipeline positions sourced from actual `Program.cs` and existing store implementations. |
-| Pitfalls | HIGH | G1 is a live post-mortem. B3 flagged in CLAUDE.md. E2 is in project memory. D3 is a real production failure class. |
-
-**Overall confidence: HIGH**
-
-### Gaps to Address
-
-- **B3 pre-condition:** Cancellation token threading in `ArchidektApiDeckImporter` must be confirmed before Phase 2 cancel design. Could change the cancel implementation approach if the token is not threaded through the legacy `AsyncRetryPolicy`.
-- **Cron pattern scope:** v1.1 cron limited to three patterns (`0 * * * *`, `0 H * * *`, `0 H * * D`). Document the supported set before the Phase 2 cron sub-task.
-- **`harvest_schedules` vs `feature_flags` row:** STACK.md originally suggested a feature flag row; ARCHITECTURE.md corrects this to a dedicated table with typed columns. Confirm at Phase 2 planning start.
-- **Analytics p95 baseline:** No pre-analytics latency baseline exists. Capture Render dashboard baseline before deploying Phase 3 middleware to make "must not regress" verifiable.
-
----
-
-## Sources
-
-### Primary (HIGH confidence — live codebase)
-- `DeckFlow.Web/Services/ArchidektCacheJobService.cs` — existing job contract, channel pattern, cancellation threading
-- `DeckFlow.Web/Program.cs` (lines 301, 313-314, 330-332, 421-438) — middleware pipeline ordering, `ValidateDatabaseConnectionsAsync`, `UseWhen` admin gate
-- `DeckFlow.Web/Services/FeedbackStore.cs` / `AdminBruteForceTrackerStore.cs` — `EnsureSchemaAsync` pattern, dual-dialect SQL blocks
-- `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs` — `DeriveAdminPartitionKey`, `CF-Connecting-IP` read pattern
-- `DeckFlow.Core/Integration/ArchidektApiDeckImporter.cs` — legacy `AsyncRetryPolicy` (CLAUDE.md-confirmed gap)
-- `.planning/PROJECT.md` — constraints, out-of-scope items, v1.0 post-mortem Key Decisions table
-
-### Secondary (HIGH confidence — official NuGet/docs)
-- https://www.nuget.org/packages/NCrontab/ — v3.4.0, netstandard1.0 confirmed
-- https://www.nuget.org/packages/quartz/ — v3.18.1 rejection rationale
-- https://www.nuget.org/packages/Microsoft.FeatureManagement.AspNetCore/ — v4.5.0 rejection rationale
-- https://alexplescan.com/posts/2023/07/08/easy-svg-sparklines/ — sparkline SVG coordinate math (verified)
-- https://devblogs.microsoft.com/dotnet/an-introduction-to-system-threading-channels/ — Channel write-behind pattern
-
-### Tertiary (project memory)
-- `feedback_sqlite_postgres_sql_divergence.md` — confirmed EXISTS cast + ambiguous upsert column patterns
-- v1.0 Phase 4 post-mortem (`04-ABANDONED.md`) — Phase 4 trap source documentation
-- CLAUDE.md architecture note on `ArchidektApiDeckImporter` legacy Polly — B3 pitfall source
-
----
-*Research completed: 2026-05-02*
-*Ready for roadmap: yes*
+| Area | Level | Notes |
+|------|-------|-------|
+| Reuse of existing DeckFlow patterns | HIGH | Verified at HEAD 65f2fe4; HarvestRunStore + IFeatureFlagCache + RestSharp+Polly directly mirrored |
+| Stack additions (versions + integration seams) | HIGH | NuGet versions verified 2026-05; `HttpClientPipelineTransport` verified against OpenAI .NET docs |
+| Feature scope boundaries (anti-features deferred to v1.5) | HIGH | PROJECT.md explicit; FEATURES.md anti-feature table aligned |
+| YouTube transcript path (YoutubeExplode vs Google.Apis) | HIGH | Issue Tracker 241669016 + 403 limitation confirmed |
+| Gemini unblock path choice | MEDIUM | UAT-dependent; both paths sound architecturally |
+| Whisper $/min pricing | MEDIUM | $0.006/min verified vendor 2026-05 but pricing has shifted twice in 2025 |
+| Render IP-block risk (P2) | MEDIUM | Documented in `youtube-transcript-api` Issue #511; not directly tested from current Render IP |
+| Recurring v1.3 process patterns | HIGH | Drawn from RETROSPECTIVE.md observed-incidents |
