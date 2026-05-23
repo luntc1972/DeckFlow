@@ -1,5 +1,8 @@
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Infers category assignments for a card from the free-text knowledge harvested by the Archidekt cache job.
+/// </summary>
 public static class CategoryInferenceReporter
 {
     /// <summary>

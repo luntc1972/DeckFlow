@@ -2,6 +2,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Filters deck entries to those belonging to a specified category for targeted reporting.
+/// </summary>
 public static class CategoryCardReporter
 {
     public static IReadOnlyList<DeckEntry> CardsInCategory(IEnumerable<DeckEntry> entries, string category)

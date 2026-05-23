@@ -11,6 +11,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Extensions;
 
+/// <summary>
+/// Tests for <see cref="HarvestServiceCollectionExtensions"/> verifying that DI registration resolves
+/// harvest run store, stats, and hosted services without errors.
+/// </summary>
 public sealed class HarvestServiceCollectionExtensionsTests
 {
     [Fact]

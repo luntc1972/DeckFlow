@@ -16,6 +16,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - **Public repo**: `luntc1972/DeckFlow` is public — no secrets in commits ever; secrets live in Render dashboard with `sync: false`
 - **Testing**: VSTest unreliable in WSL; rely on `dotnet build` clean + targeted manual harness or push-and-watch CI
 - **Commits**: Plain default-author commits, no Co-Authored-By trailer; README updated when behavior changes; commit per logical change
+- **Formatting**: DO NOT run "Format Document" / "Code Cleanup" / ReSharper-style reformatting across existing files. Project style is pinned in `.editorconfig` + `.gitattributes`; any deviation is the formatter being wrong, not the codebase. Specifically: never auto-convert `{ get; init; }` to `{ get; }` (System.Text.Json silently skips get-only properties in .NET 9+ — has broken `EdhTop16Client` deserialization before), never inline `[Attribute]` onto the property line, never re-indent C# raw-string literals (changes the literal value shipped to the AI), preserve switch expressions, preserve LF line endings (`.gitattributes` enforces). When editing a file, touch only the lines that need touching.
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->
@@ -269,7 +270,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - Responsibilities: Configure Serilog file sink, build `System.CommandLine` root with `compare`, `probe-moxfield`, `export-moxfield`, `archidekt-categories`, `archidekt-category-cards` commands; dispatch to `CommandRunners`.
 - `GET /` → `DeckController.Home`
 - `GET /sync` → `DeckController.Index`
-- Plus `/lookup`, `/mechanic-lookup`, `/convert`, `/suggest-categories`, `/judge-questions`, `/chatgpt-packets`, `/chatgpt-comparison`, `/chatgpt-cedh-meta-gap`, `/commander-categories`, `/help`, `/about`, `/feedback`.
+- Plus `/lookup`, `/mechanic-lookup`, `/convert`, `/suggest-categories`, `/judge-questions`, `/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`, `/commander-categories`, `/help`, `/about`, `/feedback`.
 - Default conventional route registered at the end (`Program.cs:230`).
 - `POST /api/deck/diff` → `DeckSyncApiController`
 - Suggestion endpoints under `SuggestionsApiController`

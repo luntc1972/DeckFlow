@@ -1,0 +1,107 @@
+root = true
+
+# Pinned to match DeckFlow conventions (per CLAUDE.md). VS / ReSharper Format Document
+# must be a no-op against existing code. If you find yourself adding "cleanup" rules
+# here that rewrite existing files, stop — codify the existing style instead.
+
+[*]
+indent_style = space
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.{cs,cshtml,razor}]
+indent_size = 4
+
+[*.{json,yml,yaml,toml,ts,js,css,html}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+trim_trailing_whitespace = false
+
+[*.{ps1,bat,cmd}]
+end_of_line = crlf
+
+# ---------------------------------------------------------------------------
+# C# style — codifies what is already in the codebase. Format Document must
+# converge to current state, NOT rewrite it.
+# ---------------------------------------------------------------------------
+
+[*.cs]
+
+# File-scoped namespace (already pervasive — see CLAUDE.md Conventions).
+csharp_style_namespace_declarations = file_scoped:warning
+
+# Allman braces (open brace on new line).
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+
+# Preserve `init` accessors — DO NOT auto-convert `{ get; init; }` to `{ get; }`.
+# .NET 9+ default JsonSerializer behavior (PreferredObjectCreationHandling = Replace)
+# silently SKIPS get-only properties during deserialization. Stripping init has
+# broken EdhTop16Client deserialization in this repo before.
+dotnet_style_prefer_auto_properties = true:silent
+dotnet_style_readonly_field = true:silent
+csharp_style_prefer_readonly_struct_member = true:silent
+
+# Switch expressions preferred over switch statements (codebase uses expressions
+# heavily — e.g., FormatTimePeriodLabel in CedhMetaGap.cshtml).
+csharp_style_prefer_switch_expression = true:silent
+
+# Required braces — codebase uses braces for multi-line bodies. Single-statement
+# branches keep braces in most existing files. Stay non-enforcing to avoid
+# rewrites.
+csharp_prefer_braces = when_multiline:silent
+
+# Inline attributes on declarations — DO NOT inline [JsonPropertyName] onto the
+# property line. Codebase keeps them on separate lines for readability and to
+# avoid noisy diffs when attribute args change.
+# ReSharper/Rider key (also honored by VS w/ ReSharper).
+resharper_csharp_place_attribute_on_same_line = false
+resharper_place_attribute_on_same_line = false
+resharper_place_field_attribute_on_same_line = false
+resharper_place_method_attribute_on_same_line = false
+resharper_place_accessor_attribute_on_same_line = false
+
+# XML doc-comment leading whitespace. Codebase uses single space after `///`.
+# DO NOT add 5-space indent (`///     summary`) — that's ReSharper's default for
+# wrapped comments. Multi-line doc-comments stay flush.
+resharper_xmldoc_indent_text = ZeroIndent
+resharper_xmldoc_indent_child_elements = ZeroIndent
+
+# Raw-string literal indentation — preserve closing `"""` indent. Stripping
+# leading whitespace from raw-string content changes the literal value and
+# breaks downstream consumers (e.g., the analysisFollowUpPrompt blob in
+# DeckAnalysis.cshtml ships verbatim to the AI).
+resharper_csharp_force_indent_style_for_raw_string_literals = LeftAligned
+
+# Block bodies for if/for/while/etc when crossing lines (codebase pattern).
+resharper_csharp_simple_block_style = NotSet
+resharper_csharp_simple_embedded_statement_style = NotSet
+
+# var preferences match the codebase: var for obvious types, explicit otherwise.
+csharp_style_var_for_built_in_types = true:silent
+csharp_style_var_when_type_is_apparent = true:silent
+csharp_style_var_elsewhere = false:silent
+
+# Suppress diagnostic warnings already suppressed in csproj (NoWarn 1591;1573;1587).
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CS1573.severity = none
+dotnet_diagnostic.CS1587.severity = none
+
+# Naming — _camelCase private fields, PascalCase everything else (CLAUDE.md).
+dotnet_naming_rule.private_fields_with_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_with_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_with_underscore.style = camel_case_underscore_style
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.camel_case_underscore_style.required_prefix = _
+dotnet_naming_style.camel_case_underscore_style.capitalization = camel_case

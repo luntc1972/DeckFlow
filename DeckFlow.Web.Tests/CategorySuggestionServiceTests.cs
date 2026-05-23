@@ -17,6 +17,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="CategorySuggestionService"/> covering mode routing (cached, reference-deck, tagger, all),
+/// inferred-category precedence, and fallback behaviour when harvest data is unavailable.
+/// </summary>
 public sealed class CategorySuggestionServiceTests
 {
     [Fact]
@@ -42,6 +46,28 @@ public sealed class CategorySuggestionServiceTests
         Assert.Contains("Ramp", result.InferredCategories);
         Assert.Equal(1, store.RunCacheSweepCalls);
         Assert.Equal(1, result.CardDeckTotals.TotalDeckCount);
+    }
+
+    [Fact]
+    public async Task SuggestAsync_SkipsCacheSweep_WhenHarvestActive()
+    {
+        var totals = new CardDeckTotals(1, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mainboard"] = 1
+        });
+
+        var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals);
+        var service = new CategorySuggestionService(store, new FakeActiveJobService(), new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+
+        var request = new CategorySuggestionRequest
+        {
+            Mode = CategorySuggestionMode.CachedData,
+            CardName = "Bird of Paradise"
+        };
+
+        await service.SuggestAsync(request, CancellationToken.None);
+
+        Assert.Equal(0, store.RunCacheSweepCalls);
     }
 
     [Fact]
@@ -217,7 +243,7 @@ public sealed class CategorySuggestionServiceTests
         }
     }
 
-    private sealed class FakeTaggerService : IScryfallTaggerService
+    private sealed class FakeTaggerService : IScryfallTaggerLookupService
     {
         private readonly IReadOnlyList<string> _responses;
 
@@ -247,6 +273,28 @@ public sealed class CategorySuggestionServiceTests
         public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
 
         public ArchidektCacheJobStatus? GetActiveJob() => null;
+
+        public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+    }
+
+    private sealed class FakeActiveJobService : IArchidektCacheJobService
+    {
+        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("Not used in these tests.");
+
+        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
+
+        public ArchidektCacheJobStatus? GetActiveJob() => new(
+            Guid.NewGuid(),
+            ArchidektCacheJobState.Running,
+            100,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            null,
+            0,
+            0,
+            null);
 
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(false);

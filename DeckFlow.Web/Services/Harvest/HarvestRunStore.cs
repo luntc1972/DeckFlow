@@ -232,6 +232,36 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task<HarvestRunRow?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
+                   duration_seconds, decks_processed, additional_decks_found, error_message, url
+              FROM harvest_runs
+             WHERE id = @id
+             LIMIT 1;
+            """;
+
+        // SQLite stores Guid as TEXT; Npgsql accepts Guid directly. Mirrors the
+        // bind pattern at InsertQueuedAsync (line 117-119), UpdateStateAsync
+        // (line 164-166), and UpdateProgressAsync (line 200-202).
+        RelationalDatabaseConnection.AddParameter(
+            command, "@id",
+            _connectionInfo.IsPostgres ? (object)id : id.ToString());
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+        return ReadHarvestRunRow(reader);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);

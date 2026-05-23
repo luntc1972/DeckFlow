@@ -3,6 +3,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Tests;
 
+/// <summary>
+/// Tests for <see cref="DeckEntryFilter"/> covering maybeboard exclusion and board-based filtering.
+/// </summary>
 public sealed class FilteringTests
 {
     [Fact]

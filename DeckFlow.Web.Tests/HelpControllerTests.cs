@@ -6,6 +6,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="HelpController"/> covering topic listing, detail rendering, and not-found handling.
+/// </summary>
 public class HelpControllerTests
 {
     private sealed class StubHelpContentService : IHelpContentService

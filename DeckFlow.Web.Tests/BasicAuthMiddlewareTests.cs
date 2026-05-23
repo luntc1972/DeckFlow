@@ -4,9 +4,14 @@ using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using DeckFlow.Web.Tests.Infrastructure;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="BasicAuthMiddleware"/> covering credential validation, brute-force lockout, and 401/403 responses.
+/// </summary>
+[Collection("AdminEnvSerial")]
 public sealed class BasicAuthMiddlewareTests
 {
     private const string EnvUser = "FEEDBACK_ADMIN_USER";
@@ -93,41 +98,5 @@ public sealed class BasicAuthMiddlewareTests
         Assert.True(nextCalled);
         Assert.NotEqual(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
         Assert.NotEqual(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
-    }
-
-    private sealed class EnvScope : IDisposable
-    {
-        private readonly Dictionary<string, string?> _previous = new();
-
-        private EnvScope(params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                _previous[key] = Environment.GetEnvironmentVariable(key);
-            }
-        }
-
-        public static EnvScope Clear(params string[] keys)
-        {
-            var scope = new EnvScope(keys);
-            foreach (var key in keys) Environment.SetEnvironmentVariable(key, null);
-            return scope;
-        }
-
-        public static EnvScope Set(string k1, string v1, string k2, string v2)
-        {
-            var scope = new EnvScope(k1, k2);
-            Environment.SetEnvironmentVariable(k1, v1);
-            Environment.SetEnvironmentVariable(k2, v2);
-            return scope;
-        }
-
-        public void Dispose()
-        {
-            foreach (var (key, value) in _previous)
-            {
-                Environment.SetEnvironmentVariable(key, value);
-            }
-        }
     }
 }

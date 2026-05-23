@@ -5,6 +5,10 @@ using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Stateful fake <see cref="ICategoryKnowledgeStore"/> that returns configurable processed-deck counts
+/// and captures submitted knowledge rows for assertion in tests.
+/// </summary>
 public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private readonly Queue<int> _processedDeckCounts = new();

@@ -10,6 +10,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallCardSearchService"/> covering search result parsing, caching, and error handling.
+/// </summary>
 public sealed class CardSearchServiceTests
 {
     private static readonly IReadOnlyList<ScryfallCard> SampleCards = new[]
@@ -60,6 +63,31 @@ public sealed class CardSearchServiceTests
         await service.SearchAsync("guard");
         await service.SearchAsync("  guard  ");
 
+        Assert.Equal(1, callCount);
+    }
+
+    [Fact]
+    public async Task SearchAsync_NotFound_ReturnsEmpty()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var callCount = 0;
+        var service = TestServiceFactory.CreateScryfallCardSearchService(
+            cache,
+            executeAsync: (request, _) =>
+            {
+                callCount++;
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.NotFound,
+                    ResponseStatus = ResponseStatus.Completed
+                });
+            });
+
+        var first = await service.SearchAsync("zz");
+        var second = await service.SearchAsync("zz");
+
+        Assert.Empty(first);
+        Assert.Empty(second);
         Assert.Equal(1, callCount);
     }
 

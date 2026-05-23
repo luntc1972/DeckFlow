@@ -3,6 +3,11 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Comparison;
+using DeckFlow.Web.Services.PromptBuilders.FollowUp;
+using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using RestSharp;
@@ -96,7 +101,7 @@ internal static class TestServiceFactory
             null,
             executeCollectionAsync);
 
-    public static ChatGptDeckPacketService CreateChatGptDeckPacketService(
+    public static DeckAnalysisPacketService CreateDeckAnalysisPacketService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
@@ -105,7 +110,7 @@ internal static class TestServiceFactory
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
         ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckPacketService>? logger = null,
+        ILogger<DeckAnalysisPacketService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
@@ -120,19 +125,22 @@ internal static class TestServiceFactory
             commanderBanListService,
             scryfallSetService,
             commanderSpellbookService,
+            BuildAnalysisPromptRegistry(),
+            BuildSetUpgradePromptRegistry(),
+            new PacketSessionCache(),
             logger,
             null,
             executeCollectionAsync,
             executeSearchAsync,
             executeNamedAsync);
 
-    public static ChatGptDeckComparisonService CreateChatGptDeckComparisonService(
+    public static DeckComparisonService CreateDeckComparisonService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
         ArchidektParser archidektParser,
         ICommanderSpellbookService commanderSpellbookService,
-        ILogger<ChatGptDeckComparisonService>? logger = null,
+        ILogger<DeckComparisonService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
         => new(
@@ -143,12 +151,15 @@ internal static class TestServiceFactory
             moxfieldParser,
             archidektParser,
             commanderSpellbookService,
+            BuildComparisonPromptRegistry(),
+            BuildFollowUpPromptRegistry(),
+            new PacketSessionCache(),
             logger,
             null,
             executeCollectionAsync,
             executeSearchAsync);
 
-    public static ChatGptCedhMetaGapService CreateChatGptCedhMetaGapService(
+    public static MetaGapService CreateMetaGapService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
         MoxfieldParser moxfieldParser,
@@ -166,9 +177,51 @@ internal static class TestServiceFactory
             archidektParser,
             edhTop16Client,
             commanderSpellbookService,
+            BuildMetaGapPromptRegistry(),
+            new PacketSessionCache(),
             null,
             executeCollectionAsync,
             executeSearchAsync);
+
+    private static AnalysisPromptVariantRegistry BuildAnalysisPromptRegistry()
+        => new(new IAnalysisPromptVariant[]
+        {
+            new ChatGptAnalysisPromptVariant(),
+            new ClaudeAnalysisPromptVariant(),
+            new GeminiAnalysisPromptVariant(),
+        });
+
+    private static SetUpgradePromptVariantRegistry BuildSetUpgradePromptRegistry()
+        => new(new ISetUpgradePromptVariant[]
+        {
+            new ChatGptSetUpgradePromptVariant(),
+            new ClaudeSetUpgradePromptVariant(),
+            new GeminiSetUpgradePromptVariant(),
+        });
+
+    private static ComparisonPromptVariantRegistry BuildComparisonPromptRegistry()
+        => new(new IComparisonPromptVariant[]
+        {
+            new ChatGptComparisonPromptVariant(),
+            new ClaudeComparisonPromptVariant(),
+            new GeminiComparisonPromptVariant(),
+        });
+
+    private static FollowUpPromptVariantRegistry BuildFollowUpPromptRegistry()
+        => new(new IFollowUpPromptVariant[]
+        {
+            new ChatGptFollowUpPromptVariant(),
+            new ClaudeFollowUpPromptVariant(),
+            new GeminiFollowUpPromptVariant(),
+        });
+
+    private static MetaGapPromptVariantRegistry BuildMetaGapPromptRegistry()
+        => new(new IMetaGapPromptVariant[]
+        {
+            new ChatGptMetaGapPromptVariant(),
+            new ClaudeMetaGapPromptVariant(),
+            new GeminiMetaGapPromptVariant(),
+        });
 
     private static FakeScryfallRestClientFactory CreateScryfallRestClientFactory()
         => new(new HttpClient

@@ -6,6 +6,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="UpstreamErrorMessageBuilder"/> covering service-specific user-facing error message generation for 403, 429, and 5xx responses.
+/// </summary>
 public sealed class UpstreamErrorMessageBuilderTests
 {
     [Fact]

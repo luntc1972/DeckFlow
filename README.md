@@ -1,11 +1,11 @@
 # DeckFlow
 
-DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
+DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
 
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall and Commander Spellbook references.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and AI deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall and Commander Spellbook references.
 
 ## User Feedback
 
@@ -129,10 +129,18 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 ## Highlights
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
-- `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
+- `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
 - `DeckFlow.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
-- The ChatGPT Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
-- The cEDH Meta Gap page compares a submitted deck against 1 to 3 EDH Top 16 reference lists for the same commander, resolves canonical card names through Scryfall, injects Commander Spellbook combo references, generates a structured `meta_gap` ChatGPT prompt, and renders the returned JSON as a readable upgrade path.
+
+### What's new in v1.3
+- **AI-agnostic workflow URLs (v1.3 / Phase 12):** `/chatgpt-deck-analysis`, `/chatgpt-deck-comparison`, and `/chatgpt-cedh-meta-gap` now 301-redirect to `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`; page H1s, nav labels, hub labels, and artifact zip filenames use AI-agnostic wording.
+- **Claude JSON wrapper cleanup (v1.3 / Phase 999.2):** Claude prompt variants no longer ask Claude to wrap JSON in `<result>...</result>` tags; ChatGPT and Gemini variants are unchanged, and legacy zips still parse through the backward-compatible `<result>` branch.
+- **Packet download caching (v1.3 / Phase 999.3):** Deck Analysis, Deck Comparison, and cEDH Meta-Gap download endpoints reuse the Scryfall pipeline result built during preview, so a large Commander deck's download click completes in under 2 seconds instead of 2+ minutes. Cache is in-memory only (process-local, 5-minute TTL, 10MB cap); cache miss falls through silently to the full pipeline.
+- **Truncated AI response inline errors (v1.3 / Phase 999.4):** Truncated JSON pasted into the response textarea on Deck Analysis, Deck Comparison, or cEDH Meta-Gap now renders the inline workflow message "The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit." instead of a generic error page with a raw stack trace.
+- **Test hardening and semantic guards (v1.3 / Phase 999.5):** Four pre-existing test failures were fixed, `DeckComparisonService.ParseComparisonResponse` and `MetaGapService.ParseResponse` now reject valid JSON with no meaningful Deck Comparison or Meta-Gap content, and redundant ChatGPT `<result>` prompt directives were removed from five ChatGPT prompt variants.
+- **Harvest job lookup fix (v1.3 / Phase 999.6):** `IHarvestRunStore.GetByIdAsync(Guid id, CancellationToken ct = default)` lets `ArchidektCacheJobService.GetJob(jobId)` return completed and terminal harvest job states using provider-specific Guid binding for SQLite and Postgres.
+- The Deck Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
+- The cEDH Meta Gap page compares a submitted deck against 1 to 3 EDH Top 16 reference lists for the same commander, resolves canonical card names through Scryfall, injects Commander Spellbook combo references, generates a structured `meta_gap` AI prompt, and renders the returned JSON as a readable upgrade path.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
 - The DeckFlow Bridge browser extension lets DeckFlow fetch Moxfield decks from your logged-in browser session when the server path is blocked.
 - DeckFlow can optionally prompt users to install the included DeckFlow Bridge extension when a Moxfield URL import would otherwise be blocked from the server.
@@ -192,7 +200,7 @@ If `dotnet build DeckFlow.Web` reports a missing `tsc`, run the
 - A `Dockerfile`, `fly.toml`, and `render.yaml` ship at the repo root for one-command builds on Fly.io or Render.
 - For durable feedback and category cache storage without a persistent disk, configure Postgres with `DECKFLOW_DATABASE_PROVIDER=Postgres` and `DECKFLOW_DATABASE_CONNECTION_STRING=<Postgres connection string>`.
 - If you keep the default SQLite provider in a cloud host, set `MTG_DATA_DIR=/data` and mount a persistent volume there so `feedback.db` and `category-knowledge.db` survive deploys/restarts.
-- ChatGPT artifact folders are still filesystem-backed. Set `MTG_DATA_DIR=/data` and mount a persistent volume if saved ChatGPT sessions need to survive deploys/restarts.
+- AI session artifact folders are still filesystem-backed. Set `MTG_DATA_DIR=/data` and mount a persistent volume if saved AI sessions need to survive deploys/restarts.
 - The Dockerfile's entrypoint resolves `$PORT` at container start so platforms that inject a dynamic port (Render) work without changes.
 - **Moxfield URL caveat.** Moxfield's Cloudflare edge blocks requests from datacenter IP ranges with HTTP 403/5xx. When that happens, DeckFlow automatically falls back to Commander Spellbook's public `card-list-from-url` endpoint (which accepts the same Moxfield URL) and loads the deck from there instead. The UI surfaces a warning banner noting that card printings, set codes, collector numbers, author tags/categories, and sideboard/maybeboard entries are not available through the fallback. For full metadata, users should copy the Moxfield deck export text and paste it into the deck input directly — that path continues to work from anywhere.
 - **Optional browser-extension path.** The web UI now detects Moxfield deck URLs before submit. If the optional DeckFlow Bridge extension is installed and the current DeckFlow origin is allowed in extension settings, the browser fetches the Moxfield deck directly and submits it through the existing form flow. If the extension is not installed, DeckFlow can prompt the user with the included install page (`/extension-install.html`), which now serves a downloadable ZIP from `/extensions/deckflow-bridge.zip`. Browsers do not allow the site to silently install the extension. Mobile browsers are left on the normal server/fallback path and are not prompted for the extension.
@@ -210,9 +218,9 @@ If `dotnet build DeckFlow.Web` reports a missing `tsc`, run the
 
 ---
 
-## ChatGPT Analysis Workflow
+## Deck Analysis Workflow
 
-The ChatGPT Analysis page (`/Deck/ChatGptPackets`) guides you through a 5-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, Step 4 optionally generates a set-upgrade prompt using that parsed profile, and Step 5 parses and renders the returned `set_upgrade_report` JSON.
+The Deck Analysis page (`/deck-analysis`) guides you through a 5-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, Step 4 optionally generates a set-upgrade prompt using that parsed profile, and Step 5 parses and renders the returned `set_upgrade_report` JSON.
 
 ### Workflow layout modes
 Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expert**. They present the same underlying steps with different amounts of context and guidance text.
@@ -227,13 +235,13 @@ Configure the analysis:
 
 | Setting | Purpose |
 |---|---|
-| **Target Commander Bracket** | Bracket 1–5. ChatGPT uses this when evaluating card quality, interaction density, and upgrade suggestions. |
+| **Target Commander Bracket** | Bracket 1–5. Your AI uses this when evaluating card quality, interaction density, and upgrade suggestions. |
 | **Analysis questions** | Select one or more questions from the buckets below. |
 | **Card name** | Required when card-specific questions are selected. |
 | **Budget amount** | Required when the budget-upgrade question is selected. |
 | **Decklist export format** | Moxfield or Archidekt — required when category questions are selected; optional for versioning questions. |
-| **Include card versions** | When checked, the original deck's set code and collector number are sent so ChatGPT can preserve the exact printing for retained cards. |
-| **Preferred category names** | Shown when **Update categories** is selected. One name per line; ChatGPT will prefer these over inventing new ones. |
+| **Include card versions** | When checked, the original deck's set code and collector number are sent so your AI can preserve the exact printing for retained cards. |
+| **Preferred category names** | Shown when **Update categories** is selected. One name per line; your AI will prefer these over inventing new ones. |
 | **Protected cards** | Cards that must appear in every generated deck version. |
 
 Click **Generate Analysis Packet** to build the reference data and analysis prompt. The service:
@@ -242,12 +250,12 @@ Click **Generate Analysis Packet** to build the reference data and analysis prom
 - Fetches the Commander banned list.
 - Queries the Commander Spellbook API if combo questions are selected.
 - Fires the banned-list fetch, set-packet fetch, and Spellbook combo lookup concurrently to minimize wait time.
-- Generates a suggested ChatGPT conversation title displayed in the UI with a copy button.
+- Generates a suggested AI conversation title displayed in the UI with a copy button.
 
 The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to keep long prompts structured.
 
 ### Step 3 — Analysis Results
-Paste the fenced `deck_profile` JSON block or raw JSON payload returned from ChatGPT. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
+Paste the fenced `deck_profile` JSON block or raw JSON payload returned from your AI. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
 - Format and commander
 - Game plan, speed, primary axes, and synergy tags
 - Strengths, weaknesses, deck needs, and weak slots
@@ -257,27 +265,27 @@ Paste the fenced `deck_profile` JSON block or raw JSON payload returned from Cha
 This step is local to the returned JSON. It does not regenerate the analysis packet or call upstream services again.
 
 ### Step 4 — Set Upgrade (optional)
-Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. For Commander/precon-style sets (`commander`, `duel_deck`, `starter`), the packet is filtered to first-print cards only so reprints don't crowd out genuinely new candidates; standard expansions are unfiltered. The set dropdown loads asynchronously from `/api/set-options` so the page renders immediately. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it ChatGPT gets an empty schema and produces generic recommendations.
+Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks your AI to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. For Commander/precon-style sets (`commander`, `duel_deck`, `starter`), the packet is filtered to first-print cards only so reprints don't crowd out genuinely new candidates; standard expansions are unfiltered. The set dropdown loads asynchronously from `/api/set-options` so the page renders immediately. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it your AI gets an empty schema and produces generic recommendations.
 
 ### Step 5 — Set Upgrade Results (optional)
-Paste the fenced `set_upgrade_report` JSON block or raw JSON payload returned from ChatGPT. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
+Paste the fenced `set_upgrade_report` JSON block or raw JSON payload returned from your AI. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
 - Per-set panels: top adds with suggested cuts and reasoning, traps, and speculative tests
 - Final shortlist broken into must-test, optional, and skip columns
 
 Like Step 3, this step is local to the returned JSON. You can paste a saved `set_upgrade_report` JSON file here directly without re-running the earlier steps — Step 5 runs standalone when no deck source is present.
 
 ### Prompt output-format rules
-All ChatGPT prompts generated by this app (analysis, set-upgrade, deck comparison, meta-gap) explicitly instruct ChatGPT to return JSON inside a fenced ```` ```json ```` code block. Raw JSON outside a code block is rejected by the wording.
+All AI prompts generated by this app (analysis, set-upgrade, deck comparison, meta-gap) explicitly instruct your AI to return JSON inside a fenced ```` ```json ```` code block. Raw JSON outside a code block is rejected by the wording.
 
 ### Artifact saving (local download / upload)
-On the **ChatGPT Analysis** page, the Step 3 and Step 5 result panels include a **Download session (.zip)** button. The zip contains every artifact for the current run: the input summary, request context, prompts, schemas, and response JSON blobs. Files are stored only on your machine; no copy is retained server-side.
+On the **Deck Analysis** page, the Step 3 and Step 5 result panels include a **Download session (.zip)** button. The zip contains every artifact for the current run: the input summary, request context, prompts, schemas, and response JSON blobs. Files are stored only on your machine; no copy is retained server-side.
 
 To resume a saved run later, expand **Resume from a saved session (.zip)** at the top of the form, choose the previously downloaded zip, and the page rehydrates the response JSON into Step 3 or Step 5. The browser's busy indicator runs while the upload is processed.
 
 Zip contents:
-- **/chatgpt-packets**: `00-input-summary.txt`, `01-request-context.txt`, `30-reference.txt`, `31-analysis-prompt.txt`, `41-deck-profile-schema.json`, `50-set-upgrade-prompt.txt`, `40-deck-profile.json`, `51-set-upgrade-response.json`, `all-prompts.txt`, `all-responses.txt`
+- **/deck-analysis**: `00-input-summary.txt`, `01-request-context.txt`, `30-reference.txt`, `31-analysis-prompt.txt`, `41-deck-profile-schema.json`, `50-set-upgrade-prompt.txt`, `40-deck-profile.json`, `51-set-upgrade-response.json`, `all-prompts.txt`, `all-responses.txt`
 
-Re-import only consumes `40-deck-profile.json` and `51-set-upgrade-response.json`; the rest rides along for your records or future ChatGPT context.
+Re-import only consumes `40-deck-profile.json` and `51-set-upgrade-response.json`; the rest rides along for your records or future AI context.
 
 ---
 
@@ -299,7 +307,7 @@ Questions are grouped into collapsible buckets. Buckets with pre-selected questi
 | **Deck Versioning & Upgrade Paths** | Bracket 2/3/4/5 version, 3 named upgrade paths, assign categories, update categories |
 
 ### Deck Versioning output format
-When any versioning or category question is selected, the analysis prompt instructs ChatGPT to:
+When any versioning or category question is selected, the analysis prompt instructs your AI to:
 - Output the **full, complete 100-card decklist** for each generated version — no truncation, no "fill with basics" shorthand.
 - Count cards before responding to confirm the total reaches 100.
 - Use the deck builder's inline format when an export format is chosen:
@@ -310,24 +318,24 @@ When any versioning or category question is selected, the analysis prompt instru
 - When **Include card versions** is checked, preserve the original printing (set code + collector number) for every retained card.
 
 ### Category / tag questions
-- **Assign categories** — ChatGPT assigns functional role categories to every card in the deck. Plain text export is not supported; Moxfield or Archidekt format is required.
-- **Update categories** — ChatGPT updates or reassigns categories using the preferred category names you provide. Preferred names are injected into the prompt; ChatGPT may add new categories only when none of the preferred names fit.
-- Basic card types (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are excluded as categories. ChatGPT is instructed to use functional role labels instead (Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection, etc.).
+- **Assign categories** — Your AI assigns functional role categories to every card in the deck. Plain text export is not supported; Moxfield or Archidekt format is required.
+- **Update categories** — Your AI updates or reassigns categories using the preferred category names you provide. Preferred names are injected into the prompt; your AI may add new categories only when none of the preferred names fit.
+- Basic card types (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are excluded as categories. Your AI is instructed to use functional role labels instead (Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection, etc.).
 - For category questions, the prompt explicitly requires the final decklist to be returned only inside a fenced `text` code block so it can be pasted directly into Moxfield or Archidekt bulk edit.
 
 ### Commander Spellbook combo lookup
 When either combo question is selected, the service calls the Commander Spellbook `find-my-combos` API before building the prompt:
 - Returns up to 20 **included combos** (all pieces are in the deck) and up to 15 **almost-included combos** (exactly one card missing, within the deck's color identity).
 - Each combo entry lists the card names, results, and up to 300 characters of instructions.
-- Results are injected as a reference block in the prompt. ChatGPT is told to treat this data as authoritative.
+- Results are injected as a reference block in the prompt. Your AI is told to treat this data as authoritative.
 - Results are cached for 30 minutes keyed by the sorted deck card list.
 - API failures degrade gracefully — the analysis continues without combo data rather than failing.
 
 ---
 
-## ChatGPT Deck Comparison
+## Deck Comparison
 
-The Deck Comparison page (`/Deck/ChatGptDeckComparison`) generates structured ChatGPT prompts for comparing two Commander decklists side by side. It lives under the **ChatGPT** dropdown alongside the Analysis page.
+The Deck Comparison page (`/deck-comparison`) generates structured AI prompts for comparing two Commander decklists side by side. It lives alongside the Deck Analysis page in the Deck Tools tabs.
 
 ### Step 1 — Deck Setup
 Paste two decklists (Moxfield/Archidekt URL or plain-text export) and select a Commander Bracket for each deck. Optionally name each deck — the service falls back to the commander name if left blank.
@@ -338,13 +346,13 @@ The service:
 - Falls back to per-card Scryfall search when a submitted name is an alternate-art or Universes Beyond printing that does not round-trip through the collection endpoint cleanly, then labels rendered decklists as `resolved name [printed as: submitted name]`.
 - Queries Commander Spellbook for combos in each deck.
 - Builds a comparison context document with bracket definitions, role counts (ramp, draw, interaction, wipes, recursion, closing power), mana curves, color identity, category overlap, and combo gaps.
-- Generates a structured comparison prompt with `## TASK`, `## RULES`, `## COMPARISON AXES`, `## OUTPUT FORMAT`, deck sections, and comparison context. The prompt instructs ChatGPT to produce both a human-readable comparison and a fenced `json` block matching a `deck_comparison` schema.
+- Generates a structured comparison prompt with `## TASK`, `## RULES`, `## COMPARISON AXES`, `## OUTPUT FORMAT`, deck sections, and comparison context. The prompt instructs your AI to produce both a human-readable comparison and a fenced `json` block matching a `deck_comparison` schema.
 - Generates a follow-up prompt for iterative refinement of the comparison.
 
 Comparison axes include: commander role and game plan, speed and setup tempo, ramp, draw, spot interaction, sweepers, recursion, closing power (including combos), resilience, consistency, mana stability, commander dependence, table fit, major overlap/differences, and five concrete cards or packages that best explain the gap.
 
 ### Step 3 — Review Results
-Paste ChatGPT's JSON response back into the form. The page parses the `deck_comparison` JSON and renders a formatted view with:
+Paste your AI's JSON response back into the form. The page parses the `deck_comparison` JSON and renders a formatted view with:
 - Game plans and bracket labels for each deck
 - Strengths and weaknesses per deck
 - Key combos per deck
@@ -352,9 +360,9 @@ Paste ChatGPT's JSON response back into the form. The page parses the `deck_comp
 - Shared themes and major differences
 - Key gap cards or packages
 - Recommended-for notes per deck
-- Confidence notes (when ChatGPT flags uncertainty)
+- Confidence notes (when your AI flags uncertainty)
 
-If you continue asking follow-up questions in the same ChatGPT thread, use `32-comparison-follow-up-prompt.txt` to have ChatGPT revise the readable comparison and regenerate the full `deck_comparison` JSON block.
+If you continue asking follow-up questions in the same AI thread, use `32-comparison-follow-up-prompt.txt` to have your AI revise the readable comparison and regenerate the full `deck_comparison` JSON block.
 
 ### Artifact saving (local download / upload)
 On the **Deck Comparison** page, the Step 3 result panel includes a **Download comparison session (.zip)** button. The zip contains every artifact for the current run: the input summary, both normalized decklists, combo summaries, context, prompts, schema, and response JSON. Files are stored only on your machine; no copy is retained server-side.
@@ -362,18 +370,18 @@ On the **Deck Comparison** page, the Step 3 result panel includes a **Download c
 To resume a saved run later, expand **Resume from a saved session (.zip)** at the top of the form, choose the previously downloaded zip, and the page rehydrates the response JSON into Step 3. The browser's busy indicator runs while the upload is processed.
 
 Zip contents:
-- **/chatgpt-deck-comparison**: `00-comparison-input-summary.txt`, `10-deck-a-list.txt`, `11-deck-b-list.txt`, `12-deck-a-combos.txt`, `13-deck-b-combos.txt`, `20-comparison-context.txt`, `30-comparison-prompt.txt`, `31-comparison-schema.json`, `32-comparison-follow-up-prompt.txt`, `40-deck-comparison-response.json`
+- **/deck-comparison**: `00-comparison-input-summary.txt`, `10-deck-a-list.txt`, `11-deck-b-list.txt`, `12-deck-a-combos.txt`, `13-deck-b-combos.txt`, `20-comparison-context.txt`, `30-comparison-prompt.txt`, `31-comparison-schema.json`, `32-comparison-follow-up-prompt.txt`, `40-deck-comparison-response.json`
 
-Re-import only consumes `40-deck-comparison-response.json`; the rest rides along for your records or future ChatGPT context.
+Re-import only consumes `40-deck-comparison-response.json`; the rest rides along for your records or future AI context.
 
 ### Prompt templates
 The `prompt-templates/deck-comparison/` directory contains reference templates for compact and JSON-structured comparison prompts: all-in-one, competitive meta, matchup, quick verdict, JSON matchup, JSON strict return, and JSON tuning variants. See `docs/deck-comparison-prompt-cheat-sheet.md` for usage guidance.
 
 ---
 
-## ChatGPT cEDH Meta Gap
+## cEDH Meta Gap
 
-The cEDH Meta Gap page (`/chatgpt-cedh-meta-gap`) generates a structured ChatGPT workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
+The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
 
 ### Step 1 — Load Deck And Fetch References
 Paste a public Moxfield or Archidekt URL, or paste deck export text directly. You can optionally override the commander name. The page then queries EDH Top 16 using:
@@ -408,7 +416,7 @@ The prompt is structured with clear sections:
 - `OUTPUT CONTRACT`
 - `JSON SHAPE`
 
-ChatGPT is instructed to:
+Your AI is instructed to:
 
 - Write a concise human-readable meta-gap summary first.
 - Then return a fenced `json` block whose top-level object is `meta_gap`.
@@ -434,9 +442,9 @@ On the **cEDH Meta Gap** page, the Step 3 result panel includes a **Download met
 To resume a saved run later, expand **Resume from a saved session (.zip)** at the top of the form, choose the previously downloaded zip, and the page rehydrates the response JSON into Step 3. The browser's busy indicator runs while the upload is processed.
 
 Zip contents:
-- **/chatgpt-cedh-meta-gap**: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, `40-meta-gap-response.json`
+- **/cedh-meta-gap**: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, `40-meta-gap-response.json`
 
-Re-import only consumes `40-meta-gap-response.json`; the rest rides along for your records or future ChatGPT context.
+Re-import only consumes `40-meta-gap-response.json`; the rest rides along for your records or future AI context.
 
 ---
 
@@ -593,16 +601,16 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 ---
 
 ## Scryfall usage
-- Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the ChatGPT Analysis workflow, and async set catalog loading.
+- Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the Deck Analysis workflow, and async set catalog loading.
 - All Scryfall clients send a real `User-Agent`, an explicit `Accept` header, and use `https`.
 - Card lookup uses `POST /cards/collection` in batches of 75 identifiers.
 - The Card Lookup page is capped at 100 non-empty input lines per submission (at most two `cards/collection` requests plus one `cards/{id}/rulings` request per unique resolved card, all throttled).
-- The ChatGPT workflow uses the same batch endpoint to resolve authoritative Oracle text for all deck cards.
+- The AI workflow uses the same batch endpoint to resolve authoritative Oracle text for all deck cards.
 - The set catalog is fetched via `GET /sets` and cached in memory for 6 hours; the web UI loads it asynchronously via `/api/set-options`.
 
 ### Rate limiting
 - Scryfall enforces a soft cap of 10 requests per second at the Cloudflare edge (no proactive `X-RateLimit-*` headers on 200 responses; only `Retry-After` on 429).
-- `ChatGptDeckPacketService` throttles all Scryfall calls to ~110ms apart (≈9 req/s) via a process-wide semaphore so batched collection lookups plus per-card fallback searches stay under the cap.
+- `DeckAnalysisPacketService` throttles all Scryfall calls to ~110ms apart (≈9 req/s) via a process-wide semaphore so batched collection lookups plus per-card fallback searches stay under the cap.
 - On a 429 the wrapper reads `Retry-After` and retries once if the cooldown is ≤5 seconds; longer cooldowns surface as a friendly "Scryfall returned HTTP 429. Try again shortly." error instead of being misattributed to card/commander validation.
 - The CLI ships a diagnostic `scryfall-probe` command that calls Scryfall and dumps status, headers, and body — useful for reproducing rate-limit responses. Example: `dotnet run --project DeckFlow.CLI -- scryfall-probe --endpoint random --repeat 25` (intentionally triggers 429).
 
@@ -633,8 +641,8 @@ See [`browser-extensions/deckflow-bridge/README.md`](browser-extensions/deckflow
 - Core logic is isolated in `DeckFlow.Core` (diff engine, export helpers, parsers, integration clients, knowledge store).
 - Web and CLI layers orchestrate requests and rely on DI to resolve shared services.
 - Importers for Archidekt and Moxfield implement typed interfaces (`IMoxfieldDeckImporter`, `IArchidektDeckImporter`) for easy test substitution.
-- `ChatGptDeckPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
-- `ChatGptDeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured ChatGPT prompts with a JSON output schema.
+- `DeckAnalysisPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
+- `DeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured AI prompts with a JSON output schema.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
 - `CategoryKnowledgeStore` persists observations through the configured relational provider. SQLite stores `artifacts/category-knowledge.db` by default; Postgres can be selected with `DECKFLOW_DATABASE_PROVIDER=Postgres`.
 

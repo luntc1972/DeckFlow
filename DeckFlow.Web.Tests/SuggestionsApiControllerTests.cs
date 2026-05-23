@@ -16,6 +16,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="SuggestionsApiController"/> covering card and deck suggestion endpoints,
+/// input validation, and service error handling.
+/// </summary>
 public sealed class SuggestionsApiControllerTests
 {
     [Fact]

@@ -1,5 +1,8 @@
 namespace DeckFlow.Core.Storage;
 
+/// <summary>
+/// Postgres-specific SQL fragments and column type definitions for the DeckFlow relational schema.
+/// </summary>
 public sealed class PostgresRelationalDialect : IRelationalDialect
 {
     public static readonly PostgresRelationalDialect Instance = new();

@@ -1,5 +1,78 @@
 :root {
   --shell-max-width: 1120px;
+  /* WDG-08 finding O: signal user-agent that native chrome (scrollbars,
+     form controls) should follow each theme's light/dark intent. */
+  color-scheme: light dark;
+}
+
+/* === Cross-cutting a11y foundation (WDG-08, Phase 11 Sweep 1) ===
+   Source: .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md
+   findings O, P, Q, R + sticky-anchor jumps. Per CLAUDE.md D-07, cross-cutting
+   layout/a11y CSS lives in site-common.css so all 22 guild themes inherit
+   without per-fork edit. Do NOT duplicate these rules in site.css or theme forks. */
+
+/* Finding P: reduced-motion gate generalized app-wide. Supersedes the narrower
+   site.css block (spinner + hub-card only) via broader cascade. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Finding Q: remove 300ms tap delay on touch devices for interactive elements. */
+button,
+a,
+summary {
+  touch-action: manipulation;
+}
+
+/* Form-control text color fallback. Without this, inputs inherit the UA default
+   text color (Canvas/CanvasText), which the `color-scheme: light dark` declaration
+   above lets the browser flip to the OS-preferred scheme. On a light guild theme
+   under a dark OS, that produces near-white text on a near-white input bg, which
+   makes typed text invisible. All 22 guild themes set --ink, so binding input
+   color to --ink keeps text legible regardless of UA color-scheme negotiation.
+   Per-theme rules that explicitly set `color` still win via cascade. */
+textarea,
+input,
+select {
+  color: var(--ink);
+}
+
+/* Finding R: utility class for numeric columns (applied in later sweeps, e.g. WDG-06). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* In-page anchor jumps (heading IDs, back-to-top) should not land underneath
+   sticky chrome like .global-job-notice or .chatgpt-sticky-download. */
+h1,
+h2,
+h3,
+[id] {
+  scroll-margin-top: 4rem;
+}
+
+/* === WDG audit fixes (WDG-06, Phase 11 Sweep 6) — sr-only utility ===
+   Visually-hidden accessible text for <caption> elements (and any other off-screen
+   labels) so screen readers announce table purpose without affecting layout. Lives
+   in site-common.css per CLAUDE.md D-07 so all 22 guild themes inherit. Also
+   mirrored in admin.css since admin shell does not load site-common.css. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .page-shell {
@@ -1235,4 +1308,90 @@
     font-size: var(--fs-sm);
     color: var(--muted);
     margin: 8px 0 0 0;
+}
+
+/* === WDG audit fixes (WDG-04, Phase 11 Sweep 4) — Error page === */
+/* Replaces inline style= attributes on Views/Deck/Error.cshtml so the page
+   complies with strict CSP (style-src 'self'). Values preserved exactly from
+   the prior inline rules: margin-top:2rem; padding:1.5rem; on the panel,
+   margin-top:0; on the heading. See
+   .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md
+   finding D. */
+.error-page__panel {
+    margin-top: 2rem;
+    padding: 1.5rem;
+}
+
+.error-page__title {
+    margin-top: 0;
+}
+
+/* === WDG audit fixes (WDG-05, Phase 11 Sweep 8) — info-tooltip details/summary ===
+   Source: .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md finding F.
+   Per CLAUDE.md D-10 the info-tooltip "i" affordance migrated from
+   <span class="info-tooltip" title="…"> (mouse-only, SR hears bare "i") to
+   <details class="info-tooltip"><summary>i</summary><p>…</p></details>
+   for keyboard + screen-reader access with no JS. Per D-07 these layout rules
+   live in site-common.css so every theme fork inherits without per-fork edit.
+   The legacy circle styling in site.css:.info-tooltip {…} was authored for a
+   <span>; here we shift it onto the <summary> child and keep the <details>
+   itself inline so the indicator sits next to surrounding headings. */
+details.info-tooltip {
+    display: inline-block;
+    position: relative;
+    background: transparent;
+    color: inherit;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+
+details.info-tooltip > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+/* Hide the default disclosure triangle in browsers that still draw it. */
+details.info-tooltip > summary::-webkit-details-marker {
+    display: none;
+}
+details.info-tooltip > summary::marker {
+    content: "";
+}
+
+details.info-tooltip > summary:focus-visible {
+    outline: 2px solid var(--accent-strong, var(--accent));
+    outline-offset: 2px;
+}
+
+details.info-tooltip > p {
+    margin: 0.4rem 0 0 0;
+    padding: 0.5rem 0.75rem;
+    background: var(--panel-soft-bg, var(--surface, transparent));
+    color: var(--text, inherit);
+    border-radius: 0.25rem;
+    font-size: var(--fs-sm);
+    max-width: 32rem;
+}
+
+/* === Phase 12 (RENAME-02) — page-lede explainer line ===
+   Muted one-line explainer under an H1 on the three AI workflow pages.
+   Per CLAUDE.md D-07, cross-cutting rules live in site-common.css. */
+.page-lede {
+  margin: 0.25rem 0 1rem;
+  color: var(--muted);
+  font-size: var(--fs-base);
 }

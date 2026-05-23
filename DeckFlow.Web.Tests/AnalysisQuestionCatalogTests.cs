@@ -3,6 +3,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="AnalysisQuestionCatalog"/> covering placeholder resolution and catalog completeness.
+/// </summary>
 public sealed class AnalysisQuestionCatalogTests
 {
     [Fact]

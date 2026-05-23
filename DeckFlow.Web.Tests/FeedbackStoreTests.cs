@@ -1,10 +1,15 @@
 using System.IO;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Integration tests for <see cref="FeedbackStore"/> covering submission persistence, status updates,
+/// and retrieval ordering against a temporary SQLite database.
+/// </summary>
 public sealed class FeedbackStoreTests : IDisposable
 {
     private readonly string _dbPath;
@@ -20,6 +25,9 @@ public sealed class FeedbackStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
         }
     }
@@ -172,6 +180,9 @@ public sealed class FeedbackStoreTests : IDisposable
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             if (File.Exists(otherDb)) File.Delete(otherDb);
         }
     }

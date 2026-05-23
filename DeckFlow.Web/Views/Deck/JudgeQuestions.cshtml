@@ -49,7 +49,7 @@
         <div class="judge-suggested">
             <strong>Suggested opening message</strong>
             <p>Edit the question, then copy and paste into the judge chat:</p>
-            <textarea id="judge-suggested-message" spellcheck="false" rows="2" placeholder="Type your question after the card name">!@(prefilledName) — </textarea>
+            <textarea autocomplete="off" id="judge-suggested-message" spellcheck="false" rows="2" placeholder="Type your question after the card name">!@(prefilledName) — </textarea>
             <div class="toolbar">
                 <button type="button" class="copy-button" data-copy-target="judge-suggested-message">Copy</button>
             </div>
@@ -86,7 +86,7 @@
         </div>
         <label class="field">
             <span>Your question</span>
-            <textarea id="judge-question-text" rows="4" spellcheck="false"
+            <textarea autocomplete="off" id="judge-question-text" rows="4" spellcheck="false"
                       placeholder="e.g. If I copy a creature with [[Mirror Image]], do enters-the-battlefield triggers fire?"
                       data-judge-question-input></textarea>
         </label>
@@ -107,7 +107,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="judge-prompt-output">Copy</button>
         </div>
-        <textarea id="judge-prompt-output" readonly spellcheck="false" rows="14" data-judge-prompt-output></textarea>
+        <textarea autocomplete="off" id="judge-prompt-output" readonly spellcheck="false" rows="14" data-judge-prompt-output></textarea>
     </section>
 </section>
 

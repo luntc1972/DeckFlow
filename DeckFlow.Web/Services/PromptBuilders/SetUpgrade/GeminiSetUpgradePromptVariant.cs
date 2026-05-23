@@ -1,0 +1,209 @@
+using System.Text;
+using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
+
+namespace DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+
+// Helpers used: NormalizeSingleLine [promoted to internal on DeckAnalysisPacketService],
+// FormatBannedCardsLine [promoted to internal on DeckAnalysisPacketService].
+// CommanderBracketCatalog, JsonTextFormatterService are public statics.
+
+/// <summary>
+/// Builds a set-upgrade prompt body formatted for Gemini (markdown persona-scaffold with schema-strictness language).
+/// </summary>
+internal sealed class GeminiSetUpgradePromptVariant : ISetUpgradePromptVariant
+{
+    /// <summary>The AI platform this variant targets.</summary>
+    public AiPlatform Platform => AiPlatform.Gemini;
+
+    /// <summary>
+    /// Builds the Gemini-targeted set-upgrade prompt text for the given request.
+    /// Body is a byte-for-byte copy of the pre-refactor BuildSetUpgradePromptGemini switch arm (Phase 15-02).
+    /// </summary>
+    public string Build(
+        DeckAnalysisRequest request,
+        string decklistText,
+        string deckProfileJson,
+        string? commanderName,
+        string? generatedSetPacket,
+        IReadOnlyList<string> bannedCards)
+    {
+        var builder = new StringBuilder();
+        var upgradeFocus = request.SetUpgradeFocus.Trim();
+        var isLateralOnly = string.Equals(upgradeFocus, "lateral-moves", StringComparison.OrdinalIgnoreCase);
+        var isStrictOnly = string.Equals(upgradeFocus, "strict-upgrades", StringComparison.OrdinalIgnoreCase);
+        var isBoth = string.Equals(upgradeFocus, "both", StringComparison.OrdinalIgnoreCase);
+        var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
+
+        builder.AppendLine("You are an expert Magic: The Gathering analyst with deep cEDH metagame knowledge.");
+        builder.AppendLine("You analyze Commander decks rigorously and base every conclusion on observable card text and deck composition.");
+        builder.AppendLine();
+        builder.AppendLine("Think carefully through the problem before responding. Read every supplied section in full before forming any conclusion. When in doubt, prefer evidence-based caveats over confident speculation.");
+        builder.AppendLine();
+        builder.AppendLine("Analyze each selected set for possible additions to this deck, suggested removals for those additions, and any traps.");
+        builder.AppendLine("Read all supplied deck profile, decklist, and set packet data before beginning.");
+        builder.AppendLine();
+
+        builder.AppendLine("## DECK CONTEXT");
+        builder.AppendLine($"format: {DeckAnalysisPacketService.NormalizeSingleLine(request.Format, "Commander")}");
+        if (!string.IsNullOrWhiteSpace(commanderName))
+        {
+            builder.AppendLine($"commander: {commanderName}");
+        }
+        if (bracket is not null)
+        {
+            builder.AppendLine($"target_bracket: {bracket.Label}");
+        }
+
+        builder.AppendLine();
+
+        if (bracket is not null)
+        {
+            builder.AppendLine("## BRACKET GUIDANCE");
+            builder.AppendLine($"Target the Commander experience of {bracket.Label}.");
+            builder.AppendLine($"Bracket summary: {bracket.Summary}");
+            builder.AppendLine($"Turn expectation: {bracket.TurnsExpectation}");
+            builder.AppendLine("Evaluate all recommended additions and cuts against this bracket target. Flag any card that would push the deck above or below the target bracket as a trap.");
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("## EVIDENCE RULES");
+        builder.AppendLine("- Use the deck profile as authoritative for the deck's plan, strengths, weaknesses, and replaceable slots.");
+        builder.AppendLine("- Use the set mechanics and card reference as authoritative for set cards.");
+        builder.AppendLine("- Do not invent card text or rules.");
+        builder.AppendLine("- When a conclusion is based on the deck profile or set card text, say so briefly.");
+        builder.AppendLine("- When a conclusion is based on inference from deck construction or play patterns, label it as an inference.");
+        builder.AppendLine("- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- Cards listed under Possible Includes are not part of the current deck. Treat them only as candidate additions.");
+        builder.AppendLine($"- Do not recommend cards from the official Commander banned list: {DeckAnalysisPacketService.FormatBannedCardsLine(bannedCards)}");
+
+        if (isLateralOnly)
+        {
+            builder.AppendLine();
+            builder.AppendLine("## UPGRADE FOCUS: LATERAL MOVES ONLY");
+            builder.AppendLine("A lateral move fills the same role as a card already in the deck but offers a different angle, better synergy fit, or a more interesting effect at roughly the same power level.");
+            builder.AppendLine("For every lateral move, identify the current deck card it would replace and explain why the swap is worth considering.");
+            builder.AppendLine("Do not recommend cards that are simply stronger — flag those as traps if they would create a bracket or power mismatch.");
+        }
+        else if (isStrictOnly)
+        {
+            builder.AppendLine();
+            builder.AppendLine("## UPGRADE FOCUS: STRICT UPGRADES ONLY");
+            builder.AppendLine("A strict upgrade does the same job as a card already in the deck but is meaningfully more powerful, more efficient, or more synergistic with the deck's strategy.");
+            builder.AppendLine("For every strict upgrade, name the card it replaces and explain precisely why it is better in this deck's context.");
+            builder.AppendLine("Do not recommend lateral moves or speculative includes that are not clearly better than what the deck already runs.");
+        }
+        else if (isBoth)
+        {
+            builder.AppendLine();
+            builder.AppendLine("## UPGRADE FOCUS: STRICT UPGRADES AND LATERAL MOVES");
+            builder.AppendLine("Strict upgrade: meaningfully more powerful or efficient than a card already in the deck. Name the card being replaced and explain why it is better.");
+            builder.AppendLine("Lateral move: fills the same role as an existing card but offers a different angle, better synergy fit, or more interesting effect at roughly the same power level. Name the card being replaced and explain why the swap is worth considering.");
+            builder.AppendLine("Label each recommendation clearly as 'Strict Upgrade' or 'Lateral Move'.");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## OUTPUT FORMAT");
+        builder.AppendLine("Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.");
+        builder.AppendLine();
+        builder.AppendLine("Structure your readable analysis (placed BEFORE the <result> wrapper) as follows:");
+        builder.AppendLine();
+        builder.AppendLine("A. Per-set analysis — for each selected set, include:");
+        builder.AppendLine("   - Top adds from that set (with one sentence of reasoning each, tied to the deck profile)");
+        builder.AppendLine("   - Suggested removals for each add (name the card being cut and why it is the weakest slot)");
+        builder.AppendLine("   - Traps from that set (cards that look appealing but would hurt the deck's plan, bracket target, or consistency)");
+        builder.AppendLine("   - Speculative tests from that set (cards worth trying that lack enough data to confidently recommend — e.g. novel mechanics, unproven synergies, or meta-dependent value)");
+        builder.AppendLine();
+        builder.AppendLine("B. Final cross-set ranked shortlist:");
+        builder.AppendLine("   - must_test: cards you would actively slot in and play immediately — each entry MUST include a short reason, a suggested card to cut from the current deck to make room, and the cut reason.");
+        builder.AppendLine("   - optional: cards worth considering but not priority — each entry MUST include a short reason, a suggested card to cut, and the cut reason.");
+        builder.AppendLine("   - skip: cards to pass on — bare card names only, no explanation needed.");
+        builder.AppendLine("   Every add/cut reason must connect to the deck profile.");
+        builder.AppendLine();
+        builder.AppendLine("C. Return a complete set_upgrade_report JSON matching the schema at the end of this prompt. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
+        builder.AppendLine();
+        builder.AppendLine(JsonTextFormatterService.ResultWrapInstruction);
+        builder.AppendLine();
+        builder.AppendLine("D. Return a second fenced code block tagged as ```text named discussion_summary.txt.");
+        builder.AppendLine("   Include the per-set analysis in condensed form, final recommendations, reasoning behind key adds and cuts, and direct answers to the analysis questions — a standalone notes document.");
+
+        builder.AppendLine();
+        builder.AppendLine("## DECK PROFILE");
+        builder.AppendLine(deckProfileJson);
+        builder.AppendLine();
+        builder.AppendLine("## DECKLIST");
+        builder.AppendLine(decklistText);
+        builder.AppendLine();
+        builder.AppendLine("## SET PACKET");
+        var setPacket = !string.IsNullOrWhiteSpace(request.SetPacketText)
+            ? request.SetPacketText
+            : generatedSetPacket;
+        if (string.IsNullOrWhiteSpace(setPacket))
+        {
+            builder.AppendLine("Paste the condensed set packet here.");
+        }
+        else
+        {
+            builder.AppendLine(setPacket.Trim());
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## SET UPGRADE REPORT JSON SCHEMA");
+        builder.AppendLine("```json");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"set_upgrade_report\": {");
+        builder.AppendLine("    \"sets\": [");
+        builder.AppendLine("      {");
+        builder.AppendLine("        \"set_code\": \"\",");
+        builder.AppendLine("        \"set_name\": \"\",");
+        builder.AppendLine("        \"top_adds\": [");
+        builder.AppendLine("          {");
+        builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"reason\": \"\",");
+        builder.AppendLine("            \"suggested_cut\": \"\",");
+        builder.AppendLine("            \"cut_reason\": \"\"");
+        builder.AppendLine("          }");
+        builder.AppendLine("        ],");
+        builder.AppendLine("        \"traps\": [");
+        builder.AppendLine("          {");
+        builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"reason\": \"\"");
+        builder.AppendLine("          }");
+        builder.AppendLine("        ],");
+        builder.AppendLine("        \"speculative_tests\": [");
+        builder.AppendLine("          {");
+        builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"reason\": \"\"");
+        builder.AppendLine("          }");
+        builder.AppendLine("        ]");
+        builder.AppendLine("      }");
+        builder.AppendLine("    ],");
+        builder.AppendLine("    \"final_shortlist\": {");
+        builder.AppendLine("      \"must_test\": [");
+        builder.AppendLine("        {");
+        builder.AppendLine("          \"card\": \"\",");
+        builder.AppendLine("          \"reason\": \"\",");
+        builder.AppendLine("          \"suggested_cut\": \"\",");
+        builder.AppendLine("          \"cut_reason\": \"\"");
+        builder.AppendLine("        }");
+        builder.AppendLine("      ],");
+        builder.AppendLine("      \"optional\": [");
+        builder.AppendLine("        {");
+        builder.AppendLine("          \"card\": \"\",");
+        builder.AppendLine("          \"reason\": \"\",");
+        builder.AppendLine("          \"suggested_cut\": \"\",");
+        builder.AppendLine("          \"cut_reason\": \"\"");
+        builder.AppendLine("        }");
+        builder.AppendLine("      ],");
+        builder.AppendLine("      \"skip\": [\"\"]");
+        builder.AppendLine("    }");
+        builder.AppendLine("  }");
+        builder.AppendLine("}");
+        builder.AppendLine("```");
+
+        builder.AppendLine();
+        builder.AppendLine(JsonTextFormatterService.GeminiJsonMandate);
+        return builder.ToString().TrimEnd();
+    }
+}

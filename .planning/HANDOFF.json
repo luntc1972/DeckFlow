@@ -1,87 +1,51 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-12T21:26:59.582Z",
-  "previous_pause_timestamp": "2026-05-12T01:06:05.343Z",
-  "session_note": "No state change since prior pause — resumed, presented status, re-paused. Working tree, HEAD, blockers, next_action all unchanged.",
-  "phase": "10",
-  "phase_name": "claude-gemini-artifact-optimization",
-  "phase_dir": ".planning/phases/10-claude-gemini-artifact-optimization",
-  "milestone": "v1.2",
-  "branch": "v1.2",
-  "branch_state": "31 commits ahead of v1.2 baseline 26222f0; HEAD = 9673ccb (10-05 plan committed). 10-05 implementation tasks 1-9 done in working tree but uncommitted; task 10 awaits manual T3 retest then commit.",
-  "plan": "10-05",
-  "task": 10,
-  "total_tasks": 10,
-  "status": "paused_after_implementation_before_t3_retest",
-  "completed_tasks_this_session": [
-    {"id": "v1.2-T8", "name": "Integration test 8 — ChatGPT default flow zero-regression", "status": "passed", "type": "human-verify"},
-    {"id": "v1.2-T4", "name": "Integration test 4 — paste Claude artifact into claude.ai", "status": "passed", "type": "human-verify"},
-    {"id": "v1.2-T6", "name": "Integration test 6 — response paste-back NEW path (<result> wrap)", "status": "passed", "type": "human-verify"},
-    {"id": "v1.2-T7", "name": "Integration test 7 — response paste-back LEGACY path (fenced JSON)", "status": "passed", "type": "human-verify"},
-    {"id": "v1.2-T5-retest", "name": "Integration test 5 — Gemini paste (after a1ab008 fix)", "status": "passed-with-caveat", "type": "human-verify", "caveat": "Gemini emits raw JSON only (no <result> wrap). Parser legacy fallback handles it. Documented as Gemini quirk."},
-    {"id": "v1.2-filename-verify", "name": "Verify download filename pattern + sanitizer behavior", "status": "passed", "type": "human-verify"},
-    {"id": "fix-cedh-prompt-details-discoverability", "name": "Auto-open cEDH Step 2 prompt details panel on bootstrap (TS scrollChatGptCedhResults sets details.open = true)", "status": "done", "commit": "eccc1f9", "pushed": true},
-    {"id": "test-gemini-mandate-regression-guard", "name": "xUnit assertion that BuildAnalysisPrompt for Gemini ends with MANDATORY block", "status": "done", "commit": "753323e", "pushed": true},
-    {"id": "spec-10-05", "name": "Brainstormed + wrote spec for cEDH zip Step 1 round-trip", "status": "done", "commit": "d4494a9", "pushed": true},
-    {"id": "plan-10-05", "name": "Wrote 10-05-PLAN.md with 10 tasks", "status": "done", "commit": "9673ccb", "pushed": true},
-    {"id": "10-05-task-1", "name": "Add FetchedEntriesJson property to ChatGptCedhMetaGapRequest", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-2", "name": "Extend ChatGptRequestContextParser with new scalars + selected_reference_indexes list (TDD: 2 new tests pass)", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-3", "name": "Extend BuildRequestContextText to emit new state (TDD: 2 new tests pass)", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-4", "name": "Add 20-edh-top16-references.json artifact + extend BuildCedhMetaGapZip (TDD: 2 new tests pass)", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-5", "name": "Extend LoadCedhMetaGapFromZip + RestoredCedhMetaGapArtifacts.FetchedEntries + WorkflowStep heuristic (TDD: 4 new tests pass; 12/12 LoadCedhMetaGapFromZip tests pass total)", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-6", "name": "Service override branch — skip re-fetch when FetchedEntriesJson present (TDD: 2 new tests pass; 12/12 cEDH service tests pass total)", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-7", "name": "Wire DeckController.ChatGptCedhMetaGapDownload to pass result.FetchedEntries", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-8", "name": "Wire DeckController.ChatGptCedhMetaGapUpload — propagate entries to view model + serialize to request.FetchedEntriesJson", "status": "done", "commit": null, "uncommitted": true},
-    {"id": "10-05-task-9", "name": "Add hidden FetchedEntriesJson input to ChatGptCedhMetaGap.cshtml view", "status": "done", "commit": null, "uncommitted": true}
+  "timestamp": "2026-05-23T05:52:54Z",
+  "phase": "999.8",
+  "phase_name": "remove-chatgpt-redirects",
+  "phase_dir": ".planning/phases/999.8-remove-chatgpt-redirects",
+  "plan": 1,
+  "task": 1,
+  "total_tasks": 1,
+  "status": "complete-awaiting-verify",
+  "branch": "v1.3",
+  "head_commit": "4372de5",
+  "completed_tasks": [
+    {"id": "999.7-P01", "name": "STATE.md progress reconciliation (11/11/46/46/100)", "status": "done", "commit": "61f2971"},
+    {"id": "999.7-P02", "name": "REQUIREMENTS.md WDG-01..10 [x]", "status": "done", "commit": "900d656"},
+    {"id": "999.7-P03", "name": "5 Claude variant doc-comment cleanup (result-wrapped→direct JSON fenced-block)", "status": "done", "commit": "374a96d"},
+    {"id": "999.7-P04", "name": "DeckController F-02 asymmetry comment + 999.5-UAT status superseded-by-999.6", "status": "done", "commit": "339f9de"},
+    {"id": "999.7-closure", "name": "STATE + ROADMAP reflect 4/4 + drop stale .continue-here", "status": "done", "commit": "715c5b3"},
+    {"id": "999.7-UAT", "name": "Phase 999.7 UAT (machine-verified, all 7 SCs pass)", "status": "done", "commit": "38241e4"},
+    {"id": "999.8-P01", "name": "Strip UseRewriter block + Microsoft.AspNetCore.Rewrite using directive from Program.cs (numstat 0 22)", "status": "done", "commit": "ec47195"},
+    {"id": "999.8-closure", "name": "STATE + ROADMAP reflect 999.8 1/1 complete", "status": "done", "commit": "4372de5"}
   ],
   "remaining_tasks": [
-    {"id": "10-05-task-10a", "name": "Restart dev server, run manual T3 retest end-to-end (Claude AI selector → fetch → select → generate → download → re-upload → verify Step 1 state restored → click Generate WITHOUT re-fetch → verify prompt regenerates without edhtop16 call)", "status": "not_started", "type": "human-verify", "blocking_for_milestone_close": true},
-    {"id": "10-05-task-10b", "name": "Single commit landing all 10-05 source + test changes; push to origin/v1.2; per project memory plain default-author commit, no Co-Authored-By", "status": "not_started", "blocked_by": "10-05-task-10a"},
-    {"id": "milestone-close", "name": "Update STATE.md/ROADMAP.md, mark Phase 10 + v1.2 complete, decide v1.2 → main merge per branch policy", "status": "not_started", "blocked_by": "10-05-task-10b"}
+    {"id": "999.8-UAT", "name": "/gsd-verify-work 999.8 — machine-verifiable (single-plan doc-edit + middleware deletion)", "status": "not_started", "expected_outcome": "PASS — same pattern as 999.7 UAT"},
+    {"id": "v1.3-audit", "name": "/gsd-audit-milestone v1.3 — re-audit after 999.7+999.8 close out audit findings", "status": "not_started"},
+    {"id": "v1.3-complete", "name": "/gsd-complete-milestone v1.3 — archive completed milestone", "status": "not_started"},
+    {"id": "v1.3-ship", "name": "/gsd-ship v1.3 — PR + merge v1.3 → main", "status": "not_started"}
   ],
-  "blockers": [
-    {"description": "T3 manual retest is the only thing standing between current state and v1.2 milestone close", "type": "human_action", "workaround": "User runs the browser-side flow per 10-05-PLAN.md task 10 step 3 (a-n)"}
-  ],
+  "blockers": [],
   "human_actions_pending": [
-    {"action": "Hard-restart dev server (not just Ctrl+C — fully kill the dotnet process), then run T3 manual integration retest per 10-05-PLAN.md task 10 step 3", "context": "Phase 10 implementation tasks 1-9 done; full solution build clean; full Web test suite 420/426 (6 pre-existing flakes unchanged). Manual T3 is the milestone-close blocker.", "blocking": true},
-    {"action": "Decide v1.2 → main merge strategy (per project memory v1.2 work lives on v1.2 branch; main pinned at b09fd46 v1.1 + hotfixes)", "context": "Branch policy decision required after Phase 10 + v1.2 milestone close.", "blocking": false},
-    {"action": "Commit .planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md (untracked since 2026-05-10 morning)", "context": "Optional planning doc; commit when ready.", "blocking": false}
+    {"action": "Post-deploy SC6 curl verification after Render auto-deploys 4372de5: curl -I https://www.deckflow.gg/chatgpt-packets should return HTTP/2 404; curl -I https://www.deckflow.gg/deck-analysis should return HTTP/2 200", "context": "Phase 999.8 SC6 is the only out-of-plan-scope SC (post-deploy assertion). Render auto-deploys on v1.3 push.", "blocking": false},
+    {"action": "Decide commit-or-.gitignore for .planning/v1.3-MILESTONE-AUDIT.md (still untracked; Codex MED finding from 999.7 round 1 review)", "context": "Audit doc is the binding contract for 999.7 plans but never committed. Could be tracked under .planning/audits/ pattern or .gitignored as ephemeral working doc.", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Hidden form field carries FetchedEntries JSON between Step 2 submits", "rationale": "Stateless server, no session-affinity concern, sidesteps edhtop16 rate-limit on regenerate. Trade-off accepted: ~50-200KB hidden input per form post.", "phase": "10-05"},
-    {"decision": "WorkflowStep=2-when-entries-restored heuristic lives in LoadCedhMetaGapFromZip (loader), not the upload controller", "rationale": "Makes the heuristic unit-testable. Initial plan put it in controller; corrected during plan self-review.", "phase": "10-05"},
-    {"decision": "Gemini quirk acceptance — paste-flow Gemini emits raw JSON only (no <result> wrap)", "rationale": "Mandate (a1ab008) successfully forces JSON output but Gemini still ignores XML wrap. Parser legacy fallback handles raw JSON. Cost/benefit: not worth further prompt-engineering iteration without API-level structured-output enforcement.", "phase": "10"},
-    {"decision": "Auto-open cEDH Step 2 prompt details panel on bootstrap when result anchor is a <details>", "rationale": "User reported \"nothing generated\" because the prompt was rendered inside default-collapsed <details>. Targeted TS fix (HTMLDetailsElement.open=true on result anchor); Comparison + Packets unaffected (their anchors are textareas/sections).", "phase": "10"}
+    {"decision": "Cross-AI execute pattern: Codex applies edits + writes SUMMARY.md; orchestrator (Claude) commits + runs build/test gates", "rationale": "Codex sandbox is .git-readonly under workspace-write mode. Per CLAUDE.md Codex codes / Claude reviews rule. Build/test takes 30s — keeping it orchestrator-side avoids sandbox tool friction.", "phase": "999.7+999.8"},
+    {"decision": "Plan 999.7-04 PLAN.md acceptance criterion 'grep -c D-11 returns 1' was a planning-time miscount; HEAD already had 3 instances (one per download handler). Treated as pass since numstat 1 0 proves zero deletions and semantic intent (preserve verbatim) satisfied", "rationale": "Per session memory + Codex Round 2 review: tighten future Plan-04-style gates to handler-anchored awk-grep instead of file-wide grep -c expecting a specific count. Logged as v1.4 audit follow-up.", "phase": "999.7"},
+    {"decision": "Phase 999.8 single-plan deletion: Program.cs lines 7 (using) + 357-376 (comment + UseRewriter + 11 AddRedirect). numstat 0 22.", "rationale": "User decided 2026-05-22 that 11 chatgpt-* 301 redirects (shipped Phase 12, 2026-05-08) have been live 2+ weeks and can be retired. CSS classes / DOM data attributes / TS string constants / synthetic test slugs (HelpControllerTests, HelpContentServiceTests) remain — they are NOT URLs and are out of scope (deferred to v1.4 AI-agnostic styling backlog).", "phase": "999.8"}
   ],
   "uncommitted_files": [
-    "DeckFlow.Web/Models/ChatGptCedhMetaGapRequest.cs",
-    "DeckFlow.Web/Services/ChatGptRequestContextParser.cs",
-    "DeckFlow.Web/Services/ChatGptCedhMetaGapService.cs",
-    "DeckFlow.Web/Services/ChatGptPacketArtifactStore.cs",
-    "DeckFlow.Web/Controllers/DeckController.cs",
-    "DeckFlow.Web/Views/Deck/ChatGptCedhMetaGap.cshtml",
-    "DeckFlow.Web.Tests/ChatGptPhase10RoundTripTests.cs",
-    "DeckFlow.Web.Tests/ChatGptCedhMetaGapServiceTests.cs",
-    ".planning/STATE.md (session-continuity bookkeeping update)",
-    ".planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md (untracked since 2026-05-10 morning, leave alone per HANDOFF policy)"
+    ".claude/ (untracked — local IDE/agent config, ignored by convention)",
+    ".planning/phases/999.7-v1-3-audit-cleanup/.gitkeep (untracked — leftover from initial phase scaffold)",
+    ".planning/v1.3-MILESTONE-AUDIT.md (untracked — Codex MED finding pending decision: commit or .gitignore)"
   ],
-  "blocking_constraints": [
-    {
-      "name": "Stale dev server hides verified-correct binary changes",
-      "description": "User reported MANDATORY block missing from generated Gemini prompt artifact. Source verified correct (line 1491 of ChatGptDeckPacketService.cs). Compiled DLL verified to contain MANDATORY string (via `strings -e l` UTF-16 LE). Yet user's textarea showed no MANDATORY. Root cause: dev server was running an older binary loaded into memory; restart picked up the May-9 a1ab008 build and the mandate appeared.",
-      "severity": "advisory",
-      "mitigation": "When user-facing UI shows behavior that contradicts verified source+binary state, suspect dev server staleness FIRST. Have user fully kill dotnet process (not just Ctrl+C) and run `dotnet build && dotnet run` fresh before deeper debugging."
-    }
-  ],
-  "next_action": "Re-confirm coding mode (Claude Edit/Write direct OK for this session continuation per CLAUDE.md global rule). Then guide user through T3 manual retest per 10-05-PLAN.md task 10 step 3 (a-n). On pass: commit all uncommitted source + test files as a single 10-05 implementation commit, push to origin/v1.2, then advance to milestone close (STATE.md/ROADMAP.md update + v1.2→main merge decision).",
-  "context_notes": "v1.2 integration retest session ended with 8/8 verify items practical-passed (T1+T2 prior session; T4/T5/T6/T7/T8/filename-verify this session, T5 with documented Gemini-quirk caveat). Spec + plan for 10-05 (cEDH zip Step 1 round-trip) committed and pushed. 10-05 implementation tasks 1-9 done in working tree (build clean, all targeted unit tests pass: 2 parser + 2 BuildRequestContextText + 2 BuildCedhMetaGapZip + 4 LoadCedhMetaGapFromZip + 2 service-override = 12 new unit tests; full Web suite 420/426 with the 6 pre-existing flakes unchanged). Pause requested before T3 retest + commit. Mode this session: Claude Edit/Write direct (re-confirmed at session start). Codex MCP not used.",
-  "cumulative_metrics": {
-    "phase_10_commits_since_planning_baseline": 31,
-    "session_commits": ["eccc1f9", "753323e", "d4494a9", "9673ccb"],
-    "uncommitted_implementation_loc_estimate": "~330 source + ~390 tests",
-    "new_unit_tests_added_this_session": 13,
-    "build_status": "clean (0 warnings, 0 errors)",
-    "test_status": "Web 420/426 (6 pre-existing flakes); Core not re-run this session",
-    "branch_head": "9673ccb"
-  }
+  "test_baseline": {
+    "build": "0 Warning(s), 0 Error(s)",
+    "tests": "Failed:0 Passed:497 Skipped:3 Total:500 (DeckFlow.Web.Tests: 440 pass, 3 skip, 443 total; DeckFlow.Core.Tests: 57 pass, 57 total)",
+    "preserved_through": "Phase 999.6 PHASE EXIT GATE → 999.7 closure → 999.8 closure (3 consecutive phase verifications)"
+  },
+  "next_action": "/gsd-verify-work 999.8 — single-plan doc-edit + middleware deletion phase; machine-verifiable in one batch (no user-flow walkthrough needed); expected PASS. Then /gsd-audit-milestone v1.3 → /gsd-complete-milestone v1.3 → /gsd-ship v1.3.",
+  "context_notes": "v1.3 milestone is end-to-end shippable. 999.7 closed all audit findings (F-01, F-02, STATE arithmetic, WDG checkboxes, UAT label hygiene). 999.8 closed the user-decided redirect-removal. Both phases shipped under cross-AI rule (Codex codes, Claude reviews/orchestrates). Test baseline (497/3/500) preserved through 3 consecutive phase closures. Production v1.3 confirmed healthy on b86248e per S242 session (harvester ops verified). The only remaining surface for v1.4 audit is: (a) MILESTONE-AUDIT.md commit decision, (b) CSS/data-attr/TS-constant chatgpt-* sweep, (c) D-11 grep-gate hardening to handler-anchored awk-grep."
 }

@@ -2,6 +2,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Builds category knowledge rows from deck entries for persistence in the knowledge-cache database.
+/// </summary>
 public static class CategoryKnowledgeReporter
 {
     /// <summary>
@@ -153,4 +156,7 @@ public static class CategoryKnowledgeReporter
     }
 }
 
+    /// <summary>
+    /// Represents a single aggregated card-category observation row in the knowledge cache.
+    /// </summary>
     public sealed record CategoryKnowledgeRow(string Category, string CardName, int Count, int DeckCount = 0);

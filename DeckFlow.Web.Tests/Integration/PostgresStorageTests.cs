@@ -7,6 +7,10 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Integration;
 
+/// <summary>
+/// Integration tests for the Postgres storage path covering feedback and category knowledge persistence
+/// against a real PostgreSQL container started via <see cref="PostgresContainerFixture"/>.
+/// </summary>
 public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixture>
 {
     private readonly PostgresContainerFixture _fixture;

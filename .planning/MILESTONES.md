@@ -1,5 +1,42 @@
 # Milestones
 
+## v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (Shipped: 2026-05-23)
+
+**Phases completed:** 13 phases, 51 plans, 37 tasks
+
+**Key accomplishments:**
+
+- Five accessibility primitives (color-scheme, reduced-motion gate, touch-action, tabular-nums utility, scroll-margin-top) added to site-common.css so all 22 guild theme forks inherit them via cascade without per-fork edit.
+- Universal keyboard-focus indicator + color-scheme + tabular-nums added to admin.css, mirroring site.css:109-118 so the admin shell renders the same visible focus ring as the main shell.
+- One-liner:
+- One-liner:
+- 1. [Rule 3 - Blocking] Plan listed `DeckFlow.Web/Views/Deck/CedhMetaGap.cshtml`; the file on disk is `ChatGptCedhMetaGap.cshtml`
+- Sweep-applied autocomplete="url" + inputmode="url" + ellipsis placeholder to 6 URL inputs and autocomplete="off" to 49 user-paste textareas across 8 Razor views — WDG-09 closed.
+- One-liner:
+- Renamed the three Razor view files (`ChatGptPackets.cshtml` / `ChatGptDeckComparison.cshtml` / `ChatGptCedhMetaGap.cshtml`) to AI-agnostic names (`DeckAnalysis.cshtml` / `DeckComparison.cshtml` / `CedhMetaGap.cshtml`) using `git mv` for history preservation, and updated all 39 `return View("ChatGpt…", …)` literal strings in DeckController.cs so view lookup resolves to the renamed files. Closes the Phase 11 verification note flagging the CedhMetaGap.cshtml filename mismatch.
+- Closed the user-visible label half of RENAME-02 — added the Mock A `<p class="page-lede">` explainer paragraph under the H1 on all three AI workflow pages with exact D-07 copy, rebranded Page 1's H1 + browser title + nav label + hub-card title from `ChatGPT Analysis` to `Deck Analysis` per D-06 + D-09, swung all six remaining `~/chatgpt-` hrefs in `_DeckToolTabs.cshtml` (3) and `Home.cshtml` (4 including the hub-hero) to the new slugs, and added a cross-cutting `.page-lede` CSS rule to `site-common.css` (CLAUDE.md D-07 invariant — single source, NOT forked across any of the 22 guild themes). Pages 2 and 3 H1s left unchanged per D-06 (already AI-agnostic). Build clean against both `DeckFlow.Web.csproj` (Debug) and `DeckFlow.sln` (Release) with 0 warnings, 0 errors.
+- Ctor parameters + private fields (3 of each):
+- DeckControllerTests.cs (d7510da):
+- One-liner:
+- One-liner:
+- Commit 1
+- Gate 1 (warning count):
+- 1. [Rule 1 - Bug] Missing `using DeckFlow.Web.Services;` in Analysis family
+- AllForTesting internal seam added to AiPlatform.cs + 7-fact AiPlatformExtensionTests proving 4th-platform OCP extension with zero production edits (SC5 diff gate: PASS)
+- 1. chatgpt-step-eyebrow baseline count
+- One-liner:
+- Hybrid prose pattern applied to CedhMetaGap.cshtml (6 ChatGPT hits rewritten) and DeckComparison hub-card in Home.cshtml generalized to "AI-authored breakdown"
+- 10 InvalidOperationException strings across 3 C# service files rewritten to AI-agnostic phrasing, blocking page error banner from naming ChatGPT for Claude/Gemini users
+- One-liner:
+- README brand-neutralized (29 ChatGPT → AI generalizations), full-phase invariants grep gate PASS, `dotnet build Release` clean, human UAT approved.
+- Found during:
+- One-liner:
+- One-liner:
+- One-liner:
+- STATE.md progress frontmatter now reports the SC1 literal v1.3 post-completion target: 11/11 phases, 46/46 plans, 100 percent.
+
+---
+
 ## v1.2 Multi-AI Prompts (Shipped: 2026-05-13)
 
 **Phases completed:** 2 phases, 8 plans, 22 tasks

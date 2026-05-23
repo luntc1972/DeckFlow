@@ -147,7 +147,7 @@ decksyncworkbench/
 **`DeckFlow.Web/Services/`:**
 - Purpose: Application logic, external HTTP adapters, persistence stores, ChatGPT packet builders.
 - Contains: Concrete services (often with their interface declared in the same file) and a sub-folder `Http/` for HTTP infrastructure.
-- Key files: `DeckSyncService.cs`, `CategorySuggestionService.cs`, `ScryfallTaggerService.cs`, `TaggerSessionCache.cs`, `ScryfallThrottle.cs`, `Http/ResiliencePipelineFactory.cs`, `FeedbackStore.cs`, `CategoryKnowledgeStore.cs`, `ArchidektCacheJobService.cs`.
+- Key files: `DeckSyncService.cs`, `CategorySuggestionService.cs`, `ScryfallTaggerLookupService.cs`, `TaggerSessionCache.cs`, `ScryfallThrottle.cs`, `Http/ResiliencePipelineFactory.cs`, `FeedbackStore.cs`, `CategoryKnowledgeStore.cs`, `ArchidektCacheJobService.cs`.
 
 **`DeckFlow.Web/Models/`:**
 - Purpose: View models and request/response DTOs.

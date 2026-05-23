@@ -3,6 +3,9 @@ using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Reporting;
 
+/// <summary>
+/// Produces human-readable reconciliation reports describing category gaps between Moxfield and Archidekt decks.
+/// </summary>
 public static class ReconciliationReporter
 {
     public const string CategoryFixInstructions =

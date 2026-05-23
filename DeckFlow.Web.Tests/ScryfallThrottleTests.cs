@@ -6,6 +6,9 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallThrottle"/> covering rate-limit enforcement, 429/5xx exception throwing, and concurrency gating.
+/// </summary>
 public sealed class ScryfallThrottleTests
 {
     [Fact]
@@ -60,7 +63,7 @@ public sealed class ScryfallThrottleTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_Generic_DoesNotRetryFor429WithoutRetryAfter()
+    public async Task ExecuteAsync_Generic_RetriesFor429WithFallbackDelay_WhenRetryAfterMissing()
     {
         var response = CreateResponse<int>(HttpStatusCode.TooManyRequests);
         var calls = 0;
@@ -72,7 +75,8 @@ public sealed class ScryfallThrottleTests
         }, CancellationToken.None);
 
         Assert.Same(response, result);
-        Assert.Equal(1, calls);
+        // MaxRetryAttempts (=2) + 1 initial call = 3 total; ScryfallThrottle.cs:30 const is private — see CONTEXT D-06 / Codex 2026-05-21 verification.
+        Assert.Equal(3, calls);
     }
 
     [Fact]
@@ -125,7 +129,7 @@ public sealed class ScryfallThrottleTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NonGeneric_DoesNotRetryFor429WithoutRetryAfter()
+    public async Task ExecuteAsync_NonGeneric_RetriesFor429WithFallbackDelay_WhenRetryAfterMissing()
     {
         var response = CreateResponse(HttpStatusCode.TooManyRequests);
         var calls = 0;
@@ -137,7 +141,8 @@ public sealed class ScryfallThrottleTests
         }, CancellationToken.None);
 
         Assert.Same(response, result);
-        Assert.Equal(1, calls);
+        // MaxRetryAttempts (=2) + 1 initial call = 3 total; ScryfallThrottle.cs:30 const is private — see CONTEXT D-06 / Codex 2026-05-21 verification.
+        Assert.Equal(3, calls);
     }
 
     [Fact]
