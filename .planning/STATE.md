@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: executing
-stopped_at: "Phase 999.6 P03 complete — atomic F-PROD-CONTRACT fix commit d758609 (debug doc + `IHarvestRunStore.GetByIdAsync` + `HarvestRunStore` SQLite/Postgres impl with `_connectionInfo.IsPostgres ? (object)id : id.ToString()` binding + `ArchidektCacheJobService.GetJob` rewire + `FakeHarvestRunStore` async wrapper bundled per D-18) + SUMMARY commit 1adf65b. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:14,Total:14). Full-suite gate 5/5 deterministic (Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57 — Failed delta 2→0; phase-wide 9→0). D-15 fired (real production bug shipped inside 999.6). D-23 STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 (NOT toggled by execute-plan agent)."
-last_updated: "2026-05-22T22:17:28.000Z"
+stopped_at: "Phase 999.7 execution complete (4/4 plans, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04). All 7 success criteria satisfied: SC1 STATE.md 11/11/46/46/100, SC2 WDG-01..10 [x], SC3 5 Claude variants updated (full-grep scope per Codex review HIGH #1 Option A), SC4 DeckController F-02 asymmetry comment, SC5 999.5-UAT status superseded-by-999.6, SC6 Release build 0 warnings/0 errors, SC7 test suite Failed:0 Passed:497 Skipped:3 Total:500 (Phase 999.6 PHASE EXIT GATE baseline preserved). All edits via Codex cross-AI dispatch per CLAUDE.md rule; orchestrator (Claude) committed + ran build/test gates. Plan 04 PLAN.md acceptance criterion `grep -c D-11 returns 1` was a planning-time miscount (HEAD already had 3 instances, all preserved verbatim); numstat 1 0 proves zero deletions. Phase 999.8 (legacy chatgpt-* redirect removal) is next on v1.3."
+last_updated: "2026-05-23T04:32:00.000Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 11
@@ -37,10 +37,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 Phase: 999.7
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-22 -- Phase 999.7 planning complete
-Progress: v1.3 11/11 production+backlog phases complete (Phases 11-15 + 999.1-999.6); Phase 999.7 inserted for doc/state cleanup before milestone archive
+Plan: 4/4 complete
+Status: Completed (awaiting /gsd-verify-work)
+Last activity: 2026-05-22 -- Phase 999.7 execution complete (4 commits, 7/7 SCs satisfied, test suite at 999.6 baseline)
+Progress: v1.3 11/11 production+backlog phases complete + 999.7 meta-audit cleanup done; Phase 999.8 (legacy chatgpt-* redirect removal) next
 
 ## Performance Metrics
 
@@ -142,6 +142,6 @@ Next action on resume: `/gsd-verify-work 999.6` — re-validate the closing full
 
 ## Operator Next Steps
 
-- **P03 COMPLETE** (2026-05-22, commits d758609 + 1adf65b). PHASE EXIT GATE SATISFIED: full-suite 5/5 deterministic `Failed: 0, Passed: 440 + 57 = 497, Skipped: 3, Total: 443 + 57 = 500` across DeckFlow.Web.Tests + DeckFlow.Core.Tests.
-- **Next:** `/gsd-verify-work 999.6` to restore STATE.md `ready_to_ship` per D-23 → `/gsd-audit-milestone v1.3` → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` to publish v1.3 to main.
-- Other deferred (NOT in 999.6 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
+- **Phase 999.7 COMPLETE** (2026-05-22, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04). All 7 SCs satisfied. Build green 0/0 warnings/errors. Tests Failed:0 Passed:497 Skipped:3 Total:500 — Phase 999.6 PHASE EXIT GATE baseline preserved (doc-only sweep, IL byte-symmetric).
+- **Next:** `/gsd-verify-work 999.7` → `/gsd-execute-phase 999.8` (legacy chatgpt-* redirect removal) → `/gsd-audit-milestone v1.3` (re-audit) → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` to publish v1.3 to main.
+- Other deferred (NOT in 999.7 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
