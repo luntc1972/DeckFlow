@@ -16,15 +16,14 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ## Current Milestone: v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 
-**Goal:** Land 4 v1.3 backlog items (admin focus-trapped modal, doc-comment NoWarn backlog, Gemini paste-limit unblock, admin pages mobile-responsive sweep) and ship Phase 1 of the Content Knowledge Base — admin-curated YouTube channel + podcast list, transcript ingestion (YouTube captions + Whisper fallback with monthly $ cap), per-video LLM summary + per-clip timestamped excerpts, tagged by archetype/strategy + format/bracket + card category. Deck-analysis integration (prompt injection + UI panel) and new-deck-building guide DEFERRED to v1.5.
+**Goal:** Land 3 v1.3 backlog items (admin focus-trapped modal, doc-comment NoWarn backlog, admin pages mobile-responsive sweep) and ship Phase 1 of the Content Knowledge Base — admin-curated YouTube channel + podcast list, transcript ingestion (YouTube captions + Whisper fallback with monthly $ cap), per-video LLM summary + per-clip timestamped excerpts, tagged by archetype/strategy + format/bracket + card category. Deck-analysis integration (prompt injection + UI panel), new-deck-building guide, AND Gemini paste-limit unblock DEFERRED to v1.5.
 
 **Target features:**
 
 1. **Admin focus-trapped modal (WDG-04 modal)** — replace deferred `onsubmit` confirm in AdminFeedback/Detail.cshtml with styled focus-trapped modal; close v1.3 WDG-04 override
 2. **Doc-comment NoWarn backlog** — strip `NoWarn 1591;1573;1587` from DeckFlow.Web.csproj; backfill XML `<summary>` doc-comments on ~88 v1.1-era undocumented Web types (controllers, services, models, view models)
-3. **Gemini paste-limit workaround** — unblock `DECKFLOW_GEMINI_ENABLED` env flag (split-message prompt strategy OR direct Gemini API integration); ship Gemini live
-4. **Admin pages mobile-responsive sweep** — extend WDG-04 site-common.css a11y primitives (touch-action, focus-visible, ≥44px touch targets) to admin shell; admin.css responsive rules; sidebar collapse on narrow viewports; admin tables overflow-x or card-stack pattern; forms single-column on narrow
-5. **Content Knowledge Base Phase 1 (ingestion + storage)**:
+3. **Admin pages mobile-responsive sweep** — extend WDG-04 site-common.css a11y primitives (touch-action, focus-visible, ≥44px touch targets) to admin shell; admin.css responsive rules; sidebar collapse on narrow viewports; admin tables overflow-x or card-stack pattern; forms single-column on narrow
+4. **Content Knowledge Base Phase 1 (ingestion + storage)**:
    - Admin-managed curated source list (YouTube channels + podcast RSS feeds): CRUD UI + Postgres tables
    - Transcript pipeline: YouTube auto-captions first; Whisper API fallback for missing captions / audio-only podcasts
    - Per-video LLM summary + per-clip timestamped excerpts
@@ -38,6 +37,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - Deck-analysis integration of content (prompt injection + DeckFlow UI "What experts say" panel)
 - New-deck-building guide (interactive wizard)
 - Scheduled (cron) harvest cadence
+- Gemini paste-limit workaround (DECKFLOW_GEMINI_ENABLED stays flag-gated through v1.4)
 
 **Other v1.3 candidates NOT in v1.4 scope (v1.5+):**
 - IN-01 _AiSelector vs view-level Normalize Gemini-flag fallback divergence
