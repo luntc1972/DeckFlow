@@ -8,7 +8,7 @@ namespace DeckFlow.Web.Services.PromptBuilders.Comparison;
 // JsonTextFormatterService is a public static.
 
 /// <summary>
-/// Builds a deck-comparison prompt body formatted for Claude (XML-tagged prompts with result-wrapped output).
+/// Builds a deck-comparison prompt body formatted for Claude (XML-tagged prompts with direct JSON fenced-block output).
 /// </summary>
 internal sealed class ClaudeComparisonPromptVariant : IComparisonPromptVariant
 {

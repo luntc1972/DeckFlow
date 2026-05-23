@@ -9,7 +9,7 @@ namespace DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 // CommanderBracketCatalog, JsonTextFormatterService are public statics.
 
 /// <summary>
-/// Builds a set-upgrade prompt body formatted for Claude (XML-tagged prompts with result-wrapped output).
+/// Builds a set-upgrade prompt body formatted for Claude (XML-tagged prompts with direct JSON fenced-block output).
 /// </summary>
 internal sealed class ClaudeSetUpgradePromptVariant : ISetUpgradePromptVariant
 {

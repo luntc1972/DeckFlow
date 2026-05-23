@@ -11,7 +11,7 @@ namespace DeckFlow.Web.Services.PromptBuilders.Analysis;
 // CommanderBracketCatalog, AnalysisQuestionCatalog, JsonTextFormatterService are public statics.
 
 /// <summary>
-/// Builds a deck-analysis prompt body formatted for Claude (XML-tagged prompts with result-wrapped output).
+/// Builds a deck-analysis prompt body formatted for Claude (XML-tagged prompts with direct JSON fenced-block output).
 /// </summary>
 internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
 {

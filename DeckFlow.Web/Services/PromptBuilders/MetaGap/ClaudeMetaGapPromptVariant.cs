@@ -10,7 +10,7 @@ namespace DeckFlow.Web.Services.PromptBuilders.MetaGap;
 // JsonTextFormatterService is a public static.
 
 /// <summary>
-/// Builds a cEDH meta-gap prompt body formatted for Claude (XML-tagged prompts with result-wrapped output).
+/// Builds a cEDH meta-gap prompt body formatted for Claude (XML-tagged prompts with direct JSON fenced-block output).
 /// </summary>
 internal sealed class ClaudeMetaGapPromptVariant : IMetaGapPromptVariant
 {
