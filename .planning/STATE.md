@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
 status: executing
 stopped_at: "Phase 999.7 execution complete (4/4 plans, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04). All 7 success criteria satisfied: SC1 STATE.md 11/11/46/46/100, SC2 WDG-01..10 [x], SC3 5 Claude variants updated (full-grep scope per Codex review HIGH #1 Option A), SC4 DeckController F-02 asymmetry comment, SC5 999.5-UAT status superseded-by-999.6, SC6 Release build 0 warnings/0 errors, SC7 test suite Failed:0 Passed:497 Skipped:3 Total:500 (Phase 999.6 PHASE EXIT GATE baseline preserved). All edits via Codex cross-AI dispatch per CLAUDE.md rule; orchestrator (Claude) committed + ran build/test gates. Plan 04 PLAN.md acceptance criterion `grep -c D-11 returns 1` was a planning-time miscount (HEAD already had 3 instances, all preserved verbatim); numstat 1 0 proves zero deletions. Phase 999.8 (legacy chatgpt-* redirect removal) is next on v1.3."
-last_updated: "2026-05-23T04:32:00.000Z"
+last_updated: "2026-05-23T05:45:00.000Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 11
@@ -36,11 +36,11 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 ## Current Position
 
 Milestone: v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-Phase: 999.7
-Plan: 4/4 complete
+Phase: 999.8
+Plan: 1/1 complete
 Status: Completed (awaiting /gsd-verify-work)
-Last activity: 2026-05-22 -- Phase 999.7 execution complete (4 commits, 7/7 SCs satisfied, test suite at 999.6 baseline)
-Progress: v1.3 11/11 production+backlog phases complete + 999.7 meta-audit cleanup done; Phase 999.8 (legacy chatgpt-* redirect removal) next
+Last activity: 2026-05-22 -- Phase 999.8 execution complete (commit ec47195 — UseRewriter block + Rewrite using directive stripped, 22 deletions, tests at 999.7 baseline)
+Progress: v1.3 11/11 production+backlog phases complete + 999.7 meta-audit cleanup done + 999.8 legacy redirect removal done; ready for /gsd-audit-milestone v1.3 → /gsd-complete-milestone v1.3 → /gsd-ship v1.3
 
 ## Performance Metrics
 
@@ -142,6 +142,7 @@ Next action on resume: `/gsd-verify-work 999.6` — re-validate the closing full
 
 ## Operator Next Steps
 
-- **Phase 999.7 COMPLETE** (2026-05-22, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04). All 7 SCs satisfied. Build green 0/0 warnings/errors. Tests Failed:0 Passed:497 Skipped:3 Total:500 — Phase 999.6 PHASE EXIT GATE baseline preserved (doc-only sweep, IL byte-symmetric).
-- **Next:** `/gsd-verify-work 999.7` → `/gsd-execute-phase 999.8` (legacy chatgpt-* redirect removal) → `/gsd-audit-milestone v1.3` (re-audit) → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` to publish v1.3 to main.
-- Other deferred (NOT in 999.7 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row.
+- **Phase 999.7 COMPLETE** (2026-05-22, commits 61f2971 P01 + 900d656 P02 + 374a96d P03 + 339f9de P04 + 715c5b3 closure + 38241e4 UAT). All 7 SCs satisfied; UAT pass.
+- **Phase 999.8 COMPLETE** (2026-05-22, commit ec47195). SC1: 0 UseRewriter/AddRedirect/Microsoft.AspNetCore.Rewrite refs in Program.cs. SC2: using directive removed. SC3: 0 orphan chatgpt-* URL refs in Program.cs. SC4: build 0/0 warnings/errors. SC5: tests Failed:0 Passed:497 Skipped:3 Total:500 (999.7 baseline preserved). SC6: post-deploy curl verification deferred to operator after Render deploy.
+- **Next:** `/gsd-verify-work 999.8` → `/gsd-audit-milestone v1.3` (re-audit) → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` to publish v1.3 to main.
+- Other deferred (NOT in 999.7 or 999.8 scope): Gemini paste-limit workaround (flag-gated), v1.1 phase-dir archive move (v1.4 cleanup), edhtop16 filter-defaults backlog row, CSS-class/data-attribute/TS-constant chatgpt-* cleanup (v1.4 AI-agnostic styling backlog).
