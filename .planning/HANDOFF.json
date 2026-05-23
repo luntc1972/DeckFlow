@@ -1,54 +1,51 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-22T20:39:59Z",
-  "phase": "999.7",
-  "phase_name": "v1-3-audit-cleanup",
-  "phase_dir": ".planning/phases/999.7-v1-3-audit-cleanup",
-  "plan": null,
-  "task": null,
-  "total_tasks": 4,
-  "status": "paused",
-  "stage": "post-plan-codex-review-2HIGH-pending-replan-AND-prod-harvester-bug-surfaced",
+  "timestamp": "2026-05-23T05:52:54Z",
+  "phase": "999.8",
+  "phase_name": "remove-chatgpt-redirects",
+  "phase_dir": ".planning/phases/999.8-remove-chatgpt-redirects",
+  "plan": 1,
+  "task": 1,
+  "total_tasks": 1,
+  "status": "complete-awaiting-verify",
   "branch": "v1.3",
-  "head_commit": "664f1da",
+  "head_commit": "4372de5",
   "completed_tasks": [
-    {"id": "plan-999.7", "name": "Plan Phase 999.7 (4 plans, 1 wave, all autonomous; plan-checker iteration 2/3 passed)", "status": "done", "commit": "254df9e"},
-    {"id": "review-999.7", "name": "Codex peer review of 999.7 plans — 2 HIGH + 4 MED + 4 LOW findings, all clustered on Plan 03", "status": "done", "commit": "664f1da"}
+    {"id": "999.7-P01", "name": "STATE.md progress reconciliation (11/11/46/46/100)", "status": "done", "commit": "61f2971"},
+    {"id": "999.7-P02", "name": "REQUIREMENTS.md WDG-01..10 [x]", "status": "done", "commit": "900d656"},
+    {"id": "999.7-P03", "name": "5 Claude variant doc-comment cleanup (result-wrapped→direct JSON fenced-block)", "status": "done", "commit": "374a96d"},
+    {"id": "999.7-P04", "name": "DeckController F-02 asymmetry comment + 999.5-UAT status superseded-by-999.6", "status": "done", "commit": "339f9de"},
+    {"id": "999.7-closure", "name": "STATE + ROADMAP reflect 4/4 + drop stale .continue-here", "status": "done", "commit": "715c5b3"},
+    {"id": "999.7-UAT", "name": "Phase 999.7 UAT (machine-verified, all 7 SCs pass)", "status": "done", "commit": "38241e4"},
+    {"id": "999.8-P01", "name": "Strip UseRewriter block + Microsoft.AspNetCore.Rewrite using directive from Program.cs (numstat 0 22)", "status": "done", "commit": "ec47195"},
+    {"id": "999.8-closure", "name": "STATE + ROADMAP reflect 999.8 1/1 complete", "status": "done", "commit": "4372de5"}
   ],
   "remaining_tasks": [
-    {"id": "harvester-bug-prod", "name": "URGENT: /Admin/Harvest broken on prod v1.3 — jobs stuck Queued, worker likely dead. Diagnose + Codex applies fix.", "status": "not_started", "urgency": "production"},
-    {"id": "999.7-replan", "name": "Replan Plan 03 via /gsd:plan-phase 999.7 --reviews — Codex HIGH: repo has 5 Claude variants with 'result-wrapped output', Plan 03 only targets 3", "status": "not_started"},
-    {"id": "999.7-execute", "name": "Execute Phase 999.7 plans via /gsd-execute-phase 999.7 (Codex executor per CLAUDE.md cross-AI rule)", "status": "blocked_on_replan"},
-    {"id": "redirects-removal", "name": "Remove 11 chatgpt-* 301 redirects from Phase 12 — user requested 2026-05-22; capture as Phase 999.8 or v1.4 scope", "status": "not_started"},
-    {"id": "milestone-audit-tracking", "name": "Commit or .gitignore .planning/v1.3-MILESTONE-AUDIT.md (currently untracked; Codex flagged plans depend on it)", "status": "not_started"}
+    {"id": "999.8-UAT", "name": "/gsd-verify-work 999.8 — machine-verifiable (single-plan doc-edit + middleware deletion)", "status": "not_started", "expected_outcome": "PASS — same pattern as 999.7 UAT"},
+    {"id": "v1.3-audit", "name": "/gsd-audit-milestone v1.3 — re-audit after 999.7+999.8 close out audit findings", "status": "not_started"},
+    {"id": "v1.3-complete", "name": "/gsd-complete-milestone v1.3 — archive completed milestone", "status": "not_started"},
+    {"id": "v1.3-ship", "name": "/gsd-ship v1.3 — PR + merge v1.3 → main", "status": "not_started"}
   ],
-  "blockers": [
-    {
-      "description": "Production /Admin/Harvest broken — POST /Admin/Harvest/run returns state:Queued, jobId set, startedUtc:null. Never transitions Running.",
-      "type": "technical",
-      "workaround": "Restart Render web service. D-02 startup reaper (HarvestRunStore.cs:475-489) flips Queued/Running/Stopping rows to Failed at EnsureSchemaAsync first-call; ExecuteAsync restarts fresh from empty channel."
-    },
-    {
-      "description": "Phase 999.7 Plan 03 grep gate `grep -rln 'result-wrapped' .../PromptBuilders/ returns 0` will fail — independently verified 5 matches (Analysis, Comparison, FollowUp, MetaGap, SetUpgrade). Audit F-01 evidence inventory was incomplete (only listed 3).",
-      "type": "technical",
-      "workaround": "Re-plan via /gsd:plan-phase 999.7 --reviews — picks Option A (expand SC3 to 5 files) or Option B (keep 3 + scope grep to those paths only)"
-    }
-  ],
+  "blockers": [],
   "human_actions_pending": [
-    {"action": "Restart Render web service immediately to unstick prod harvester", "context": "Reaper flips Queued rows on next startup. Operator unblocked; debug investigation can run in parallel.", "blocking": true},
-    {"action": "Decide SC3 scope for 999.7 Plan 03: Option A (5 files — all Claude variants) vs Option B (3 files — only Analysis/Comparison/MetaGap; assume FollowUp+SetUpgrade prompt bodies still emit <result> wrapper)", "context": "Codex HIGH #1. Resolution requires checking whether Phase 999.2 stripped <result> from FollowUp+SetUpgrade BuildAsync methods or only from the 3 audit-listed variants.", "blocking": false},
-    {"action": "Confirm scope for redirect-removal task: new Phase 999.8 in v1.3 OR v1.4 milestone", "context": "User said past links can be retired. Phase 12 added 11 301 redirects in Program.cs UseRewriter block.", "blocking": false}
+    {"action": "Post-deploy SC6 curl verification after Render auto-deploys 4372de5: curl -I https://www.deckflow.gg/chatgpt-packets should return HTTP/2 404; curl -I https://www.deckflow.gg/deck-analysis should return HTTP/2 200", "context": "Phase 999.8 SC6 is the only out-of-plan-scope SC (post-deploy assertion). Render auto-deploys on v1.3 push.", "blocking": false},
+    {"action": "Decide commit-or-.gitignore for .planning/v1.3-MILESTONE-AUDIT.md (still untracked; Codex MED finding from 999.7 round 1 review)", "context": "Audit doc is the binding contract for 999.7 plans but never committed. Could be tracked under .planning/audits/ pattern or .gitignored as ephemeral working doc.", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Skip discuss-phase + research for 999.7", "rationale": "ROADMAP scope already concrete (file paths + line numbers + 7 verifiable SCs); audit doc binding contract", "phase": "999.7"},
-    {"decision": "4 plans, Wave 1, zero files_modified overlap, all autonomous:true", "rationale": "Codex executes per project cross-AI rule; parallel-safe within wave", "phase": "999.7"},
-    {"decision": "Plan 01 writes SC1 literal target values (11/11/46/46/100) verbatim", "rationale": "Option A from plan-checker revision — execution-order-independent; no depends_on chain needed; 999.7 treated as meta-audit phase excluded from v1.3 total by convention", "phase": "999.7"},
-    {"decision": "Pause to address prod harvester before continuing 999.7 cycle", "rationale": "Production broken > planning artifacts. Per project CLAUDE.md Claude investigates, Codex applies fix.", "phase": "ops"}
+    {"decision": "Cross-AI execute pattern: Codex applies edits + writes SUMMARY.md; orchestrator (Claude) commits + runs build/test gates", "rationale": "Codex sandbox is .git-readonly under workspace-write mode. Per CLAUDE.md Codex codes / Claude reviews rule. Build/test takes 30s — keeping it orchestrator-side avoids sandbox tool friction.", "phase": "999.7+999.8"},
+    {"decision": "Plan 999.7-04 PLAN.md acceptance criterion 'grep -c D-11 returns 1' was a planning-time miscount; HEAD already had 3 instances (one per download handler). Treated as pass since numstat 1 0 proves zero deletions and semantic intent (preserve verbatim) satisfied", "rationale": "Per session memory + Codex Round 2 review: tighten future Plan-04-style gates to handler-anchored awk-grep instead of file-wide grep -c expecting a specific count. Logged as v1.4 audit follow-up.", "phase": "999.7"},
+    {"decision": "Phase 999.8 single-plan deletion: Program.cs lines 7 (using) + 357-376 (comment + UseRewriter + 11 AddRedirect). numstat 0 22.", "rationale": "User decided 2026-05-22 that 11 chatgpt-* 301 redirects (shipped Phase 12, 2026-05-08) have been live 2+ weeks and can be retired. CSS classes / DOM data attributes / TS string constants / synthetic test slugs (HelpControllerTests, HelpContentServiceTests) remain — they are NOT URLs and are out of scope (deferred to v1.4 AI-agnostic styling backlog).", "phase": "999.8"}
   ],
   "uncommitted_files": [
-    ".planning/v1.3-MILESTONE-AUDIT.md (untracked — audit report; all 999.7 plans depend on it)",
-    ".planning/phases/999.7-v1-3-audit-cleanup/.gitkeep (untracked placeholder)"
+    ".claude/ (untracked — local IDE/agent config, ignored by convention)",
+    ".planning/phases/999.7-v1-3-audit-cleanup/.gitkeep (untracked — leftover from initial phase scaffold)",
+    ".planning/v1.3-MILESTONE-AUDIT.md (untracked — Codex MED finding pending decision: commit or .gitignore)"
   ],
-  "next_action": "Triage in order: (1) ask user to restart Render web service to unstick prod harvester, (2) spawn /gsd-debug 'AdminHarvest worker dies on terminal-write exception' — investigation thread leads to ArchidektCacheJobService.cs:343-377 inner UpdateStateAsync lacking try/catch wrapper (contrast line 304-323 host-shutdown path which has it), (3) return to /gsd:plan-phase 999.7 --reviews for Plan 03 revision once user decides SC3 Option A vs B, (4) capture redirect-removal as separate task.",
-  "context_notes": "Three open threads when paused. Harvester bug surfaced mid-/gsd-review for 999.7; orthogonal but prod-urgent. Phase 999.7 planning is sound — only Plan 03's evidence-inventory scope drift is broken. Per project CLAUDE.md: Codex codes (executor + plan reviewer); Claude reviews + investigates + orchestrates. /gsd-debug should investigate harvester; Codex applies the fix. /gsd:plan-phase --reviews replans 999.7 with Codex feedback. Mind: prod v1.3 deploy is the bug surface; v1.2 prod is the prior stable. Failure mode hypothesis: ExecuteAsync's catch at 343-364 (unexpected OCE) and catch at 365-377 (general Exception) both perform inner UpdateStateAsync to flip Failed but lack try/catch wrappers — if PG write itself throws (timeout/connection blip), exception escapes catch + escapes await foreach → worker dead until process restart. Channel still receives TryWrites but nothing reads them."
+  "test_baseline": {
+    "build": "0 Warning(s), 0 Error(s)",
+    "tests": "Failed:0 Passed:497 Skipped:3 Total:500 (DeckFlow.Web.Tests: 440 pass, 3 skip, 443 total; DeckFlow.Core.Tests: 57 pass, 57 total)",
+    "preserved_through": "Phase 999.6 PHASE EXIT GATE → 999.7 closure → 999.8 closure (3 consecutive phase verifications)"
+  },
+  "next_action": "/gsd-verify-work 999.8 — single-plan doc-edit + middleware deletion phase; machine-verifiable in one batch (no user-flow walkthrough needed); expected PASS. Then /gsd-audit-milestone v1.3 → /gsd-complete-milestone v1.3 → /gsd-ship v1.3.",
+  "context_notes": "v1.3 milestone is end-to-end shippable. 999.7 closed all audit findings (F-01, F-02, STATE arithmetic, WDG checkboxes, UAT label hygiene). 999.8 closed the user-decided redirect-removal. Both phases shipped under cross-AI rule (Codex codes, Claude reviews/orchestrates). Test baseline (497/3/500) preserved through 3 consecutive phase closures. Production v1.3 confirmed healthy on b86248e per S242 session (harvester ops verified). The only remaining surface for v1.4 audit is: (a) MILESTONE-AUDIT.md commit decision, (b) CSS/data-attr/TS-constant chatgpt-* sweep, (c) D-11 grep-gate hardening to handler-anchored awk-grep."
 }
