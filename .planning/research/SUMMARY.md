@@ -2,7 +2,9 @@
 
 **Milestone:** DeckFlow v1.4 — Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 **Synthesized:** 2026-05-23
-**Confidence:** HIGH for existing-pattern reuse + library version selection; MEDIUM for Gemini-unblock path choice (UAT-dependent) and Whisper $/min figures (vendor-pricing volatility).
+**Confidence:** HIGH for existing-pattern reuse + library version selection; MEDIUM for Whisper $/min figures (vendor-pricing volatility).
+
+> **SCOPE UPDATE 2026-05-23:** Cluster D (Gemini paste-limit unblock — GEM-01/02) REMOVED from v1.4 by user decision. Deferred to v1.5. The Phase 3 entry in build order below (Gemini split-message) is informational only — REQUIREMENTS.md is authoritative; roadmapper should skip it. Critical path now: A → C → E (#5 → #6 → #7 → #8). v1.4 = 4 clusters (MODAL, DOC, AMOB, KB) / 16 REQ-IDs.
 
 ## 1. Stack Additions Quick-Ref
 
