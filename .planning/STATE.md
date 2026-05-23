@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Frontend Hardening + AI-Agnostic Rename + Code Hygiene
-status: Awaiting next milestone
-stopped_at: "Phase 999.6 P03 complete — atomic F-PROD-CONTRACT fix commit d758609 (debug doc + `IHarvestRunStore.GetByIdAsync` + `HarvestRunStore` SQLite/Postgres impl with `_connectionInfo.IsPostgres ? (object)id : id.ToString()` binding + `ArchidektCacheJobService.GetJob` rewire + `FakeHarvestRunStore` async wrapper bundled per D-18) + SUMMARY commit 1adf65b. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:14,Total:14). Full-suite gate 5/5 deterministic (Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57 — Failed delta 2→0; phase-wide 9→0). D-15 fired (real production bug shipped inside 999.6). D-23 STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 (NOT toggled by execute-plan agent)."
-last_updated: "2026-05-23T14:21:12.981Z"
-last_activity: 2026-05-23 — Milestone v1.3 completed and archived
+milestone: v1.4
+milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
+status: planning
+last_updated: "2026-05-23T14:56:06.107Z"
+last_activity: 2026-05-23
 progress:
-  total_phases: 13
-  completed_phases: 12
-  total_plans: 51
-  completed_plans: 50
-  percent: 92
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 ## Deferred Items
@@ -54,10 +53,10 @@ See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
 
 ## Current Position
 
-Phase: Milestone v1.3 shipped — PR #1 awaiting merge
+Phase: Not started (defining requirements)
 Plan: —
-Status: PR open https://github.com/luntc1972/DeckFlow/pull/1 (v1.3 → main); post-merge: Render auto-deploys; operator runs SC6 curl verification
-Last activity: 2026-05-23 — v1.3 PR #1 created (370 commits ahead of main, +47,724 / -5,385 LOC across 386 files)
+Status: Defining requirements
+Last activity: 2026-05-23 — Milestone v1.4 started
 
 ## Performance Metrics
 

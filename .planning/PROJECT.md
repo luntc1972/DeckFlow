@@ -14,18 +14,38 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Active:** v1.4 — TBD (start via `/gsd-new-milestone`).
 
-## Next Milestone: v1.4 (TBD)
+## Current Milestone: v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 
-To be defined via `/gsd-new-milestone`. Candidates surfaced during v1.3:
+**Goal:** Land 4 v1.3 backlog items (admin focus-trapped modal, doc-comment NoWarn backlog, Gemini paste-limit unblock, admin pages mobile-responsive sweep) and ship Phase 1 of the Content Knowledge Base — admin-curated YouTube channel + podcast list, transcript ingestion (YouTube captions + Whisper fallback with monthly $ cap), per-video LLM summary + per-clip timestamped excerpts, tagged by archetype/strategy + format/bracket + card category. Deck-analysis integration (prompt injection + UI panel) and new-deck-building guide DEFERRED to v1.5.
 
-- WDG-04 styled focus-trapped modal (deferred from Phase 11 override 2026-05-16)
-- DeckFlow.Web.csproj NoWarn 1591;1573;1587 backlog (~88 v1.1-era undocumented Web types)
-- IN-01 _AiSelector vs view-level Normalize Gemini-flag fallback divergence (pre-existing)
-- v1.1 phase-dir archive move (06, 07, 07.1, 08 → `.planning/milestones/v1.1-phases/`)
-- CSS-class / data-attribute / TS-constant chatgpt-* cleanup (AI-agnostic styling backlog)
-- Gemini paste-limit workaround (flag-gated DECKFLOW_GEMINI_ENABLED; needs paste-cap raise OR API-key strategy)
-- v13-harvest-worker-stalled debug follow-up (diagnostic logging deployed 2026-05-22)
-- edhtop16 filter-defaults mismatch (Plagon, Lord of the Beach 0-entries case)
+**Target features:**
+
+1. **Admin focus-trapped modal (WDG-04 modal)** — replace deferred `onsubmit` confirm in AdminFeedback/Detail.cshtml with styled focus-trapped modal; close v1.3 WDG-04 override
+2. **Doc-comment NoWarn backlog** — strip `NoWarn 1591;1573;1587` from DeckFlow.Web.csproj; backfill XML `<summary>` doc-comments on ~88 v1.1-era undocumented Web types (controllers, services, models, view models)
+3. **Gemini paste-limit workaround** — unblock `DECKFLOW_GEMINI_ENABLED` env flag (split-message prompt strategy OR direct Gemini API integration); ship Gemini live
+4. **Admin pages mobile-responsive sweep** — extend WDG-04 site-common.css a11y primitives (touch-action, focus-visible, ≥44px touch targets) to admin shell; admin.css responsive rules; sidebar collapse on narrow viewports; admin tables overflow-x or card-stack pattern; forms single-column on narrow
+5. **Content Knowledge Base Phase 1 (ingestion + storage)**:
+   - Admin-managed curated source list (YouTube channels + podcast RSS feeds): CRUD UI + Postgres tables
+   - Transcript pipeline: YouTube auto-captions first; Whisper API fallback for missing captions / audio-only podcasts
+   - Per-video LLM summary + per-clip timestamped excerpts
+   - Tagging: archetype/strategy + format/bracket + card category (NOT commander/color — integration model in v1.5 generalizes)
+   - Manual admin-triggered harvest (no scheduler in v1.4)
+   - Hard monthly $ cap on Whisper spend; admin UI displays spend; abort harvest when cap hit
+   - New Postgres tables: sources, videos, transcripts, summaries, clips, content_tags
+   - Reuse v1.1 HarvestRunStore + IFeatureFlagCache patterns where possible
+
+**Deferred to v1.5:**
+- Deck-analysis integration of content (prompt injection + DeckFlow UI "What experts say" panel)
+- New-deck-building guide (interactive wizard)
+- Scheduled (cron) harvest cadence
+
+**Other v1.3 candidates NOT in v1.4 scope (v1.5+):**
+- IN-01 _AiSelector vs view-level Normalize Gemini-flag fallback divergence
+- v1.1 phase-dir archive move
+- CSS-class / data-attribute / TS-constant chatgpt-* cleanup
+- v13-harvest-worker-stalled debug follow-up
+- edhtop16 filter-defaults mismatch
+- audit-open scanner vocabulary alignment
 
 ## Requirements
 
@@ -203,7 +223,7 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — 5 requirements across Phases 9-10 (8 plans). AI target selector + Claude-optimized artifacts + cEDH Step 1 round-trip live. Gemini flag-gated.
 **Shipped:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (2026-05-23) — 22 REQ-IDs across Phases 11-15 + 999.1-999.8 (13 phases, 51 plans, 370 commits, +47,724 / -5,385 LOC across 386 files, 10-day timeline 2026-05-13 → 2026-05-23). Test suite Failed:0 / Passed:497 / Skipped:3. 8/8 security threats closed.
 
-**Active:** v1.4 — TBD (start via `/gsd-new-milestone`).
+**Active:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (started 2026-05-23 — see Current Milestone section).
 
 ---
-*Last updated: 2026-05-23 — v1.3 milestone shipped and archived*
+*Last updated: 2026-05-23 — v1.4 milestone started*
