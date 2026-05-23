@@ -72,19 +72,21 @@
 
 | REQ-ID | Description | Phase | Status |
 |--------|-------------|-------|--------|
-| MODAL-01 | Admin focus-trapped modal | TBD (Roadmapper) | [ ] |
-| DOC-01 | XML `<summary>` doc-comments on ~88 Web types | TBD | [ ] |
-| DOC-02 | Strip `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` | TBD | [ ] |
-| AMOB-01 | Admin shell renders ≥320px viewport (sidebar disclosure) | TBD | [ ] |
-| AMOB-02 | Admin tables usable on narrow viewports | TBD | [ ] |
-| AMOB-03 | Admin forms single-column + ≥44×44px touch targets | TBD | [ ] |
-| AMOB-04 | `admin.css` factored into common+mobile+shim | TBD | [ ] |
-| KB-01 | Admin source CRUD UI + `content_sources` table | TBD | [ ] |
-| KB-02 | Admin manual harvest trigger + run history UI | TBD | [ ] |
-| KB-03 | YouTube auto-caption fetch via YoutubeExplode | TBD | [ ] |
-| KB-04 | Whisper fallback transcription + spend ledger | TBD | [ ] |
-| KB-05 | Whisper spend cap-gate (TOCTOU-safe + kill-switch) | TBD | [ ] |
-| KB-06 | LLM summary + clip-excerpt extraction | TBD | [ ] |
-| KB-07 | Tag inference (controlled vocab: archetype + bracket + category) | TBD | [ ] |
-| KB-08 | Admin spend dashboard at `/Admin/ContentSpend` | TBD | [ ] |
-| KB-09 | `content_kb_enabled` feature flag gate + CSRF guards | TBD | [ ] |
+| MODAL-01 | Admin focus-trapped modal | Phase 1 | [ ] |
+| DOC-01 | XML `<summary>` doc-comments on ~88 Web types | Phase 2 (Part 1: Controllers + Services) + Phase 8 (Part 2: remaining + v1.4 new types) | [ ] |
+| DOC-02 | Strip `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` | Phase 8 | [ ] |
+| AMOB-01 | Admin shell renders ≥320px viewport (sidebar disclosure) | Phase 3 | [ ] |
+| AMOB-02 | Admin tables usable on narrow viewports | Phase 3 | [ ] |
+| AMOB-03 | Admin forms single-column + ≥44×44px touch targets | Phase 3 | [ ] |
+| AMOB-04 | `admin.css` factored into common+mobile+shim | Phase 3 | [ ] |
+| KB-01 | Admin source CRUD UI + `content_sources` table | Phase 4 (table) + Phase 7 (CRUD UI) | [ ] |
+| KB-02 | Admin manual harvest trigger + run history UI | Phase 6 (orchestrator + trigger runtime) + Phase 7 (history UI) | [ ] |
+| KB-03 | YouTube auto-caption fetch via YoutubeExplode | Phase 5 | [ ] |
+| KB-04 | Whisper fallback transcription + spend ledger | Phase 5 | [ ] |
+| KB-05 | Whisper spend cap-gate (TOCTOU-safe + kill-switch) | Phase 4 (ledger schema + WouldExceedCapAsync stub) + Phase 6 (advisory lock + kill-switch runtime) | [ ] |
+| KB-06 | LLM summary + clip-excerpt extraction | Phase 5 | [ ] |
+| KB-07 | Tag inference (controlled vocab: archetype + bracket + category) | Phase 5 | [ ] |
+| KB-08 | Admin spend dashboard at `/Admin/ContentSpend` | Phase 7 | [ ] |
+| KB-09 | `content_kb_enabled` feature flag gate + CSRF guards | Phase 6 (orchestrator-boundary flag gate) + Phase 7 (UI-surface CSRF tokens + flag check) | [ ] |
+
+**Coverage:** 16/16 v1.4 REQ-IDs mapped (100%). No orphans. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-05, KB-09) split between schema/foundation phase and UI/runtime phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion of the requirement; checkboxes flip when BOTH portions are complete.
