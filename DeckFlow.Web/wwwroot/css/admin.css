@@ -192,8 +192,8 @@ a:hover { text-decoration: underline; }
   margin-top: 12px;
 }
 
-/* === Phase 1 (v1.4) — WDG-04 Focus-Trapped Modal ===
-   Reusable admin confirm-dialog primitive on native HTML <dialog>.
+/* === Phase 1 (v1.4) — WDG-04 Focus-Trapped Modal === */
+/* Reusable admin confirm-dialog primitive on native HTML <dialog>.
    Consumers: AdminFeedback Detail v1.4 Phase 1; reusable by Phase 7 ContentSources delete.
    Scope discipline: every selector below is prefixed `.admin-modal*` or `dialog.admin-modal::backdrop`
    so admin standalone load (no site-common inheritance) cannot bleed into 22 guild themes (PITFALLS.md P10). */
