@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
-status: planning
-last_updated: "2026-05-23T14:56:06.107Z"
+status: ready_to_plan
+last_updated: "2026-05-23T15:32:00.000Z"
 last_activity: 2026-05-23
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,143 +19,151 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 
 | Category | Item | Status |
 |----------|------|--------|
-| tech_debt | Gemini paste-limit workaround | flag-gated DECKFLOW_GEMINI_ENABLED |
-| archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; quick-task candidate for v1.4 cleanup |
-| tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` (mirror `HasMeaningful*Content` pattern from `ResponseParsers.cs:99-130`) | **PROMOTED to Phase 999.5 P02** (planned 2026-05-21) — see CONTEXT D-09/D-10/D-11/D-12 in `.planning/phases/999.5-v1-3-backlog-catch-up-test-hardening/999.5-CONTEXT.md`; tracks the "valid JSON but semantically empty AI output" edge case (e.g., `{"deck_comparison":{}}` parses into a default-init DeckComparisonResponse and bypasses both the existing wrong-shape guard and 999.4's truncation UX). Closes 999.4 D-07 carve-out via 999.5 plans 02 |
+| tech_debt | Gemini paste-limit workaround | DEFERRED to v1.5 (cluster D dropped from v1.4 scope 2026-05-23) |
+| archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; v1.5 housekeeping |
+| tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` | CLOSED v1.3 Phase 999.5 P02 |
 
-### Acknowledged at v1.3 close (2026-05-23)
+### Acknowledged at v1.3 close (2026-05-23) — carried to v1.5 housekeeping
 
-Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. All triaged and acknowledged for deferral per user `[A]` choice 2026-05-23.
+Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. All triaged and acknowledged for deferral per user `[A]` choice 2026-05-23. Items marked v1.4 backlog in original STATE were reassessed at v1.4 scoping and deferred to v1.5 (v1.4 scope is fixed at 4 clusters / 16 REQ-IDs).
 
 | Category | Item | Status | Disposition |
 |----------|------|--------|-------------|
-| debug | 999.6-archidekt-cache-job | unknown | CLOSED — investigation resolved by 999.6 P03 commit d758609 (F-PROD-CONTRACT applied: `IHarvestRunStore.GetByIdAsync` added); audit-open scanner reads stale `unknown` status from debug doc frontmatter (housekeeping defer to v1.4) |
-| debug | 999.6-basicauth-flaky | unknown | CLOSED — investigation resolved by 999.6 P02 commit a62f608 (F-ENV-COLLECTION: `AdminEnvCollection` + `EnvScope` helper); audit-open scanner reads stale `unknown` status; housekeeping defer to v1.4 |
-| debug | v13-harvest-worker-stalled | investigation_inconclusive | DEFERRED — production harvester diagnostic from 2026-05-22; diagnostic logging committed (commit 4372de5) and deployed; v1.3 ship continues, post-ship monitoring + follow-up debug deferred to v1.4 |
-| uat-gap | Phase 11/13/15/999.1-999.8 UAT files (10 phases) | "unknown" / "bypassed" / "superseded-by-999.6" | FALSE POSITIVE — audit-open scanner expects `status: complete` / `passed`, but project convention uses `passed` / `superseded-by-999.6` / `bypassed`. All 10 phases verified passed per `.planning/v1.3-MILESTONE-AUDIT.md` (audit status: passed, 22/22 reqs satisfied). 0 pending scenarios across all. Defer scanner-vocabulary alignment to v1.4 housekeeping. |
-| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing | DEFERRED — pre-v1.3 capture; out of v1.3 milestone scope (v1.1/v1.2 cleanup) |
-| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing | DEFERRED — pre-v1.3 capture; ChatGPT artifact local round-trip; v1.4 backlog |
-| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | missing | DEFERRED — pre-v1.3 capture; ChatGPT zip download button polish; v1.4 backlog |
-| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | missing | DEFERRED — pre-v1.3 capture; ChatGPT packets saved-session upload; v1.4 backlog |
-| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | missing | DEFERRED — pre-v1.3 capture; admin harvest decks counter + recent decks list; v1.4 backlog |
-| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | missing | DEFERRED — pre-v1.3 capture; admin analytics auto-refresh via meta-refresh; v1.4 backlog |
-| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | missing | DEFERRED — pre-v1.3 capture; restore full round-trip on ChatGPT saved sessions; v1.4 backlog |
-| quick_task | 260513-wdg-web-design-guidelines-audit-findings | missing | CLOSED — WDG-01..10 SHIPPED in v1.3 Phase 11 (10/10 plans, 11-VERIFICATION.md passed, REQUIREMENTS.md checkboxes flipped via 999.7-02). Quick-task index entry stale; v1.4 housekeeping. |
+| debug | 999.6-archidekt-cache-job | unknown | CLOSED v1.3 999.6 P03 (commit d758609); audit scanner stale-status; defer scanner alignment to v1.5 |
+| debug | 999.6-basicauth-flaky | unknown | CLOSED v1.3 999.6 P02 (commit a62f608); audit scanner stale-status; defer to v1.5 |
+| debug | v13-harvest-worker-stalled | investigation_inconclusive | DEFERRED to v1.5 — diagnostic logging deployed (commit 4372de5); post-ship monitoring pending |
+| uat-gap | Phase 11/13/15/999.1-999.8 UAT files (10 phases) | "unknown"/"bypassed"/"superseded-by-999.6" | FALSE POSITIVE — scanner vocabulary drift; defer alignment to v1.5 |
+| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing | DEFERRED to v1.5 |
+| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing | DEFERRED to v1.5 |
+| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | missing | DEFERRED to v1.5 |
+| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | missing | DEFERRED to v1.5 |
+| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | missing | DEFERRED to v1.5 |
+| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | missing | DEFERRED to v1.5 |
+| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | missing | DEFERRED to v1.5 |
+| quick_task | 260513-wdg-web-design-guidelines-audit-findings | missing | CLOSED v1.3 Phase 11; v1.5 housekeeping to flip index |
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-13 for v1.3)
+See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Milestone complete
+**Current focus:** v1.4 Phase 1 (WDG-04 Focus-Trapped Modal) — closes v1.3 carry-over
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 1 — WDG-04 Focus-Trapped Modal (planned; no plans yet)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-23 — Milestone v1.4 started
+Status: ready_to_plan
+Last activity: 2026-05-23 — v1.4 roadmap created (8 phases, 16/16 REQ-IDs mapped, granularity=coarse, phase numbering RESET per --reset-phase-numbers)
 
 ## Performance Metrics
 
-**Velocity (v1.2 reference):**
+**Velocity (v1.3 reference — most recent shipped):**
 
-- Total plans completed in v1.2: 8 (Phases 9 + 10)
-- Average duration: ~1 day per plan (parallel waves where possible)
+- Total plans completed in v1.3: 51 (13 phases over 10 days, 2026-05-13 → 2026-05-23)
+- Cross-AI execution pattern established (Codex codes, Claude reviews) — sustained zero friction across 6+ consecutive phase closures
+- Final test gate: `Failed: 0, Passed: 497, Skipped: 3, Total: 500`
 
-**By Phase (v1.2):**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 9 — Bracket UX + AI Selector | 3 | 3 | ~1 day |
-| 10 — Claude + Gemini Optimization | 5 | 5 | ~1 day |
-| 12 | 5 | - | - |
-| 13 | 4 | - | - |
-| 15 | 3 | - | - |
-| 999.1 | 7 | - | - |
-| 999.6 | 3 | - | - |
-
-**v1.3 Forecast:**
+**v1.4 Forecast (per research SUMMARY.md):**
 
 | Phase | Plans (est.) | Notes |
 |-------|--------------|-------|
-| 11 — WDG Audit Fixes | 10 | One plan per sweep PR in `260513-wdg-FINDINGS.md` |
-| 12 — URL + Page Rename | 2-3 | Slug + redirect + filename sanitizer + view sweep |
-| 13 — ChatGpt* Class Rename | 2-3 | DTO/service/viewmodel rename + doc comment backfill + DI/test fixture update |
-| 14 — Broader Audit | 2-3 | Per-project sweep + doc comment backfill + build clean |
-| 15 — AiPlatform Refactor | 3-4 | Value object + per-builder registries + DI wiring + T1-T8 reverify |
-| Phase 14-broader-codebase-name-vs-behavior-audit P02 | 30m | 2 tasks | 14 files |
-| Phase 14-broader-codebase-name-vs-behavior-audit P04 | 30m | 3 tasks | 7 files |
-| Phase 999.6 P02 | 15m | 5 tasks | 5 files (1 Codex dispatch + 5/5 focused + 5/5 full-suite stability gates) |
-| Phase 999.6 P03 | 20m | 4 tasks | 5 files (1 Codex dispatch + 5/5 focused + 5/5 full-suite PHASE EXIT GATE) |
+| 1 — WDG-04 Modal | 1-2 | Tiny: 1 TS + 1 view + small CSS; zero coupling |
+| 2 — Doc-Comment Backfill Part 1 | 2-3 | ~50 of 88 types; mechanical (Controllers + Services) |
+| 3 — Admin Mobile Sweep | 2-4 | CSS factoring + table strategy decisions + form audit + 22-theme visual regression |
+| 4 — Content KB Stores + Schema | 3-5 | 8 tables, per-store EnsureSchemaAsync, dual-dialect SQLite+Postgres tests |
+| 5 — Content KB Outbound HTTP | 4-6 | YouTube + Podcast + Whisper + LLM; 5 new named HttpClients + Polly pipelines |
+| 6 — Content KB Orchestrator | 3-4 | TOCTOU advisory lock, cap-gate, kill-switch, single-worker; MVP mode |
+| 7 — Content KB Admin UI | 3-5 | 3 controllers + 7 Razor views + sidebar + CSRF wiring |
+| 8 — Doc-Comment Part 2 + Strip NoWarn | 2-3 | Remaining ~38 + all v1.4 new types; csproj edit LAST |
+| **Total estimate** | **~20-32 plans** | SUMMARY range was 25-35; coarse granularity tightens to ~20-32 |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
-- Phase 999.7 inserted after Phase 999.6: v1.3 audit cleanup: STATE arithmetic + WDG checkboxes + stale doc-comments (audit findings F-01, F-02) (URGENT)
+- v1.4 roadmap created 2026-05-23 — 8 phases, 16/16 REQ-IDs mapped. Phase numbering RESET to 1 (--reset-phase-numbers active). v1.3 phase dirs already archived to `.planning/milestones/v1.3-phases/`.
+- Gemini cluster D (GEM-01/02) DROPPED from v1.4 per user decision 2026-05-23 → v1.5. SUMMARY.md scope-update note authoritative.
 
-### v1.1 Shipped
+### v1.0-v1.3 Shipped
 
-v1.1 Admin Console shipped 2026-05-08. All 27 REQ-IDs complete across Phases 6–8 + Phase 7.1.
-Phase 8 SC #5 (p95 baseline delta) deferred — no pre-deploy baseline was captured.
+v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 2026-05-13) | v1.3 (22/22 reqs, 2026-05-23).
 
-### v1.2 Shipped
+### v1.4 Decisions
 
-v1.2 Multi-AI Prompts shipped 2026-05-13. All 5 REQ-IDs (BRKT-01, AISEL-01..04) functionally complete across Phases 9-10 (8 plans). Gemini flag-gated behind `DECKFLOW_GEMINI_ENABLED` because full packet exceeds gemini.google.com paste cap. Audit gap: documentation-only (see `.planning/milestones/v1.2-MILESTONE-AUDIT.md`).
+- **Critical path:** Phase 1 → 3 → 4 → 5 → 6 → 7. Phase 2 parallelizable (off critical path). Phase 8 lands last (so v1.4 new types are documented before NoWarn gate flips per Pitfall 8).
+- **Phase 1 before Phase 3:** Modal CSS lands in new `admin-common.css` factoring; doing modal after the split forces touching two files (per ARCHITECTURE.md build order rationale).
+- **Phase 4 before Phase 5 before Phase 6 before Phase 7:** Each Content KB layer's tests need the prior layer's seam (stores → HTTP → orchestrator → UI).
+- **Phase 6 mode = mvp:** Orchestrator phase delivers the headline user story "admin can trigger end-to-end harvest"; mvp mode enforces user-story-first verification with the TOCTOU + kill-switch invariants as hard gates.
+- **`content_kb_enabled` flag default OFF:** flip only after first admin UAT verifies end-to-end harvest from deployed Render env (per Pitfall 1+2 P1+P2 mitigation).
+- **Whisper monthly cap default `$15.00`:** per STACK.md expected $13.32 run-rate + 12% headroom. Env var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (sync:false on Render).
+- **YouTube transcript via YoutubeExplode 6.6.0 NOT Google.Apis.YouTube.v3** — captions.download returns 403 on third-party content per Google Issue Tracker 241669016 (Pitfall 1).
+- **OpenAI 2.10.0 single SDK** for Whisper + chat-completion + Structured Outputs — minimizes cap-tracking complexity. AiPlatform value object UNTOUCHED for admin-side ingestion (registry serves user-facing multi-AI paste only).
+- **ContentHarvestRunStore is parallel to HarvestRunStore (NOT subclass)** — `harvest_runs.kind` CHECK never widened; strict `content_*` table namespace (Pitfall 12).
+- **`pg_try_advisory_lock(hashtext('whisper-cap-' || YYYY-MM))`** acquired BEFORE any Whisper call; SERIALIZABLE txn wraps check-and-insert; `DECKFLOW_WHISPER_KILL_SWITCH=true` env var evaluated first (Pitfall 3 P3).
 
-### v1.3 Roadmap Created (2026-05-13)
+### Cross-Cutting Invariants (15 MUST/MUST NOT — from SUMMARY.md §5)
 
-22 v1.3 REQ-IDs mapped across 5 phases:
+1. All outbound HTTP via `IHttpClientFactory` named clients + named Polly pipelines via `ResiliencePipelineProvider<string>`. NEVER `new HttpClient()`. NEVER migrate to `Microsoft.Extensions.Http.Resilience` standard handler.
+2. AiPlatform value object UNTOUCHED for admin-side LLM summarization.
+3. NEVER widen v1.1 `harvest_runs.kind` CHECK; fork to parallel `ContentHarvestRunStore`.
+4. All new tables namespaced `content_*` (except `whisper_spend_ledger`).
+5. `IWhisperSpendLedger.WouldExceedCapAsync(estimate)` BEFORE every Whisper API call; ledger row on success only.
+6. Env var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` typed decimal; NOT routed through `IFeatureFlagStore`.
+7. `SameOriginRequestValidator` on every `/api/*` POST AND `[ValidateAntiForgeryToken]` on every `/Admin/*` POST — two separate CSRF mechanisms.
+8. `{ get; init; }` preserved on every new record type.
+9. C# raw-string literals byte-preserved in prompts + DDL constants.
+10. Native HTML `<dialog>` element + `showModal()`; NO focus-trap npm dependency.
+11. New admin CSS scoped to `.admin-shell` parent class; `@layer admin { ... }` for cascade discipline; ZERO unscoped element selectors.
+12. Layout CSS in `site-common.css` / new `admin-common.css`, NOT in `site.css` or `admin.css` directly.
+13. Store-test isolation per F-PROD-CONTRACT 999.6 lesson (own SQLite file or `:memory:` per-fact scope).
+14. All API keys in Render env vars with `sync: false`; Gitleaks pre-commit hook recommended.
+15. Every plan through Codex peer review (`/gsd-review`) before execute-phase dispatch.
 
-- **Phase 11 (WDG-01..10)**: 10 sweep PRs from `260513-wdg-FINDINGS.md`. Highest leverage: Sweep 1 (`site-common.css` cross-cutting a11y — avoids 22× theme fork) + Sweep 2 (admin focus-visible foundation).
-- **Phase 12 (RENAME-01..03)**: AI-agnostic URL slugs + permanent 301 redirects + H1/nav/hub labels + filename sanitizer. Source: `.planning/AI-AGNOSTIC-RENAME-BRAINSTORM.md` Option A (Mock A).
-- **Phase 13 (CLASSRENAME-01..03)**: Strip `ChatGpt` prefix from all C# types; backfill `<summary>` doc comments; update DI + InternalsVisibleTo + test fixtures + Razor `@model` directives.
-- **Phase 14 (AUDIT-01..03)**: Broader name-vs-behavior pass across all 5 projects; doc-comment backfill; Release build clean.
-- **Phase 15 (AIPLATFORM-01..03)**: Sealed `AiPlatform` record value object per `10-AISEL-PLATFORM-DESIGN.md`. OCP 3/10 → 8/10. T1-T8 reverify for zero behavior change.
+### Recurring v1.3 Patterns to AVOID (R-1..R-7 from SUMMARY.md §6)
 
-### Decisions
-
-- Phase order locked by user 2026-05-13: WDG first (visible quality wins, low-risk) → URL rename → class rename (paired conceptually but separable in execution) → broader audit → refactor last (sits on clean class names).
-- Phase 11 stays as ONE phase with 10 plans rather than splitting. The 10 sweep PRs in FINDINGS.md are already sequenced by leverage; no hard dependency forces a split.
-- Phases 12 and 13 stay separate (not combined). User intent is URL + class rename ship together conceptually but execution is cleaner with two phases — URL rename ships first to validate user-facing terminology, class rename follows to bring code in line.
-- Phase 15 acceptance: `AiPlatform.All` extension test must prove adding a hypothetical 4th platform requires no switch-expression / request-setter / Razor partial / context-parser edits.
-- Phase 999.6 P01 (2026-05-22): D-06 Branch B taken — `PacketArtifactStoreRoundTripTests.cs` deleted because both authorized probe paths (`/tmp/arna-test/` and `/mnt/c/tmp/arna-test/`) missing the Arna fixture files. Branch B is an authorized fallback per D-06; the integration assertion is fixture-less and has no value without the source data. Total dropped 445 → 443.
-- Phase 999.6 P01 (2026-05-22): Mechanical stale-test fixes catch tests up to shipped production renames (PacketArtifactStore msg generalization at D-04, Phase 12 `compare2`→`comparison` page rename at D-05/D-07). 6 of 9 residual failures closed. Codex authored every edit via shell-pipe `codex exec`; orchestrator ran Windows-dotnet gate + committed (hybrid pattern inherited from 999.5 P01).
-- Phase 999.6 P02 (2026-05-22): F-ENV-COLLECTION applied — shared `EnvScope` helper at `DeckFlow.Web.Tests/Infrastructure/EnvScope.cs` + `AdminEnvCollection` with `[CollectionDefinition(DisableParallelization=true)]` serialize both env-mutating test classes (`BasicAuthMiddlewareTests` + `Security/AdminBruteForceTrackerStoreTests`). Closes the BasicAuth flaky-fact root cause (cross-class race on process-wide `FEEDBACK_ADMIN_USER`/`FEEDBACK_ADMIN_PASSWORD`). H2 falsified (middleware already reads env vars fresh per InvokeAsync — no SUT touched). 10/10 deterministic stability gate (focused 5/5 Failed:0,Passed:5,Total:5; full-suite 5/5 Failed:2,Passed:438,Skipped:3,Total:443). 2 ArchidektCacheJob failures carry forward to P03 (commit a62f608 fix + 360dee0 SUMMARY).
-- Phase 999.6 P03 (2026-05-22): F-PROD-CONTRACT applied (D-15 fired — real production bug ships inside 999.6). Added `Task<HarvestRunRow?> GetByIdAsync(Guid, CancellationToken)` to `IHarvestRunStore` + production impl in `HarvestRunStore` (provider-specific Guid binding via `_connectionInfo.IsPostgres ? (object)id : id.ToString()` matching three precedents at lines 117-119 / 164-166 / 200-202) + rewired `ArchidektCacheJobService.GetJob` from 16-line `GetActiveAsync`+id-filter to 5-line `GetByIdAsync` delegate + extended inline `FakeHarvestRunStore` with async wrapper. SUT's own forward-reference comment ("Plan 04 will add one") resolved by THIS plan. H2 (`_activeJob` field race) stays falsified — field does not exist; only `_activeJobCts` (lifecycle CTS) exists. 10/10 deterministic PHASE EXIT GATE (focused 5/5 Failed:0/Passed:14/Total:14; full-suite 5/5 Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57). Phase-wide net delta 9 → 0 failures across 3 plans (P01: 6 stale closed, P02: 1 flaky closed, P03: 2 ambiguous closed). Atomic commit d758609 (debug doc + 4 code files) per D-18; SUMMARY commit 1adf65b. STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 per D-23.
+- **R-1** STATE.md arithmetic drift → auto-compute counters on phase close; CI gate `gsd-sdk verify-state`.
+- **R-2** REQUIREMENTS.md checkbox drift → auto-flip `[x]` from SUMMARY frontmatter `requirements-completed:` field; reject SUMMARYs missing it.
+- **R-3** Planning-time grep miscounts → every SC grep MUST be anchored (e.g. `grep -cE '^[[:space:]]*\[HttpPost'`, NOT `grep -c HttpPost`).
+- **R-4** Cross-AI plan review (Codex reviews Claude's plans) — NO exceptions for "small" plans.
+- **R-5** `no-ship-failing-tests` — Failed:0 mandatory before milestone PR. Pre-allocate `999.x` test-hardening phase before ship if needed.
+- **R-6** Formatting paranoia — no Format Document; no `{ get; init; }` → `{ get; }`; no inline `[Attribute]`; no raw-string re-indent; touch only lines that need touching.
+- **R-7** HANDOFF.json / origin staleness on resume — every session resume `git fetch` + compare `HEAD` vs `origin/<branch>` BEFORE reading planning artifacts.
 
 ### Constraints Carried Forward (per PROJECT.md + CLAUDE.md)
 
-- ASP.NET 10 + Razor pinned — no framework migration in v1.3.
-- Cross-cutting CSS lands in `site-common.css`, NOT `site.css` or per-theme forks (WDG-08 in Phase 11).
-- 22 guild theme stylesheets are full forks — every CSS gap multiplied 22× if landed in wrong layer.
-- VSTest unreliable in WSL — Phase 14 AUDIT-03 verification relies on `dotnet build` clean + push-and-watch CI.
-- Plain default-author commits across all of v1.3 (no `Co-Authored-By` trailer).
-- Public repo `luntc1972/DeckFlow` — no secrets in commits; Render dashboard holds env vars with `sync: false`.
+- ASP.NET 10 + Razor pinned — no framework migration in v1.4.
+- 22 guild theme stylesheets are full forks — admin CSS sweep MUST be `.admin-shell`-scoped to avoid 22× theme regression.
+- VSTest unreliable in WSL — rely on `dotnet build` clean + push-and-watch CI on `v1.4` branch + targeted manual UAT.
+- Plain default-author commits, no `Co-Authored-By` trailer across all v1.4.
+- Public repo `luntc1972/DeckFlow` — no secrets in commits; Render dashboard with `sync: false` for new keys (`OPENAI_API_KEY`, `DECKFLOW_WHISPER_MONTHLY_CAP_USD`, optional `DECKFLOW_WHISPER_KILL_SWITCH`, `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER`).
+- 512MB RAM cap on Render Starter — NO local Whisper inference; chunk audio via ffmpeg client-side; stream audio to `/data/whisper-tmp/` not in-memory.
+- Postgres connection pool: cap explicit at 10-15 (Pitfall 6); never hold connection across `await` HTTP call.
 
 ### Blockers/Concerns
 
-- None at roadmap creation. v1.3 branch is clean off `main` at `7ed0cde` (post-v1.2 merge).
-- `harvest-killed-by-suggestion` debug remains parked at H1 hypothesis in `.planning/debug/` — deferred from v1.3 (root-cause investigation is gating, not parallel-shippable with WDG/rename/audit/refactor).
+- None at roadmap creation. v1.4 work continues on branch `v1.3` (per current checkout); branch cutover to `v1.4` per operator decision at first execute-phase.
+- Dockerfile `apt-get install -y ffmpeg` verification needed at Phase 5/6 start if podcasts >25MB will need chunking (per Pitfall 7).
 
 ## Session Continuity
 
-Last session: 2026-05-22T18:09:00.000Z
+Last session: 2026-05-23T15:32:00.000Z
 
-Stopped at: Phase 999.6 P03 complete — atomic F-PROD-CONTRACT fix commit d758609 (debug doc + `IHarvestRunStore.GetByIdAsync` + `HarvestRunStore` SQLite/Postgres impl with `_connectionInfo.IsPostgres ? (object)id : id.ToString()` binding + `ArchidektCacheJobService.GetJob` rewire + `FakeHarvestRunStore` async wrapper bundled per D-18) + SUMMARY commit 1adf65b. Build 0/0 warnings/errors. Focused gate 5/5 (Failed:0,Passed:14,Total:14). Full-suite gate 5/5 deterministic (Web Failed:0/Passed:440/Skipped:3/Total:443 + Core Failed:0/Passed:57/Total:57 — Failed delta 2→0; phase-wide 9→0). D-15 fired (real production bug shipped inside 999.6). D-23 STATE.md status:ready_to_ship restoration deferred to /gsd-verify-work 999.6 (NOT toggled by execute-plan agent).
+Stopped at: v1.4 roadmap created. 8 phases / 16 REQ-IDs / 100% coverage. STATE.md + ROADMAP.md + REQUIREMENTS.md updated. Phase numbering RESET to 1 per --reset-phase-numbers (v1.3 phase dirs already archived to `.planning/milestones/v1.3-phases/`).
 
-Next action on resume: `/gsd-verify-work 999.6` — re-validate the closing full-suite gate (`Failed: 0`), confirm STATE.md + ROADMAP.md reflect 3/3 plans complete, and atomically transition `.planning/STATE.md` `status` field from `executing` back to `ready_to_ship` per CONTEXT D-23. Then `/gsd-audit-milestone v1.3` → `/gsd-complete-milestone v1.3` → `/gsd-ship v1.3` per Operator Next Steps.
+Next action on resume: `/gsd-discuss-phase 1` to scope WDG-04 modal implementation, then `/gsd-plan-phase 1` to decompose into plans, then `/gsd-review` (Codex peer review per CLAUDE.md cross-AI pattern), then `/gsd-execute-phase 1`.
 
 **Resume guidance:**
 
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-03-SUMMARY.md` for P03 closure detail + phase-level closure note (9 → 0 failure delta, Codex review-feedback blocker resolution table, commit hash sequence).
-- Read `.planning/phases/999.6-v1-3-ship-gate-test-residual-cleanup/999.6-CONTEXT.md` D-23 for the STATE.md status-toggle protocol.
-- Read `.planning/debug/999.6-archidekt-cache-job.md` for the verdict + the SOLID review proving F-PROD-CONTRACT's additive interface method is correct.
-- Branch: `v1.3` (created 2026-05-13 from `main` at `7ed0cde`).
+- Read `.planning/ROADMAP.md` Phase 1 Detail section for goal + 4 SCs + dependencies.
+- Read `.planning/research/SUMMARY.md` §3 row 1 + §5 invariants 10-12 for modal-specific design constraints.
+- Read `.planning/research/PITFALLS.md` Pitfall 9 (hand-rolled focus-trap anti-pattern) + Pitfall 10 (CSS bleed) for SC verification anchors.
+- Branch: currently `v1.3` (per HEAD 65f2fe4); cutover to `v1.4` branch per operator decision at first execute-phase dispatch.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Review v1.4 ROADMAP.md draft (8 phases, 16/16 REQ-IDs mapped, granularity=coarse).
+- Approve or request revision.
+- On approval: commit roadmap artifacts, then `/gsd-discuss-phase 1` to start Phase 1 planning.
