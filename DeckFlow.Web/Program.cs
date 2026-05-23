@@ -4,7 +4,6 @@ using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Rewrite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
@@ -353,27 +352,6 @@ public partial class Program
             // security headers, SameOriginRequestValidator in controllers) so those see the
             // browser's original scheme/host, not the proxy hop.
             app.UseForwardedHeaders();
-
-            // Phase 12 RENAME-01 (D-03/D-04/D-05): permanent (301) redirects from the legacy
-            // chatgpt-* URL slugs to the AI-agnostic deck-analysis / deck-comparison /
-            // cedh-meta-gap slugs. Centralized here so DeckController does not accumulate
-            // 12 thin redirect actions. Pipeline-order invariant (D-05): this middleware MUST
-            // run after UseForwardedHeaders so the 301 Location response honors X-Forwarded-Proto
-            // (browser-visible https), not the proxy-hop http scheme. The 9 entries below cover
-            // every old page-root plus its /download + /upload sub-routes (D-04). Targets are
-            // hardcoded literal absolute paths — no user input is interpolated (T-12-01).
-            app.UseRewriter(new RewriteOptions()
-                .AddRedirect("^chatgpt-packets/?$", "deck-analysis", 301)
-                .AddRedirect("^chatgpt-packets/download/?$", "deck-analysis/download", 301)
-                .AddRedirect("^chatgpt-packets/upload/?$", "deck-analysis/upload", 301)
-                .AddRedirect("^chatgpt-deck-comparison/?$", "deck-comparison", 301)
-                .AddRedirect("^chatgpt-deck-comparison/download/?$", "deck-comparison/download", 301)
-                .AddRedirect("^chatgpt-deck-comparison/upload/?$", "deck-comparison/upload", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap/?$", "cedh-meta-gap", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap/download/?$", "cedh-meta-gap/download", 301)
-                .AddRedirect("^chatgpt-cedh-meta-gap/upload/?$", "cedh-meta-gap/upload", 301)
-                .AddRedirect("^help/chatgpt-analysis/?$", "help/deck-analysis", 301)
-                .AddRedirect("^help/chatgpt-deck-comparison/?$", "help/deck-comparison", 301));
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
