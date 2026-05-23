@@ -104,6 +104,59 @@
 
 ---
 
+## Milestone: v1.3 — Frontend Hardening + AI-Agnostic Rename + Code Hygiene
+
+**Shipped:** 2026-05-23
+**Phases:** 13 (5 production + 8 backlog/closure) | **Plans:** 51 | **Commits:** ~370 | **Timeline:** 10 days (2026-05-13 → 2026-05-23)
+
+### What Was Built
+- **Phase 11 (WDG-01..10):** 10 sweep PRs from 2026-05-13 Web Design Guidelines audit. site-common.css cross-cutting a11y primitives (color-scheme, reduced-motion, touch-action, tabular-nums, scroll-margin-top), admin focus-visible foundation, df-typeahead keyboard nav + ARIA combobox, ARIA tablist server-render, CSP inline-handler removal, URL/textarea autocomplete sweep.
+- **Phase 12 (RENAME-01..03):** AI-agnostic URLs (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap` replacing chatgpt-* slugs) + H1/nav/hub labels + Mock A `.page-lede` explainer lines + 11 permanent 301 redirects (later retired in Phase 999.8).
+- **Phase 13 (CLASSRENAME-01..03):** ChatGpt* C# types renamed to AI-agnostic names across request DTOs, services, view models, parsers, artifact stores. XML `<summary>` doc-comment backfill on every renamed class.
+- **Phase 14 (AUDIT-01..03):** Broader codebase name-vs-behavior audit across 5 projects + missing doc-comment backfill. Release build clean.
+- **Phase 15 (AIPLATFORM-01..03):** Sealed `AiPlatform` record value object replacing stringly-typed `TargetAiPlatform`. OCP forecast 3/10 → 8/10 — adding a 4th platform is one registry entry plus N variant classes.
+- **Phase 999.1:** AI-agnostic prose adaptation across 3 workflow Razor views + C# exception messages + 3 Help markdown files. Hybrid pattern (universal noun above `_AiSelector`, `@aiPlatform.DisplayName` below).
+- **Phase 999.2:** Claude `<result>` wrapper stripped from 5 prompt variants (direct JSON fenced-block output).
+- **Phase 999.3:** Packet download session cache (per-request in-memory, TTL bounded) — eliminates full Scryfall pipeline replay on preview → download. Large Commander deck preview→download <2s on cache hit.
+- **Phase 999.4:** Truncated-JSON response UX. `JsonReaderException` caught and translated to "wait for AI to finish generating" inline on workflow pages.
+- **Phase 999.5/6:** Test-suite hardening (9→0 residual failures across 3 plans: F-ENV-COLLECTION serialization for env-mutating tests, F-PROD-CONTRACT `IHarvestRunStore.GetByIdAsync` production-bug fix surfaced inside the test cleanup).
+- **Phase 999.7:** Audit cleanup (STATE arithmetic, REQUIREMENTS checkboxes, 5 stale Claude doc-comments, F-02 asymmetry comment, 999.5-UAT status finalization).
+- **Phase 999.8:** Legacy chatgpt-* 301 redirects retired (22 lines deleted, 0 added; 11 URLs now 404). 2+ weeks live as graceful-deprecation tier was sufficient.
+
+### What Worked
+- **Cross-AI execution pattern (Codex codes, Claude reviews) established 2026-05-19.** Codex authored every production edit via `codex exec`; Claude orchestrated planning + verification + cross-AI peer review + commits + gate-running. Sustained zero friction across 6+ consecutive phase closures (999.5 → 999.8). Reduced single-model blind spots and kept Claude's leverage on review/orchestration, not implementation.
+- **Cross-AI plan review caught 2 BLOCKER issues in 999.7 P01 before execution.** `/gsd-review` with Codex as reviewer found real planning bugs that Claude's plan-checker missed. Workflow: `/gsd-plan-phase` → `/gsd-review` → revise → `/gsd-execute-phase`.
+- **Backlog-phase numbering 999.x.** Allowed v1.3 to absorb 8 quality-debt phases (999.1-999.8) without disrupting production phase numbering (11-15). Made `/gsd-audit-milestone` re-audit trivial — production reqs verified once at 22/22, backlog phases tracked separately.
+- **`no-ship-failing-tests` rule (established 2026-05-22)** created Phase 999.6 specifically. Net delta 9→0 failures across 3 plans (stale test mechanical fixes + F-ENV-COLLECTION test-class race fix + F-PROD-CONTRACT real production bug surfaced inside the cleanup). Discipline pays off — prevented shipping with deferred test debt for the first time.
+- **Atomic per-finding commits** through 999.7 + 999.8. Each audit finding got its own SUMMARY + commit, making the audit re-verification at HEAD trivial (one grep per finding).
+
+### What Was Inefficient
+- **STATE.md arithmetic drift accumulated across 4+ phase closures.** `completed_phases: 9 / total_phases: 11` (should be 11/11) and `completed_plans: 66 / total_plans: 46` (mathematically impossible: 66 > 46) shipped uncaught until milestone audit. Took Phase 999.7 P01 + 4 closure commits to reconcile. Need automatic STATE.md verification on phase close or audit-time arithmetic gate.
+- **REQUIREMENTS.md WDG-01..10 checkboxes shipped unchecked despite Phase 11 closure 2026-05-13.** 10 days of audit drift before 999.7 P02 flipped them. Phase-close transition should auto-flip checkboxes by REQ-ID match.
+- **Audit F-01 evidence inventory drift.** Audit listed 3 stale Claude doc-comments; repo grep at planning time confirmed 5. Codex review HIGH #1 caught the audit undercount; scope expanded to 5 files. Audit should run the grep gate it's claiming to verify, not just sample.
+- **Planning-time grep miscount on 999.7-04 SC4** (`grep -c D-11 returns 1` but HEAD had 3). Verification gate format was too coarse — needed handler-anchored awk-grep. Logged as v1.4 follow-up.
+- **999.3-01-PLAN.md has no SUMMARY** — rolled into 999.3-02-04 SUMMARY chain but the missing SUMMARY tripped the milestone.complete CLI counter (50/51). Need either a "rolled-into" SUMMARY pointer convention or explicit deletion of empty PLANs.
+
+### Patterns Established
+- **Codex-codes / Claude-reviews split** is now the global default (`~/.claude/CLAUDE.md` Workflow section).
+- **Per-finding audit-closure commit pattern**: each milestone-audit finding → 1 SUMMARY + 1 commit. Re-audit gates verify per-finding grep, not aggregate diffs.
+- **UAT.md as verification primitive for backlog phases** — `/gsd-verify-work` produces UAT.md instead of VERIFICATION.md for backlog phases that use D-XX decisions rather than formal REQ-IDs. Accepted as flow divergence in 2026-05-22 audit (F-03).
+- **Machine-verified UAT for doc-only / deletion-only phases.** 999.7 + 999.8 UATs are 100% grep+build+test gates with no human-attestation step (zero behavioral change to verify). Pattern reusable for future doc-cleanup phases.
+
+### Key Lessons
+1. **Audit before complete-milestone is non-negotiable.** 2026-05-22 audit caught 7 findings that would have shipped uncaught; closing them took 5 commits across 999.7+999.8. Audit is cheap; deferred debt is expensive.
+2. **STATE.md arithmetic needs automation.** Manual maintenance accumulates drift faster than human review can catch. Plan-close transition should compute counters, not trust them.
+3. **Cross-AI peer review on plans is high-leverage.** Catches real BLOCKERs Claude misses. Cost is one Codex round-trip per plan; benefit is shipping the right thing the first time.
+4. **`no-ship-failing-tests` discipline is foundational.** All prior milestones shipped with deferred failures; v1.3 was the first to enforce 0 before merge. Made the audit-passed → ship-ready transition smooth.
+5. **Net-deletion phases (999.8) ship fast.** 22 lines deleted, 0 added; build clean; tests at baseline. When the work is "remove this," scope is bounded and verification is grep-trivial.
+
+### Cost Observations
+- Model mix: ~70% Codex (every production edit via cross-AI dispatch), ~25% Opus (planning, audit, verification, orchestration), ~5% Sonnet (small doc/state edits, gsd-plan-checker)
+- Sessions: ~15 across 10 days (paused 2026-05-22 evening, resumed 2026-05-23 morning for verify→audit→complete→ship chain)
+- Notable: Phase 999.8 (1 plan, 22-line deletion + closure + UAT) ran from concept to closed in ~10 minutes via Codex dispatch + Claude gate-running. Pattern scales to similar bounded-deletion work.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -112,6 +165,7 @@
 |-----------|----------|--------|------------|
 | v1.0 | ~12 | 5 (1 abandoned) | First milestone; established phase-abandonment + post-mortem pattern |
 | v1.2 | ~8 | 2 | Mid-milestone sub-phase insertion (10-05); flag-gated partial-ship pattern for Gemini |
+| v1.3 | ~15 | 13 (5 prod + 8 backlog) | Cross-AI execution split (Codex codes, Claude reviews); cross-AI plan review; `no-ship-failing-tests` rule; backlog-phase numbering 999.x; machine-verified UAT for doc-only phases |
 
 ### Cumulative Quality
 
@@ -119,3 +173,4 @@
 |-----------|-------------|-----------|---------|
 | v1.0 | +1 integration test (Tagger cookie-replay), +N unit tests (TD-04 partition, throttle window) | +20,284 / -5,194 across 136 files | All 15 v1 reqs shipped, 27/27 must-haves verified |
 | v1.2 | +~80 unit tests (63 from initial Phase 10 + 17 across hybrid storage / Archidekt parity / 10-05 round-trip) | ~480 total unit tests pass (Core 57 + Web 407 baseline, +12 from 10-05) | All 5 v1.2 reqs functionally satisfied via manual T1-T8; documentation gaps (no VERIFICATION.md, Phase 9 frontmatter) accepted as tech debt |
+| v1.3 | Test baseline grew to 500 (Web 440 + Core 57 + 3 skipped Postgres integration). Net 9→0 failures resolved in Phase 999.6. New tests: AiPlatformExtensionTests 7 facts (4th-platform OCP proof), ResultContractTests (Claude direct-JSON divergence), AdminEnvCollection serialization scaffolding | +47,724 / -5,385 across 386 files | All 22 REQ-IDs SATISFIED (WDG-01..10, RENAME-01..03, CLASSRENAME-01..03, AUDIT-01..03, AIPLATFORM-01..03). 8/8 security threats CLOSED. First milestone with Failed:0 at ship. Audit re-passed 2026-05-23 after 7 findings closed via 999.7+999.8. |
