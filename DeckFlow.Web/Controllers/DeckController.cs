@@ -513,6 +513,7 @@ public sealed class DeckController : Controller
 
         try
         {
+            // Audit F-02: intentional asymmetry - DeckAnalysis has no response-JSON short-circuit tier (deck-analysis lacks a paste-response-only re-download path; Comparison + CedhMetaGap implement the full 3-tier order per Phase 999.3 D-10).
             // Phase 999.3 D-10: service-owned cache-key parity before BuildAsync; misses fall through silently.
             // Misses intentionally pay one extra deck load here before BuildAsync (D-11 accepted trade-off).
             var cacheKey = await _deckAnalysisPacketService.TryComputeCacheKeyAsync(request, HttpContext.RequestAborted);
