@@ -147,7 +147,7 @@ public sealed class CategoryKnowledgeStoreTests
     }
 
     [Fact]
-    public async Task GetPagedProcessedDecksAsync_MapsRepositoryRowsAndClampsPagingInputs()
+    public async Task GetPagedProcessedCommandersAsync_MapsRepositoryRowsAndClampsPagingInputs()
     {
         var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
         var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
@@ -158,15 +158,17 @@ public sealed class CategoryKnowledgeStoreTests
             var store = CreateStore(Path.Combine(tempRoot, "content"));
 
             await store.MarkUrlDeckProcessedAsync("deck-001", "Commander One");
-            await store.MarkUrlDeckProcessedAsync("deck-002", "Commander Two");
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Commander One");
+            await store.MarkUrlDeckProcessedAsync("deck-003", "Commander Two");
 
-            var rows = await store.GetPagedProcessedDecksAsync(page: 0, pageSize: 0);
+            var rows = await store.GetPagedProcessedCommandersAsync(page: 0, pageSize: 0);
+            var count = await store.GetDistinctProcessedCommanderCountAsync();
 
             var row = Assert.Single(rows);
-            Assert.Equal("deck-002", row.DeckId);
-            Assert.Equal("Commander Two", row.CommanderName);
-            Assert.False(string.IsNullOrWhiteSpace(row.InsertedUtc));
-            Assert.False(string.IsNullOrWhiteSpace(row.LastCheckedUtc));
+            Assert.Equal("Commander One", row.CommanderName);
+            Assert.Equal(2, row.DeckCount);
+            Assert.False(string.IsNullOrWhiteSpace(row.LastProcessedUtc));
+            Assert.Equal(2, count);
         }
         finally
         {
@@ -175,22 +177,23 @@ public sealed class CategoryKnowledgeStoreTests
     }
 
     [Fact]
-    public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredPagedDecksAndRecordsInputs()
+    public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredPagedCommandersAndRecordsInputs()
     {
         var fake = new FakeCategoryKnowledgeStore
         {
-            PagedDecksResult = new[]
+            PagedCommandersResult = new[]
             {
-                new HarvestedDeckRow("deck-123", "Commander", "2026-01-01T00:00:00.0000000Z", null)
+                new HarvestedCommanderRow("Commander", 7, "2026-01-01T00:00:00.0000000Z")
             }
         };
 
-        var rows = await fake.GetPagedProcessedDecksAsync(page: 3, pageSize: 25);
+        var rows = await fake.GetPagedProcessedCommandersAsync(page: 3, pageSize: 25);
 
         var row = Assert.Single(rows);
-        Assert.Equal("deck-123", row.DeckId);
-        Assert.Equal(3, fake.LastPagedDeckPage);
-        Assert.Equal(25, fake.LastPagedDeckPageSize);
+        Assert.Equal("Commander", row.CommanderName);
+        Assert.Equal(7, row.DeckCount);
+        Assert.Equal(3, fake.LastPagedCommanderPage);
+        Assert.Equal(25, fake.LastPagedCommanderPageSize);
     }
 
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)

@@ -74,7 +74,10 @@ public sealed class CommanderCategoryServiceTests
         public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("Not reached via skip-sweep branch.");
 
-        public Task<IReadOnlyList<HarvestedDeckRow>> GetPagedProcessedDecksAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+
+        public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException("Not reached via skip-sweep branch.");
 
         public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)

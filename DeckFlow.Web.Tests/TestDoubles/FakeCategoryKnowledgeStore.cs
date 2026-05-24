@@ -29,11 +29,13 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int TotalProcessedDeckCount { get; set; }
 
-    public IReadOnlyList<HarvestedDeckRow> PagedDecksResult { get; set; } = Array.Empty<HarvestedDeckRow>();
+    public int DistinctProcessedCommanderCount { get; set; }
 
-    public int LastPagedDeckPage { get; private set; }
+    public IReadOnlyList<HarvestedCommanderRow> PagedCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
 
-    public int LastPagedDeckPageSize { get; private set; }
+    public int LastPagedCommanderPage { get; private set; }
+
+    public int LastPagedCommanderPageSize { get; private set; }
 
     public void SetProcessedDeckCounts(params int[] counts)
     {
@@ -95,12 +97,15 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
 
-    public Task<IReadOnlyList<HarvestedDeckRow>> GetPagedProcessedDecksAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        LastPagedDeckPage = page;
-        LastPagedDeckPageSize = pageSize;
-        return Task.FromResult(PagedDecksResult);
+        LastPagedCommanderPage = page;
+        LastPagedCommanderPageSize = pageSize;
+        return Task.FromResult(PagedCommandersResult);
     }
+
+    public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(DistinctProcessedCommanderCount);
 
     public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<long?>(null);

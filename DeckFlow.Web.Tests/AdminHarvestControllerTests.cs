@@ -14,14 +14,14 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Tests for <see cref="AdminHarvestController"/> covering harvested-deck paging and page clamps.
+/// Tests for <see cref="AdminHarvestController"/> covering harvested-commander paging and page clamps.
 /// </summary>
 public sealed class AdminHarvestControllerTests
 {
     [Fact]
     public async Task Index_ClampsHugePageToDeckTotalPages()
     {
-        var store = NewStore(totalProcessedDeckCount: 3);
+        var store = NewStore(distinctProcessedCommanderCount: 3);
         var controller = Build(store);
 
         var result = await controller.Index(page: 999999);
@@ -35,7 +35,7 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task Index_ClampsZeroPageToOne()
     {
-        var store = NewStore(totalProcessedDeckCount: 3);
+        var store = NewStore(distinctProcessedCommanderCount: 3);
         var controller = Build(store);
 
         var result = await controller.Index(page: 0);
@@ -46,29 +46,29 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task Index_PassesClampedPageToPagedDeckStore()
+    public async Task Index_PassesClampedPageToPagedCommanderStore()
     {
-        var store = NewStore(totalProcessedDeckCount: 125);
+        var store = NewStore(distinctProcessedCommanderCount: 125);
         var controller = Build(store);
 
         var result = await controller.Index(page: 999999);
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<AdminHarvestViewModel>(view.Model);
-        Assert.Equal(model.DeckTotalPages, store.LastPagedDeckPage);
-        Assert.Equal(AdminHarvestViewModel.DefaultDeckPageSize, store.LastPagedDeckPageSize);
-        Assert.NotEqual(999999, store.LastPagedDeckPage);
+        Assert.Equal(model.DeckTotalPages, store.LastPagedCommanderPage);
+        Assert.Equal(AdminHarvestViewModel.DefaultDeckPageSize, store.LastPagedCommanderPageSize);
+        Assert.NotEqual(999999, store.LastPagedCommanderPage);
     }
 
-    private static FakeCategoryKnowledgeStore NewStore(int totalProcessedDeckCount)
+    private static FakeCategoryKnowledgeStore NewStore(int distinctProcessedCommanderCount)
         => new()
         {
-            TotalProcessedDeckCount = totalProcessedDeckCount,
-            PagedDecksResult = new[]
+            DistinctProcessedCommanderCount = distinctProcessedCommanderCount,
+            PagedCommandersResult = new[]
             {
-                new HarvestedDeckRow("deck-1", "Commander One", "2026-01-01T00:00:00.0000000Z", null),
-                new HarvestedDeckRow("deck-2", "Commander Two", "2026-01-02T00:00:00.0000000Z", null),
-                new HarvestedDeckRow("deck-3", "Commander Three", "2026-01-03T00:00:00.0000000Z", null),
+                new HarvestedCommanderRow("Commander One", 3, "2026-01-01T00:00:00.0000000Z"),
+                new HarvestedCommanderRow("Commander Two", 2, "2026-01-02T00:00:00.0000000Z"),
+                new HarvestedCommanderRow("Commander Three", 1, "2026-01-03T00:00:00.0000000Z"),
             },
         };
 
