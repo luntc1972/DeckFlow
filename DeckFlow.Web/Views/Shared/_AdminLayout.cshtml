@@ -23,8 +23,9 @@
                     <span class="sr-only">Navigation menu</span>
                     <span aria-hidden="true">&#9776; Menu</span>
                 </summary>
-                <div class="admin-sidebar__brand">DeckFlow Admin</div>
+                <a class="admin-sidebar__brand" href="@Url.Content("~/Admin")">DeckFlow Admin</a>
                 <nav class="admin-sidebar__nav">
+                    <a class="@ActiveClass("AdminLanding")"   aria-current="@ActiveAria("AdminLanding")"   href="@Url.Content("~/Admin")">Dashboard</a>
                     <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
                     <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
                     <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
