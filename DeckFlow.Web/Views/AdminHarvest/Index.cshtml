@@ -186,7 +186,7 @@
 
 </section>
 
-<section class="admin-harvest__panel">
+<section id="harvested-commanders" class="admin-harvest__panel">
     <h2>Harvested Commanders</h2>
     <p>@Model.DeckTotalCount commanders - Page @Model.DeckPage of @Model.DeckTotalPages</p>
 
@@ -222,12 +222,12 @@
         <nav class="admin-feedback-pagination">
             @if (Model.DeckPage > 1)
             {
-                <a asp-action="Index" asp-route-page="@(Model.DeckPage - 1)">Prev</a>
+                <a asp-action="Index" asp-route-page="@(Model.DeckPage - 1)" asp-fragment="harvested-commanders">Prev</a>
             }
             <span>Page @Model.DeckPage of @Model.DeckTotalPages</span>
             @if (Model.DeckPage < Model.DeckTotalPages)
             {
-                <a asp-action="Index" asp-route-page="@(Model.DeckPage + 1)">Next</a>
+                <a asp-action="Index" asp-route-page="@(Model.DeckPage + 1)" asp-fragment="harvested-commanders">Next</a>
             }
         </nav>
     }
