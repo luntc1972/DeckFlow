@@ -832,7 +832,7 @@ These five items are framed for the planner / Codex peer reviewer. None blocks P
 - `.planning/research/FEATURES.md` Feature 6 (lines 348-403) — full WDG-04 modal feature analysis
 - `.planning/research/ARCHITECTURE.md` Cluster A (lines 38-50) — component table (name `admin-feedback-modal.ts` overridden to `admin-modal.ts` per CONTEXT D-02)
 - `.planning/milestones/v1.3-phases/11-web-design-guidelines-audit-fixes/11-VERIFICATION.md:35-46` — WDG-04 deferral audit trail
-- `.planning/phases/01-wdg-04-focus-trapped-modal/16-CONTEXT.md` — nine locked decisions
+- `.planning/phases/16-wdg-04-focus-trapped-modal/16-CONTEXT.md` — nine locked decisions
 
 ### Secondary (HIGH confidence; MDN verified 2026-05-23)
 
