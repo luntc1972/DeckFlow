@@ -237,3 +237,21 @@ HIGH until HIGH-A is corrected. The fix is small: remove the base `display:none`
 ### Cycle 4 status: REMAINING_HIGH=1 (trend 5 -> 3 -> 2 -> 1)
 - HIGH-B long-token overflow: RESOLVED
 - HIGH-A desktop summary a11y: UNRESOLVED — base .admin-shell .admin-sidebar__toggle{display:none} not reset in the >=769px clip rule; summary stays out of a11y tree. Fix: desktop clip rule must set display (block/inline-flex) + clip, never display:none; verify summary focusable + not display:none.
+
+---
+
+# Cross-AI Plan Review — Phase 18 — Cycle 5 (CONVERGED, commit ff61da6)
+
+> Reviewer: Codex. Reviewed_at: 2026-05-24T19:46:33Z
+
+## Codex Review (Cycle 5)
+
+**HIGH-A: RESOLVED** — the revised plans remove the base `.admin-sidebar__toggle { display: none; }`, require the desktop `>=769px` rule to set `display: block` alongside the `.sr-only` clip, and harden both automated gates and the 769px human checkpoint to fail if the summary is `display:none` or omitted from the accessibility tree.
+
+No NEW ship-blocking HIGH found. The remaining desktop `<details>` semantics are still a known a11y tradeoff, but the plan now has a coherent fallback: nav forced visible, summary clipped-but-focusable, and SR behavior explicitly verified at 769px.
+
+Overall Risk: MEDIUM
+
+REMAINING_HIGH=0
+
+### CONVERGED: REMAINING_HIGH=0 (trend 5 -> 3 -> 2 -> 1 -> 0). Overall risk MEDIUM, no ship-blockers.
