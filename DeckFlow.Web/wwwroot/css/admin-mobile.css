@@ -21,8 +21,9 @@
   .admin-shell .admin-sidebar__toggle {
     display: flex;
     align-items: center;
-    padding: 12px 20px;
-    min-height: 44px;
+    padding: 14px 20px;
+    min-height: 48px;
+    font-size: 1.05rem;
     cursor: pointer;
     font-weight: 700;
     list-style: none;

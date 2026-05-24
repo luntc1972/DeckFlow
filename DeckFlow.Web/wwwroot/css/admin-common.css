@@ -150,6 +150,13 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .admin-content { grid-area: content; padding: 24px; max-width: 1200px; min-width: 0; }
 
+.admin-shell .admin-hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; margin-top: 16px; }
+.admin-shell .admin-hub-card { display: flex; flex-direction: column; gap: 0.35rem; padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); text-decoration: none; transition: border-color 120ms ease, transform 120ms ease; }
+.admin-shell .admin-hub-card:hover, .admin-shell .admin-hub-card:focus-visible { border-color: var(--accent); transform: translateY(-1px); text-decoration: none; }
+.admin-shell .admin-hub-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.admin-shell .admin-hub-card__title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
+.admin-shell .admin-hub-card__description { margin: 0; font-size: 0.85em; color: var(--muted); line-height: 1.35; }
+
 .admin-shell .admin-banner { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); }
 .admin-shell .admin-banner--success { border-color: var(--accent); }
 
