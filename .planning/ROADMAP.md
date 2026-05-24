@@ -90,7 +90,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
      Execute in the listed order below: 25 → 24 → 19 → 20 → 21 → 22 → 23.
      Content KB (19-22) is the final feature block; Phase 23 (strip NoWarn) stays
      last by hard dependency on Phase 22 (must document all new KB types first). -->
-- [ ] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)*
+- [x] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)* (completed 2026-05-24)
 - [ ] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2*
 - [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP — *exec #3*
 - [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines — *exec #4*
@@ -279,8 +279,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 
-- [ ] 25-01-PLAN.md — Data + service layer: paged deck query + 3 deck_queue indexes + reltuples count fast-path + Task.WhenAll parallelization + Fake/repo tests (AHD-01)
-- [ ] 25-02-PLAN.md — Admin UI: AdminHarvestViewModel paging fields + Index(int page) clamped fetch + paged Harvested Decks grid replacing the top-10 list (AHD-01)
+- [x] 25-01-PLAN.md — Data + service layer: paged deck query + 3 deck_queue indexes + reltuples count fast-path + Task.WhenAll parallelization + Fake/repo tests (AHD-01)
+- [x] 25-02-PLAN.md — Admin UI: AdminHarvestViewModel paging fields + Index(int page) clamped fetch + paged Harvested Decks grid replacing the top-10 list (AHD-01)
 
 ## Progress
 
@@ -295,7 +295,7 @@ Plans:
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
-| 25. Admin Harvested-Decks Paged Grid | 0/2 | Planned | - |
+| 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete   | 2026-05-24 |
 
 **Critical path:** Phase 16 → Phase 18 → Phase 19 → Phase 20 → Phase 21 → Phase 22
 **Off critical path:** Phase 17 (parallelizable with Phases 16/18/19/20/21/22), Phase 23 (lands last after all v1.4 surface exists), Phase 24 (independent bug fix), Phase 25 (depends only on Phase 18 admin shell)

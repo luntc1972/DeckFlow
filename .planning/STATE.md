@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
-status: completed
+status: executing
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-24T21:21:05.986Z"
-last_activity: 2026-05-24 -- Phase 17 marked complete
+last_updated: "2026-05-24T22:28:35.911Z"
+last_activity: 2026-05-24 -- Phase 25 execution started
 progress:
   total_phases: 10
   completed_phases: 3
-  total_plans: 5
+  total_plans: 7
   completed_plans: 5
   percent: 30
 ---
@@ -50,14 +50,14 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 17 — doc-comment-backfill-part-1-controllers-services
+**Current focus:** Phase 25 — admin-harvested-decks-paged-grid
 
 ## Current Position
 
-Phase: 17 — COMPLETE
-Plan: 2 of 2
-Status: Phase 18 complete (UAT passed 2026-05-24; D-OPEN reversed to <details open> — closed-details content unrenderable by CSS in Chrome/Edge)
-Last activity: 2026-05-24 -- Phase 17 marked complete
+Phase: 25 (admin-harvested-decks-paged-grid) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 25
+Last activity: 2026-05-24 -- Phase 25 execution started
 
 ## Performance Metrics
 
