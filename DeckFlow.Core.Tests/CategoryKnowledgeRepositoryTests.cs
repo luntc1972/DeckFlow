@@ -96,114 +96,144 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetPagedProcessedDeckRowsAsync_ReturnsStablePageWithTupleFields()
+    public async Task GetPagedProcessedCommanderRowsAsync_ReturnsAggregatesOrderedByCountLastProcessedAndName()
     {
         var repository = CreateRepository();
-        var oldestInsertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
-        var newestInsertedUtc = DateTimeOffset.Parse("2026-01-03T00:00:00Z");
-        var middleInsertedUtc = DateTimeOffset.Parse("2026-01-02T00:00:00Z");
-        var newestLastCheckedUtc = DateTimeOffset.Parse("2026-01-04T00:00:00Z");
-        var middleLastCheckedUtc = DateTimeOffset.Parse("2026-01-05T00:00:00Z");
-        var oldestLastCheckedUtc = DateTimeOffset.Parse("2026-01-02T00:00:00Z");
+        var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        var atraxaMax = DateTimeOffset.Parse("2026-01-04T00:00:00Z");
+        var bragoChulaneMax = DateTimeOffset.Parse("2026-01-07T00:00:00Z");
+        var muldrothaMax = DateTimeOffset.Parse("2026-01-05T00:00:00Z");
+        var dinaMax = DateTimeOffset.Parse("2026-01-09T00:00:00Z");
 
-        await repository.AddDeckIdsAsync(new[] { "deck-old", "deck-new", "deck-mid" });
-        await repository.MarkDeckProcessedAsync("deck-old", "Old Commander");
-        await repository.MarkDeckProcessedAsync("deck-new", "New Commander");
-        await repository.MarkDeckProcessedAsync("deck-mid", "Mid Commander");
-        await SetDeckQueueFieldsAsync("deck-old", oldestInsertedUtc, "Old Commander", oldestLastCheckedUtc);
-        await SetDeckQueueFieldsAsync("deck-new", newestInsertedUtc, "New Commander", newestLastCheckedUtc);
-        await SetDeckQueueFieldsAsync("deck-mid", middleInsertedUtc, "Mid Commander", middleLastCheckedUtc);
+        await SeedProcessedDeckAsync(repository, "atraxa-1", "Atraxa", insertedUtc, DateTimeOffset.Parse("2026-01-02T00:00:00Z"));
+        await SeedProcessedDeckAsync(repository, "atraxa-2", "Atraxa", insertedUtc, atraxaMax);
+        await SeedProcessedDeckAsync(repository, "atraxa-3", "Atraxa", insertedUtc, DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
+        await SeedProcessedDeckAsync(repository, "brago-1", "Brago", insertedUtc, bragoChulaneMax);
+        await SeedProcessedDeckAsync(repository, "brago-2", "Brago", insertedUtc, DateTimeOffset.Parse("2026-01-06T00:00:00Z"));
+        await SeedProcessedDeckAsync(repository, "chulane-1", "Chulane", insertedUtc, bragoChulaneMax);
+        await SeedProcessedDeckAsync(repository, "chulane-2", "Chulane", insertedUtc, DateTimeOffset.Parse("2026-01-06T00:00:00Z"));
+        await SeedProcessedDeckAsync(repository, "muldrotha-1", "Muldrotha", insertedUtc, muldrothaMax);
+        await SeedProcessedDeckAsync(repository, "muldrotha-2", "Muldrotha", insertedUtc, DateTimeOffset.Parse("2026-01-04T00:00:00Z"));
+        await SeedProcessedDeckAsync(repository, "dina-1", "Dina", insertedUtc, dinaMax);
 
-        var pageOne = await repository.GetPagedProcessedDeckRowsAsync(page: 1, pageSize: 2);
-        var pageTwo = await repository.GetPagedProcessedDeckRowsAsync(page: 2, pageSize: 2);
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(page: 1, pageSize: 10);
 
-        Assert.Equal(2, pageOne.Count);
-        Assert.Equal("deck-new", pageOne[0].DeckId);
-        Assert.Equal("New Commander", pageOne[0].CommanderName);
-        Assert.Equal(newestInsertedUtc.ToString("O"), pageOne[0].InsertedUtc);
-        Assert.Equal(newestLastCheckedUtc.ToString("O"), pageOne[0].LastCheckedUtc);
-        Assert.Equal("deck-mid", pageOne[1].DeckId);
-        Assert.Equal("Mid Commander", pageOne[1].CommanderName);
-        Assert.Equal(middleInsertedUtc.ToString("O"), pageOne[1].InsertedUtc);
-        Assert.Equal(middleLastCheckedUtc.ToString("O"), pageOne[1].LastCheckedUtc);
-
-        var onlyPageTwoRow = Assert.Single(pageTwo);
-        Assert.Equal("deck-old", onlyPageTwoRow.DeckId);
-        Assert.Equal("Old Commander", onlyPageTwoRow.CommanderName);
-        Assert.Equal(oldestInsertedUtc.ToString("O"), onlyPageTwoRow.InsertedUtc);
-        Assert.Equal(oldestLastCheckedUtc.ToString("O"), onlyPageTwoRow.LastCheckedUtc);
+        Assert.Collection(
+            rows,
+            row =>
+            {
+                Assert.Equal("Atraxa", row.CommanderName);
+                Assert.Equal(3, row.DeckCount);
+                Assert.Equal(atraxaMax.ToString("O"), row.LastProcessedUtc);
+            },
+            row =>
+            {
+                Assert.Equal("Brago", row.CommanderName);
+                Assert.Equal(2, row.DeckCount);
+                Assert.Equal(bragoChulaneMax.ToString("O"), row.LastProcessedUtc);
+            },
+            row =>
+            {
+                Assert.Equal("Chulane", row.CommanderName);
+                Assert.Equal(2, row.DeckCount);
+                Assert.Equal(bragoChulaneMax.ToString("O"), row.LastProcessedUtc);
+            },
+            row =>
+            {
+                Assert.Equal("Muldrotha", row.CommanderName);
+                Assert.Equal(2, row.DeckCount);
+                Assert.Equal(muldrothaMax.ToString("O"), row.LastProcessedUtc);
+            },
+            row =>
+            {
+                Assert.Equal("Dina", row.CommanderName);
+                Assert.Equal(1, row.DeckCount);
+                Assert.Equal(dinaMax.ToString("O"), row.LastProcessedUtc);
+            });
     }
 
     [Fact]
-    public async Task GetPagedProcessedDeckRowsAsync_UsesDeckIdTiebreakerForSharedInsertedUtc()
+    public async Task GetPagedProcessedCommanderRowsAsync_AppliesPageSizeSlicing()
     {
         var repository = CreateRepository();
         var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
 
-        await repository.AddDeckIdsAsync(new[] { "deck-001", "deck-002", "deck-003", "deck-004" });
-        await repository.MarkDecksProcessedAsync(new[] { "deck-001", "deck-002", "deck-003", "deck-004" });
-        foreach (var deckId in new[] { "deck-001", "deck-002", "deck-003", "deck-004" })
-        {
-            await SetDeckQueueFieldsAsync(deckId, insertedUtc, commanderName: deckId, lastCheckedUtc: insertedUtc);
-        }
+        await SeedProcessedDeckAsync(repository, "one-1", "One", insertedUtc, insertedUtc.AddDays(4));
+        await SeedProcessedDeckAsync(repository, "one-2", "One", insertedUtc, insertedUtc.AddDays(4));
+        await SeedProcessedDeckAsync(repository, "one-3", "One", insertedUtc, insertedUtc.AddDays(4));
+        await SeedProcessedDeckAsync(repository, "two-1", "Two", insertedUtc, insertedUtc.AddDays(3));
+        await SeedProcessedDeckAsync(repository, "two-2", "Two", insertedUtc, insertedUtc.AddDays(3));
+        await SeedProcessedDeckAsync(repository, "three-1", "Three", insertedUtc, insertedUtc.AddDays(2));
+        await SeedProcessedDeckAsync(repository, "four-1", "Four", insertedUtc, insertedUtc.AddDays(1));
 
-        var pageOne = await repository.GetPagedProcessedDeckRowsAsync(page: 1, pageSize: 2);
-        var pageTwo = await repository.GetPagedProcessedDeckRowsAsync(page: 2, pageSize: 2);
+        var pageTwo = await repository.GetPagedProcessedCommanderRowsAsync(page: 2, pageSize: 2);
 
-        Assert.Equal(new[] { "deck-004", "deck-003" }, pageOne.Select(row => row.DeckId));
-        Assert.Equal(new[] { "deck-002", "deck-001" }, pageTwo.Select(row => row.DeckId));
-        Assert.Equal(
-            new[] { "deck-001", "deck-002", "deck-003", "deck-004" },
-            pageOne.Concat(pageTwo).Select(row => row.DeckId).OrderBy(id => id, StringComparer.Ordinal));
+        Assert.Equal(new[] { "Three", "Four" }, pageTwo.Select(row => row.CommanderName));
     }
 
     [Fact]
-    public async Task GetPagedProcessedDeckRowsAsync_ReturnsEmptyListForEmptyQueue()
+    public async Task GetPagedProcessedCommanderRowsAsync_ReturnsEmptyListForEmptyQueue()
     {
         var repository = CreateRepository();
 
-        var rows = await repository.GetPagedProcessedDeckRowsAsync(page: 1, pageSize: 2);
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(page: 1, pageSize: 2);
 
         Assert.Empty(rows);
     }
 
     [Fact]
-    public async Task GetPagedProcessedDeckRowsAsync_ExcludesUnprocessedDecksAndPreservesNullFields()
+    public async Task GetPagedProcessedCommanderRowsAsync_ExcludesUnprocessedAndNullCommanderRows()
     {
         var repository = CreateRepository();
         var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
 
-        await repository.AddDeckIdsAsync(new[] { "processed-null", "unprocessed" });
-        await repository.MarkDeckProcessedAsync("processed-null", commanderName: null);
-        await SetDeckQueueFieldsAsync("processed-null", insertedUtc, commanderName: null, lastCheckedUtc: null);
+        await SeedProcessedDeckAsync(repository, "processed", "Known Commander", insertedUtc, insertedUtc);
+        await SeedProcessedDeckAsync(repository, "processed-null", commanderName: null, insertedUtc, lastCheckedUtc: null);
+        await repository.AddDeckIdsAsync(new[] { "unprocessed" });
+        await SetDeckQueueFieldsAsync("unprocessed", insertedUtc, commanderName: "Unprocessed Commander", lastCheckedUtc: insertedUtc);
 
-        var rows = await repository.GetPagedProcessedDeckRowsAsync(page: 1, pageSize: 10);
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(page: 1, pageSize: 10);
 
         var row = Assert.Single(rows);
-        Assert.Equal("processed-null", row.DeckId);
-        Assert.Null(row.CommanderName);
-        Assert.Equal(insertedUtc.ToString("O"), row.InsertedUtc);
-        Assert.Null(row.LastCheckedUtc);
+        Assert.Equal("Known Commander", row.CommanderName);
+        Assert.Equal(1, row.DeckCount);
+        Assert.Equal(insertedUtc.ToString("O"), row.LastProcessedUtc);
     }
 
     [Fact]
-    public async Task GetPagedProcessedDeckRowsAsync_ClampsInvalidPagingInputs()
+    public async Task GetPagedProcessedCommanderRowsAsync_ClampsInvalidPagingInputs()
     {
         var repository = CreateRepository();
         var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
 
-        await repository.AddDeckIdsAsync(new[] { "deck-001", "deck-002" });
-        await repository.MarkDecksProcessedAsync(new[] { "deck-001", "deck-002" });
-        await SetDeckQueueFieldsAsync("deck-001", insertedUtc, commanderName: "One", lastCheckedUtc: insertedUtc);
-        await SetDeckQueueFieldsAsync("deck-002", insertedUtc.AddDays(1), commanderName: "Two", lastCheckedUtc: insertedUtc);
+        await SeedProcessedDeckAsync(repository, "deck-001", "One", insertedUtc, insertedUtc);
+        await SeedProcessedDeckAsync(repository, "deck-002", "Two", insertedUtc, insertedUtc.AddDays(1));
 
-        var pageZero = await repository.GetPagedProcessedDeckRowsAsync(page: 0, pageSize: 2);
-        var pageOne = await repository.GetPagedProcessedDeckRowsAsync(page: 1, pageSize: 2);
-        var zeroPageSize = await repository.GetPagedProcessedDeckRowsAsync(page: 1, pageSize: 0);
+        var pageZero = await repository.GetPagedProcessedCommanderRowsAsync(page: 0, pageSize: 2);
+        var pageOne = await repository.GetPagedProcessedCommanderRowsAsync(page: 1, pageSize: 2);
+        var zeroPageSize = await repository.GetPagedProcessedCommanderRowsAsync(page: 1, pageSize: 0);
 
-        Assert.Equal(pageOne.Select(row => row.DeckId), pageZero.Select(row => row.DeckId));
+        Assert.Equal(pageOne.Select(row => row.CommanderName), pageZero.Select(row => row.CommanderName));
         var row = Assert.Single(zeroPageSize);
-        Assert.Equal("deck-002", row.DeckId);
+        Assert.Equal("Two", row.CommanderName);
+    }
+
+    [Fact]
+    public async Task GetDistinctProcessedCommanderCountAsync_ReturnsDistinctCommanderCount()
+    {
+        var repository = CreateRepository();
+        var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+
+        await SeedProcessedDeckAsync(repository, "atraxa-1", "Atraxa", insertedUtc, insertedUtc);
+        await SeedProcessedDeckAsync(repository, "atraxa-2", "Atraxa", insertedUtc, insertedUtc);
+        await SeedProcessedDeckAsync(repository, "brago-1", "Brago", insertedUtc, insertedUtc);
+        await SeedProcessedDeckAsync(repository, "processed-null", commanderName: null, insertedUtc, lastCheckedUtc: insertedUtc);
+        await repository.AddDeckIdsAsync(new[] { "unprocessed" });
+        await SetDeckQueueFieldsAsync("unprocessed", insertedUtc, commanderName: "Chulane", lastCheckedUtc: insertedUtc);
+
+        var count = await repository.GetDistinctProcessedCommanderCountAsync();
+
+        Assert.Equal(2, count);
     }
 
     [Fact]
@@ -220,6 +250,18 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
+
+    private async Task SeedProcessedDeckAsync(
+        CategoryKnowledgeRepository repository,
+        string deckId,
+        string? commanderName,
+        DateTimeOffset insertedUtc,
+        DateTimeOffset? lastCheckedUtc)
+    {
+        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.MarkDeckProcessedAsync(deckId, commanderName);
+        await SetDeckQueueFieldsAsync(deckId, insertedUtc, commanderName, lastCheckedUtc);
+    }
 
     private async Task SetLastCheckedUtcAsync(string deckId, DateTimeOffset timestamp)
     {
