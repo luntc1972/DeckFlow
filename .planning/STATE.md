@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 status: executing
-stopped_at: Phase 2 context gathered
+stopped_at: Phase 17 context gathered
 last_updated: "2026-05-24T16:31:48.264Z"
-last_activity: 2026-05-24 -- Phase 2 planning complete
+last_activity: 2026-05-24 -- Phase 17 planning complete
 progress:
-  total_phases: 8
+  total_phases: 10
   completed_phases: 1
   total_plans: 3
   completed_plans: 1
-  percent: 13
+  percent: 10
 ---
 
 ## Deferred Items
@@ -50,14 +50,14 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** v1.4 Phase 1 (WDG-04 Focus-Trapped Modal) — closes v1.3 carry-over
+**Current focus:** v1.4 Phase 16 (WDG-04 Focus-Trapped Modal) — closes v1.3 carry-over
 
 ## Current Position
 
 Phase: 1 — WDG-04 Focus-Trapped Modal (COMPLETE; UAT passed 2026-05-24)
 Plan: 1/1 complete
 Status: Ready to execute
-Last activity: 2026-05-24 -- Phase 2 planning complete
+Last activity: 2026-05-24 -- Phase 17 planning complete
 
 ## Performance Metrics
 
@@ -94,10 +94,10 @@ v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 
 
 ### v1.4 Decisions
 
-- **Critical path:** Phase 1 → 3 → 4 → 5 → 6 → 7. Phase 2 parallelizable (off critical path). Phase 8 lands last (so v1.4 new types are documented before NoWarn gate flips per Pitfall 8).
-- **Phase 1 before Phase 3:** Modal CSS lands in new `admin-common.css` factoring; doing modal after the split forces touching two files (per ARCHITECTURE.md build order rationale).
-- **Phase 4 before Phase 5 before Phase 6 before Phase 7:** Each Content KB layer's tests need the prior layer's seam (stores → HTTP → orchestrator → UI).
-- **Phase 6 mode = mvp:** Orchestrator phase delivers the headline user story "admin can trigger end-to-end harvest"; mvp mode enforces user-story-first verification with the TOCTOU + kill-switch invariants as hard gates.
+- **Critical path:** Phase 16 → 18 → 19 → 20 → 21 → 22. Phase 17 parallelizable (off critical path). Phase 23 lands last (so v1.4 new types are documented before NoWarn gate flips per Pitfall 8).
+- **Phase 16 before Phase 18:** Modal CSS lands in new `admin-common.css` factoring; doing modal after the split forces touching two files (per ARCHITECTURE.md build order rationale).
+- **Phase 19 before Phase 20 before Phase 21 before Phase 22:** Each Content KB layer's tests need the prior layer's seam (stores → HTTP → orchestrator → UI).
+- **Phase 21 mode = mvp:** Orchestrator phase delivers the headline user story "admin can trigger end-to-end harvest"; mvp mode enforces user-story-first verification with the TOCTOU + kill-switch invariants as hard gates.
 - **`content_kb_enabled` flag default OFF:** flip only after first admin UAT verifies end-to-end harvest from deployed Render env (per Pitfall 1+2 P1+P2 mitigation).
 - **Whisper monthly cap default `$15.00`:** per STACK.md expected $13.32 run-rate + 12% headroom. Env var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (sync:false on Render).
 - **YouTube transcript via YoutubeExplode 6.6.0 NOT Google.Apis.YouTube.v3** — captions.download returns 403 on third-party content per Google Issue Tracker 241669016 (Pitfall 1).
@@ -146,19 +146,19 @@ v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 
 ### Blockers/Concerns
 
 - None at roadmap creation. v1.4 work continues on branch `v1.3` (per current checkout); branch cutover to `v1.4` per operator decision at first execute-phase.
-- Dockerfile `apt-get install -y ffmpeg` verification needed at Phase 5/6 start if podcasts >25MB will need chunking (per Pitfall 7).
+- Dockerfile `apt-get install -y ffmpeg` verification needed at Phase 20/21 start if podcasts >25MB will need chunking (per Pitfall 7).
 
 ## Session Continuity
 
 Last session: 2026-05-24T15:56:52.225Z
 
-Stopped at: Phase 2 context gathered
+Stopped at: Phase 17 context gathered
 
 Next action on resume: `/gsd-discuss-phase 1` to scope WDG-04 modal implementation, then `/gsd-plan-phase 1` to decompose into plans, then `/gsd-review` (Codex peer review per CLAUDE.md cross-AI pattern), then `/gsd-execute-phase 1`.
 
 **Resume guidance:**
 
-- Read `.planning/ROADMAP.md` Phase 1 Detail section for goal + 4 SCs + dependencies.
+- Read `.planning/ROADMAP.md` Phase 16 Detail section for goal + 4 SCs + dependencies.
 - Read `.planning/research/SUMMARY.md` §3 row 1 + §5 invariants 10-12 for modal-specific design constraints.
 - Read `.planning/research/PITFALLS.md` Pitfall 9 (hand-rolled focus-trap anti-pattern) + Pitfall 10 (CSS bleed) for SC verification anchors.
 - Branch: currently `v1.3` (per HEAD 65f2fe4); cutover to `v1.4` branch per operator decision at first execute-phase dispatch.
@@ -167,4 +167,4 @@ Next action on resume: `/gsd-discuss-phase 1` to scope WDG-04 modal implementati
 
 - Review v1.4 ROADMAP.md draft (8 phases, 16/16 REQ-IDs mapped, granularity=coarse).
 - Approve or request revision.
-- On approval: commit roadmap artifacts, then `/gsd-discuss-phase 1` to start Phase 1 planning.
+- On approval: commit roadmap artifacts, then `/gsd-discuss-phase 1` to start Phase 16 planning.

@@ -1,4 +1,4 @@
-# Phase 2: Doc-Comment Backfill — Part 1 (Controllers + Services) - Discussion Log
+# Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services) - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
@@ -68,4 +68,4 @@
 
 ## Deferred Ideas
 
-- Part 2 dirs (`Models/`, `Models/Api/`, `Infrastructure/`, `Security/`, `ViewModels/`) + `NoWarn` strip → Phase 8.
+- Part 2 dirs (`Models/`, `Models/Api/`, `Infrastructure/`, `Security/`, `ViewModels/`) + `NoWarn` strip → Phase 23.
