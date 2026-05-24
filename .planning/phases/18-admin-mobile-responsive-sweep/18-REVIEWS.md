@@ -130,3 +130,41 @@ Single external reviewer (Codex). All findings below are Codex's; no cross-revie
 
 ### Divergent Views
 None — single reviewer.
+
+---
+
+# Cross-AI Plan Review — Phase 18 — Cycle 2 (revised plans, commit b4c8f6c)
+
+> Reviewer: Codex. Reviewed_at: 2026-05-24T19:10:28Z
+
+## Codex Review (Cycle 2)
+
+**Prior HIGH Status**
+| # | Status | Reason |
+|---|---|---|
+| 1. Touch-target inventory completeness | **PARTIALLY RESOLVED** | The inventory is much better, but still misses at least the Feedback type `<select>` in [AdminFeedback/Index.cshtml](/mnt/c/users/chrislunt/source/personal/deckflow/DeckFlow.Web/Views/AdminFeedback/Index.cshtml:30) and the detail “Back to list” link in [AdminFeedback/Detail.cshtml](/mnt/c/users/chrislunt/source/personal/deckflow/DeckFlow.Web/Views/AdminFeedback/Detail.cshtml:7). |
+| 2. `.admin-shell` scoping | **PARTIALLY RESOLVED** | D-SCOPE is explicit, but Task 1 says to move existing `admin.css` blocks “verbatim”; current selectors like `.admin-sidebar`, `.admin-table`, `.admin-modal`, and `dialog.admin-modal::backdrop` are unscoped in [admin.css](/mnt/c/users/chrislunt/source/personal/deckflow/DeckFlow.Web/wwwroot/css/admin.css:81). |
+| 3. Sidebar `<details open>` default | **RESOLVED** | Plan 18-02 now renders `<details class="admin-sidebar__disclosure">` without `open`, so mobile starts collapsed. |
+| 4. Card-stack screen-reader header semantics | **RESOLVED** | The revised plan keeps `<th scope="col">`, avoids `thead { display:none }`, and uses a clip pattern; `data-label` is correctly treated as visual-only. |
+| 5. `>=320px` verification | **RESOLVED** | The checkpoint now explicitly tests 320px, 375px, 768px, and 769px, including body-level overflow and breakpoint behavior. |
+
+**New Concerns**
+- **HIGH**: Closed `<details>` forced visible on desktop is risky. The plan relies on CSS `display: block !important` for nav/brand inside a closed `<details>` at `>=769px`. Even if this paints visually, the element’s semantic state is still collapsed, and browser/screen-reader behavior can diverge. Add explicit 769px keyboard + screen-reader verification for the desktop nav, or switch to a more deterministic no-JS pattern.
+
+- **MEDIUM**: Feedback success banner remains unstyled in admin. `AdminFeedback/Index.cshtml` uses `feedback-banner feedback-banner--success`, but those styles live in public `site-common.css` at [site-common.css](/mnt/c/users/chrislunt/source/personal/deckflow/DeckFlow.Web/wwwroot/css/site-common.css:772), which admin does not load. Either migrate token-corrected banner rules or change the admin markup to `admin-banner admin-banner--success`.
+
+- **MEDIUM**: The card-stack “Actions” cell may crowd at 320px. Feedback rows can contain a visual label, `View` link, and archive form/button in one flex row. Add wrapping/alignment rules for action cells, then verify with rows that have both actions.
+
+- **MEDIUM**: The scoping verification is too grep-light. Presence checks do not prove absence of unscoped component selectors. Add a selector audit that fails on top-level `.admin-*`, `.detail-*`, `.type-badge`, and `dialog.admin-modal` selectors unless they are intentionally exempted.
+
+- **MEDIUM**: Public visual regression is weakened by the “post-only inspection is acceptable” fallback. That no longer proves “zero visible diff vs before.” Prefer a pre-phase worktree screenshot baseline or explicitly downgrade that success criterion to static scan plus smoke inspection.
+
+**Overall Risk Assessment: HIGH**
+
+The revisions fixed the card-stack semantics, mobile default sidebar state, and 320px verification coverage. The plan is not ready yet because two claimed prior HIGH fixes are still incomplete: touch-target coverage and `.admin-shell` scoping. Fix those, then the risk likely drops to MEDIUM.
+
+### Cycle 2 status: 3 HIGH remain (2 partial + 1 new)
+- HIGH-1 touch-target: PARTIAL — missing Feedback type `<select>` (AdminFeedback/Index.cshtml:30) + Detail 'Back to list' link (AdminFeedback/Detail.cshtml:7)
+- HIGH-2 scoping: PARTIAL — verbatim-moved existing blocks (.admin-sidebar, .admin-table, .admin-modal, dialog.admin-modal::backdrop) stay unscoped
+- NEW HIGH — closed <details> forced visible on desktop: semantic collapsed state vs visual; add 769px keyboard+SR verification or more deterministic no-JS pattern
+- RESOLVED: HIGH-3 (sidebar default), HIGH-4 (card-stack SR), HIGH-5 (≥320px verification)
