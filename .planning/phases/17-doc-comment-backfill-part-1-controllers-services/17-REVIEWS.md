@@ -53,3 +53,17 @@ Single external reviewer (Codex). Net: plans are structurally sound for a commen
 
 ### Divergent Views
 - None (single reviewer).
+
+---
+
+## Convergence Trail (Codex rounds)
+
+**Round 1** — 2 HIGH (stale `02-` paths; ScryfallCard detached), 2 MED (count drift), 1 LOW. → orchestrator fixed paths; planner `d25597b` fixed ScryfallCard + counts + awk gate + IFeedbackStore enum + test-gate.
+
+**Round 2** — ScryfallCard RESOLVED. NEW: member-level D-02/inheritdoc enumerated for only 2 of 4 interface pairs (HIGH); FeedbackStore inheritdoc-only fails file-level grep (HIGH); awk gate too loose (MED). → planner `d8bb59c` enumerated all 4 pairs + per-member inheritdoc; demoted file-level grep to non-blocking; tightened awk gate to require `<summary>`/`<inheritdoc`.
+
+**Round 3** — member coverage RESOLVED; awk gate RESOLVED; ROADMAP drift RESOLVED. Remaining HIGH: ROADMAP §17 SC1 text still asserted file-level grep "must also pass" + "every type has `<summary>`" (conflicts with inheritdoc-only impls). NEW MED: member-level completeness still manual (awk checks type decls only). → orchestrator rewrote SC1: per-declaration check accepting `<summary>` OR `<inheritdoc/>` is authoritative; file-level grep explicitly NON-BLOCKING.
+
+**MED accepted (not blocking):** member-level inheritdoc/param completeness is verified via explicit per-member acceptance items in the plan, not the awk gate. Full C#-member automated parsing is out of scope for a doc phase.
+
+**Round 4** — see verdict below.
