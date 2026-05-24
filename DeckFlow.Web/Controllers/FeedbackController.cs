@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace DeckFlow.Web.Controllers;
 
+/// <summary>
+/// Collects user feedback through the rate-limited public form and records request context for admin triage.
+/// </summary>
 public sealed class FeedbackController : Controller
 {
     private readonly IFeedbackStore _store;

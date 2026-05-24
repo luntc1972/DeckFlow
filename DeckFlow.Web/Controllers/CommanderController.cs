@@ -7,6 +7,9 @@ using DeckFlow.Web.Services;
 
 namespace DeckFlow.Web.Controllers;
 
+/// <summary>
+/// Serves the commander category workflow so players can inspect harvested Archidekt category usage for a commander.
+/// </summary>
 public sealed class CommanderController : Controller
 {
     private static readonly TimeSpan LookupTimeout = TimeSpan.FromSeconds(20);

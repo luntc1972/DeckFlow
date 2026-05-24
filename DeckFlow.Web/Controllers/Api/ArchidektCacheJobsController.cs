@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Api;
 
+/// <summary>
+/// Controls internal Archidekt cache refresh jobs and exposes status payloads for background harvest work.
+/// </summary>
 [ApiController]
 [Route("api/archidekt-cache-jobs")]
 public sealed class ArchidektCacheJobsController : ControllerBase

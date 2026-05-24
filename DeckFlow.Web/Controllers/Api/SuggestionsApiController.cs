@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Api;
 
+/// <summary>
+/// Serves JSON suggestion endpoints with same-origin checks so browser deck helpers are not exposed cross-site.
+/// </summary>
 [ApiController]
 [Route("api/suggestions")]
 public sealed class SuggestionsApiController : ControllerBase
