@@ -85,13 +85,18 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [x] **Phase 16: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
 - [x] **Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 23 (completed 2026-05-24)
 - [x] **Phase 18: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
-- [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP
-- [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines
-- [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var
-- [ ] **Phase 22: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate
-- [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj`
-- [ ] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01)
-- [ ] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01)
+<!-- EXECUTION ORDER ≠ phase-number order (reordered 2026-05-24 per user: Content KB last).
+     Phase numbers are stable IDs tied to existing plan dirs/files — NOT renumbered.
+     Execute in the listed order below: 25 → 24 → 19 → 20 → 21 → 22 → 23.
+     Content KB (19-22) is the final feature block; Phase 23 (strip NoWarn) stays
+     last by hard dependency on Phase 22 (must document all new KB types first). -->
+- [ ] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)*
+- [ ] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2*
+- [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP — *exec #3*
+- [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines — *exec #4*
+- [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var — *exec #5*
+- [ ] **Phase 22: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate — *exec #6*
+- [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
 
 ## Phase Details
 
