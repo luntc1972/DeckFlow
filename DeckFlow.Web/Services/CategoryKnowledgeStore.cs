@@ -115,6 +115,21 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        if (_connectionInfo.IsPostgres)
+        {
+            await using var estimateCommand = connection.CreateCommand();
+            // Why: reltuples is a planner estimate refreshed by ANALYZE/autovacuum; the
+            // schema-qualified to_regclass lookup avoids cross-schema name collisions, and
+            // the <= 0 guard handles fresh deploys before planner stats exist.
+            estimateCommand.CommandText = "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass('public.card_category_observations');";
+            var estimate = await ExecuteCountAsync(estimateCommand, cancellationToken).ConfigureAwait(false);
+            if (estimate > 0)
+            {
+                return estimate;
+            }
+        }
+
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(1) FROM card_category_observations;";
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);

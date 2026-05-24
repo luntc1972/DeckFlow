@@ -17,8 +17,13 @@ public sealed record HarvestStatsPayload(
     int TotalDecks,
     int TotalDecks30d,
     int TotalObservations,
-    IReadOnlyList<TopCommanderRow> TopCommanders,
     IReadOnlyList<HarvestRunRow> RecentRuns,
     long? PostgresStorageBytes,
     DateTimeOffset? LastSuccessUtc,
-    DateTimeOffset? NextScheduledUtc);
+    DateTimeOffset? NextScheduledUtc)
+{
+    /// <summary>
+    /// Empty compatibility surface until the 25-02 harvested-decks grid removes the prior top-commanders Razor block.
+    /// </summary>
+    public IReadOnlyList<TopCommanderRow> TopCommanders { get; init; } = Array.Empty<TopCommanderRow>();
+}

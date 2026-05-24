@@ -58,15 +58,29 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     {
         _logger.LogDebug("Harvest.Stats.Build rebuilding cached payload.");
 
-        var totalDecks = await _categoryStore.GetTotalProcessedDeckCountAsync(cancellationToken).ConfigureAwait(false);
-        var totalDecks30d = await _categoryStore.GetTotalProcessedDeckCountSinceAsync(
+        var totalDecksTask = _categoryStore.GetTotalProcessedDeckCountAsync(cancellationToken);
+        var totalDecks30dTask = _categoryStore.GetTotalProcessedDeckCountSinceAsync(
             DateTime.UtcNow.AddDays(-30),
-            cancellationToken).ConfigureAwait(false);
-        var totalObservations = await _categoryStore.GetTotalObservationCountAsync(cancellationToken).ConfigureAwait(false);
-        var topCommanders = await _categoryStore.GetTopCommandersAsync(10, cancellationToken).ConfigureAwait(false);
-        var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
-        var postgresStorageBytes = await _categoryStore.GetPostgresDatabaseSizeBytesAsync(cancellationToken).ConfigureAwait(false);
-        var lastSuccessUtc = await _runStore.GetLastSuccessUtcAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken);
+        var totalObservationsTask = _categoryStore.GetTotalObservationCountAsync(cancellationToken);
+        var postgresStorageBytesTask = _categoryStore.GetPostgresDatabaseSizeBytesAsync(cancellationToken);
+        var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
+        var lastSuccessUtcTask = _runStore.GetLastSuccessUtcAsync(cancellationToken);
+
+        await Task.WhenAll(
+            totalDecksTask,
+            totalDecks30dTask,
+            totalObservationsTask,
+            postgresStorageBytesTask,
+            recentRunsTask,
+            lastSuccessUtcTask).ConfigureAwait(false);
+
+        var totalDecks = await totalDecksTask.ConfigureAwait(false);
+        var totalDecks30d = await totalDecks30dTask.ConfigureAwait(false);
+        var totalObservations = await totalObservationsTask.ConfigureAwait(false);
+        var postgresStorageBytes = await postgresStorageBytesTask.ConfigureAwait(false);
+        var recentRuns = await recentRunsTask.ConfigureAwait(false);
+        var lastSuccessUtc = await lastSuccessUtcTask.ConfigureAwait(false);
         var scheduleSnapshot = _scheduleCache.Snapshot();
         DateTimeOffset? nextScheduledUtc =
             lastSuccessUtc.HasValue
@@ -79,7 +93,6 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             totalDecks,
             totalDecks30d,
             totalObservations,
-            topCommanders,
             recentRuns,
             postgresStorageBytes,
             lastSuccessUtc,
