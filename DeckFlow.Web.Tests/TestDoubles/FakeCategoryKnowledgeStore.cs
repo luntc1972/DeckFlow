@@ -27,6 +27,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Exception? RunCacheSweepException { get; set; }
 
+    public int TotalProcessedDeckCount { get; set; }
+
     public IReadOnlyList<HarvestedDeckRow> PagedDecksResult { get; set; } = Array.Empty<HarvestedDeckRow>();
 
     public int LastPagedDeckPage { get; private set; }
@@ -82,7 +84,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         => Task.CompletedTask;
 
     public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(0);
+        => Task.FromResult(TotalProcessedDeckCount);
 
     public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
         => Task.FromResult(0);

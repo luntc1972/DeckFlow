@@ -63,7 +63,7 @@ public sealed class AdminHarvestController : Controller
     }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
     {
         var activeRun = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
         var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
@@ -82,10 +82,21 @@ public sealed class AdminHarvestController : Controller
             _logger.LogError(exception, "Harvest stats aggregation failed for /Admin/Harvest.");
         }
 
+        page = Math.Max(page, 1);
+        const int deckPageSize = AdminHarvestViewModel.DefaultDeckPageSize;
+        var deckTotal = await _categoryStore.GetTotalProcessedDeckCountAsync(cancellationToken).ConfigureAwait(false);
+        var deckTotalPages = (int)Math.Ceiling((double)Math.Max(deckTotal, 1) / Math.Max(deckPageSize, 1));
+        page = Math.Min(page, deckTotalPages);
+        var pagedDecks = await _categoryStore.GetPagedProcessedDecksAsync(page, deckPageSize, cancellationToken).ConfigureAwait(false);
+
         var viewModel = new AdminHarvestViewModel
         {
             ActiveRun = activeRun,
             RecentRuns = recentRuns,
+            HarvestedDecks = pagedDecks,
+            DeckPage = page,
+            DeckPageSize = deckPageSize,
+            DeckTotalCount = deckTotal,
             Schedule = _scheduleCache.Snapshot(),
             LastBanner = TempData[BannerKey] as string,
             Stats = stats,
