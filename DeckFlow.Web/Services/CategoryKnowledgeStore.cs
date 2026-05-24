@@ -147,6 +147,19 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<HarvestedDeckRow>> GetPagedProcessedDecksAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Max(pageSize, 1);
+
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await _repository.GetPagedProcessedDeckRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
+        return rows
+            .Select(row => new HarvestedDeckRow(row.DeckId, row.CommanderName, row.InsertedUtc, row.LastCheckedUtc))
+            .ToList();
+    }
+
+    /// <inheritdoc/>
     public async Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
