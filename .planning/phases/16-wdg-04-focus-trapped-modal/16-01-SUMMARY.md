@@ -191,6 +191,6 @@ Total: 6 concerns surfaced + 6 resolved across 3 review rounds. Codex authoritat
 - **Phase 18 admin-common.css factoring:** Phase 16 CSS block bookended by exact start + END markers — Phase 18 can extract the section cleanly via awk + AdminCssPhase1Tests will fast-fail if extraction drops Phase 16 values.
 
 ---
-*Phase: 01-wdg-04-focus-trapped-modal*
+*Phase: 16-wdg-04-focus-trapped-modal*
 *Completed: 2026-05-23 (UAT pending)*
 *Branch: v1.4*
