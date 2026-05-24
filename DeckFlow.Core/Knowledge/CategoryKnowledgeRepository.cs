@@ -374,6 +374,70 @@ public sealed class CategoryKnowledgeRepository
     }
 
     /// <summary>
+    /// Returns a paged slice of processed commander aggregates for the harvested-commanders admin grid.
+    /// </summary>
+    /// <param name="page">One-based page number.</param>
+    /// <param name="pageSize">Maximum number of rows to return.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public async Task<IReadOnlyList<(string CommanderName, int DeckCount, string? LastProcessedUtc)>> GetPagedProcessedCommanderRowsAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Max(pageSize, 1);
+        var offset = ((long)page - 1) * pageSize;
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc
+            FROM deck_queue
+            WHERE processed = 1 AND commander_name IS NOT NULL
+            GROUP BY commander_name
+            ORDER BY deck_count DESC, last_processed_utc DESC, commander_name ASC
+            LIMIT @limit OFFSET @offset;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@limit", pageSize);
+        RelationalDatabaseConnection.AddParameter(command, "@offset", offset);
+
+        var rows = new List<(string CommanderName, int DeckCount, string? LastProcessedUtc)>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add((
+                reader.GetString(0),
+                (int)reader.GetInt64(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Counts distinct processed commanders in the deck queue.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(DISTINCT commander_name)
+            FROM deck_queue
+            WHERE processed = 1 AND commander_name IS NOT NULL;
+            """;
+        var result = (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
+        return (int)result;
+    }
+
+    /// <summary>
     /// Replaces all observations for a source with the provided rows.
     /// </summary>
     /// <param name="source">Source label for the data.</param>
