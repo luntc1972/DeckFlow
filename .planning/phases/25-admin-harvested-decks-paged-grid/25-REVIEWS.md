@@ -82,3 +82,31 @@ Single external reviewer (Codex). No cross-reviewer consensus to synthesize; fin
 
 ### Divergent Views
 None (single reviewer).
+
+---
+
+## Codex RE-REVIEW (closure audit) — 2026-05-24T22:19:52Z
+
+Plans revised (commit 2d2862d), gsd-plan-checker passed (0/0), then re-routed to Codex.
+
+## Closure Audit
+
+| Finding | Severity | Verdict | Evidence |
+|---|---:|---|---|
+| Uncovered inline `ICategoryKnowledgeStore` fakes break build | HIGH | RESOLVED | 25-01 Task 2 explicitly updates all four implementors: production store, shared fake, `CommanderCategoryServiceTests` inline fake, `CategorySuggestionServiceTests` inline fake. Build 0/0 is an acceptance gate. |
+| Unstable `ORDER BY inserted_utc DESC` | MEDIUM | RESOLVED | 25-01 Task 1 mandates `ORDER BY inserted_utc DESC, deck_id DESC`, adds `(processed, inserted_utc, deck_id)` index, and adds tied-timestamp paging test. |
+| Razor panel placement could nest inside Stats panel | MEDIUM | RESOLVED | 25-02 Task 2 Step B says new `<section>` must be after the Stats `</section>` and before `@section Scripts`; acceptance explicitly checks sibling placement. |
+| Orphaned `GetTopCommandersAsync(10)` query | MEDIUM | RESOLVED | 25-01 Task 3 removes the aggregator call and `HarvestStatsPayload.TopCommanders`; 25-02 removes the only Razor consumer. Interface/repository method intentionally remain. |
+| Postgres `reltuples` query unqualified by schema | MEDIUM | RESOLVED | 25-01 Task 3 requires `to_regclass('public.card_category_observations')` plus `<= 0` fallback to `COUNT(1)`. |
+| Repository should defensively clamp `page` / `pageSize` | LOW | RESOLVED | 25-01 Task 1 requires `Math.Max(page, 1)` and `Math.Max(pageSize, 1)` inside Core repository, with clamp tests. |
+| Controller-test fake should record clamped page/pageSize | LOW | RESOLVED | 25-01 Task 2 adds `LastPagedDeckPage` / `LastPagedDeckPageSize`; 25-02 Task 1 asserts the recorded page is clamped, not raw `999999`. |
+
+## New Concerns
+
+None blocking.
+
+LOW: The plan language says OFFSET paging “never duplicates/skips” for tied timestamps. The fix proves deterministic ordering on a static result set, not stability under concurrent harvest mutations between page clicks. That is acceptable for this admin grid, but do not treat it as keyset-pagination semantics.
+
+## Verdict
+
+APPROVE FOR EXECUTION. The prior findings are closed with concrete tasks, tests, and grep/build gates; remaining risk is only the normal OFFSET-under-mutation caveat.
