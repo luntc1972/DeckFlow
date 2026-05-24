@@ -83,7 +83,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 **Scope:** 18 REQ-IDs across 6 clusters (MODAL, DOC, AMOB, KB, CAT, AHD). Gemini cluster D dropped per user decision 2026-05-23 → v1.5. CAT bug-fix + AHD admin grid added mid-milestone 2026-05-24 per user request.
 
 - [x] **Phase 16: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
-- [ ] **Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 23
+- [x] **Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 23 (completed 2026-05-24)
 - [ ] **Phase 18: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
 - [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP
 - [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines
@@ -127,8 +127,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 
-- [ ] 17-01-PLAN.md — Controllers cluster: per-type <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller — 3 co-located types}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
-- [ ] 17-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 3 records (ScryfallCardFace, FeedbackRequestContext, ScryfallCard) + D-01a type-level summary on DeckFlowDatabaseConnectionFactory static class; 12 types / 8 files (DOC-01)
+- [x] 17-01-PLAN.md — Controllers cluster: per-type <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller — 3 co-located types}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
+- [x] 17-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 3 records (ScryfallCardFace, FeedbackRequestContext, ScryfallCard) + D-01a type-level summary on DeckFlowDatabaseConnectionFactory static class; 12 types / 8 files (DOC-01)
 
 **Cross-cutting constraints:**
 
@@ -265,7 +265,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
-| 17. Doc-Comment Backfill Part 1 | 0/2 | Planned | - |
+| 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
 | 18. Admin Mobile-Responsive Sweep | 0/TBD | Not started | - |
 | 19. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
 | 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
