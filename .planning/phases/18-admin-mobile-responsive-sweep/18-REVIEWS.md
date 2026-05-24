@@ -168,3 +168,45 @@ The revisions fixed the card-stack semantics, mobile default sidebar state, and 
 - HIGH-2 scoping: PARTIAL — verbatim-moved existing blocks (.admin-sidebar, .admin-table, .admin-modal, dialog.admin-modal::backdrop) stay unscoped
 - NEW HIGH — closed <details> forced visible on desktop: semantic collapsed state vs visual; add 769px keyboard+SR verification or more deterministic no-JS pattern
 - RESOLVED: HIGH-3 (sidebar default), HIGH-4 (card-stack SR), HIGH-5 (≥320px verification)
+
+---
+
+# Cross-AI Plan Review — Phase 18 — Cycle 3 (revised plans, commit 3179a2c)
+
+> Reviewer: Codex. Reviewed_at: 2026-05-24T19:27:03Z
+
+## Codex Review (Cycle 3)
+
+**Prior HIGHs**
+
+1. **Touch-target inventory missing Feedback type `<select>` + Detail “Back to list” link: RESOLVED**  
+   Plan 18-01 now explicitly inventories both and adds `.admin-shell .admin-feedback-type select` plus `.admin-shell .admin-feedback-detail a` with acceptance checks.
+
+2. **`.admin-shell` scoping not enforced on moved existing admin blocks: RESOLVED**  
+   D-SCOPE now requires rewriting all existing `.admin-*`, `.detail-*`, `.type-badge`, `.maintenance-page`, and `dialog.admin-modal::backdrop` selectors under `.admin-shell`, with audit gates.
+
+3. **Closed `<details>` forced-visible on desktop semantic-vs-visual divergence: PARTIALLY RESOLVED**  
+   The plan now acknowledges and verifies the 769px keyboard/SR risk, but the fallback is contradictory as written: desktop CSS hides the `<summary>` with `display:none`, so “summary fallback” cannot be operable if closed-`details` content is skipped by AT.
+
+**New Concerns**
+
+- **HIGH: Long-token mobile overflow is still not structurally covered.**  
+  Card-stack cells and feedback/detail content can contain long unbroken user data: feedback messages, emails, flag keys, page URLs, user agents, hashes. The plan lacks `min-width:0` / `overflow-wrap:anywhere` for `.admin-table--card td` value content and `.detail-grid dd/code`, so 320px “no body overflow” can fail with realistic data. Add wrapping rules and verify with long feedback/email/flag/detail URL data.
+
+- **MEDIUM: Dead-class scan omits `.admin-action-form`.**  
+  Plan 01 deletes `.admin-action-form` from `site-common.css` and calls it risky, but Plan 02 Task 4 does not scan for public references to `admin-action-form`. Add it to the static scan pattern.
+
+- **MEDIUM: Selector-audit gate still has blind spots.**  
+  The grep audit does not include `.feedback-banner`, and line-start grep can miss unscoped selectors later in grouped selector lists. Either use a CSS parser or expand the audit to inspect selector preludes before `{`.
+
+- **MEDIUM: Touch-target verification conflicts with allowed consolidation.**  
+  Task 1 allows grouping identical declarations, but verification requires at least 11 separate `min-height: 44px` lines. Make the rule separate-per-selector, or change verification to prove each inventory selector is covered by a 44px declaration block.
+
+Overall Risk: HIGH  
+REMAINING_HIGH=2
+
+### Cycle 3 status: REMAINING_HIGH=2 (trend 5 -> 3 -> 2)
+- HIGH-1 touch-target inventory: RESOLVED
+- HIGH-2 .admin-shell scoping on moved blocks: RESOLVED
+- HIGH-3 desktop <details> fallback: PARTIAL — desktop hides <summary> via display:none, contradicting the 'keep summary operable' fallback
+- NEW HIGH — long-token mobile overflow: card-stack td values + .detail-grid dd/code lack overflow-wrap:anywhere / min-width:0; 320px 'no overflow' can fail with real data (long emails, URLs, hashes, user agents)
