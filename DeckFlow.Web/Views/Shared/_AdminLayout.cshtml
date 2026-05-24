@@ -18,13 +18,19 @@
     <a class="skip-link" href="#admin-content">Skip to main content</a>
     <div class="admin-shell">
         <aside class="admin-sidebar" aria-label="Admin sections">
-            <div class="admin-sidebar__brand">DeckFlow Admin</div>
-            <nav class="admin-sidebar__nav">
-                <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
-                <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
-                <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
-                <a class="@ActiveClass("AdminFlags")"     aria-current="@ActiveAria("AdminFlags")"     href="@Url.Content("~/Admin/Flags")">Flags</a>
-            </nav>
+            <details class="admin-sidebar__disclosure">
+                <summary class="admin-sidebar__toggle">
+                    <span class="sr-only">Navigation menu</span>
+                    <span aria-hidden="true">&#9776; Menu</span>
+                </summary>
+                <div class="admin-sidebar__brand">DeckFlow Admin</div>
+                <nav class="admin-sidebar__nav">
+                    <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
+                    <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
+                    <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
+                    <a class="@ActiveClass("AdminFlags")"     aria-current="@ActiveAria("AdminFlags")"     href="@Url.Content("~/Admin/Flags")">Flags</a>
+                </nav>
+            </details>
         </aside>
         <header class="admin-topbar">
             <h1 class="admin-topbar__title">@ViewData["Title"]</h1>

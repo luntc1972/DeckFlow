@@ -46,7 +46,7 @@
     }
     else
     {
-        <table class="admin-feedback-table">
+        <table class="admin-feedback-table admin-table--card">
             <caption class="sr-only">User feedback submissions, filtered by status and type</caption>
             <thead>
                 <tr>
@@ -63,12 +63,12 @@
             {
                 var preview = item.Message.Length > 80 ? item.Message.Substring(0, 80) + "…" : item.Message;
                 <tr>
-                    <td><time datetime="@item.CreatedUtc.ToString("o")" title="@item.CreatedUtc.ToLocalTime()">@item.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</time></td>
-                    <td><span class="type-badge type-@item.Type.ToString().ToLower()">@item.Type</span></td>
-                    <td>@preview</td>
-                    <td>@item.Email</td>
-                    <td>@item.Status</td>
-                    <td>
+                    <td data-label="Created (UTC)"><time datetime="@item.CreatedUtc.ToString("o")" title="@item.CreatedUtc.ToLocalTime()">@item.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</time></td>
+                    <td data-label="Type"><span class="type-badge type-@item.Type.ToString().ToLower()">@item.Type</span></td>
+                    <td data-label="Message">@preview</td>
+                    <td data-label="Email">@item.Email</td>
+                    <td data-label="Status">@item.Status</td>
+                    <td data-label="Actions">
                         <a asp-action="Detail" asp-route-id="@item.Id">View</a>
                         @if (item.Status != FeedbackStatus.Archived)
                         {

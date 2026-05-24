@@ -16,7 +16,7 @@
     }
     else
     {
-        <table class="admin-table">
+        <table class="admin-table admin-table--card">
             <caption class="sr-only">Feature flags and their current on/off status</caption>
             <thead>
                 <tr>
@@ -29,9 +29,9 @@
                 @foreach (var flag in Model.Flags)
                 {
                     <tr>
-                        <td><code>@flag.Key</code></td>
-                        <td>@(flag.Enabled ? "On" : "Off")</td>
-                        <td>
+                        <td data-label="Key"><code>@flag.Key</code></td>
+                        <td data-label="Status">@(flag.Enabled ? "On" : "Off")</td>
+                        <td data-label="Action">
                             <form method="post" asp-action="Toggle" asp-route-key="@flag.Key" class="admin-action-form">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="enabled" value="@((!flag.Enabled).ToString().ToLowerInvariant())" />
