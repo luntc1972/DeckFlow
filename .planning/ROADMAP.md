@@ -80,7 +80,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 **Phase numbering reset to Phase 1** (v1.3 phase dirs archived to `.planning/milestones/v1.3-phases/`).
 **Scope:** 16 REQ-IDs across 4 clusters (MODAL, DOC, AMOB, KB). Gemini cluster D dropped per user decision 2026-05-23 → v1.5.
 
-- [ ] **Phase 1: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal
+- [x] **Phase 1: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
 - [ ] **Phase 2: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 8
 - [ ] **Phase 3: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
 - [ ] **Phase 4: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP

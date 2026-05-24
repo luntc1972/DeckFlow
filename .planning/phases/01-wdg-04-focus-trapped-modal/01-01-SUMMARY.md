@@ -83,7 +83,9 @@ commits:
   - 29fcbf6  # test(01): AdminConfirmModalPartialTests — 10 facts
   - 9d9cd95  # test(01): AdminCssPhase1Tests — 13 facts
 
-uat-status: pending-human-verify
+uat-status: passed
+uat-date: 2026-05-24
+uat-verifier: operator
 dotnet-gates: passed
 branch: v1.4
 
