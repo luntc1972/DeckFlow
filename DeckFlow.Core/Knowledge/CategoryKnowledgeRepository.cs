@@ -330,50 +330,6 @@ public sealed class CategoryKnowledgeRepository
     }
 
     /// <summary>
-    /// Returns a paged slice of processed deck queue rows for the harvested-decks admin grid.
-    /// </summary>
-    /// <param name="page">One-based page number.</param>
-    /// <param name="pageSize">Maximum number of rows to return.</param>
-    /// <param name="cancellationToken">Optional cancellation token.</param>
-    public async Task<IReadOnlyList<(string DeckId, string? CommanderName, string InsertedUtc, string? LastCheckedUtc)>> GetPagedProcessedDeckRowsAsync(
-        int page,
-        int pageSize,
-        CancellationToken cancellationToken = default)
-    {
-        page = Math.Max(page, 1);
-        pageSize = Math.Max(pageSize, 1);
-        var offset = ((long)page - 1) * pageSize;
-
-        await EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-
-        var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT deck_id, commander_name, inserted_utc, last_checked_utc
-            FROM deck_queue
-            WHERE processed = 1
-            ORDER BY inserted_utc DESC, deck_id DESC
-            LIMIT @limit OFFSET @offset;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@limit", pageSize);
-        RelationalDatabaseConnection.AddParameter(command, "@offset", offset);
-
-        var rows = new List<(string DeckId, string? CommanderName, string InsertedUtc, string? LastCheckedUtc)>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            rows.Add((
-                reader.GetString(0),
-                reader.IsDBNull(1) ? null : reader.GetString(1),
-                reader.GetString(2),
-                reader.IsDBNull(3) ? null : reader.GetString(3)));
-        }
-
-        return rows;
-    }
-
-    /// <summary>
     /// Returns a paged slice of processed commander aggregates for the harvested-commanders admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>

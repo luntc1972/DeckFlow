@@ -73,12 +73,16 @@ public interface ICategoryKnowledgeStore
     /// <returns>The top commander deck-count rows, ordered by processed deck count.</returns>
     Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default);
     /// <summary>
-    /// Returns one page of processed harvested decks for the admin grid.
+    /// Returns one page of processed harvested commander aggregates for the admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>
-    /// <param name="pageSize">Maximum number of deck rows to return.</param>
-    /// <returns>The processed deck rows for the requested page.</returns>
-    Task<IReadOnlyList<HarvestedDeckRow>> GetPagedProcessedDecksAsync(int page, int pageSize, CancellationToken cancellationToken = default);
+    /// <param name="pageSize">Maximum number of commander rows to return.</param>
+    /// <returns>The processed commander aggregate rows for the requested page.</returns>
+    Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns the number of distinct commanders with processed decks.
+    /// </summary>
+    Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns the current Postgres database size when the store is backed by Postgres.
     /// </summary>

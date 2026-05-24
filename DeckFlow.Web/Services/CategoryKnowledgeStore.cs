@@ -162,16 +162,23 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<HarvestedDeckRow>> GetPagedProcessedDecksAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Max(pageSize, 1);
 
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await _repository.GetPagedProcessedDeckRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
+        var rows = await _repository.GetPagedProcessedCommanderRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
         return rows
-            .Select(row => new HarvestedDeckRow(row.DeckId, row.CommanderName, row.InsertedUtc, row.LastCheckedUtc))
+            .Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc))
             .ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await _repository.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
