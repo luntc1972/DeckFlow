@@ -712,19 +712,22 @@ This phase is code/config/SQL changes only. No external tools beyond the existin
 
 ## Open Questions
 
-1. **Pagination class name for the new nav**
+1. **Pagination class name for the new nav** (RESOLVED)
    - What we know: `.admin-feedback-pagination` is defined in `admin-common.css` under `.admin-shell`; it works for any `<nav>` containing Prev/span/Next.
    - What's unclear: Should the planner reuse `.admin-feedback-pagination` verbatim, or add a generic `.admin-pagination` alias?
    - Recommendation: Add `.admin-shell .admin-pagination { margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center; }` alongside the feedback rule; use `.admin-pagination` in the harvest view and optionally alias feedback to it. Minimal CSS delta.
+   - **Resolution:** Reuse `.admin-feedback-pagination` verbatim in the harvest grid nav — zero new CSS (no `.admin-pagination` alias added), satisfying R-6 / no-CSS-edit. Its anchors already meet the 44px WCAG 2.5.5 touch floor.
 
-2. **Whether to remove the "Top 10 Commanders" list entirely**
+2. **Whether to remove the "Top 10 Commanders" list entirely** (RESOLVED)
    - What we know: AHD-01 says replace the top-ten list with a paged grid. The paged grid rows include `commander_name`.
    - What's unclear: The Stats panel still shows `topCommanders` from `BuildAsync`. Does the user want the stats panel's top-commanders list completely gone, or just the standalone `<ul>` list?
    - Recommendation: Remove the standalone `<h3>Top 10 Commanders</h3>` + `<ul>` from the Stats panel (lines 188-203 of the current view). The paged grid replaces it. The planner should confirm with the ROADMAP spec — it says "replaces the current top-ten-decks list", confirming removal.
+   - **Resolution:** Remove only the standalone top-10 `<h3>`+`<ul>` from the Razor view; `GetTopCommandersAsync(10)` stays in `BuildAsync` (still feeds the Stats panel) — only the list rendering is deleted.
 
-3. **Page size constant**
+3. **Page size constant** (RESOLVED)
    - What we know: `AdminFeedback` uses `const int pageSize = 50`. With thousands of harvested decks, 50 rows/page is reasonable.
    - Recommendation: Use 50 as the default. Add to `AdminHarvestViewModel` as a static constant (mirrors `AllowedDurationSeconds` pattern) for testability.
+   - **Resolution:** Page size = 50 via `AdminHarvestViewModel.DefaultDeckPageSize` const (mirrors the `AllowedDurationSeconds` static-constant pattern); the controller reads it for both the LIMIT and the `DeckTotalPages` math.
 
 ---
 
