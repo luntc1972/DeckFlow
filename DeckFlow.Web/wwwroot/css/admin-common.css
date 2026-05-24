@@ -1,0 +1,435 @@
+/* DeckFlow Admin Shell - v1.4 Phase 18.
+   Layout primitives, components, and admin-only globals.
+   _AdminLayout.cshtml loads admin-common.css first and admin-mobile.css second
+   through fingerprinted <link asp-append-version> tags.
+   No viewport breakpoint rules live here; responsive overrides live in admin-mobile.css.
+   Every component selector is .admin-shell-scoped per D-SCOPE; only the marked
+   admin-only global resets below are intentionally unscoped. */
+
+/* admin-only global */
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #3b82f6;
+  --border: #334155;
+  --danger: #dc2626;
+  --on-accent: #fff;
+  /* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) ===
+     See .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md
+     §"Sweep 2" (lines 266-271) and §"P1 finding A" (admin focus-visible) / finding O (color-scheme).
+     admin.css does NOT inherit site.css or site-common.css, so each a11y rule lives here locally. */
+  --focus: var(--accent);
+  color-scheme: dark;
+}
+
+/* admin-only global */
+/* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) ===
+   Universal keyboard-focus indicator. Mirrors the canonical block in site.css:109-118 so the
+   admin shell renders the same visible focus ring on every interactive element as the main shell.
+   Required because _AdminLayout.cshtml only loads admin CSS — no inheritance from site.css. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin-shell .admin-table-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* admin-only global */
+* { box-sizing: border-box; }
+
+/* admin-only global */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* admin-only global */
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* admin-only global */
+.skip-link {
+  position: absolute; left: -9999px; top: auto;
+  width: 1px; height: 1px; overflow: hidden;
+}
+.skip-link:focus { left: 8px; top: 8px; width: auto; height: auto; padding: 8px 12px; background: var(--panel); color: var(--text); z-index: 100; }
+
+/* admin-only global */
+/* === WDG audit fixes (WDG-06, Phase 11 Sweep 6) — sr-only utility ===
+   Visually-hidden accessible text for <caption> elements on admin tables. Mirrors
+   the declaration in site-common.css; admin shell does not inherit from site-common.css. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Shell layout: sidebar + (topbar + content). */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 48px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar content";
+  min-height: 100vh;
+}
+
+.admin-shell .admin-sidebar {
+  grid-area: sidebar;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 16px 0;
+}
+
+.admin-shell .admin-sidebar__disclosure {
+  display: block;
+}
+
+.admin-shell .admin-sidebar__brand {
+  padding: 0 20px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-shell .admin-sidebar__nav { display: flex; flex-direction: column; }
+
+.admin-shell .admin-sidebar__link {
+  display: block;
+  padding: 10px 20px 10px 16px;
+  color: var(--text);
+  border-left: 4px solid transparent;
+  font-weight: 400;
+}
+
+.admin-shell .admin-sidebar__link:hover { background: rgba(255,255,255,0.04); text-decoration: none; }
+
+.admin-shell .admin-sidebar__link--active {
+  border-left: 4px solid var(--accent);
+  font-weight: 700;
+  background: rgba(59,130,246,0.08);
+}
+
+.admin-shell .admin-topbar {
+  grid-area: topbar;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.admin-shell .admin-topbar__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
+.admin-shell .admin-topbar__version { font-size: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.admin-shell .admin-content { grid-area: content; padding: 24px; max-width: 1200px; }
+
+.admin-shell .admin-banner { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); }
+.admin-shell .admin-banner--success { border-color: var(--accent); }
+
+.admin-shell .feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+.admin-shell .feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
+
+.admin-shell .admin-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.admin-shell .admin-table th,
+.admin-shell .admin-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+.admin-shell .admin-table th { background: var(--panel); font-weight: 600; }
+/* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) ===
+   Tabular-nums on numeric cells so polling AJAX updates (e.g. AdminHarvest counts) do not jitter
+   horizontally as digit widths change. Per FINDINGS.md Sweep 2 line 270 / finding R (admin row).
+   `.route` cells are textual (URL slugs) and explicitly excluded so monospace remains crisp. */
+.admin-shell .admin-table td:not(.route) { font-variant-numeric: tabular-nums; }
+
+.admin-shell .admin-action-form { display: inline; }
+.admin-shell .admin-action-form button { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; }
+.admin-shell .admin-action-form button:hover { filter: brightness(1.1); }
+
+/* Maintenance page (FLAG-05 reusable). Renders inside _AdminLayout when triggered from
+   admin pages; the admin chrome owns these scoped panel-level defaults. */
+.admin-shell .maintenance-page { max-width: 600px; margin: 40px auto; text-align: center; }
+.admin-shell .maintenance-page h1 { font-size: 24px; margin-bottom: 12px; }
+.admin-shell .maintenance-page p { color: var(--text); }
+
+/* Phase 8 — Analytics admin page (ANLY-04, ANLY-05) */
+.admin-shell .admin-page-header { margin-bottom: 16px; }
+.admin-shell .admin-page-header h1 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+
+.admin-shell .admin-analytics .admin-range-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-shell .admin-analytics .admin-range-selector a {
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+
+.admin-shell .admin-analytics .admin-range-selector a:hover { color: var(--text); text-decoration: none; }
+
+.admin-shell .admin-analytics .admin-range-selector a.is-active {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.admin-shell .admin-analytics-table { width: 100%; border-collapse: collapse; }
+.admin-shell .admin-analytics-table th,
+.admin-shell .admin-analytics-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.admin-shell .admin-analytics-table th { background: var(--panel); font-weight: 600; }
+.admin-shell .admin-analytics-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-shell .admin-analytics-table .route code { font-size: 0.82em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.admin-shell .admin-analytics-table .spark { width: 130px; min-width: 80px; }
+
+.admin-shell .admin-sparkline {
+  color: var(--muted);
+  line-height: 0;
+}
+
+.admin-shell .admin-empty {
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 12px;
+}
+
+/* Admin feedback */
+.admin-shell .admin-feedback { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+.admin-shell .admin-feedback-filters { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+
+.admin-shell .admin-feedback-filter {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.admin-shell .admin-feedback-filter.active { background: var(--accent); color: var(--on-accent); }
+.admin-shell .admin-feedback-table { width: 100%; border-collapse: collapse; }
+.admin-shell .admin-feedback-table th,
+.admin-shell .admin-feedback-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.admin-shell .admin-feedback-pagination { margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center; }
+.admin-shell .admin-feedback-empty { margin: 2rem 0; font-style: italic; }
+
+.admin-shell .admin-feedback-detail {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 800px;
+  margin: 2rem auto;
+}
+
+.admin-shell .type-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.85em; background: var(--panel); border: 1px solid var(--border); }
+.admin-shell .detail-grid { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+.admin-shell .detail-grid dt { font-weight: 600; }
+.admin-shell .detail-message { white-space: pre-wrap; word-wrap: break-word; background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; }
+.admin-shell .detail-actions { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.admin-shell .detail-actions button.danger { background: var(--danger); color: var(--on-accent); border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
+
+.admin-shell .admin-harvest__panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.admin-shell .admin-harvest__panel h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 44px product floor (WCAG 2.5.5 AAA) — all admin interactive elements */
+.admin-shell .admin-sidebar__link {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.admin-shell .admin-range-selector a,
+.admin-shell .admin-feedback-filter,
+.admin-shell .admin-feedback-pagination a,
+.admin-shell .admin-feedback-table a,
+.admin-shell .admin-table a,
+.admin-shell .admin-feedback-detail a,
+.admin-shell summary,
+.admin-shell .admin-action-form button,
+.admin-shell .detail-actions button,
+.admin-shell button.danger {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-shell .admin-action-form input:not([type="hidden"]),
+.admin-shell .admin-action-form select,
+.admin-shell .admin-feedback-type select,
+.admin-shell .admin-action-form textarea {
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.admin-shell .admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Card-stack visually hides the header row with the .sr-only clip pattern,
+   not by removing it from the accessibility tree, so <th scope=col> stays
+   available to screen readers; data-label is visual-only. The mobile rule
+   that applies the clip lives in admin-mobile.css. */
+
+/* === Phase 1 (v1.4) — WDG-04 Focus-Trapped Modal === */
+/* Reusable admin confirm-dialog primitive on native HTML <dialog>.
+   Consumers: AdminFeedback Detail v1.4 Phase 1; reusable by Phase 7 ContentSources delete.
+   Scope discipline: every component selector below is .admin-shell-prefixed so admin
+   standalone load cannot bleed into guild themes (PITFALLS.md P10). */
+
+/* Background color — base + hover, applies to both in-page .danger and modal --danger. */
+.admin-shell .admin-action-form button.danger,
+.admin-shell .admin-modal__button--danger {
+  background: var(--danger);
+}
+
+.admin-shell .admin-action-form button.danger:hover,
+.admin-shell .admin-modal__button--danger:hover {
+  background: #b91c1c;
+  /* Neutralize the brightness filter inherited from .admin-action-form button:hover
+     and from .admin-modal__button--confirm:hover. Without `filter: none`, the danger
+     hover would render as the base danger color + brightness(1.1), NOT the UI-SPEC hover. */
+  filter: none;
+}
+
+.admin-shell .admin-modal {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  width: min(480px, calc(100vw - 32px));
+  max-width: 480px;
+  min-width: 280px;
+  max-height: min(80vh, 600px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  opacity: 1;
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+
+.admin-shell dialog.admin-modal::backdrop {
+  background: rgba(15, 23, 42, 0.72);
+  transition: opacity 120ms ease-out;
+}
+
+.admin-shell .admin-modal__panel {
+  padding: 24px;
+  max-height: min(80vh, 600px);
+  overflow-y: auto;
+}
+
+.admin-shell .admin-modal__title {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: balance;
+  color: var(--text);
+}
+
+.admin-shell .admin-modal__message {
+  margin: 0 0 24px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell .admin-modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.admin-shell .admin-modal__button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: normal;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.admin-shell .admin-modal__button--cancel {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.admin-shell .admin-modal__button--cancel:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-shell .admin-modal__button--confirm {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.admin-shell .admin-modal__button--confirm:not(.admin-modal__button--danger):hover {
+  filter: brightness(1.1);
+}
+
+/* admin-only global */
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell .admin-modal,
+  .admin-shell dialog.admin-modal::backdrop {
+    transition: none;
+  }
+}
+
+/* === END Phase 1 === */
