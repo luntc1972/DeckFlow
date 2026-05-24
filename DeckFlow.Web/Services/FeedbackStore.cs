@@ -5,6 +5,7 @@ using DeckFlow.Web.Security;
 
 namespace DeckFlow.Web.Services;
 
+/// <inheritdoc/>
 public sealed class FeedbackStore : IFeedbackStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -35,6 +36,7 @@ public sealed class FeedbackStore : IFeedbackStore
     {
     }
 
+    /// <inheritdoc/>
     public async Task<long> AddAsync(FeedbackSubmission submission, FeedbackRequestContext context, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(submission);
@@ -60,6 +62,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return Convert.ToInt64(idObj);
     }
 
+    /// <inheritdoc/>
     public async Task<FeedbackItem?> GetAsync(long id, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -78,6 +81,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return ReadItem(reader);
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<FeedbackItem>> ListAsync(FeedbackListQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
@@ -109,6 +113,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return results;
     }
 
+    /// <inheritdoc/>
     public async Task<int> CountAsync(FeedbackStatus? status, FeedbackType? type, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -120,6 +125,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return Convert.ToInt32(result);
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<FeedbackStatus, int>> CountsByStatusAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -145,6 +151,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return map;
     }
 
+    /// <inheritdoc/>
     public async Task UpdateStatusAsync(long id, FeedbackStatus status, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -156,6 +163,7 @@ public sealed class FeedbackStore : IFeedbackStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -166,6 +174,7 @@ public sealed class FeedbackStore : IFeedbackStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public string HashIp(string? ip) => HashIpInternal(ip) ?? string.Empty;
 
     private string? HashIpInternal(string? ip)

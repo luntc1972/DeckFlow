@@ -4,8 +4,21 @@ using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Services;
 
+/// <summary>
+/// Queries EDH Top 16 for commander metagame entries used by cEDH analysis.
+/// </summary>
 public interface IEdhTop16Client
 {
+    /// <summary>
+    /// Searches EDH Top 16 tournament entries for a commander using the supplied metagame filters.
+    /// </summary>
+    /// <param name="commanderName">Commander name to search.</param>
+    /// <param name="timePeriod">EDH Top 16 time window to query.</param>
+    /// <param name="sortBy">Sort order for returned entries.</param>
+    /// <param name="minEventSize">Minimum tournament size to include.</param>
+    /// <param name="maxStanding">Highest allowed final standing; null leaves standing unbounded.</param>
+    /// <param name="count">Maximum number of entries to return.</param>
+    /// <returns>A read-only list of EDH Top 16 entry rows for the commander.</returns>
     Task<IReadOnlyList<EdhTop16Entry>> SearchCommanderEntriesAsync(
         string commanderName,
         CedhMetaTimePeriod timePeriod,
@@ -16,6 +29,7 @@ public interface IEdhTop16Client
         CancellationToken cancellationToken = default);
 }
 
+/// <inheritdoc/>
 public sealed class EdhTop16Client : IEdhTop16Client
 {
     private const string Endpoint = "https://edhtop16.com/api/graphql";
@@ -54,6 +68,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
         _executeAsync = executeAsync ?? ((request, cancellationToken) => client.ExecuteAsync(request, cancellationToken));
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<EdhTop16Entry>> SearchCommanderEntriesAsync(
         string commanderName,
         CedhMetaTimePeriod timePeriod,
