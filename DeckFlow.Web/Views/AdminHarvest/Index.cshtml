@@ -201,15 +201,21 @@
                 <caption class="sr-only">Harvested commanders with deck count and last processed timestamp</caption>
                 <thead>
                     <tr>
+                        <th scope="col">#</th>
                         <th scope="col">Commander</th>
                         <th scope="col">Decks Categorized</th>
                         <th scope="col">Last Processed (UTC)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var c in Model.HarvestedCommanders)
+                    @{
+                        var rankOffset = (Model.DeckPage - 1) * Model.DeckPageSize;
+                    }
+                    @for (var i = 0; i < Model.HarvestedCommanders.Count; i++)
                     {
+                        var c = Model.HarvestedCommanders[i];
                         <tr>
+                            <td>@(rankOffset + i + 1)</td>
                             <td>@c.CommanderName</td>
                             <td>@c.DeckCount</td>
                             <td>@(c.LastProcessedUtc ?? "—")</td>
