@@ -4,13 +4,22 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Admin;
 
+/// <summary>
+/// Operations the admin feedback console allows when triaging a stored submission.
+/// </summary>
 public enum AdminFeedbackOp
 {
+    /// <summary>Marks feedback as read while keeping it available for review.</summary>
     MarkRead,
+    /// <summary>Moves feedback out of the active triage queue without deleting it.</summary>
     Archive,
+    /// <summary>Removes feedback that should no longer remain in the store.</summary>
     Delete,
 }
 
+/// <summary>
+/// View model for the /Admin/Feedback index page, carrying filters, paging, and status counts for triage.
+/// </summary>
 public sealed class AdminFeedbackListViewModel
 {
     public IReadOnlyList<FeedbackItem> Items { get; init; } = Array.Empty<FeedbackItem>();
@@ -24,6 +33,9 @@ public sealed class AdminFeedbackListViewModel
     public int TotalPages => (int)Math.Ceiling((double)Math.Max(TotalCount, 1) / Math.Max(PageSize, 1));
 }
 
+/// <summary>
+/// Operator UI for reviewing submitted feedback behind the existing /Admin BasicAuth branch.
+/// </summary>
 [Route("Admin/Feedback")]
 public sealed class AdminFeedbackController : Controller
 {
@@ -34,6 +46,13 @@ public sealed class AdminFeedbackController : Controller
         _store = store;
     }
 
+    /// <summary>
+    /// Renders a filtered page of feedback so admins can triage by status and type without loading the whole store.
+    /// </summary>
+    /// <param name="status">Optional status filter; defaults to new submissions.</param>
+    /// <param name="type">Optional feedback-type filter.</param>
+    /// <param name="page">One-based result page to render.</param>
+    /// <returns>The admin feedback list view for the requested filter page.</returns>
     [HttpGet("")]
     public async Task<IActionResult> Index(FeedbackStatus? status = FeedbackStatus.New, FeedbackType? type = null, int page = 1)
     {
@@ -65,6 +84,12 @@ public sealed class AdminFeedbackController : Controller
         return View(item);
     }
 
+    /// <summary>
+    /// Applies the selected triage operation through POST so feedback state changes require an antiforgery token.
+    /// </summary>
+    /// <param name="id">Stored feedback identifier.</param>
+    /// <param name="op">Requested triage operation.</param>
+    /// <returns>A redirect back to the admin feedback list after the operation is applied.</returns>
     [HttpPost("{id:long}/{op}")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Apply(long id, AdminFeedbackOp op)
