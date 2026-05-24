@@ -154,8 +154,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 
-- [ ] 18-01-PLAN.md — Factor admin.css into admin-common.css + admin-mobile.css + import shim; migrate dead admin-feedback rules from site-common.css with admin-token substitution; add --danger/--on-accent tokens, ≥44px touch-target floors, admin-harvest__panel styling, sidebar/card-stack/overflow-x CSS contracts (AMOB-04, AMOB-03, AMOB-02, AMOB-01)
-- [ ] 18-02-PLAN.md — Wire Razor markup to the CSS contracts: sidebar <details>/<summary> disclosure, overflow-x scroll regions on comparison tables (Harvest ×2, Analytics), card-stack + data-label on scanning tables (Feedback, Flags); blocking human-verify at 375px + 4-theme non-admin visual regression (AMOB-01, AMOB-02, AMOB-03)
+- [ ] 18-01-PLAN.md — Factor admin.css → admin-common.css + admin-mobile.css + fallback shim; switch _AdminLayout to TWO fingerprinted <link> tags (D-CACHE); migrate dead admin-feedback rules from site-common.css with admin-token substitution + .admin-shell scoping (D-SCOPE); add --danger/--on-accent tokens, the FULL admin interactive-element ≥44px touch-target inventory (WCAG 2.5.5 AAA floor), admin-harvest__panel styling, accessible card-stack header contract (D-A11Y-HEADER — clip not display:none), sidebar/overflow-x CSS contracts (AMOB-04, AMOB-03, AMOB-02, AMOB-01)
+- [ ] 18-02-PLAN.md — Wire Razor markup to the CSS contracts: sidebar <details>/<summary> disclosure rendered WITHOUT open (collapsed-by-default, D-OPEN), overflow-x scroll regions on comparison tables (Harvest ×2, Analytics, ASCII-hyphen aria-labels), card-stack + data-label on scanning tables (Feedback, Flags) retaining <th scope=col>; static dead-class scan; blocking human-verify at 320/375/768/769px + 4-theme non-admin zero-visible-diff regression (AMOB-01, AMOB-02, AMOB-03)
 
 **UI hint**: yes
 
