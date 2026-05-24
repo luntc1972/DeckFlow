@@ -210,3 +210,30 @@ REMAINING_HIGH=2
 - HIGH-2 .admin-shell scoping on moved blocks: RESOLVED
 - HIGH-3 desktop <details> fallback: PARTIAL — desktop hides <summary> via display:none, contradicting the 'keep summary operable' fallback
 - NEW HIGH — long-token mobile overflow: card-stack td values + .detail-grid dd/code lack overflow-wrap:anywhere / min-width:0; 320px 'no overflow' can fail with real data (long emails, URLs, hashes, user agents)
+
+---
+
+# Cross-AI Plan Review — Phase 18 — Cycle 4 (revised plans, commit d4587ce)
+
+> Reviewer: Codex. Reviewed_at: 2026-05-24T19:40:04Z
+
+## Codex Review (Cycle 4)
+
+| Prior HIGH | Status | Reason |
+|---|---|---|
+| HIGH-A: desktop `<details>` fallback contradiction | UNRESOLVED | `admin-common.css` still defines `.admin-shell .admin-sidebar__toggle { display: none; }`, and the `min-width:769px` clip rule never resets `display`, so the summary remains removed from the a11y tree. |
+| HIGH-B: long-token mobile overflow | RESOLVED | Plan now adds `overflow-wrap:anywhere` + `min-width:0` to card `td` and detail `dd/code/message`, with a 320px realistic-long-data checkpoint. |
+
+**NEW HIGH**
+
+None.
+
+**Overall Risk**
+
+HIGH until HIGH-A is corrected. The fix is small: remove the base `display:none` or explicitly set `display:block` / `display:inline-flex` in the `@media (min-width: 769px)` clipped-summary rule, then verify the summary is focusable and not `display:none`.
+
+`REMAINING_HIGH=1`
+
+### Cycle 4 status: REMAINING_HIGH=1 (trend 5 -> 3 -> 2 -> 1)
+- HIGH-B long-token overflow: RESOLVED
+- HIGH-A desktop summary a11y: UNRESOLVED — base .admin-shell .admin-sidebar__toggle{display:none} not reset in the >=769px clip rule; summary stays out of a11y tree. Fix: desktop clip rule must set display (block/inline-flex) + clip, never display:none; verify summary focusable + not display:none.
