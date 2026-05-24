@@ -113,7 +113,11 @@ Plans:
   2. `<param>` + `<returns>` tags on non-trivial public methods (multi-arg + non-void); `<inheritdoc/>` used on interface implementations
   3. `NoWarn 1591;1573;1587` REMAINS in `DeckFlow.Web.csproj` (do not strip until Phase 8); `dotnet build -c Release` stays at 0 warnings / 0 errors
   4. Touch-only-what-you-touch discipline preserved (no Format Document, no `{ get; }` mutations, no `[Attribute]` inlining, no raw-string re-indents per CLAUDE.md R-6)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — Controllers cluster: <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
+- [ ] 02-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 2 records (ScryfallCardFace, FeedbackRequestContext); 9 types / 7 files (DOC-01)
+> Scope note: 2026-05-24 re-scan found 16 undocumented types remain (15 class/record/interface + 1 enum) — the original "~50 of 88" Goal snapshot was stale; most listed types were already documented in prior sessions. NoWarn gate retained (Phase 8 strips it).
 
 ### Phase 3: Admin Mobile-Responsive Sweep
 **Goal**: Admin shell renders correctly and accessibly on viewports ≥320px wide, with all WCAG 2.5.5 ≥44px touch-target floors met, AND zero CSS regression on the 22 guild themes.
