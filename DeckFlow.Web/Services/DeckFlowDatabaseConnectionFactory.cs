@@ -4,6 +4,9 @@ using Npgsql;
 
 namespace DeckFlow.Web.Services;
 
+/// <summary>
+/// Creates relational database handles for DeckFlow stores, choosing SQLite artifacts by default or Postgres from environment configuration while small operational stores share the feedback database.
+/// </summary>
 public static class DeckFlowDatabaseConnectionFactory
 {
     private const string DatabaseProviderEnvVar = "DECKFLOW_DATABASE_PROVIDER";

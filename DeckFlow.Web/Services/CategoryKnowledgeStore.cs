@@ -12,6 +12,7 @@ using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Services;
 
+/// <inheritdoc/>
 public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
@@ -85,8 +86,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
     }
 
+    /// <inheritdoc/>
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default) => _repository.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -96,6 +99,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public async Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -106,6 +110,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public async Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -115,6 +120,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -140,6 +146,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return rows;
     }
 
+    /// <inheritdoc/>
     public async Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
