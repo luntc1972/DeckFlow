@@ -1,4 +1,5 @@
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Xunit;
@@ -143,6 +144,53 @@ public sealed class CategoryKnowledgeStoreTests
         var store = CreateStore();
 
         await store.PersistObservedCategoriesAsync("source", cardName, categories, quantity);
+    }
+
+    [Fact]
+    public async Task GetPagedProcessedDecksAsync_MapsRepositoryRowsAndClampsPagingInputs()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Commander One");
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Commander Two");
+
+            var rows = await store.GetPagedProcessedDecksAsync(page: 0, pageSize: 0);
+
+            var row = Assert.Single(rows);
+            Assert.Equal("deck-002", row.DeckId);
+            Assert.Equal("Commander Two", row.CommanderName);
+            Assert.False(string.IsNullOrWhiteSpace(row.InsertedUtc));
+            Assert.False(string.IsNullOrWhiteSpace(row.LastCheckedUtc));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredPagedDecksAndRecordsInputs()
+    {
+        var fake = new FakeCategoryKnowledgeStore
+        {
+            PagedDecksResult = new[]
+            {
+                new HarvestedDeckRow("deck-123", "Commander", "2026-01-01T00:00:00.0000000Z", null)
+            }
+        };
+
+        var rows = await fake.GetPagedProcessedDecksAsync(page: 3, pageSize: 25);
+
+        var row = Assert.Single(rows);
+        Assert.Equal("deck-123", row.DeckId);
+        Assert.Equal(3, fake.LastPagedDeckPage);
+        Assert.Equal(25, fake.LastPagedDeckPageSize);
     }
 
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)

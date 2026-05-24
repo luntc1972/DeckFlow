@@ -27,6 +27,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Exception? RunCacheSweepException { get; set; }
 
+    public IReadOnlyList<HarvestedDeckRow> PagedDecksResult { get; set; } = Array.Empty<HarvestedDeckRow>();
+
+    public int LastPagedDeckPage { get; private set; }
+
+    public int LastPagedDeckPageSize { get; private set; }
+
     public void SetProcessedDeckCounts(params int[] counts)
     {
         _processedDeckCounts.Clear();
@@ -86,6 +92,13 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
+
+    public Task<IReadOnlyList<HarvestedDeckRow>> GetPagedProcessedDecksAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        LastPagedDeckPage = page;
+        LastPagedDeckPageSize = pageSize;
+        return Task.FromResult(PagedDecksResult);
+    }
 
     public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<long?>(null);
