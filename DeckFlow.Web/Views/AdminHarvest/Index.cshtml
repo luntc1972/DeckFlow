@@ -184,22 +184,54 @@
         </div>
     }
 
-    @if (Model.Stats is not null)
+</section>
+
+<section class="admin-harvest__panel">
+    <h2>Harvested Decks</h2>
+    <p>@Model.DeckTotalCount total - Page @Model.DeckPage of @Model.DeckTotalPages</p>
+
+    @if (Model.HarvestedDecks.Count == 0)
     {
-        <h3>Top 10 Commanders</h3>
-        @if (Model.Stats.TopCommanders.Count == 0)
-        {
-            <p>No commanders recorded yet.</p>
-        }
-        else
-        {
-            <ul>
-                @foreach (var row in Model.Stats.TopCommanders)
-                {
-                    <li>@row.CommanderName - @row.DeckCount decks</li>
-                }
-            </ul>
-        }
+        <p>No harvested decks yet.</p>
+    }
+    else
+    {
+        <div class="admin-table-scroll" role="region" aria-label="Harvested decks - scroll horizontally to see all columns" tabindex="0">
+            <table class="admin-table">
+                <caption class="sr-only">Harvested decks with deck ID, commander, harvested timestamp, and last checked timestamp</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Deck ID</th>
+                        <th scope="col">Commander</th>
+                        <th scope="col">Harvested (UTC)</th>
+                        <th scope="col">Last Checked (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var deck in Model.HarvestedDecks)
+                    {
+                        <tr>
+                            <td>@deck.DeckId</td>
+                            <td>@(deck.CommanderName ?? "—")</td>
+                            <td>@deck.InsertedUtc</td>
+                            <td>@(deck.LastCheckedUtc ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="admin-feedback-pagination">
+            @if (Model.DeckPage > 1)
+            {
+                <a asp-action="Index" asp-route-page="@(Model.DeckPage - 1)">Prev</a>
+            }
+            <span>Page @Model.DeckPage of @Model.DeckTotalPages</span>
+            @if (Model.DeckPage < Model.DeckTotalPages)
+            {
+                <a asp-action="Index" asp-route-page="@(Model.DeckPage + 1)">Next</a>
+            }
+        </nav>
     }
 </section>
 
