@@ -117,7 +117,75 @@
         <p>Storage size: @(Model.Stats.PostgresStorageBytes is long b ? FormatBytes(b) : "N/A")</p>
         <p>Last successful run: @(Model.Stats.LastSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
         <p>Next scheduled run: @(Model.Stats.NextScheduledUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Off")</p>
+    }
 
+    @if (Model.Stats?.RecentRuns.Count > 0)
+    {
+        <h3>Recent Runs</h3>
+        <div class="admin-table-scroll" role="region" aria-label="Recent harvest runs - scroll horizontally to see all columns" tabindex="0">
+            <table class="admin-table">
+                <caption class="sr-only">Recent harvest runs with start, completion, state, and decks processed</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Started</th>
+                        <th scope="col">Completed</th>
+                        <th scope="col">State</th>
+                        <th scope="col">Decks Processed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var run in Model.Stats.RecentRuns)
+                    {
+                        <tr>
+                            <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
+                            <td>@(run.CompletedUtc?.ToString("u") ?? "—")</td>
+                            <td>@run.State</td>
+                            <td>@run.DecksProcessed</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (Model.RecentRuns.Count == 0)
+    {
+        <p>No runs recorded yet.</p>
+    }
+    else
+    {
+        <h3>Run Log</h3>
+        <div class="admin-table-scroll" role="region" aria-label="Harvest run log - scroll horizontally to see all columns" tabindex="0">
+            <table class="admin-table">
+                <caption class="sr-only">Harvest run log with timing, state, deck counts, and any error message</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Started</th>
+                        <th scope="col">Kind</th>
+                        <th scope="col">State</th>
+                        <th scope="col">Decks</th>
+                        <th scope="col">Duration</th>
+                        <th scope="col">Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var run in Model.RecentRuns)
+                    {
+                        <tr>
+                            <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
+                            <td>@run.Kind</td>
+                            <td>@run.State</td>
+                            <td>@run.DecksProcessed</td>
+                            <td>@run.DurationSeconds</td>
+                            <td>@(run.ErrorMessage ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (Model.Stats is not null)
+    {
         <h3>Top 10 Commanders</h3>
         @if (Model.Stats.TopCommanders.Count == 0)
         {
@@ -132,67 +200,6 @@
                 }
             </ul>
         }
-    }
-
-    @if (Model.Stats?.RecentRuns.Count > 0)
-    {
-        <h3>Recent Runs</h3>
-        <table class="admin-table">
-            <caption class="sr-only">Recent harvest runs with start, completion, state, and decks processed</caption>
-            <thead>
-                <tr>
-                    <th scope="col">Started</th>
-                    <th scope="col">Completed</th>
-                    <th scope="col">State</th>
-                    <th scope="col">Decks Processed</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var run in Model.Stats.RecentRuns)
-                {
-                    <tr>
-                        <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
-                        <td>@(run.CompletedUtc?.ToString("u") ?? "—")</td>
-                        <td>@run.State</td>
-                        <td>@run.DecksProcessed</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else if (Model.RecentRuns.Count == 0)
-    {
-        <p>No runs recorded yet.</p>
-    }
-    else
-    {
-        <h3>Run Log</h3>
-        <table class="admin-table">
-            <caption class="sr-only">Harvest run log with timing, state, deck counts, and any error message</caption>
-            <thead>
-                <tr>
-                    <th scope="col">Started</th>
-                    <th scope="col">Kind</th>
-                    <th scope="col">State</th>
-                    <th scope="col">Decks</th>
-                    <th scope="col">Duration</th>
-                    <th scope="col">Error</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var run in Model.RecentRuns)
-                {
-                    <tr>
-                        <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
-                        <td>@run.Kind</td>
-                        <td>@run.State</td>
-                        <td>@run.DecksProcessed</td>
-                        <td>@run.DurationSeconds</td>
-                        <td>@(run.ErrorMessage ?? "—")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
     }
 </section>
 
