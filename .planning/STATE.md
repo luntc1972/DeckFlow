@@ -94,7 +94,8 @@ v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 
 
 ### v1.4 Decisions
 
-- **Critical path:** Phase 16 → 18 → 19 → 20 → 21 → 22. Phase 17 parallelizable (off critical path). Phase 23 lands last (so v1.4 new types are documented before NoWarn gate flips per Pitfall 8).
+- **Critical path (dependencies):** Phase 16 → 18 → 19 → 20 → 21 → 22. Phase 17 parallelizable (off critical path). Phase 23 lands last (so v1.4 new types are documented before NoWarn gate flips per Pitfall 8).
+- **Execution order (user decision 2026-05-24) — Content KB last:** run remaining phases as `25 → 24 → 19 → 20 → 21 → 22 → 23`. Grid (25, Codex-approved) + bug (24) are independent of Content KB and lead; KB block (19-22) runs last in dependency order; 23 (strip NoWarn) stays final. Phase numbers NOT renumbered (stable IDs). **Auto next-phase detection picks lowest unplanned number (19) — it will NOT follow this order; pass explicit phase numbers to `/gsd-execute-phase`.**
 - **Phase 16 before Phase 18:** Modal CSS lands in new `admin-common.css` factoring; doing modal after the split forces touching two files (per ARCHITECTURE.md build order rationale).
 - **Phase 19 before Phase 20 before Phase 21 before Phase 22:** Each Content KB layer's tests need the prior layer's seam (stores → HTTP → orchestrator → UI).
 - **Phase 21 mode = mvp:** Orchestrator phase delivers the headline user story "admin can trigger end-to-end harvest"; mvp mode enforces user-story-first verification with the TOCTOU + kill-switch invariants as hard gates.
