@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
-status: verifying
+status: completed
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-24T20:11:36.710Z"
-last_activity: 2026-05-24
+last_updated: "2026-05-24T21:21:05.986Z"
+last_activity: 2026-05-24 -- Phase 17 marked complete
 progress:
   total_phases: 10
   completed_phases: 3
@@ -56,8 +56,8 @@ See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 Phase: 17 — COMPLETE
 Plan: 2 of 2
-Status: Phase complete — ready for verification
-Last activity: 2026-05-24
+Status: Phase 18 complete (UAT passed 2026-05-24; D-OPEN reversed to <details open> — closed-details content unrenderable by CSS in Chrome/Edge)
+Last activity: 2026-05-24 -- Phase 17 marked complete
 
 ## Performance Metrics
 

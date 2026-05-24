@@ -84,7 +84,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 
 - [x] **Phase 16: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
 - [x] **Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 23 (completed 2026-05-24)
-- [ ] **Phase 18: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
+- [x] **Phase 18: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
 - [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP
 - [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines
 - [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var
@@ -154,8 +154,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 
-- [ ] 18-01-PLAN.md — Factor admin.css → admin-common.css + admin-mobile.css + fallback shim; switch _AdminLayout to TWO fingerprinted <link> tags (D-CACHE); migrate dead admin-feedback rules from site-common.css with admin-token substitution + .admin-shell scoping (D-SCOPE); add --danger/--on-accent tokens, the FULL admin interactive-element ≥44px touch-target inventory (WCAG 2.5.5 AAA floor), admin-harvest__panel styling, accessible card-stack header contract (D-A11Y-HEADER — clip not display:none), sidebar/overflow-x CSS contracts (AMOB-04, AMOB-03, AMOB-02, AMOB-01)
-- [ ] 18-02-PLAN.md — Wire Razor markup to the CSS contracts: sidebar <details>/<summary> disclosure rendered WITHOUT open (collapsed-by-default, D-OPEN), overflow-x scroll regions on comparison tables (Harvest ×2, Analytics, ASCII-hyphen aria-labels), card-stack + data-label on scanning tables (Feedback, Flags) retaining <th scope=col>; static dead-class scan; blocking human-verify at 320/375/768/769px + 4-theme non-admin zero-visible-diff regression (AMOB-01, AMOB-02, AMOB-03)
+- [x] 18-01-PLAN.md — Factor admin.css → admin-common.css + admin-mobile.css + fallback shim; switch _AdminLayout to TWO fingerprinted <link> tags (D-CACHE); migrate dead admin-feedback rules from site-common.css with admin-token substitution + .admin-shell scoping (D-SCOPE); add --danger/--on-accent tokens, the FULL admin interactive-element ≥44px touch-target inventory (WCAG 2.5.5 AAA floor), admin-harvest__panel styling, accessible card-stack header contract (D-A11Y-HEADER — clip not display:none), sidebar/overflow-x CSS contracts (AMOB-04, AMOB-03, AMOB-02, AMOB-01)
+- [x] 18-02-PLAN.md — Wire Razor markup to the CSS contracts: sidebar <details>/<summary> disclosure rendered WITHOUT open (collapsed-by-default, D-OPEN), overflow-x scroll regions on comparison tables (Harvest ×2, Analytics, ASCII-hyphen aria-labels), card-stack + data-label on scanning tables (Feedback, Flags) retaining <th scope=col>; static dead-class scan; blocking human-verify at 320/375/768/769px + 4-theme non-admin zero-visible-diff regression (AMOB-01, AMOB-02, AMOB-03)
 
 **UI hint**: yes
 
@@ -262,6 +262,14 @@ Plans:
   2. Paging is server-side (query-level LIMIT/OFFSET or keyset) — does not load all rows into memory (Render 512MB cap discipline)
   3. Grid reuses the responsive admin table/card patterns from Phase 18; usable at ≥320px viewport
   4. Test suite preserved at `Failed: 0`; touch-only-what-you-touch (CLAUDE.md R-6)
+  5. `/Admin/Harvest` cold-cache load latency is reduced — the stats payload no longer relies on serial full-table scans (see perf note below)
+
+**Perf investigation note (2026-05-24, captured per user during Phase 18 UAT):** `/Admin/Harvest` is slow on a COLD cache (warm loads are fine — `HarvestStatsAggregator` caches the payload 60s). The cold path runs 7 queries SEQUENTIALLY in `HarvestStatsAggregator.BuildAsync`, and the expensive ones are unindexed full scans that grow with harvest size:
+  - `SELECT COUNT(1) FROM deck_queue WHERE processed = 1` — no index on `processed`
+  - `SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff` — no `(processed, inserted_utc)` index
+  - `SELECT COUNT(1) FROM card_category_observations` — full COUNT of the largest table (slow in Postgres)
+  - `GetTopCommandersAsync`: `GROUP BY commander_name ORDER BY deck_count DESC FROM deck_queue WHERE processed = 1` — full scan + group/sort, no supporting index
+  Fix directions for Phase 25 (alongside the paged grid that replaces the top-ten `GROUP BY` scan): add indexes (`deck_queue(processed)`, `deck_queue(processed, inserted_utc)`, `deck_queue(processed, commander_name)`); parallelize the independent stat queries (`Task.WhenAll`) instead of awaiting serially; for the observation count prefer a Postgres `reltuples` estimate or a maintained counter over `COUNT(*)`; optionally precompute the stats payload at harvest-completion rather than on page view. Files: `DeckFlow.Web/Services/Harvest/HarvestStatsAggregator.cs`, `DeckFlow.Web/Services/CategoryKnowledgeStore.cs`, `DeckFlow.Web/Controllers/Admin/AdminHarvestController.cs`.
 
 **Plans**: TBD
 
@@ -271,7 +279,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
 | 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
-| 18. Admin Mobile-Responsive Sweep | 0/2 | Planned | - |
+| 18. Admin Mobile-Responsive Sweep | 2/2 | Complete | 2026-05-24 |
 | 19. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
 | 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
