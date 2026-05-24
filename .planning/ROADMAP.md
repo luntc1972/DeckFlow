@@ -151,7 +151,12 @@ Plans:
   4. All admin interactive elements (buttons, links, icon-actions, form controls) meet ≥44×44px touch-target floor at narrow viewport; admin forms render single-column ≤768px
   5. Visual regression: homepage + `/sync` photographed in Rakdos + Azorius + Boros + Gruul guild themes at 375px mobile viewport BEFORE and AFTER the sweep — zero pixel diff on non-admin pages (Pitfall 10 detection)
 
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+
+- [ ] 18-01-PLAN.md — Factor admin.css into admin-common.css + admin-mobile.css + import shim; migrate dead admin-feedback rules from site-common.css with admin-token substitution; add --danger/--on-accent tokens, ≥44px touch-target floors, admin-harvest__panel styling, sidebar/card-stack/overflow-x CSS contracts (AMOB-04, AMOB-03, AMOB-02, AMOB-01)
+- [ ] 18-02-PLAN.md — Wire Razor markup to the CSS contracts: sidebar <details>/<summary> disclosure, overflow-x scroll regions on comparison tables (Harvest ×2, Analytics), card-stack + data-label on scanning tables (Feedback, Flags); blocking human-verify at 375px + 4-theme non-admin visual regression (AMOB-01, AMOB-02, AMOB-03)
+
 **UI hint**: yes
 
 ### Phase 19: Content KB Foundation — Stores + Schema
@@ -266,7 +271,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
 | 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
-| 18. Admin Mobile-Responsive Sweep | 0/TBD | Not started | - |
+| 18. Admin Mobile-Responsive Sweep | 0/2 | Planned | - |
 | 19. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
 | 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
