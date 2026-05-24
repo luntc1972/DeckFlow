@@ -1,5 +1,5 @@
 ---
-phase: 01-wdg-04-focus-trapped-modal
+phase: 16-wdg-04-focus-trapped-modal
 plan: 01
 subsystem: ui
 tags: [admin, dialog, typescript, razor, css, accessibility, tests]
@@ -35,9 +35,9 @@ key-files:
 key-decisions:
   - "Kept Task 1 admin-modal.ts unchanged after verification because it already matched the plan contract."
   - "Used Cancel autofocus and a TS focus reinforcement for destructive safety."
-  - "Appended modal CSS at end-of-file between Phase 1 markers (`/* === Phase 1 (v1.4) — WDG-04 Focus-Trapped Modal === */` + `/* === END Phase 1 === */`) to preserve existing admin.css lines AND enable awk-extractable scope-discipline grep."
+  - "Appended modal CSS at end-of-file between Phase 16 markers (`/* === Phase 16 (v1.4) — WDG-04 Focus-Trapped Modal === */` + `/* === END Phase 16 === */`) to preserve existing admin.css lines AND enable awk-extractable scope-discipline grep."
   - "Preserved the existing AntiForgeryToken in the delete form and fail-closed when admin-modal.js is unavailable."
-  - "Added 23 file-level regression facts (10 DOM contract + 13 CSS contract) instead of JS unit tests — DeckFlow has zero JS test infrastructure; locking the cross-file contract from C# avoids new npm deps + module:'none' conflicts. Catches future drift if partial IDs change or CSS regresses during Phase 3 admin-common.css factoring."
+  - "Added 23 file-level regression facts (10 DOM contract + 13 CSS contract) instead of JS unit tests — DeckFlow has zero JS test infrastructure; locking the cross-file contract from C# avoids new npm deps + module:'none' conflicts. Catches future drift if partial IDs change or CSS regresses during Phase 18 admin-common.css factoring."
 
 patterns-established:
   - "Admin destructive confirmations use a singleton native dialog partial plus window.DeckFlowAdminModal.showConfirm."
@@ -73,13 +73,13 @@ cross-ai:
   execution-rationale: "Codex hit WSL vsock socket bug invoking Windows dotnet.exe; orchestrator ran all dotnet gates externally per v1.3 Phase 999.6 precedent"
 
 commits:
-  - 43e7ab5  # feat(01-01): T1 admin-modal.ts
-  - fc8c472  # feat(01-01): T2 _AdminConfirmModal.cshtml
-  - 4bc7384  # feat(01-01): T3 admin.css Phase 1 modal block
-  - 11ca9d0  # feat(01-01): T4 admin-feedback.ts wire interceptor
-  - 9395e0e  # feat(01-01): T5 Detail.cshtml remove onsubmit + partial + scripts
-  - 59dca18  # docs(01-01): SUMMARY (initial, pre-tests)
-  - f6a8967  # fix(01-03): normalize Phase 1 CSS start marker to exact pattern
+  - 43e7ab5  # feat(16-01): T1 admin-modal.ts
+  - fc8c472  # feat(16-01): T2 _AdminConfirmModal.cshtml
+  - 4bc7384  # feat(16-01): T3 admin.css Phase 16 modal block
+  - 11ca9d0  # feat(16-01): T4 admin-feedback.ts wire interceptor
+  - 9395e0e  # feat(16-01): T5 Detail.cshtml remove onsubmit + partial + scripts
+  - 59dca18  # docs(16-01): SUMMARY (initial, pre-tests)
+  - f6a8967  # fix(01-03): normalize Phase 16 CSS start marker to exact pattern
   - 29fcbf6  # test(01): AdminConfirmModalPartialTests — 10 facts
   - 9d9cd95  # test(01): AdminCssPhase1Tests — 13 facts
 
@@ -93,7 +93,7 @@ duration: not-captured
 completed: 2026-05-23
 ---
 
-# Phase 1: WDG-04 Focus-Trapped Modal Summary
+# Phase 16: WDG-04 Focus-Trapped Modal Summary
 
 **Native admin delete confirmation via reusable `<dialog>` + `showModal()` primitive, wired into AdminFeedback Detail without new dependencies, locked by 23-fact regression test suite.**
 
@@ -109,7 +109,7 @@ completed: 2026-05-23
 
 - Added `window.DeckFlowAdminModal.showConfirm(opts): Promise<boolean>` as IIFE global compatible with `module: "none"`.
 - Added `_AdminConfirmModal.cshtml` as structural-only singleton native `<dialog>` partial with ARIA label/description + Cancel `autofocus` + `<p>` title (not `<h2>` per WIG amendment).
-- Appended scoped Phase 1 modal CSS block to `admin.css` (114 lines, bookended by exact start + END markers for awk-extractable scope grep), including unified danger styling for both in-page delete + modal destructive confirm + `filter: none` cascade neutralizer for Codex MEDIUM #2.
+- Appended scoped Phase 16 modal CSS block to `admin.css` (114 lines, bookended by exact start + END markers for awk-extractable scope grep), including unified danger styling for both in-page delete + modal destructive confirm + `filter: none` cascade neutralizer for Codex MEDIUM #2.
 - Wired AdminFeedback Detail delete submission through modal while preserving existing POST form + anti-forgery token (3 tokens preserved verbatim across MarkRead + Archive + Delete forms).
 - Removed inline `onsubmit="return confirm(...)"` (`onsubmit` count in Detail.cshtml: **0** — WDG-04 closure).
 - Added external script loading in required order (`admin-modal.js` line 51 BEFORE `admin-feedback.js` line 52).
@@ -119,9 +119,9 @@ completed: 2026-05-23
 
 **`AdminConfirmModalPartialTests.cs` (10 facts):** DOM contract between Razor partial + TS consumer. Locks: dialog id `admin-confirm-modal`, title id, message id, `aria-labelledby`, `aria-describedby`, `<p>` title element (not `<h2>` per WIG), `autofocus` on Cancel button, no `@model`, no `@Html.AntiForgeryToken()`, `.admin-modal` class on dialog.
 
-**`AdminCssPhase1Tests.cs` (13 facts):** CSS contract + scope discipline. Locks: Phase 1 start + END markers, 0 bare-element top-level selectors in Phase 1 section, `text-wrap: balance` (WIG widow prevention), `@media (prefers-reduced-motion: reduce)` gate, `background: #dc2626` declaration (anchored — excludes comment-text mentions per Codex NEW HIGH fix), `background: #b91c1c` hover declaration, `rgba(15, 23, 42, 0.72)` backdrop, `min-height: 44px` + `min-width: 44px` touch targets, `max-width: 480px` panel, `filter: none` cascade fix (Codex MEDIUM #2), `:not(.admin-modal__button--danger):hover` exclusion (belt-and-suspenders).
+**`AdminCssPhase1Tests.cs` (13 facts):** CSS contract + scope discipline. Locks: Phase 16 start + END markers, 0 bare-element top-level selectors in Phase 16 section, `text-wrap: balance` (WIG widow prevention), `@media (prefers-reduced-motion: reduce)` gate, `background: #dc2626` declaration (anchored — excludes comment-text mentions per Codex NEW HIGH fix), `background: #b91c1c` hover declaration, `rgba(15, 23, 42, 0.72)` backdrop, `min-height: 44px` + `min-width: 44px` touch targets, `max-width: 480px` panel, `filter: none` cascade fix (Codex MEDIUM #2), `:not(.admin-modal__button--danger):hover` exclusion (belt-and-suspenders).
 
-**Rationale for file-level tests over JS unit tests:** DeckFlow has zero JS test infrastructure (no Jest/Vitest/jsdom). Adding one violates `module: "none"` non-bundled approach + introduces new npm deps. File-level `File.ReadAllText` + grep regression tests catch the cross-file contract drift (partial IDs ↔ TS consumer references, CSS values ↔ UI-SPEC grep table) from C# with zero new deps. Future Phase 3 admin-common.css factoring or partial edits will fast-fail these tests if cross-file contracts break.
+**Rationale for file-level tests over JS unit tests:** DeckFlow has zero JS test infrastructure (no Jest/Vitest/jsdom). Adding one violates `module: "none"` non-bundled approach + introduces new npm deps. File-level `File.ReadAllText` + grep regression tests catch the cross-file contract drift (partial IDs ↔ TS consumer references, CSS values ↔ UI-SPEC grep table) from C# with zero new deps. Future Phase 18 admin-common.css factoring or partial edits will fast-fail these tests if cross-file contracts break.
 
 ## Build + Test Gates
 
@@ -131,7 +131,7 @@ completed: 2026-05-23
 | Tests (`dotnet test ... --no-build`) | Failed: 0, Passed: 520, Skipped: 3, Total: 523 |
 | Delta from pre-Phase-1 baseline | +23 new tests (497 → 520); zero existing test regressions |
 | Plan verify greps (Task 3 verify block + 28 UI-SPEC) | all PASS |
-| Scope discipline (awk Phase 1 section + grep bare-element) | 0 violations |
+| Scope discipline (awk Phase 16 section + grep bare-element) | 0 violations |
 | `onsubmit` count in Detail.cshtml | 0 (WDG-04 closure verified) |
 | AntiForgeryToken count in Detail.cshtml | 3 (all 3 forms preserved) |
 | Script load order | `admin-modal.js` line 51 BEFORE `admin-feedback.js` line 52 |
@@ -151,7 +151,7 @@ Total: 6 concerns surfaced + 6 resolved across 3 review rounds. Codex authoritat
 **Source (5):**
 - `DeckFlow.Web/wwwroot/ts/admin-modal.ts` (new, 105 lines) — Reusable native dialog confirm helper on `window.DeckFlowAdminModal`. IIFE + fail-closed guards + multiline try-catch.
 - `DeckFlow.Web/Views/Shared/_AdminConfirmModal.cshtml` (new, 13 lines) — Structural singleton `<dialog>` partial. No model, no AntiForgeryToken. `<p>` title (WIG amendment).
-- `DeckFlow.Web/wwwroot/css/admin.css` (+114 lines + marker normalization) — Phase 1 modal block bookended by exact start + END markers. 28 UI-SPEC values + `text-wrap: balance` (WIG) + `filter: none` cascade fix + reduced-motion gate.
+- `DeckFlow.Web/wwwroot/css/admin.css` (+114 lines + marker normalization) — Phase 16 modal block bookended by exact start + END markers. 28 UI-SPEC values + `text-wrap: balance` (WIG) + `filter: none` cascade fix + reduced-motion gate.
 - `DeckFlow.Web/wwwroot/ts/admin-feedback.ts` (+25 lines) — Additive delete-form submit interceptor calling `showConfirm`. Preserves existing `data-admin-feedback-submit-on-change` handler byte-identically.
 - `DeckFlow.Web/Views/AdminFeedback/Detail.cshtml` (−3 / +10) — Removed `onsubmit`, added `data-admin-confirm-delete` + `data-admin-feedback-id` hooks, included `_AdminConfirmModal` partial, added `@section Scripts` with ordered admin-modal.js → admin-feedback.js.
 
@@ -174,7 +174,7 @@ Total: 6 concerns surfaced + 6 resolved across 3 review rounds. Codex authoritat
 ## Deviations from Plan
 
 - `admin-feedback.ts` grep counts for `data-admin-feedback-submit-on-change` and `form.submit()` are higher than plan's expected loose counts because preserved comment + original handler already contained those strings (existing handler kept byte-identical per D-09 + R-6 formatting paranoia).
-- Test additions (2 files, 23 facts) NOT in original plan — added per user request post-hybrid-execution; lock cross-file contracts as regression guard for Phase 3 admin-common.css factoring + Phase 7 modal reuse.
+- Test additions (2 files, 23 facts) NOT in original plan — added per user request post-hybrid-execution; lock cross-file contracts as regression guard for Phase 18 admin-common.css factoring + Phase 22 modal reuse.
 - WSL `vsock` socket bug forced hybrid execution pattern (Codex authored only; orchestrator ran dotnet gates externally) — matches v1.3 Phase 999.6 precedent.
 
 ## Branch State
@@ -185,10 +185,10 @@ Total: 6 concerns surfaced + 6 resolved across 3 review rounds. Codex authoritat
 
 ## Next Phase Readiness
 
-- **Phase 1 code + tests:** SHIPPED on `v1.4` branch.
-- **Phase 1 UAT:** pending human verifier (operator to run UAT-1..7 from PLAN.md against `dotnet run --project DeckFlow.Web` on `v1.4`).
-- **Phase 7 ContentSources reuse:** `window.DeckFlowAdminModal.showConfirm` + `_AdminConfirmModal.cshtml` ready to import/reuse without rewrite — D-01 reusability decision validated.
-- **Phase 3 admin-common.css factoring:** Phase 1 CSS block bookended by exact start + END markers — Phase 3 can extract the section cleanly via awk + AdminCssPhase1Tests will fast-fail if extraction drops Phase 1 values.
+- **Phase 16 code + tests:** SHIPPED on `v1.4` branch.
+- **Phase 16 UAT:** pending human verifier (operator to run UAT-1..7 from PLAN.md against `dotnet run --project DeckFlow.Web` on `v1.4`).
+- **Phase 22 ContentSources reuse:** `window.DeckFlowAdminModal.showConfirm` + `_AdminConfirmModal.cshtml` ready to import/reuse without rewrite — D-01 reusability decision validated.
+- **Phase 18 admin-common.css factoring:** Phase 16 CSS block bookended by exact start + END markers — Phase 18 can extract the section cleanly via awk + AdminCssPhase1Tests will fast-fail if extraction drops Phase 16 values.
 
 ---
 *Phase: 01-wdg-04-focus-trapped-modal*

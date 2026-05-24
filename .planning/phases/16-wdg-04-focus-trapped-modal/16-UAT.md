@@ -1,6 +1,6 @@
 ---
 status: passed
-phase: 01-wdg-04-focus-trapped-modal
+phase: 16-wdg-04-focus-trapped-modal
 plan: 01
 verifier: operator (Chris Lunt)
 verdict: approved
@@ -9,7 +9,7 @@ mode: human-attested
 branch: v1.4
 ---
 
-# Phase 1 UAT — WDG-04 Focus-Trapped Modal
+# Phase 16 UAT — WDG-04 Focus-Trapped Modal
 
 **Result: ALL 7 mandatory UAT steps PASSED. Operator typed "approved" 2026-05-24.**
 
@@ -24,13 +24,13 @@ branch: v1.4
 | UAT-7 | Zero CSS bleed into guild themes — `.admin-modal` not present on public pages; no inherited admin border-radius/box-shadow | SC#4 | PASS |
 | UAT-8 (optional) | Screen-reader smoke | a11y | not run |
 
-**Verdict:** APPROVED. Phase 1 ships WDG-04 closure + reusable admin-modal primitive ready for Phase 7 reuse.
+**Verdict:** APPROVED. Phase 16 ships WDG-04 closure + reusable admin-modal primitive ready for Phase 22 reuse.
 
 ## Success Criteria Coverage
 
-All 4 ROADMAP Phase 1 SCs satisfied:
+All 4 ROADMAP Phase 16 SCs satisfied:
 - SC#1 (native dialog, no library): UAT-1 PASS
-- SC#2 (focus trap): UAT-4 PASS (native button cycling on Detail.cshtml; nested custom-element cycling deferred to Phase 7 per CONTEXT D-09 + RESEARCH UAT-9)
+- SC#2 (focus trap): UAT-4 PASS (native button cycling on Detail.cshtml; nested custom-element cycling deferred to Phase 22 per CONTEXT D-09 + RESEARCH UAT-9)
 - SC#3 (ESC + Cancel + backdrop close): UAT-2, UAT-3, UAT-5 PASS
 - SC#4 (CSS scope discipline + zero theme bleed): UAT-7 PASS
 
@@ -41,4 +41,4 @@ All 4 ROADMAP Phase 1 SCs satisfied:
 - 23 file-level regression tests lock DOM + CSS contracts
 - Cross-AI plan convergence: Codex APPROVED after 3 rounds (6 concerns resolved)
 
-**Phase 1 closure: code + tests + UAT all GREEN. MODAL-01 = SATISFIED.**
+**Phase 16 closure: code + tests + UAT all GREEN. MODAL-01 = SATISFIED.**

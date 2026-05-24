@@ -1,4 +1,4 @@
-# Phase 2: Doc-Comment Backfill — Part 1 (Controllers + Services) - Context
+# Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services) - Context
 
 **Gathered:** 2026-05-24
 **Status:** Ready for planning
@@ -17,11 +17,11 @@ scope regardless of era — the v1.3-era `Harvest/`, `FeatureFlags/`, and
 `Analytics/` types are included, not just the original v1.1-era subset.
 
 **NoWarn stays:** `NoWarn 1591;1573;1587` REMAINS in `DeckFlow.Web.csproj`.
-The gate is NOT flipped this phase — Phase 8 strips it after the rest of the
+The gate is NOT flipped this phase — Phase 23 strips it after the rest of the
 v1.4 surface is documented (Pitfall 8 sequencing).
 
 **Out of scope:** `Models/`, `Models/Api/`, `Infrastructure/`, `Security/`,
-`ViewModels/` (Phase 8 — Part 2). No `NoWarn` strip. No runtime/behavior change.
+`ViewModels/` (Phase 23 — Part 2). No `NoWarn` strip. No runtime/behavior change.
 No Format Document / reformatting (CLAUDE.md R-6).
 
 </domain>
@@ -75,10 +75,10 @@ No Format Document / reformatting (CLAUDE.md R-6).
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Phase definition & requirements
-- `.planning/ROADMAP.md` §"Phase 2" (lines ~107–116) — Goal + 4 Success Criteria,
+- `.planning/ROADMAP.md` §"Phase 17" (lines ~107–116) — Goal + 4 Success Criteria,
   including the SC1 anchored grep that must return empty for Controllers+Services.
 - `.planning/REQUIREMENTS.md` DOC-01 (line 15) — partial coverage (Controllers +
-  Services subset); DOC-02/Phase 8 owns the NoWarn strip.
+  Services subset); DOC-02/Phase 23 owns the NoWarn strip.
 
 ### Project conventions (binding constraints)
 - `CLAUDE.md` §Comments — XML doc-comment style; "explain why, not what"; the
@@ -91,7 +91,7 @@ No Format Document / reformatting (CLAUDE.md R-6).
   inlining, NO raw-string re-indent, preserve LF endings.
 
 ### Cross-phase dependency
-- Phase 8 (`.planning/ROADMAP.md` §"Phase 8") — Part 2 + NoWarn strip. Part 1
+- Phase 23 (`.planning/ROADMAP.md` §"Phase 23") — Part 2 + NoWarn strip. Part 1
   must NOT strip NoWarn; Part 8's anchored grep covers the whole Web project.
 
 </canonical_refs>
@@ -156,11 +156,11 @@ class), `ScryfallDtos.ScryfallCardFace`, `ScryfallRestClientFactory`,
 ## Deferred Ideas
 
 - `Models/`, `Models/Api/`, `Infrastructure/`, `Security/`, `ViewModels/`
-  doc-comments + the `NoWarn` strip — Phase 8 (Part 2). Explicitly out of Part 1.
+  doc-comments + the `NoWarn` strip — Phase 23 (Part 2). Explicitly out of Part 1.
 
 </deferred>
 
 ---
 
-*Phase: 2-doc-comment-backfill-part-1-controllers-services*
+*Phase: 17-doc-comment-backfill-part-1-controllers-services*
 *Context gathered: 2026-05-24*

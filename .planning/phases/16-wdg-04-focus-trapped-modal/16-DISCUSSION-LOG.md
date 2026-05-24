@@ -1,4 +1,4 @@
-# Phase 1 Discussion Log — WDG-04 Focus-Trapped Modal
+# Phase 16 Discussion Log — WDG-04 Focus-Trapped Modal
 
 **Date:** 2026-05-23
 **Phase:** 1
@@ -22,13 +22,13 @@
 **Question:** Inline AdminFeedback-only OR reusable showConfirm() helper?
 
 **Options:**
-- Reusable showConfirm() helper (Recommended) — build admin-modal.ts now; Phase 7 ContentSources reuses
-- AdminFeedback-only inline — smallest scope; Phase 7 rewrites
-- Reusable + ship inline first — defer reusable to Phase 7
+- Reusable showConfirm() helper (Recommended) — build admin-modal.ts now; Phase 22 ContentSources reuses
+- AdminFeedback-only inline — smallest scope; Phase 22 rewrites
+- Reusable + ship inline first — defer reusable to Phase 22
 
 **User selected:** Reusable showConfirm() helper.
 
-**Captured as:** D-01 — reusable `admin-modal.ts` exports `showConfirm({title, message, confirmLabel, danger}): Promise<boolean>`. Pays off across 3+ Phase 7 delete sites; "rule of three" forecast.
+**Captured as:** D-01 — reusable `admin-modal.ts` exports `showConfirm({title, message, confirmLabel, danger}): Promise<boolean>`. Pays off across 3+ Phase 22 delete sites; "rule of three" forecast.
 
 ### 2. TS Module Location
 
@@ -66,20 +66,20 @@
 
 **User selected:** `_AdminConfirmModal.cshtml` partial in `Views/Shared/`.
 
-**Captured as:** D-04 — partial follows existing `_DeckToolTabs.cshtml`, `_AiSelector.cshtml`, `_WorkflowStepTabs.cshtml` conventions. Phase 7 reuses same partial.
+**Captured as:** D-04 — partial follows existing `_DeckToolTabs.cshtml`, `_AiSelector.cshtml`, `_WorkflowStepTabs.cshtml` conventions. Phase 22 reuses same partial.
 
-## Deferred Ideas (out of Phase 1 scope)
+## Deferred Ideas (out of Phase 16 scope)
 
 - v1.5 backdrop suppression on destructive ops (if UAT shows misclick-dismiss problem)
 - v1.5 `showPrompt()` helper for free-text input modals
-- v1.5 move partial include to `_AdminLayout.cshtml` if Phase 7 confirms most admin pages need it
+- v1.5 move partial include to `_AdminLayout.cshtml` if Phase 22 confirms most admin pages need it
 - v2.0 npm focus-trap dep (only if a real focus-trap bug surfaces native `<dialog>` can't handle)
 
 ## Claude's Discretion
 
 Decisions Claude made without asking (implementation details, not gray areas):
-- **D-05 CSS file placement** (admin.css now; Phase 3 factors to admin-common.css) — sequencing matter, follows ROADMAP order
+- **D-05 CSS file placement** (admin.css now; Phase 18 factors to admin-common.css) — sequencing matter, follows ROADMAP order
 - **D-06 ARIA + native semantics** (use browser defaults; hand-roll only restore-focus + aria-labelledby + aria-describedby) — research SUMMARY.md invariant #10 + smallest LOC delta
 - **D-07 API shape** (`showConfirm({title, message, confirmLabel, danger}): Promise<boolean>`) — derived from D-01 reusable decision; idiomatic TS async pattern
-- **D-08 partial signature** (structural-only, no model; singleton DOM template) — simplest shape; Phase 7 can add model later if needed
+- **D-08 partial signature** (structural-only, no model; singleton DOM template) — simplest shape; Phase 22 can add model later if needed
 - **D-09 scope guard** (no other admin confirms in scope, no public-facing, no theming) — phase boundary enforcement

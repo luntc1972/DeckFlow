@@ -1,4 +1,4 @@
-# Phase 1: WDG-04 Focus-Trapped Modal — Research
+# Phase 16: WDG-04 Focus-Trapped Modal — Research
 
 **Researched:** 2026-05-23
 **Domain:** Native HTML `<dialog>` + TypeScript (module:none / IIFE) + Razor partial + scoped CSS, all admin-shell
@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 1 ships a reusable `showConfirm()` admin-modal primitive that replaces the deferred `onsubmit="return confirm(...)"` at `AdminFeedback/Detail.cshtml:41`. The technical surface is small and tightly bounded: one new IIFE TypeScript module exposing `window.DeckFlowAdminModal.showConfirm`, one structural-only Razor partial in `Views/Shared/`, modal CSS scoped to the existing `.admin-shell` wrapper, and one wire-up edit to `Detail.cshtml`. **Three CONTEXT decisions need a planner note** — D-03 (backdrop click closes) and D-06 (focus restoration is hand-rolled, ESC is native) overstate what native `<dialog>` does automatically, and D-01 (TS `export`/`import`) cannot be taken literally because `tsconfig.json` is `"module": "none"`. Each is a small mechanical correction, not a design rethink.
+Phase 16 ships a reusable `showConfirm()` admin-modal primitive that replaces the deferred `onsubmit="return confirm(...)"` at `AdminFeedback/Detail.cshtml:41`. The technical surface is small and tightly bounded: one new IIFE TypeScript module exposing `window.DeckFlowAdminModal.showConfirm`, one structural-only Razor partial in `Views/Shared/`, modal CSS scoped to the existing `.admin-shell` wrapper, and one wire-up edit to `Detail.cshtml`. **Three CONTEXT decisions need a planner note** — D-03 (backdrop click closes) and D-06 (focus restoration is hand-rolled, ESC is native) overstate what native `<dialog>` does automatically, and D-01 (TS `export`/`import`) cannot be taken literally because `tsconfig.json` is `"module": "none"`. Each is a small mechanical correction, not a design rethink.
 
 The `.admin-shell` parent class already exists in `_AdminLayout.cshtml` line 18, so CSS scoping requires zero layout markup change. The `Scripts` RenderSection convention from `AdminFeedback/Index.cshtml:100-103` is the canonical hook for adding `admin-modal.js` + `admin-feedback.js` to `Detail.cshtml`. Manual UAT will rely on observable browser behavior (Tab cycling, Escape, focus return) since VSTest is unreliable in WSL and no automated browser test framework is wired into the repo.
 
@@ -16,15 +16,15 @@ The `.admin-shell` parent class already exists in `_AdminLayout.cshtml` line 18,
 
 ### Locked Decisions
 
-**D-01: Reusable `showConfirm()` helper (NOT inline).** Build `admin-modal.ts` exposing a generic `showConfirm({title, message, confirmLabel, danger}): Promise<boolean>` helper. AdminFeedback Delete uses it; Phase 7 ContentSources delete + future admin destructive ops reuse without rewrite.
+**D-01: Reusable `showConfirm()` helper (NOT inline).** Build `admin-modal.ts` exposing a generic `showConfirm({title, message, confirmLabel, danger}): Promise<boolean>` helper. AdminFeedback Delete uses it; Phase 22 ContentSources delete + future admin destructive ops reuse without rewrite.
 
 **D-02: New `admin-modal.ts` (generic; overrides ARCHITECTURE.md `admin-feedback-modal.ts` name).** New file `DeckFlow.Web/wwwroot/ts/admin-modal.ts` exposes `showConfirm`. `admin-feedback.ts` consumes it.
 
 **D-03: Default `<dialog>` dismiss behavior (ESC + backdrop click both cancel).** Click-outside cancels. ESC cancels. Cancel button explicit. No double-click-to-confirm or click-outside-suppression for v1.4.
 
-**D-04: `_AdminConfirmModal.cshtml` partial in `Views/Shared/`.** `Detail.cshtml` consumes via `@await Html.PartialAsync("_AdminConfirmModal")`. Phase 7 reuses the same partial.
+**D-04: `_AdminConfirmModal.cshtml` partial in `Views/Shared/`.** `Detail.cshtml` consumes via `@await Html.PartialAsync("_AdminConfirmModal")`. Phase 22 reuses the same partial.
 
-**D-05: Modal CSS lands in `admin.css` (Phase 3 will factor).** Phase 1 ships modal CSS additions in `admin.css` directly. Phase 3 (Admin Mobile Sweep) extracts during the `admin-common.css` factoring.
+**D-05: Modal CSS lands in `admin.css` (Phase 18 will factor).** Phase 16 ships modal CSS additions in `admin.css` directly. Phase 18 (Admin Mobile Sweep) extracts during the `admin-common.css` factoring.
 
 **D-06: ARIA + native `<dialog>` semantics (no npm focus-trap dep).** Use native `<dialog>` + `showModal()`. Browser handles role/aria-modal/initial-focus/ESC/backdrop-rendering. Hand-rolled: `aria-labelledby`, `aria-describedby`, restore-focus to invoking button on close.
 
@@ -40,7 +40,7 @@ export interface ConfirmOptions {
 export async function showConfirm(opts: ConfirmOptions): Promise<boolean>;
 ```
 
-**D-08: Razor partial signature.** `_AdminConfirmModal.cshtml` is structural-only — modal exists in DOM hidden; TS populates title/message/buttons at call time. Partial accepts NO model. Phase 1 placement: `Detail.cshtml` includes partial inline. Phase 7 may move the include to `_AdminLayout.cshtml` if every admin page needs it.
+**D-08: Razor partial signature.** `_AdminConfirmModal.cshtml` is structural-only — modal exists in DOM hidden; TS populates title/message/buttons at call time. Partial accepts NO model. Phase 16 placement: `Detail.cshtml` includes partial inline. Phase 22 may move the include to `_AdminLayout.cshtml` if every admin page needs it.
 
 **D-09: NO scope creep.** In-scope: single Delete confirm at `Detail.cshtml:41`. Out-of-scope: any other confirm site, theming across guild themes, prompt()/alert() helpers, animation/transitions.
 
@@ -63,7 +63,7 @@ Within the locked surface — wiring details for `_AdminConfirmModal.cshtml` mar
 
 ## Project Constraints (from CLAUDE.md)
 
-| Constraint | Source | Applies to Phase 1? |
+| Constraint | Source | Applies to Phase 16? |
 |------------|--------|---------------------|
 | Codex codes, Claude reviews | Global CLAUDE.md (`Delegation` section) | YES — implementation routed through Codex |
 | Codex reviews plans via `/gsd-review` before execute-phase | Global CLAUDE.md | YES — PLAN.md must pass Codex peer review before dispatch |
@@ -71,9 +71,9 @@ Within the locked surface — wiring details for `_AdminConfirmModal.cshtml` mar
 | No "Format Document" / no `[Attribute]` inline / no raw-string re-indent / no auto `init`→`get` | Project CLAUDE.md (formatting paranoia) | YES — Razor + TS + CSS edits MUST touch only the lines being added/changed |
 | LF line endings preserved | `.gitattributes` (`*.cshtml`/`*.ts`/`*.css` text eol=lf) | YES — new files MUST be LF |
 | Plain default-author commits, NO Co-Authored-By trailer | Project CLAUDE.md | YES |
-| Public repo — no secrets in commits | Project CLAUDE.md | NO — Phase 1 has no secrets |
+| Public repo — no secrets in commits | Project CLAUDE.md | NO — Phase 16 has no secrets |
 | 2-space indent for .ts/.css; 4-space for .cs/.cshtml/.razor | `.editorconfig` | YES |
-| `{ get; init; }` preservation (System.Text.Json silent skip) | Project CLAUDE.md + .editorconfig | N/A — Phase 1 introduces no C# record types (D-08 partial is parameter-less) |
+| `{ get; init; }` preservation (System.Text.Json silent skip) | Project CLAUDE.md + .editorconfig | N/A — Phase 16 introduces no C# record types (D-08 partial is parameter-less) |
 | Native `<dialog>`, NO focus-trap npm dep | SUMMARY.md invariant #10 | YES — locked by D-06 |
 | Admin CSS scoped to `.admin-shell` parent, no unscoped element selectors | SUMMARY.md invariant #11, PITFALLS.md P10 | YES — locked by D-05 |
 | VSTest unreliable in WSL → manual UAT only | Project CLAUDE.md | YES — see Manual UAT Steps section |
@@ -102,7 +102,7 @@ Within the locked surface — wiring details for `_AdminConfirmModal.cshtml` mar
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| None — Phase 1 adds ZERO new packages | — | — | Per D-06 + invariant #10 |
+| None — Phase 16 adds ZERO new packages | — | — | Per D-06 + invariant #10 |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
@@ -110,15 +110,15 @@ Within the locked surface — wiring details for `_AdminConfirmModal.cshtml` mar
 | Native `<dialog>` | `focus-trap` npm package | Rejected by D-06 + SUMMARY.md invariant #10 — adds dep, increases bundle, fights the established pattern |
 | Native `<dialog>` | Custom `<div role="dialog">` + hand-rolled focus walker | Rejected by PITFALLS.md Pitfall 9 — leaks focus through `df-select`/`df-typeahead` custom elements |
 | `closedby="any"` HTML attribute (declarative light-dismiss) | Hand-rolled `dialog.addEventListener('click', e => …)` | `closedby` is too new to assume baseline support (per MDN); hand-rolled handler is 3 lines and works everywhere |
-| Razor partial with model + typed view-component | Structural-only partial (D-08) | D-08 locks structural-only; matches D-04 reusability for Phase 7 without recompile |
+| Razor partial with model + typed view-component | Structural-only partial (D-08) | D-08 locks structural-only; matches D-04 reusability for Phase 22 without recompile |
 
-**Installation:** None — Phase 1 adds zero packages.
+**Installation:** None — Phase 16 adds zero packages.
 
 **Version verification:** N/A — no new packages.
 
 ## Package Legitimacy Audit
 
-**Skipped — Phase 1 installs zero new packages.** All capabilities use the existing stack (native browser APIs, in-repo TypeScript 6.0.2, ASP.NET 10 Razor). No npm/NuGet/PyPI/crates verification required.
+**Skipped — Phase 16 installs zero new packages.** All capabilities use the existing stack (native browser APIs, in-repo TypeScript 6.0.2, ASP.NET 10 Razor). No npm/NuGet/PyPI/crates verification required.
 
 ## Native `<dialog>` Baseline (HIGH confidence)
 
@@ -235,7 +235,7 @@ The D-01 *intent* (reusable helper consumable from multiple admin TS modules) is
 
 ### Script include order in `AdminFeedback/Detail.cshtml` (new `Scripts` section)
 
-Current `Detail.cshtml` has NO `@section Scripts`. Phase 1 adds one matching `AdminFeedback/Index.cshtml:100-103`:
+Current `Detail.cshtml` has NO `@section Scripts`. Phase 16 adds one matching `AdminFeedback/Index.cshtml:100-103`:
 
 ```razor
 @section Scripts
@@ -260,7 +260,7 @@ Order matters: `admin-modal.js` declares `window.DeckFlowAdminModal.showConfirm`
 ```razor
 @* _AdminConfirmModal.cshtml — singleton modal DOM template.
    Structural only; TS (admin-modal.ts) populates title/message/buttons at call time.
-   Used by AdminFeedback/Detail.cshtml v1.4 Phase 1; reusable by Phase 7 ContentSources delete. *@
+   Used by AdminFeedback/Detail.cshtml v1.4 Phase 16; reusable by Phase 22 ContentSources delete. *@
 <dialog id="admin-confirm-modal" class="admin-modal" aria-labelledby="admin-confirm-modal__title" aria-describedby="admin-confirm-modal__message">
     <div class="admin-modal__panel">
         <h2 id="admin-confirm-modal__title" class="admin-modal__title"></h2>
@@ -279,7 +279,7 @@ Key points:
 - `id` attributes on title + message power `aria-labelledby` / `aria-describedby` (D-06 hand-rolled requirement).
 - `data-admin-modal-cancel` + `data-admin-modal-confirm` attributes are the TS query hooks (consistent with WDG-04 `data-admin-feedback-submit-on-change` data-attribute convention from `admin-feedback.ts:13`).
 - `autofocus` on Confirm makes the initial focus deterministic. **Note for danger variant:** when `danger=true`, consider moving `autofocus` to Cancel button instead so destructive default isn't pre-selected — flag for planner discussion. CONTEXT.md does not lock this; falls under Claude's Discretion.
-- `<dialog>` element placement: include the partial **once** per page that needs confirms. Phase 1 = `Detail.cshtml`. Future phases may move the include to `_AdminLayout.cshtml` (D-08 explicit forecast); Phase 1 does NOT do that (CONTEXT D-09 "no scope creep" + "Files NOT to touch" list).
+- `<dialog>` element placement: include the partial **once** per page that needs confirms. Phase 16 = `Detail.cshtml`. Future phases may move the include to `_AdminLayout.cshtml` (D-08 explicit forecast); Phase 16 does NOT do that (CONTEXT D-09 "no scope creep" + "Files NOT to touch" list).
 
 ### Razor `PartialAsync` call site in `Detail.cshtml`
 
@@ -295,7 +295,7 @@ Replace the current Delete form block (lines 39-44):
 </form>
 ```
 
-with (after Phase 1):
+with (after Phase 16):
 
 ```razor
 <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete"
@@ -328,9 +328,9 @@ The `data-admin-confirm-delete` attribute is the `admin-feedback.ts` hook for at
 ```
 
 This means:
-1. **NO new wrapper markup needed in Phase 1.** Phase 3 does not need to add `.admin-shell` first (it's already there since the Phase 6 v1.1 admin shell).
+1. **NO new wrapper markup needed in Phase 16.** Phase 18 does not need to add `.admin-shell` first (it's already there since the Phase 21 v1.1 admin shell).
 2. **`<dialog id="admin-confirm-modal">` rendered via `@RenderBody()` lives INSIDE `.admin-shell`** in the DOM tree — selectors `.admin-shell .admin-modal { … }` work as expected.
-3. **`admin.css` is admin-only by load path** (only `_AdminLayout.cshtml:14` links it; `_Layout.cshtml` does not) — so technically unscoped `.admin-modal { … }` selectors are safe for guild-theme bleed, BUT SUMMARY.md invariant #11 and PITFALLS.md Pitfall 10 require `.admin-shell`-scoped selectors as the discipline regardless, because Phase 3's `admin-common.css` factoring may eventually be loaded outside `_AdminLayout` in some scenarios.
+3. **`admin.css` is admin-only by load path** (only `_AdminLayout.cshtml:14` links it; `_Layout.cshtml` does not) — so technically unscoped `.admin-modal { … }` selectors are safe for guild-theme bleed, BUT SUMMARY.md invariant #11 and PITFALLS.md Pitfall 10 require `.admin-shell`-scoped selectors as the discipline regardless, because Phase 18's `admin-common.css` factoring may eventually be loaded outside `_AdminLayout` in some scenarios.
 
 ### Scoping pattern for new CSS
 
@@ -361,11 +361,11 @@ This means:
 .admin-shell .admin-modal__confirm.danger { background: #b91c1c; /* danger red — verify against existing token */ }
 ```
 
-**Token reuse:** `admin.css:4-17` already defines `--bg`, `--panel`, `--text`, `--muted`, `--accent`, `--border`, `--focus`. New modal CSS uses these directly. No new tokens added in Phase 1 (Phase 3 may add tokens during `admin-common.css` factoring).
+**Token reuse:** `admin.css:4-17` already defines `--bg`, `--panel`, `--text`, `--muted`, `--accent`, `--border`, `--focus`. New modal CSS uses these directly. No new tokens added in Phase 16 (Phase 18 may add tokens during `admin-common.css` factoring).
 
 **`:focus-visible` inheritance:** `admin.css:23-32` already applies `outline: 2px solid var(--focus); outline-offset: 2px;` to `button:focus-visible`. Modal buttons inherit this for free — no additional focus-ring CSS needed.
 
-**Danger button styling:** The existing `Detail.cshtml` Delete button uses `class="danger"` (line 43), but **`admin.css` has NO `.danger` rule** (`grep -c "\.danger" admin.css` returns 0). The existing Delete button is currently just a default `.admin-action-form button`. Phase 1 needs to either (a) introduce a `.admin-shell .admin-action-form button.danger { background: #b91c1c; }` rule to make the inline Delete button visually distinct, OR (b) accept that `.danger` is dormant. Recommend (a) for Phase 1 since the modal's `confirmLabel: 'Delete'` confirm button uses `danger: true`; consistent danger styling between the in-page Delete button and the modal Confirm button is a UX expectation. **Flag for planner.**
+**Danger button styling:** The existing `Detail.cshtml` Delete button uses `class="danger"` (line 43), but **`admin.css` has NO `.danger` rule** (`grep -c "\.danger" admin.css` returns 0). The existing Delete button is currently just a default `.admin-action-form button`. Phase 16 needs to either (a) introduce a `.admin-shell .admin-action-form button.danger { background: #b91c1c; }` rule to make the inline Delete button visually distinct, OR (b) accept that `.danger` is dormant. Recommend (a) for Phase 16 since the modal's `confirmLabel: 'Delete'` confirm button uses `danger: true`; consistent danger styling between the in-page Delete button and the modal Confirm button is a UX expectation. **Flag for planner.**
 
 ## ARIA + Focus Management Checklist
 
@@ -386,37 +386,37 @@ Verified against MDN `<dialog>` + WCAG 2.1.2 (No Keyboard Trap) + 2.4.3 (Focus O
 | Confirm button submits | UX | Hand-rolled click listener on `[data-admin-modal-confirm]` → `dialog.returnValue = 'confirm'; dialog.close()` | Promise resolves `true` |
 | Focus returns to invoking element on close | WCAG 2.4.3 | Native (browser remembers pre-`showModal()` activeElement) | **Defense-in-depth:** also store `document.activeElement` ref before `showModal()` and `.focus()` it on close in case trigger was detached during the await. ~2 lines |
 | Page behind dialog inert to assistive tech | WCAG | Native `inert` semantics when `showModal()` | No explicit `inert` attribute needed on other content |
-| `prefers-reduced-motion` respected | WCAG 2.3.3 | Phase 1 adds no animation (D-09 explicit out-of-scope) | If a future phase adds `transition: opacity`, it must wrap in `@media (prefers-reduced-motion: no-preference) { … }` |
+| `prefers-reduced-motion` respected | WCAG 2.3.3 | Phase 16 adds no animation (D-09 explicit out-of-scope) | If a future phase adds `transition: opacity`, it must wrap in `@media (prefers-reduced-motion: no-preference) { … }` |
 
 ### Pitfall 9 specific verification (from PITFALLS.md:242-268)
 
-Pitfall 9's failure mode: hand-rolled focus walkers leak focus through custom-element descendants like `df-select` and `df-typeahead`. Native `<dialog>` does NOT have this bug because the focus trap is enforced by the browser's top-layer engine, not by a userland walker. **No additional mitigation needed beyond using `showModal()`** — but the manual UAT must still verify this (see Manual UAT Steps below) because Phase 1's Detail.cshtml DOES contain a `<dl>` with form buttons; future Razor views consuming `_AdminConfirmModal.cshtml` may nest `df-select`/`df-typeahead` inside the dialog (e.g., a future Phase 7 "Edit ContentSource → Confirm rename" flow), and the partial must work correctly in that case.
+Pitfall 9's failure mode: hand-rolled focus walkers leak focus through custom-element descendants like `df-select` and `df-typeahead`. Native `<dialog>` does NOT have this bug because the focus trap is enforced by the browser's top-layer engine, not by a userland walker. **No additional mitigation needed beyond using `showModal()`** — but the manual UAT must still verify this (see Manual UAT Steps below) because Phase 16's Detail.cshtml DOES contain a `<dl>` with form buttons; future Razor views consuming `_AdminConfirmModal.cshtml` may nest `df-select`/`df-typeahead` inside the dialog (e.g., a future Phase 22 "Edit ContentSource → Confirm rename" flow), and the partial must work correctly in that case.
 
 ## admin.css Insertion-Point Safety
 
-`admin.css` is 193 lines, structured chronologically by phase (Phase 6 admin shell foundations → Phase 8 Analytics → Phase 11 WDG audit fixes). Reading the file:
+`admin.css` is 193 lines, structured chronologically by phase (Phase 21 admin shell foundations → Phase 23 Analytics → Phase 11 WDG audit fixes). Reading the file:
 
 | Lines | Section | Last touched |
 |-------|---------|--------------|
-| 1-3 | File header | Phase 6 |
+| 1-3 | File header | Phase 21 |
 | 4-32 | `:root` tokens + universal `:focus-visible` ring | Phase 11 (WDG-01 Sweep 2) |
-| 34-44 | `* { box-sizing }` + html/body | Phase 6 |
-| 46-47 | Anchor styles | Phase 6 |
-| 49-53 | `.skip-link` | Phase 6 |
+| 34-44 | `* { box-sizing }` + html/body | Phase 21 |
+| 46-47 | Anchor styles | Phase 21 |
+| 49-53 | `.skip-link` | Phase 21 |
 | 55-68 | `.sr-only` utility | Phase 11 (WDG-06 Sweep 6) |
-| 70-122 | `.admin-shell` grid + sidebar + topbar + content | Phase 6 |
-| 124-125 | `.admin-banner` | Phase 6 |
-| 127-138 | `.admin-table` + `.admin-action-form` | Phase 6 + Phase 11 (Sweep 2 tabular-nums) |
-| 140-145 | `.maintenance-page` (FLAG-05) | Phase 6 |
-| 147-193 | Phase 8 Analytics (`.admin-page-header`, `.admin-analytics`, `.admin-analytics-table`, `.admin-sparkline`, `.admin-empty`) | Phase 8 |
+| 70-122 | `.admin-shell` grid + sidebar + topbar + content | Phase 21 |
+| 124-125 | `.admin-banner` | Phase 21 |
+| 127-138 | `.admin-table` + `.admin-action-form` | Phase 21 + Phase 11 (Sweep 2 tabular-nums) |
+| 140-145 | `.maintenance-page` (FLAG-05) | Phase 21 |
+| 147-193 | Phase 23 Analytics (`.admin-page-header`, `.admin-analytics`, `.admin-analytics-table`, `.admin-sparkline`, `.admin-empty`) | Phase 23 |
 
 ### Recommended insertion point
 
 **Append at the end of the file (after line 193), as a new section.** Rationale:
 1. **Zero risk of formatter re-indent on unrelated rules.** Adding lines at file-end touches no existing block.
-2. **Chronological convention.** Existing file is organized by phase; v1.4 Phase 1 additions land after v1.1 Phase 8 additions.
-3. **Section header comment matches existing pattern.** Use a `/* === Phase 1 (v1.4) — WDG-04 Focus-Trapped Modal === */` header mirroring `/* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) === */` style at lines 11-14, 19-22, 55-57, 130-133.
-4. **Phase 3 extraction is mechanical.** When Phase 3 factors `admin.css → admin-common.css + admin-mobile.css + admin.css shim` (per D-05), Phase 1's modal block at file-end is a contiguous, easily-grep-and-move section.
+2. **Chronological convention.** Existing file is organized by phase; v1.4 Phase 16 additions land after v1.1 Phase 23 additions.
+3. **Section header comment matches existing pattern.** Use a `/* === Phase 16 (v1.4) — WDG-04 Focus-Trapped Modal === */` header mirroring `/* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) === */` style at lines 11-14, 19-22, 55-57, 130-133.
+4. **Phase 18 extraction is mechanical.** When Phase 18 factors `admin.css → admin-common.css + admin-mobile.css + admin.css shim` (per D-05), Phase 16's modal block at file-end is a contiguous, easily-grep-and-move section.
 
 **Anti-pattern to avoid:** inserting in the middle of the file (e.g., next to `.admin-action-form` at line 136) — this risks formatter re-indent on adjacent lines and violates CLAUDE.md "touch only lines that need touching".
 
@@ -429,7 +429,7 @@ Pitfall 9's failure mode: hand-rolled focus walkers leak focus through custom-el
 
 ## Manual UAT Steps [LOCKED — VSTest unreliable in WSL per CLAUDE.md]
 
-All Phase 1 acceptance verification is manual UAT. Steps below cover ROADMAP Phase 1 SCs #1-4 plus PITFALLS.md Pitfall 9 detection list.
+All Phase 16 acceptance verification is manual UAT. Steps below cover ROADMAP Phase 16 SCs #1-4 plus PITFALLS.md Pitfall 9 detection list.
 
 ### Pre-UAT setup
 
@@ -500,11 +500,11 @@ All Phase 1 acceptance verification is manual UAT. Steps below cover ROADMAP Pha
 
 ### UAT-9 — Nested custom-element interaction (Pitfall 9 forward-looking)
 
-Phase 1's `Detail.cshtml` does NOT nest `df-select` / `df-typeahead` inside the modal. This UAT step is **forward-looking** for Phase 7 reuse — document the test plan now so Phase 7 inherits it. Skip for Phase 1 UAT execution. (Phase 7 plan-checker SHOULD verify the partial works correctly when consumed by a view containing nested custom elements.)
+Phase 16's `Detail.cshtml` does NOT nest `df-select` / `df-typeahead` inside the modal. This UAT step is **forward-looking** for Phase 22 reuse — document the test plan now so Phase 22 inherits it. Skip for Phase 16 UAT execution. (Phase 22 plan-checker SHOULD verify the partial works correctly when consumed by a view containing nested custom elements.)
 
 ## Runtime State Inventory
 
-Phase 1 is a UI replacement, not a rename / refactor / migration. No runtime state has the term "deferred confirm" or `onsubmit` stored elsewhere.
+Phase 16 is a UI replacement, not a rename / refactor / migration. No runtime state has the term "deferred confirm" or `onsubmit` stored elsewhere.
 
 | Category | Items found | Action required |
 |----------|-------------|------------------|
@@ -554,11 +554,11 @@ Phase 1 is a UI replacement, not a rename / refactor / migration. No runtime sta
 **How to avoid:** Use the 3-line hand-rolled `dialog.addEventListener('click', ...)` handler; works in every browser that supports `showModal()` (i.e., the full baseline).
 **Warning sign:** Backdrop click silently doesn't close on one browser but works on another during UAT step 5.
 
-### Pitfall 7: Phase 1 reaches into `_AdminLayout.cshtml`
-**What goes wrong:** Implementer "helpfully" moves the partial include into `_AdminLayout.cshtml` so all admin pages get it. Phase 3 ALSO touches `_AdminLayout.cshtml` for sidebar disclosure work. Merge conflict / scope creep.
-**Source:** CONTEXT.md D-08 explicit "Phase 1 placement: `Detail.cshtml` includes partial inline"; CONTEXT.md "Files NOT to touch" lists `_AdminLayout.cshtml`.
-**How to avoid:** Include partial ONLY in `Detail.cshtml`. Phase 7 (per D-08 forecast) may move it later.
-**Warning sign:** Plan-checker sees a diff in `_AdminLayout.cshtml` for Phase 1.
+### Pitfall 7: Phase 16 reaches into `_AdminLayout.cshtml`
+**What goes wrong:** Implementer "helpfully" moves the partial include into `_AdminLayout.cshtml` so all admin pages get it. Phase 18 ALSO touches `_AdminLayout.cshtml` for sidebar disclosure work. Merge conflict / scope creep.
+**Source:** CONTEXT.md D-08 explicit "Phase 16 placement: `Detail.cshtml` includes partial inline"; CONTEXT.md "Files NOT to touch" lists `_AdminLayout.cshtml`.
+**How to avoid:** Include partial ONLY in `Detail.cshtml`. Phase 22 (per D-08 forecast) may move it later.
+**Warning sign:** Plan-checker sees a diff in `_AdminLayout.cshtml` for Phase 16.
 
 ## Code Examples
 
@@ -567,9 +567,9 @@ Verified patterns from in-codebase sources at HEAD 65f2fe4.
 ### IIFE module exposing globals (mirrors `df-select.ts:1-6, 837-839`)
 
 ```typescript
-// admin-modal.ts — Phase 1 v1.4
+// admin-modal.ts — Phase 16 v1.4
 // Reusable admin confirm-dialog primitive built on native HTML <dialog>.
-// Consumers: admin-feedback.ts (v1.4 Phase 1), future Phase 7 ContentSources delete.
+// Consumers: admin-feedback.ts (v1.4 Phase 16), future Phase 22 ContentSources delete.
 
 interface Window {
   DeckFlowAdminModal?: {
@@ -688,7 +688,7 @@ document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-delete]').forEac
 | `inert` polyfill (`wicg-inert`) | Native `inert` attribute + auto-applied to non-dialog content when `showModal()` | 2022 baseline | No polyfill needed for DeckFlow's evergreen target |
 
 **Deprecated / outdated:**
-- `dialog.show()` (non-modal) — Phase 1 explicitly uses `showModal()` for the focus-trap + `inert` semantics.
+- `dialog.show()` (non-modal) — Phase 16 explicitly uses `showModal()` for the focus-trap + `inert` semantics.
 - `tabindex="0"` on `<dialog>` — MDN explicitly says "Do not add `tabindex` property to `<dialog>` element" (the partial does not).
 
 ## Assumptions Log
@@ -696,13 +696,13 @@ document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-delete]').forEac
 | # | Claim | Section | Risk if wrong |
 |---|-------|---------|---------------|
 | A1 | The `<form>` element wrapping the Delete button at `Detail.cshtml:40-44` is still posting to a `[ValidateAntiForgeryToken]`-decorated controller action (`AdminFeedbackController.Apply`) | Partial Convention; Architectural Responsibility Map | If wrong, the refactor would silently break CSRF protection. Mitigation: UAT step 6 explicitly verifies token POST body; Codex side-effects report MUST inventory the controller action attributes before editing |
-| A2 | The danger-red color for `.danger` confirm button can use a literal `#b91c1c` value if no `--danger` token exists | .admin-shell CSS Scoping; Code Examples | Low — Phase 1 may add one new color value; planner can verify by `grep` `--danger\|--error\|--destructive` against `admin.css` and `site-common.css` before locking the exact hex |
+| A2 | The danger-red color for `.danger` confirm button can use a literal `#b91c1c` value if no `--danger` token exists | .admin-shell CSS Scoping; Code Examples | Low — Phase 16 may add one new color value; planner can verify by `grep` `--danger\|--error\|--destructive` against `admin.css` and `site-common.css` before locking the exact hex |
 | A3 | The browser's native focus-restoration on `<dialog>` close is reliable enough that the hand-rolled `previouslyFocused?.focus()` is genuinely belt-and-suspenders rather than a real gap-filler | ARIA + Focus Management Checklist; Code Examples | Low — keeping it costs 2 lines and provides defensive value; removing it would not regress UAT step 3 |
-| A4 | Phase 1 does not need to add the partial include to any view other than `Detail.cshtml` because no other admin Razor view in the current tree contains a destructive-action form requiring confirm (`grep onsubmit Views/Admin*/` returns only the literal target line) | D-09 NO scope creep; Pitfall 7 | If wrong (some other admin view has an `onsubmit` confirm), the scope creep concern surfaces in Phase 7. Phase 1 should NOT proactively fix any other site |
-| A5 | `wwwroot/js/admin-modal.js` will be checked in to git after build (per the existing pattern where `wwwroot/js/*.js` is git-tracked) | Runtime State Inventory | If the project later switches to gitignoring `wwwroot/js/*`, the Phase 1 commit would carry an unnecessary `.js` file; harmless |
+| A4 | Phase 16 does not need to add the partial include to any view other than `Detail.cshtml` because no other admin Razor view in the current tree contains a destructive-action form requiring confirm (`grep onsubmit Views/Admin*/` returns only the literal target line) | D-09 NO scope creep; Pitfall 7 | If wrong (some other admin view has an `onsubmit` confirm), the scope creep concern surfaces in Phase 22. Phase 16 should NOT proactively fix any other site |
+| A5 | `wwwroot/js/admin-modal.js` will be checked in to git after build (per the existing pattern where `wwwroot/js/*.js` is git-tracked) | Runtime State Inventory | If the project later switches to gitignoring `wwwroot/js/*`, the Phase 16 commit would carry an unnecessary `.js` file; harmless |
 | A6 | The Detail.cshtml currently has NO `@section Scripts` block (verified by `grep -n "Scripts" Detail.cshtml` returning nothing) so adding one is purely additive | Partial Convention | None — verified by grep |
 
-**These assumptions are non-blocking** — Phase 1 should not need user input before plan-time. They are documented for the planner and Codex peer-review pass to validate during plan-check.
+**These assumptions are non-blocking** — Phase 16 should not need user input before plan-time. They are documented for the planner and Codex peer-review pass to validate during plan-check.
 
 ## Open Questions
 
@@ -716,7 +716,7 @@ document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-delete]').forEac
    - What's unclear: If `Model.Id` is ever user-supplied or non-trivial, the `${id}` interpolation in `admin-feedback.ts` template literal needs to be `textContent`-safe.
    - Recommendation: Since the modal uses `messageEl.textContent = opts.message`, the assignment is XSS-safe regardless of `id` content. No action needed.
 
-3. **Should Phase 1 introduce a `.danger` rule for the in-page Delete button as well as the modal Confirm button?**
+3. **Should Phase 16 introduce a `.danger` rule for the in-page Delete button as well as the modal Confirm button?**
    - What we know: `Detail.cshtml:43` `<button type="submit" class="danger">` exists but `admin.css` has no `.danger` rule (grep returns 0).
    - What's unclear: Whether the modal Confirm button (red) should match the in-page Delete button (currently same-as-other-action) visually, requiring a `.danger` rule applicable to both.
    - Recommendation: Add a single `.admin-shell .admin-action-form button.danger, .admin-shell .admin-modal__confirm.danger { background: #b91c1c; }` rule. Closes a latent UI inconsistency (the existing in-page `.danger` class was dead).
@@ -736,7 +736,7 @@ document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-delete]').forEac
 
 ## Validation Architecture
 
-Phase 1 ships under DeckFlow's manual-UAT model. `workflow.nyquist_validation` is not enabled in `.planning/config.json` for this project (verified by checking — no automated browser test framework wired into the repo; CLAUDE.md explicitly states "VSTest unreliable in WSL; rely on `dotnet build` clean + targeted manual harness or push-and-watch CI").
+Phase 16 ships under DeckFlow's manual-UAT model. `workflow.nyquist_validation` is not enabled in `.planning/config.json` for this project (verified by checking — no automated browser test framework wired into the repo; CLAUDE.md explicitly states "VSTest unreliable in WSL; rely on `dotnet build` clean + targeted manual harness or push-and-watch CI").
 
 ### Test Framework
 
@@ -769,7 +769,7 @@ Phase 1 ships under DeckFlow's manual-UAT model. `workflow.nyquist_validation` i
 
 ### Wave 0 Gaps
 
-None for Phase 1 — no test infrastructure setup needed. Phase 1's verification model is "browser-side manual UAT plus existing automated build + existing CI test suite (preserved)." This matches the documented v1.3 pattern across 51 plans / 13 phases.
+None for Phase 16 — no test infrastructure setup needed. Phase 16's verification model is "browser-side manual UAT plus existing automated build + existing CI test suite (preserved)." This matches the documented v1.3 pattern across 51 plans / 13 phases.
 
 ## Security Domain
 
@@ -777,11 +777,11 @@ None for Phase 1 — no test infrastructure setup needed. Phase 1's verification
 
 | ASVS category | Applies | Standard control |
 |---------------|---------|-----------------|
-| V2 Authentication | yes (indirect) | `BasicAuthMiddleware` already gates `/Admin/*`; Phase 1 preserves the existing perimeter |
-| V3 Session Management | no | Phase 1 introduces no session state |
+| V2 Authentication | yes (indirect) | `BasicAuthMiddleware` already gates `/Admin/*`; Phase 16 preserves the existing perimeter |
+| V3 Session Management | no | Phase 16 introduces no session state |
 | V4 Access Control | yes (indirect) | Existing admin role enforcement preserved; modal does not bypass any access check (server still re-checks on POST) |
 | V5 Input Validation | yes | `messageEl.textContent = opts.message` (NOT `innerHTML`) — XSS-safe by construction; partial passes structural markup only, no model-bound interpolation |
-| V6 Cryptography | no | Phase 1 introduces no cryptographic operations |
+| V6 Cryptography | no | Phase 16 introduces no cryptographic operations |
 | V13 API and Web Service | yes | `[ValidateAntiForgeryToken]` on `AdminFeedbackController.Apply` MUST be preserved; PITFALLS.md Pitfall 11 ("two CSRF mechanisms") applies |
 
 ### Known Threat Patterns for ASP.NET 10 / Razor / browser-side TS
@@ -791,12 +791,12 @@ None for Phase 1 — no test infrastructure setup needed. Phase 1's verification
 | XSS via dynamic title/message | Tampering / Information Disclosure | Use `textContent`, NEVER `innerHTML`, in `admin-modal.ts` (verified in code example above) |
 | CSRF on Delete POST | Tampering / Spoofing | Preserve `@Html.AntiForgeryToken()` in the Delete form (PITFALLS.md Pitfall 11); UAT-6 verifies token in POST body |
 | Confirm bypass via direct POST | Tampering | Server-side `[ValidateAntiForgeryToken]` is the actual security boundary; the modal is a UX guard only — not a security control. If an attacker submits POST directly, the anti-forgery filter blocks it |
-| CSP `script-src 'self'` regression | Tampering | Phase 1 ADDS no inline `<script>` blocks; all JS is external (`~/js/admin-modal.js`, `~/js/admin-feedback.js`). The Delete form's previous `onsubmit="…"` is REMOVED, which improves CSP posture (continues the WDG-04 lineage that started in Phase 11 for AdminFeedback/Index.cshtml) |
+| CSP `script-src 'self'` regression | Tampering | Phase 16 ADDS no inline `<script>` blocks; all JS is external (`~/js/admin-modal.js`, `~/js/admin-feedback.js`). The Delete form's previous `onsubmit="…"` is REMOVED, which improves CSP posture (continues the WDG-04 lineage that started in Phase 11 for AdminFeedback/Index.cshtml) |
 | Click-jacking on admin pages | Tampering | Existing `X-Frame-Options` / CSP `frame-ancestors` headers via `SecurityHeadersApplicationBuilderExtensions` already cover this; modal is rendered inside the existing admin shell which inherits those headers |
 
 ## Open Decisions for Planner
 
-These five items are framed for the planner / Codex peer reviewer. None blocks Phase 1 plan creation; each has a recommended default the planner can adopt or override.
+These five items are framed for the planner / Codex peer reviewer. None blocks Phase 16 plan creation; each has a recommended default the planner can adopt or override.
 
 1. **`autofocus` on Cancel for danger variant?** Recommended: YES, set focus to Cancel via TS when `danger=true`. Aligns with WCAG / NN/g destructive-action guidance. Cost: ~2 lines. Override: keep on Confirm if user prefers parity with non-danger.
 
@@ -832,7 +832,7 @@ These five items are framed for the planner / Codex peer reviewer. None blocks P
 - `.planning/research/FEATURES.md` Feature 6 (lines 348-403) — full WDG-04 modal feature analysis
 - `.planning/research/ARCHITECTURE.md` Cluster A (lines 38-50) — component table (name `admin-feedback-modal.ts` overridden to `admin-modal.ts` per CONTEXT D-02)
 - `.planning/milestones/v1.3-phases/11-web-design-guidelines-audit-fixes/11-VERIFICATION.md:35-46` — WDG-04 deferral audit trail
-- `.planning/phases/01-wdg-04-focus-trapped-modal/01-CONTEXT.md` — nine locked decisions
+- `.planning/phases/01-wdg-04-focus-trapped-modal/16-CONTEXT.md` — nine locked decisions
 
 ### Secondary (HIGH confidence; MDN verified 2026-05-23)
 

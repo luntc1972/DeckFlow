@@ -7,7 +7,7 @@ preset: none
 created: 2026-05-23
 ---
 
-# Phase 1 — UI Design Contract: Admin Confirm Modal
+# Phase 16 — UI Design Contract: Admin Confirm Modal
 
 > Visual + interaction contract for the WDG-04 focus-trapped destructive-confirm modal. Concrete pixel + token values only — planner copies these directly into `admin.css` and `_AdminConfirmModal.cshtml`. No visual decisions deferred to planner or executor.
 
@@ -27,7 +27,7 @@ created: 2026-05-23
 
 ---
 
-## Spacing Scale (Phase 1 modal only)
+## Spacing Scale (Phase 16 modal only)
 
 Values are multiples of 4. Admin shell uses px (not rem) per `admin.css:42` baseline (15px body). Modal follows admin px convention for consistency, NOT site-common rem.
 
@@ -41,7 +41,7 @@ Values are multiples of 4. Admin shell uses px (not rem) per `admin.css:42` base
 
 **Border-radius:** 4px on `.admin-modal__panel` corners (matches `admin.css:124` `.admin-banner { border-radius: 4px }` + `admin.css:137` `.admin-action-form button { border-radius: 3px }` — picking 4px to match the dominant admin convention). Buttons: 3px (matches existing `.admin-action-form button`).
 
-**Exceptions:** Touch-target floor enforces `min-height: 44px` + `min-width: 44px` on `.admin-modal__button` (WCAG 2.5.5 — v1.3 WDG-08 carry-forward; Phase 3 admin-mobile.css will enforce shell-wide, Phase 1 enforces locally on modal buttons so phase ships standalone-compliant).
+**Exceptions:** Touch-target floor enforces `min-height: 44px` + `min-width: 44px` on `.admin-modal__button` (WCAG 2.5.5 — v1.3 WDG-08 carry-forward; Phase 18 admin-mobile.css will enforce shell-wide, Phase 16 enforces locally on modal buttons so phase ships standalone-compliant).
 
 ---
 
@@ -89,7 +89,7 @@ Admin shell is dark-only (`color-scheme: dark`, `admin.css:16`). Modal inherits 
 
 **Why hex 72% on backdrop:** Matches admin "dimmed sibling page" convention. Lighter than v1 8.0 spec (`0.5`) because admin shell is already dark; 0.5 was visually muddy in WSL screenshot review. 0.72 keeps the page silhouette visible (operator can still see which deck/feedback the modal is acting on) while clearly de-emphasizing it.
 
-**Why hard-coded `#dc2626` not `var(--danger)`:** `admin.css` is standalone (`admin.css:2` "NEVER imports any guild theme stylesheet"); `--danger` is defined in 22 guild theme files + site-common references but NOT in admin scope. Phase 1 hard-codes Tailwind `red-600` (`#dc2626`) — this is the de-facto destructive red and matches the `var(--danger)` value used by site-common feedback panel (`site-common.css:771` `color: var(--danger)`). Phase 3 (admin-common.css factoring) MAY introduce `--admin-danger: #dc2626;` as a new admin-scope token; until then, hard-coded is correct.
+**Why hard-coded `#dc2626` not `var(--danger)`:** `admin.css` is standalone (`admin.css:2` "NEVER imports any guild theme stylesheet"); `--danger` is defined in 22 guild theme files + site-common references but NOT in admin scope. Phase 16 hard-codes Tailwind `red-600` (`#dc2626`) — this is the de-facto destructive red and matches the `var(--danger)` value used by site-common feedback panel (`site-common.css:771` `color: var(--danger)`). Phase 18 (admin-common.css factoring) MAY introduce `--admin-danger: #dc2626;` as a new admin-scope token; until then, hard-coded is correct.
 
 **WIG note — contrast margin:** Confirm button (`#3b82f6` accent bg + `#ffffff` text) = 4.5:1 contrast — exact WCAG AA threshold for normal-size text (≥13px). Spec passes but margin is thin. **CONSTRAINT FOR FUTURE MODAL VARIANTS:** button label font MUST stay ≥13px on accent variant; if reduced below 13px in future spec, recolor accent bg to a darker shade to maintain 4.5:1+. Danger variant (`#dc2626` + white = 4.83:1) has more headroom.
 
@@ -116,7 +116,7 @@ Admin shell is dark-only (`color-scheme: dark`, `admin.css:16`). Modal inherits 
 - Message: trailing `?` if interrogative (Delete variant), `.` if declarative
 - Buttons: NO trailing punctuation
 
-**No empty/error states** for Phase 1 — modal is invoked, shown, dismissed; there is no fetch, no loading, no failure path. (Caller's form-POST handles its own error path AFTER `showConfirm` resolves true.)
+**No empty/error states** for Phase 16 — modal is invoked, shown, dismissed; there is no fetch, no loading, no failure path. (Caller's form-POST handles its own error path AFTER `showConfirm` resolves true.)
 
 ---
 
@@ -152,7 +152,7 @@ Modal CSS may either inline values OR set scoped vars on `.admin-modal__panel`:
   --modal-cancel-border: var(--border); /* #334155 */
 }
 ```
-Planner may inline or scope-var — both are acceptable. Use scoped vars if Phase 3 admin-common.css factoring benefits.
+Planner may inline or scope-var — both are acceptable. Use scoped vars if Phase 18 admin-common.css factoring benefits.
 
 ### Spacing values (all px, admin convention)
 
@@ -344,14 +344,14 @@ NO bare-element selectors (`dialog { ... }`, `button { ... }`, `h2 { ... }`) at 
 
 ### Mobile (≤768px viewport)
 
-Phase 3 owns the admin mobile sweep; Phase 1's modal CSS must NOT break narrow viewport:
+Phase 18 owns the admin mobile sweep; Phase 16's modal CSS must NOT break narrow viewport:
 
 - Modal width: `calc(100vw - 32px)` (declared above)
 - Vertical position: centered (browser default; works ≥320px tall)
-- Buttons: stay side-by-side (no stack-to-column for Phase 1 — `.admin-modal__actions` keeps `flex-direction: row`); 8px gap fits two 44px-min-width buttons in `375px - 48px panel padding - 8px gap = 319px` available, which comfortably seats two `[Cancel][Delete]` buttons (each ~80px wide at 13px font).
+- Buttons: stay side-by-side (no stack-to-column for Phase 16 — `.admin-modal__actions` keeps `flex-direction: row`); 8px gap fits two 44px-min-width buttons in `375px - 48px panel padding - 8px gap = 319px` available, which comfortably seats two `[Cancel][Delete]` buttons (each ~80px wide at 13px font).
 - Touch targets: already 44px min via base rule — no mobile-specific bump needed.
 
-**Phase 3 future work (NOT Phase 1 scope):** Phase 3 may add a `@media (max-width: 480px) { .admin-modal__actions { flex-direction: column-reverse; } .admin-modal__button { width: 100%; } }` rule if usability testing shows two narrow buttons feel cramped. `column-reverse` so Cancel sits BELOW Confirm on touch (operator's thumb hits Cancel naturally; mistake-confirm rate drops). Phase 1 does NOT pre-emptively add this — out of scope per D-09.
+**Phase 18 future work (NOT Phase 16 scope):** Phase 18 may add a `@media (max-width: 480px) { .admin-modal__actions { flex-direction: column-reverse; } .admin-modal__button { width: 100%; } }` rule if usability testing shows two narrow buttons feel cramped. `column-reverse` so Cancel sits BELOW Confirm on touch (operator's thumb hits Cancel naturally; mistake-confirm rate drops). Phase 16 does NOT pre-emptively add this — out of scope per D-09.
 
 ### Zero-height viewport (e.g. landscape phone keyboard open)
 
@@ -440,9 +440,9 @@ Accent reserved for: modal confirm button (non-destructive variant), `:focus-vis
 | Source | Decisions used |
 |--------|----------------|
 | CONTEXT.md (D-01..D-09) | All 9 locked decisions — D-01 reusable helper, D-02 admin-modal.ts naming, D-03 dismiss behavior, D-04 partial location, D-05 admin.css landing, D-06 native dialog + ARIA, D-07 API shape, D-08 structural-only partial, D-09 scope discipline |
-| REQUIREMENTS.md (MODAL-01) | Phase scope confirmation — single requirement, fully contained in Phase 1 |
-| ROADMAP.md (Phase 1 SC1-SC4) | Native `<dialog>`, focus-trap, ESC + restore-focus + click-outside, scoped CSS no theme bleed |
-| `admin.css` (Phase 6 + WDG audit fixes) | All color tokens (`--bg`, `--panel`, `--text`, `--muted`, `--accent`, `--border`, `--focus`), font stack, baseline 15px/1.5, focus-visible rule, scope-discipline pattern (admin re-declares site-common rules locally because admin standalone) |
+| REQUIREMENTS.md (MODAL-01) | Phase scope confirmation — single requirement, fully contained in Phase 16 |
+| ROADMAP.md (Phase 16 SC1-SC4) | Native `<dialog>`, focus-trap, ESC + restore-focus + click-outside, scoped CSS no theme bleed |
+| `admin.css` (Phase 21 + WDG audit fixes) | All color tokens (`--bg`, `--panel`, `--text`, `--muted`, `--accent`, `--border`, `--focus`), font stack, baseline 15px/1.5, focus-visible rule, scope-discipline pattern (admin re-declares site-common rules locally because admin standalone) |
 | `site-common.css` (WDG-08) | Reduced-motion gate pattern (admin must re-declare locally — admin doesn't inherit site-common), `--danger` reference (admin doesn't have it, hard-coding `#dc2626` to match) |
 | `_AdminLayout.cshtml` | Confirmed admin shell renders modal-host pages; modal CSS lands in single loaded stylesheet (`admin.css`); `Scripts` section available for `admin-modal.ts` + `admin-feedback.ts` |
 | `AdminFeedback/Detail.cshtml:41` | Verbatim confirm copy preserved: `Delete feedback #{id} permanently?` |

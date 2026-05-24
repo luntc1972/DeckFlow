@@ -6,7 +6,7 @@
 - ✅ **v1.1 Admin Console** — Phases 6-8 (shipped 2026-05-08)
 - ✅ **v1.2 Multi-AI Prompts** — Phases 9-10 (shipped 2026-05-13) — see `.planning/milestones/v1.2-ROADMAP.md`
 - ✅ **v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene** — Phases 11-15 + 999.1-999.8 (shipped 2026-05-23) — see `.planning/milestones/v1.3-ROADMAP.md`
-- 🚧 **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 1-8 (started 2026-05-23, phase numbering reset)
+- 🚧 **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-25 (started 2026-05-23)
 
 ## Phases
 
@@ -79,21 +79,23 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 
 ### 🚧 v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (In Progress)
 
-**Phase numbering reset to Phase 1** (v1.3 phase dirs archived to `.planning/milestones/v1.3-phases/`).
-**Scope:** 16 REQ-IDs across 4 clusters (MODAL, DOC, AMOB, KB). Gemini cluster D dropped per user decision 2026-05-23 → v1.5.
+**Phase numbering:** continuous global sequence resumed at Phase 16 (v1.4 = Phases 16-25; v1.3 phase dirs archived to `.planning/milestones/v1.3-phases/`).
+**Scope:** 18 REQ-IDs across 6 clusters (MODAL, DOC, AMOB, KB, CAT, AHD). Gemini cluster D dropped per user decision 2026-05-23 → v1.5. CAT bug-fix + AHD admin grid added mid-milestone 2026-05-24 per user request.
 
-- [x] **Phase 1: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
-- [ ] **Phase 2: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 8
-- [ ] **Phase 3: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
-- [ ] **Phase 4: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP
-- [ ] **Phase 5: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines
-- [ ] **Phase 6: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var
-- [ ] **Phase 7: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate
-- [ ] **Phase 8: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj`
+- [x] **Phase 16: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
+- [ ] **Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 23
+- [ ] **Phase 18: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
+- [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP
+- [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines
+- [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var
+- [ ] **Phase 22: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate
+- [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj`
+- [ ] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01)
+- [ ] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01)
 
 ## Phase Details
 
-### Phase 1: WDG-04 Focus-Trapped Modal
+### Phase 16: WDG-04 Focus-Trapped Modal
 
 **Goal**: Admin can confirm destructive feedback actions via a styled focus-trapped modal that meets WCAG 2.1.2 / 2.4.3, closing the v1.3 WDG-04 override deferred 2026-05-16.
 **Depends on**: Nothing (first phase; lands first as ship-gate proof)
@@ -108,25 +110,25 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 **Plans**: 1 plan
 Plans:
 
-- [ ] 01-01-PLAN.md — Native <dialog> showConfirm primitive + structural partial + scoped CSS + Detail.cshtml wire-up (MODAL-01)
+- [ ] 16-01-PLAN.md — Native <dialog> showConfirm primitive + structural partial + scoped CSS + Detail.cshtml wire-up (MODAL-01)
 
-### Phase 2: Doc-Comment Backfill — Part 1 (Controllers + Services)
+### Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)
 
-**Goal**: Documentation debt is reduced on the highest-traffic Web surface (~50 of 88 v1.1-era types) without flipping the NoWarn gate, so the warning suppression stays in place until Phase 8 lands the rest of the v1.4 surface.
+**Goal**: Documentation debt is reduced on the highest-traffic Web surface (~50 of 88 v1.1-era types) without flipping the NoWarn gate, so the warning suppression stays in place until Phase 23 lands the rest of the v1.4 surface.
 **Depends on**: Nothing (parallelizable; off critical path)
 **Requirements**: DOC-01 (partial — Controllers + Services subset)
 **Success Criteria** (what must be TRUE):
 
   1. Every public type under `DeckFlow.Web/Controllers/`, `Controllers/Admin/`, `Controllers/Api/`, `Services/`, and `Services/Http/` has a `<summary>` doc-comment. PER-TYPE verification (authoritative): for each in-scope file, every public type DECLARATION must have a `///` comment on the line(s) immediately above it (skipping attribute lines) — a `<summary>` elsewhere in the file does NOT count. This blind spot is real: `DeckFlowDatabaseConnectionFactory.cs` PASSES the file-level grep (its methods carry summaries) while its TYPE was undocumented; per-type checking is what catches co-located-type gaps. Legacy file-level grep retained as a secondary gate: `grep -L '<summary>' $(grep -lE '^public (sealed )?(class|record|interface)' DeckFlow.Web/{Controllers,Services}/**/*.cs)` returns empty (must also pass, but is NOT sufficient on files with co-located types).
   2. `<param>` + `<returns>` tags on non-trivial public methods (multi-arg + non-void); `<inheritdoc/>` used on interface implementations
-  3. `NoWarn 1591;1573;1587` REMAINS in `DeckFlow.Web.csproj` (do not strip until Phase 8); `dotnet build -c Release` stays at 0 warnings / 0 errors
+  3. `NoWarn 1591;1573;1587` REMAINS in `DeckFlow.Web.csproj` (do not strip until Phase 23); `dotnet build -c Release` stays at 0 warnings / 0 errors
   4. Touch-only-what-you-touch discipline preserved (no Format Document, no `{ get; }` mutations, no `[Attribute]` inlining, no raw-string re-indents per CLAUDE.md R-6)
 
 **Plans**: 2 plans
 Plans:
 
-- [ ] 02-01-PLAN.md — Controllers cluster: per-type <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller — 3 co-located types}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
-- [ ] 02-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 2 records (ScryfallCardFace, FeedbackRequestContext) + D-01a type-level summary on DeckFlowDatabaseConnectionFactory static class; 10 types / 8 files (DOC-01)
+- [ ] 17-01-PLAN.md — Controllers cluster: per-type <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller — 3 co-located types}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
+- [ ] 17-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 2 records (ScryfallCardFace, FeedbackRequestContext) + D-01a type-level summary on DeckFlowDatabaseConnectionFactory static class; 10 types / 8 files (DOC-01)
 
 **Cross-cutting constraints:**
 
@@ -134,12 +136,12 @@ Plans:
 - dotnet build -c Release stays at 0 warnings / 0 errors
 - Test suite stays Failed:0 (no runtime change)
 
-> Scope note: 2026-05-24 re-scan found 16 undocumented types remain (15 class/record/interface + 1 enum) — the original "~50 of 88" Goal snapshot was stale; most listed types were already documented in prior sessions. 2026-05-24 (checker round 2): added `DeckFlowDatabaseConnectionFactory` to 02-02 — it was in the CONTEXT undocumented-type inventory but slipped past the file-level SC1 grep because its file already had method-level summaries; SC1 + both plans' acceptance criteria tightened to per-TYPE (declaration-anchored) checking. NoWarn gate retained (Phase 8 strips it).
+> Scope note: 2026-05-24 re-scan found 16 undocumented types remain (15 class/record/interface + 1 enum) — the original "~50 of 88" Goal snapshot was stale; most listed types were already documented in prior sessions. 2026-05-24 (checker round 2): added `DeckFlowDatabaseConnectionFactory` to 02-02 — it was in the CONTEXT undocumented-type inventory but slipped past the file-level SC1 grep because its file already had method-level summaries; SC1 + both plans' acceptance criteria tightened to per-TYPE (declaration-anchored) checking. NoWarn gate retained (Phase 23 strips it).
 
-### Phase 3: Admin Mobile-Responsive Sweep
+### Phase 18: Admin Mobile-Responsive Sweep
 
 **Goal**: Admin shell renders correctly and accessibly on viewports ≥320px wide, with all WCAG 2.5.5 ≥44px touch-target floors met, AND zero CSS regression on the 22 guild themes.
-**Depends on**: Phase 1 (modal CSS lands in `admin-common.css` factoring — doing modal after split forces touching two files)
+**Depends on**: Phase 16 (modal CSS lands in `admin-common.css` factoring — doing modal after split forces touching two files)
 **Requirements**: AMOB-01, AMOB-02, AMOB-03, AMOB-04
 **Success Criteria** (what must be TRUE):
 
@@ -152,7 +154,7 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 4: Content KB Foundation — Stores + Schema
+### Phase 19: Content KB Foundation — Stores + Schema
 
 **Goal**: Postgres + SQLite schema for the Content Knowledge Base is materialized via per-store `EnsureSchemaAsync` mirroring `HarvestRunStore.cs:436-471`, with strict `content_*` namespace and F-PROD-CONTRACT-style test isolation, so subsequent phases can rely on a stable persistence layer.
 **Depends on**: Nothing within v1.4
@@ -163,14 +165,14 @@ Plans:
   2. Zero schema-name collision with v1.1 `harvest_runs` — `ContentHarvestRunStore` is a parallel sibling of `HarvestRunStore`, NOT a subclass; `harvest_runs.kind` CHECK constraint NOT widened
   3. Every new store has its own xUnit fixture using own SQLite file OR `:memory:` per-fact scope (F-PROD-CONTRACT 999.6 lesson honored); store tests pass with `Failed:0` in CI
   4. All new record types preserve `{ get; init; }` properties (System.Text.Json silently skips get-only props — already broke `EdhTop16Client` once); all DDL constants and C# raw-string literals byte-preserved (CLAUDE.md formatting rule)
-  5. `IWhisperSpendLedger.GetMonthlyTotalAsync(yearMonth)` returns app-side aggregate over `whisper_spend_ledger.month_key` for both dialects; cap-gate logic stubbed for Phase 5/6 to wire
+  5. `IWhisperSpendLedger.GetMonthlyTotalAsync(yearMonth)` returns app-side aggregate over `whisper_spend_ledger.month_key` for both dialects; cap-gate logic stubbed for Phase 20/21 to wire
 
 **Plans**: TBD
 
-### Phase 5: Content KB Outbound HTTP Services
+### Phase 20: Content KB Outbound HTTP Services
 
-**Goal**: Four new upstream surfaces (YouTube transcript, podcast RSS + audio, Whisper transcription, LLM summary + tag inference) are wired through the project's IHttpClientFactory + RestSharp + named-Polly pattern with proven third-party caption coverage and Structured-Outputs reliability, so the orchestrator in Phase 6 can compose them safely.
-**Depends on**: Phase 4 (stores must exist for transcript/summary/spend persistence)
+**Goal**: Four new upstream surfaces (YouTube transcript, podcast RSS + audio, Whisper transcription, LLM summary + tag inference) are wired through the project's IHttpClientFactory + RestSharp + named-Polly pattern with proven third-party caption coverage and Structured-Outputs reliability, so the orchestrator in Phase 21 can compose them safely.
+**Depends on**: Phase 19 (stores must exist for transcript/summary/spend persistence)
 **Requirements**: KB-03 (YouTube), KB-04 (Whisper), KB-06 (LLM summary + clips), KB-07 (tag inference)
 **Success Criteria** (what must be TRUE):
 
@@ -183,11 +185,11 @@ Plans:
 
 **Plans**: TBD
 
-### Phase 6: Content KB Orchestrator + Harvest Runs
+### Phase 21: Content KB Orchestrator + Harvest Runs
 
-**Goal**: An admin trigger composes the Phase 5 HTTP services into an end-to-end content harvest run with TOCTOU-safe Whisper spend cap-gating, idempotent re-runs, and partial-success persistence, so the user story "admin clicks Trigger Harvest and gets transcripts + summaries + tags without double-spending the cap" is verifiable end-to-end.
+**Goal**: An admin trigger composes the Phase 20 HTTP services into an end-to-end content harvest run with TOCTOU-safe Whisper spend cap-gating, idempotent re-runs, and partial-success persistence, so the user story "admin clicks Trigger Harvest and gets transcripts + summaries + tags without double-spending the cap" is verifiable end-to-end.
 **Mode**: mvp (user-story-first verification: admin can trigger end-to-end harvest)
-**Depends on**: Phase 4 (stores), Phase 5 (HTTP services)
+**Depends on**: Phase 19 (stores), Phase 20 (HTTP services)
 **Requirements**: KB-02 (trigger + history runtime), KB-05 (cap-gate runtime — TOCTOU lock + kill-switch), KB-09 (`content_kb_enabled` flag gate + CSRF wiring at orchestrator boundary)
 **Success Criteria** (what must be TRUE):
 
@@ -199,33 +201,62 @@ Plans:
 
 **Plans**: TBD
 
-### Phase 7: Content KB Admin UI
+### Phase 22: Content KB Admin UI
 
-**Goal**: Admin has a complete UI surface — source CRUD, harvest history + per-run drill-down, and spend dashboard — for operating the Content Knowledge Base, inheriting Phase 3's responsive admin shell and the Phase 1 modal primitive.
-**Depends on**: Phase 3 (responsive admin CSS), Phase 4 (schema), Phase 5 (services), Phase 6 (orchestrator)
+**Goal**: Admin has a complete UI surface — source CRUD, harvest history + per-run drill-down, and spend dashboard — for operating the Content Knowledge Base, inheriting Phase 18's responsive admin shell and the Phase 16 modal primitive.
+**Depends on**: Phase 18 (responsive admin CSS), Phase 19 (schema), Phase 20 (services), Phase 21 (orchestrator)
 **Requirements**: KB-01 (CRUD UI half), KB-02 (history UI half), KB-08 (spend dashboard), KB-09 (CSRF + flag gate on UI surface)
 **Success Criteria** (what must be TRUE):
 
-  1. Admin can create/edit/disable YouTube channel + podcast RSS sources via `/Admin/ContentSources` (Index/Create/Edit); source-type dropdown reuses v1.3 WDG-02 `df-select` ARIA combobox; delete confirmation reuses the Phase 1 `_AdminConfirmModal` partial; empty state CTA for zero-source first-run
+  1. Admin can create/edit/disable YouTube channel + podcast RSS sources via `/Admin/ContentSources` (Index/Create/Edit); source-type dropdown reuses v1.3 WDG-02 `df-select` ARIA combobox; delete confirmation reuses the Phase 16 `_AdminConfirmModal` partial; empty state CTA for zero-source first-run
   2. Admin can trigger manual harvest via `POST /Admin/ContentHarvest/Trigger` (returns 202 with run id, live-region announces "harvest started"); `GET /Admin/ContentHarvest` lists run history; `GET /Admin/ContentHarvest/{id}` drills into per-run sources processed, videos processed, transcripts fetched, Whisper calls, spend USD, abort reason
   3. `/Admin/ContentSpend` shows current month + last 6 months Whisper + LLM aggregate (per-provider breakdown via `provider` + `kind` columns), and surfaces an inline "approaching cap" warning when current month consumed >80% of `DECKFLOW_WHISPER_MONTHLY_CAP_USD`
   4. **Pitfall 11 mitigation (P11):** Every `/Admin/Content*` POST carries `[ValidateAntiForgeryToken]` AND `SameOriginRequestValidator.IsValid(Request)`; CI grep gate: `grep -L 'ValidateAntiForgeryToken' DeckFlow.Web/Controllers/Admin/AdminContent*Controller.cs` returns empty
-  5. New sidebar nav entries ("Content Sources", "Content Harvest", "Content Spend") added to `_AdminLayout.cshtml`; all new views render correctly at 375px mobile viewport per Phase 3 invariants; zero CSS bleed into 22 guild themes
+  5. New sidebar nav entries ("Content Sources", "Content Harvest", "Content Spend") added to `_AdminLayout.cshtml`; all new views render correctly at 375px mobile viewport per Phase 18 invariants; zero CSS bleed into 22 guild themes
 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 8: Doc-Comment Backfill — Part 2 + Strip NoWarn
+### Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn
 
 **Goal**: All remaining ~38 v1.1-era undocumented Web types AND every new v1.4 type (DOC + KB clusters) carry XML `<summary>` doc-comments, and `NoWarn 1591;1573;1587` is stripped from `DeckFlow.Web.csproj` with the warnings-as-future-gate enabled. Lands LAST so v1.4 new types are documented before the gate flips (Pitfall 8 sequencing).
-**Depends on**: Phase 2 (Part 1 doc-comment foundation), Phase 7 (final v1.4 surface complete — all new admin controllers + content services + viewmodels exist and need docs)
+**Depends on**: Phase 17 (Part 1 doc-comment foundation), Phase 22 (final v1.4 surface complete — all new admin controllers + content services + viewmodels exist and need docs)
 **Requirements**: DOC-01 (finish all remaining types), DOC-02 (strip NoWarn from csproj)
 **Success Criteria** (what must be TRUE):
 
-  1. **Pitfall 8 ordering:** ALL public types under `DeckFlow.Web/{Controllers,Services,Models,Models/Api,Infrastructure,Security,ViewModels}/` (the original ~88 + every new v1.4 type from Phases 1, 3, 5, 6, 7) carry `<summary>` doc-comments BEFORE the NoWarn strip — verified by anchored grep returning empty: `grep -L '<summary>' $(grep -rlE '^public (sealed )?(class|record|interface)' DeckFlow.Web --include='*.cs' | grep -v '/obj/')`. Note: this file-level grep shares the co-located-type blind spot surfaced in Phase 2 — the authoritative gate here is the `dotnet build -warnaserror:CS1591` in SC3, which fails per-type on any undocumented public type once NoWarn is stripped.
+  1. **Pitfall 8 ordering:** ALL public types under `DeckFlow.Web/{Controllers,Services,Models,Models/Api,Infrastructure,Security,ViewModels}/` (the original ~88 + every new v1.4 type from Phases 16, 18, 20, 21, 22) carry `<summary>` doc-comments BEFORE the NoWarn strip — verified by anchored grep returning empty: `grep -L '<summary>' $(grep -rlE '^public (sealed )?(class|record|interface)' DeckFlow.Web --include='*.cs' | grep -v '/obj/')`. Note: this file-level grep shares the co-located-type blind spot surfaced in Phase 17 — the authoritative gate here is the `dotnet build -warnaserror:CS1591` in SC3, which fails per-type on any undocumented public type once NoWarn is stripped.
   2. `DeckFlow.Web.csproj` `<NoWarn>$(NoWarn);1591;1573;1587</NoWarn>` line removed (1591 may be retained scoped only to compiler-generated Razor partials via `Condition=` if `dotnet build -warnaserror:CS1591 -p:GenerateDocumentationFile=true` from clean `obj/` proves Razor-generated partials still emit CS1591)
   3. `dotnet build -c Release -warnaserror:CS1591` succeeds from clean `obj/` — 0 errors, 0 warnings on user-authored code
   4. Test suite preserved at `Failed: 0` (doc-comment edits cannot regress runtime but verify the gate); touch-only-what-you-touch discipline preserved across every backfilled file (CLAUDE.md R-6)
+
+**Plans**: TBD
+
+### Phase 24: Card Category Lookup Fix — Colorless/Staple Cards
+
+**Goal**: Card category suggestion reliably returns categories for staple cards that must always resolve; the Sol Ring regression (colorless artifact ramp staple currently returning no categories) is fixed without regressing existing coverage.
+**Depends on**: Nothing (off critical path; independent bug fix)
+**Requirements**: CAT-01
+**Status note (2026-05-24)**: Captured for investigation-later per user. The Archidekt harvest/cache job was running when the failure was observed — the running service is a suspected cause. Investigation MUST reproduce in BOTH states: harvest running AND harvest stopped.
+**Success Criteria** (what must be TRUE):
+
+  1. Root cause identified for Sol Ring returning empty categories, documented with whether the running harvest/cache job contributes — reproduced (or ruled out) in BOTH harvest-running and harvest-stopped states
+  2. Category suggestion returns non-empty, correct categories for Sol Ring (e.g., Ramp / Artifact) and a small regression set of other colorless/staple cards
+  3. No regression in existing category coverage for previously-working cards; affected path covered by a regression test
+  4. Test suite preserved at `Failed: 0`; touch-only-what-you-touch (CLAUDE.md R-6)
+
+**Plans**: TBD
+
+### Phase 25: Admin Harvested-Decks Paged Grid
+
+**Goal**: The admin harvested-decks surface shows ALL harvested decks via a server-side paged grid (page size, total count, scannable rows) instead of the current top-ten list, inheriting the responsive admin shell.
+**Depends on**: Phase 18 (responsive admin shell — grid must be mobile-usable per AMOB patterns)
+**Requirements**: AHD-01
+**Success Criteria** (what must be TRUE):
+
+  1. Admin harvested-decks view lists ALL harvested decks with server-side paging (not just top 10); page navigation + total count visible
+  2. Paging is server-side (query-level LIMIT/OFFSET or keyset) — does not load all rows into memory (Render 512MB cap discipline)
+  3. Grid reuses the responsive admin table/card patterns from Phase 18; usable at ≥320px viewport
+  4. Test suite preserved at `Failed: 0`; touch-only-what-you-touch (CLAUDE.md R-6)
 
 **Plans**: TBD
 
@@ -233,17 +264,19 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
-| 2. Doc-Comment Backfill Part 1 | 0/2 | Planned | - |
-| 3. Admin Mobile-Responsive Sweep | 0/TBD | Not started | - |
-| 4. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
-| 5. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
-| 6. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
-| 7. Content KB Admin UI | 0/TBD | Not started | - |
-| 8. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
+| 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
+| 17. Doc-Comment Backfill Part 1 | 0/2 | Planned | - |
+| 18. Admin Mobile-Responsive Sweep | 0/TBD | Not started | - |
+| 19. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
+| 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
+| 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
+| 22. Content KB Admin UI | 0/TBD | Not started | - |
+| 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
+| 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
+| 25. Admin Harvested-Decks Paged Grid | 0/TBD | Not started | - |
 
-**Critical path:** Phase 1 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
-**Off critical path:** Phase 2 (parallelizable with Phases 1/3/4/5/6/7), Phase 8 (lands last after all v1.4 surface exists)
+**Critical path:** Phase 16 → Phase 18 → Phase 19 → Phase 20 → Phase 21 → Phase 22
+**Off critical path:** Phase 17 (parallelizable with Phases 16/18/19/20/21/22), Phase 23 (lands last after all v1.4 surface exists), Phase 24 (independent bug fix), Phase 25 (depends only on Phase 18 admin shell)
 **Pre-allocated for ship-gate:** A `999.x` test-hardening backlog phase MAY be inserted before milestone-ship per `no-ship-failing-tests` rule (R-5) if any residual failures surface.
 
 ## Backlog

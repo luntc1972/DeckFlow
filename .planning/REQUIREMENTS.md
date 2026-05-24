@@ -34,6 +34,14 @@
 - [ ] **KB-08**: Admin can view spend dashboard at `/Admin/ContentSpend` showing current month + last 6 months Whisper + LLM aggregate spend (per-provider breakdown); warns inline when current month consumed >80% of cap
 - [ ] **KB-09**: Content KB feature is gated behind `content_kb_enabled` IFeatureFlagStore flag (default OFF until first admin UAT verifies end-to-end harvest); all `/Admin/Content*` POSTs guarded by `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator`
 
+### Card Category Lookup Bug Fix (CAT)
+
+- [ ] **CAT-01**: Card category suggestion returns correct, non-empty categories for staple cards that must always resolve. Regression repro: **Sol Ring** (colorless artifact ramp staple) currently returns no categories. Root cause unknown and MUST be investigated in BOTH states — while the Archidekt harvest/cache job is running AND while it is stopped (the running service is a suspected cause). Fix restores category results for Sol Ring and similar colorless/staple cards without regressing existing category coverage. (Added 2026-05-24 — captured for investigation-later.)
+
+### Admin Harvested-Decks Grid (AHD)
+
+- [ ] **AHD-01**: The admin harvested-decks view replaces the current top-ten-decks list with a paged grid showing ALL harvested decks — server-side paging (page size + total count), scannable rows. Reuses the Phase 18 responsive admin shell + existing admin table/card patterns; must not load all rows into memory (Render 512MB cap). (Added 2026-05-24.)
+
 ## Future Requirements (Deferred to v1.5+)
 
 **Content Knowledge Base — Integration into deck analysis (DEFERRED to v1.5):**
@@ -72,21 +80,23 @@
 
 | REQ-ID | Description | Phase | Status |
 |--------|-------------|-------|--------|
-| MODAL-01 | Admin focus-trapped modal | Phase 1 | [ ] |
-| DOC-01 | XML `<summary>` doc-comments on ~88 Web types | Phase 2 (Part 1: Controllers + Services) + Phase 8 (Part 2: remaining + v1.4 new types) | [ ] |
-| DOC-02 | Strip `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` | Phase 8 | [ ] |
-| AMOB-01 | Admin shell renders ≥320px viewport (sidebar disclosure) | Phase 3 | [ ] |
-| AMOB-02 | Admin tables usable on narrow viewports | Phase 3 | [ ] |
-| AMOB-03 | Admin forms single-column + ≥44×44px touch targets | Phase 3 | [ ] |
-| AMOB-04 | `admin.css` factored into common+mobile+shim | Phase 3 | [ ] |
-| KB-01 | Admin source CRUD UI + `content_sources` table | Phase 4 (table) + Phase 7 (CRUD UI) | [ ] |
-| KB-02 | Admin manual harvest trigger + run history UI | Phase 6 (orchestrator + trigger runtime) + Phase 7 (history UI) | [ ] |
-| KB-03 | YouTube auto-caption fetch via YoutubeExplode | Phase 5 | [ ] |
-| KB-04 | Whisper fallback transcription + spend ledger | Phase 5 | [ ] |
-| KB-05 | Whisper spend cap-gate (TOCTOU-safe + kill-switch) | Phase 4 (ledger schema + WouldExceedCapAsync stub) + Phase 6 (advisory lock + kill-switch runtime) | [ ] |
-| KB-06 | LLM summary + clip-excerpt extraction | Phase 5 | [ ] |
-| KB-07 | Tag inference (controlled vocab: archetype + bracket + category) | Phase 5 | [ ] |
-| KB-08 | Admin spend dashboard at `/Admin/ContentSpend` | Phase 7 | [ ] |
-| KB-09 | `content_kb_enabled` feature flag gate + CSRF guards | Phase 6 (orchestrator-boundary flag gate) + Phase 7 (UI-surface CSRF tokens + flag check) | [ ] |
+| MODAL-01 | Admin focus-trapped modal | Phase 16 | [ ] |
+| DOC-01 | XML `<summary>` doc-comments on ~88 Web types | Phase 17 (Part 1: Controllers + Services) + Phase 23 (Part 2: remaining + v1.4 new types) | [ ] |
+| DOC-02 | Strip `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` | Phase 23 | [ ] |
+| AMOB-01 | Admin shell renders ≥320px viewport (sidebar disclosure) | Phase 18 | [ ] |
+| AMOB-02 | Admin tables usable on narrow viewports | Phase 18 | [ ] |
+| AMOB-03 | Admin forms single-column + ≥44×44px touch targets | Phase 18 | [ ] |
+| AMOB-04 | `admin.css` factored into common+mobile+shim | Phase 18 | [ ] |
+| KB-01 | Admin source CRUD UI + `content_sources` table | Phase 19 (table) + Phase 22 (CRUD UI) | [ ] |
+| KB-02 | Admin manual harvest trigger + run history UI | Phase 21 (orchestrator + trigger runtime) + Phase 22 (history UI) | [ ] |
+| KB-03 | YouTube auto-caption fetch via YoutubeExplode | Phase 20 | [ ] |
+| KB-04 | Whisper fallback transcription + spend ledger | Phase 20 | [ ] |
+| KB-05 | Whisper spend cap-gate (TOCTOU-safe + kill-switch) | Phase 19 (ledger schema + WouldExceedCapAsync stub) + Phase 21 (advisory lock + kill-switch runtime) | [ ] |
+| KB-06 | LLM summary + clip-excerpt extraction | Phase 20 | [ ] |
+| KB-07 | Tag inference (controlled vocab: archetype + bracket + category) | Phase 20 | [ ] |
+| KB-08 | Admin spend dashboard at `/Admin/ContentSpend` | Phase 22 | [ ] |
+| KB-09 | `content_kb_enabled` feature flag gate + CSRF guards | Phase 21 (orchestrator-boundary flag gate) + Phase 22 (UI-surface CSRF tokens + flag check) | [ ] |
+| CAT-01 | Card category lookup fix (Sol Ring colorless staple returns empty) | Phase 24 | [ ] |
+| AHD-01 | Admin harvested-decks paged grid (replaces top-10) | Phase 25 | [ ] |
 
-**Coverage:** 16/16 v1.4 REQ-IDs mapped (100%). No orphans. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-05, KB-09) split between schema/foundation phase and UI/runtime phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion of the requirement; checkboxes flip when BOTH portions are complete.
+**Coverage:** 18/18 v1.4 REQ-IDs mapped (100%). No orphans. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-05, KB-09) split between schema/foundation phase and UI/runtime phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion of the requirement; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.

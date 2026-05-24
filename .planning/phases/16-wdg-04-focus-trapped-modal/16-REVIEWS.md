@@ -2,7 +2,7 @@
 phase: 1
 reviewers: [claude-plan-checker, codex]
 reviewed_at: 2026-05-23T17:41:00Z
-plans_reviewed: [01-01-PLAN.md]
+plans_reviewed: [16-01-PLAN.md]
 codex_verdict_final: APPROVED (round 3)
 claude_verdict: VERIFICATION_PASSED (with 1 warning, addressed in r1)
 ship_gate: GREEN_LIGHT_EXECUTE_PHASE
@@ -21,7 +21,7 @@ convergence_history:
     new_concerns: []
 ---
 
-# Cross-AI Plan Review — Phase 1 (WDG-04 Focus-Trapped Modal)
+# Cross-AI Plan Review — Phase 16 (WDG-04 Focus-Trapped Modal)
 
 ## Codex Review (AUTHORITATIVE per CLAUDE.md cross-AI rule)
 
@@ -40,7 +40,7 @@ convergence_history:
 
 #### 🔴 HIGH: Task 3 scope-discipline grep is guaranteed to fail on the existing file
 
-The proposed `grep -vE ... admin.css | grep -vE ...` runs against ALL of `admin.css`, not just the new Phase 1 block. Pre-existing unchanged lines already trip the rule:
+The proposed `grep -vE ... admin.css | grep -vE ...` runs against ALL of `admin.css`, not just the new Phase 16 block. Pre-existing unchanged lines already trip the rule:
 - Multiline comment bodies
 - `:root {`
 - `[role="tab"]:focus-visible {`
@@ -48,17 +48,17 @@ The proposed `grep -vE ... admin.css | grep -vE ...` runs against ALL of `admin.
 
 **Effect:** Automated scope gate is unusable even for a correct implementation. False-positive failure on every run.
 
-**Fix:** Rewrite scope guard to inspect only added lines OR only the new `/* === Phase 1 (v1.4) — WDG-04 === */` section. Use `awk` to extract section + `grep` on that subset; OR `git diff` against pre-Phase-1 commit + `grep` on `^+` lines only.
+**Fix:** Rewrite scope guard to inspect only added lines OR only the new `/* === Phase 16 (v1.4) — WDG-04 === */` section. Use `awk` to extract section + `grep` on that subset; OR `git diff` against pre-Phase-1 commit + `grep` on `^+` lines only.
 
-#### 🔴 HIGH: must_haves truth #2 contradicts success_criteria SC#2 (Phase 1 cannot verify what frontmatter claims)
+#### 🔴 HIGH: must_haves truth #2 contradicts success_criteria SC#2 (Phase 16 cannot verify what frontmatter claims)
 
 Frontmatter `must_haves.truths[1]` claims: *"Tab/Shift+Tab cycle stays inside modal across native form controls AND nested `df-select`/`df-typeahead`, verified by HUMAN-UAT in a Razor view containing both"*.
 
-But `success_criteria` SC#2 correctly notes: Phase 1's `Detail.cshtml` does NOT contain `df-select`/`df-typeahead`; nested-custom-element verification deferred to Phase 7 reuse per RESEARCH UAT-9.
+But `success_criteria` SC#2 correctly notes: Phase 16's `Detail.cshtml` does NOT contain `df-select`/`df-typeahead`; nested-custom-element verification deferred to Phase 22 reuse per RESEARCH UAT-9.
 
-**Effect:** With the listed 5 files, Phase 1 CANNOT satisfy must_have truth #2 as written. Either the truth lies (overstates Phase 1 coverage), or the plan is missing a synthetic Razor view that nests `df-select`/`df-typeahead` for UAT-only verification.
+**Effect:** With the listed 5 files, Phase 16 CANNOT satisfy must_have truth #2 as written. Either the truth lies (overstates Phase 16 coverage), or the plan is missing a synthetic Razor view that nests `df-select`/`df-typeahead` for UAT-only verification.
 
-**Fix:** Either (a) reword must_haves truth #2 to scope it to native button cycling for Phase 1 + defer custom-element cycling to Phase 7 with explicit cross-reference, OR (b) add a synthetic verification harness view to Phase 1 scope (likely overkill for a single-modal phase).
+**Fix:** Either (a) reword must_haves truth #2 to scope it to native button cycling for Phase 16 + defer custom-element cycling to Phase 22 with explicit cross-reference, OR (b) add a synthetic verification harness view to Phase 16 scope (likely overkill for a single-modal phase).
 
 *(Claude plan-checker flagged this as WARNING; Codex elevates to HIGH because the wording can falsely-pass at verification time if it's interpreted literally.)*
 
@@ -76,7 +76,7 @@ Plus cleanup function around the failure paths to detach event listeners.
 
 #### 🟡 MEDIUM: Danger hover color visually altered by existing + new hover filters
 
-Existing `.admin-action-form button:hover { filter: brightness(1.1); }` at `admin.css:138` STILL applies to `button.danger` after Phase 1 adds the `.danger` rule (CSS cascade). Planned `.admin-modal__button--confirm:hover { filter: brightness(1.1); }` (if present) also applies to `.admin-modal__button--confirm.admin-modal__button--danger`.
+Existing `.admin-action-form button:hover { filter: brightness(1.1); }` at `admin.css:138` STILL applies to `button.danger` after Phase 16 adds the `.danger` rule (CSS cascade). Planned `.admin-modal__button--confirm:hover { filter: brightness(1.1); }` (if present) also applies to `.admin-modal__button--confirm.admin-modal__button--danger`.
 
 **Effect:** Specified hover `#b91c1c` is NOT actually rendered — `#dc2626 + filter: brightness(1.1)` produces a different visual.
 
@@ -112,7 +112,7 @@ Existing `.admin-action-form button:hover { filter: brightness(1.1); }` at `admi
 9. No v1.3 regression risk (497-test baseline gated)
 10. Scope guards verifiable (Verification Gate 4 enforces 7 out-of-bounds paths)
 
-**Single warning:** must_haves.truths[1] overstates Phase 1 verification scope re: nested custom-element cycling. (Codex elevates to HIGH.)
+**Single warning:** must_haves.truths[1] overstates Phase 16 verification scope re: nested custom-element cycling. (Codex elevates to HIGH.)
 
 ---
 
@@ -126,8 +126,8 @@ Existing `.admin-action-form button:hover { filter: brightness(1.1); }` at `admi
 - Threat model coverage adequate for modest UX-only attack surface (both)
 
 ### Agreed Concerns
-- **must_haves truth #2 overstates Phase 1 coverage** (Claude: WARNING; Codex: HIGH)
-  → Reword truth #2 OR add synthetic UAT harness (Codex recommends defer to Phase 7 cross-reference)
+- **must_haves truth #2 overstates Phase 16 coverage** (Claude: WARNING; Codex: HIGH)
+  → Reword truth #2 OR add synthetic UAT harness (Codex recommends defer to Phase 22 cross-reference)
 
 ### Codex-Only HIGH (Claude missed)
 - **Task 3 scope-discipline grep guaranteed-fail on existing file** — Claude's review didn't actually test the grep against current admin.css contents; Codex did.
@@ -144,8 +144,8 @@ Existing `.admin-action-form button:hover { filter: brightness(1.1); }` at `admi
 
 ### Required Actions Before Execute
 
-1. **Fix scope-discipline grep** (Task 3 verify block) — scope grep to Phase 1 CSS section only, not whole file
-2. **Reword must_haves truth #2** — scope to Phase 1 native button cycling; explicit Phase 7 cross-reference for nested custom-element cycling
+1. **Fix scope-discipline grep** (Task 3 verify block) — scope grep to Phase 16 CSS section only, not whole file
+2. **Reword must_haves truth #2** — scope to Phase 16 native button cycling; explicit Phase 22 cross-reference for nested custom-element cycling
 3. **Recommended: also fix MEDIUMs** — add try-catch + dialog.open guard in admin-modal.ts; fix danger hover cascade in CSS
 
 ### Options
