@@ -109,15 +109,15 @@ Plans:
 **Depends on**: Nothing (parallelizable; off critical path)
 **Requirements**: DOC-01 (partial — Controllers + Services subset)
 **Success Criteria** (what must be TRUE):
-  1. Every public type under `DeckFlow.Web/Controllers/`, `Controllers/Admin/`, `Controllers/Api/`, `Services/`, and `Services/Http/` has a `<summary>` doc-comment — verified by anchored grep: `grep -L '<summary>' $(grep -lE '^public (sealed )?(class|record|interface)' DeckFlow.Web/{Controllers,Services}/**/*.cs)` returns empty
+  1. Every public type under `DeckFlow.Web/Controllers/`, `Controllers/Admin/`, `Controllers/Api/`, `Services/`, and `Services/Http/` has a `<summary>` doc-comment. PER-TYPE verification (authoritative): for each in-scope file, every public type DECLARATION must have a `///` comment on the line(s) immediately above it (skipping attribute lines) — a `<summary>` elsewhere in the file does NOT count. This blind spot is real: `DeckFlowDatabaseConnectionFactory.cs` PASSES the file-level grep (its methods carry summaries) while its TYPE was undocumented; per-type checking is what catches co-located-type gaps. Legacy file-level grep retained as a secondary gate: `grep -L '<summary>' $(grep -lE '^public (sealed )?(class|record|interface)' DeckFlow.Web/{Controllers,Services}/**/*.cs)` returns empty (must also pass, but is NOT sufficient on files with co-located types).
   2. `<param>` + `<returns>` tags on non-trivial public methods (multi-arg + non-void); `<inheritdoc/>` used on interface implementations
   3. `NoWarn 1591;1573;1587` REMAINS in `DeckFlow.Web.csproj` (do not strip until Phase 8); `dotnet build -c Release` stays at 0 warnings / 0 errors
   4. Touch-only-what-you-touch discipline preserved (no Format Document, no `{ get; }` mutations, no `[Attribute]` inlining, no raw-string re-indents per CLAUDE.md R-6)
 **Plans**: 2 plans
 Plans:
-- [ ] 02-01-PLAN.md — Controllers cluster: <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
-- [ ] 02-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 2 records (ScryfallCardFace, FeedbackRequestContext); 9 types / 7 files (DOC-01)
-> Scope note: 2026-05-24 re-scan found 16 undocumented types remain (15 class/record/interface + 1 enum) — the original "~50 of 88" Goal snapshot was stale; most listed types were already documented in prior sessions. NoWarn gate retained (Phase 8 strips it).
+- [ ] 02-01-PLAN.md — Controllers cluster: per-type <summary> on 7 undocumented public types across 5 files (CommanderController, FeedbackController, Admin/AdminFeedback {enum+VM+controller — 3 co-located types}, Api/Suggestions, Api/ArchidektCacheJobs) (DOC-01)
+- [ ] 02-02-PLAN.md — Services cluster: D-01 inheritdoc split on 4 interface/impl pairs (EdhTop16Client, CategoryKnowledgeStore, FeedbackStore, ScryfallSetService) + D-04 summaries on 2 records (ScryfallCardFace, FeedbackRequestContext) + D-01a type-level summary on DeckFlowDatabaseConnectionFactory static class; 10 types / 8 files (DOC-01)
+> Scope note: 2026-05-24 re-scan found 16 undocumented types remain (15 class/record/interface + 1 enum) — the original "~50 of 88" Goal snapshot was stale; most listed types were already documented in prior sessions. 2026-05-24 (checker round 2): added `DeckFlowDatabaseConnectionFactory` to 02-02 — it was in the CONTEXT undocumented-type inventory but slipped past the file-level SC1 grep because its file already had method-level summaries; SC1 + both plans' acceptance criteria tightened to per-TYPE (declaration-anchored) checking. NoWarn gate retained (Phase 8 strips it).
 
 ### Phase 3: Admin Mobile-Responsive Sweep
 **Goal**: Admin shell renders correctly and accessibly on viewports ≥320px wide, with all WCAG 2.5.5 ≥44px touch-target floors met, AND zero CSS regression on the 22 guild themes.
@@ -188,7 +188,7 @@ Plans:
 **Depends on**: Phase 2 (Part 1 doc-comment foundation), Phase 7 (final v1.4 surface complete — all new admin controllers + content services + viewmodels exist and need docs)
 **Requirements**: DOC-01 (finish all remaining types), DOC-02 (strip NoWarn from csproj)
 **Success Criteria** (what must be TRUE):
-  1. **Pitfall 8 ordering:** ALL public types under `DeckFlow.Web/{Controllers,Services,Models,Models/Api,Infrastructure,Security,ViewModels}/` (the original ~88 + every new v1.4 type from Phases 1, 3, 5, 6, 7) carry `<summary>` doc-comments BEFORE the NoWarn strip — verified by anchored grep returning empty: `grep -L '<summary>' $(grep -rlE '^public (sealed )?(class|record|interface)' DeckFlow.Web --include='*.cs' | grep -v '/obj/')`
+  1. **Pitfall 8 ordering:** ALL public types under `DeckFlow.Web/{Controllers,Services,Models,Models/Api,Infrastructure,Security,ViewModels}/` (the original ~88 + every new v1.4 type from Phases 1, 3, 5, 6, 7) carry `<summary>` doc-comments BEFORE the NoWarn strip — verified by anchored grep returning empty: `grep -L '<summary>' $(grep -rlE '^public (sealed )?(class|record|interface)' DeckFlow.Web --include='*.cs' | grep -v '/obj/')`. Note: this file-level grep shares the co-located-type blind spot surfaced in Phase 2 — the authoritative gate here is the `dotnet build -warnaserror:CS1591` in SC3, which fails per-type on any undocumented public type once NoWarn is stripped.
   2. `DeckFlow.Web.csproj` `<NoWarn>$(NoWarn);1591;1573;1587</NoWarn>` line removed (1591 may be retained scoped only to compiler-generated Razor partials via `Condition=` if `dotnet build -warnaserror:CS1591 -p:GenerateDocumentationFile=true` from clean `obj/` proves Razor-generated partials still emit CS1591)
   3. `dotnet build -c Release -warnaserror:CS1591` succeeds from clean `obj/` — 0 errors, 0 warnings on user-authored code
   4. Test suite preserved at `Failed: 0` (doc-comment edits cannot regress runtime but verify the gate); touch-only-what-you-touch discipline preserved across every backfilled file (CLAUDE.md R-6)
@@ -199,7 +199,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
-| 2. Doc-Comment Backfill Part 1 | 0/TBD | Not started | - |
+| 2. Doc-Comment Backfill Part 1 | 0/2 | Planned | - |
 | 3. Admin Mobile-Responsive Sweep | 0/TBD | Not started | - |
 | 4. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
 | 5. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
