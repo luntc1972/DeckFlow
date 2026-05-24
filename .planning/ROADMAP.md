@@ -271,7 +271,11 @@ Plans:
   - `GetTopCommandersAsync`: `GROUP BY commander_name ORDER BY deck_count DESC FROM deck_queue WHERE processed = 1` — full scan + group/sort, no supporting index
   Fix directions for Phase 25 (alongside the paged grid that replaces the top-ten `GROUP BY` scan): add indexes (`deck_queue(processed)`, `deck_queue(processed, inserted_utc)`, `deck_queue(processed, commander_name)`); parallelize the independent stat queries (`Task.WhenAll`) instead of awaiting serially; for the observation count prefer a Postgres `reltuples` estimate or a maintained counter over `COUNT(*)`; optionally precompute the stats payload at harvest-completion rather than on page view. Files: `DeckFlow.Web/Services/Harvest/HarvestStatsAggregator.cs`, `DeckFlow.Web/Services/CategoryKnowledgeStore.cs`, `DeckFlow.Web/Controllers/Admin/AdminHarvestController.cs`.
 
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+
+- [ ] 25-01-PLAN.md — Data + service layer: paged deck query + 3 deck_queue indexes + reltuples count fast-path + Task.WhenAll parallelization + Fake/repo tests (AHD-01)
+- [ ] 25-02-PLAN.md — Admin UI: AdminHarvestViewModel paging fields + Index(int page) clamped fetch + paged Harvested Decks grid replacing the top-10 list (AHD-01)
 
 ## Progress
 
@@ -286,7 +290,7 @@ Plans:
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
-| 25. Admin Harvested-Decks Paged Grid | 0/TBD | Not started | - |
+| 25. Admin Harvested-Decks Paged Grid | 0/2 | Planned | - |
 
 **Critical path:** Phase 16 → Phase 18 → Phase 19 → Phase 20 → Phase 21 → Phase 22
 **Off critical path:** Phase 17 (parallelizable with Phases 16/18/19/20/21/22), Phase 23 (lands last after all v1.4 surface exists), Phase 24 (independent bug fix), Phase 25 (depends only on Phase 18 admin shell)
