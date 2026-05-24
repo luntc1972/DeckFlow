@@ -4,7 +4,7 @@
 
 @media (max-width: 768px) {
   .admin-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto 1fr;
     grid-template-areas:
       "topbar"
