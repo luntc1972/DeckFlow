@@ -27,7 +27,7 @@
     <span data-api-field="commander-search-error-text"></span>
 </div>
 
-<form method="post" action="@Url.Content("~/commander-categories")" class="deck-form" data-cache-key="commander-categories" data-validate-lookup data-busy-title="Looking up commander categories" data-busy-message="Querying the cached category store." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Compiling commander categories" data-busy-hold-final-step="true" data-suggestions-type="commander" data-suggestion-api="@Url.Content("~/api/suggestions/commander")">
+<form method="post" action="@Url.Content("~/commander-categories")" class="deck-form" data-cache-key="commander-categories" data-validate-lookup data-busy-title="Looking up commander categories" data-busy-message="Querying the cached category store." data-busy-progress="Checking cached store|Compiling commander categories|Finalizing results" data-busy-hold-final-step="true" data-suggestions-type="commander" data-suggestion-api="@Url.Content("~/api/suggestions/commander")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
             <label class="mode-picker flex-grow">
@@ -39,7 +39,7 @@
     </div>
     <p class="mode-note">Type at least two letters to see intelligent suggestions for commanders backed by Scryfall.</p>
     <div class="mode-note">
-        <span>Click Show Categories to scan Archidekt for another 20 seconds and grow the commander cache.</span>
+        <span>Commander categories reflect the latest completed Archidekt harvest stored locally.</span>
     </div>
 </form>
 
@@ -51,11 +51,11 @@
         }
         else if (!string.IsNullOrWhiteSpace(Model.Request.CommanderName))
         {
-            <text>Commander selections are resolved from the cached Archidekt category database. Click Show Categories to scan Archidekt for another 20 seconds and grow the commander cache.</text>
+            <text>Commander selections are resolved from the cached Archidekt category database built by completed harvests.</text>
         }
         else
         {
-            <text>Enter a commander name and click Show Categories to gather data.</text>
+            <text>Enter a commander name and click Show Categories to search the cached data.</text>
         }
     </p>
 </div>
@@ -96,7 +96,7 @@
 </section>
 
 <div class="info-banner @(showNoResults ? string.Empty : "hidden")" data-api-panel="commander-no-results">
-    <p data-api-field="commander-no-results-text">No commander categories for @Model.Request.CommanderName have been observed in the cached data yet. Run Show Categories again to refresh the cache.</p>
+    <p data-api-field="commander-no-results-text">No commander categories for @Model.Request.CommanderName have been observed in the cached data yet.</p>
 </div>
 
 @section Scripts {

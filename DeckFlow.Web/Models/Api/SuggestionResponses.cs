@@ -42,8 +42,6 @@ public sealed class CategorySuggestionApiResponse
     public bool NoSuggestionsFound { get; init; }
     public string? NoSuggestionsMessage { get; init; }
     public CardDeckTotals CardDeckTotals { get; init; } = CardDeckTotals.Empty;
-    public int AdditionalDecksFound { get; init; }
-    public bool CacheSweepPerformed { get; init; }
 }
 
 /// <summary>
@@ -58,9 +56,7 @@ public sealed class CommanderCategoryApiResponse
     public int CardRowCount { get; init; }
     public int CategoryCount { get; init; }
     public int HarvestedDeckCount { get; init; }
-    public int AdditionalDecksFound { get; init; }
     public CardDeckTotals CardDeckTotals { get; init; } = CardDeckTotals.Empty;
-    public bool CacheSweepPerformed { get; init; }
     public IReadOnlyList<CommanderCategorySummaryDto> Summaries { get; init; } = Array.Empty<CommanderCategorySummaryDto>();
     public string? NoResultsMessage { get; init; }
 }

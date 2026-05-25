@@ -65,8 +65,6 @@ public sealed class CommanderController : Controller
                 CategoryRows = result.Rows,
                 CategorySummaries = result.Summaries,
                 HarvestedDeckCount = result.HarvestedDeckCount,
-                AdditionalDecksFound = result.AdditionalDecksFound,
-                ExtendedHarvestTriggered = result.CacheSweepPerformed,
                 CardDeckTotals = result.CardDeckTotals
             };
             return View("CommanderCategories", viewModel);

@@ -91,9 +91,7 @@ public sealed class SuggestionsApiController : ControllerBase
                 SuggestionSourceSummary = result.UsedSources.Count == 0 ? null : $"Source used: {string.Join(" + ", result.UsedSources)}",
                 NoSuggestionsFound = result.NothingFound,
                 NoSuggestionsMessage = result.NothingFound ? CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage(result.CardName, result.CardDeckTotals) : null,
-                CardDeckTotals = result.CardDeckTotals,
-                AdditionalDecksFound = result.AdditionalDecksFound,
-                CacheSweepPerformed = result.CacheHarvestTriggered
+                CardDeckTotals = result.CardDeckTotals
             };
             return Ok(response);
         }
@@ -145,9 +143,7 @@ public sealed class SuggestionsApiController : ControllerBase
                 CardRowCount = result.Rows.Count,
                 CategoryCount = result.Summaries.Count,
                 HarvestedDeckCount = result.HarvestedDeckCount,
-                AdditionalDecksFound = result.AdditionalDecksFound,
                 CardDeckTotals = result.CardDeckTotals,
-                CacheSweepPerformed = result.CacheSweepPerformed,
                 Summaries = result.Summaries
                     .Select(summary => new CommanderCategorySummaryDto
                     {
@@ -157,7 +153,7 @@ public sealed class SuggestionsApiController : ControllerBase
                     })
                     .ToList(),
                 NoResultsMessage = result.Summaries.Count == 0
-                    ? $"No commander categories for {result.CommanderName} have been observed in the cached data yet. Run Show Categories again to refresh the cache."
+                    ? $"No commander categories for {result.CommanderName} have been observed in the cached data yet."
                     : null
             };
             return Ok(response);

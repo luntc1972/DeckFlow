@@ -7,7 +7,6 @@ using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
-using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Services;
 
@@ -35,9 +34,7 @@ public sealed record CategorySuggestionResult(
     IReadOnlyList<string> TaggerCategories,
     CardDeckTotals CardDeckTotals,
     IReadOnlyList<string> UsedSources,
-    bool NothingFound,
-    int AdditionalDecksFound,
-    bool CacheHarvestTriggered)
+    bool NothingFound)
 {
     /// <summary>
     /// Creates an empty result for a card that produced no suggestions from any source.
@@ -52,9 +49,7 @@ public sealed record CategorySuggestionResult(
         Array.Empty<string>(),
         CardDeckTotals.Empty,
         Array.Empty<string>(),
-        true,
-        0,
-        false);
+        true);
 }
 
 /// <summary>
@@ -62,10 +57,7 @@ public sealed record CategorySuggestionResult(
 /// </summary>
 public sealed class CategorySuggestionService : ICategorySuggestionService
 {
-    private const int ClickSweepDurationSeconds = 30;
     private readonly ICategoryKnowledgeStore _knowledgeStore;
-    private readonly IArchidektCacheJobService _harvestJobService;
-    private readonly ILogger<CategorySuggestionService> _logger;
     private readonly ArchidektParser _archidektParser;
     private readonly IArchidektDeckImporter _archidektImporter;
     private readonly IScryfallTaggerLookupService _taggerService;
@@ -75,18 +67,14 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
     /// </summary>
     public CategorySuggestionService(
         ICategoryKnowledgeStore knowledgeStore,
-        IArchidektCacheJobService harvestJobService,
         ArchidektParser archidektParser,
         IArchidektDeckImporter archidektImporter,
-        IScryfallTaggerLookupService taggerService,
-        ILogger<CategorySuggestionService> logger)
+        IScryfallTaggerLookupService taggerService)
     {
         _knowledgeStore = knowledgeStore;
-        _harvestJobService = harvestJobService;
         _archidektParser = archidektParser;
         _archidektImporter = archidektImporter;
         _taggerService = taggerService;
-        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -110,8 +98,6 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
         var mode = request.Mode;
         var runAll = mode == CategorySuggestionMode.All;
 
-        var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-
         var runReferencePath = mode == CategorySuggestionMode.ReferenceDeck;
 
         var exactCategories = runReferencePath
@@ -123,16 +109,6 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             : Array.Empty<string>();
 
         var runCachedPath = mode == CategorySuggestionMode.CachedData || runAll;
-
-        // Skip the click-triggered sweep when an admin bulk harvest is already running.
-        // The harvest holds _sweepGate for its full duration; queuing a 30s suggestion sweep
-        // behind it (or ahead of it) starves the admin run. Suggestion data is best-effort —
-        // returning stale cache while a harvest is in flight is the correct trade-off.
-        var harvestActive = runCachedPath && _harvestJobService.GetActiveJob() is not null;
-        if (runCachedPath && !harvestActive)
-        {
-            await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
-        }
 
         var inferredCategories = runCachedPath
             ? await _knowledgeStore.GetCategoriesAsync(cardName, cancellationToken)
@@ -150,9 +126,6 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
         {
             await _knowledgeStore.PersistObservedCategoriesAsync("edhrec", cardName, edhrecCategories, cancellationToken: cancellationToken);
         }
-
-        var finalDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-        var additionalDecksFound = Math.Max(finalDeckCount - initialDeckCount, 0);
 
         var usedSources = new List<string>();
         if (exactCategories.Count > 0)
@@ -185,9 +158,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             taggerCategories,
             cardTotals,
             usedSources,
-            nothingFound,
-            additionalDecksFound,
-            runCachedPath && !harvestActive);
+            nothingFound);
     }
 
     /// <summary>
