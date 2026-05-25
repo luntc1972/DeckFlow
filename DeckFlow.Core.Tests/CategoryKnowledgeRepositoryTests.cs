@@ -297,6 +297,33 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         Assert.Contains("ix_card_category_observations_normalized", indexNames);
     }
 
+    [Fact]
+    public async Task EnsureSchemaAsync_DoesNotThrow_WhenIndexCreationFails()
+    {
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+
+            var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE card_deck_totals (
+                    source TEXT NOT NULL
+                );
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var repository = CreateRepository();
+
+        var exception = await Record.ExceptionAsync(() => repository.EnsureSchemaAsync());
+
+        Assert.Null(exception);
+        var tableNames = await GetTableNamesAsync();
+        Assert.Contains("deck_queue", tableNames);
+        Assert.Contains("card_category_observations", tableNames);
+        Assert.Contains("card_deck_totals", tableNames);
+    }
+
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
 
     private async Task SeedProcessedDeckAsync(
@@ -391,6 +418,33 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
               AND name IN (
                 'ix_card_deck_totals_normalized',
                 'ix_card_category_observations_normalized')
+            ORDER BY name;
+            """;
+
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names;
+    }
+
+    private async Task<IReadOnlyList<string>> GetTableNamesAsync()
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name IN (
+                'deck_queue',
+                'card_category_observations',
+                'card_deck_totals')
             ORDER BY name;
             """;
 
