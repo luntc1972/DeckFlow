@@ -350,11 +350,11 @@ public sealed class CategoryKnowledgeRepository
 
         var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc
+            SELECT MAX(commander_name) AS commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc
             FROM deck_queue
             WHERE processed = 1 AND commander_name IS NOT NULL
-            GROUP BY commander_name
-            ORDER BY deck_count DESC, last_processed_utc DESC, commander_name ASC
+            GROUP BY LOWER(commander_name)
+            ORDER BY deck_count DESC, last_processed_utc DESC, LOWER(commander_name) ASC
             LIMIT @limit OFFSET @offset;
             """;
         RelationalDatabaseConnection.AddParameter(command, "@limit", pageSize);
@@ -385,7 +385,7 @@ public sealed class CategoryKnowledgeRepository
 
         var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT COUNT(DISTINCT commander_name)
+            SELECT COUNT(DISTINCT LOWER(commander_name))
             FROM deck_queue
             WHERE processed = 1 AND commander_name IS NOT NULL;
             """;

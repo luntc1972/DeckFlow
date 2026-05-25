@@ -1,4 +1,5 @@
 @model DeckFlow.Web.Models.Admin.AdminHarvestViewModel
+@using System.Globalization
 @using DeckFlow.Web.Services.Harvest
 @{
     ViewData["Title"] = "Harvest";
@@ -16,6 +17,22 @@
         }
 
         return $"{value:0.##} {units[unitIndex]}";
+    }
+
+    static string FormatLastProcessedUtc(string? lastProcessedUtc)
+    {
+        if (string.IsNullOrWhiteSpace(lastProcessedUtc))
+        {
+            return "—";
+        }
+
+        return DateTimeOffset.TryParse(
+            lastProcessedUtc,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsed)
+            ? parsed.UtcDateTime.ToString("u", CultureInfo.InvariantCulture)
+            : lastProcessedUtc;
     }
 }
 
@@ -218,7 +235,7 @@
                             <td>@(rankOffset + i + 1)</td>
                             <td>@c.CommanderName</td>
                             <td>@c.DeckCount</td>
-                            <td>@(c.LastProcessedUtc ?? "—")</td>
+                            <td>@FormatLastProcessedUtc(c.LastProcessedUtc)</td>
                         </tr>
                     }
                 </tbody>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using DeckFlow.Core.Integration;
@@ -321,15 +322,23 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private static async Task<int> ExecuteCountAsync(DbCommand command, CancellationToken cancellationToken)
     {
         var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return CoerceCount(result);
+    }
+
+    internal static int CoerceCount(object? result)
+    {
         return result switch
         {
             null => 0,
             DBNull => 0,
-            long value => checked((int)value),
-            int value => value,
-            _ => Convert.ToInt32(result)
+            long value => ClampCount(value),
+            int value => Math.Max(value, 0),
+            _ => ClampCount(Convert.ToInt64(result, CultureInfo.InvariantCulture))
         };
     }
+
+    private static int ClampCount(long value)
+        => value <= 0 ? 0 : value > int.MaxValue ? int.MaxValue : (int)value;
 
     private static void AddTimestampParameter(DbCommand command, string name, DateTime cutoffUtc)
     {
