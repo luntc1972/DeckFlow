@@ -93,4 +93,32 @@ public class HelpContentServiceTests : IDisposable
         Assert.DoesNotContain("title:", topic.HtmlContent);
         Assert.DoesNotContain("hidden", topic.HtmlContent);
     }
+
+    [Fact]
+    public void Project_help_uses_category_suggestions_slug_and_title()
+    {
+        var helpRoot = FindProjectHelpRoot();
+        var service = new HelpContentService(helpRoot);
+
+        var topic = service.GetBySlug("category-suggestions");
+
+        Assert.NotNull(topic);
+        Assert.Equal("Category Suggestions", topic!.Title);
+        Assert.Contains("Category Suggestions", topic.HtmlContent);
+    }
+
+    private static string FindProjectHelpRoot()
+    {
+        var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (current is not null)
+        {
+            var helpRoot = Path.Combine(current.FullName, "DeckFlow.Web", "Help");
+            if (Directory.Exists(helpRoot))
+                return helpRoot;
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not find DeckFlow.Web/Help from the test working directory.");
+    }
 }

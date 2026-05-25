@@ -97,7 +97,7 @@ public sealed class DeckController : Controller
     [HttpGet("/suggest-categories")]
     [FeatureFlagGate("feature.categories.enabled",
         Title = "Category suggestions temporarily unavailable",
-        Message = "AI Category Suggestions is offline for maintenance. Category Reference remains available.",
+        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
         PrimaryActionLabel = "Open Category Reference",
         PrimaryActionUrl = "/commander-categories")]
     /// <summary>
@@ -1286,7 +1286,7 @@ public sealed class DeckController : Controller
     [HttpPost("/suggest-categories")]
     [FeatureFlagGate("feature.categories.enabled",
         Title = "Category suggestions temporarily unavailable",
-        Message = "AI Category Suggestions is offline for maintenance. Category Reference remains available.",
+        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
         PrimaryActionLabel = "Open Category Reference",
         PrimaryActionUrl = "/commander-categories")]
     [ValidateAntiForgeryToken]

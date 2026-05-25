@@ -25,7 +25,7 @@ public sealed class FeatureFlagGateAttributeTests
         var attribute = new FeatureFlagGateAttribute("feature.categories.enabled")
         {
             Title = "Category suggestions temporarily unavailable",
-            Message = "AI Category Suggestions is offline for maintenance. Category Reference remains available.",
+            Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
             PrimaryActionLabel = "Open Category Reference",
             PrimaryActionUrl = "/commander-categories",
         };
@@ -48,7 +48,7 @@ public sealed class FeatureFlagGateAttributeTests
         Assert.Equal("_MaintenancePage", view.ViewName);
         var model = Assert.IsType<MaintenanceViewModel>(view.Model);
         Assert.Equal("Category suggestions temporarily unavailable", model.Title);
-        Assert.Equal("AI Category Suggestions is offline for maintenance. Category Reference remains available.", model.Message);
+        Assert.Equal("Category Suggestions is offline for maintenance. Category Reference remains available.", model.Message);
         Assert.Equal("Open Category Reference", model.PrimaryActionLabel);
         Assert.Equal("/commander-categories", model.PrimaryActionUrl);
     }

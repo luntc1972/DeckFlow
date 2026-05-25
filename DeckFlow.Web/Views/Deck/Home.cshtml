@@ -70,14 +70,14 @@
         @if (FlagCache.IsEnabled("feature.categories.enabled"))
         {
             <a class="hub-card" href="@Url.Content("~/suggest-categories")">
-                <h3 class="hub-card__title">AI Category Suggestions</h3>
+                <h3 class="hub-card__title">Category Suggestions</h3>
                 <p class="hub-card__description">Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.</p>
             </a>
         }
         else
         {
             <div class="hub-card hub-card--status">
-                <h3 class="hub-card__title">AI Category Suggestions</h3>
+                <h3 class="hub-card__title">Category Suggestions</h3>
                 <p class="hub-card__description">Temporarily offline for maintenance. Category Reference remains available.</p>
             </div>
         }
