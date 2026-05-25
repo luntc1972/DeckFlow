@@ -15,6 +15,7 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 public sealed class CategoryKnowledgeRepository
 {
+    private const string ArchidektLiveSourcePrefix = "archidekt_live:";
     private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(1);
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ILogger? _logger;
@@ -199,11 +200,12 @@ public sealed class CategoryKnowledgeRepository
 
         var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT category
-            FROM card_category_observations
-            WHERE normalized_card_name = @normalized
-            GROUP BY category
-            ORDER BY LOWER(category), category
+            SELECT o.category
+            FROM card_category_observations o
+            JOIN cards c ON c.id = o.card_id
+            WHERE c.normalized_card_name = @normalized
+            GROUP BY o.category
+            ORDER BY LOWER(o.category), o.category
             """;
         RelationalDatabaseConnection.AddParameter(command, "@normalized", CardNormalizer.Normalize(cardName));
 
@@ -232,16 +234,17 @@ public sealed class CategoryKnowledgeRepository
 
         var command = connection.CreateCommand();
         var queryTemplate = """
-            SELECT category, card_name, SUM(count) AS total, SUM(deck_count) AS deck_total
-            FROM card_category_observations
-            WHERE normalized_card_name = @normalized
+            SELECT o.category, o.card_name, SUM(o.count) AS total, SUM(o.deck_count) AS deck_total
+            FROM card_category_observations o
+            JOIN cards c ON c.id = o.card_id
+            WHERE c.normalized_card_name = @normalized
             {0}
-            GROUP BY category, card_name
-            ORDER BY total DESC, LOWER(category), category;
+            GROUP BY o.category, o.card_name
+            ORDER BY total DESC, LOWER(o.category), o.category;
             """;
         var filterClause = boardFilter is null
             ? string.Empty
-            : "AND board = @board";
+            : "AND o.board = @board";
         command.CommandText = string.Format(queryTemplate, filterClause);
         RelationalDatabaseConnection.AddParameter(command, "@normalized", CardNormalizer.Normalize(cardName));
         if (boardFilter is not null)
@@ -255,8 +258,8 @@ public sealed class CategoryKnowledgeRepository
         {
             var category = reader.GetString(0);
             var displayName = reader.GetString(1);
-            var total = reader.GetInt32(2);
-            var deckTotal = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+            var total = Convert.ToInt32(reader.GetValue(2));
+            var deckTotal = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetValue(3));
             rows.Add(new CategoryKnowledgeRow(category, displayName, total, deckTotal));
         }
 
@@ -277,9 +280,10 @@ public sealed class CategoryKnowledgeRepository
 
         var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT o.category, o.card_name, SUM(o.count) AS total, COUNT(DISTINCT q.deck_id) AS deck_total
+            SELECT o.category, o.card_name, SUM(o.count) AS total, COUNT(DISTINCT q.id) AS deck_total
             FROM card_category_observations o
-            JOIN deck_queue q ON o.source = 'archidekt_live:' || q.deck_id
+            JOIN sources s ON s.id = o.source_id
+            JOIN deck_queue q ON q.id = s.deck_queue_id
             WHERE LOWER(q.commander_name) = LOWER(@commanderName)
               AND q.processed = 1
             GROUP BY o.category, o.card_name
@@ -294,8 +298,8 @@ public sealed class CategoryKnowledgeRepository
             rows.Add(new CategoryKnowledgeRow(
                 reader.GetString(0),
                 reader.GetString(1),
-                reader.GetInt32(2),
-                reader.GetInt32(3)));
+                Convert.ToInt32(reader.GetValue(2)),
+                Convert.ToInt32(reader.GetValue(3))));
         }
 
         return FilterGenericCategoryRowsWithFallback(rows);
@@ -407,30 +411,40 @@ public sealed class CategoryKnowledgeRepository
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        var sourceId = rows.Count == 0
+            ? await ResolveSourceIdForReadAsync(connection, transaction, source, cancellationToken)
+            : await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+        if (sourceId is null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return;
+        }
+
         var deleteCommand = connection.CreateCommand();
         deleteCommand.Transaction = transaction;
-        deleteCommand.CommandText = "DELETE FROM card_category_observations WHERE source = @source;";
-        RelationalDatabaseConnection.AddParameter(deleteCommand, "@source", source);
+        deleteCommand.CommandText = "DELETE FROM card_category_observations WHERE source_id = @sourceId;";
+        RelationalDatabaseConnection.AddParameter(deleteCommand, "@sourceId", sourceId.Value);
         await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
 
+        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
+        var normalizedBoard = NormalizeBoard(board);
+        var lastSeenUtc = DateTimeOffset.UtcNow.ToString("O");
         foreach (var row in rows)
         {
-            var insertCommand = connection.CreateCommand();
-            insertCommand.Transaction = transaction;
-            insertCommand.CommandText = """
-                INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, board, deck_count, count, last_seen_utc)
-                VALUES (@source, @cardName, @normalizedCardName, @category, @board, @deckCount, @count, @lastSeenUtc)
-                """;
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@source", source);
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@cardName", row.CardName);
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@normalizedCardName", CardNormalizer.Normalize(row.CardName));
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@category", row.Category);
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@board", NormalizeBoard(board));
+            var cardId = await ResolveCardIdAsync(connection, transaction, row.CardName, cardIds, cancellationToken);
             var deckCountValue = row.DeckCount > 0 ? row.DeckCount : deckCount;
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@deckCount", deckCountValue);
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@count", row.Count);
-            RelationalDatabaseConnection.AddParameter(insertCommand, "@lastSeenUtc", DateTimeOffset.UtcNow.ToString("O"));
-            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+            await UpsertCategoryObservationAsync(
+                connection,
+                transaction,
+                sourceId.Value,
+                cardId,
+                row.CardName,
+                row.Category,
+                normalizedBoard,
+                row.Count,
+                deckCountValue,
+                lastSeenUtc,
+                cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -453,16 +467,23 @@ public sealed class CategoryKnowledgeRepository
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        var sourceId = await ResolveSourceIdForReadAsync(connection, transaction, source, cancellationToken);
+        if (sourceId is null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return;
+        }
+
         var deleteObservationsCommand = connection.CreateCommand();
         deleteObservationsCommand.Transaction = transaction;
-        deleteObservationsCommand.CommandText = "DELETE FROM card_category_observations WHERE source = @source;";
-        RelationalDatabaseConnection.AddParameter(deleteObservationsCommand, "@source", source);
+        deleteObservationsCommand.CommandText = "DELETE FROM card_category_observations WHERE source_id = @sourceId;";
+        RelationalDatabaseConnection.AddParameter(deleteObservationsCommand, "@sourceId", sourceId.Value);
         await deleteObservationsCommand.ExecuteNonQueryAsync(cancellationToken);
 
         var deleteTotalsCommand = connection.CreateCommand();
         deleteTotalsCommand.Transaction = transaction;
-        deleteTotalsCommand.CommandText = "DELETE FROM card_deck_totals WHERE source = @source;";
-        RelationalDatabaseConnection.AddParameter(deleteTotalsCommand, "@source", source);
+        deleteTotalsCommand.CommandText = "DELETE FROM card_deck_totals WHERE source_id = @sourceId;";
+        RelationalDatabaseConnection.AddParameter(deleteTotalsCommand, "@sourceId", sourceId.Value);
         await deleteTotalsCommand.ExecuteNonQueryAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
@@ -488,29 +509,25 @@ public sealed class CategoryKnowledgeRepository
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
+        var cardId = await ResolveCardIdAsync(connection, transaction, cardName, cardIds, cancellationToken);
+        var normalizedBoard = NormalizeBoard(board);
+        var lastSeenUtc = DateTimeOffset.UtcNow.ToString("O");
         foreach (var category in categories)
         {
-            var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = """
-                INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, board, deck_count, count, last_seen_utc)
-                VALUES (@source, @cardName, @normalizedCardName, @category, @board, @deckCount, @quantity, @lastSeenUtc)
-                ON CONFLICT(source, normalized_card_name, category, board)
-                DO UPDATE SET
-                    count = card_category_observations.count + excluded.count,
-                    deck_count = card_category_observations.deck_count + excluded.deck_count,
-                    card_name = excluded.card_name,
-                    last_seen_utc = excluded.last_seen_utc
-                """;
-            RelationalDatabaseConnection.AddParameter(command, "@source", source);
-            RelationalDatabaseConnection.AddParameter(command, "@cardName", cardName);
-            RelationalDatabaseConnection.AddParameter(command, "@normalizedCardName", CardNormalizer.Normalize(cardName));
-            RelationalDatabaseConnection.AddParameter(command, "@category", category);
-            RelationalDatabaseConnection.AddParameter(command, "@board", NormalizeBoard(board));
-            RelationalDatabaseConnection.AddParameter(command, "@deckCount", deckCountIncrement);
-            RelationalDatabaseConnection.AddParameter(command, "@quantity", quantity);
-            RelationalDatabaseConnection.AddParameter(command, "@lastSeenUtc", DateTimeOffset.UtcNow.ToString("O"));
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            await UpsertCategoryObservationAsync(
+                connection,
+                transaction,
+                sourceId,
+                cardId,
+                cardName,
+                category,
+                normalizedBoard,
+                quantity,
+                deckCountIncrement,
+                lastSeenUtc,
+                cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -529,24 +546,86 @@ public sealed class CategoryKnowledgeRepository
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        var command = connection.CreateCommand();
-        command.CommandText = """
-            INSERT INTO card_deck_totals (source, card_name, normalized_card_name, board, deck_count, last_seen_utc)
-            VALUES (@source, @cardName, @normalizedCardName, @board, @deckCount, @lastSeenUtc)
-            ON CONFLICT(source, normalized_card_name, board)
-            DO UPDATE SET
-                deck_count = card_deck_totals.deck_count + excluded.deck_count,
-                card_name = excluded.card_name,
-                last_seen_utc = excluded.last_seen_utc;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@source", source);
-        RelationalDatabaseConnection.AddParameter(command, "@cardName", cardName);
-        RelationalDatabaseConnection.AddParameter(command, "@normalizedCardName", CardNormalizer.Normalize(cardName));
-        RelationalDatabaseConnection.AddParameter(command, "@board", NormalizeBoard(board));
-        RelationalDatabaseConnection.AddParameter(command, "@deckCount", deckCountIncrement);
-        RelationalDatabaseConnection.AddParameter(command, "@lastSeenUtc", DateTimeOffset.UtcNow.ToString("O"));
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
+        var cardId = await ResolveCardIdAsync(connection, transaction, cardName, cardIds, cancellationToken);
+        await UpsertCardDeckTotalAsync(
+            connection,
+            transaction,
+            sourceId,
+            cardId,
+            NormalizeBoard(board),
+            deckCountIncrement,
+            DateTimeOffset.UtcNow.ToString("O"),
+            cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    internal async Task PersistDeckCategoryBatchAsync(
+        string source,
+        IReadOnlyList<(string CardName, string Category, string Board, int Quantity, int DeckCountIncrement)> observations,
+        IReadOnlyList<(string CardName, string Board)> cardBoardTotals,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(source) || (observations.Count == 0 && cardBoardTotals.Count == 0))
+        {
+            return;
+        }
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
+        var lastSeenUtc = DateTimeOffset.UtcNow.ToString("O");
+
+        foreach (var observation in observations)
+        {
+            if (string.IsNullOrWhiteSpace(observation.CardName) || observation.Quantity <= 0)
+            {
+                continue;
+            }
+
+            var cardId = await ResolveCardIdAsync(connection, transaction, observation.CardName, cardIds, cancellationToken);
+            await UpsertCategoryObservationAsync(
+                connection,
+                transaction,
+                sourceId,
+                cardId,
+                observation.CardName,
+                observation.Category,
+                NormalizeBoard(observation.Board),
+                observation.Quantity,
+                observation.DeckCountIncrement,
+                lastSeenUtc,
+                cancellationToken);
+        }
+
+        foreach (var cardBoardTotal in cardBoardTotals)
+        {
+            if (string.IsNullOrWhiteSpace(cardBoardTotal.CardName))
+            {
+                continue;
+            }
+
+            var cardId = await ResolveCardIdAsync(connection, transaction, cardBoardTotal.CardName, cardIds, cancellationToken);
+            await UpsertCardDeckTotalAsync(
+                connection,
+                transaction,
+                sourceId,
+                cardId,
+                NormalizeBoard(cardBoardTotal.Board),
+                1,
+                lastSeenUtc,
+                cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     /// <summary>
@@ -560,14 +639,15 @@ public sealed class CategoryKnowledgeRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
-        var filterClause = boardFilter is null ? string.Empty : "AND board = @board";
+        var filterClause = boardFilter is null ? string.Empty : "AND t.board = @board";
         var command = connection.CreateCommand();
         command.CommandText = $"""
-            SELECT board, SUM(deck_count) AS total
-            FROM card_deck_totals
-            WHERE normalized_card_name = @normalized
+            SELECT t.board, SUM(t.deck_count) AS total
+            FROM card_deck_totals t
+            JOIN cards c ON c.id = t.card_id
+            WHERE c.normalized_card_name = @normalized
             {filterClause}
-            GROUP BY board;
+            GROUP BY t.board;
             """;
         RelationalDatabaseConnection.AddParameter(command, "@normalized", CardNormalizer.Normalize(cardName));
         if (boardFilter is not null)
@@ -580,7 +660,7 @@ public sealed class CategoryKnowledgeRepository
         while (await reader.ReadAsync(cancellationToken))
         {
             var board = reader.GetString(0);
-            var total = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+            var total = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetValue(1));
             boardCounts[board] = total;
         }
 
@@ -604,9 +684,15 @@ public sealed class CategoryKnowledgeRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
+        var sourceId = await ResolveSourceIdForReadAsync(connection, null, source, cancellationToken);
+        if (sourceId is null)
+        {
+            return false;
+        }
+
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(1) FROM card_category_observations WHERE source = @source;";
-        RelationalDatabaseConnection.AddParameter(command, "@source", source);
+        command.CommandText = "SELECT COUNT(1) FROM card_category_observations WHERE source_id = @sourceId;";
+        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId.Value);
         var result = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
         return result > 0L;
     }
@@ -894,6 +980,169 @@ public sealed class CategoryKnowledgeRepository
         }
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task<long> ResolveCardIdAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        string cardName,
+        IDictionary<string, long> cache,
+        CancellationToken cancellationToken)
+    {
+        var normalized = CardNormalizer.Normalize(cardName);
+        if (cache.TryGetValue(normalized, out var cachedId))
+        {
+            return cachedId;
+        }
+
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO cards (normalized_card_name, display_name)
+            VALUES (@normalized, @display)
+            ON CONFLICT(normalized_card_name)
+            DO UPDATE SET display_name = excluded.display_name
+            RETURNING id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@normalized", normalized);
+        RelationalDatabaseConnection.AddParameter(command, "@display", cardName);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        var id = Convert.ToInt64(result);
+        cache[normalized] = id;
+        return id;
+    }
+
+    private static async Task<long?> ResolveSourceIdForReadAsync(
+        DbConnection connection,
+        DbTransaction? transaction,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        if (transaction is not null)
+        {
+            command.Transaction = transaction;
+        }
+
+        command.CommandText = "SELECT id FROM sources WHERE source = @source;";
+        RelationalDatabaseConnection.AddParameter(command, "@source", source);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null or DBNull ? null : Convert.ToInt64(result);
+    }
+
+    private static async Task<long> ResolveSourceIdAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        var deckQueueId = await ResolveDeckQueueIdForSourceAsync(connection, transaction, source, cancellationToken);
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO sources (source, deck_queue_id)
+            VALUES (@source, @deckQueueId)
+            ON CONFLICT(source)
+            DO UPDATE SET deck_queue_id = COALESCE(sources.deck_queue_id, excluded.deck_queue_id)
+            RETURNING id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@source", source);
+        RelationalDatabaseConnection.AddParameter(command, "@deckQueueId", deckQueueId);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt64(result);
+    }
+
+    private static async Task<long?> ResolveDeckQueueIdForSourceAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (!source.StartsWith(ArchidektLiveSourcePrefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var deckId = source[ArchidektLiveSourcePrefix.Length..];
+        if (string.IsNullOrWhiteSpace(deckId))
+        {
+            return null;
+        }
+
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT id FROM deck_queue WHERE deck_id = @deckId;";
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null or DBNull ? null : Convert.ToInt64(result);
+    }
+
+    private static async Task UpsertCategoryObservationAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        long sourceId,
+        long cardId,
+        string cardName,
+        string category,
+        string board,
+        int quantity,
+        int deckCountIncrement,
+        string lastSeenUtc,
+        CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc)
+            VALUES (@sourceId, @cardId, @cardName, @category, @board, @deckCount, @quantity, @lastSeenUtc)
+            ON CONFLICT(source_id, card_id, category, board)
+            DO UPDATE SET
+                count = card_category_observations.count + excluded.count,
+                deck_count = card_category_observations.deck_count + excluded.deck_count,
+                card_name = excluded.card_name,
+                last_seen_utc = excluded.last_seen_utc;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
+        RelationalDatabaseConnection.AddParameter(command, "@cardId", cardId);
+        RelationalDatabaseConnection.AddParameter(command, "@cardName", cardName);
+        RelationalDatabaseConnection.AddParameter(command, "@category", category);
+        RelationalDatabaseConnection.AddParameter(command, "@board", board);
+        RelationalDatabaseConnection.AddParameter(command, "@deckCount", deckCountIncrement);
+        RelationalDatabaseConnection.AddParameter(command, "@quantity", quantity);
+        RelationalDatabaseConnection.AddParameter(command, "@lastSeenUtc", lastSeenUtc);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task UpsertCardDeckTotalAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        long sourceId,
+        long cardId,
+        string board,
+        int deckCountIncrement,
+        string lastSeenUtc,
+        CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO card_deck_totals (source_id, card_id, board, deck_count, last_seen_utc)
+            VALUES (@sourceId, @cardId, @board, @deckCount, @lastSeenUtc)
+            ON CONFLICT(source_id, card_id, board)
+            DO UPDATE SET
+                deck_count = card_deck_totals.deck_count + excluded.deck_count,
+                last_seen_utc = excluded.last_seen_utc;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
+        RelationalDatabaseConnection.AddParameter(command, "@cardId", cardId);
+        RelationalDatabaseConnection.AddParameter(command, "@board", board);
+        RelationalDatabaseConnection.AddParameter(command, "@deckCount", deckCountIncrement);
+        RelationalDatabaseConnection.AddParameter(command, "@lastSeenUtc", lastSeenUtc);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static string NormalizeBoard(string? board)
