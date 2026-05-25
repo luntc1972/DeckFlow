@@ -1,12 +1,12 @@
 ---
-title: AI Category Suggestions
+title: Category Suggestions
 summary: Suggest functional categories for a card using multiple data sources.
 order: 80
 ---
 
-# AI Category Suggestions
+# Category Suggestions
 
-The AI Category Suggestions page supports multiple lookup modes:
+The Category Suggestions page supports multiple lookup modes:
 
 - `CachedData`
 - `ReferenceDeck`

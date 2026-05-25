@@ -508,9 +508,9 @@ The Commander Categories page shows the Archidekt tags that appear most often on
 
 ---
 
-## AI Category Suggestions
+## Category Suggestions
 
-The AI Category Suggestions page supports multiple lookup modes:
+The Category Suggestions page supports multiple lookup modes:
 
 - `CachedData`
 - `ReferenceDeck`
@@ -532,7 +532,7 @@ The page also exposes a background Archidekt harvest button so the local categor
 - Run `dotnet run --project DeckFlow.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
 - The CLI runs a dedicated cache session that respects rate limits via Polly, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The web cache service reuses the same session logic for background harvests started from the MVC UI.
-- The AI Category Suggestions page can start a 5-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
+- The Category Suggestions page can start a 5-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
 - Background harvest state is polled from the web app, and the start button stays disabled while the job is queued or running.
 - The cache session now stays alive for the requested harvest window even when the queue runs dry, and it retries transient recent-page fetch failures instead of ending the whole job early.
 - Basic card type categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are filtered out of cache suggestions.

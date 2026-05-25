@@ -46,11 +46,11 @@
         <div class="tool-nav__dropdown">
             @if (FlagCache.IsEnabled("feature.categories.enabled"))
             {
-                <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
+                <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">Category Suggestions</a>
             }
             else
             {
-                <span class="tool-nav__link tool-nav__link--muted">AI Suggestions offline</span>
+                <span class="tool-nav__link tool-nav__link--muted">Suggestions offline</span>
             }
             <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="@Url.Content("~/commander-categories")">Category Reference</a>
         </div>
