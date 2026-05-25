@@ -91,7 +91,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
      Content KB (19-22) is the final feature block; Phase 23 (strip NoWarn) stays
      last by hard dependency on Phase 22 (must document all new KB types first). -->
 - [x] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)* (completed 2026-05-24)
-- [ ] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2*
+- [x] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2* — **DONE 2026-05-25 (live smoke passed)**
 - [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP — *exec #3*
 - [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines — *exec #4*
 - [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var — *exec #5*
@@ -256,7 +256,9 @@ Plans:
   3. No regression in existing category coverage for previously-working cards; affected path covered by a regression test
   4. Test suite preserved at `Failed: 0`; touch-only-what-you-touch (CLAUDE.md R-6)
 
-**Plans**: TBD
+**Plans**: No PLAN (routed through /gsd-debug — fix-in-place, Codex implemented / Claude reviewed).
+
+**Verification status (2026-05-25): ✅ DONE.** Root cause = write-time `CategoryFilter.IsIncluded` dropped literal "Artifact"/"Artifacts" at both harvest write chokepoints → staple cards whose only Archidekt category is their card type got zero observation rows (reproduced in BOTH harvest-running and stopped states — SC1). Fix: removed write-time filter; added read-time `CategoryFilter.IncludedOrFallback` (hides generic buckets only when richer categories exist, else keeps the type label). Commits 14554a1 (RED) / 835c552 (fix) / 9ae049d (debug doc). **Live smoke 2026-05-25** (post Phase-26 reset + re-harvest): card-category AND commander-category lookups return correct non-empty categories in prod (SC2). Regression test added (SC3); build clean. Note: the cat-01 out-of-band index runbook is SUPERSEDED by the Phase 26 normalized schema (compact integer indexes built by EnsureSchema on clean DB).
 
 ### Phase 25: Admin Harvested-Decks Paged Grid
 
