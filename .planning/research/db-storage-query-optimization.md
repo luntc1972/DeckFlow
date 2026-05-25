@@ -58,33 +58,51 @@ denormalized size is.
    (`GetCategoryRowsForCommanderAsync`), processed-deck counts, harvest stats — confirm
    each is index-backed; keep the `reltuples` estimate fast-path for big COUNTs.
 
-## Proposed phase (for ROADMAP)
+## Decision (2026-05-24): fresh-start, schema-redesign FIRST
 
-> **Phase NN: DB Storage & Query Optimization — Category Cache Normalization**
+User authorized a **full database reset** (start over) and chose to do the **schema
+redesign before** the content-hash dedup. This removes the hardest risk: there is **no
+online expand-contract migration of 4M live rows**. Instead:
+
+1. Design the normalized schema (integer-keyed deck + card dimensions; compact keys).
+2. Deploy the new-schema code (`EnsureSchemaAsync` creates the new tables).
+3. **Wipe** the database (full reset — see runbook `docs/ops/db-full-reset.md`).
+4. **Re-harvest** from scratch straight into the optimized schema.
+
+Sequence: **this phase first**, then the content-hash dedup + 5-day refresh phase
+(`deck-cache-content-hash-refresh.md`) layered on top.
+
+## Proposed phase (for ROADMAP) — FIRST of the two
+
+> **Phase NN: Category Cache Schema Normalization (fresh-start)**
 >
-> **Goal:** The category cache fits comfortably in the 256 MB Postgres working set and
-> serves card/commander lookups from indexes, by normalizing repeated deck/card TEXT
-> into integer-keyed dimensions and shrinking the oversized composite-TEXT indexes —
-> without changing user-visible category results.
+> **Goal:** Re-harvested category data lands in a normalized, integer-keyed schema that
+> fits the 256 MB Postgres working set and serves card/commander lookups from compact
+> indexes — replacing the wide TEXT-keyed `card_category_observations` /
+> `card_deck_totals` design. Built fresh (DB wiped + re-harvested), so no in-place
+> migration of existing rows.
 >
 > **Requirements:** DBO-01 (proposed)
 >
 > **Success criteria:**
-> 1. `card_category_observations` + `card_deck_totals` combined total size reduced by a
->    target ≥40% (measured via `pg_total_relation_size` before/after).
-> 2. Card lookup (`GetCategoriesAsync`) and commander aggregate
->    (`GetCategoryRowsForCommanderAsync`) are index-backed (EXPLAIN shows index scans,
->    no full seq scans) and return identical results to today for a fixed sample set.
-> 3. No user-visible change to returned categories (regression-tested against a sample
->    of cards incl. Sol Ring + a commander).
-> 4. Migration is online/expand-contract safe (no destructive drop before backfill +
->    verification); CONCURRENTLY index builds; documented runbook like CAT-01.
+> 1. New schema: deck identity and card names are interned into integer-keyed
+>    dimension tables; fact tables reference them by `int` (no repeated `source` /
+>    `card_name` / `normalized_card_name` TEXT per row).
+> 2. After a full wipe + re-harvest of a representative deck set, combined cache size
+>    is materially smaller than the old design at equivalent row counts (target: PK/
+>    index footprint per million rows cut ≥50% vs the old composite-TEXT PKs).
+> 3. Card lookup (`GetCategoriesAsync`) and commander aggregate
+>    (`GetCategoryRowsForCommanderAsync`) are index-backed (EXPLAIN: index scans) and
+>    return the same categories as the old design for a fixed sample (Sol Ring + a
+>    commander).
+> 4. `EnsureSchemaAsync` creates the new schema idempotently on a clean DB; old tables
+>    are dropped via the documented full-reset runbook (no data carried over).
 > 5. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt).
 >
-> **Risk:** **High** — schema migration of two 4M-row tables on a live 256 MB instance.
-> Must be expand-contract (add new structures, dual-write/backfill, verify, cutover,
-> drop old) with a rollback path. Strongly warrants its own plan + Codex review +
-> staged rollout. Consider doing the low-risk sibling (content-hash dedup) first.
+> **Risk:** **Medium** (down from High, thanks to fresh-start). Main care: the new
+> schema + write path must reproduce identical lookup results, and the cutover is a
+> coordinated deploy + wipe + re-harvest (downtime/empty-cache window acceptable since
+> data is being reset anyway). Still warrants its own plan + Codex review.
 
 ## Open questions
 
