@@ -283,6 +283,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         Assert.Contains("ix_deck_queue_processed", indexNames);
         Assert.Contains("ix_deck_queue_processed_inserted_deck", indexNames);
         Assert.Contains("ix_deck_queue_processed_commander", indexNames);
+        Assert.Contains("ix_deck_queue_processed_commander_lower", indexNames);
     }
 
     [Fact]
@@ -293,8 +294,11 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         await repository.EnsureSchemaAsync();
 
         var indexNames = await GetCardLookupIndexNamesAsync();
-        Assert.Contains("ix_card_deck_totals_normalized", indexNames);
-        Assert.Contains("ix_card_category_observations_normalized", indexNames);
+        Assert.Contains("ux_cards_normalized", indexNames);
+        Assert.Contains("ix_obs_card", indexNames);
+        Assert.Contains("ix_obs_card_board", indexNames);
+        Assert.Contains("ix_totals_card", indexNames);
+        Assert.Contains("ix_totals_card_board", indexNames);
     }
 
     [Fact]
@@ -391,7 +395,8 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
               AND name IN (
                 'ix_deck_queue_processed',
                 'ix_deck_queue_processed_inserted_deck',
-                'ix_deck_queue_processed_commander')
+                'ix_deck_queue_processed_commander',
+                'ix_deck_queue_processed_commander_lower')
             ORDER BY name;
             """;
 
@@ -417,7 +422,12 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
             WHERE type = 'index'
               AND name IN (
                 'ix_card_deck_totals_normalized',
-                'ix_card_category_observations_normalized')
+                'ix_card_category_observations_normalized',
+                'ux_cards_normalized',
+                'ix_obs_card',
+                'ix_obs_card_board',
+                'ix_totals_card',
+                'ix_totals_card_board')
             ORDER BY name;
             """;
 
