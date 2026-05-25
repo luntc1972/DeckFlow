@@ -257,6 +257,22 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryRowsForCommanderAsync_ReturnsCardWithOnlyCardTypeCategory()
+    {
+        var repository = CreateRepository();
+        var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+
+        await SeedProcessedDeckAsync(repository, "TESTDECK", "Krenko, Mob Boss", insertedUtc, insertedUtc);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:TESTDECK", "Sol Ring", new[] { "Artifact" });
+
+        var rows = await repository.GetCategoryRowsForCommanderAsync("Krenko, Mob Boss");
+
+        var row = Assert.Single(rows);
+        Assert.Equal("Artifact", row.Category);
+        Assert.Equal("Sol Ring", row.CardName);
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_CreatesDeckQueueIndexes()
     {
         var repository = CreateRepository();
