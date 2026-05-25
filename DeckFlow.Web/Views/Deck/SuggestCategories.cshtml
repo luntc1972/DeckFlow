@@ -57,22 +57,6 @@
     <div class="mode-note">
         <span>Cached results reflect the latest completed Archidekt harvest stored locally.</span>
     </div>
-    <div class="mode-note desktop-only">
-        <span>Need a bigger refresh? Start a 5-minute Archidekt harvest in the background and keep using the rest of the app while it runs.</span>
-    </div>
-    <div class="toolbar toolbar--secondary desktop-only">
-        <button
-            type="button"
-            class="run-button"
-            data-archidekt-cache-start
-            data-start-url="@Url.Content("~/api/archidekt-cache-jobs")"
-            data-status-base-url="@Url.Content("~/api/archidekt-cache-jobs")"
-            data-active-url="@Url.Content("~/api/archidekt-cache-jobs/active")"
-            data-duration-seconds="300">Run 5-Minute Archidekt Harvest</button>
-    </div>
-    <div class="info-banner hidden desktop-only" data-archidekt-cache-status-panel>
-        <p data-archidekt-cache-status-text></p>
-    </div>
 
     @if (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName) && Model.CardDeckTotals.TotalDeckCount > 0)
     {
