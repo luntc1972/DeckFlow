@@ -12,19 +12,18 @@ using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Tests for <see cref="CategorySuggestionService"/> covering mode routing (cached, reference-deck, tagger, all),
-/// inferred-category precedence, and fallback behaviour when harvest data is unavailable.
+/// Tests for <see cref="CategorySuggestionService"/> covering mode routing (cached, reference-deck, tagger, all)
+/// and inferred-category precedence.
 /// </summary>
 public sealed class CategorySuggestionServiceTests
 {
     [Fact]
-    public async Task SuggestAsync_UsesInferredCategoriesWithoutHarvestWhenAvailable()
+    public async Task SuggestAsync_UsesInferredCategoriesFromCachedStore()
     {
         var totals = new CardDeckTotals(1, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -32,7 +31,7 @@ public sealed class CategorySuggestionServiceTests
         });
 
         var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals);
-        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService());
 
         var request = new CategorySuggestionRequest
         {
@@ -44,20 +43,23 @@ public sealed class CategorySuggestionServiceTests
 
         Assert.False(result.NothingFound);
         Assert.Contains("Ramp", result.InferredCategories);
-        Assert.Equal(1, store.RunCacheSweepCalls);
+        Assert.Equal(0, store.RunCacheSweepCalls);
         Assert.Equal(1, result.CardDeckTotals.TotalDeckCount);
     }
 
     [Fact]
-    public async Task SuggestAsync_SkipsCacheSweep_WhenHarvestActive()
+    public async Task SuggestAsync_ReadsCachedDataWithoutRunningCacheSweep()
     {
         var totals = new CardDeckTotals(1, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["mainboard"] = 1
         });
 
-        var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals);
-        var service = new CategorySuggestionService(store, new FakeActiveJobService(), new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+        var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals)
+        {
+            RunCacheSweepException = new InvalidOperationException("Cache sweep should not run.")
+        };
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService());
 
         var request = new CategorySuggestionRequest
         {
@@ -65,29 +67,11 @@ public sealed class CategorySuggestionServiceTests
             CardName = "Bird of Paradise"
         };
 
-        await service.SuggestAsync(request, CancellationToken.None);
-
-        Assert.Equal(0, store.RunCacheSweepCalls);
-    }
-
-    [Fact]
-    public async Task SuggestAsync_TriggersHarvestWhenCacheEmpty()
-    {
-        var totals = CardDeckTotals.Empty;
-        var store = new FakeKnowledgeStore(new[] { Array.Empty<string>(), new[] { "Draw" } }, processedDeckCount: 1, totals);
-        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
-
-        var request = new CategorySuggestionRequest
-        {
-            Mode = CategorySuggestionMode.CachedData,
-            CardName = "Guardian Project"
-        };
-
         var result = await service.SuggestAsync(request);
 
-        Assert.Contains("Draw", result.InferredCategories);
-        Assert.Equal(1, store.RunCacheSweepCalls);
-        Assert.Equal(1, result.AdditionalDecksFound);
+        Assert.False(result.NothingFound);
+        Assert.Contains("Ramp", result.InferredCategories);
+        Assert.Equal(0, store.RunCacheSweepCalls);
     }
 
     [Fact]
@@ -100,7 +84,7 @@ public sealed class CategorySuggestionServiceTests
             new() { Name = "Guardian Project", NormalizedName = CardNormalizer.Normalize("Guardian Project"), Category = "Draw,Ramp", Quantity = 1, Board = "mainboard" }
         };
         var importer = new FakeImporter(entries);
-        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), importer, new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), importer, new FakeTaggerService());
 
         var request = new CategorySuggestionRequest
         {
@@ -122,7 +106,7 @@ public sealed class CategorySuggestionServiceTests
     {
         var store = new FakeKnowledgeStore(new[] { Array.Empty<string>() }, processedDeckCount: 0, CardDeckTotals.Empty);
         var tagger = new FakeTaggerService("Protection", "Value");
-        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger);
 
         var result = await service.SuggestAsync(new CategorySuggestionRequest
         {
@@ -135,7 +119,6 @@ public sealed class CategorySuggestionServiceTests
         Assert.Contains("Scryfall Tagger", result.UsedSources);
         Assert.Equal(1, tagger.LookupCalls);
         Assert.Equal(0, store.RunCacheSweepCalls);
-        Assert.False(result.CacheHarvestTriggered);
     }
 
     [Fact]
@@ -147,7 +130,7 @@ public sealed class CategorySuggestionServiceTests
         });
         var store = new FakeKnowledgeStore(new[] { new[] { "Draw" } }, processedDeckCount: 4, totals);
         var tagger = new FakeTaggerService("Value");
-        var service = new CategorySuggestionService(store, new FakeJobService(), new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger);
 
         var result = await service.SuggestAsync(new CategorySuggestionRequest
         {
@@ -159,9 +142,8 @@ public sealed class CategorySuggestionServiceTests
         Assert.Contains("Value", result.TaggerCategories);
         Assert.Contains("cached store", result.UsedSources);
         Assert.Contains("Scryfall Tagger", result.UsedSources);
-        Assert.Equal(1, store.RunCacheSweepCalls);
+        Assert.Equal(0, store.RunCacheSweepCalls);
         Assert.Equal(1, tagger.LookupCalls);
-        Assert.True(result.CacheHarvestTriggered);
     }
 
     private sealed class FakeKnowledgeStore : ICategoryKnowledgeStore
@@ -170,6 +152,7 @@ public sealed class CategorySuggestionServiceTests
         private readonly CardDeckTotals _totals;
         public int RunCacheSweepCalls { get; private set; }
         public int ProcessedDeckCount { get; private set; }
+        public Exception? RunCacheSweepException { get; init; }
         private IReadOnlyList<string> _current = Array.Empty<string>();
 
         public FakeKnowledgeStore(IEnumerable<IReadOnlyList<string>> responses, int processedDeckCount, CardDeckTotals totals)
@@ -189,6 +172,11 @@ public sealed class CategorySuggestionServiceTests
         public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
         {
             RunCacheSweepCalls++;
+            if (RunCacheSweepException is not null)
+            {
+                throw RunCacheSweepException;
+            }
+
             ProcessedDeckCount++;
             _current = _responses.Count > 0 ? _responses.Dequeue() : _current;
             return Task.FromResult(1);
@@ -265,44 +253,5 @@ public sealed class CategorySuggestionServiceTests
             LookupCalls++;
             return Task.FromResult(_responses);
         }
-    }
-
-    /// <summary>
-    /// Fake job service that reports no active harvest, so click-sweep is never suppressed
-    /// in tests that do not need harvest-guard behaviour.
-    /// </summary>
-    private sealed class FakeJobService : IArchidektCacheJobService
-    {
-        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not used in these tests.");
-
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-
-        public ArchidektCacheJobStatus? GetActiveJob() => null;
-
-        public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
-    }
-
-    private sealed class FakeActiveJobService : IArchidektCacheJobService
-    {
-        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not used in these tests.");
-
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-
-        public ArchidektCacheJobStatus? GetActiveJob() => new(
-            Guid.NewGuid(),
-            ArchidektCacheJobState.Running,
-            100,
-            DateTimeOffset.UtcNow,
-            DateTimeOffset.UtcNow,
-            null,
-            0,
-            0,
-            null);
-
-        public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
     }
 }

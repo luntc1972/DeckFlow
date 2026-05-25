@@ -7,105 +7,95 @@ using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Tests for <see cref="CommanderCategoryService"/> covering commander category lookup sweep behavior.
+/// Tests for <see cref="CommanderCategoryService"/> covering cached commander category lookups.
 /// </summary>
 public sealed class CommanderCategoryServiceTests
 {
     [Fact]
-    public async Task LookupAsync_SkipsCacheSweep_WhenHarvestActive()
+    public async Task LookupAsync_ReadsCachedDataWithoutRunningCacheSweep()
     {
-        var store = new FakeCategoryKnowledgeStore();
-        var service = new CommanderCategoryService(
-            store,
-            new FakeActiveJobService(),
-            NullLogger<CommanderCategoryService>.Instance);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunCacheSweepException = new InvalidOperationException("Cache sweep should not run."),
+            CategoryRowsResult = new[] { new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2) },
+            CommanderDeckCount = 1
+        };
+        var service = new CommanderCategoryService(store);
 
-        await service.LookupAsync("Atraxa, Praetors' Voice", CancellationToken.None);
+        var result = await service.LookupAsync("Atraxa, Praetors' Voice", CancellationToken.None);
 
         Assert.Equal(0, store.RunCacheSweepCalls);
+        Assert.Single(result.Rows);
+        Assert.Single(result.Summaries);
+        Assert.Equal(1, result.CardDeckTotals.TotalDeckCount);
     }
 
     private sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         public int RunCacheSweepCalls { get; private set; }
+        public Exception? RunCacheSweepException { get; init; }
+        public IReadOnlyList<CategoryKnowledgeRow> CategoryRowsResult { get; init; } = Array.Empty<CategoryKnowledgeRow>();
+        public int CommanderDeckCount { get; init; }
 
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
+            => Task.FromResult(CategoryRowsResult);
 
         public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(3);
 
         public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
-            => Task.FromResult(0);
+            => Task.FromResult(CommanderDeckCount);
 
         public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
         {
             RunCacheSweepCalls++;
+            if (RunCacheSweepException is not null)
+            {
+                throw RunCacheSweepException;
+            }
+
             return Task.FromResult(1);
         }
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
+            => throw new NotSupportedException("Not reached in this test.");
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached via skip-sweep branch.");
-    }
-
-    private sealed class FakeActiveJobService : IArchidektCacheJobService
-    {
-        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not used in these tests.");
-
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-
-        public ArchidektCacheJobStatus? GetActiveJob() => new(
-            Guid.NewGuid(),
-            ArchidektCacheJobState.Running,
-            100,
-            DateTimeOffset.UtcNow,
-            DateTimeOffset.UtcNow,
-            null,
-            0,
-            0,
-            null);
-
-        public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
+            => throw new NotSupportedException("Not reached in this test.");
     }
 }
