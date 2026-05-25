@@ -219,7 +219,7 @@ public sealed class CategoryKnowledgeRepository
             categories.Add(reader.GetString(0));
         }
 
-        return categories;
+        return CategoryFilter.IncludedOrFallback(categories);
     }
 
     /// <summary>
@@ -265,7 +265,7 @@ public sealed class CategoryKnowledgeRepository
             rows.Add(new CategoryKnowledgeRow(category, displayName, total, deckTotal));
         }
 
-        return rows;
+        return FilterGenericCategoryRowsWithFallback(rows);
     }
 
     /// <summary>
@@ -303,7 +303,7 @@ public sealed class CategoryKnowledgeRepository
                 reader.GetInt32(3)));
         }
 
-        return rows;
+        return FilterGenericCategoryRowsWithFallback(rows);
     }
 
     /// <summary>
@@ -495,11 +495,6 @@ public sealed class CategoryKnowledgeRepository
 
         foreach (var category in categories)
         {
-            if (!CategoryFilter.IsIncluded(category))
-            {
-                continue;
-            }
-
             var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
@@ -914,6 +909,20 @@ public sealed class CategoryKnowledgeRepository
         }
 
         return board.Trim().ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<CategoryKnowledgeRow> FilterGenericCategoryRowsWithFallback(IReadOnlyList<CategoryKnowledgeRow> rows)
+    {
+        var categoriesByCard = rows
+            .GroupBy(row => row.CardName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => CategoryFilter.IncludedOrFallback(group.Select(row => row.Category)),
+                StringComparer.OrdinalIgnoreCase);
+
+        return rows
+            .Where(row => categoriesByCard[row.CardName].Contains(row.Category, StringComparer.OrdinalIgnoreCase))
+            .ToList();
     }
 
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();

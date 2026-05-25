@@ -32,12 +32,15 @@ public static class CategoryKnowledgeReporter
             }
         }
 
-        return counts
+        var rows = counts
             .Select(item =>
             {
                 var label = display[item.Key];
                 return new CategoryKnowledgeRow(label.Category, label.CardName, item.Value);
             })
+            .ToList();
+
+        return FilterGenericCategoryRowsWithFallback(rows)
             .OrderBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
             .ThenByDescending(row => row.Count)
             .ThenBy(row => row.CardName, StringComparer.OrdinalIgnoreCase)
@@ -136,7 +139,7 @@ public static class CategoryKnowledgeReporter
     }
 
     /// <summary>
-    /// Splits a comma-delimited category string, filtering out top-level types.
+    /// Splits a comma-delimited category string.
     /// </summary>
     /// <param name="categoryText">Raw category text.</param>
     public static IEnumerable<string> SplitCategories(string? categoryText)
@@ -148,11 +151,22 @@ public static class CategoryKnowledgeReporter
 
         foreach (var category in categoryText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (CategoryFilter.IsIncluded(category))
-            {
-                yield return category;
-            }
+            yield return category;
         }
+    }
+
+    private static IReadOnlyList<CategoryKnowledgeRow> FilterGenericCategoryRowsWithFallback(IReadOnlyList<CategoryKnowledgeRow> rows)
+    {
+        var categoriesByCard = rows
+            .GroupBy(row => row.CardName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => CategoryFilter.IncludedOrFallback(group.Select(row => row.Category)),
+                StringComparer.OrdinalIgnoreCase);
+
+        return rows
+            .Where(row => categoriesByCard[row.CardName].Contains(row.Category, StringComparer.OrdinalIgnoreCase))
+            .ToList();
     }
 }
 
