@@ -130,12 +130,12 @@ public sealed class DeckControllerTests
     }
 
     [Fact]
-    public void BuildNoSuggestionsMessage_UsesCacheRefreshNotice_WhenNoDecks()
+    public void BuildNoSuggestionsMessage_UsesCachedDataNotice_WhenNoDecks()
     {
         var totals = new CardDeckTotals(0, new Dictionary<string, int>());
         var message = CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage("Guardian Project", totals);
 
-        Assert.Equal("No card categories for Guardian Project have been observed in the cached data yet. Run Show Categories again to refresh the cache.", message);
+        Assert.Equal("No card categories for Guardian Project have been observed in the cached data yet.", message);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class DeckControllerTests
         });
         var message = CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage("Guardian Project", totals);
 
-        Assert.Equal("No category suggestions were found for Guardian Project. You can run the lookup again to retry the live Archidekt and EDHREC checks.", message);
+        Assert.Equal("No category suggestions were found for Guardian Project in the selected sources.", message);
     }
 
     [Fact]

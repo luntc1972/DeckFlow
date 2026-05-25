@@ -45,9 +45,7 @@ public sealed class CommanderControllerTests
             rows,
             summaries,
             HarvestedDeckCount: 5,
-            CardDeckTotals: cardTotals,
-            AdditionalDecksFound: 0,
-            CacheSweepPerformed: true);
+            CardDeckTotals: cardTotals);
 
         var controller = new CommanderController(
             new StubCommanderSearchService(),
@@ -62,8 +60,6 @@ public sealed class CommanderControllerTests
         Assert.Equal(summaries.Length, model.CategorySummaries.Count);
         Assert.Equal(5, model.HarvestedDeckCount);
         Assert.True(model.HasResults);
-        Assert.True(model.ExtendedHarvestTriggered);
-        Assert.Equal(0, model.AdditionalDecksFound);
         Assert.Equal(cardTotals.TotalDeckCount, model.CardDeckTotals.TotalDeckCount);
     }
 
@@ -75,9 +71,7 @@ public sealed class CommanderControllerTests
             Array.Empty<CategoryKnowledgeRow>(),
             Array.Empty<CommanderCategorySummary>(),
             HarvestedDeckCount: 0,
-            CardDeckTotals: CardDeckTotals.Empty,
-            AdditionalDecksFound: 0,
-            CacheSweepPerformed: false);
+            CardDeckTotals: CardDeckTotals.Empty);
 
         var controller = new CommanderController(
             new StubCommanderSearchService(),
@@ -90,8 +84,6 @@ public sealed class CommanderControllerTests
 
         Assert.Empty(model.CategorySummaries);
         Assert.False(model.HasResults);
-        Assert.False(model.ExtendedHarvestTriggered);
-        Assert.Equal(0, model.AdditionalDecksFound);
     }
 
     [Fact]
@@ -99,7 +91,7 @@ public sealed class CommanderControllerTests
     {
         var controller = new CommanderController(
             new ThrowingCommanderSearchService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty)),
             NullLogger<CommanderController>.Instance)
         {
             ControllerContext = new ControllerContext
