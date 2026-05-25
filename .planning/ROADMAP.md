@@ -97,6 +97,8 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var — *exec #5*
 - [ ] **Phase 22: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate — *exec #6*
 - [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
+- [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
+- [ ] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26*
 
 ## Phase Details
 
@@ -296,6 +298,8 @@ Plans:
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
 | 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete    | 2026-05-25 |
+| 26. Category Cache Schema Normalization (fresh-start) | 0/TBD | Not started | - |
+| 27. Deck-Cache Content-Hash Dedup + 5-Day Refresh | 0/TBD | Not started | - |
 
 **Critical path:** Phase 16 → Phase 18 → Phase 19 → Phase 20 → Phase 21 → Phase 22
 **Off critical path:** Phase 17 (parallelizable with Phases 16/18/19/20/21/22), Phase 23 (lands last after all v1.4 surface exists), Phase 24 (independent bug fix), Phase 25 (depends only on Phase 18 admin shell)
@@ -340,6 +344,47 @@ Plans:
 - CSS-class / data-attribute / TS-constant `chatgpt-*` cleanup
 - v13-harvest-worker-stalled debug follow-up
 - audit-open scanner vocabulary alignment
+
+### Phase 26: Category Cache Schema Normalization (fresh-start)
+
+**Goal:** Re-harvested category data lands in a normalized, integer-keyed schema that fits the 256 MB Postgres working set and serves card/commander lookups from compact indexes — replacing the wide TEXT-keyed `card_category_observations` / `card_deck_totals` design. Built fresh (DB wiped + re-harvested), so no in-place migration of existing rows.
+**Requirements**: DBO-01
+**Depends on:** Nothing (off critical path; fresh-start rebuild — full DB reset authorized 2026-05-24)
+**Spec**: `.planning/research/db-storage-query-optimization.md`, `docs/ops/db-full-reset.md`
+**Success Criteria** (what must be TRUE):
+
+  1. New schema interns deck identity and card names into integer-keyed dimension tables; fact tables reference them by `int` (no repeated `source` / `card_name` / `normalized_card_name` TEXT per row)
+  2. After a full wipe + re-harvest, PK/index footprint per million rows is cut ≥50% vs the old composite-TEXT PKs (measured via `pg_total_relation_size`)
+  3. `GetCategoriesAsync` and `GetCategoryRowsForCommanderAsync` are index-backed (EXPLAIN: index scans) and return the same categories as the old design for a fixed sample (Sol Ring + a commander)
+  4. `EnsureSchemaAsync` creates the new schema idempotently on a clean DB; old tables dropped via the full-reset runbook (no data carried over)
+  5. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
+
+**Risk:** Medium — coordinated deploy + wipe + re-harvest (empty-cache window acceptable since data is reset); new write path must reproduce identical lookup results. Own plan + Codex review.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 26 to break down)
+
+### Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh
+
+**Goal:** The harvest skips rewriting a deck's cached rows when its cards/categories are unchanged (content hash per deck source), and re-checks a deck only after 5 days — cutting write amplification on the category cache while keeping data fresh.
+**Requirements**: CAT-02
+**Depends on:** Phase 26 (layers on the normalized schema)
+**Spec**: `.planning/specs/deck-cache-content-hash-refresh.md`
+**Success Criteria** (what must be TRUE):
+
+  1. Re-harvesting a deck whose cards/categories are unchanged performs NO delete/insert on the fact tables (only `last_checked_utc` updates) — proven by a write-counting test
+  2. Re-harvesting a deck whose cards/categories changed DOES rewrite its rows (replace semantics preserved) and updates the stored hash
+  3. Content hash is stable and order-independent for the same logical deck content
+  4. A processed deck is not re-fetched until 5 days after its last check (`last_checked_utc`-based)
+  5. Hash stored idempotently (additive schema); existing NULL-hash rows recompute once without error
+  6. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
+
+**Risk:** Low-medium — additive schema; main care is the requeue predicate using `last_checked_utc` and the hash covering exactly the written shape so a real change is never missed.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 27 to break down)
 
 ---
 
