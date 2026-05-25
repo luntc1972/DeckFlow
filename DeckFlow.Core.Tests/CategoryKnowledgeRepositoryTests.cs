@@ -285,6 +285,18 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         Assert.Contains("ix_deck_queue_processed_commander", indexNames);
     }
 
+    [Fact]
+    public async Task EnsureSchemaAsync_CreatesCardLookupIndexes()
+    {
+        var repository = CreateRepository();
+
+        await repository.EnsureSchemaAsync();
+
+        var indexNames = await GetCardLookupIndexNamesAsync();
+        Assert.Contains("ix_card_deck_totals_normalized", indexNames);
+        Assert.Contains("ix_card_category_observations_normalized", indexNames);
+    }
+
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
 
     private async Task SeedProcessedDeckAsync(
@@ -353,6 +365,32 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
                 'ix_deck_queue_processed',
                 'ix_deck_queue_processed_inserted_deck',
                 'ix_deck_queue_processed_commander')
+            ORDER BY name;
+            """;
+
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names;
+    }
+
+    private async Task<IReadOnlyList<string>> GetCardLookupIndexNamesAsync()
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'index'
+              AND name IN (
+                'ix_card_deck_totals_normalized',
+                'ix_card_category_observations_normalized')
             ORDER BY name;
             """;
 
