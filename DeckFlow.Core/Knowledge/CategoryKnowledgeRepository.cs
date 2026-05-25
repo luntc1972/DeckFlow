@@ -57,15 +57,19 @@ public sealed class CategoryKnowledgeRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
-        await CreateCardCategoryObservationsTableAsync(connection, cancellationToken);
+        await CreateCardsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
+        await CreateSourcesTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
         var command = connection.CreateCommand();
-        command.CommandText = """
+        command.CommandText = $"""
             CREATE TABLE IF NOT EXISTS deck_queue (
-                deck_id TEXT PRIMARY KEY,
+                id {_connectionInfo.Dialect.SurrogateIdColumnType},
+                deck_id TEXT NOT NULL,
                 inserted_utc TEXT NOT NULL,
                 processed INTEGER NOT NULL DEFAULT 0,
                 skipped INTEGER NOT NULL DEFAULT 0,
-                last_checked_utc TEXT
+                last_checked_utc TEXT,
+                commander_name TEXT NULL,
+                content_hash TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -79,17 +83,26 @@ public sealed class CategoryKnowledgeRepository
             """;
         await crawlStateCommand.ExecuteNonQueryAsync(cancellationToken);
 
-        await EnsureDeckQueueColumnsAsync(connection, cancellationToken);
-        await EnsureCategoryObservationSchemaAsync(connection, cancellationToken);
-        await CreateCardDeckTotalsTableAsync(connection, cancellationToken);
+        await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
+        await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
 
         var indexCommand = connection.CreateCommand();
         indexCommand.CommandText = """
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_cards_normalized ON cards(normalized_card_name);
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sources_source ON sources(source);
+            CREATE INDEX IF NOT EXISTS ix_sources_deck_queue ON sources(deck_queue_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_deck_queue_deck_id ON deck_queue(deck_id);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed ON deck_queue(processed);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_inserted_deck ON deck_queue(processed, inserted_utc, deck_id);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_commander ON deck_queue(processed, commander_name);
-            CREATE INDEX IF NOT EXISTS ix_card_deck_totals_normalized ON card_deck_totals(normalized_card_name);
-            CREATE INDEX IF NOT EXISTS ix_card_category_observations_normalized ON card_category_observations(normalized_card_name);
+            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_commander_lower ON deck_queue(processed, LOWER(commander_name));
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_obs_grain ON card_category_observations(source_id, card_id, category, board);
+            CREATE INDEX IF NOT EXISTS ix_obs_card ON card_category_observations(card_id);
+            CREATE INDEX IF NOT EXISTS ix_obs_card_board ON card_category_observations(card_id, board);
+            CREATE INDEX IF NOT EXISTS ix_obs_source ON card_category_observations(source_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_totals_grain ON card_deck_totals(source_id, card_id, board);
+            CREATE INDEX IF NOT EXISTS ix_totals_card ON card_deck_totals(card_id);
+            CREATE INDEX IF NOT EXISTS ix_totals_card_board ON card_deck_totals(card_id, board);
             """;
         indexCommand.CommandTimeout = 15;
         // Why: indexes are startup optimizations; large production tables should have heavy
@@ -106,104 +119,69 @@ public sealed class CategoryKnowledgeRepository
         }
     }
 
-    /// <summary>
-    /// Verifies the deck queue table includes the latest needed columns.
-    /// </summary>
-    /// <param name="connection">Open relational database connection.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task EnsureDeckQueueColumnsAsync(DbConnection connection, CancellationToken cancellationToken)
-    {
-        var columns = await GetTableColumnsAsync(connection, "deck_queue", cancellationToken);
-        var hasSkipped = columns.Contains("skipped");
-        var hasCommanderName = columns.Contains("commander_name");
-
-        if (!hasSkipped)
-        {
-            var alterCommand = connection.CreateCommand();
-            alterCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0;";
-            await alterCommand.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        if (!hasCommanderName)
-        {
-            // D-17: capture commander identity per processed deck so the harvest stats panel
-            // can group top-N commanders by deck_count without joining card_category_observations.
-            // Existing rows stay NULL; only newly-imported decks populate this column.
-            var alterCommand = connection.CreateCommand();
-            alterCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN commander_name TEXT NULL;";
-            await alterCommand.ExecuteNonQueryAsync(cancellationToken);
-        }
-    }
-
-    private async Task EnsureCategoryObservationSchemaAsync(DbConnection connection, CancellationToken cancellationToken)
-    {
-        var columns = await GetTableColumnsAsync(connection, "card_category_observations", cancellationToken);
-        if (columns.Count == 0)
-        {
-            return;
-        }
-
-        if (!columns.Contains("board") || !columns.Contains("deck_count"))
-        {
-            await MigrateCategoryObservationsTableAsync(connection, cancellationToken);
-        }
-    }
-
-    private static async Task CreateCardCategoryObservationsTableAsync(DbConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateCardsTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS card_category_observations (
-                source TEXT NOT NULL,
-                card_name TEXT NOT NULL,
+        command.CommandText = $"""
+            CREATE TABLE IF NOT EXISTS cards (
+                id {surrogateIdColumnType},
                 normalized_card_name TEXT NOT NULL,
+                display_name TEXT NOT NULL
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task CreateSourcesTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        // Why: every source string is interned once so facts carry source_id;
+        // deck_queue remains the harvest queue and URL/EDHREC sources stay out of it.
+        command.CommandText = $"""
+            CREATE TABLE IF NOT EXISTS sources (
+                id {surrogateIdColumnType},
+                source TEXT NOT NULL,
+                deck_queue_id INTEGER NULL
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task CreateCardCategoryObservationsTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        // Why: the write path owns fact/dimension integrity uniformly across dialects;
+        // hard DB constraints would behave differently across SQLite and Postgres.
+        command.CommandText = $"""
+            CREATE TABLE IF NOT EXISTS card_category_observations (
+                id {surrogateIdColumnType},
+                source_id INTEGER NOT NULL,
+                card_id INTEGER NOT NULL,
+                card_name TEXT NOT NULL,
                 category TEXT NOT NULL,
                 board TEXT NOT NULL DEFAULT 'mainboard',
                 deck_count INTEGER NOT NULL DEFAULT 0,
                 count INTEGER NOT NULL,
-                last_seen_utc TEXT NOT NULL,
-                PRIMARY KEY (source, normalized_card_name, category, board)
+                last_seen_utc TEXT NOT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task CreateCardDeckTotalsTableAsync(DbConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateCardDeckTotalsTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
-        command.CommandText = """
+        command.CommandText = $"""
             CREATE TABLE IF NOT EXISTS card_deck_totals (
-                source TEXT NOT NULL,
-                card_name TEXT NOT NULL,
-                normalized_card_name TEXT NOT NULL,
+                id {surrogateIdColumnType},
+                source_id INTEGER NOT NULL,
+                card_id INTEGER NOT NULL,
                 board TEXT NOT NULL DEFAULT 'mainboard',
                 deck_count INTEGER NOT NULL DEFAULT 0,
-                last_seen_utc TEXT NOT NULL,
-                PRIMARY KEY (source, normalized_card_name, board)
+                last_seen_utc TEXT NOT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private static async Task MigrateCategoryObservationsTableAsync(DbConnection connection, CancellationToken cancellationToken)
-    {
-        var renameCommand = connection.CreateCommand();
-        renameCommand.CommandText = "ALTER TABLE card_category_observations RENAME TO card_category_observations_old;";
-        await renameCommand.ExecuteNonQueryAsync(cancellationToken);
-
-        await CreateCardCategoryObservationsTableAsync(connection, cancellationToken);
-
-        var copyCommand = connection.CreateCommand();
-        copyCommand.CommandText = """
-            INSERT INTO card_category_observations (source, card_name, normalized_card_name, category, board, deck_count, count, last_seen_utc)
-            SELECT source, card_name, normalized_card_name, category, 'mainboard', 0, count, last_seen_utc
-            FROM card_category_observations_old;
-            """;
-        await copyCommand.ExecuteNonQueryAsync(cancellationToken);
-
-        var dropCommand = connection.CreateCommand();
-        dropCommand.CommandText = "DROP TABLE card_category_observations_old;";
-        await dropCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <summary>

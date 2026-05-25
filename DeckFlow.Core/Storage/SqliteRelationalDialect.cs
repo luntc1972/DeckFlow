@@ -11,6 +11,7 @@ public sealed class SqliteRelationalDialect : IRelationalDialect
     {
     }
 
+    public string SurrogateIdColumnType => "INTEGER PRIMARY KEY AUTOINCREMENT";
     public string FeedbackIdColumnType => "INTEGER PRIMARY KEY AUTOINCREMENT";
     public string FeedbackCreatedUtcColumnType => "TEXT";
     public string FeedbackOrderByClause => "datetime(created_utc) DESC, id DESC";
