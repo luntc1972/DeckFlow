@@ -31,14 +31,14 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// Initializes the knowledge store for the web app environment.
     /// </summary>
     /// <param name="environment">Web host environment for locating artifacts.</param>
-    public CategoryKnowledgeStore(IWebHostEnvironment environment)
+    public CategoryKnowledgeStore(IWebHostEnvironment environment, ILogger<CategoryKnowledgeStore>? logger = null)
     {
         _connectionInfo = DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment);
         _artifactsPath = ResolveArtifactsPath(environment);
         _databasePath = _connectionInfo.IsSqlite
             ? Path.Combine(_artifactsPath, "category-knowledge.db")
             : null;
-        _repository = new CategoryKnowledgeRepository(_connectionInfo);
+        _repository = new CategoryKnowledgeRepository(_connectionInfo, logger);
         _archidektImporter = new ArchidektApiDeckImporter();
         _recentDeckImporter = new ArchidektRecentDecksImporter();
     }

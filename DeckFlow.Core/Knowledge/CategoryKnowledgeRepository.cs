@@ -2,6 +2,7 @@ using System;
 using System.Data.Common;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Reporting;
@@ -16,20 +17,22 @@ public sealed class CategoryKnowledgeRepository
 {
     private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(1);
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly ILogger? _logger;
     private readonly string? _databasePath;
     private readonly string _directoryPath;
 
     /// <summary>
     /// Initializes the repository for the provided SQLite database path.
     /// </summary>
-    public CategoryKnowledgeRepository(string databasePath)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath))
+    public CategoryKnowledgeRepository(string databasePath, ILogger? logger = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), logger)
     {
     }
 
-    public CategoryKnowledgeRepository(RelationalDatabaseConnection connectionInfo)
+    public CategoryKnowledgeRepository(RelationalDatabaseConnection connectionInfo, ILogger? logger = null)
     {
         _connectionInfo = connectionInfo;
+        _logger = logger;
         _databasePath = connectionInfo.IsSqlite
             ? connectionInfo.ExtractSqlitePath()
             : null;
@@ -88,7 +91,19 @@ public sealed class CategoryKnowledgeRepository
             CREATE INDEX IF NOT EXISTS ix_card_deck_totals_normalized ON card_deck_totals(normalized_card_name);
             CREATE INDEX IF NOT EXISTS ix_card_category_observations_normalized ON card_category_observations(normalized_card_name);
             """;
-        await indexCommand.ExecuteNonQueryAsync(cancellationToken);
+        indexCommand.CommandTimeout = 15;
+        // Why: indexes are startup optimizations; large production tables should have heavy
+        // indexes built out-of-band with CREATE INDEX CONCURRENTLY instead of crashing deploys.
+        try
+        {
+            await indexCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
+        {
+            _logger?.LogWarning(
+                exception,
+                "Category knowledge index creation failed during schema startup; continuing without optional indexes.");
+        }
     }
 
     /// <summary>
