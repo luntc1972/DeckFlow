@@ -295,7 +295,7 @@ Plans:
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
-| 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete   | 2026-05-24 |
+| 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete    | 2026-05-25 |
 
 **Critical path:** Phase 16 → Phase 18 → Phase 19 → Phase 20 → Phase 21 → Phase 22
 **Off critical path:** Phase 17 (parallelizable with Phases 16/18/19/20/21/22), Phase 23 (lands last after all v1.4 surface exists), Phase 24 (independent bug fix), Phase 25 (depends only on Phase 18 admin shell)

@@ -40,7 +40,7 @@
 
 ### Admin Harvested-Decks Grid (AHD)
 
-- [ ] **AHD-01**: The admin harvested-decks view replaces the current top-ten-decks list with a paged grid showing ALL harvested decks — server-side paging (page size + total count), scannable rows. Reuses the Phase 18 responsive admin shell + existing admin table/card patterns; must not load all rows into memory (Render 512MB cap). (Added 2026-05-24.)
+- [x] **AHD-01**: The admin harvested-decks view replaces the current top-ten-decks list with a paged grid showing ALL harvested decks — server-side paging (page size + total count), scannable rows. Reuses the Phase 18 responsive admin shell + existing admin table/card patterns; must not load all rows into memory (Render 512MB cap). (Added 2026-05-24.)
 
 ## Future Requirements (Deferred to v1.5+)
 
