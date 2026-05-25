@@ -85,6 +85,8 @@ public sealed class CategoryKnowledgeRepository
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed ON deck_queue(processed);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_inserted_deck ON deck_queue(processed, inserted_utc, deck_id);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_commander ON deck_queue(processed, commander_name);
+            CREATE INDEX IF NOT EXISTS ix_card_deck_totals_normalized ON card_deck_totals(normalized_card_name);
+            CREATE INDEX IF NOT EXISTS ix_card_category_observations_normalized ON card_category_observations(normalized_card_name);
             """;
         await indexCommand.ExecuteNonQueryAsync(cancellationToken);
     }
