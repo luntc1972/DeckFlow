@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Linq;
 using System.Net.Http;
 using DeckFlow.Core.Models;
@@ -46,6 +47,7 @@ public sealed class SuggestionsApiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<CategorySuggestionApiResponse>> PostCardSuggestionAsync([FromBody] CategorySuggestionRequest request, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
@@ -98,6 +100,11 @@ public sealed class SuggestionsApiController : ControllerBase
         catch (OperationCanceledException)
         {
             return StatusCode(408, new { Message = "Category lookup timed out after 20 seconds. Try again, or use a direct Archidekt deck with the card already categorized." });
+        }
+        catch (DbException exception)
+        {
+            _logger.LogWarning(exception, "Card suggestion database lookup failed.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { Message = "Category lookup is temporarily unavailable, please try again." });
         }
         catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)
         {
