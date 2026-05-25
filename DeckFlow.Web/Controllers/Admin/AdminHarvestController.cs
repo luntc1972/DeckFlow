@@ -84,6 +84,8 @@ public sealed class AdminHarvestController : Controller
 
         page = Math.Max(page, 1);
         const int pageSize = AdminHarvestViewModel.DefaultDeckPageSize;
+        // Why: count and page slice are separate admin-only reads; a concurrent harvest may
+        // shift totals briefly, and the next refresh/pagination click reconciles the view.
         var deckTotal = await _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
         var deckTotalPages = (int)Math.Ceiling((double)Math.Max(deckTotal, 1) / Math.Max(pageSize, 1));
         page = Math.Min(page, deckTotalPages);

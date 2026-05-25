@@ -196,6 +196,18 @@ public sealed class CategoryKnowledgeStoreTests
         Assert.Equal(25, fake.LastPagedCommanderPageSize);
     }
 
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(-1L, 0)]
+    [InlineData(42L, 42)]
+    [InlineData(2147483648L, int.MaxValue)]
+    public void CoerceCount_SaturatesLargeAndNegativeCounts(object? result, int expected)
+    {
+        var count = CategoryKnowledgeStore.CoerceCount(result);
+
+        Assert.Equal(expected, count);
+    }
+
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)
         => new(new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")));
 

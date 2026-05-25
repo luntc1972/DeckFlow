@@ -172,6 +172,26 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPagedProcessedCommanderRowsAsync_GroupsCommanderNamesCaseInsensitively()
+    {
+        var repository = CreateRepository();
+        var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        var lastProcessedUtc = DateTimeOffset.Parse("2026-01-04T00:00:00Z");
+
+        await SeedProcessedDeckAsync(repository, "atraxa-1", "Atraxa", insertedUtc, DateTimeOffset.Parse("2026-01-02T00:00:00Z"));
+        await SeedProcessedDeckAsync(repository, "atraxa-2", "atraxa", insertedUtc, lastProcessedUtc);
+
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(page: 1, pageSize: 10);
+        var count = await repository.GetDistinctProcessedCommanderCountAsync();
+
+        var row = Assert.Single(rows);
+        Assert.Equal("atraxa", row.CommanderName);
+        Assert.Equal(2, row.DeckCount);
+        Assert.Equal(lastProcessedUtc.ToString("O"), row.LastProcessedUtc);
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
     public async Task GetPagedProcessedCommanderRowsAsync_ReturnsEmptyListForEmptyQueue()
     {
         var repository = CreateRepository();
