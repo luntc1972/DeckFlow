@@ -52,6 +52,8 @@ If you'd rather keep the schema objects and just empty the data (current schema 
 
 ```sql
 TRUNCATE TABLE
+  cards,
+  sources,
   card_category_observations,
   card_deck_totals,
   deck_queue,
@@ -68,7 +70,9 @@ RESTART IDENTITY CASCADE;
 ```
 
 (Adjust the table list to whatever `\dt` shows at run time — table set changes as
-features ship. After the schema redesign the category table names will differ.)
+features ship. In the normalized category cache, `cards` and `sources` are
+dimension tables, the fact tables are integer-keyed by `source_id` / `card_id`,
+and `deck_queue` remains only the harvest queue / live-deck dimension.)
 
 ## Step B — Re-harvest
 
@@ -78,9 +82,8 @@ read cache only — they will be empty until the harvest has run.
 
 ## Notes
 
-- After reset, rebuild any indexes the app does not create automatically per
-  `docs/ops/cat-01-suggestion-indexes.md` (or confirm `EnsureSchemaAsync` created them
-  — with the new normalized schema, indexes are part of the schema and rebuild on a
-  clean DB).
+- After reset, `EnsureSchemaAsync` creates the category-cache indexes on a clean DB,
+  including the lowered-commander expression index. The out-of-band
+  `docs/ops/cat-01-suggestion-indexes.md` build is superseded for this schema.
 - `feature_flags` will be recreated empty — re-set any flags (e.g. `content_kb_enabled`)
   after reset if you rely on non-default values.
