@@ -14,12 +14,13 @@ public static class CategorySuggestionReporter
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
 
         var normalizedName = CardNormalizer.Normalize(cardName);
-        return entries
+        var categories = entries
             .Where(entry => string.Equals(entry.NormalizedName, normalizedName, StringComparison.Ordinal))
             .SelectMany(entry => SplitCategories(entry.Category))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(category => category, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        return CategoryFilter.IncludedOrFallback(categories);
     }
 
     public static string ToText(IEnumerable<string> categories, string cardName)
@@ -45,10 +46,7 @@ public static class CategorySuggestionReporter
 
         foreach (var item in categoryText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (CategoryFilter.IsIncluded(item))
-            {
-                yield return item;
-            }
+            yield return item;
         }
     }
 }
