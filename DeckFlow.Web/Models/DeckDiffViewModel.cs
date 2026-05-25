@@ -48,7 +48,5 @@ public sealed class DeckDiffViewModel
     public string? NoSuggestionsMessage { get; init; }
 
     public string? SuggestionSourceSummary { get; init; }
-    public int AdditionalDecksFound { get; init; }
-    public bool ExtendedHarvestTriggered { get; init; }
     public CardDeckTotals CardDeckTotals { get; init; } = CardDeckTotals.Empty;
 }

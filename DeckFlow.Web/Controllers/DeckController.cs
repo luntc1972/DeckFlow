@@ -1345,8 +1345,6 @@ public sealed class DeckController : Controller
                 SuggestionSourceSummary = result.UsedSources.Count == 0
                     ? null
                     : $"Source used: {string.Join(" + ", result.UsedSources)}",
-                ExtendedHarvestTriggered = result.CacheHarvestTriggered,
-                AdditionalDecksFound = result.AdditionalDecksFound,
                 CardDeckTotals = result.CardDeckTotals
             };
             return View("SuggestCategories", viewModel);

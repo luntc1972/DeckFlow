@@ -132,8 +132,8 @@
   const busyConfigByMode: Record<string, { title: string; message: string; progress: string }> = {
     CachedData: {
       title: 'Finding Categories',
-      message: 'Checking the local store and recent Archidekt decks.',
-      progress: 'Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches',
+      message: 'Checking cached category data.',
+      progress: 'Checking cached store|Loading category matches|Finalizing results',
     },
     ReferenceDeck: {
       title: 'Finding Categories',
@@ -148,7 +148,7 @@
     All: {
       title: 'Finding Categories',
       message: 'Checking all sources: cached store and Scryfall Tagger.',
-      progress: 'Refreshing cached store|Querying Scryfall Tagger|Finalizing results',
+      progress: 'Checking cached store|Querying Scryfall Tagger|Finalizing results',
     },
   };
 
@@ -199,7 +199,7 @@
 
     const hintText = response.noSuggestionsFound && response.noSuggestionsMessage
       ? response.noSuggestionsMessage
-      : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName}. Click Suggest to keep scanning public decks for another 20 seconds so those categories can populate.`;
+      : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName} when they have been observed by a completed harvest.`;
 
     setFieldText('lookup-hint-text', hintText);
     toggleSuggestionPanel('lookup-hint', true);
@@ -275,7 +275,7 @@
     const hasResults = response.summaries.length > 0;
     const hintText = hasResults
       ? `Commander categories for ${response.commanderName} were sourced from the cached store.`
-      : `No commander categories for ${response.commanderName} have been observed in the cached data yet. Run Show Categories again to refresh the cache.`;
+      : `No commander categories for ${response.commanderName} have been observed in the cached data yet.`;
 
     setFieldText('commander-hint-text', hintText);
     toggleSuggestionPanel('commander-hint', true);
