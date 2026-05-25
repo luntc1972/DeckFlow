@@ -54,22 +54,24 @@ internal static class DeckCategoryCacheWriter
             }
         }
 
+        var observations = new List<(string CardName, string Category, string Board, int Quantity, int DeckCountIncrement)>(counts.Count);
         foreach (var group in counts)
         {
-            await repository.PersistObservedCategoriesAsync(
-                source,
+            observations.Add((
                 group.Key.CardName,
-                new[] { group.Key.Category },
-                group.Value.Quantity,
+                group.Key.Category,
                 group.Key.Board,
-                deckCountIncrement: 1,
-                cancellationToken);
+                group.Value.Quantity,
+                DeckCountIncrement: 1));
         }
 
+        var totals = new List<(string CardName, string Board)>(cardBoardHits.Count);
         foreach (var cardBoard in cardBoardHits)
         {
-            await repository.PersistCardDeckTotalsAsync(source, cardBoard.CardName, cardBoard.Board, deckCountIncrement: 1, cancellationToken: cancellationToken);
+            totals.Add(cardBoard);
         }
+
+        await repository.PersistDeckCategoryBatchAsync(source, observations, totals, cancellationToken);
     }
 
     private static string NormalizeBoard(string? board)
