@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Models;
@@ -173,6 +174,26 @@ public sealed class SuggestionsApiControllerTests
     }
 
     [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsServiceUnavailable_WhenDatabaseLookupFails()
+    {
+        var controller = CreateController(
+            new ThrowingCategorySuggestionService(new TestDbException("read timed out")),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Sol Ring"
+        }, CancellationToken.None);
+
+        var serviceUnavailable = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, serviceUnavailable.StatusCode);
+        var message = serviceUnavailable.Value?.GetType().GetProperty("Message")?.GetValue(serviceUnavailable.Value) as string;
+        Assert.Equal("Category lookup is temporarily unavailable, please try again.", message);
+    }
+
+    [Fact]
     public async Task PostMechanicLookupAsync_ReturnsStructuredResponse()
     {
         var controller = CreateController(
@@ -285,6 +306,14 @@ public sealed class SuggestionsApiControllerTests
 
         public Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
             => Task.FromException<CategorySuggestionResult>(_exception);
+    }
+
+    private sealed class TestDbException : DbException
+    {
+        public TestDbException(string message)
+            : base(message)
+        {
+        }
     }
 
     private sealed class FakeMechanicLookupService : IMechanicLookupService
