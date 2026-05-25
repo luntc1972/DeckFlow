@@ -167,6 +167,45 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
+    public async Task LiveSource_WriteLinksSourceToExistingDeckQueueRow()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "delta-2" });
+        await repository.PersistObservedCategoriesAsync(
+            "archidekt_live:delta-2",
+            "Sol Ring",
+            new[] { "Artifact" },
+            quantity: 1,
+            board: "mainboard",
+            deckCountIncrement: 1);
+
+        await using (var connection = await OpenConnectionAsync())
+        {
+            var linkedRows = await QuerySingleInt64Async(
+                connection,
+                """
+                SELECT COUNT(1)
+                FROM sources s
+                JOIN deck_queue q ON q.id = s.deck_queue_id
+                WHERE s.source = 'archidekt_live:delta-2'
+                  AND q.deck_id = 'delta-2';
+                """);
+            Assert.Equal(1, linkedRows);
+        }
+
+        await repository.MarkDeckProcessedAsync("delta-2", "Krenko, Mob Boss");
+
+        var rows = await repository.GetCategoryRowsForCommanderAsync("Krenko, Mob Boss");
+
+        var row = Assert.Single(rows);
+        Assert.Equal("Artifact", row.Category);
+        Assert.Equal("Sol Ring", row.CardName);
+        Assert.Equal(1, row.Count);
+        Assert.Equal(1, row.DeckCount);
+    }
+
+    [Fact]
     public async Task DisplaySpellingVariants_AreNotCollapsed()
     {
         var repository = CreateRepository();

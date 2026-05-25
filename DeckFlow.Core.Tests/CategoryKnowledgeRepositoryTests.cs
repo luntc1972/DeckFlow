@@ -323,6 +323,8 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
         Assert.Null(exception);
         var tableNames = await GetTableNamesAsync();
+        Assert.Contains("cards", tableNames);
+        Assert.Contains("sources", tableNames);
         Assert.Contains("deck_queue", tableNames);
         Assert.Contains("card_category_observations", tableNames);
         Assert.Contains("card_deck_totals", tableNames);
@@ -421,8 +423,6 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
             FROM sqlite_master
             WHERE type = 'index'
               AND name IN (
-                'ix_card_deck_totals_normalized',
-                'ix_card_category_observations_normalized',
                 'ux_cards_normalized',
                 'ix_obs_card',
                 'ix_obs_card_board',
@@ -453,6 +453,8 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
             WHERE type = 'table'
               AND name IN (
                 'deck_queue',
+                'cards',
+                'sources',
                 'card_category_observations',
                 'card_deck_totals')
             ORDER BY name;
