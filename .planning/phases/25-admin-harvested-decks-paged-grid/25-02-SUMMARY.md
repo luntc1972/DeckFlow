@@ -102,12 +102,19 @@ None - Tasks 1 and 2 executed as scoped. Task 3 was intentionally not executed.
 - `DeckFlow.Web/Models/Admin/AdminFeedbackListViewModel.cs` listed in read-first does not exist; the view model is co-located in `AdminFeedbackController.cs`, and that file was read.
 - Pre-existing `.planning/STATE.md`, `.planning/ROADMAP.md`, `.planning/todos/`, and `.claude/` changes were left untouched.
 
+## Review Fixes
+
+- **WR-01:** Commander grid aggregate/count now use `LOWER(commander_name)` to match detail lookups; display name uses deterministic `MAX(commander_name)`.
+- **WR-02:** Last Processed parses stored ISO strings and formats with the existing table timestamp format, `u` (`yyyy-MM-dd HH:mm:ssZ`), falling back to the raw string on parse failure.
+- **WR-03:** Category count coercion now saturates values above `int.MaxValue` and clamps negative values to 0 instead of throwing.
+- **WR-04:** The controller documents the accepted admin-only eventual-consistency window between the separate count and page-slice reads.
+
 ## Verification
 
 - `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.sln -c Release` - **Passed**, 0 warnings / 0 errors.
 - `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj -v minimal --filter "FullyQualifiedName~AdminHarvestControllerTests"` - **Passed**, Failed: 0, Passed: 3.
-- `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj -v minimal --filter "FullyQualifiedName~CategoryKnowledgeRepositoryTests"` - **Passed**, Failed: 0, Passed: 13.
-- `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj -v minimal --filter "FullyQualifiedName~CategoryKnowledgeStoreTests"` - **Passed**, Failed: 0, Passed: 19.
+- `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj -v minimal --filter "FullyQualifiedName~CategoryKnowledgeRepositoryTests"` - **Passed**, Failed: 0, Passed: 14.
+- `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj -v minimal --filter "FullyQualifiedName~CategoryKnowledgeStoreTests"` - **Passed**, Failed: 0, Passed: 23.
 - Grep gates passed: no `HarvestedDeckRow`, `GetPagedProcessedDeckRowsAsync`, `GetPagedProcessedDecksAsync`, or `HarvestedDecks` symbols remain in Core/Web/Web.Tests; `TopCommanders` compatibility property remains gone.
 - `rg "Stats\\.TopCommanders|payload\\.TopCommanders|TopCommanders \\{ get" .` returned no matches.
 - `git diff --name-only HEAD~2..HEAD | rg '\.css$'` returned no CSS files.
