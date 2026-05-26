@@ -189,7 +189,13 @@ Plans:
   5. All new record types preserve `{ get; init; }` properties (System.Text.Json silently skips get-only props — already broke `EdhTop16Client` once); all DDL constants and C# raw-string literals byte-preserved (CLAUDE.md formatting rule)
   6. `IWhisperSpendLedger.GetMonthlyTotalAsync(yearMonth)` returns app-side aggregate over the local spend-log `month_key`; plain cap-check helper stubbed for Phase 20 to wire (NO TOCTOU advisory-lock machinery)
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+- [ ] 19-01-PLAN.md — DeckFlow.Core/Knowledge contract layer: content record models + ContentTagVocabulary allowlist + AI-prompt artifact file-format spec + slim-index/artifact DTOs (KB-06, KB-07)
+- [ ] 19-02-PLAN.md — Storage foundation: RelationalDatabaseConnection.OpenConnectionAsync FK-pragma seam (D-03) + CreateContentKbConnection factory + FK/CASCADE proof at connection layer (KB-01, KB-04)
+- [ ] 19-03-PLAN.md — ContentSourceStore (content_sources) + ContentVideoStore aggregate (videos+transcripts+summaries+clips+tags) with CASCADE FKs + D-04 CASCADE proof test (KB-01, KB-04, KB-07)
+- [ ] 19-04-PLAN.md — WhisperSpendLedger (+ env-cap stub, KB-05) + ContentHarvestRunStore (KB-02) + slim ContentSiteIndexStore Render-bound index (KB-08)
 
 ### Phase 20: Content KB Ingestion + Transcription (local)
 
@@ -303,7 +309,7 @@ Plans:
 | 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
 | 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
 | 18. Admin Mobile-Responsive Sweep | 2/2 | Complete | 2026-05-24 |
-| 19. Content KB Foundation — Stores + Schema | 0/TBD | Not started | - |
+| 19. Content KB Foundation — Local Schema + Contracts | 0/4 | Planned | - |
 | 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
