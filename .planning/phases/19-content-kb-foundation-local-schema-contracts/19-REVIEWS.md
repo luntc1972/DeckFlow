@@ -3,7 +3,30 @@ phase: 19
 reviewers: [codex]
 reviewed_at: 2026-05-26T14:00:00-06:00
 plans_reviewed: [19-01-PLAN.md, 19-02-PLAN.md, 19-03-PLAN.md, 19-04-PLAN.md]
+convergence: GREEN (round 2 — no HIGH)
 ---
+
+# Convergence Round 2 — Codex re-review (2026-05-26)
+
+After replanning (`/gsd-plan-phase 19 --reviews`, commit `43c61f5`), the revised 4 plans were re-sent to Codex.
+
+**Codex verdict: GREEN (no HIGH).** All 7 round-1 findings confirmed RESOLVED:
+- FK ordering / 19-04 depends_on 19-03 → RESOLVED (19-04 now Wave 3; 19-03 ensures content_sources first; 19-04 ensures content_videos first).
+- Split factory data-locality → RESOLVED (`CreateLocalContentKbConnection` always-SQLite vs `CreateContentSiteIndexConnection` provider-aware).
+- Podcast rss_guid → RESOLVED (artifact metadata + normalized natural_key_type/value).
+- Money precision → RESOLVED (app-side `decimal` sum, no SQL `SUM`, 0.10+0.20=0.30 test).
+- Lock-now MEDIUMs → RESOLVED (JSON tags, shared constants, UNIQUE(source_slug), natural-key CHECK, path validation).
+- CASCADE all 4 children → RESOLVED (19-03 Task 2 inserts+asserts transcript/summary/clip/tag).
+- pipefail → RESOLVED.
+
+**2 new MEDIUM nits (fixed inline, no replan):**
+1. ContentSiteIndexRow exposes YoutubeVideoId/RssGuid but 19-04 schema normalized to natural_key_type/value — mapping was implicit. FIX: 19-04 Task 3 now requires exactly-one-natural-key on input (both-null/both-set throws) + deterministic map to/from the normalized pair + round-trip test.
+2. 19-04 acceptance grepped whole file for `transcript`==EMPTY, but the Task action requires `/// <summary>` prose saying "no transcript data" — self-contradiction that would fail at execution. FIX: acceptance now scopes the grep to the `PostgresCreateTableSql`/`SqliteCreateTableSql` DDL constants only.
+
+Both fixes are PLAN.md (planning-artifact) edits only. **Phase 19 plans are GREEN — cleared for `/gsd-execute-phase 19`.**
+
+---
+
 
 # Cross-AI Plan Review — Phase 19
 
