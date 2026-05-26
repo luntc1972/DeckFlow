@@ -1,9 +1,8 @@
 using System.Data.Common;
 using System.Globalization;
 using DeckFlow.Core.Storage;
-using Microsoft.Extensions.Configuration;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Default implementation of <see cref="IWhisperSpendLedger"/> backed by the local Content KB database.
@@ -14,7 +13,7 @@ public sealed class WhisperSpendLedger : IWhisperSpendLedger
     private static readonly decimal DefaultMonthlyCapUsd = 15.00m;
 
     private readonly RelationalDatabaseConnection _connectionInfo;
-    private readonly IConfiguration? _configuration;
+    private readonly Func<string, string?>? _configurationValueResolver;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
@@ -22,20 +21,20 @@ public sealed class WhisperSpendLedger : IWhisperSpendLedger
     /// Creates a SQLite-backed spend ledger using the file at <paramref name="databasePath"/>.
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
-    /// <param name="configuration">Optional configuration source for the monthly spend cap.</param>
-    public WhisperSpendLedger(string databasePath, IConfiguration? configuration = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), configuration) { }
+    /// <param name="configurationValueResolver">Optional configuration value resolver for the monthly spend cap.</param>
+    public WhisperSpendLedger(string databasePath, Func<string, string?>? configurationValueResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), configurationValueResolver) { }
 
     /// <summary>
     /// Creates a spend ledger using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
-    /// <param name="configuration">Optional configuration source for the monthly spend cap.</param>
-    public WhisperSpendLedger(RelationalDatabaseConnection connectionInfo, IConfiguration? configuration = null)
+    /// <param name="configurationValueResolver">Optional configuration value resolver for the monthly spend cap.</param>
+    public WhisperSpendLedger(RelationalDatabaseConnection connectionInfo, Func<string, string?>? configurationValueResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
-        _configuration = configuration;
+        _configurationValueResolver = configurationValueResolver;
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
@@ -45,14 +44,6 @@ public sealed class WhisperSpendLedger : IWhisperSpendLedger
             }
         }
     }
-
-    /// <summary>
-    /// DI constructor that resolves the always-local Content KB connection.
-    /// </summary>
-    /// <param name="environment">Web host environment used by the connection factory.</param>
-    /// <param name="configuration">Configuration source for the monthly spend cap.</param>
-    public WhisperSpendLedger(IWebHostEnvironment environment, IConfiguration configuration)
-        : this(DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(environment), configuration) { }
 
     /// <summary>
     /// Ensures the spend ledger schema exists.
@@ -174,7 +165,7 @@ public sealed class WhisperSpendLedger : IWhisperSpendLedger
 
     private decimal ReadMonthlyCapUsd()
     {
-        var configured = _configuration?[MonthlyCapConfigurationKey];
+        var configured = _configurationValueResolver?.Invoke(MonthlyCapConfigurationKey);
         if (string.IsNullOrWhiteSpace(configured))
         {
             configured = Environment.GetEnvironmentVariable(MonthlyCapConfigurationKey);

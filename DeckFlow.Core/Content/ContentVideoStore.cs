@@ -2,7 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using DeckFlow.Core.Storage;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Default implementation of <see cref="IContentVideoStore"/> backed by the local Content KB database.
@@ -37,13 +37,6 @@ public sealed class ContentVideoStore : IContentVideoStore
             }
         }
     }
-
-    /// <summary>
-    /// DI constructor that resolves the always-local Content KB connection.
-    /// </summary>
-    /// <param name="environment">Web host environment used by the connection factory.</param>
-    public ContentVideoStore(IWebHostEnvironment environment)
-        : this(DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(environment)) { }
 
     /// <inheritdoc />
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)

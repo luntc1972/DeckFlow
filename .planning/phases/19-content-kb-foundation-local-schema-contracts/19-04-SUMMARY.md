@@ -83,3 +83,7 @@ None. The implementation followed the plan and did not modify `.planning/STATE.m
 - Acceptance greps confirmed `WhisperSpendLedger.cs` has no `SUM(`, includes `DECKFLOW_WHISPER_MONTHLY_CAP_USD`, uses `_connectionInfo.OpenConnectionAsync`, bootstraps the `content_videos` parent first, and contains no advisory-lock, serializable-transaction, or kill-switch code.
 - Acceptance greps confirmed `ContentHarvestRunStore.cs` uses `CreateLocalContentKbConnection`, opens through `_connectionInfo.OpenConnectionAsync`, creates `content_harvest_runs`, and has zero `CREATE TABLE IF NOT EXISTS harvest_runs` matches.
 - Acceptance greps confirmed `ContentSiteIndexStore.cs` has both DDL constants, all three tag columns defaulting to `[]`, normalized natural-key uniqueness, one conflict target, `SerializeTags`/`DeserializeTags`, artifact-path guards, `CreateContentSiteIndexConnection`, and no heavy transcript/audio/spend columns in the DDL constants.
+
+## relocation note
+
+- Stores relocated to DeckFlow.Core (separate-app packaging).

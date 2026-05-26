@@ -1,6 +1,6 @@
 using DeckFlow.Core.Knowledge;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Persists local content videos and their transcript, summary, clip, and tag child rows.

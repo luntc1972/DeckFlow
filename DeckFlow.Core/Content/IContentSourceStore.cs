@@ -1,6 +1,6 @@
 using DeckFlow.Core.Knowledge;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Persists local content sources for the Content KB.

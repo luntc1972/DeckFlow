@@ -1,4 +1,4 @@
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Persists one row per Whisper transcription call and exposes monthly spend checks.
