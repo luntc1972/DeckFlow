@@ -309,7 +309,7 @@ Plans:
 | 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
 | 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
 | 18. Admin Mobile-Responsive Sweep | 2/2 | Complete | 2026-05-24 |
-| 19. Content KB Foundation — Local Schema + Contracts | 4/4 | Complete   | 2026-05-26 |
+| 19. Content KB Foundation — Local Schema + Contracts | 4/4 | Complete    | 2026-05-26 |
 | 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
