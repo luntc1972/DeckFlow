@@ -26,4 +26,43 @@ public sealed class ContentTagVocabularyTests
         Assert.Equal("bracket", ContentTagDimension.Bracket);
         Assert.Equal("card_category", ContentTagDimension.CardCategory);
     }
+
+    /// <summary>
+    /// Verifies unknown tag dimensions are rejected.
+    /// </summary>
+    [Fact]
+    public void IsValid_RejectsUnknownDimension()
+    {
+        var isValid = ContentTagVocabulary.IsValid("color", "blue");
+
+        Assert.False(isValid);
+    }
+
+    /// <summary>
+    /// Verifies unknown values within a known tag dimension are rejected.
+    /// </summary>
+    [Fact]
+    public void IsValid_RejectsUnknownValueInKnownDimension()
+    {
+        var isValid = ContentTagVocabulary.IsValid(ContentTagDimension.Archetype, "not-a-real-archetype");
+
+        Assert.False(isValid);
+    }
+
+    /// <summary>
+    /// Verifies every declared allowlist value is accepted for its dimension.
+    /// </summary>
+    [Fact]
+    public void IsValid_AcceptsEveryDeclaredValueAcrossAllDimensions()
+    {
+        Assert.All(
+            ContentTagVocabulary.Archetypes,
+            value => Assert.True(ContentTagVocabulary.IsValid(ContentTagDimension.Archetype, value)));
+        Assert.All(
+            ContentTagVocabulary.Brackets,
+            value => Assert.True(ContentTagVocabulary.IsValid(ContentTagDimension.Bracket, value)));
+        Assert.All(
+            ContentTagVocabulary.CardCategories,
+            value => Assert.True(ContentTagVocabulary.IsValid(ContentTagDimension.CardCategory, value)));
+    }
 }
