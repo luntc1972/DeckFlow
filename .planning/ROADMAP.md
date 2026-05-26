@@ -92,10 +92,10 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
      last by hard dependency on Phase 22 (must document all new KB types first). -->
 - [x] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)* (completed 2026-05-24)
 - [x] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2* — **DONE 2026-05-25 (live smoke passed)**
-- [ ] **Phase 19: Content KB Foundation — Stores + Schema** — 8 new `content_*` Postgres tables + spend ledger via per-store `EnsureSchemaAsync`; zero outbound HTTP — *exec #3*
-- [ ] **Phase 20: Content KB Outbound HTTP Services** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) + LLM summary (OpenAI Structured Outputs) + tag inference; named HttpClients + Polly pipelines — *exec #4*
-- [ ] **Phase 21: Content KB Orchestrator + Harvest Runs** — `ContentHarvestOrchestrator` + `ContentHarvestRunStore`; TOCTOU-safe Whisper cap-gate via `pg_try_advisory_lock`; kill-switch env var — *exec #5*
-- [ ] **Phase 22: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate — *exec #6*
+- [ ] **Phase 19: Content KB Foundation — Local Schema + Contracts** — local-harvester SQLite schema (sources/videos/transcripts/spend-log/runs) + `DeckFlow.Core` distill models + AI-prompt artifact file-format spec + slim site-index schema contract; zero outbound HTTP *(re-scoped 2026-05-26: local-harvester model)* — *exec #3*
+- [ ] **Phase 20: Content KB Ingestion + Transcription (local)** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) fallback + plain local spend-log cap check; named HttpClients + Polly pipelines, run locally — *exec #4*
+- [ ] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
+- [ ] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
 - [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
 - [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
 - [x] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26* (completed 2026-05-26)
@@ -166,65 +166,75 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 19: Content KB Foundation — Stores + Schema
+### Phase 19: Content KB Foundation — Local Schema + Contracts
 
-**Goal**: Postgres + SQLite schema for the Content Knowledge Base is materialized via per-store `EnsureSchemaAsync` mirroring `HarvestRunStore.cs:436-471`, with strict `content_*` namespace and F-PROD-CONTRACT-style test isolation, so subsequent phases can rely on a stable persistence layer.
+> **Re-scoped 2026-05-26** — pivoted to a local-harvester + file-artifact + slim-site-index model. Harvest runs LOCALLY against local SQLite; only a slim index + the display gate land on Render. See REQUIREMENTS.md KB-section note + STATE.md pivot note.
+
+**Goal**: The persistence and contract foundation for the local Content KB harvester is materialized — a local SQLite schema (via `EnsureSchemaAsync` mirroring `HarvestRunStore.cs:436-471`) for sources/videos/transcripts/spend-log/runs, `DeckFlow.Core` distillation record models, the AI-prompt **artifact file-format spec**, and the **slim site-index schema contract** — so the ingestion, distillation, and site-integration phases build on stable shapes. Zero outbound HTTP.
 **Depends on**: Nothing within v1.4
-**Requirements**: KB-01 (schema half: `content_sources` table), KB-05 (schema half: `whisper_spend_ledger` table + `month_key` generated column)
+**Requirements**: KB-01 (local `content_sources` schema), KB-02 (local `content_harvest_runs` schema), KB-04 (`content_transcripts` schema), KB-05 (`whisper_spend_ledger` local spend-log schema), KB-06 (artifact file-format spec + distill models), KB-07 (`ContentTagVocabulary` + tag schema), KB-08 (slim site-index schema contract)
+**Decisions locked in discuss (2026-05-26)**:
+
+  - **PK strategy**: integer surrogate (`BIGINT GENERATED ALWAYS AS IDENTITY` / SQLite `INTEGER PRIMARY KEY`), matching Phase 26 normalization; natural keys (`youtube_video_id`, `rss_guid`) get a UNIQUE for harvest dedup
+  - **FK behavior**: `ON DELETE CASCADE` on child FKs (transcripts/summaries/clips/tags → videos; videos → sources). **Landmine**: SQLite enforces FK only with `PRAGMA foreign_keys=ON` per connection — verify the connection factory sets it, else SQLite silently ignores cascades while Postgres enforces
+  - **Source disable**: soft-disable via `content_sources.is_enabled BOOLEAN NOT NULL DEFAULT true`; harvest filters `WHERE is_enabled`; hard-delete is a separate rare op that triggers CASCADE; transcript/spend history survives disable
+  - **Store granularity**: grouped-by-aggregate (~4 stores: `ContentSourceStore`, `ContentVideoStore` over videos+transcripts+summaries+clips+tags, `WhisperSpendLedger`, `ContentHarvestRunStore`); each store owns its `EnsureSchemaAsync` + own xUnit fixture
+
 **Success Criteria** (what must be TRUE):
 
-  1. 8 new tables created and bootstrap-tested on BOTH SQLite (local dev) AND Postgres (CI integration via `[Trait("Category","Postgres")]` bucket): `content_sources`, `content_videos`, `content_transcripts`, `content_summaries`, `content_clips`, `content_tags`, `whisper_spend_ledger`, `content_harvest_runs` — verified by `\dt content_*` against Render Postgres returning all expected tables with expected columns (Pitfall 12)
-  2. Zero schema-name collision with v1.1 `harvest_runs` — `ContentHarvestRunStore` is a parallel sibling of `HarvestRunStore`, NOT a subclass; `harvest_runs.kind` CHECK constraint NOT widened
-  3. Every new store has its own xUnit fixture using own SQLite file OR `:memory:` per-fact scope (F-PROD-CONTRACT 999.6 lesson honored); store tests pass with `Failed:0` in CI
-  4. All new record types preserve `{ get; init; }` properties (System.Text.Json silently skips get-only props — already broke `EdhTop16Client` once); all DDL constants and C# raw-string literals byte-preserved (CLAUDE.md formatting rule)
-  5. `IWhisperSpendLedger.GetMonthlyTotalAsync(yearMonth)` returns app-side aggregate over `whisper_spend_ledger.month_key` for both dialects; cap-gate logic stubbed for Phase 20/21 to wire
+  1. Local SQLite schema bootstrap-tested via per-store `EnsureSchemaAsync` (idempotent `CREATE TABLE IF NOT EXISTS`): `content_sources`, `content_videos`, `content_transcripts`, `content_summaries`, `content_clips`, `content_tags`, `whisper_spend_ledger`, `content_harvest_runs` — all created with expected columns + integer surrogate PKs + natural-key UNIQUE + CASCADE FKs (Postgres parity preserved in DDL for the slim-index subset that later ships to Render)
+  2. The **slim site-index schema contract** is defined (source/title/url/tags → artifact pointer) as the only shape destined for Render Postgres; heavy tables (transcripts/audio/spend) are explicitly local-only
+  3. The **AI-prompt artifact file-format spec** is defined (markdown/text layout for summary + timestamped clips + tags) and documented so Phase 21 emit and Phase 22 site rendering agree by contract
+  4. Each store has its own xUnit fixture using own SQLite file OR `:memory:` per-fact scope (F-PROD-CONTRACT 999.6 lesson honored); store tests pass with `Failed:0`
+  5. All new record types preserve `{ get; init; }` properties (System.Text.Json silently skips get-only props — already broke `EdhTop16Client` once); all DDL constants and C# raw-string literals byte-preserved (CLAUDE.md formatting rule)
+  6. `IWhisperSpendLedger.GetMonthlyTotalAsync(yearMonth)` returns app-side aggregate over the local spend-log `month_key`; plain cap-check helper stubbed for Phase 20 to wire (NO TOCTOU advisory-lock machinery)
 
 **Plans**: TBD
 
-### Phase 20: Content KB Outbound HTTP Services
+### Phase 20: Content KB Ingestion + Transcription (local)
 
-**Goal**: Four new upstream surfaces (YouTube transcript, podcast RSS + audio, Whisper transcription, LLM summary + tag inference) are wired through the project's IHttpClientFactory + RestSharp + named-Polly pattern with proven third-party caption coverage and Structured-Outputs reliability, so the orchestrator in Phase 21 can compose them safely.
-**Depends on**: Phase 19 (stores must exist for transcript/summary/spend persistence)
-**Requirements**: KB-03 (YouTube), KB-04 (Whisper), KB-06 (LLM summary + clips), KB-07 (tag inference)
+**Goal**: The local harvester's upstream surfaces (YouTube captions, podcast RSS + audio, Whisper transcription) are wired through the project's IHttpClientFactory + RestSharp + named-Polly pattern with proven third-party caption coverage, plus a plain local spend-log cap check — so Phase 21 can compose them into end-to-end distillation. All run locally; nothing executes on Render.
+**Depends on**: Phase 19 (local schema + spend-log shape must exist for transcript/spend persistence)
+**Requirements**: KB-03 (YouTube), KB-04 (Whisper runtime), KB-05 (local cap-check runtime)
 **Success Criteria** (what must be TRUE):
 
-  1. **Pitfall 1 mitigation (P1):** `IYouTubeTranscriptFetcher` successfully fetches captions for 5 real third-party MTG channels (MTGGoldfish + The Command Zone + EDHRECast + Tolarian Community College + Playing With Power) via YoutubeExplode 6.6.0 — proven from the deployed Render environment, NOT WSL. `Google.Apis.YouTube.v3.captions.download` is NOT used (returns 403 on third-party content)
-  2. **Pitfall 2 mitigation (P2):** `IYouTubeTranscriptFetcher` interface supports a proxy-pluggable abstraction from day 1 (toggleable via `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER` env var); pre-ship UAT harvests 5 videos from deployed Render env and asserts `whisper_fallback_ratio < 25%`; structured log emits `transcript_source` field on every fetch
-  3. `IWhisperTranscriptionService` invokes OpenAI 2.10 `AudioClient` via `HttpClientPipelineTransport(httpClient)` seam (stays inside `IHttpClientFactory` lifecycle); files >24MB are chunked client-side via ffmpeg before upload (Dockerfile `apt-get install -y ffmpeg` verified at phase start per Pitfall 7); HttpClient timeout = 15min, Polly timeout = 12min
-  4. **Pitfall 4 mitigation (P4):** `ILlmSummarizationService` uses OpenAI Structured Outputs (`response_format: json_schema`, `strict: true`) for summaries + clip extraction; tag inference rejects LLM-emitted tags outside `static class ContentTagVocabulary` allowlist (3 dimensions: archetype/strategy ~15 values, format/bracket per Wizards Feb 2025, card_category) with WARN log; staged-pipeline persistence (transcript → summary → tags each own row + status) so resume never re-Whispers
+  1. **Pitfall 1 mitigation (P1):** `IYouTubeTranscriptFetcher` successfully fetches captions for 5 real third-party MTG channels (MTGGoldfish + The Command Zone + EDHRECast + Tolarian Community College + Playing With Power) via YoutubeExplode 6.6.0 — proven from the **local** harvester environment. `Google.Apis.YouTube.v3.captions.download` is NOT used (returns 403 on third-party content)
+  2. **Pitfall 2 mitigation (P2):** `IYouTubeTranscriptFetcher` supports a proxy-pluggable abstraction from day 1 (toggleable via `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER`); a local UAT harvests 5 videos and asserts `whisper_fallback_ratio < 25%`; structured log emits `transcript_source` on every fetch
+  3. `IWhisperTranscriptionService` invokes OpenAI 2.10 `AudioClient` via `HttpClientPipelineTransport(httpClient)` seam (stays inside `IHttpClientFactory` lifecycle); files >24MB chunked client-side via ffmpeg before upload (local ffmpeg available — verified at phase start per Pitfall 7); HttpClient timeout = 15min, Polly timeout = 12min
+  4. **Plain local cap check:** before any Whisper call, projected monthly total (existing local spend-log sum + duration × $0.006/min estimate) is compared to `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15.00); over-cap skips the call and marks the video `skipped_over_cap`. NO `pg_try_advisory_lock`, NO SERIALIZABLE wrapper, NO kill-switch — single-user local run
   5. Every new HTTP service follows the established convention: named `IHttpClientFactory` client (`youtube`, `podcast-rss`, `podcast-audio`, `openai`, `whisper-api`) + matching named Polly pipeline via `ResiliencePipelineProvider<string>`; public DI ctor + `internal` test ctor with `Func<...>` delegate seam per `CardLookupService.cs:106-121`; ZERO `new HttpClient()`; NO migration to `Microsoft.Extensions.Http.Resilience` standard handler
-  6. New API keys (`OPENAI_API_KEY`) configured in Render dashboard with `sync: false`; Gitleaks pre-commit hook OR push-protection enabled (Pitfall 15); zero secrets in commits
+  6. `OPENAI_API_KEY` read from local environment/secrets (NOT committed); zero secrets in commits
 
 **Plans**: TBD
 
-### Phase 21: Content KB Orchestrator + Harvest Runs
+### Phase 21: Content KB Distillation + Artifact Emit (local)
 
-**Goal**: An admin trigger composes the Phase 20 HTTP services into an end-to-end content harvest run with TOCTOU-safe Whisper spend cap-gating, idempotent re-runs, and partial-success persistence, so the user story "admin clicks Trigger Harvest and gets transcripts + summaries + tags without double-spending the cap" is verifiable end-to-end.
-**Mode**: mvp (user-story-first verification: admin can trigger end-to-end harvest)
-**Depends on**: Phase 19 (stores), Phase 20 (HTTP services)
-**Requirements**: KB-02 (trigger + history runtime), KB-05 (cap-gate runtime — TOCTOU lock + kill-switch), KB-09 (`content_kb_enabled` flag gate + CSRF wiring at orchestrator boundary)
+**Goal**: The local harvester composes the Phase 20 ingestion services into an end-to-end run that distills each video into an AI-prompt artifact file + slim-index rows — LLM summary + timestamped clips + controlled-vocab tags via Structured Outputs — so the user story "I run the harvester locally over my source list and get pasteable prompt artifacts + an index ready for the site" is verifiable end-to-end. Source add/edit/disable management lives here too.
+**Mode**: mvp (user-story-first verification: local run → artifacts + index rows)
+**Depends on**: Phase 19 (schema + artifact spec), Phase 20 (ingestion services)
+**Requirements**: KB-01 (source mgmt runtime), KB-02 (orchestration + local run record), KB-06 (LLM summary + clips → artifacts), KB-07 (tag inference + emit)
 **Success Criteria** (what must be TRUE):
 
-  1. **Pitfall 3 mitigation (P3):** Concurrent test — 5 parallel `POST /Admin/ContentHarvest/Trigger` against stub Whisper client asserts ≤1 harvest run row created AND ≤N seconds billed (N = cap); Postgres `pg_try_advisory_lock(hashtext('whisper-cap-' || to_char(now() at time zone 'UTC', 'YYYY-MM')))` acquired BEFORE any Whisper call; SERIALIZABLE transaction wraps check-and-insert; `DECKFLOW_WHISPER_KILL_SWITCH=true` env var aborts harvest as the very first check
-  2. `IContentHarvestOrchestrator.RunAsync()` flow: enabled sources → list videos → for new videos persist `content_videos` → captions first (free) → fallback to Whisper ONLY if captions absent AND `IWhisperSpendLedger.WouldExceedCapAsync(estimate, ct)` returns false → summarize → clip → tag → mark video `transcript_status` (`captions` | `whisper` | `failed` | `skipped_over_cap`); resumable mid-batch without re-Whispering already-transcribed videos
-  3. Whisper cap-hit aborts harvest with `aborted_reason='whisper_cap_hit'`; admin sees abort row + reason in run history; `transcript_status='skipped_over_cap'` set on skipped videos; estimate uses duration metadata × $0.006/min BEFORE the API call
-  4. **Pitfall 6 mitigation (P6):** NO Postgres connection held across `await` for HTTP calls — every store call follows acquire-do-release pattern; `Maximum Pool Size=10-15` in connection string; single-worker hosted harvest; smoke test asserts 20 concurrent `/feedback` POSTs succeed during a 5-video harvest
-  5. `content_kb_enabled` `IFeatureFlagStore` flag (default OFF) gates the orchestrator entry point; orchestrator returns 503 when flag is off; flag flipped only after first admin UAT verifies end-to-end harvest from deployed Render
+  1. **Pitfall 4 mitigation (P4):** `ILlmSummarizationService` uses OpenAI Structured Outputs (`response_format: json_schema`, `strict: true`) for summaries + clip extraction; tag inference rejects LLM-emitted tags outside `static class ContentTagVocabulary` allowlist (3 dimensions: archetype/strategy ~15 values, format/bracket per Wizards Feb 2025, card_category) with WARN log
+  2. `IContentHarvestOrchestrator.RunAsync()` flow: enabled sources → list videos → for new videos persist `content_videos` → captions first (free) → Whisper fallback ONLY if captions absent AND local cap check passes → summarize → clip → tag → emit artifact file + slim-index row → mark video `transcript_status` (`captions` | `whisper` | `failed` | `skipped_over_cap`); staged-pipeline persistence (each stage own row + status) so a resumed run never re-Whispers or re-distills completed videos
+  3. Each completed video produces a valid **AI-prompt artifact file** (per Phase 19 spec) at the defined repo/`/data` location AND a slim-index row; a local run summary row is written to `content_harvest_runs` (sources/videos/transcripts/Whisper-calls/spend/abort-reason)
+  4. Source add/edit/disable is operable from the harvester (CLI verb or app action) and respected by the next run (`is_enabled` filter)
+  5. Cap-hit (or `--dry-run`) aborts cleanly with `aborted_reason` recorded; over-cap videos marked `skipped_over_cap`; partial runs leave a consistent local DB
 
 **Plans**: TBD
 
-### Phase 22: Content KB Admin UI
+### Phase 22: Content KB Site Integration
 
-**Goal**: Admin has a complete UI surface — source CRUD, harvest history + per-run drill-down, and spend dashboard — for operating the Content Knowledge Base, inheriting Phase 18's responsive admin shell and the Phase 16 modal primitive.
-**Depends on**: Phase 18 (responsive admin CSS), Phase 19 (schema), Phase 20 (services), Phase 21 (orchestrator)
-**Requirements**: KB-01 (CRUD UI half), KB-02 (history UI half), KB-08 (spend dashboard), KB-09 (CSRF + flag gate on UI surface)
+**Goal**: The site surfaces the distilled Content KB — a slim index table materialized on Render Postgres for browse/filter, the prompt artifacts served (committed-in-repo or uploaded to `/data`), behind a feature flag — inheriting Phase 18's responsive admin shell and the Phase 16 modal primitive.
+**Depends on**: Phase 18 (responsive admin CSS), Phase 19 (slim-index schema contract + artifact spec), Phase 21 (artifacts + index rows produced locally)
+**Requirements**: KB-08 (slim index on Render + browse/filter display), KB-09 (display-gate flag + CSRF on upload)
 **Success Criteria** (what must be TRUE):
 
-  1. Admin can create/edit/disable YouTube channel + podcast RSS sources via `/Admin/ContentSources` (Index/Create/Edit); source-type dropdown reuses v1.3 WDG-02 `df-select` ARIA combobox; delete confirmation reuses the Phase 16 `_AdminConfirmModal` partial; empty state CTA for zero-source first-run
-  2. Admin can trigger manual harvest via `POST /Admin/ContentHarvest/Trigger` (returns 202 with run id, live-region announces "harvest started"); `GET /Admin/ContentHarvest` lists run history; `GET /Admin/ContentHarvest/{id}` drills into per-run sources processed, videos processed, transcripts fetched, Whisper calls, spend USD, abort reason
-  3. `/Admin/ContentSpend` shows current month + last 6 months Whisper + LLM aggregate (per-provider breakdown via `provider` + `kind` columns), and surfaces an inline "approaching cap" warning when current month consumed >80% of `DECKFLOW_WHISPER_MONTHLY_CAP_USD`
-  4. **Pitfall 11 mitigation (P11):** Every `/Admin/Content*` POST carries `[ValidateAntiForgeryToken]` AND `SameOriginRequestValidator.IsValid(Request)`; CI grep gate: `grep -L 'ValidateAntiForgeryToken' DeckFlow.Web/Controllers/Admin/AdminContent*Controller.cs` returns empty
-  5. New sidebar nav entries ("Content Sources", "Content Harvest", "Content Spend") added to `_AdminLayout.cshtml`; all new views render correctly at 375px mobile viewport per Phase 18 invariants; zero CSS bleed into 22 guild themes
+  1. The slim index schema (from Phase 19 contract) is materialized on Render Postgres via `EnsureSchemaAsync`; locally-produced index rows can be loaded onto Render (artifact upload OR commit-then-deploy path), with NO transcript/audio/spend data uploaded
+  2. A browse/filter surface lists indexed content (by source / archetype / bracket / card_category tags) and links each entry to its prompt artifact, rendered for the ChatGPT paste workflow; empty state CTA for zero-content first-run
+  3. Prompt artifacts are served correctly whether committed to the repo (like `prompt-templates/`) or uploaded to `/data`; the chosen path is documented
+  4. **Pitfall 11 mitigation (P11):** any artifact-upload POST carries `[ValidateAntiForgeryToken]` AND `SameOriginRequestValidator.IsValid(Request)`; CI grep gate returns empty for unguarded upload actions
+  5. The display surface is gated behind `content_kb_enabled` `IFeatureFlagStore` flag (default OFF, flipped after first UAT verifies browse + artifact rendering); all new views render correctly at 375px mobile viewport per Phase 18 invariants; zero CSS bleed into 22 guild themes
 
 **Plans**: TBD
 **UI hint**: yes

@@ -24,15 +24,17 @@
 
 ### Content Knowledge Base Foundation (KB)
 
-- [ ] **KB-01**: Admin can create/edit/disable YouTube channel + podcast RSS sources via `/Admin/ContentSources` CRUD UI; data persists to `content_sources` Postgres table via existing `IRelationalDialect` + per-store `EnsureSchemaAsync` pattern
-- [ ] **KB-02**: Admin can trigger manual content harvest via `POST /Admin/ContentHarvest/Trigger` (returns 202 with run id); harvest history visible at `GET /Admin/ContentHarvest`; per-run drill-down at `GET /Admin/ContentHarvest/{id}` (sources processed, videos processed, transcripts fetched, Whisper calls, spend, abort reason if any)
-- [ ] **KB-03**: Content harvest fetches YouTube auto-captions for non-owned videos via YoutubeExplode 6.6.0 (NOT `Google.Apis.YouTube.v3.captions.download` — returns 403 on third-party); proven against 5 real cEDH/Commander channels (e.g., MTGGoldfish, Command Zone, EDHRECast, Tolarian Community College, Playing With Power) from deployed Render environment
-- [ ] **KB-04**: Content harvest falls back to OpenAI Whisper API (via OpenAI 2.10.0 SDK + `HttpClientPipelineTransport` seam) for audio-only podcasts AND videos missing captions; transcripts persisted to `content_transcripts` with `source` discriminator; per-call cost (seconds_billed + cost_usd) recorded in `whisper_spend_ledger`
-- [ ] **KB-05**: Whisper spend gate aborts harvest when projected monthly cost would exceed env-var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15.00); no Whisper API call made when cap would be exceeded; TOCTOU-safe under concurrent admin triggers (Postgres `pg_try_advisory_lock` per YYYY-MM month key + SERIALIZABLE transaction wrapping the check-and-insert); video.transcript_status set to `skipped_over_cap`; `DECKFLOW_WHISPER_KILL_SWITCH=true` env var aborts harvest immediately
-- [ ] **KB-06**: Each harvested video has an LLM-generated summary (≤200 words target) + 3-8 timestamped clip excerpts persisted to `content_summaries` + `content_clips`; OpenAI Structured Outputs (`strict: true`) used for parse reliability (<0.1% failure rate per PITFALLS.md P4)
-- [ ] **KB-07**: Each harvested video has tags persisted to `content_tags` covering 3 controlled-vocabulary dimensions: archetype/strategy (~15 community-standard values: voltron, aristocrats, stax, combo, control, tokens, spellslinger, reanimator, blink, …), format/bracket (Wizards Feb 2025 5-bracket system: Exhibition, Core, Upgraded, Optimized, cEDH), card_category (ramp, removal, draw, finishers, win-cons, …). Vocabulary enforced via `static class ContentTagVocabulary`; LLM-emitted tags outside the allowlist are rejected with WARN log
-- [ ] **KB-08**: Admin can view spend dashboard at `/Admin/ContentSpend` showing current month + last 6 months Whisper + LLM aggregate spend (per-provider breakdown); warns inline when current month consumed >80% of cap
-- [ ] **KB-09**: Content KB feature is gated behind `content_kb_enabled` IFeatureFlagStore flag (default OFF until first admin UAT verifies end-to-end harvest); all `/Admin/Content*` POSTs guarded by `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator`
+> **Re-architected 2026-05-26** — pivoted from server-hosted harvest to a **local-harvester + file-artifact + slim-site-index** model. Harvest/transcribe/distill runs LOCALLY (CLI command or a standalone small app — packaging decided at plan time) against **local SQLite**, never on Render. Distilled output ships to the site as **AI-prompt artifact files** (committed to repo like `prompt-templates/` or uploaded to `/data`) PLUS a **slim index table** on Render Postgres for browse/filter. Rationale: avoids Render 512MB/Postgres limits, eliminates server-side spend-cap concurrency machinery (single-user local run), keeps expensive transcript/audio data off the host. See `.planning/STATE.md` pivot note. KB IDs preserved; meanings repurposed.
+
+- [ ] **KB-01**: The local harvester maintains a source list (YouTube channels + podcast RSS) in **local SQLite** (`content_sources`); sources can be added/edited/disabled (`is_enabled` flag) via the harvester (CLI/app) — NO Render-hosted CRUD UI. Soft-disable keeps prior harvested data
+- [ ] **KB-02**: The harvester runs end-to-end **locally** (single CLI/app invocation over the enabled source list) and records a local run summary (`content_harvest_runs`: sources processed, videos processed, transcripts fetched, Whisper calls, spend USD, abort reason if any) — NO server-hosted `POST .../Trigger` endpoint
+- [ ] **KB-03**: The harvester fetches YouTube auto-captions for non-owned videos via YoutubeExplode 6.6.0 (NOT `Google.Apis.YouTube.v3.captions.download` — returns 403 on third-party); proven against 5 real cEDH/Commander channels (e.g., MTGGoldfish, Command Zone, EDHRECast, Tolarian Community College, Playing With Power) run from the local environment
+- [ ] **KB-04**: The harvester falls back to OpenAI Whisper API (via OpenAI 2.10.0 SDK + `HttpClientPipelineTransport` seam) for audio-only podcasts AND videos missing captions; transcripts persisted to local `content_transcripts` with `source` discriminator; per-call cost (seconds_billed + cost_usd) recorded in local `whisper_spend_ledger`
+- [ ] **KB-05**: A **plain local spend log** tracks cumulative Whisper cost; harvest skips a Whisper call when the projected monthly total would exceed config/env `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15.00) and marks the video `skipped_over_cap`. Single-user local run — NO TOCTOU advisory-lock, SERIALIZABLE wrapping, or kill-switch env var (server-concurrency machinery dropped with the pivot)
+- [ ] **KB-06**: Each harvested video is distilled into an **AI-prompt artifact file** (markdown/text) containing an LLM summary (≤200 words target) + 3-8 timestamped clip excerpts; OpenAI Structured Outputs (`strict: true`) used for parse reliability (<0.1% failure rate per PITFALLS.md P4). Artifacts land in a defined repo/`/data` location for the ChatGPT workflow (committed or uploaded)
+- [ ] **KB-07**: Each distilled artifact carries tags across 3 controlled-vocabulary dimensions: archetype/strategy (~15 community-standard values: voltron, aristocrats, stax, combo, control, tokens, spellslinger, reanimator, blink, …), format/bracket (Wizards Feb 2025 5-bracket system: Exhibition, Core, Upgraded, Optimized, cEDH), card_category (ramp, removal, draw, finishers, win-cons, …). Vocabulary enforced via `static class ContentTagVocabulary`; LLM-emitted tags outside the allowlist are rejected with WARN log. Tags persist locally AND on the slim site index
+- [ ] **KB-08**: A **slim index** on Render Postgres (source/title/url/tags → pointer to the prompt artifact) is browsable/filterable on the site so users can find relevant distilled advice (replaces the dropped admin spend dashboard). Heavy data (transcripts, audio, spend ledger) is NEVER uploaded to Render
+- [ ] **KB-09**: The site-side Content KB display surface is gated behind a `content_kb_enabled` IFeatureFlagStore flag (default OFF until first UAT verifies browse + artifact rendering); any artifact-upload POST on the site is guarded by `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator`
 
 ### Card Category Lookup Bug Fix (CAT)
 
@@ -70,9 +72,11 @@
 - **`Google.GenAI` 1.7.0 / `Google_GenerativeAI` 3.6.6 SDKs** — transitive `Microsoft.Extensions.AI` / Newtonsoft baggage conflicts with single-RestSharp + named-Polly-pipeline convention (STACK.md reject list)
 - **Bootstrap / Tailwind / Fluent UI for admin mobile** — fights the 25-guild-theme system (FEATURES.md reject)
 - **Multi-AI registry for admin-side LLM summarization** — AiPlatform serves user-facing multi-AI paste dispatch; admin ingestion uses single dedicated provider (OpenAI 2.10.0). AiPlatform variant added ONLY if Gemini Path B chosen
-- **`IFeatureFlagStore` for Whisper monthly $ cap** — wrong tool for typed-decimal infra config; env var instead
-- **Widening v1.1 `harvest_runs.kind` CHECK constraint** — fork to parallel `ContentHarvestRunStore` on new `content_harvest_runs` table (PITFALLS.md P12)
-- **Scheduled background content harvest** — deferred to v1.5; v1.4 ships manual admin-triggered only
+- **`IFeatureFlagStore` for Whisper monthly $ cap** — wrong tool for typed-decimal infra config; env/config value instead
+- **Server-hosted content harvest on Render** — pivoted out 2026-05-26; harvest/transcribe/distill runs LOCALLY only. No `/Admin/ContentHarvest/Trigger` endpoint, no hosted orchestrator, no `content_*` harvest tables on Render (slim index table only)
+- **TOCTOU spend cap-gate (`pg_try_advisory_lock` + SERIALIZABLE + kill-switch)** — dropped with the pivot; single-user local run uses a plain spend-log check
+- **Widening v1.1 `harvest_runs.kind` CHECK constraint** — moot under the pivot (local `content_harvest_runs` lives in local SQLite, not Render); no collision with v1.1 `harvest_runs`
+- **Scheduled / automated content harvest** — deferred to v1.5; v1.4 ships manual local runs only
 - **Deck-analysis integration of Content KB** — deferred to v1.5 per scope decision 2026-05-23
 - **New-deck-building interactive guide** — deferred to v1.5 per scope decision 2026-05-23
 
@@ -87,16 +91,16 @@
 | AMOB-02 | Admin tables usable on narrow viewports | Phase 18 | [ ] |
 | AMOB-03 | Admin forms single-column + ≥44×44px touch targets | Phase 18 | [ ] |
 | AMOB-04 | `admin.css` factored into common+mobile+shim | Phase 18 | [ ] |
-| KB-01 | Admin source CRUD UI + `content_sources` table | Phase 19 (table) + Phase 22 (CRUD UI) | [ ] |
-| KB-02 | Admin manual harvest trigger + run history UI | Phase 21 (orchestrator + trigger runtime) + Phase 22 (history UI) | [ ] |
-| KB-03 | YouTube auto-caption fetch via YoutubeExplode | Phase 20 | [ ] |
-| KB-04 | Whisper fallback transcription + spend ledger | Phase 20 | [ ] |
-| KB-05 | Whisper spend cap-gate (TOCTOU-safe + kill-switch) | Phase 19 (ledger schema + WouldExceedCapAsync stub) + Phase 21 (advisory lock + kill-switch runtime) | [ ] |
-| KB-06 | LLM summary + clip-excerpt extraction | Phase 20 | [ ] |
-| KB-07 | Tag inference (controlled vocab: archetype + bracket + category) | Phase 20 | [ ] |
-| KB-08 | Admin spend dashboard at `/Admin/ContentSpend` | Phase 22 | [ ] |
-| KB-09 | `content_kb_enabled` feature flag gate + CSRF guards | Phase 21 (orchestrator-boundary flag gate) + Phase 22 (UI-surface CSRF tokens + flag check) | [ ] |
+| KB-01 | Local source list (`content_sources` SQLite) + harvester add/edit/disable | Phase 19 (local schema) + Phase 21 (source mgmt runtime) | [ ] |
+| KB-02 | Local end-to-end harvest run + local run record | Phase 19 (`content_harvest_runs` SQLite schema) + Phase 21 (orchestration runtime) | [ ] |
+| KB-03 | YouTube auto-caption fetch via YoutubeExplode (local) | Phase 20 | [ ] |
+| KB-04 | Whisper fallback transcription + local transcript/ledger | Phase 19 (transcript + spend-log schema) + Phase 20 (Whisper runtime) | [ ] |
+| KB-05 | Plain local spend-log cap check (no TOCTOU/kill-switch) | Phase 19 (spend-log schema) + Phase 20 (local cap-check runtime) | [ ] |
+| KB-06 | LLM distill → AI-prompt artifact files (summary + clips) | Phase 19 (artifact file-format spec + distill models) + Phase 21 (distill + emit) | [ ] |
+| KB-07 | Controlled-vocab tags on artifacts + slim index | Phase 19 (`ContentTagVocabulary` + tag schema) + Phase 21 (tag inference + emit) | [ ] |
+| KB-08 | Slim site index on Render + browse/filter display | Phase 19 (slim-index schema contract) + Phase 22 (materialize + browse UI) | [ ] |
+| KB-09 | `content_kb_enabled` display-gate flag + CSRF on upload POST | Phase 22 | [ ] |
 | CAT-01 | Card category lookup fix (Sol Ring colorless staple returns empty) | Phase 24 | [ ] |
 | AHD-01 | Admin harvested-decks paged grid (replaces top-10) | Phase 25 | [ ] |
 
-**Coverage:** 18/18 v1.4 REQ-IDs mapped (100%). No orphans. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-05, KB-09) split between schema/foundation phase and UI/runtime phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion of the requirement; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.
+**Coverage:** 18/18 v1.4 REQ-IDs mapped (100%). No orphans. KB cluster re-architected 2026-05-26 to the local-harvester + file-artifact + slim-index model (see KB section note) — IDs preserved, meanings repurposed; harvest now runs locally, only KB-08 (slim index) + KB-09 (display gate) land on Render. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-04, KB-05, KB-06, KB-07, KB-08) split between the Phase 19 schema/contract foundation and the runtime/UI phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.
