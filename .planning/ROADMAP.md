@@ -211,7 +211,17 @@ Plans:
   5. Every new HTTP service follows the established convention: named `IHttpClientFactory` client (`youtube`, `podcast-rss`, `podcast-audio`, `openai`, `whisper-api`) + matching named Polly pipeline via `ResiliencePipelineProvider<string>`; public DI ctor + `internal` test ctor with `Func<...>` delegate seam per `CardLookupService.cs:106-121`; ZERO `new HttpClient()`; NO migration to `Microsoft.Extensions.Http.Resilience` standard handler
   6. `OPENAI_API_KEY` read from local environment/secrets (NOT committed); zero secrets in commits
 
-**Plans**: TBD
+**Planning amendments (2026-05-26, locked in 20-CONTEXT D-03/D-04/D-09):**
+  - **SC5 AMENDED** — the literal `IHttpClientFactory` + `ResiliencePipelineProvider<string>` named-client mandate is a `DeckFlow.Web`-host concept the CLI/Core harvester home cannot use. Ingestion services live in `DeckFlow.Core/Integration` using RestSharp/HttpClient injected via ctor + Polly built DIRECTLY (ArchidektApiDeckImporter precedent) + `internal` `Func<...>` test seam (CardLookupService:106-121). The SPIRIT of SC5 (named resilience, zero `new HttpClient()` in method bodies, test seam, no `Microsoft.Extensions.Http.Resilience`) is preserved; no `Microsoft.Extensions.Http`/`.Hosting` added to Core.
+  - **Podcast scope DEFERRED (SC3 podcast portion + the podcast `transcript_source` path)** — Phase 20 is YouTube-first: caption fetch + Whisper fallback (exercised via caption-less YouTube videos) behind a clean `ITranscriptSource` abstraction. Full podcast RSS+audio fetch is a later slice; only the abstraction is built now.
+
+**Plans**: 4 plans
+Plans:
+
+- [ ] 20-01-PLAN.md — Wave-0 store gap: IContentVideoStore.UpdateTranscriptStatusAsync + content-source-add CLI verb (D-08 seed) (KB-03, KB-04, KB-05)
+- [ ] 20-02-PLAN.md — ITranscriptSource abstraction + YouTubeTranscriptFetcher (YoutubeExplode 6.6.0, auto-gen captions accepted, provider toggle, Func<> seam) (KB-03)
+- [ ] 20-03-PLAN.md — WhisperTranscriptionService (OpenAI 2.10 AudioClient via HttpClientPipelineTransport, Polly owns resilience) + local cap-check gate + FfmpegAudioChunker (KB-04, KB-05)
+- [ ] 20-04-PLAN.md — YouTubeTranscriptSource (captions→Whisper) + bounded channel lister + harvest CLI verb + 5-channel local UAT (KB-03, KB-04, KB-05)
 
 ### Phase 21: Content KB Distillation + Artifact Emit (local)
 
