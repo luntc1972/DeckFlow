@@ -16,7 +16,7 @@ namespace DeckFlow.Core.Knowledge;
 public sealed class CategoryKnowledgeRepository
 {
     private const string ArchidektLiveSourcePrefix = "archidekt_live:";
-    private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(1);
+    private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(5);
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ILogger? _logger;
     private readonly string? _databasePath;
@@ -74,6 +74,14 @@ public sealed class CategoryKnowledgeRepository
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        var deckQueueColumns = await GetTableColumnsAsync(connection, "deck_queue", cancellationToken);
+        if (!deckQueueColumns.Contains("content_hash"))
+        {
+            var addContentHashCommand = connection.CreateCommand();
+            addContentHashCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN content_hash TEXT NULL;";
+            await addContentHashCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
 
         var crawlStateCommand = connection.CreateCommand();
         crawlStateCommand.CommandText = """
@@ -897,6 +905,47 @@ public sealed class CategoryKnowledgeRepository
         RelationalDatabaseConnection.AddParameter(command, "@now", DateTimeOffset.UtcNow.ToString("O"));
         RelationalDatabaseConnection.AddParameter(command, "@skipped", skip ? 1 : 0);
         RelationalDatabaseConnection.AddParameter(command, "@commanderName", (object?)commanderName ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the stored canonical content hash for a queued Archidekt deck.
+    /// </summary>
+    /// <param name="deckId">Deck ID to read.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<string?> GetContentHashAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT content_hash FROM deck_queue WHERE deck_id = @deckId;";
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null or DBNull ? null : (string)result;
+    }
+
+    /// <summary>
+    /// Sets the stored canonical content hash for a queued Archidekt deck; passing null clears it.
+    /// </summary>
+    /// <param name="deckId">Deck ID to update.</param>
+    /// <param name="hash">Hash value to store, or null to clear the stored hash.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task SetContentHashAsync(string deckId, string? hash, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = "UPDATE deck_queue SET content_hash = @hash WHERE deck_id = @deckId;";
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+        RelationalDatabaseConnection.AddParameter(command, "@hash", (object?)hash ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
