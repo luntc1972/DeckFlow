@@ -134,6 +134,7 @@
         <p>Storage size: @(Model.Stats.PostgresStorageBytes is long b ? FormatBytes(b) : "N/A")</p>
         <p>Last successful run: @(Model.Stats.LastSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
         <p>Next scheduled run: @(Model.Stats.NextScheduledUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Off")</p>
+        <p>Decks Processed counts written decks (added + updated); unchanged cache hits are skipped to reduce write churn.</p>
     }
 
     @if (Model.Stats?.RecentRuns.Count > 0)

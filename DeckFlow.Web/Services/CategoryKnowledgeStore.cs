@@ -218,6 +218,12 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 fetchBatchSize: HarvestDeckCount,
                 cancellationToken: cancellationToken,
                 progress: progress);
+            logger.LogInformation(
+                "Archidekt cache sweep completed with {DecksAdded} added, {DecksUpdated} updated, {DecksUnchanged} unchanged, and {DecksSkipped} skipped decks.",
+                result.DecksAdded,
+                result.DecksUpdated,
+                result.DecksUnchanged,
+                result.DecksSkipped);
             return result.DecksProcessed;
         }
         finally
