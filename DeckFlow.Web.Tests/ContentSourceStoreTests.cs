@@ -99,4 +99,30 @@ public sealed class ContentSourceStoreTests : IDisposable
             ContentSourceType.Podcast,
             "https://example.test/feed.xml"));
     }
+
+    [Fact]
+    public async Task InsertSourceAsync_ThrowsWhenGeneratedIdIsMissing()
+    {
+        await _store.EnsureSchemaAsync();
+
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var trigger = connection.CreateCommand();
+        trigger.CommandText = """
+            CREATE TRIGGER ignore_missing_id_source
+            BEFORE INSERT ON content_sources
+            WHEN NEW.source_slug = 'missing-id'
+            BEGIN
+              SELECT RAISE(IGNORE);
+            END;
+            """;
+        await trigger.ExecuteNonQueryAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _store.InsertSourceAsync(
+            "missing-id",
+            "Missing Id",
+            ContentSourceType.Podcast,
+            "https://example.test/missing-id.xml"));
+        Assert.Equal("expected a generated id but the insert returned no row", ex.Message);
+    }
 }

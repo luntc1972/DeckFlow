@@ -91,7 +91,7 @@ public sealed class ContentSourceStore : IContentSourceStore
         RelationalDatabaseConnection.AddParameter(command, "@sourceUrl", sourceUrl);
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />

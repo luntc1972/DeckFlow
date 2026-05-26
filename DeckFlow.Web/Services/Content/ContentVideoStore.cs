@@ -109,7 +109,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         RelationalDatabaseConnection.AddParameter(command, "@transcriptStatus", transcriptStatus);
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />
@@ -131,7 +131,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         RelationalDatabaseConnection.AddParameter(command, "@body", body);
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />
@@ -147,7 +147,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         RelationalDatabaseConnection.AddParameter(command, "@body", body);
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />
@@ -170,7 +170,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         RelationalDatabaseConnection.AddParameter(command, "@sortOrder", sortOrder);
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />
@@ -192,7 +192,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         RelationalDatabaseConnection.AddParameter(command, "@tagValue", tagValue);
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />
