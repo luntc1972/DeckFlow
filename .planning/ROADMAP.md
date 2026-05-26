@@ -193,7 +193,7 @@ Plans:
 Plans:
 
 - [ ] 19-01-PLAN.md — DeckFlow.Core/Knowledge contract layer: content record models + ContentTagVocabulary allowlist + AI-prompt artifact file-format spec + slim-index/artifact DTOs (KB-06, KB-07)
-- [ ] 19-02-PLAN.md — Storage foundation: RelationalDatabaseConnection.OpenConnectionAsync FK-pragma seam (D-03) + CreateContentKbConnection factory + FK/CASCADE proof at connection layer (KB-01, KB-04)
+- [ ] 19-02-PLAN.md — Storage foundation: RelationalDatabaseConnection.OpenConnectionAsync FK-pragma seam (D-03) + split connection factory (CreateLocalContentKbConnection always-SQLite / CreateContentSiteIndexConnection provider-aware, protects D-14) + FK/CASCADE proof at connection layer (KB-01, KB-04)
 - [ ] 19-03-PLAN.md — ContentSourceStore (content_sources) + ContentVideoStore aggregate (videos+transcripts+summaries+clips+tags) with CASCADE FKs + D-04 CASCADE proof test (KB-01, KB-04, KB-07)
 - [ ] 19-04-PLAN.md — WhisperSpendLedger (+ env-cap stub, KB-05) + ContentHarvestRunStore (KB-02) + slim ContentSiteIndexStore Render-bound index (KB-08)
 
