@@ -45,6 +45,24 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateCategoryKnowledgeConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "category-knowledge.db");
 
+    /// <summary>
+    /// Returns the always-SQLite Content KB connection, ignoring the provider environment because transcripts,
+    /// audio, and spend data are local-only and must never be uploaded to Render (D-14).
+    /// </summary>
+    public static RelationalDatabaseConnection CreateLocalContentKbConnection(IWebHostEnvironment environment)
+    {
+        var artifactsPath = ResolveArtifactsPath(environment);
+        Directory.CreateDirectory(artifactsPath);
+        return RelationalDatabaseConnection.FromSqlitePath(Path.Combine(artifactsPath, "content-kb.db"));
+    }
+
+    /// <summary>
+    /// Returns the provider-aware content site-index connection, the only Render-bound content shape for the
+    /// slim index (D-12/D-14).
+    /// </summary>
+    public static RelationalDatabaseConnection CreateContentSiteIndexConnection(IWebHostEnvironment environment)
+        => CreateConnection(environment, "content-site-index.db");
+
     private static RelationalDatabaseConnection CreateConnection(IWebHostEnvironment environment, string sqliteFileName)
     {
         var providerText = Environment.GetEnvironmentVariable(DatabaseProviderEnvVar);

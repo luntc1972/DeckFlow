@@ -77,6 +77,64 @@ public sealed class DeckFlowDatabaseConnectionFactoryTests
         }
     }
 
+    /// <summary>
+    /// Verifies local Content KB data stays on SQLite even when the provider environment selects Postgres.
+    /// </summary>
+    [Fact]
+    public void CreateLocalContentKbConnection_PostgresEnv_AlwaysUsesLocalSqliteContentKbFile()
+    {
+        var providerOriginal = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER");
+        var connectionOriginal = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING");
+        var dataDirOriginal = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var dataDir = Path.Combine(Path.GetTempPath(), "deckflow-content-kb-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", "Postgres");
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", "Host=localhost;Database=deckflow;Username=postgres;Password=postgres");
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", dataDir);
+
+            var environment = new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), "deckflow-content-" + Guid.NewGuid().ToString("N")));
+            var connection = DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(environment);
+
+            Assert.Equal(RelationalDatabaseProvider.Sqlite, connection.Provider);
+            Assert.Equal(Path.Combine(dataDir, "content-kb.db"), connection.ExtractSqlitePath());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", providerOriginal);
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", connectionOriginal);
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", dataDirOriginal);
+        }
+    }
+
+    /// <summary>
+    /// Verifies the content site index is the provider-aware Content KB connection shape.
+    /// </summary>
+    [Fact]
+    public void CreateContentSiteIndexConnection_PostgresEnv_UsesSharedConfiguredConnectionString()
+    {
+        var providerOriginal = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER");
+        var connectionOriginal = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", "Postgres");
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", "Host=localhost;Database=deckflow;Username=postgres;Password=postgres");
+
+            var environment = new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), "deckflow-content-" + Guid.NewGuid().ToString("N")));
+            var connection = DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(environment);
+
+            Assert.Equal(RelationalDatabaseProvider.Postgres, connection.Provider);
+            Assert.Equal("Host=localhost;Database=deckflow;Username=postgres;Password=postgres", connection.ConnectionString);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", providerOriginal);
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", connectionOriginal);
+        }
+    }
+
     [Fact]
     public void CreateFeedbackConnection_Postgres_NormalizesRenderDatabaseUri()
     {
