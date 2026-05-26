@@ -92,7 +92,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
      last by hard dependency on Phase 22 (must document all new KB types first). -->
 - [x] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)* (completed 2026-05-24)
 - [x] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2* — **DONE 2026-05-25 (live smoke passed)**
-- [ ] **Phase 19: Content KB Foundation — Local Schema + Contracts** — local-harvester SQLite schema (sources/videos/transcripts/spend-log/runs) + `DeckFlow.Core` distill models + AI-prompt artifact file-format spec + slim site-index schema contract; zero outbound HTTP *(re-scoped 2026-05-26: local-harvester model)* — *exec #3*
+- [x] **Phase 19: Content KB Foundation — Local Schema + Contracts** — local-harvester SQLite schema (sources/videos/transcripts/spend-log/runs) + `DeckFlow.Core` distill models + AI-prompt artifact file-format spec + slim site-index schema contract; zero outbound HTTP *(re-scoped 2026-05-26: local-harvester model)* — *exec #3* (completed 2026-05-26)
 - [ ] **Phase 20: Content KB Ingestion + Transcription (local)** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) fallback + plain local spend-log cap check; named HttpClients + Polly pipelines, run locally — *exec #4*
 - [ ] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
 - [ ] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
@@ -195,7 +195,7 @@ Plans:
 - [x] 19-01-PLAN.md — DeckFlow.Core/Knowledge contract layer: content record models + ContentTagVocabulary allowlist + AI-prompt artifact file-format spec + slim-index/artifact DTOs (KB-06, KB-07)
 - [x] 19-02-PLAN.md — Storage foundation: RelationalDatabaseConnection.OpenConnectionAsync FK-pragma seam (D-03) + split connection factory (CreateLocalContentKbConnection always-SQLite / CreateContentSiteIndexConnection provider-aware, protects D-14) + FK/CASCADE proof at connection layer (KB-01, KB-04)
 - [x] 19-03-PLAN.md — ContentSourceStore (content_sources) + ContentVideoStore aggregate (videos+transcripts+summaries+clips+tags) with CASCADE FKs + D-04 CASCADE proof test (KB-01, KB-04, KB-07)
-- [ ] 19-04-PLAN.md — WhisperSpendLedger (+ env-cap stub, KB-05) + ContentHarvestRunStore (KB-02) + slim ContentSiteIndexStore Render-bound index (KB-08)
+- [x] 19-04-PLAN.md — WhisperSpendLedger (+ env-cap stub, KB-05) + ContentHarvestRunStore (KB-02) + slim ContentSiteIndexStore Render-bound index (KB-08)
 
 ### Phase 20: Content KB Ingestion + Transcription (local)
 
@@ -309,7 +309,7 @@ Plans:
 | 16. WDG-04 Focus-Trapped Modal | 0/1 | Planned | - |
 | 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
 | 18. Admin Mobile-Responsive Sweep | 2/2 | Complete | 2026-05-24 |
-| 19. Content KB Foundation — Local Schema + Contracts | 3/4 | In Progress|  |
+| 19. Content KB Foundation — Local Schema + Contracts | 4/4 | Complete   | 2026-05-26 |
 | 20. Content KB Outbound HTTP Services | 0/TBD | Not started | - |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
