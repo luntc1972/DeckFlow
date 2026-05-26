@@ -83,7 +83,7 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
         RelationalDatabaseConnection.AddParameter(command, "@spendUsd", FormatDecimal(0m));
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(id, CultureInfo.InvariantCulture);
+        return ContentStoreGeneratedId.Read(id);
     }
 
     /// <inheritdoc />
