@@ -40,7 +40,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
         await repository.AddDeckIdsAsync(new[] { "123" });
         await repository.MarkDecksProcessedAsync(new[] { "123" });
-        await SetLastCheckedUtcAsync("123", DateTimeOffset.UtcNow.AddDays(-2));
+        await SetLastCheckedUtcAsync("123", DateTimeOffset.UtcNow.AddDays(-6));
 
         await repository.AddDeckIdsAsync(new[] { "123" });
         var queuedIds = await repository.GetNextUnprocessedDeckIdsAsync(10);

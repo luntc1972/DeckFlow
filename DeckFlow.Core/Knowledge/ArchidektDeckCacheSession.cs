@@ -51,6 +51,7 @@ public sealed class ArchidektDeckCacheSession
         var stopwatch = Stopwatch.StartNew();
         var added = 0;
         var updated = 0;
+        var unchanged = 0;
         var skipped = 0;
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
@@ -102,6 +103,10 @@ public sealed class ArchidektDeckCacheSession
                     {
                         added++;
                     }
+                    else if (cacheResult == DeckCacheWriteResult.Unchanged)
+                    {
+                        unchanged++;
+                    }
                     else
                     {
                         updated++;
@@ -133,7 +138,7 @@ public sealed class ArchidektDeckCacheSession
         }
 
         stopwatch.Stop();
-        return new ArchidektCacheRunResult(added, updated, skipped, stopwatch.Elapsed);
+        return new ArchidektCacheRunResult(added, updated, unchanged, skipped, stopwatch.Elapsed);
     }
 
     private async Task DelayUntilNextRetryAsync(Stopwatch stopwatch, TimeSpan duration, CancellationToken cancellationToken)
@@ -149,11 +154,14 @@ public sealed class ArchidektDeckCacheSession
     }
 
     /// <summary>
-    /// Imports a single deck and writes its categories to the repository. D-17: extracts the
+    /// Imports a single deck and writes its categories to the repository when its canonical
+    /// content hash differs from the stored hash. D-17: extracts the
     /// commander entry from the imported deck (most decks have exactly one Commander; partner
     /// pairs return the first deterministically) and returns it alongside the write result so
     /// <see cref="RunAsync"/> can persist <c>deck_queue.commander_name</c> in the same UPDATE
-    /// that flips <c>processed=1</c>.
+    /// that flips <c>processed=1</c>. Because <see cref="DeckCategoryCacheWriter.ReplaceDeckEntriesAsync"/>
+    /// deletes and persists in separate repository transactions, the hash is cleared before
+    /// replacement and set only after replacement succeeds.
     /// </summary>
     /// <param name="deckId">Deck ID to process.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -171,7 +179,16 @@ public sealed class ArchidektDeckCacheSession
             .Select(e => e.Name)
             .FirstOrDefault();
 
+        var newHash = DeckCategoryCacheWriter.ComputeCanonicalHash(entries);
+        var storedHash = await _repository.GetContentHashAsync(deckId, cancellationToken);
+        if (storedHash is not null && string.Equals(storedHash, newHash, StringComparison.Ordinal))
+        {
+            return (DeckCacheWriteResult.Unchanged, commanderName);
+        }
+
+        await _repository.SetContentHashAsync(deckId, null, cancellationToken);
         await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
+        await _repository.SetContentHashAsync(deckId, newHash, cancellationToken);
         return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName);
     }
 }
@@ -180,12 +197,13 @@ internal enum DeckCacheWriteResult
 {
     Added,
     Updated,
+    Unchanged,
 }
 
 /// <summary>
 /// Holds aggregate statistics for a completed Archidekt deck-cache run.
 /// </summary>
-public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksSkipped, TimeSpan Duration)
+public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksUnchanged, int DecksSkipped, TimeSpan Duration)
 {
     public int DecksProcessed => DecksAdded + DecksUpdated;
 }
