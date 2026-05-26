@@ -98,7 +98,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [ ] **Phase 22: Content KB Admin UI** — `/Admin/ContentSources` CRUD + `/Admin/ContentHarvest` history + `/Admin/ContentSpend` dashboard; CSRF-guarded; `content_kb_enabled` flag gate — *exec #6*
 - [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
 - [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
-- [ ] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26*
+- [x] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26* (completed 2026-05-26)
 
 ## Phase Details
 
@@ -301,7 +301,7 @@ Plans:
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
 | 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete    | 2026-05-25 |
 | 26. Category Cache Schema Normalization (fresh-start) | 2/2 | Implemented (live verify pending) | - |
-| 27. Deck-Cache Content-Hash Dedup + 5-Day Refresh | 0/1 | Planned | - |
+| 27. Deck-Cache Content-Hash Dedup + 5-Day Refresh | 1/1 | Complete   | 2026-05-26 |
 
 **Critical path:** Phase 16 → Phase 18 → Phase 19 → Phase 20 → Phase 21 → Phase 22
 **Off critical path:** Phase 17 (parallelizable with Phases 16/18/19/20/21/22), Phase 23 (lands last after all v1.4 surface exists), Phase 24 (independent bug fix), Phase 25 (depends only on Phase 18 admin shell)
@@ -391,10 +391,10 @@ Plans:
   6. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
 
 **Risk:** Low-medium — additive schema; main care is the requeue predicate using `last_checked_utc` and the hash covering exactly the written shape so a real change is never missed.
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
+- [x] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
 
 ---
 
