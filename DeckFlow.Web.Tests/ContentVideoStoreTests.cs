@@ -90,11 +90,11 @@ public sealed class ContentVideoStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task InsertVideoAsync_RejectsVideoWithoutNaturalKey()
+    public async Task InsertVideoAsync_RequiresExactlyOneNaturalKey()
     {
         var sourceId = await InsertSourceAsync("natural-key-source");
 
-        await Assert.ThrowsAsync<SqliteException>(() => _store.InsertVideoAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.InsertVideoAsync(
             sourceId,
             null,
             null,
@@ -102,6 +102,71 @@ public sealed class ContentVideoStoreTests : IDisposable
             "https://example.test/no-key",
             null,
             TranscriptStatus.Pending));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.InsertVideoAsync(
+            sourceId,
+            "both-video",
+            "both-guid",
+            "Both Natural Keys",
+            "https://example.test/both",
+            null,
+            TranscriptStatus.Pending));
+
+        var youtubeOnlyId = await _store.InsertVideoAsync(
+            sourceId,
+            "youtube-only-video",
+            null,
+            "YouTube Only",
+            "https://www.youtube.com/watch?v=youtube-only-video",
+            null,
+            TranscriptStatus.Pending);
+        var rssOnlyId = await _store.InsertVideoAsync(
+            sourceId,
+            null,
+            "rss-only-guid",
+            "RSS Only",
+            "https://example.test/rss-only",
+            null,
+            TranscriptStatus.Pending);
+
+        Assert.True(youtubeOnlyId > 0);
+        Assert.True(rssOnlyId > 0);
+    }
+
+    [Fact]
+    public async Task ContentVideosTable_RejectsBothNaturalKeys()
+    {
+        await _store.EnsureSchemaAsync();
+        var sourceId = await InsertSourceAsync("direct-natural-key-source");
+
+        await using var connection = await RelationalDatabaseConnection
+            .FromSqlitePath(_dbPath)
+            .OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO content_videos (
+              source_id,
+              youtube_video_id,
+              rss_guid,
+              title,
+              video_url,
+              transcript_status)
+            VALUES (
+              @sourceId,
+              @youtubeVideoId,
+              @rssGuid,
+              @title,
+              @videoUrl,
+              @transcriptStatus);
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
+        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", "direct-both-video");
+        RelationalDatabaseConnection.AddParameter(command, "@rssGuid", "direct-both-guid");
+        RelationalDatabaseConnection.AddParameter(command, "@title", "Direct Both Natural Keys");
+        RelationalDatabaseConnection.AddParameter(command, "@videoUrl", "https://example.test/direct-both");
+        RelationalDatabaseConnection.AddParameter(command, "@transcriptStatus", TranscriptStatus.Pending);
+
+        await Assert.ThrowsAsync<SqliteException>(() => command.ExecuteNonQueryAsync());
     }
 
     [Fact]
