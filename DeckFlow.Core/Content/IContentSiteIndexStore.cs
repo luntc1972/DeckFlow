@@ -1,6 +1,6 @@
 using DeckFlow.Core.Knowledge;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Persists the slim Render-bound Content KB site index.

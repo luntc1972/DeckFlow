@@ -1,11 +1,11 @@
 using System.IO;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
-using DeckFlow.Web.Services.Content;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// Integration tests for <see cref="ContentSiteIndexStore"/> using a temporary SQLite site-index database.

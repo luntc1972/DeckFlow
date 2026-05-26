@@ -40,3 +40,7 @@ phase: 19-content-kb-foundation-local-schema-contracts
 - Final build: `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web` passed with 0 warnings and 0 errors.
 - Final filtered tests: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter "FullyQualifiedName~ContentSourceStoreTests|FullyQualifiedName~ContentVideoStoreTests" --no-restore` passed 10/10.
 - Acceptance greps confirmed `_connectionInfo.OpenConnectionAsync`, `CreateLocalContentKbConnection`, `UNIQUE` constraints, CHECK literals, 8 total `REFERENCES content_videos(id) ON DELETE CASCADE` occurrences, `UNIQUE (video_id, dimension, tag_value)`, `skipped_over_cap`, and zero `CREATE TABLE IF NOT EXISTS harvest_runs` matches in `ContentVideoStore.cs`.
+
+## relocation note
+
+- Stores relocated to DeckFlow.Core (separate-app packaging).

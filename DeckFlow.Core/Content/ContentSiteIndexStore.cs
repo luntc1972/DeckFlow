@@ -3,7 +3,7 @@ using System.Globalization;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
 /// Default implementation of <see cref="IContentSiteIndexStore"/> for the only Render-bound
@@ -39,13 +39,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             }
         }
     }
-
-    /// <summary>
-    /// DI constructor that resolves the provider-aware site-index connection.
-    /// </summary>
-    /// <param name="environment">Web host environment used by the connection factory.</param>
-    public ContentSiteIndexStore(IWebHostEnvironment environment)
-        : this(DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(environment)) { }
 
     /// <inheritdoc />
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)

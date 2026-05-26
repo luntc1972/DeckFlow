@@ -1,11 +1,10 @@
 using System.IO;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
-using DeckFlow.Web.Services.Content;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// Integration tests for <see cref="WhisperSpendLedger"/> using a temporary SQLite content KB database.
@@ -111,15 +110,6 @@ public sealed class WhisperSpendLedgerTests : IDisposable
             TranscriptStatus.Pending);
     }
 
-    private static IConfiguration BuildConfiguration(string capUsd)
-    {
-        var values = new Dictionary<string, string?>
-        {
-            ["DECKFLOW_WHISPER_MONTHLY_CAP_USD"] = capUsd
-        };
-
-        return new ConfigurationBuilder()
-            .AddInMemoryCollection(values)
-            .Build();
-    }
+    private static Func<string, string?> BuildConfiguration(string capUsd)
+        => key => key == "DECKFLOW_WHISPER_MONTHLY_CAP_USD" ? capUsd : null;
 }

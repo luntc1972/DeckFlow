@@ -1,9 +1,9 @@
 using System.IO;
-using DeckFlow.Web.Services.Content;
+using DeckFlow.Core.Content;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// Integration tests for <see cref="ContentHarvestRunStore"/> using a temporary SQLite content KB database.

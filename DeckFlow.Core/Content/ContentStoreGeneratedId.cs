@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace DeckFlow.Web.Services.Content;
+namespace DeckFlow.Core.Content;
 
 internal static class ContentStoreGeneratedId
 {
