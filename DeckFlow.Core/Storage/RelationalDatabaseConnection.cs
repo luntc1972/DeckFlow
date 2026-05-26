@@ -26,6 +26,14 @@ public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Pro
             _ => throw new NotSupportedException($"Unsupported database provider '{Provider}'.")
         };
 
+    /// <summary>
+    /// Creates a new unopened connection for the configured provider.
+    /// </summary>
+    /// <remarks>
+    /// This does not open the connection and does not apply SQLite foreign-key enforcement.
+    /// Callers that need foreign-key enforcement must use <see cref="OpenConnectionAsync(CancellationToken)"/>
+    /// or the content factory methods instead of calling this method and opening the connection directly.
+    /// </remarks>
     public DbConnection CreateConnection()
         => Provider switch
         {
@@ -33,6 +41,37 @@ public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Pro
             RelationalDatabaseProvider.Postgres => new NpgsqlConnection(ConnectionString),
             _ => throw new NotSupportedException($"Unsupported database provider '{Provider}'.")
         };
+
+    /// <summary>
+    /// Opens a new connection to the configured database, applying SQLite foreign-key enforcement when needed.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>An open <see cref="DbConnection"/>.</returns>
+    public async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        var connection = CreateConnection();
+
+        try
+        {
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            if (IsSqlite)
+            {
+                // Why: SQLite enforces FK ON DELETE CASCADE only with this pragma per
+                // connection. Dispose on failures after open so failed pragma commands do not leak.
+                await using var pragma = connection.CreateCommand();
+                pragma.CommandText = "PRAGMA foreign_keys=ON;";
+                await pragma.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+
+        return connection;
+    }
 
     public bool IsSqlite => Provider == RelationalDatabaseProvider.Sqlite;
     public bool IsPostgres => Provider == RelationalDatabaseProvider.Postgres;
