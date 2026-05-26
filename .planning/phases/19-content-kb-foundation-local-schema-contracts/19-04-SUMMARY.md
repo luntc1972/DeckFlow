@@ -35,6 +35,11 @@ completed: 2026-05-26T22:48:25Z
 
 Content KB persistence now has local Whisper spend tracking, local harvest run summaries, and the provider-aware slim site index destined for Render.
 
+## Review fixes (CR-01, WR-05)
+
+- `content_videos` now enforces exactly one natural key in both app validation and SQLite/Postgres DDL.
+- Content-store insert paths now throw a clear `InvalidOperationException` when an insert returns no generated id.
+
 ## key-files
 
 - `DeckFlow.Web/Services/Content/IWhisperSpendLedger.cs` - spend ledger contract for recording calls, totaling monthly spend, and checking projected cap usage.
