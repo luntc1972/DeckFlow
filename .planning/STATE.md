@@ -144,9 +144,17 @@ v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 
 - 512MB RAM cap on Render Starter — NO local Whisper inference; chunk audio via ffmpeg client-side; stream audio to `/data/whisper-tmp/` not in-memory.
 - Postgres connection pool: cap explicit at 10-15 (Pitfall 6); never hold connection across `await` HTTP call.
 
+### Content KB Pivot (2026-05-26)
+
+- During `/gsd-discuss-phase 19`, the Content KB milestone was **re-architected** from server-hosted harvest to a **local-harvester + file-artifact + slim-site-index** model. Harvest/transcribe/distill runs LOCALLY (CLI command or standalone small app — packaging decided at plan time) against **local SQLite**; never on Render.
+- Output = **AI-prompt artifact files** (committed to repo like `prompt-templates/` or uploaded to `/data`) + a **slim index table** on Render Postgres for browse/filter. Only KB-08 (index) + KB-09 (display gate) touch Render.
+- **Dropped:** server harvest endpoint/orchestrator, `pg_try_advisory_lock` TOCTOU cap-gate, `DECKFLOW_WHISPER_KILL_SWITCH`, admin spend dashboard. Spend control = plain local spend-log check vs `DECKFLOW_WHISPER_MONTHLY_CAP_USD`.
+- ROADMAP.md phases 19-22 + REQUIREMENTS.md KB-01..KB-09 rewritten to match (IDs preserved, repurposed). Phase 19 discuss decisions (integer PKs, CASCADE FKs, soft-disable, ~4 aggregate stores) captured in the Phase 19 detail block. Numbers NOT renumbered.
+
 ### Blockers/Concerns
 
 - None at roadmap creation. v1.4 work continues on branch `v1.3` (per current checkout); branch cutover to `v1.4` per operator decision at first execute-phase.
+- **SQLite CASCADE landmine** (Phase 19/20): SQLite enforces FK `ON DELETE CASCADE` only with `PRAGMA foreign_keys=ON` per connection — verify the connection factory sets it or cascades silently no-op while Postgres enforces.
 - Dockerfile `apt-get install -y ffmpeg` verification needed at Phase 20/21 start if podcasts >25MB will need chunking (per Pitfall 7).
 
 ## Session Continuity
