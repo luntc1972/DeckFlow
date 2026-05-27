@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.IO;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.CLI;
 using Serilog;
@@ -55,6 +56,11 @@ var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or 
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
 var scryfallProbeRepeatOption = new Option<int>("--repeat", () => 1) { Description = "How many times to call the endpoint back-to-back (use to force 429)." };
+var contentSourceAddCommand = new Command("content-source-add", "Add a content source for the Content KB harvester.");
+var contentSourceAddUrlOption = new Option<string>("--url") { IsRequired = true };
+var contentSourceAddNameOption = new Option<string>("--name") { IsRequired = true };
+var contentSourceAddTypeOption = new Option<string>("--type", () => ContentSourceType.Youtube) { Description = "youtube_channel | podcast_rss" };
+var contentSourceAddDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -85,6 +91,10 @@ cardLookupCommand.AddOption(cardLookupNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
+contentSourceAddCommand.AddOption(contentSourceAddUrlOption);
+contentSourceAddCommand.AddOption(contentSourceAddNameOption);
+contentSourceAddCommand.AddOption(contentSourceAddTypeOption);
+contentSourceAddCommand.AddOption(contentSourceAddDbOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -131,6 +141,7 @@ rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
+rootCommand.AddCommand(contentSourceAddCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -178,4 +189,10 @@ scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) 
     Environment.ExitCode = CommandRunners.RunScryfallProbeAsync(endpoint, cardName, repeat).GetAwaiter().GetResult();
 }, scryfallProbeEndpointOption, scryfallProbeNameOption, scryfallProbeRepeatOption);
 
-return await rootCommand.InvokeAsync(args);
+contentSourceAddCommand.SetHandler((string url, string name, string type, FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
+}, contentSourceAddUrlOption, contentSourceAddNameOption, contentSourceAddTypeOption, contentSourceAddDbOption);
+
+var invokeExitCode = await rootCommand.InvokeAsync(args);
+return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;
