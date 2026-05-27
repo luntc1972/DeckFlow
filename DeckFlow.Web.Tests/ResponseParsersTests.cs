@@ -44,6 +44,49 @@ public sealed class ResponseParsersTests
     }
 
     [Fact]
+    public void ParseAnalysisResponse_PopulatesWinTurnFieldsWhenPresent()
+    {
+        var payload = """
+            {
+              "deck_profile": {
+                "format": "commander",
+                "commander": "Atraxa",
+                "estimated_win_turn": 4,
+                "can_answer_win_turn": true,
+                "assessed_bracket": "Bracket 4: Optimized",
+                "bracket_justification": "Wins around turn 4 with protected combo."
+              }
+            }
+            """;
+
+        var response = ResponseParsers.ParseAnalysisResponse(payload);
+
+        Assert.Equal(4, response.EstimatedWinTurn);
+        Assert.True(response.CanAnswerWinTurn);
+        Assert.Equal("Bracket 4: Optimized", response.AssessedBracket);
+        Assert.Equal("Wins around turn 4 with protected combo.", response.BracketJustification);
+    }
+
+    [Fact]
+    public void ParseAnalysisResponse_LegacyDeckProfileDefaultsWinTurnFields()
+    {
+        var response = ResponseParsers.ParseAnalysisResponse("""{"deck_profile":{"format":"commander","commander":"Atraxa"}}""");
+
+        Assert.Equal(0, response.EstimatedWinTurn);
+        Assert.False(response.CanAnswerWinTurn);
+        Assert.Equal(string.Empty, response.AssessedBracket);
+        Assert.Equal(string.Empty, response.BracketJustification);
+    }
+
+    [Fact]
+    public void ParseAnalysisResponse_AcceptsAssessedBracketOnlyDeckProfile()
+    {
+        var response = ResponseParsers.ParseAnalysisResponse("""{"deck_profile":{"assessed_bracket":"Bracket 3: Upgraded"}}""");
+
+        Assert.Equal("Bracket 3: Upgraded", response.AssessedBracket);
+    }
+
+    [Fact]
     public void ParseAnalysisResponse_ThrowsForRecognizableButEmptyDeckProfile()
     {
         var payload = """
@@ -54,6 +97,10 @@ public sealed class ResponseParsersTests
                 "game_plan": "",
                 "primary_axes": [],
                 "speed": "",
+                "estimated_win_turn": 0,
+                "can_answer_win_turn": false,
+                "assessed_bracket": "",
+                "bracket_justification": "",
                 "strengths": [],
                 "weaknesses": [],
                 "deck_needs": [],
