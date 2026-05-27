@@ -557,9 +557,13 @@ internal static class CommandRunners
         CancellationToken ct)
     {
         long? contentVideoId = null;
+        var mayMarkFailed = false;
+        var statusPersisted = false;
         try
         {
-            contentVideoId = await ResolveHarvestVideoIdAsync(source, video, videoStore, logger, ct);
+            var resolution = await ResolveHarvestVideoIdAsync(source, video, videoStore, logger, ct);
+            contentVideoId = resolution.VideoId;
+            mayMarkFailed = resolution.MayMarkFailed;
             if (contentVideoId is null)
             {
                 return;
@@ -567,18 +571,18 @@ internal static class CommandRunners
 
             var monthKey = utcNow().UtcDateTime.ToString("yyyy-MM");
             var result = await transcriptSource.FetchTranscriptAsync(video.VideoId, video.Duration, monthKey, ct);
-            await PersistTranscriptResultAsync(videoStore, ledger, contentVideoId.Value, result, monthKey, ct);
+            statusPersisted = await PersistTranscriptResultAsync(videoStore, ledger, contentVideoId.Value, result, monthKey, ct);
             counts.Add(result.Outcome);
             LogFetch(logger, video.VideoId, result);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await MarkFailedIfPossibleAsync(videoStore, contentVideoId, ct);
+            await MarkFailedIfPossibleAsync(videoStore, contentVideoId, mayMarkFailed && !statusPersisted, ct);
             logger.Error(exception, "harvest failed {VideoId}", video.VideoId);
         }
     }
 
-    private static async Task<long?> ResolveHarvestVideoIdAsync(
+    private static async Task<HarvestVideoResolution> ResolveHarvestVideoIdAsync(
         ContentSource source,
         YouTubeChannelVideo video,
         IContentVideoStore videoStore,
@@ -594,17 +598,17 @@ internal static class CommandRunners
                     "already harvested {VideoId} transcript_status={TranscriptStatus}",
                     video.VideoId,
                     existing.TranscriptStatus);
-                return null;
+                return new HarvestVideoResolution(null, MayMarkFailed: false);
             }
 
             logger.Information(
                 "resuming harvest {VideoId} transcript_status={TranscriptStatus}",
                 video.VideoId,
                 existing.TranscriptStatus);
-            return existing.Id;
+            return new HarvestVideoResolution(existing.Id, existing.TranscriptStatus == TranscriptStatus.Pending);
         }
 
-        return await videoStore.InsertVideoAsync(
+        var videoId = await videoStore.InsertVideoAsync(
             source.Id,
             video.VideoId,
             rssGuid: null,
@@ -613,9 +617,10 @@ internal static class CommandRunners
             video.PublishedUtc,
             TranscriptStatus.Pending,
             ct);
+        return new HarvestVideoResolution(videoId, MayMarkFailed: true);
     }
 
-    private static async Task PersistTranscriptResultAsync(
+    private static async Task<bool> PersistTranscriptResultAsync(
         IContentVideoStore videoStore,
         IWhisperSpendLedger ledger,
         long videoId,
@@ -628,19 +633,23 @@ internal static class CommandRunners
             case TranscriptOutcome.Captions:
                 await videoStore.InsertTranscriptAsync(videoId, TranscriptSource.Captions, result.Body!, ct);
                 await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Captions, ct);
-                break;
+                return true;
             case TranscriptOutcome.Whisper:
+                // Record spend first: a ledger row without a transcript is conservative;
+                // a transcript/status without a ledger row under-counts the monthly cap.
+                await ledger.RecordCallAsync(videoId, result.SecondsBilled!.Value, result.CostUsd!.Value, monthKey, ct);
                 await videoStore.InsertTranscriptAsync(videoId, TranscriptSource.Whisper, result.Body!, ct);
                 await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Whisper, ct);
-                await ledger.RecordCallAsync(videoId, result.SecondsBilled!.Value, result.CostUsd!.Value, monthKey, ct);
-                break;
+                return true;
             case TranscriptOutcome.SkippedOverCap:
                 await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.SkippedOverCap, ct);
-                break;
+                return true;
             case TranscriptOutcome.Failed:
                 await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Failed, ct);
-                break;
+                return true;
         }
+
+        return false;
     }
 
     private static async Task WarnIfFfmpegUnavailableAsync(
@@ -657,13 +666,16 @@ internal static class CommandRunners
     private static async Task MarkFailedIfPossibleAsync(
         IContentVideoStore videoStore,
         long? videoId,
+        bool mayMarkFailed,
         CancellationToken ct)
     {
-        if (videoId is not null)
+        if (videoId is not null && mayMarkFailed)
         {
             await videoStore.UpdateTranscriptStatusAsync(videoId.Value, TranscriptStatus.Failed, ct);
         }
     }
+
+    private sealed record HarvestVideoResolution(long? VideoId, bool MayMarkFailed);
 
     private static void LogFetch(Serilog.ILogger logger, string videoId, TranscriptFetchResult result)
         => logger.Information(
