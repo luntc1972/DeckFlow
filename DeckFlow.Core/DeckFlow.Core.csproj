@@ -13,7 +13,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Polly" Version="8.6.6" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageReference Include="OpenAI" Version="2.10.0" />
     <PackageReference Include="RestSharp" Version="114.0.0" />
     <PackageReference Include="YoutubeExplode" Version="6.6.0" />
   </ItemGroup>
