@@ -237,7 +237,13 @@ Plans:
   4. Source add/edit/disable is operable from the harvester (CLI verb or app action) and respected by the next run (`is_enabled` filter)
   5. Cap-hit (or `--dry-run`) aborts cleanly with `aborted_reason` recorded; over-cap videos marked `skipped_over_cap`; partial runs leave a consistent local DB
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+- [ ] 21-01-PLAN.md — Pure LLM distillation service (ChatClient, 3 strict-json_schema calls) + schemas + result records (KB-06, KB-07)
+- [ ] 21-02-PLAN.md — Separate LlmSpendLedger (token-based cap, DECKFLOW_LLM_MONTHLY_CAP_USD) + price/cap decision checkpoint (KB-06)
+- [ ] 21-03-PLAN.md — ContentArtifactWriter (locked spec emit, null-timestamp omit) + store query/transcript/clear + source enable/disable + .gitignore (KB-01, KB-06, KB-07)
+- [ ] 21-04-PLAN.md — distill orchestrator vertical slice (5 guardrails, derived idempotency, run record) + distill/content-source-set-enabled verbs (KB-01, KB-02, KB-06, KB-07)
 
 ### Phase 22: Content KB Site Integration
 
