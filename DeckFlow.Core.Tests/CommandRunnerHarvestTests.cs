@@ -130,6 +130,49 @@ public sealed class CommandRunnerHarvestTests
         Assert.Equal(["video-1"], transcriptSource.NaturalKeys);
     }
 
+    [Fact]
+    public async Task RunHarvestAsync_SourceListerFailureContinuesWithNextSource()
+    {
+        const string failedUrl = "https://www.youtube.com/@dead";
+        const string succeedingUrl = "https://www.youtube.com/@live";
+        var video = CreateListedVideo("video-live", TimeSpan.FromMinutes(9));
+        var videoStore = new FakeContentVideoStore();
+        var sourceStore = new FakeContentSourceStore(
+        [
+            CreateSource(1, "dead", failedUrl),
+            CreateSource(2, "live", succeedingUrl),
+        ]);
+        var lister = new FakeYouTubeChannelVideoLister([])
+        {
+            ExceptionsByChannelUrl =
+            {
+                [failedUrl] = new InvalidOperationException("Playlist 'dead' is not available."),
+            },
+            VideosByChannelUrl =
+            {
+                [succeedingUrl] = [video],
+            },
+        };
+
+        var exitCode = await CommandRunners.RunHarvestAsync(
+            sourceStore,
+            videoStore,
+            new FakeWhisperSpendLedger(),
+            lister,
+            new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", false)),
+            new FakeFfmpegAudioChunker(),
+            limit: 5,
+            logger: new LoggerConfiguration().CreateLogger(),
+            utcNow: () => new DateTimeOffset(2026, 5, 27, 23, 59, 59, TimeSpan.Zero),
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        var insertedVideo = Assert.Single(videoStore.InsertedVideos);
+        Assert.Equal(2, insertedVideo.SourceId);
+        Assert.Equal("video-live", insertedVideo.YoutubeVideoId);
+        Assert.Equal("captions", Assert.Single(videoStore.StatusUpdates).Status);
+    }
+
     private static Task<int> RunAsync(
         FakeContentVideoStore videoStore,
         FakeWhisperSpendLedger ledger,
@@ -172,8 +215,35 @@ public sealed class CommandRunnerHarvestTests
             CreatedUtc = DateTimeOffset.UtcNow,
         };
 
+    private static ContentSource CreateSource(long id, string sourceSlug, string sourceUrl)
+        => new()
+        {
+            Id = id,
+            SourceSlug = sourceSlug,
+            DisplayName = sourceSlug,
+            SourceType = ContentSourceType.Youtube,
+            SourceUrl = sourceUrl,
+            IsEnabled = true,
+            CreatedUtc = DateTimeOffset.UtcNow,
+        };
+
     private sealed class FakeContentSourceStore : IContentSourceStore
     {
+        private readonly IReadOnlyList<ContentSource> _sources;
+
+        public FakeContentSourceStore()
+            : this(
+            [
+                CreateSource(1, "mtggoldfish", "https://www.youtube.com/@MTGGoldfish"),
+            ])
+        {
+        }
+
+        public FakeContentSourceStore(IReadOnlyList<ContentSource> sources)
+        {
+            _sources = sources;
+        }
+
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -189,19 +259,7 @@ public sealed class CommandRunnerHarvestTests
             => throw new NotImplementedException();
 
         public Task<IReadOnlyList<ContentSource>> ListEnabledSourcesAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ContentSource>>(
-            [
-                new()
-                {
-                    Id = 1,
-                    SourceSlug = "mtggoldfish",
-                    DisplayName = "MTGGoldfish",
-                    SourceType = ContentSourceType.Youtube,
-                    SourceUrl = "https://www.youtube.com/@MTGGoldfish",
-                    IsEnabled = true,
-                    CreatedUtc = DateTimeOffset.UtcNow,
-                },
-            ]);
+            => Task.FromResult(_sources);
     }
 
     private sealed class FakeContentVideoStore : IContentVideoStore
@@ -336,11 +394,27 @@ public sealed class CommandRunnerHarvestTests
             _videos = videos;
         }
 
+        public Dictionary<string, Exception> ExceptionsByChannelUrl { get; } = [];
+
+        public Dictionary<string, IReadOnlyList<YouTubeChannelVideo>> VideosByChannelUrl { get; } = [];
+
         public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(
             string channelUrl,
             int limit,
             CancellationToken ct = default)
-            => Task.FromResult(_videos);
+        {
+            if (ExceptionsByChannelUrl.TryGetValue(channelUrl, out var exception))
+            {
+                throw exception;
+            }
+
+            if (VideosByChannelUrl.TryGetValue(channelUrl, out var videos))
+            {
+                return Task.FromResult(videos);
+            }
+
+            return Task.FromResult(_videos);
+        }
     }
 
     private sealed class FakeTranscriptSource : ITranscriptSource
