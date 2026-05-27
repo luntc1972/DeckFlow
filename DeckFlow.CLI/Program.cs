@@ -61,10 +61,18 @@ var contentSourceAddUrlOption = new Option<string>("--url") { IsRequired = true 
 var contentSourceAddNameOption = new Option<string>("--name") { IsRequired = true };
 var contentSourceAddTypeOption = new Option<string>("--type", () => ContentSourceType.Youtube) { Description = "youtube_channel | podcast_rss" };
 var contentSourceAddDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var contentSourceSetEnabledCommand = new Command("content-source-set-enabled", "Enable or disable a Content KB source.");
+var contentSourceSetEnabledIdOption = new Option<long>("--id") { IsRequired = true };
+var contentSourceSetEnabledEnabledOption = new Option<bool>("--enabled") { IsRequired = true };
+var contentSourceSetEnabledDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var harvestCommand = new Command("harvest", "Fetch transcripts for enabled Content KB sources.");
 var harvestDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var harvestLimitOption = new Option<int>("--limit", () => 5) { Description = "Recent videos per enabled source." };
 var harvestEnableWhisperOption = new Option<bool>("--enable-whisper", () => false) { Description = "Enable Whisper audio-transcription fallback when captions are unavailable (off by default; captions-only)." };
+var distillCommand = new Command("distill", "Distill harvested transcripts into Content KB artifacts.");
+var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
+var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Description = "Estimate projected spend over pending videos and process nothing." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -99,9 +107,15 @@ contentSourceAddCommand.AddOption(contentSourceAddUrlOption);
 contentSourceAddCommand.AddOption(contentSourceAddNameOption);
 contentSourceAddCommand.AddOption(contentSourceAddTypeOption);
 contentSourceAddCommand.AddOption(contentSourceAddDbOption);
+contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledIdOption);
+contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledEnabledOption);
+contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledDbOption);
 harvestCommand.AddOption(harvestDbOption);
 harvestCommand.AddOption(harvestLimitOption);
 harvestCommand.AddOption(harvestEnableWhisperOption);
+distillCommand.AddOption(distillDbOption);
+distillCommand.AddOption(distillLimitOption);
+distillCommand.AddOption(distillDryRunOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -149,7 +163,9 @@ rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
+rootCommand.AddCommand(contentSourceSetEnabledCommand);
 rootCommand.AddCommand(harvestCommand);
+rootCommand.AddCommand(distillCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -202,10 +218,20 @@ contentSourceAddCommand.SetHandler((string url, string name, string type, FileIn
     Environment.ExitCode = CommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
 }, contentSourceAddUrlOption, contentSourceAddNameOption, contentSourceAddTypeOption, contentSourceAddDbOption);
 
+contentSourceSetEnabledCommand.SetHandler((long id, bool enabled, FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunContentSourceSetEnabledAsync(id, enabled, db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, contentSourceSetEnabledIdOption, contentSourceSetEnabledEnabledOption, contentSourceSetEnabledDbOption);
+
 harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper) =>
 {
     Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption);
+
+distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun) =>
+{
+    Environment.ExitCode = CommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, distillDbOption, distillLimitOption, distillDryRunOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;
