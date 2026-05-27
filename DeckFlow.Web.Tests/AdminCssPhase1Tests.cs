@@ -60,7 +60,10 @@ public sealed class AdminCssPhase1Tests
     {
         var section = ReadPhase1Section();
 
-        Assert.Matches(new Regex(@"^\s+background:\s*#dc2626", RegexOptions.Multiline), section);
+        // Phase 18 (4a85e1e) refactored the literal danger color into the --danger token.
+        // Assert both: the danger button binds to the token, and the token resolves to #dc2626.
+        Assert.Matches(new Regex(@"^\s+background:\s*var\(--danger\)", RegexOptions.Multiline), section);
+        Assert.Matches(new Regex(@"--danger:\s*#dc2626", RegexOptions.IgnoreCase), ReadAdminCss());
     }
 
     [Fact]
@@ -141,5 +144,5 @@ public sealed class AdminCssPhase1Tests
             "DeckFlow.Web",
             "wwwroot",
             "css",
-            "admin.css"));
+            "admin-common.css"));
 }
