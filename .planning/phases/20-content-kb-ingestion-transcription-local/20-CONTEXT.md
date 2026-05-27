@@ -8,7 +8,7 @@
 
 Build and prove the **local harvester's upstream ingestion services** — YouTube caption fetch (KB-03), Whisper transcription runtime (KB-04), and the plain local spend-cap check (KB-05) — wired through a Core-resident RestSharp + named-Polly resilience pattern, runnable from a `DeckFlow.CLI` harvest command. Phase 20 ends at: captions/transcripts fetched and persisted to the local SQLite `content_transcripts`, per-call spend rows written to `whisper_spend_ledger`, and the cap-check gating Whisper calls.
 
-**In scope:** caption fetcher, Whisper transcription service, cap-check runtime, the `ITranscriptSource` abstraction, a minimal `content source add` CLI verb to seed sources for UAT, structured `transcript_source` logging, the 5-channel local caption-coverage UAT.
+**In scope:** caption fetcher, Whisper transcription service, cap-check runtime, the `ITranscriptSource` abstraction, the YouTube audio-download contract for Whisper, a minimal `content source add` CLI verb to seed sources for UAT, structured `transcript_source` logging, the 5-channel local caption-coverage UAT.
 
 **Out of scope (Phase 21):** the end-to-end orchestrator (`RunAsync`), LLM distillation (summary/clips), tag inference, artifact-file emit, slim-index row write, source edit/disable/list management, full podcast RSS+audio path. Nothing runs on Render this phase.
 </domain>
@@ -37,6 +37,9 @@ Build and prove the **local harvester's upstream ingestion services** — YouTub
 
 ### Carry-forward from Phase-19 CONTEXT (still binding)
 - **D-10:** `transcript_status` / `source` discriminator values: `captions` | `whisper` | `failed` | `skipped_over_cap` (align with KB-04 `source` discriminator). Raw video/audio NEVER stored (D-15): YouTube fetches caption text only; podcast audio is transient-for-Whisper then discarded — no audio table. Transcripts retained locally as a re-distill cache (D-16) — never re-pay Whisper on re-run. Spend ledger = one row per actual Whisper call.
+
+### Persistence ownership (D-11 — added 2026-05-26 from Codex review)
+- **D-11:** **PURE services + harvest verb is the SINGLE persistence owner.** The ingestion services (`IYouTubeTranscriptFetcher`, `IWhisperTranscriptionService`, `ITranscriptSource`/`YouTubeTranscriptSource`, `IYouTubeAudioSource`, `IFfmpegAudioChunker`) return **status-carrying RESULTS and persist NOTHING** — they touch no `ContentVideoStore`, no `WhisperSpendLedger`, no DB at all. The Phase-20 `harvest` verb (`RunHarvestAsync`) is the ONE place that writes: it calls `InsertVideoAsync`, `InsertTranscriptAsync`, `UpdateTranscriptStatusAsync`, and `WhisperSpendLedger.RecordCallAsync` (the ledger row is written **on actual Whisper success only**, never on cap-skip/failure). This removes the original 20-03/20-04 duplicate-persistence conflict (Codex HIGH-1) and keeps every service unit-testable with no DB. Phase-21's real orchestrator later supersedes the thin verb. **Corollary:** because Whisper success returns billed seconds + cost in its result record, the harvest verb writes the ledger row from that result; the Whisper service computes cost but does not persist it.
 
 ### Claude's Discretion
 - Exact CLI verb/option naming, RestSharp request shaping, Polly pipeline tuning (retry counts/backoff) within SC3 timeout bounds, chunk-size threshold logic, and the `ITranscriptSource` interface shape — planner/researcher decide.
@@ -76,15 +79,15 @@ Build and prove the **local harvester's upstream ingestion services** — YouTub
 - `{ get; init; }` on all records; byte-preserved DDL/raw strings; LF endings.
 
 ### Integration Points
-- New ingestion services → `ContentVideoStore`/`WhisperSpendLedger` (persist transcripts + spend) and the CLI host (invocation). Phase 21 orchestrator composes these.
+- New ingestion services are PURE (D-11). The `harvest` verb (single persistence owner) wires their results into `ContentVideoStore`/`WhisperSpendLedger`. Phase 21 orchestrator supersedes the thin verb.
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
 - Proven UAT target channels (SC1): MTGGoldfish, The Command Zone, EDHRECast, Tolarian Community College, Playing With Power — captions fetched from the LOCAL harvester environment via YoutubeExplode.
-- `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER` toggle for the proxy-pluggable abstraction (SC2, P2).
-- Structured log emits `transcript_source` on every fetch; UAT asserts `whisper_fallback_ratio < 25%`.
+- `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER` toggle for the proxy-pluggable abstraction (SC2, P2). A real factory/selector: `direct` is wired; unsupported values fail clearly.
+- Structured log emits `transcript_source` (captions|whisper) AND `caption_track_kind` (manual|auto_generated) on every fetch; UAT asserts `whisper_fallback_ratio < 25%`.
 </specifics>
 
 <deferred>
