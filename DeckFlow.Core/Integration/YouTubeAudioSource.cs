@@ -67,6 +67,7 @@ public sealed class YouTubeAudioSource : IYouTubeAudioSource
     {
         var manifest = await youtube.Videos.Streams.GetManifestAsync(videoUrlOrId, ct).ConfigureAwait(false);
         var streamInfo = manifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+        var durationSeconds = await GetBestEffortDurationSecondsAsync(youtube, videoUrlOrId, ct).ConfigureAwait(false);
         var tempPath = CreateTempPath(streamInfo.Container.Name);
 
         await youtube.Videos.Streams.DownloadAsync(streamInfo, tempPath, progress: null, ct).ConfigureAwait(false);
@@ -76,7 +77,7 @@ public sealed class YouTubeAudioSource : IYouTubeAudioSource
             TempFilePath = tempPath,
             FileName = Path.GetFileName(tempPath),
             SizeBytes = streamInfo.Size.Bytes,
-            DurationSeconds = GetBestEffortDurationSeconds(streamInfo),
+            DurationSeconds = durationSeconds,
         };
     }
 
@@ -90,6 +91,31 @@ public sealed class YouTubeAudioSource : IYouTubeAudioSource
         return Path.Combine(tempDir, "audio" + extension);
     }
 
-    private static double GetBestEffortDurationSeconds(IStreamInfo streamInfo)
-        => 0;
+    private static async Task<double> GetBestEffortDurationSecondsAsync(
+        YoutubeClient youtube,
+        string videoUrlOrId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var video = await youtube.Videos.GetAsync(videoUrlOrId, ct).ConfigureAwait(false);
+            return GetBestEffortDurationSeconds(video.Duration);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or YoutubeExplodeException or ArgumentException)
+        {
+            return 0;
+        }
+    }
+
+    internal static double GetBestEffortDurationSeconds(TimeSpan? duration)
+    {
+        var seconds = duration?.TotalSeconds ?? 0d;
+        return double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds <= 0d
+            ? 0d
+            : seconds;
+    }
 }

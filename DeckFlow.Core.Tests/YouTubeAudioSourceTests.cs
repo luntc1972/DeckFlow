@@ -33,6 +33,14 @@ public sealed class YouTubeAudioSourceTests
     }
 
     [Fact]
+    public void GetBestEffortDurationSeconds_ReturnsMetadataDurationSeconds()
+    {
+        var seconds = YouTubeAudioSource.GetBestEffortDurationSeconds(TimeSpan.FromMinutes(3.5));
+
+        Assert.Equal(210d, seconds);
+    }
+
+    [Fact]
     public void Dispose_DeletesTempFileAndCreatedDirectory()
     {
         var tempPath = CreateTempAudioFile();

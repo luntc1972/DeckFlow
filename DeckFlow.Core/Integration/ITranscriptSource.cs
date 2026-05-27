@@ -137,7 +137,7 @@ public interface ITranscriptSource
     /// Fetches a transcript for an upstream natural key without persisting anything.
     /// </summary>
     /// <param name="naturalKey">Source-specific natural key, such as a YouTube video id or URL.</param>
-    /// <param name="knownDuration">Authoritative video duration from the channel lister; passed to the Whisper cap projection so a caption-less video is never projected at $0 and transcribed free (KB-05).</param>
+    /// <param name="knownDuration">Authoritative video duration from the channel lister when available; passed to the Whisper cap projection, which uses the max of this value and the best-effort audio duration and fails if both are unknown (KB-05).</param>
     /// <param name="monthKey">Verb-supplied yyyy-MM month key used for BOTH the Whisper cap check and the verb's ledger write — must be the same value for both (Codex iter2 MEDIUM).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A non-null status-carrying transcript result.</returns>
