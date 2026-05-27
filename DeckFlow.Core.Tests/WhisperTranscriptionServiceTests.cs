@@ -54,6 +54,27 @@ public sealed class WhisperTranscriptionServiceTests
     }
 
     [Fact]
+    public async Task TranscribeAsync_UsesAudioDurationForCapWhenKnownDurationIsUnknown()
+    {
+        using var audio = CreateAudio(sizeBytes: 1_000, durationSeconds: 300);
+        using var httpClient = new HttpClient();
+        var ledger = new FakeWhisperSpendLedger { WouldExceed = true };
+        var invoked = false;
+        var service = CreateService(ledger, new FakeFfmpegAudioChunker(), httpClient, (stream, filename, ct) =>
+        {
+            invoked = true;
+            return Task.FromResult(("body", 60));
+        });
+
+        var result = await service.TranscribeAsync(audio, knownDuration: null, "2026-05");
+
+        Assert.Equal(TranscriptOutcome.SkippedOverCap, result.Outcome);
+        Assert.False(invoked);
+        Assert.True(ledger.LastProjectedCostUsd > 0m);
+        Assert.Equal(0, ledger.RecordCallCalls);
+    }
+
+    [Fact]
     public async Task TranscribeAsync_FailsWhenBothDurationsAreUnknown()
     {
         using var audio = CreateAudio(sizeBytes: 1_000, durationSeconds: 0);

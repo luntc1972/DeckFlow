@@ -35,7 +35,7 @@ public sealed record AudioDownloadResult : IDisposable
     public required long SizeBytes { get; init; }
 
     /// <summary>
-    /// Best-effort stream duration; may be 0 when the audio manifest lacks it — NOT authoritative for the cap projection; the cap uses the lister-supplied knownDuration passed through TranscribeAsync.
+    /// Best-effort duration from video metadata; may be 0 when unavailable. The cap projection uses the max of this value and the lister-supplied knownDuration passed through TranscribeAsync.
     /// </summary>
     public required double DurationSeconds { get; init; }
 
