@@ -217,6 +217,10 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("   Field-level detail requirements for the deck_profile JSON:");
         builder.AppendLine("   - game_plan: 2-4 sentences describing the deck's primary win condition, game plan, and how it closes games.");
         builder.AppendLine("   - speed: 2-3 sentences characterizing the deck's speed, threat deployment, and typical turn progression.");
+        builder.AppendLine("   - estimated_win_turn: the earliest turn the deck can realistically START a lethal or game-ending line, as an integer. This is the single most important driver of bracket placement.");
+        builder.AppendLine("   - can_answer_win_turn: true if the deck has interaction (counterspells, instant-speed removal, free interaction, protection) able to stop an opponent from winning on or around that same turn; otherwise false.");
+        builder.AppendLine("   - assessed_bracket: your bracket verdict for this deck (e.g. \"Bracket 3: Upgraded\"), driven primarily by estimated_win_turn and can_answer_win_turn.");
+        builder.AppendLine("   - bracket_justification: 2-3 sentences justifying the assessed bracket, citing the win turn and interaction density above any other factor.");
         builder.AppendLine("   - strengths: each item should be 1-2 sentences with a specific card or interaction reference.");
         builder.AppendLine("   - weaknesses: each item should be 1-2 sentences with a specific card or interaction reference.");
         builder.AppendLine("   - deck_needs: each item should be 1-2 sentences identifying a gap and what kind of card fills it.");

@@ -22,6 +22,18 @@ public sealed class DeckAnalysisResponse
     [JsonPropertyName("speed")]
     public string Speed { get; init; } = string.Empty;
 
+    [JsonPropertyName("estimated_win_turn")]
+    public int EstimatedWinTurn { get; init; }
+
+    [JsonPropertyName("can_answer_win_turn")]
+    public bool CanAnswerWinTurn { get; init; }
+
+    [JsonPropertyName("assessed_bracket")]
+    public string AssessedBracket { get; init; } = string.Empty;
+
+    [JsonPropertyName("bracket_justification")]
+    public string BracketJustification { get; init; } = string.Empty;
+
     [JsonPropertyName("strengths")]
     public IReadOnlyList<string> Strengths { get; init; } = Array.Empty<string>();
 
