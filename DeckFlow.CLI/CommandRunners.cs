@@ -443,6 +443,236 @@ internal static class CommandRunners
         }
     }
 
+    public static async Task<int> RunContentSourceSetEnabledAsync(
+        long id,
+        bool enabled,
+        FileInfo? db,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            var dbPath = ResolveContentKbDatabasePath(db);
+            var store = new ContentSourceStore(dbPath);
+            await store.SetEnabledAsync(id, enabled, ct).ConfigureAwait(false);
+            Console.WriteLine($"Source {id} enabled={enabled}.");
+            return 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Content source set-enabled failed {SourceId}", id);
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    public static async Task<int> RunDistillAsync(
+        FileInfo? db,
+        int limit,
+        bool dryRun,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            var dbPath = ResolveContentKbDatabasePath(db);
+            var artifactRoot = ResolveContentKbArtifactRoot(db);
+            using var llmHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
+            var sourceStore = new ContentSourceStore(dbPath);
+            var videoStore = new ContentVideoStore(dbPath);
+            var indexStore = new ContentSiteIndexStore(dbPath);
+            var runStore = new ContentHarvestRunStore(dbPath);
+            var ledger = new LlmSpendLedger(dbPath);
+            var distiller = new LlmDistillationService(llmHttpClient);
+
+            return await RunDistillAsync(
+                sourceStore,
+                videoStore,
+                indexStore,
+                runStore,
+                ledger,
+                distiller,
+                artifactRoot,
+                limit,
+                dryRun,
+                logger,
+                () => DateTimeOffset.UtcNow,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Content KB distill failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    internal static async Task<int> RunDistillAsync(
+        IContentSourceStore sourceStore,
+        IContentVideoStore videoStore,
+        IContentSiteIndexStore indexStore,
+        IContentHarvestRunStore runStore,
+        ILlmSpendLedger ledger,
+        ILlmDistillationService distiller,
+        string artifactRoot,
+        int limit,
+        bool dryRun,
+        Serilog.ILogger logger,
+        Func<DateTimeOffset> utcNow,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(sourceStore);
+        ArgumentNullException.ThrowIfNull(videoStore);
+        ArgumentNullException.ThrowIfNull(indexStore);
+        ArgumentNullException.ThrowIfNull(runStore);
+        ArgumentNullException.ThrowIfNull(ledger);
+        ArgumentNullException.ThrowIfNull(distiller);
+        ArgumentException.ThrowIfNullOrWhiteSpace(artifactRoot);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(utcNow);
+
+        var maxVideosPerSource = Math.Max(1, limit);
+        var monthKey = utcNow().UtcDateTime.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+        var generatedUtc = utcNow().ToUniversalTime();
+        var counts = new DistillCounts();
+        string? abortedReason = null;
+        var stopRun = false;
+        var runId = dryRun ? 0 : await runStore.StartRunAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            var sources = await sourceStore.ListEnabledSourcesAsync(ct).ConfigureAwait(false);
+            foreach (var source in sources)
+            {
+                if (stopRun)
+                {
+                    break;
+                }
+
+                counts.SourcesProcessed++;
+                IReadOnlyList<ContentVideo> pendingVideos;
+                try
+                {
+                    pendingVideos = await videoStore
+                        .ListVideosPendingDistillAsync(source.Id, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.Error(exception, "distill source failed {SourceSlug}", source.SourceSlug);
+                    continue;
+                }
+
+                var attemptedForSource = 0;
+                foreach (var video in pendingVideos)
+                {
+                    if (stopRun || attemptedForSource >= maxVideosPerSource)
+                    {
+                        break;
+                    }
+
+                    var naturalKey = GetContentNaturalKey(video);
+                    var status = await videoStore.GetDistillStatusAsync(video.Id, ct).ConfigureAwait(false);
+                    if (string.Equals(status, DistillStatusDistilled, StringComparison.Ordinal))
+                    {
+                        logger.Information("already distilled {VideoId}", naturalKey);
+                        continue;
+                    }
+
+                    attemptedForSource++;
+                    if (dryRun)
+                    {
+                        var transcript = await videoStore.GetLatestTranscriptAsync(video.Id, ct).ConfigureAwait(false);
+                        if (transcript is null)
+                        {
+                            logger.Warning("WOULD skip {VideoId} because transcript is missing", naturalKey);
+                            Console.WriteLine($"WOULD skip {naturalKey} (missing transcript)");
+                            continue;
+                        }
+
+                        var projectedCost = ComputeProjectedVideoCostUsd(transcript.Body);
+                        var wouldSkip = await ledger.WouldExceedCapAsync(projectedCost, monthKey, ct).ConfigureAwait(false);
+                        var disposition = wouldSkip ? "WOULD skip over cap" : "WOULD distill";
+                        logger.Information(
+                            "{Disposition} {VideoId} (~${ProjectedCostUsd:F4})",
+                            disposition,
+                            naturalKey,
+                            projectedCost);
+                        Console.WriteLine($"{disposition} {naturalKey} (~${projectedCost:F4})");
+                        if (wouldSkip)
+                        {
+                            stopRun = true;
+                            break;
+                        }
+
+                        counts.ProjectedSpendUsd += projectedCost;
+                        counts.WouldRun++;
+                        continue;
+                    }
+
+                    var outcome = await DistillVideoAsync(
+                        source,
+                        video,
+                        videoStore,
+                        indexStore,
+                        ledger,
+                        distiller,
+                        artifactRoot,
+                        monthKey,
+                        generatedUtc,
+                        logger,
+                        ct).ConfigureAwait(false);
+
+                    counts.Add(outcome);
+                    if (outcome.AbortedReason is not null)
+                    {
+                        abortedReason = outcome.AbortedReason;
+                        stopRun = true;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (!dryRun && runId > 0)
+            {
+                // Why: distill run overloads whisper_calls=LLM calls, spend_usd=LLM spend;
+                // transcripts_fetched=0; distill-failed surfaced in log not a column (Q4/D-11/LOW).
+                await runStore.CompleteRunAsync(
+                    runId,
+                    counts.SourcesProcessed,
+                    counts.VideosDistilled,
+                    transcriptsFetched: 0,
+                    whisperCalls: counts.LlmCalls,
+                    spendUsd: counts.LlmSpendUsd,
+                    abortedReason,
+                    ct).ConfigureAwait(false);
+            }
+        }
+
+        if (dryRun)
+        {
+            logger.Information(
+                "dry-run distill complete would_run={WouldRun} projected_spend_usd={ProjectedSpendUsd:F6}",
+                counts.WouldRun,
+                counts.ProjectedSpendUsd);
+            Console.WriteLine($"Dry run complete. Would distill {counts.WouldRun} videos; projected spend ${counts.ProjectedSpendUsd:F6}.");
+            return 0;
+        }
+
+        logger.Information(
+            "distill complete sources={SourcesProcessed} videos_distilled={VideosDistilled} llm_calls={LlmCalls} spend_usd={SpendUsd:F6} distill_failed={DistillFailed} failed_video_ids={FailedVideoIds}",
+            counts.SourcesProcessed,
+            counts.VideosDistilled,
+            counts.LlmCalls,
+            counts.LlmSpendUsd,
+            counts.DistillFailed,
+            string.Join(",", counts.FailedVideoIds));
+        return 0;
+    }
+
     public static async Task<int> RunHarvestAsync(
         FileInfo? db,
         int limit,
@@ -719,6 +949,305 @@ internal static class CommandRunners
         return result.IsAutoGenerated.Value ? "auto_generated" : "manual";
     }
 
+    private static async Task<DistillVideoOutcome> DistillVideoAsync(
+        ContentSource source,
+        ContentVideo video,
+        IContentVideoStore videoStore,
+        IContentSiteIndexStore indexStore,
+        ILlmSpendLedger ledger,
+        ILlmDistillationService distiller,
+        string artifactRoot,
+        string monthKey,
+        DateTimeOffset generatedUtc,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        var naturalKey = GetContentNaturalKey(video);
+        var llmCalls = 0;
+        var llmSpend = 0m;
+        try
+        {
+            var transcript = await videoStore.GetLatestTranscriptAsync(video.Id, ct).ConfigureAwait(false)
+                ?? throw new InvalidOperationException($"Transcript missing for {naturalKey}.");
+            ValidateTranscriptLength(transcript.Body);
+
+            var projectedVideoCost = ComputeProjectedVideoCostUsd(transcript.Body);
+            if (await ledger.WouldExceedCapAsync(projectedVideoCost, monthKey, ct).ConfigureAwait(false))
+            {
+                return await MarkSkippedOverCapAsync(
+                    videoStore,
+                    video.Id,
+                    naturalKey,
+                    "llm monthly cap would be exceeded before distilling " + naturalKey,
+                    llmCalls,
+                    llmSpend,
+                    logger,
+                    ct).ConfigureAwait(false);
+            }
+
+            await videoStore.ClearDistillOutputAsync(video.Id, ct).ConfigureAwait(false);
+
+            if (await ledger.WouldExceedCapAsync(
+                ComputeProjectedCallCostUsd(transcript.Body, SummaryMaxOutputTokens),
+                monthKey,
+                ct).ConfigureAwait(false))
+            {
+                return await MarkSkippedOverCapAsync(
+                    videoStore,
+                    video.Id,
+                    naturalKey,
+                    "llm monthly cap would be exceeded before summary for " + naturalKey,
+                    llmCalls,
+                    llmSpend,
+                    logger,
+                    ct).ConfigureAwait(false);
+            }
+
+            var summary = await distiller.SummarizeAsync(transcript.Body, ct).ConfigureAwait(false);
+            var summaryCost = LlmSpendLedger.ComputeCostUsd(summary.Usage.InputTokens, summary.Usage.OutputTokens);
+            // Why: each OpenAI call is separately billed; record its incurred cost BEFORE the next call so a later-call failure can never orphan an already-billed cost (HIGH-1/FIX-1, Phase 20 CR-01 class -- recorded spend >= incurred).
+            await ledger.RecordCallAsync(
+                video.Id,
+                summary.Usage.InputTokens,
+                summary.Usage.OutputTokens,
+                summaryCost,
+                monthKey,
+                ct).ConfigureAwait(false);
+            llmCalls++;
+            llmSpend += summaryCost;
+
+            if (await ledger.WouldExceedCapAsync(
+                ComputeProjectedCallCostUsd(transcript.Body, ClipsMaxOutputTokens),
+                monthKey,
+                ct).ConfigureAwait(false))
+            {
+                return await MarkSkippedOverCapAsync(
+                    videoStore,
+                    video.Id,
+                    naturalKey,
+                    "llm monthly cap would be exceeded before clips for " + naturalKey,
+                    llmCalls,
+                    llmSpend,
+                    logger,
+                    ct).ConfigureAwait(false);
+            }
+
+            var clips = await distiller.ExtractClipsAsync(transcript.Body, ct).ConfigureAwait(false);
+            var clipsCost = LlmSpendLedger.ComputeCostUsd(clips.Usage.InputTokens, clips.Usage.OutputTokens);
+            await ledger.RecordCallAsync(
+                video.Id,
+                clips.Usage.InputTokens,
+                clips.Usage.OutputTokens,
+                clipsCost,
+                monthKey,
+                ct).ConfigureAwait(false);
+            llmCalls++;
+            llmSpend += clipsCost;
+
+            if (await ledger.WouldExceedCapAsync(
+                ComputeProjectedCallCostUsd(transcript.Body, TagsMaxOutputTokens),
+                monthKey,
+                ct).ConfigureAwait(false))
+            {
+                return await MarkSkippedOverCapAsync(
+                    videoStore,
+                    video.Id,
+                    naturalKey,
+                    "llm monthly cap would be exceeded before tags for " + naturalKey,
+                    llmCalls,
+                    llmSpend,
+                    logger,
+                    ct).ConfigureAwait(false);
+            }
+
+            var tags = await distiller.InferTagsAsync(transcript.Body, ct).ConfigureAwait(false);
+            var tagsCost = LlmSpendLedger.ComputeCostUsd(tags.Usage.InputTokens, tags.Usage.OutputTokens);
+            await ledger.RecordCallAsync(
+                video.Id,
+                tags.Usage.InputTokens,
+                tags.Usage.OutputTokens,
+                tagsCost,
+                monthKey,
+                ct).ConfigureAwait(false);
+            llmCalls++;
+            llmSpend += tagsCost;
+
+            ValidateSummary(summary.Summary);
+            ValidateClips(clips.Clips);
+            var archetypeTags = FilterTags(ContentTagDimension.Archetype, tags.Archetype, logger);
+            var bracketTags = FilterTags(ContentTagDimension.Bracket, tags.Bracket, logger);
+            var cardCategoryTags = FilterTags(ContentTagDimension.CardCategory, tags.CardCategory, logger);
+
+            await videoStore.InsertSummaryAsync(video.Id, summary.Summary, ct).ConfigureAwait(false);
+            var sortOrder = 0;
+            foreach (var clip in clips.Clips)
+            {
+                // Why: 0 is a STORAGE sentinel for unknown timestamp (timestamp_s is NOT NULL); the artifact renders the [mm:ss] omission from the in-memory nullable clip, never from this row (MEDIUM-3/D-08).
+                await videoStore.InsertClipAsync(
+                    video.Id,
+                    clip.TimestampSeconds ?? 0,
+                    clip.Excerpt,
+                    sortOrder++,
+                    ct).ConfigureAwait(false);
+            }
+
+            foreach (var tag in archetypeTags)
+            {
+                await videoStore.InsertTagAsync(video.Id, ContentTagDimension.Archetype, tag, ct).ConfigureAwait(false);
+            }
+
+            foreach (var tag in bracketTags)
+            {
+                await videoStore.InsertTagAsync(video.Id, ContentTagDimension.Bracket, tag, ct).ConfigureAwait(false);
+            }
+
+            foreach (var tag in cardCategoryTags)
+            {
+                await videoStore.InsertTagAsync(video.Id, ContentTagDimension.CardCategory, tag, ct).ConfigureAwait(false);
+            }
+
+            var metadata = new ContentArtifactMetadata
+            {
+                Source = source.DisplayName,
+                Title = video.Title,
+                Url = video.VideoUrl,
+                YoutubeVideoId = video.YoutubeVideoId,
+                RssGuid = video.RssGuid,
+                ArchetypeTags = archetypeTags,
+                BracketTags = bracketTags,
+                CardCategoryTags = cardCategoryTags,
+                GeneratedUtc = generatedUtc,
+            };
+            var artifactText = ContentArtifactWriter.ToText(
+                metadata,
+                summary.Summary,
+                clips.Clips.Select(clip => (clip.TimestampSeconds, clip.Excerpt)).ToArray());
+            ContentArtifactWriter.WriteFile(artifactRoot, source.SourceSlug, naturalKey, artifactText);
+            await indexStore.UpsertRowAsync(
+                new ContentSiteIndexRow
+                {
+                    Id = 0,
+                    Source = source.DisplayName,
+                    Title = video.Title,
+                    VideoUrl = video.VideoUrl,
+                    ArtifactPath = ContentArtifactWriter.ComputeRelativeArtifactPath(source.SourceSlug, naturalKey),
+                    PublishedUtc = video.PublishedUtc,
+                    IndexedUtc = generatedUtc,
+                    ArchetypeTags = archetypeTags,
+                    BracketTags = bracketTags,
+                    CardCategoryTags = cardCategoryTags,
+                    YoutubeVideoId = video.YoutubeVideoId,
+                    RssGuid = video.RssGuid,
+                },
+                ct).ConfigureAwait(false);
+            await videoStore.SetDistillStatusAsync(video.Id, DistillStatusDistilled, ct).ConfigureAwait(false);
+            logger.Information("distilled {VideoId}", naturalKey);
+            return DistillVideoOutcome.Distilled(llmCalls, llmSpend);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await videoStore.SetDistillStatusAsync(video.Id, DistillStatusFailed, ct).ConfigureAwait(false);
+            logger.Error(exception, "distill failed {VideoId}", naturalKey);
+            return DistillVideoOutcome.Failed(llmCalls, llmSpend, naturalKey);
+        }
+    }
+
+    private static async Task<DistillVideoOutcome> MarkSkippedOverCapAsync(
+        IContentVideoStore videoStore,
+        long videoId,
+        string naturalKey,
+        string abortedReason,
+        int llmCalls,
+        decimal llmSpend,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        await videoStore.SetDistillStatusAsync(videoId, DistillStatusSkippedOverCap, ct).ConfigureAwait(false);
+        logger.Warning("distill skipped_over_cap {VideoId} reason={AbortedReason}", naturalKey, abortedReason);
+        return DistillVideoOutcome.SkippedOverCap(llmCalls, llmSpend, abortedReason);
+    }
+
+    private static IReadOnlyList<string> FilterTags(
+        string dimension,
+        IReadOnlyList<string> tags,
+        Serilog.ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(tags);
+        var valid = new List<string>();
+        foreach (var tag in tags)
+        {
+            if (!string.IsNullOrWhiteSpace(tag)
+                && ContentTagVocabulary.IsValid(dimension, tag))
+            {
+                if (!valid.Contains(tag, StringComparer.OrdinalIgnoreCase))
+                {
+                    valid.Add(tag);
+                }
+
+                continue;
+            }
+
+            logger.Warning("dropped out-of-vocab tag {Dimension} {Tag}", dimension, tag);
+        }
+
+        return valid;
+    }
+
+    private static string GetContentNaturalKey(ContentVideo video)
+    {
+        var hasYoutubeVideoId = !string.IsNullOrWhiteSpace(video.YoutubeVideoId);
+        var hasRssGuid = !string.IsNullOrWhiteSpace(video.RssGuid);
+        if (hasYoutubeVideoId == hasRssGuid)
+        {
+            throw new InvalidOperationException("Exactly one content natural key is required for distillation.");
+        }
+
+        return hasYoutubeVideoId ? video.YoutubeVideoId! : video.RssGuid!;
+    }
+
+    private static void ValidateTranscriptLength(string transcript)
+    {
+        if (EstimateTokenCount(transcript) > MaxTranscriptInputTokens)
+        {
+            throw new InvalidOperationException("Transcript too long for the distillation context window.");
+        }
+    }
+
+    private static void ValidateSummary(string summary)
+    {
+        if (CountWords(summary) > SummaryMaxWords)
+        {
+            throw new InvalidOperationException("Summary exceeded the 200-word limit.");
+        }
+    }
+
+    private static void ValidateClips(IReadOnlyList<ClipItem> clips)
+    {
+        if (clips.Count is < MinClipCount or > MaxClipCount)
+        {
+            throw new InvalidOperationException("Clip extraction must return 3 to 8 clips.");
+        }
+
+        if (clips.Any(clip => clip.TimestampSeconds < 0))
+        {
+            throw new InvalidOperationException("Clip timestamps cannot be negative.");
+        }
+    }
+
+    private static int CountWords(string text)
+        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+    private static decimal ComputeProjectedVideoCostUsd(string transcript)
+        => LlmSpendLedger.ComputeCostUsd(
+            EstimateTokenCount(transcript) * DistillationCallCount,
+            SummaryMaxOutputTokens + ClipsMaxOutputTokens + TagsMaxOutputTokens);
+
+    private static decimal ComputeProjectedCallCostUsd(string transcript, int maxOutputTokens)
+        => LlmSpendLedger.ComputeCostUsd(EstimateTokenCount(transcript), maxOutputTokens);
+
+    private static int EstimateTokenCount(string transcript)
+        => Math.Max(1, (int)Math.Ceiling(transcript.Length / 4m));
+
     public static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, int timeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(cardName))
@@ -963,6 +1492,20 @@ internal static class CommandRunners
     private static string ResolveContentKbDatabasePath(FileInfo? db)
         => db?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts", "content-kb.db");
 
+    private static string ResolveContentKbArtifactRoot(FileInfo? db)
+    {
+        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(dataDir))
+        {
+            return Path.GetFullPath(Path.Combine(dataDir, "content-kb"));
+        }
+
+        var dbPath = ResolveContentKbDatabasePath(db);
+        var dbDirectory = Path.GetDirectoryName(Path.GetFullPath(dbPath))
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
+        return Path.Combine(dbDirectory, "content-kb");
+    }
+
     private static bool IsValidContentSourceType(string type)
         => type is ContentSourceType.Youtube or ContentSourceType.Podcast;
 
@@ -981,6 +1524,70 @@ internal static class CommandRunners
         }
 
         return false;
+    }
+
+    private const int SummaryMaxOutputTokens = 400;
+    private const int ClipsMaxOutputTokens = 1200;
+    private const int TagsMaxOutputTokens = 200;
+    private const int SummaryMaxWords = 200;
+    private const int MinClipCount = 3;
+    private const int MaxClipCount = 8;
+    private const int MaxTranscriptInputTokens = 120_000;
+    private const int DistillationCallCount = 3;
+    private const string DistillStatusDistilled = "distilled";
+    private const string DistillStatusSkippedOverCap = "skipped_over_cap";
+    private const string DistillStatusFailed = "failed";
+
+    private sealed class DistillCounts
+    {
+        public int SourcesProcessed { get; set; }
+
+        public int VideosDistilled { get; private set; }
+
+        public int DistillFailed { get; private set; }
+
+        public int LlmCalls { get; private set; }
+
+        public decimal LlmSpendUsd { get; private set; }
+
+        public int WouldRun { get; set; }
+
+        public decimal ProjectedSpendUsd { get; set; }
+
+        public List<string> FailedVideoIds { get; } = [];
+
+        public void Add(DistillVideoOutcome outcome)
+        {
+            LlmCalls += outcome.LlmCalls;
+            LlmSpendUsd += outcome.LlmSpendUsd;
+            if (outcome.IsDistilled)
+            {
+                VideosDistilled++;
+            }
+
+            if (outcome.FailedVideoId is not null)
+            {
+                DistillFailed++;
+                FailedVideoIds.Add(outcome.FailedVideoId);
+            }
+        }
+    }
+
+    private sealed record DistillVideoOutcome(
+        bool IsDistilled,
+        int LlmCalls,
+        decimal LlmSpendUsd,
+        string? FailedVideoId,
+        string? AbortedReason)
+    {
+        public static DistillVideoOutcome Distilled(int llmCalls, decimal llmSpendUsd)
+            => new(true, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: null);
+
+        public static DistillVideoOutcome Failed(int llmCalls, decimal llmSpendUsd, string failedVideoId)
+            => new(false, llmCalls, llmSpendUsd, failedVideoId, AbortedReason: null);
+
+        public static DistillVideoOutcome SkippedOverCap(int llmCalls, decimal llmSpendUsd, string abortedReason)
+            => new(false, llmCalls, llmSpendUsd, FailedVideoId: null, abortedReason);
     }
 
     private sealed class HarvestCounts
