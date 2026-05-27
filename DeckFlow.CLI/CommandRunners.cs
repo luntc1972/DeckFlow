@@ -443,6 +443,257 @@ internal static class CommandRunners
         }
     }
 
+    public static async Task<int> RunHarvestAsync(
+        FileInfo? db,
+        int limit,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            var dbPath = ResolveContentKbDatabasePath(db);
+            using var youtubeHttpClient = new HttpClient();
+            using var whisperHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
+            var sourceStore = new ContentSourceStore(dbPath);
+            var videoStore = new ContentVideoStore(dbPath);
+            var ledger = new WhisperSpendLedger(dbPath);
+            var chunker = new FfmpegAudioChunker();
+            var transcriptFetcher = TranscriptProviderFactory.Resolve(
+                Environment.GetEnvironmentVariable(TranscriptProviderFactory.EnvironmentVariableName),
+                youtubeHttpClient);
+            var whisper = new WhisperTranscriptionService(ledger, chunker, whisperHttpClient);
+            var transcriptSource = new YouTubeTranscriptSource(
+                transcriptFetcher,
+                new YouTubeAudioSource(youtubeHttpClient),
+                whisper);
+
+            return await RunHarvestAsync(
+                sourceStore,
+                videoStore,
+                ledger,
+                new YouTubeChannelVideoLister(youtubeHttpClient),
+                transcriptSource,
+                chunker,
+                limit,
+                logger,
+                () => DateTimeOffset.UtcNow,
+                ct);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Content KB harvest failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    internal static async Task<int> RunHarvestAsync(
+        IContentSourceStore sourceStore,
+        IContentVideoStore videoStore,
+        IWhisperSpendLedger ledger,
+        IYouTubeChannelVideoLister lister,
+        ITranscriptSource transcriptSource,
+        IFfmpegAudioChunker chunker,
+        int limit,
+        Serilog.ILogger logger,
+        Func<DateTimeOffset> utcNow,
+        CancellationToken ct)
+    {
+        await WarnIfFfmpegUnavailableAsync(chunker, logger, ct);
+        var sources = await sourceStore.ListEnabledSourcesAsync(ct);
+        var aggregate = new HarvestCounts();
+        foreach (var source in sources.Where(source => source.SourceType == ContentSourceType.Youtube))
+        {
+            var sourceCounts = await HarvestSourceAsync(
+                source,
+                videoStore,
+                ledger,
+                lister,
+                transcriptSource,
+                Math.Max(1, limit),
+                logger,
+                utcNow,
+                ct);
+            aggregate.Add(sourceCounts);
+        }
+
+        LogFallbackRatio(logger, "aggregate", aggregate);
+        // Phase 21 owns distillation, artifact emit, slim-index rows, and run records.
+        return 0;
+    }
+
+    private static async Task<HarvestCounts> HarvestSourceAsync(
+        ContentSource source,
+        IContentVideoStore videoStore,
+        IWhisperSpendLedger ledger,
+        IYouTubeChannelVideoLister lister,
+        ITranscriptSource transcriptSource,
+        int limit,
+        Serilog.ILogger logger,
+        Func<DateTimeOffset> utcNow,
+        CancellationToken ct)
+    {
+        var counts = new HarvestCounts();
+        var videos = await lister.ListRecentAsync(source.SourceUrl, limit, ct);
+        foreach (var video in videos)
+        {
+            await HarvestVideoAsync(source, video, videoStore, ledger, transcriptSource, counts, logger, utcNow, ct);
+        }
+
+        LogFallbackRatio(logger, source.SourceSlug, counts);
+        return counts;
+    }
+
+    private static async Task HarvestVideoAsync(
+        ContentSource source,
+        YouTubeChannelVideo video,
+        IContentVideoStore videoStore,
+        IWhisperSpendLedger ledger,
+        ITranscriptSource transcriptSource,
+        HarvestCounts counts,
+        Serilog.ILogger logger,
+        Func<DateTimeOffset> utcNow,
+        CancellationToken ct)
+    {
+        long? contentVideoId = null;
+        try
+        {
+            contentVideoId = await ResolveHarvestVideoIdAsync(source, video, videoStore, logger, ct);
+            if (contentVideoId is null)
+            {
+                return;
+            }
+
+            var monthKey = utcNow().UtcDateTime.ToString("yyyy-MM");
+            var result = await transcriptSource.FetchTranscriptAsync(video.VideoId, video.Duration, monthKey, ct);
+            await PersistTranscriptResultAsync(videoStore, ledger, contentVideoId.Value, result, monthKey, ct);
+            counts.Add(result.Outcome);
+            LogFetch(logger, video.VideoId, result);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await MarkFailedIfPossibleAsync(videoStore, contentVideoId, ct);
+            logger.Error(exception, "harvest failed {VideoId}", video.VideoId);
+        }
+    }
+
+    private static async Task<long?> ResolveHarvestVideoIdAsync(
+        ContentSource source,
+        YouTubeChannelVideo video,
+        IContentVideoStore videoStore,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        var existing = await videoStore.GetVideoByYoutubeIdAsync(source.Id, video.VideoId, ct);
+        if (existing is not null)
+        {
+            if (IsTerminalSuccess(existing.TranscriptStatus))
+            {
+                logger.Information(
+                    "already harvested {VideoId} transcript_status={TranscriptStatus}",
+                    video.VideoId,
+                    existing.TranscriptStatus);
+                return null;
+            }
+
+            logger.Information(
+                "resuming harvest {VideoId} transcript_status={TranscriptStatus}",
+                video.VideoId,
+                existing.TranscriptStatus);
+            return existing.Id;
+        }
+
+        return await videoStore.InsertVideoAsync(
+            source.Id,
+            video.VideoId,
+            rssGuid: null,
+            video.Title,
+            video.Url,
+            video.PublishedUtc,
+            TranscriptStatus.Pending,
+            ct);
+    }
+
+    private static async Task PersistTranscriptResultAsync(
+        IContentVideoStore videoStore,
+        IWhisperSpendLedger ledger,
+        long videoId,
+        TranscriptFetchResult result,
+        string monthKey,
+        CancellationToken ct)
+    {
+        switch (result.Outcome)
+        {
+            case TranscriptOutcome.Captions:
+                await videoStore.InsertTranscriptAsync(videoId, TranscriptSource.Captions, result.Body!, ct);
+                await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Captions, ct);
+                break;
+            case TranscriptOutcome.Whisper:
+                await videoStore.InsertTranscriptAsync(videoId, TranscriptSource.Whisper, result.Body!, ct);
+                await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Whisper, ct);
+                await ledger.RecordCallAsync(videoId, result.SecondsBilled!.Value, result.CostUsd!.Value, monthKey, ct);
+                break;
+            case TranscriptOutcome.SkippedOverCap:
+                await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.SkippedOverCap, ct);
+                break;
+            case TranscriptOutcome.Failed:
+                await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Failed, ct);
+                break;
+        }
+    }
+
+    private static async Task WarnIfFfmpegUnavailableAsync(
+        IFfmpegAudioChunker chunker,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        if (!await chunker.IsAvailableAsync(ct))
+        {
+            logger.Warning("ffmpeg not found on PATH - audio >24MB will be marked failed.");
+        }
+    }
+
+    private static async Task MarkFailedIfPossibleAsync(
+        IContentVideoStore videoStore,
+        long? videoId,
+        CancellationToken ct)
+    {
+        if (videoId is not null)
+        {
+            await videoStore.UpdateTranscriptStatusAsync(videoId.Value, TranscriptStatus.Failed, ct);
+        }
+    }
+
+    private static void LogFetch(Serilog.ILogger logger, string videoId, TranscriptFetchResult result)
+        => logger.Information(
+            "harvested {VideoId} transcript_source={TranscriptSource} caption_track_kind={CaptionTrackKind} outcome={Outcome}",
+            videoId,
+            result.Source,
+            GetCaptionTrackKind(result),
+            result.Outcome);
+
+    private static void LogFallbackRatio(Serilog.ILogger logger, string sourceSlug, HarvestCounts counts)
+        => logger.Information(
+            "harvest source={SourceSlug} captions={Captions} whisper={Whisper} whisper_fallback_ratio={WhisperFallbackRatio:F3}",
+            sourceSlug,
+            counts.Captions,
+            counts.Whisper,
+            counts.WhisperFallbackRatio);
+
+    private static bool IsTerminalSuccess(string transcriptStatus)
+        => transcriptStatus is TranscriptStatus.Captions or TranscriptStatus.Whisper;
+
+    private static string? GetCaptionTrackKind(TranscriptFetchResult result)
+    {
+        if (result.Outcome != TranscriptOutcome.Captions || result.IsAutoGenerated is null)
+        {
+            return null;
+        }
+
+        return result.IsAutoGenerated.Value ? "auto_generated" : "manual";
+    }
+
     public static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, int timeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(cardName))
@@ -705,6 +956,40 @@ internal static class CommandRunners
         }
 
         return false;
+    }
+
+    private sealed class HarvestCounts
+    {
+        public int Captions { get; private set; }
+
+        public int Whisper { get; private set; }
+
+        public double WhisperFallbackRatio
+        {
+            get
+            {
+                var successes = Captions + Whisper;
+                return successes == 0 ? 0d : (double)Whisper / successes;
+            }
+        }
+
+        public void Add(TranscriptOutcome outcome)
+        {
+            if (outcome == TranscriptOutcome.Captions)
+            {
+                Captions++;
+            }
+            else if (outcome == TranscriptOutcome.Whisper)
+            {
+                Whisper++;
+            }
+        }
+
+        public void Add(HarvestCounts counts)
+        {
+            Captions += counts.Captions;
+            Whisper += counts.Whisper;
+        }
     }
 
     private static void PrintCard(ScryfallCardDto card)

@@ -61,6 +61,9 @@ var contentSourceAddUrlOption = new Option<string>("--url") { IsRequired = true 
 var contentSourceAddNameOption = new Option<string>("--name") { IsRequired = true };
 var contentSourceAddTypeOption = new Option<string>("--type", () => ContentSourceType.Youtube) { Description = "youtube_channel | podcast_rss" };
 var contentSourceAddDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var harvestCommand = new Command("harvest", "Fetch transcripts for enabled Content KB sources.");
+var harvestDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var harvestLimitOption = new Option<int>("--limit", () => 5) { Description = "Recent videos per enabled source." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -95,6 +98,8 @@ contentSourceAddCommand.AddOption(contentSourceAddUrlOption);
 contentSourceAddCommand.AddOption(contentSourceAddNameOption);
 contentSourceAddCommand.AddOption(contentSourceAddTypeOption);
 contentSourceAddCommand.AddOption(contentSourceAddDbOption);
+harvestCommand.AddOption(harvestDbOption);
+harvestCommand.AddOption(harvestLimitOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -142,6 +147,7 @@ rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
+rootCommand.AddCommand(harvestCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -193,6 +199,11 @@ contentSourceAddCommand.SetHandler((string url, string name, string type, FileIn
 {
     Environment.ExitCode = CommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
 }, contentSourceAddUrlOption, contentSourceAddNameOption, contentSourceAddTypeOption, contentSourceAddDbOption);
+
+harvestCommand.SetHandler((FileInfo? db, int limit) =>
+{
+    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, harvestDbOption, harvestLimitOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;
