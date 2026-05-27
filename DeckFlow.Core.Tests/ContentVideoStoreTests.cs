@@ -90,6 +90,105 @@ public sealed class ContentVideoStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateTranscriptStatusAsync_ChangesPendingVideoToCaptions()
+    {
+        var sourceId = await InsertSourceAsync("captions-status-source");
+        var videoId = await _store.InsertVideoAsync(
+            sourceId,
+            "captions-status-video",
+            null,
+            "Captions Status Video",
+            "https://www.youtube.com/watch?v=captions-status-video",
+            null,
+            TranscriptStatus.Pending);
+
+        await _store.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Captions);
+
+        Assert.Equal(TranscriptStatus.Captions, await ReadTranscriptStatusAsync(videoId));
+    }
+
+    [Fact]
+    public async Task UpdateTranscriptStatusAsync_ChangesPendingVideoToSkippedOverCap()
+    {
+        var sourceId = await InsertSourceAsync("cap-status-source");
+        var videoId = await _store.InsertVideoAsync(
+            sourceId,
+            "cap-status-video",
+            null,
+            "Cap Status Video",
+            "https://www.youtube.com/watch?v=cap-status-video",
+            null,
+            TranscriptStatus.Pending);
+
+        await _store.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.SkippedOverCap);
+
+        Assert.Equal(TranscriptStatus.SkippedOverCap, await ReadTranscriptStatusAsync(videoId));
+    }
+
+    [Fact]
+    public async Task UpdateTranscriptStatusAsync_RejectsUnknownStatusBeforeOpeningDatabase()
+    {
+        var guardedDbPath = Path.Combine(Path.GetTempPath(), $"content-video-guard-{Guid.NewGuid():N}.db");
+        var guardedStore = new ContentVideoStore(guardedDbPath);
+
+        try
+        {
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+                guardedStore.UpdateTranscriptStatusAsync(42, "not-a-status"));
+
+            Assert.Contains("Unknown transcript status", exception.Message, StringComparison.Ordinal);
+            Assert.False(File.Exists(guardedDbPath));
+        }
+        finally
+        {
+            if (File.Exists(guardedDbPath))
+            {
+                SqliteConnection.ClearAllPools();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                File.Delete(guardedDbPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task UpdateTranscriptStatusAsync_MissingVideoIdDoesNotThrow()
+    {
+        await _store.UpdateTranscriptStatusAsync(987_654, TranscriptStatus.Failed);
+    }
+
+    [Fact]
+    public async Task GetVideoByYoutubeIdAsync_ReturnsExistingVideoWithCurrentStatus()
+    {
+        var sourceId = await InsertSourceAsync("resume-source");
+        var videoId = await _store.InsertVideoAsync(
+            sourceId,
+            "abc123",
+            null,
+            "Resume Video",
+            "https://www.youtube.com/watch?v=abc123",
+            DateTimeOffset.Parse("2026-05-26T12:00:00Z"),
+            TranscriptStatus.Pending);
+        await _store.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Whisper);
+
+        var video = await _store.GetVideoByYoutubeIdAsync(sourceId, "abc123");
+
+        Assert.NotNull(video);
+        Assert.Equal(videoId, video!.Id);
+        Assert.Equal(TranscriptStatus.Whisper, video.TranscriptStatus);
+    }
+
+    [Fact]
+    public async Task GetVideoByYoutubeIdAsync_ReturnsNullWhenVideoIsMissing()
+    {
+        var sourceId = await InsertSourceAsync("missing-resume-source");
+
+        var video = await _store.GetVideoByYoutubeIdAsync(sourceId, "never-inserted");
+
+        Assert.Null(video);
+    }
+
+    [Fact]
     public async Task InsertVideoAsync_RequiresExactlyOneNaturalKey()
     {
         var sourceId = await InsertSourceAsync("natural-key-source");
@@ -195,6 +294,23 @@ public sealed class ContentVideoStoreTests : IDisposable
             $"Source {slug}",
             ContentSourceType.Youtube,
             $"https://example.test/{slug}");
+
+    private async Task<string> ReadTranscriptStatusAsync(long videoId)
+    {
+        await using var connection = await RelationalDatabaseConnection
+            .FromSqlitePath(_dbPath)
+            .OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT transcript_status
+              FROM content_videos
+             WHERE id = @videoId;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
+
+        var status = await command.ExecuteScalarAsync();
+        return Assert.IsType<string>(status);
+    }
 
     private async Task<long> InsertSourceRowDirectlyAsync(string slug)
     {
