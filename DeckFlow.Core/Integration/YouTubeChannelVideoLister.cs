@@ -1,7 +1,9 @@
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
+using YoutubeExplode.Exceptions;
 using YoutubeExplode.Playlists;
+using YoutubeExplode.Videos;
 
 namespace DeckFlow.Core.Integration;
 
@@ -59,7 +61,16 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
     {
         var channelId = await ResolveChannelIdAsync(youtube, channelUrl, ct).ConfigureAwait(false);
         var uploads = await youtube.Channels.GetUploadsAsync(channelId, ct).CollectAsync(limit).ConfigureAwait(false);
-        return uploads.Select(MapVideo).ToArray();
+        var videos = new List<YouTubeChannelVideo>(uploads.Count);
+        foreach (var upload in uploads)
+        {
+            // PlaylistVideo in YoutubeExplode 6.6.0 does not expose upload date;
+            // this bounded metadata lookup populates published_utc when available.
+            var publishedUtc = await GetPublishedUtcAsync(youtube, upload.Id, ct).ConfigureAwait(false);
+            videos.Add(MapVideo(upload, publishedUtc));
+        }
+
+        return videos;
     }
 
     private static async Task<ChannelId> ResolveChannelIdAsync(
@@ -88,13 +99,33 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         throw new ArgumentException($"Unable to parse YouTube channel URL: {channelUrl}", nameof(channelUrl));
     }
 
-    private static YouTubeChannelVideo MapVideo(PlaylistVideo video)
+    private static async Task<DateTimeOffset?> GetPublishedUtcAsync(
+        YoutubeClient youtube,
+        VideoId videoId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var metadata = await youtube.Videos.GetAsync(videoId, ct).ConfigureAwait(false);
+            return metadata.UploadDate;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or YoutubeExplodeException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    internal static YouTubeChannelVideo MapVideo(PlaylistVideo video, DateTimeOffset? publishedUtc)
         => new()
         {
             VideoId = video.Id.Value,
             Url = video.Url,
             Title = video.Title,
             Duration = video.Duration,
-            PublishedUtc = null,
+            PublishedUtc = publishedUtc,
         };
 }
