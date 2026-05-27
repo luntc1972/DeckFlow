@@ -1,3 +1,4 @@
+using System.ClientModel;
 using Polly;
 using Polly.Retry;
 using Polly.Timeout;
@@ -21,7 +22,26 @@ public static class WhisperResiliencePipeline
                 MaxRetryAttempts = 2,
                 Delay = TimeSpan.FromMilliseconds(10),
                 BackoffType = DelayBackoffType.Exponential,
-                ShouldHandle = args => ValueTask.FromResult(args.Outcome.Exception is HttpRequestException or TimeoutRejectedException),
+                ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome.Exception)),
             })
             .Build();
+
+    private static bool ShouldRetry(Exception? exception)
+        => exception switch
+        {
+            HttpRequestException or TimeoutRejectedException => true,
+            ClientResultException clientResultException => IsTransientStatus(clientResultException),
+            _ => false,
+        };
+
+    private static bool IsTransientStatus(ClientResultException exception)
+    {
+        var status = exception.Status;
+        if (status == 0)
+        {
+            status = exception.GetRawResponse()?.Status ?? 0;
+        }
+
+        return status is 0 or 408 or 429 || status >= 500;
+    }
 }
