@@ -1,51 +1,38 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-23T05:52:54Z",
-  "phase": "999.8",
-  "phase_name": "remove-chatgpt-redirects",
-  "phase_dir": ".planning/phases/999.8-remove-chatgpt-redirects",
-  "plan": 1,
-  "task": 1,
-  "total_tasks": 1,
-  "status": "complete-awaiting-verify",
-  "branch": "v1.3",
-  "head_commit": "4372de5",
+  "timestamp": "2026-05-27T18:34:05.022Z",
+  "phase": "21",
+  "phase_name": "Content KB Distillation + Artifact Emit (local)",
+  "phase_dir": ".planning/phases/21-content-kb-distillation-artifact-emit-local",
+  "plan": null,
+  "task": null,
+  "total_tasks": 0,
+  "status": "paused",
+  "stage": "planning-complete-pre-execution",
   "completed_tasks": [
-    {"id": "999.7-P01", "name": "STATE.md progress reconciliation (11/11/46/46/100)", "status": "done", "commit": "61f2971"},
-    {"id": "999.7-P02", "name": "REQUIREMENTS.md WDG-01..10 [x]", "status": "done", "commit": "900d656"},
-    {"id": "999.7-P03", "name": "5 Claude variant doc-comment cleanup (result-wrapped→direct JSON fenced-block)", "status": "done", "commit": "374a96d"},
-    {"id": "999.7-P04", "name": "DeckController F-02 asymmetry comment + 999.5-UAT status superseded-by-999.6", "status": "done", "commit": "339f9de"},
-    {"id": "999.7-closure", "name": "STATE + ROADMAP reflect 4/4 + drop stale .continue-here", "status": "done", "commit": "715c5b3"},
-    {"id": "999.7-UAT", "name": "Phase 999.7 UAT (machine-verified, all 7 SCs pass)", "status": "done", "commit": "38241e4"},
-    {"id": "999.8-P01", "name": "Strip UseRewriter block + Microsoft.AspNetCore.Rewrite using directive from Program.cs (numstat 0 22)", "status": "done", "commit": "ec47195"},
-    {"id": "999.8-closure", "name": "STATE + ROADMAP reflect 999.8 1/1 complete", "status": "done", "commit": "4372de5"}
+    {"id": 1, "name": "discuss-phase -> 21-CONTEXT.md (13 decisions D-01..D-13)", "status": "done", "commit": "1d84e08"},
+    {"id": 2, "name": "ai-integration-phase -> 21-AI-SPEC.md (OpenAI 2.10 ChatClient + eval strategy)", "status": "done", "commit": "ad9dacb"},
+    {"id": 3, "name": "research -> 21-RESEARCH.md (7 open Qs resolved)", "status": "done"},
+    {"id": 4, "name": "pattern-map + plan -> 21-PATTERNS.md + 4 PLAN.md (2 waves)", "status": "done"},
+    {"id": 5, "name": "Claude plan-checker PASS + Codex review converge RED->RED->GREEN", "status": "done", "commit": "cac740c"}
   ],
   "remaining_tasks": [
-    {"id": "999.8-UAT", "name": "/gsd-verify-work 999.8 — machine-verifiable (single-plan doc-edit + middleware deletion)", "status": "not_started", "expected_outcome": "PASS — same pattern as 999.7 UAT"},
-    {"id": "v1.3-audit", "name": "/gsd-audit-milestone v1.3 — re-audit after 999.7+999.8 close out audit findings", "status": "not_started"},
-    {"id": "v1.3-complete", "name": "/gsd-complete-milestone v1.3 — archive completed milestone", "status": "not_started"},
-    {"id": "v1.3-ship", "name": "/gsd-ship v1.3 — PR + merge v1.3 → main", "status": "not_started"}
+    {"id": 6, "name": "/gsd-execute-phase 21 — Codex implements 4 plans (cross-AI execution), Claude reviews", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [
-    {"action": "Post-deploy SC6 curl verification after Render auto-deploys 4372de5: curl -I https://www.deckflow.gg/chatgpt-packets should return HTTP/2 404; curl -I https://www.deckflow.gg/deck-analysis should return HTTP/2 200", "context": "Phase 999.8 SC6 is the only out-of-plan-scope SC (post-deploy assertion). Render auto-deploys on v1.3 push.", "blocking": false},
-    {"action": "Decide commit-or-.gitignore for .planning/v1.3-MILESTONE-AUDIT.md (still untracked; Codex MED finding from 999.7 round 1 review)", "context": "Audit doc is the binding contract for 999.7 plans but never committed. Could be tracked under .planning/audits/ pattern or .gitignored as ephemeral working doc.", "blocking": false}
+    {"action": "21-02 checkpoint: confirm gpt-4o-mini price constants + DECKFLOW_LLM_MONTHLY_CAP_USD default ($15)", "context": "A1/A2 — prices not pinned; checkpoint:decision autonomous:false", "blocking": true},
+    {"action": "21-03 checkpoint: approve adding content-kb/ to .gitignore", "context": "A4 — .gitignore is on CLAUDE.md Do-Not-Modify list; checkpoint:human-action autonomous:false", "blocking": true},
+    {"action": "21-04 checkpoint: run end-to-end distill UAT + E5/E6 human sampling on the 10-video UAT db", "context": "needs OPENAI_API_KEY set; checkpoint:human-verify autonomous:false", "blocking": true}
   ],
   "decisions": [
-    {"decision": "Cross-AI execute pattern: Codex applies edits + writes SUMMARY.md; orchestrator (Claude) commits + runs build/test gates", "rationale": "Codex sandbox is .git-readonly under workspace-write mode. Per CLAUDE.md Codex codes / Claude reviews rule. Build/test takes 30s — keeping it orchestrator-side avoids sandbox tool friction.", "phase": "999.7+999.8"},
-    {"decision": "Plan 999.7-04 PLAN.md acceptance criterion 'grep -c D-11 returns 1' was a planning-time miscount; HEAD already had 3 instances (one per download handler). Treated as pass since numstat 1 0 proves zero deletions and semantic intent (preserve verbatim) satisfied", "rationale": "Per session memory + Codex Round 2 review: tighten future Plan-04-style gates to handler-anchored awk-grep instead of file-wide grep -c expecting a specific count. Logged as v1.4 audit follow-up.", "phase": "999.7"},
-    {"decision": "Phase 999.8 single-plan deletion: Program.cs lines 7 (using) + 357-376 (comment + UseRewriter + 11 AddRedirect). numstat 0 22.", "rationale": "User decided 2026-05-22 that 11 chatgpt-* 301 redirects (shipped Phase 12, 2026-05-08) have been live 2+ weeks and can be retired. CSS classes / DOM data attributes / TS string constants / synthetic test slugs (HelpControllerTests, HelpContentServiceTests) remain — they are NOT URLs and are out of scope (deferred to v1.4 AI-agnostic styling backlog).", "phase": "999.8"}
+    {"decision": "gpt-4o-mini, three separate strict-json_schema calls (summary/clips/tags)", "rationale": "isolation/robustness; D-02", "phase": "21"},
+    {"decision": "SEPARATE llm_spend_ledger; record spend per-call immediately before next call", "rationale": "Codex HIGH-1 — partial/failed videos must still ledger incurred cost (Phase 20 CR-01 class)", "phase": "21"},
+    {"decision": "NEW content_distill_status table (CREATE TABLE IF NOT EXISTS) supersedes derived-state idempotency", "rationale": "schema-safe per-video distilled|skipped_over_cap|failed; satisfies SC5 literal + durable D-12", "phase": "21"},
+    {"decision": "source-scoped ListVideosPendingDistillAsync(sourceId)", "rationale": "Codex HIGH-2 — global query emitted under wrong slug + processed disabled sources", "phase": "21"},
+    {"decision": "SC4 amended to enable/disable-only (edit = add-new+disable-old); SC5 implemented literally (--dry-run + per-video skipped_over_cap)", "rationale": "user decisions 2026-05-27", "phase": "21"}
   ],
-  "uncommitted_files": [
-    ".claude/ (untracked — local IDE/agent config, ignored by convention)",
-    ".planning/phases/999.7-v1-3-audit-cleanup/.gitkeep (untracked — leftover from initial phase scaffold)",
-    ".planning/v1.3-MILESTONE-AUDIT.md (untracked — Codex MED finding pending decision: commit or .gitignore)"
-  ],
-  "test_baseline": {
-    "build": "0 Warning(s), 0 Error(s)",
-    "tests": "Failed:0 Passed:497 Skipped:3 Total:500 (DeckFlow.Web.Tests: 440 pass, 3 skip, 443 total; DeckFlow.Core.Tests: 57 pass, 57 total)",
-    "preserved_through": "Phase 999.6 PHASE EXIT GATE → 999.7 closure → 999.8 closure (3 consecutive phase verifications)"
-  },
-  "next_action": "/gsd-verify-work 999.8 — single-plan doc-edit + middleware deletion phase; machine-verifiable in one batch (no user-flow walkthrough needed); expected PASS. Then /gsd-audit-milestone v1.3 → /gsd-complete-milestone v1.3 → /gsd-ship v1.3.",
-  "context_notes": "v1.3 milestone is end-to-end shippable. 999.7 closed all audit findings (F-01, F-02, STATE arithmetic, WDG checkboxes, UAT label hygiene). 999.8 closed the user-decided redirect-removal. Both phases shipped under cross-AI rule (Codex codes, Claude reviews/orchestrates). Test baseline (497/3/500) preserved through 3 consecutive phase closures. Production v1.3 confirmed healthy on b86248e per S242 session (harvester ops verified). The only remaining surface for v1.4 audit is: (a) MILESTONE-AUDIT.md commit decision, (b) CSS/data-attr/TS-constant chatgpt-* sweep, (c) D-11 grep-gate hardening to handler-anchored awk-grep."
+  "uncommitted_files": [],
+  "next_action": "Run /gsd-execute-phase 21. Per CLAUDE.md route to Codex (cross_ai_execution). Wave 1 = 21-01/02/03 (parallel, disjoint files); 21-02 + 21-03 each hit an autonomous:false checkpoint — surface to user. Wave 2 = 21-04 (depends on all three) ends in UAT checkpoint.",
+  "context_notes": "Phase 21 fully planned and Codex-GREEN, NOTHING executed yet. All artifacts committed on v1.4 (1d84e08..cac740c), not pushed. ChatTokenUsage.InputTokenCount/OutputTokenCount confirmed present in installed OpenAI 2.10 DLL. Untracked .planning stragglers (19-PATTERNS.md, 27-RESEARCH.md) are unrelated, leave them. Phase 20 shipped+UAT-passed+pushed earlier this session."
 }
