@@ -446,6 +446,7 @@ internal static class CommandRunners
     public static async Task<int> RunHarvestAsync(
         FileInfo? db,
         int limit,
+        bool enableWhisper,
         Serilog.ILogger logger,
         CancellationToken ct)
     {
@@ -466,7 +467,8 @@ internal static class CommandRunners
             var transcriptSource = new YouTubeTranscriptSource(
                 transcriptFetcher,
                 new YouTubeAudioSource(youtubeHttpClient),
-                whisper);
+                whisper,
+                enableWhisper);
 
             return await RunHarvestAsync(
                 sourceStore,
@@ -651,6 +653,9 @@ internal static class CommandRunners
                 return true;
             case TranscriptOutcome.SkippedOverCap:
                 await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.SkippedOverCap, ct);
+                return true;
+            case TranscriptOutcome.SkippedNoCaptions:
+                await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.SkippedNoCaptions, ct);
                 return true;
             case TranscriptOutcome.Failed:
                 await videoStore.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.Failed, ct);
@@ -984,6 +989,8 @@ internal static class CommandRunners
 
         public int Whisper { get; private set; }
 
+        public int SkippedNoCaptions { get; private set; }
+
         public double WhisperFallbackRatio
         {
             get
@@ -1003,12 +1010,17 @@ internal static class CommandRunners
             {
                 Whisper++;
             }
+            else if (outcome == TranscriptOutcome.SkippedNoCaptions)
+            {
+                SkippedNoCaptions++;
+            }
         }
 
         public void Add(HarvestCounts counts)
         {
             Captions += counts.Captions;
             Whisper += counts.Whisper;
+            SkippedNoCaptions += counts.SkippedNoCaptions;
         }
     }
 

@@ -274,7 +274,8 @@ public sealed class ContentVideoStore : IContentVideoStore
             or TranscriptStatus.Captions
             or TranscriptStatus.Whisper
             or TranscriptStatus.Failed
-            or TranscriptStatus.SkippedOverCap;
+            or TranscriptStatus.SkippedOverCap
+            or TranscriptStatus.SkippedNoCaptions;
 
     private static ContentVideo ReadVideo(DbDataReader reader)
         => new()
@@ -428,7 +429,7 @@ public sealed class ContentVideoStore : IContentVideoStore
           title             TEXT NOT NULL,
           video_url         TEXT NOT NULL,
           published_utc     TIMESTAMPTZ NULL,
-          transcript_status TEXT NOT NULL DEFAULT 'pending' CHECK (transcript_status IN ('pending','captions','whisper','failed','skipped_over_cap')),
+          transcript_status TEXT NOT NULL DEFAULT 'pending' CHECK (transcript_status IN ('pending','captions','whisper','failed','skipped_over_cap','skipped_no_captions')),
           created_utc       TIMESTAMPTZ NOT NULL DEFAULT now(),
           UNIQUE (youtube_video_id),
           UNIQUE (rss_guid),
@@ -477,7 +478,7 @@ public sealed class ContentVideoStore : IContentVideoStore
           title             TEXT NOT NULL,
           video_url         TEXT NOT NULL,
           published_utc     TEXT NULL,
-          transcript_status TEXT NOT NULL DEFAULT 'pending' CHECK (transcript_status IN ('pending','captions','whisper','failed','skipped_over_cap')),
+          transcript_status TEXT NOT NULL DEFAULT 'pending' CHECK (transcript_status IN ('pending','captions','whisper','failed','skipped_over_cap','skipped_no_captions')),
           created_utc       TEXT NOT NULL DEFAULT (datetime('now')),
           UNIQUE (youtube_video_id),
           UNIQUE (rss_guid),

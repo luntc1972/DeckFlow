@@ -126,6 +126,24 @@ public sealed class ContentVideoStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateTranscriptStatusAsync_ChangesPendingVideoToSkippedNoCaptions()
+    {
+        var sourceId = await InsertSourceAsync("no-captions-status-source");
+        var videoId = await _store.InsertVideoAsync(
+            sourceId,
+            "no-captions-status-video",
+            null,
+            "No Captions Status Video",
+            "https://www.youtube.com/watch?v=no-captions-status-video",
+            null,
+            TranscriptStatus.Pending);
+
+        await _store.UpdateTranscriptStatusAsync(videoId, TranscriptStatus.SkippedNoCaptions);
+
+        Assert.Equal(TranscriptStatus.SkippedNoCaptions, await ReadTranscriptStatusAsync(videoId));
+    }
+
+    [Fact]
     public async Task UpdateTranscriptStatusAsync_RejectsUnknownStatusBeforeOpeningDatabase()
     {
         var guardedDbPath = Path.Combine(Path.GetTempPath(), $"content-video-guard-{Guid.NewGuid():N}.db");

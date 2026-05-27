@@ -20,6 +20,7 @@ public sealed class ContentTagVocabularyTests
         Assert.Equal("whisper", TranscriptStatus.Whisper);
         Assert.Equal("failed", TranscriptStatus.Failed);
         Assert.Equal("skipped_over_cap", TranscriptStatus.SkippedOverCap);
+        Assert.Equal("skipped_no_captions", TranscriptStatus.SkippedNoCaptions);
         Assert.Equal("youtube_channel", ContentSourceType.Youtube);
         Assert.Equal("podcast_rss", ContentSourceType.Podcast);
         Assert.Equal("archetype", ContentTagDimension.Archetype);

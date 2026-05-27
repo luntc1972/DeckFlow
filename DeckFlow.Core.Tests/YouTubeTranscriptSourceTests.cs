@@ -14,7 +14,7 @@ public sealed class YouTubeTranscriptSourceTests
         var fetcher = new FakeYouTubeTranscriptFetcher(YouTubeCaptionResult.FromCaptions("caption body", false, "en"));
         var audioSource = new FakeYouTubeAudioSource();
         var whisper = new FakeWhisperTranscriptionService();
-        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper);
+        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: false);
 
         var result = await source.FetchTranscriptAsync("video-1", TimeSpan.FromMinutes(12), "2026-05");
 
@@ -45,7 +45,7 @@ public sealed class YouTubeTranscriptSourceTests
                 MonthKey = "2026-05",
             },
         };
-        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper);
+        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: true);
 
         var result = await source.FetchTranscriptAsync("video-2", knownDuration, "2026-05");
 
@@ -57,6 +57,26 @@ public sealed class YouTubeTranscriptSourceTests
         Assert.Equal(knownDuration, whisper.LastKnownDuration);
         Assert.Equal("2026-05", whisper.LastMonthKey);
         Assert.False(File.Exists(audio.TempFilePath));
+    }
+
+    [Fact]
+    public async Task FetchTranscriptAsync_NoCaptionsWithWhisperDisabledSkipsWithoutAudioOrWhisper()
+    {
+        var fetcher = new FakeYouTubeTranscriptFetcher(YouTubeCaptionResult.NoCaptions());
+        var audioSource = new FakeYouTubeAudioSource();
+        var whisper = new FakeWhisperTranscriptionService();
+        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: false);
+
+        var result = await source.FetchTranscriptAsync("video-no-captions", TimeSpan.FromMinutes(8), "2026-05");
+
+        Assert.Equal(TranscriptOutcome.SkippedNoCaptions, result.Outcome);
+        Assert.Null(result.Body);
+        Assert.Null(result.Source);
+        Assert.Null(result.SecondsBilled);
+        Assert.Null(result.CostUsd);
+        Assert.Equal(1, fetcher.Calls);
+        Assert.Equal(0, audioSource.Calls);
+        Assert.Equal(0, whisper.Calls);
     }
 
     [Fact]
@@ -72,7 +92,7 @@ public sealed class YouTubeTranscriptSourceTests
                 MonthKey = "2026-05",
             },
         };
-        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper);
+        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: true);
 
         var result = await source.FetchTranscriptAsync("video-3", TimeSpan.FromMinutes(3), "2026-05");
 
@@ -96,7 +116,7 @@ public sealed class YouTubeTranscriptSourceTests
                 MonthKey = "2026-05",
             },
         };
-        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper);
+        var source = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: true);
 
         var result = await source.FetchTranscriptAsync("video-4", TimeSpan.FromMinutes(4), "2026-05");
 
