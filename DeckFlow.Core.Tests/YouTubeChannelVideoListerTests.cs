@@ -1,4 +1,8 @@
 using DeckFlow.Core.Integration;
+using YoutubeExplode.Channels;
+using YoutubeExplode.Common;
+using YoutubeExplode.Playlists;
+using YoutubeExplode.Videos;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -37,5 +41,22 @@ public sealed class YouTubeChannelVideoListerTests
         var video = Assert.Single(videos);
         Assert.Equal("video-1", video.VideoId);
         Assert.Equal(TimeSpan.FromMinutes(11), video.Duration);
+    }
+
+    [Fact]
+    public void MapVideo_CarriesPublishedUtcFromMetadataLookup()
+    {
+        var publishedUtc = DateTimeOffset.Parse("2026-05-24T12:34:56Z");
+        var playlistVideo = new PlaylistVideo(
+            new PlaylistId("PLrAXtmRdnEQy6nuLMHjMZOz59Oq8TDwg6"),
+            new VideoId("dQw4w9WgXcQ"),
+            "Video One",
+            new Author(new ChannelId("UC_x5XG1OV2P6uZZ5FSM9Ttw"), "Channel"),
+            TimeSpan.FromMinutes(11),
+            []);
+
+        var video = YouTubeChannelVideoLister.MapVideo(playlistVideo, publishedUtc);
+
+        Assert.Equal(publishedUtc, video.PublishedUtc);
     }
 }
