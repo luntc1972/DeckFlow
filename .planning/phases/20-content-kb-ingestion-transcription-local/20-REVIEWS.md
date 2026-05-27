@@ -2,8 +2,8 @@
 phase: 20-content-kb-ingestion-transcription-local
 reviewed: 2026-05-26
 reviewers: [codex]
-verdict: HIGH
-high_concerns: 13
+verdict: GREEN
+high_concerns: 0
 ---
 
 # Phase 20 — Cross-AI Plan Review
@@ -144,3 +144,33 @@ All 6 prior HIGH RESOLVED. 1 NEW HIGH + 2 MEDIUM. VERDICT: HIGH.
 Single persistence owner: holds structurally. Audio pipeline: composable and mostly complete, except the cap-duration hole above. `SkippedOverCap` collapse: resolved. Polly wrapper: specified and tested. Provider factory: real fail-fast toggle. Async-LINQ: fixed in plans. Waves: acyclic; no same-wave file overlap. KB-03/04/05: covered, but KB-05 is blocked by the duration wiring issue. Scope stays Phase 20.
 
 VERDICT: HIGH
+
+---
+
+## Codex RE-REVIEW (iteration 3, after replan e37a729) — VERDICT: GREEN
+
+Checked the plan files on disk, not just the pasted text.
+
+**Iter-2 Findings**
+- NEW HIGH cap duration: RESOLVED. `knownDuration` is threaded `FetchTranscriptAsync → TranscribeAsync`; cap projection uses `Math.Max(knownDuration?.TotalSeconds ?? 0d, audio.DurationSeconds)`, and `<= 0` fails with no API call.
+- MED month-key consistency: RESOLVED. The verb derives one `monthKey` per video, passes it through fetch/transcribe, and reuses it for `RecordCallAsync`. The service is explicitly barred from minting `DateTime.UtcNow`.
+- MED stale research: RESOLVED. `20-RESEARCH.md` now has top-level and inline supersede notes for `TranscriptOutcome`, `CollectAsync(limit)`, ffmpeg warn/continue, authoritative duration, and month-key reuse.
+
+**Original HIGH Regression Check**
+- HIGH-1 single persistence owner: still resolved. Services remain pure; verb writes transcript/status/ledger.
+- HIGH-2 audio path: still resolved via `IYouTubeAudioSource` + `AudioDownloadResult`.
+- HIGH-3 non-null distinct outcomes: still resolved; `SkippedOverCap` is not collapsed into `Failed`.
+- HIGH-4 Polly wrapper: still resolved; transcribe delegate must run through `WhisperResiliencePipeline`.
+- HIGH-5 provider toggle: still resolved via real `TranscriptProviderFactory`.
+- HIGH-6 bounded listing: still resolved via `CollectAsync(limit)`, no async-LINQ `ToListAsync`.
+
+**Plan Invariants**
+- Signature consistency: clean across 20-02/20-03/20-04.
+- Waves: acyclic. `20-01`, `20-02` wave 1; `20-03` depends on `20-02`; `20-04` depends on all prior.
+- Same-wave file overlap: none between `20-01` and `20-02`.
+- KB coverage: KB-03 in 20-02/20-04; KB-04 and KB-05 in 20-03/20-04.
+- Scope: still Phase 20. Phase 21 distillation/artifacts/tags/orchestrator remain deferred; no Render path.
+
+Remaining concern: none HIGH. Minor implementation watch: keep the Whisper-success ledger/status writes ordered or handled so a failed `RecordCallAsync` cannot leave a false successful status. The current per-video catch should prevent that if implemented literally.
+
+VERDICT: GREEN
