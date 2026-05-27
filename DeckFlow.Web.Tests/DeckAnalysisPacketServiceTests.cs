@@ -154,6 +154,35 @@ Commander
         Assert.Contains("Bracket 5: cEDH", result.AnalysisPromptText);
     }
 
+    [Theory]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
+    public async Task BuildAsync_IncludesSharedAnalysisPromptGuidance_ForEveryAiPlatform(string targetAiPlatform)
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            TargetAiPlatform = targetAiPlatform,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Weight the win turn by reliability, not raw speed:", result.AnalysisPromptText);
+        Assert.Contains("count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since", result.AnalysisPromptText);
+        Assert.Contains("estimated_win_turn: the earliest turn the deck can realistically START a lethal or game-ending line, as an integer.", result.AnalysisPromptText);
+    }
+
     [Fact]
     public async Task BuildAsync_GeneratesReferenceAndAnalysis_WithoutProbeJson()
     {
