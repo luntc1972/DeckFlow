@@ -596,19 +596,22 @@ private static async Task<string[]> ChunkAudioAsync(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact `UpdateTranscriptStatusAsync` signature needed on `IContentVideoStore`**
+   - RESOLVED: resolved by Plan 20-01 Task 1 — the signature `UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken)` is defined and added to `IContentVideoStore` + `ContentVideoStore` there.
    - What we know: Phase 19 `InsertVideoAsync` sets initial `transcript_status = 'pending'`; Phase 20 must update it to `captions | whisper | failed | skipped_over_cap` after processing
    - What's unclear: Whether Phase 19 plans already added this method silently (read Phase 19 stores did not show it)
    - Recommendation: Plan 20 Wave 0 should verify and add `UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken)` to `IContentVideoStore` + `ContentVideoStore` if absent
 
 2. **`content source add` slug generation**
+   - RESOLVED: derive the slug from `--name` (kebab-case via URL-safe slugification), per Plan 20-01 Task 2.
    - What we know: `ContentSourceStore.InsertSourceAsync` requires a `sourceSlug`; slugs are used for artifact paths
    - What's unclear: Whether the CLI verb accepts `--slug` or derives it from `--name`
    - Recommendation: Derive from `--name` using URL-safe slugification (`Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9]+", "-")`); display the computed slug to the user before insert
 
 3. **YoutubeExplode `GetUploadsAsync` returns `PlaylistVideo`, not `Video` — audio stream requires a separate `GetManifestAsync` call**
+   - RESOLVED: use `PlaylistVideo.Url` for caption / stream-manifest calls, per Plan 20-04.
    - What we know: `GetUploadsAsync` returns `IAsyncEnumerable<PlaylistVideo>`; `Streams.GetManifestAsync` takes a `VideoId`
    - What's unclear: Whether `PlaylistVideo.Url` or `PlaylistVideo.Id` is the correct input to `Streams.GetManifestAsync`
    - Recommendation: Use `video.Url` (the canonical watch URL) or `video.Id.Value` (string); either works as `GetManifestAsync(videoId)` accepts the same union type as other YoutubeExplode calls
