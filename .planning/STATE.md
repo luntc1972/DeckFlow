@@ -159,21 +159,18 @@ v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 
 
 ## Session Continuity
 
-Last session: 2026-05-27T17:12:19.902Z
+Last session: 2026-05-27T23:00:00Z
 
-Stopped at: Phase 21 context gathered
+Stopped at: Phase 21 code complete (4/4 plans executed + reviewed), live-UAT checkpoint pending.
 
-Next action on resume: `/gsd-discuss-phase 1` to scope WDG-04 modal implementation, then `/gsd-plan-phase 1` to decompose into plans, then `/gsd-review` (Codex peer review per CLAUDE.md cross-AI pattern), then `/gsd-execute-phase 1`.
+Phase 21 (Content KB Distillation + Artifact Emit, local) — all 4 plans implemented by Codex (cross-AI per CLAUDE.md), reviewed by Claude, verified green:
+- 21-01 LlmDistillationService (3 strict-json gpt-4o-mini calls) + schemas/results — 6 tests.
+- 21-02 LlmSpendLedger (separate token-based ledger, cap $15, gpt-4o-mini $0.15/$0.60 per 1M) — 6 tests.
+- 21-03 ContentArtifactWriter + `content_distill_status` table (CREATE IF NOT EXISTS, no ALTER) + source-scoped store methods + `content-kb/` gitignore — 12 tests.
+- 21-04 distill orchestrator + `distill`/`content-source-set-enabled` CLI verbs — HIGH-1 per-call ledgering, HIGH-2 source-scoped, HIGH-3 durable status, --dry-run no-mutation — 9 tests.
+- Full suite green: solution build 0/0; Core.Tests 217/217; Web.Tests 486 pass / 5 skipped / 0 fail.
+- Codex injected an out-of-scope prompt-dedup refactor during 21-01; reverted (a1fa5ad/774aa1a → reverts 6da70da/b2ffba7). Dedup work preserved in git history for a future authorized /gsd-quick.
 
-**Resume guidance:**
+Next action on resume: run the 21-04 live-UAT human-verify checkpoint (needs `OPENAI_API_KEY`; ~$1 spend on `artifacts/uat-content-kb.db` 10-video set; E5/E6 archetype/bracket/thesis sampling). On UAT pass: `/gsd-verify-work 21`, flip ROADMAP Phase 21 `[x]`, then commit. ROADMAP stays `[ ]` until UAT passes.
 
-- Read `.planning/ROADMAP.md` Phase 16 Detail section for goal + 4 SCs + dependencies.
-- Read `.planning/research/SUMMARY.md` §3 row 1 + §5 invariants 10-12 for modal-specific design constraints.
-- Read `.planning/research/PITFALLS.md` Pitfall 9 (hand-rolled focus-trap anti-pattern) + Pitfall 10 (CSS bleed) for SC verification anchors.
-- Branch: currently `v1.3` (per HEAD 65f2fe4); cutover to `v1.4` branch per operator decision at first execute-phase dispatch.
-
-## Operator Next Steps
-
-- Review v1.4 ROADMAP.md draft (8 phases, 16/16 REQ-IDs mapped, granularity=coarse).
-- Approve or request revision.
-- On approval: commit roadmap artifacts, then `/gsd-discuss-phase 1` to start Phase 16 planning.
+**Branch**: `v1.4`. Commits 603d202→721c296 (+SUMMARY/revert commits); NOT pushed.
