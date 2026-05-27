@@ -169,6 +169,9 @@ public static class TranscriptStatus
 
     /// <summary>Whisper transcription was skipped because the monthly cap would be exceeded.</summary>
     public const string SkippedOverCap = "skipped_over_cap";
+
+    /// <summary>Transcript fetch was skipped because captions were unavailable and Whisper was disabled.</summary>
+    public const string SkippedNoCaptions = "skipped_no_captions";
 }
 
 /// <summary>

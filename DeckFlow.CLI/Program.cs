@@ -64,6 +64,7 @@ var contentSourceAddDbOption = new Option<FileInfo?>("--db") { Description = "Pa
 var harvestCommand = new Command("harvest", "Fetch transcripts for enabled Content KB sources.");
 var harvestDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var harvestLimitOption = new Option<int>("--limit", () => 5) { Description = "Recent videos per enabled source." };
+var harvestEnableWhisperOption = new Option<bool>("--enable-whisper", () => false) { Description = "Enable Whisper audio-transcription fallback when captions are unavailable (off by default; captions-only)." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -100,6 +101,7 @@ contentSourceAddCommand.AddOption(contentSourceAddTypeOption);
 contentSourceAddCommand.AddOption(contentSourceAddDbOption);
 harvestCommand.AddOption(harvestDbOption);
 harvestCommand.AddOption(harvestLimitOption);
+harvestCommand.AddOption(harvestEnableWhisperOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -200,10 +202,10 @@ contentSourceAddCommand.SetHandler((string url, string name, string type, FileIn
     Environment.ExitCode = CommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
 }, contentSourceAddUrlOption, contentSourceAddNameOption, contentSourceAddTypeOption, contentSourceAddDbOption);
 
-harvestCommand.SetHandler((FileInfo? db, int limit) =>
+harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper) =>
 {
-    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
-}, harvestDbOption, harvestLimitOption);
+    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;

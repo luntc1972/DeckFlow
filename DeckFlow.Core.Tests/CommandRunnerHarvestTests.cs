@@ -112,6 +112,27 @@ public sealed class CommandRunnerHarvestTests
     }
 
     [Fact]
+    public async Task RunHarvestAsync_NoCaptionsWithWhisperDisabledUpdatesSkippedNoCaptionsWithoutAudioOrWhisper()
+    {
+        var videoStore = new FakeContentVideoStore();
+        var ledger = new FakeWhisperSpendLedger();
+        var fetcher = new FakeYouTubeTranscriptFetcher(YouTubeCaptionResult.NoCaptions());
+        var audioSource = new FakeYouTubeAudioSource();
+        var whisper = new FakeWhisperTranscriptionService();
+        var transcriptSource = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: false);
+
+        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(12))]);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(TranscriptStatus.SkippedNoCaptions, Assert.Single(videoStore.StatusUpdates).Status);
+        Assert.Empty(videoStore.Transcripts);
+        Assert.Empty(ledger.Records);
+        Assert.Equal(1, fetcher.Calls);
+        Assert.Equal(0, audioSource.Calls);
+        Assert.Equal(0, whisper.Calls);
+    }
+
+    [Fact]
     public async Task RunHarvestAsync_FfmpegUnavailableContinuesRun()
     {
         var videoStore = new FakeContentVideoStore();
@@ -176,7 +197,7 @@ public sealed class CommandRunnerHarvestTests
     private static Task<int> RunAsync(
         FakeContentVideoStore videoStore,
         FakeWhisperSpendLedger ledger,
-        FakeTranscriptSource transcriptSource,
+        ITranscriptSource transcriptSource,
         IReadOnlyList<YouTubeChannelVideo> videos,
         FakeFfmpegAudioChunker? chunker = null)
         => CommandRunners.RunHarvestAsync(
@@ -455,6 +476,61 @@ public sealed class CommandRunnerHarvestTests
             }
 
             return Task.FromResult(_result!);
+        }
+    }
+
+    private sealed class FakeYouTubeTranscriptFetcher : IYouTubeTranscriptFetcher
+    {
+        private readonly YouTubeCaptionResult _result;
+
+        public FakeYouTubeTranscriptFetcher(YouTubeCaptionResult result)
+        {
+            _result = result;
+        }
+
+        public int Calls { get; private set; }
+
+        public Task<YouTubeCaptionResult> FetchCaptionsAsync(string videoId, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class FakeYouTubeAudioSource : IYouTubeAudioSource
+    {
+        public int Calls { get; private set; }
+
+        public Task<AudioDownloadResult> DownloadAudioAsync(string videoUrlOrId, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(new AudioDownloadResult
+            {
+                TempFilePath = Path.Combine(Path.GetTempPath(), "deckflow-audio-not-used.webm"),
+                FileName = "audio.webm",
+                SizeBytes = 123,
+                DurationSeconds = 0,
+            });
+        }
+    }
+
+    private sealed class FakeWhisperTranscriptionService : IWhisperTranscriptionService
+    {
+        public int Calls { get; private set; }
+
+        public Task<WhisperTranscriptionResult> TranscribeAsync(
+            AudioDownloadResult audio,
+            TimeSpan? knownDuration,
+            string monthKey,
+            CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(new WhisperTranscriptionResult
+            {
+                Outcome = TranscriptOutcome.Failed,
+                FailureReason = "not configured",
+                MonthKey = monthKey,
+            });
         }
     }
 

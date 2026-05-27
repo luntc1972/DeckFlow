@@ -45,4 +45,17 @@ public sealed class TranscriptFetchResultTests
         Assert.Null(result.Source);
         Assert.Null(result.FailureReason);
     }
+
+    [Fact]
+    public void SkippedNoCaptions_RemainsDistinctFromFailedWithoutBilling()
+    {
+        var result = TranscriptFetchResult.SkippedNoCaptions();
+
+        Assert.Equal(TranscriptOutcome.SkippedNoCaptions, result.Outcome);
+        Assert.Null(result.Body);
+        Assert.Null(result.Source);
+        Assert.Null(result.FailureReason);
+        Assert.Null(result.SecondsBilled);
+        Assert.Null(result.CostUsd);
+    }
 }

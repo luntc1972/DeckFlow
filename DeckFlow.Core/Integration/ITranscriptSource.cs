@@ -26,6 +26,11 @@ public enum TranscriptOutcome
     /// Whisper transcription was skipped because the monthly cap would be exceeded.
     /// </summary>
     SkippedOverCap,
+
+    /// <summary>
+    /// Transcript fetch was skipped because captions were unavailable and Whisper was disabled.
+    /// </summary>
+    SkippedNoCaptions,
 }
 
 /// <summary>
@@ -120,6 +125,16 @@ public sealed record TranscriptFetchResult
         => new()
         {
             Outcome = TranscriptOutcome.SkippedOverCap,
+        };
+
+    /// <summary>
+    /// Creates a skipped-no-captions transcript result.
+    /// </summary>
+    /// <returns>A skipped-no-captions transcript result.</returns>
+    public static TranscriptFetchResult SkippedNoCaptions()
+        => new()
+        {
+            Outcome = TranscriptOutcome.SkippedNoCaptions,
         };
 }
 
