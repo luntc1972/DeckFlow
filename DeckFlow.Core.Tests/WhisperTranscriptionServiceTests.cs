@@ -1,3 +1,5 @@
+using System.ClientModel;
+using System.ClientModel.Primitives;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using Xunit;
@@ -142,6 +144,30 @@ public sealed class WhisperTranscriptionServiceTests
     }
 
     [Fact]
+    public async Task TranscribeAsync_RetriesTransientClientResultExceptionThroughPollyPipeline()
+    {
+        using var audio = CreateAudio(sizeBytes: 1_000, durationSeconds: 60);
+        using var httpClient = new HttpClient();
+        var attempts = 0;
+        var service = CreateService(new FakeWhisperSpendLedger(), new FakeFfmpegAudioChunker(), httpClient, (stream, filename, ct) =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                throw CreateClientResultException(429);
+            }
+
+            return Task.FromResult(("retried body", 60));
+        });
+
+        var result = await service.TranscribeAsync(audio, TimeSpan.FromMinutes(1), "2026-05");
+
+        Assert.Equal(TranscriptOutcome.Whisper, result.Outcome);
+        Assert.Equal("retried body", result.Body);
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
     public async Task TranscribeAsync_LargeAudioChunksAndConcatenatesInOrder()
     {
         using var audio = CreateAudio(sizeBytes: 25_000_000, durationSeconds: 600);
@@ -214,6 +240,9 @@ public sealed class WhisperTranscriptionServiceTests
         };
     }
 
+    private static ClientResultException CreateClientResultException(int status)
+        => new("transient", new FakePipelineResponse(status), innerException: null);
+
     private sealed class FakeWhisperSpendLedger : IWhisperSpendLedger
     {
         public bool WouldExceed { get; init; }
@@ -283,5 +312,55 @@ public sealed class WhisperTranscriptionServiceTests
             File.WriteAllText(path, body);
             return path;
         }
+    }
+
+    private sealed class FakePipelineResponse : PipelineResponse
+    {
+        private readonly FakePipelineResponseHeaders _headers = new();
+
+        public FakePipelineResponse(int status)
+        {
+            Status = status;
+        }
+
+        public override int Status { get; }
+
+        public override string ReasonPhrase => "transient";
+
+        protected override PipelineResponseHeaders HeadersCore => _headers;
+
+        public override Stream? ContentStream { get; set; }
+
+        public override BinaryData Content => BinaryData.Empty;
+
+        public override BinaryData BufferContent(CancellationToken cancellationToken = default)
+            => BinaryData.Empty;
+
+        public override ValueTask<BinaryData> BufferContentAsync(CancellationToken cancellationToken = default)
+            => ValueTask.FromResult(BinaryData.Empty);
+
+        protected override bool IsErrorCore { get; set; } = true;
+
+        public override void Dispose()
+        {
+        }
+    }
+
+    private sealed class FakePipelineResponseHeaders : PipelineResponseHeaders
+    {
+        public override bool TryGetValue(string name, out string? value)
+        {
+            value = null;
+            return false;
+        }
+
+        public override bool TryGetValues(string name, out IEnumerable<string>? values)
+        {
+            values = null;
+            return false;
+        }
+
+        public override IEnumerator<KeyValuePair<string, string>> GetEnumerator()
+            => Enumerable.Empty<KeyValuePair<string, string>>().GetEnumerator();
     }
 }
