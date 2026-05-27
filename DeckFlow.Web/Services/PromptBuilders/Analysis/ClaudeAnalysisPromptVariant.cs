@@ -75,6 +75,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
             builder.AppendLine("The turn on which the deck can realistically START winning — deploy a lethal or game-ending line — is the single most important factor in bracket placement. Weight it above card quality, interaction density, mana base, or any other factor.");
             builder.AppendLine("Pay special attention to the Bracket 3 / Bracket 4 boundary: a deck that can consistently begin its winning line by about turn 4 belongs in Bracket 4 (Optimized) or higher even if other elements look casual, while a deck that cannot reliably threaten a win until around turn 6 belongs in Bracket 3 (Upgraded) or lower.");
             builder.AppendLine("Weight just as heavily the deck's ability to STOP an opponent from winning on that same turn — its density of interaction (counterspells, instant-speed removal, free interaction, protection) able to answer a lethal line. A deck that can both threaten its own win and disrupt opponents' wins around the same turn sits higher in its bracket.");
+            builder.AppendLine("Weight the win turn by reliability, not raw speed: a fragile, unprotected line that opponents can easily answer, or one the deck cannot reassemble, should not push the deck up a bracket on speed alone. A consistently protected or redundant win line counts for more than a faster but flimsy one.");
             builder.AppendLine("</bracket>");
             builder.AppendLine();
         }
@@ -137,7 +138,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
         builder.AppendLine("Cards labeled candidate_include in <reference><cards> are not part of the current deck — treat them only as candidate additions.");
         builder.AppendLine("Do not recommend cards listed in <reference><banlist>.");
-        builder.AppendLine("Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base, and weight them higher than a plain land since they can be cast as a spell or played as a land and add consistency and flexibility.");
+        builder.AppendLine("Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base, and weight them higher than a plain land since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.");
         builder.AppendLine();
         builder.AppendLine("Answer every numbered question in <questions> with 6-12 sentences of detailed reasoning that cites specific cards from <deck> or <reference>. Do not skip, merge, or partially answer any question.");
         builder.AppendLine("After writing the readable analysis, copy every answer into the JSON object's question_answers array with the same numbering and the same full answer text expanded to JSON form.");
