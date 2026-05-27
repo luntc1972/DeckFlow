@@ -38,6 +38,15 @@ public interface IContentSourceStore
     Task<ContentSource?> GetSourceAsync(long id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates whether a content source is eligible for future local content runs.
+    /// </summary>
+    /// <param name="id">Source identifier.</param>
+    /// <param name="isEnabled">Whether the source should be enabled.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task SetEnabledAsync(long id, bool isEnabled, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content source store does not support enabled-state updates.");
+
+    /// <summary>
     /// Lists sources that are currently enabled for local content harvest.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>

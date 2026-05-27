@@ -48,6 +48,17 @@ public interface IContentVideoStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lists videos for one source that have a successful transcript ready for distillation.
+    /// </summary>
+    /// <param name="sourceId">Identifier of the owning content source.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Videos scoped to the supplied source that have at least one transcript row.</returns>
+    Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(
+        long sourceId,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support distill pending queries.");
+
+    /// <summary>
     /// Updates the transcript status for a content video.
     /// </summary>
     /// <param name="videoId">Identifier of the video to update.</param>
@@ -71,6 +82,15 @@ public interface IContentVideoStore
         string source,
         string body,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the most recently inserted transcript body for a video.
+    /// </summary>
+    /// <param name="videoId">Identifier of the owning video.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The latest transcript body and source when present; otherwise <see langword="null"/>.</returns>
+    Task<ContentTranscriptBody?> GetLatestTranscriptAsync(long videoId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support transcript reads.");
 
     /// <summary>
     /// Inserts a generated summary for a video.
@@ -119,6 +139,32 @@ public interface IContentVideoStore
     Task DeleteVideoAsync(long videoId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes generated summary, clip, and tag rows for a video before a clean re-distill.
+    /// </summary>
+    /// <param name="videoId">Video identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ClearDistillOutputAsync(long videoId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support clearing distill output.");
+
+    /// <summary>
+    /// Gets the durable distill status for a video.
+    /// </summary>
+    /// <param name="videoId">Video identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The stored status, or <see langword="null"/> when the video has not been attempted.</returns>
+    Task<string?> GetDistillStatusAsync(long videoId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support distill status reads.");
+
+    /// <summary>
+    /// Sets the durable distill status for a video.
+    /// </summary>
+    /// <param name="videoId">Video identifier.</param>
+    /// <param name="status">Distill status: <c>distilled</c>, <c>skipped_over_cap</c>, or <c>failed</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task SetDistillStatusAsync(long videoId, string status, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support distill status writes.");
+
+    /// <summary>
     /// Counts transcript rows for a video.
     /// </summary>
     /// <param name="videoId">Video identifier.</param>
@@ -149,4 +195,16 @@ public interface IContentVideoStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of tag rows for the video.</returns>
     Task<int> CountTagsByVideoAsync(long videoId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Latest transcript text returned to the distillation orchestrator.
+/// </summary>
+public sealed record ContentTranscriptBody
+{
+    /// <summary>Transcript body.</summary>
+    public required string Body { get; init; }
+
+    /// <summary>Transcript source matching one of the <see cref="TranscriptSource"/> constants.</summary>
+    public required string Source { get; init; }
 }
