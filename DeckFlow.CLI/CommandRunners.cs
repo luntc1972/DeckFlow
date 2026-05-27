@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text.Json.Serialization;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Diffing;
 using DeckFlow.Core.Exporting;
 using DeckFlow.Core.Integration;
@@ -412,6 +413,36 @@ internal static class CommandRunners
         }
     }
 
+    public static async Task<int> RunContentSourceAddAsync(string url, string name, string type, FileInfo? db)
+    {
+        if (!IsValidContentSourceType(type))
+        {
+            Console.Error.WriteLine($"Unsupported content source type '{type}'. Use youtube_channel or podcast_rss.");
+            return 2;
+        }
+
+        var dbPath = ResolveContentKbDatabasePath(db);
+        var slug = SlugifySourceName.Slugify(name);
+        var store = new ContentSourceStore(dbPath);
+        Console.WriteLine($"Computed slug: {slug}");
+
+        try
+        {
+            var id = await store.InsertSourceAsync(slug, name, type, url);
+            Console.WriteLine($"Added content source {id}: {slug}");
+            return 0;
+        }
+        catch (Exception exception) when (IsContentSourceUniqueViolation(exception))
+        {
+            return await HandleContentSourceUniqueViolationAsync(store, slug, url, exception);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
     public static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, int timeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(cardName))
@@ -627,6 +658,53 @@ internal static class CommandRunners
         {
             Console.WriteLine($"  {headerName}: {value}");
         }
+    }
+
+    private static async Task<int> HandleContentSourceUniqueViolationAsync(
+        ContentSourceStore store,
+        string slug,
+        string url,
+        Exception exception)
+    {
+        var sources = await store.ListEnabledSourcesAsync();
+        if (sources.Any(source => string.Equals(source.SourceUrl, url, StringComparison.Ordinal)))
+        {
+            Console.WriteLine("source already exists (same url)");
+            return 0;
+        }
+
+        if (sources.Any(source => string.Equals(source.SourceSlug, slug, StringComparison.Ordinal))
+            || ExceptionContains(exception, "source_slug"))
+        {
+            Console.Error.WriteLine($"slug '{slug}' already used by a different url - pass a distinct --name");
+            return 3;
+        }
+
+        Console.Error.WriteLine(exception.Message);
+        return 1;
+    }
+
+    private static string ResolveContentKbDatabasePath(FileInfo? db)
+        => db?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts", "content-kb.db");
+
+    private static bool IsValidContentSourceType(string type)
+        => type is ContentSourceType.Youtube or ContentSourceType.Podcast;
+
+    private static bool IsContentSourceUniqueViolation(Exception exception)
+        => (ExceptionContains(exception, "UNIQUE") || ExceptionContains(exception, "duplicate key"))
+            && ExceptionContains(exception, "content_sources");
+
+    private static bool ExceptionContains(Exception exception, string value)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current.Message.Contains(value, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void PrintCard(ScryfallCardDto card)
