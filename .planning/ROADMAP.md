@@ -218,10 +218,10 @@ Plans:
 **Plans**: 4 plans
 Plans:
 
-- [ ] 20-01-PLAN.md — Wave-0 store gap: IContentVideoStore.UpdateTranscriptStatusAsync + content-source-add CLI verb (D-08 seed) (KB-03, KB-04, KB-05)
-- [ ] 20-02-PLAN.md — ITranscriptSource abstraction + YouTubeTranscriptFetcher (YoutubeExplode 6.6.0, auto-gen captions accepted, provider toggle, Func<> seam) (KB-03)
-- [ ] 20-03-PLAN.md — WhisperTranscriptionService (OpenAI 2.10 AudioClient via HttpClientPipelineTransport, Polly owns resilience) + local cap-check gate + FfmpegAudioChunker (KB-04, KB-05)
-- [ ] 20-04-PLAN.md — YouTubeTranscriptSource (captions→Whisper) + bounded channel lister + harvest CLI verb + 5-channel local UAT (KB-03, KB-04, KB-05)
+- [ ] 20-01-PLAN.md — Wave-0 store gap: ContentVideoStore.UpdateTranscriptStatusAsync + GetVideoByYoutubeIdAsync (resume) + tested SlugifySourceName + content-source-add CLI verb (dup-url vs dup-slug) (KB-03, KB-04, KB-05)
+- [ ] 20-02-PLAN.md — Non-null ITranscriptSource result + pure YouTubeTranscriptFetcher (auto-gen accepted, empty classified) + real TranscriptProviderFactory + IYouTubeAudioSource/AudioDownloadResult (YoutubeExplode 6.6.0, Func<> seams) (KB-03)
+- [ ] 20-03-PLAN.md — Pure WhisperTranscriptionService (OpenAI 2.10 AudioClient + concrete 12min Polly wrapper + chunk-loop) + cap-check READ gate + FfmpegAudioChunker; persists nothing (KB-04, KB-05)
+- [ ] 20-04-PLAN.md — Pure YouTubeTranscriptSource (captions→audio→Whisper) + CollectAsync-bounded lister + harvest verb (single persistence owner, resume + split logging) + 5-channel UAT (KB-03, KB-04, KB-05)
 
 ### Phase 21: Content KB Distillation + Artifact Emit (local)
 
