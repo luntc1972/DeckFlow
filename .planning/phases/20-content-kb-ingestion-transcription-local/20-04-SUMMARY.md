@@ -127,6 +127,14 @@ Expected result:
 
 Phase 21 can build distillation, artifact emission, slim-index writes, and run records on top of the local transcript/status/ledger persistence now owned by `RunHarvestAsync`.
 
+## Review Fixes
+
+- CR-01: `RunHarvestAsync` now records the Whisper ledger row before transcript/status persistence, so a later transcript insert failure keeps the cap conservative. Added `RunHarvestAsync_WhisperInsertFailureAfterLedgerWriteKeepsLedgerRecord`.
+- WR-05: harvest failure recovery now marks `failed` only for videos that were pending and have not had a status persisted. Added `RunHarvestAsync_ExistingSkippedOverCapVideoIsNotDowngradedToFailedOnRetryException`.
+- CR-02: `YouTubeAudioSource` now derives best-effort duration from YoutubeExplode video metadata instead of hardcoded `0`, and the duration XML contracts describe the `Math.Max(knownDuration, audioDuration)` cap authority. Added `GetBestEffortDurationSeconds_ReturnsMetadataDurationSeconds` and `TranscribeAsync_UsesAudioDurationForCapWhenKnownDurationIsUnknown`.
+- WR-01: `WhisperResiliencePipeline` now retries transient OpenAI SDK `ClientResultException` statuses `0`, `408`, `429`, and `>=500`. Added `TranscribeAsync_RetriesTransientClientResultExceptionThroughPollyPipeline`.
+- WR-02: `YouTubeChannelVideoLister` now performs a bounded video-metadata lookup to populate `PublishedUtc` when available; the mapping site documents that the playlist projection lacks upload date. Added `MapVideo_CarriesPublishedUtcFromMetadataLookup`.
+
 ---
 *Phase: 20-content-kb-ingestion-transcription-local*
 *Completed: 2026-05-27*
