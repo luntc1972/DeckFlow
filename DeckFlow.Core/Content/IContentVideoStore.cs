@@ -36,6 +36,29 @@ public interface IContentVideoStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a YouTube content video by source and upstream video identifier.
+    /// </summary>
+    /// <param name="sourceId">Identifier of the owning content source.</param>
+    /// <param name="youtubeVideoId">YouTube video identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The content video when found; otherwise <see langword="null"/>.</returns>
+    Task<ContentVideo?> GetVideoByYoutubeIdAsync(
+        long sourceId,
+        string youtubeVideoId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the transcript status for a content video.
+    /// </summary>
+    /// <param name="videoId">Identifier of the video to update.</param>
+    /// <param name="status">Transcript status matching one of the <see cref="TranscriptStatus"/> constants.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task UpdateTranscriptStatusAsync(
+        long videoId,
+        string status,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Inserts transcript text for a video.
     /// </summary>
     /// <param name="videoId">Identifier of the owning video.</param>

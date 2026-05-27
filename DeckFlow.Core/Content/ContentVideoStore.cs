@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Globalization;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Core.Content;
@@ -103,6 +104,52 @@ public sealed class ContentVideoStore : IContentVideoStore
 
         var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         return ContentStoreGeneratedId.Read(id);
+    }
+
+    /// <inheritdoc />
+    public async Task<ContentVideo?> GetVideoByYoutubeIdAsync(
+        long sourceId,
+        string youtubeVideoId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(youtubeVideoId);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = GetVideoByYoutubeIdSql;
+        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
+        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return ReadVideo(reader);
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateTranscriptStatusAsync(
+        long videoId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(status);
+        if (!IsValidTranscriptStatus(status))
+        {
+            throw new ArgumentException($"Unknown transcript status: {status}.", nameof(status));
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = UpdateTranscriptStatusSql;
+        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
+        RelationalDatabaseConnection.AddParameter(command, "@status", status);
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -222,6 +269,39 @@ public sealed class ContentVideoStore : IContentVideoStore
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
+    private static bool IsValidTranscriptStatus(string status)
+        => status is TranscriptStatus.Pending
+            or TranscriptStatus.Captions
+            or TranscriptStatus.Whisper
+            or TranscriptStatus.Failed
+            or TranscriptStatus.SkippedOverCap;
+
+    private static ContentVideo ReadVideo(DbDataReader reader)
+        => new()
+        {
+            Id = reader.GetInt64(0),
+            SourceId = reader.GetInt64(1),
+            YoutubeVideoId = reader.IsDBNull(2) ? null : reader.GetString(2),
+            RssGuid = reader.IsDBNull(3) ? null : reader.GetString(3),
+            Title = reader.GetString(4),
+            VideoUrl = reader.GetString(5),
+            PublishedUtc = reader.IsDBNull(6) ? null : ReadDateTimeOffset(reader, 6),
+            TranscriptStatus = reader.GetString(7),
+            CreatedUtc = ReadDateTimeOffset(reader, 8)
+        };
+
+    private static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal)
+    {
+        var raw = reader.GetValue(ordinal);
+        return raw switch
+        {
+            DateTimeOffset dto => dto.ToUniversalTime(),
+            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
+            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
+            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
+        };
+    }
+
     private async Task<int> CountByVideoAsync(
         string commandText,
         long videoId,
@@ -249,6 +329,27 @@ public sealed class ContentVideoStore : IContentVideoStore
             ? value.Value.UtcDateTime
             : value.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
     }
+
+    private const string GetVideoByYoutubeIdSql = """
+        SELECT id,
+               source_id,
+               youtube_video_id,
+               rss_guid,
+               title,
+               video_url,
+               published_utc,
+               transcript_status,
+               created_utc
+          FROM content_videos
+         WHERE source_id = @sourceId
+           AND youtube_video_id = @youtubeVideoId;
+        """;
+
+    private const string UpdateTranscriptStatusSql = """
+        UPDATE content_videos
+           SET transcript_status = @status
+         WHERE id = @videoId;
+        """;
 
     private const string InsertVideoSql = """
         INSERT INTO content_videos (
