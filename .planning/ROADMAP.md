@@ -220,7 +220,7 @@ Plans:
 
 - [x] 20-01-PLAN.md — Wave-0 store gap: ContentVideoStore.UpdateTranscriptStatusAsync + GetVideoByYoutubeIdAsync (resume) + tested SlugifySourceName + content-source-add CLI verb (dup-url vs dup-slug) (KB-03, KB-04, KB-05)
 - [x] 20-02-PLAN.md — Non-null ITranscriptSource result + pure YouTubeTranscriptFetcher (auto-gen accepted, empty classified) + real TranscriptProviderFactory + IYouTubeAudioSource/AudioDownloadResult (YoutubeExplode 6.6.0, Func<> seams) (KB-03)
-- [ ] 20-03-PLAN.md — Pure WhisperTranscriptionService (OpenAI 2.10 AudioClient + concrete 12min Polly wrapper + chunk-loop) + cap-check READ gate + FfmpegAudioChunker; persists nothing (KB-04, KB-05)
+- [x] 20-03-PLAN.md — Pure WhisperTranscriptionService (OpenAI 2.10 AudioClient + concrete 12min Polly wrapper + chunk-loop) + cap-check READ gate + FfmpegAudioChunker; persists nothing (KB-04, KB-05)
 - [ ] 20-04-PLAN.md — Pure YouTubeTranscriptSource (captions→audio→Whisper) + CollectAsync-bounded lister + harvest verb (single persistence owner, resume + split logging) + 5-channel UAT (KB-03, KB-04, KB-05)
 
 ### Phase 21: Content KB Distillation + Artifact Emit (local)
@@ -320,7 +320,7 @@ Plans:
 | 17. Doc-Comment Backfill Part 1 | 2/2 | Complete   | 2026-05-24 |
 | 18. Admin Mobile-Responsive Sweep | 2/2 | Complete | 2026-05-24 |
 | 19. Content KB Foundation — Local Schema + Contracts | 4/4 | Complete    | 2026-05-26 |
-| 20. Content KB Outbound HTTP Services | 2/4 | In Progress|  |
+| 20. Content KB Outbound HTTP Services | 3/4 | In Progress|  |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
 | 22. Content KB Admin UI | 0/TBD | Not started | - |
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
