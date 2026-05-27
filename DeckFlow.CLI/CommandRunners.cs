@@ -505,17 +505,25 @@ internal static class CommandRunners
         var aggregate = new HarvestCounts();
         foreach (var source in sources.Where(source => source.SourceType == ContentSourceType.Youtube))
         {
-            var sourceCounts = await HarvestSourceAsync(
-                source,
-                videoStore,
-                ledger,
-                lister,
-                transcriptSource,
-                Math.Max(1, limit),
-                logger,
-                utcNow,
-                ct);
-            aggregate.Add(sourceCounts);
+            try
+            {
+                var sourceCounts = await HarvestSourceAsync(
+                    source,
+                    videoStore,
+                    ledger,
+                    lister,
+                    transcriptSource,
+                    Math.Max(1, limit),
+                    logger,
+                    utcNow,
+                    ct);
+                aggregate.Add(sourceCounts);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.Error(exception, "harvest source failed {SourceSlug}", source.SourceSlug);
+                continue;
+            }
         }
 
         LogFallbackRatio(logger, "aggregate", aggregate);
