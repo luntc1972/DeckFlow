@@ -95,6 +95,7 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
         builder.AppendLine("- Cards labeled candidate_include in the reference are not part of the current deck. Treat them only as candidate additions.");
         builder.AppendLine("- Do not recommend cards from the official Commander banned list (see banned list in the reference section below).");
+        builder.AppendLine("- Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility.");
         builder.AppendLine();
 
         builder.AppendLine("## BRACKET GUIDANCE");
@@ -103,6 +104,9 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine($"- {bracketOption.Label}: {bracketOption.Summary} {bracketOption.TurnsExpectation}");
         }
+        builder.AppendLine("The turn on which the deck can realistically START winning — deploy a lethal or game-ending line — is the single most important factor in bracket placement. Weight it above card quality, interaction density, mana base, or any other factor.");
+        builder.AppendLine("Pay special attention to the Bracket 3 / Bracket 4 boundary: a deck that can consistently begin its winning line by about turn 4 belongs in Bracket 4 (Optimized) or higher even if other elements look casual, while a deck that cannot reliably threaten a win until around turn 6 belongs in Bracket 3 (Upgraded) or lower.");
+        builder.AppendLine("Weight just as heavily the deck's ability to STOP an opponent from winning on that same turn — its density of interaction (counterspells, instant-speed removal, free interaction, protection) able to answer a lethal line. A deck that can both threaten its own win and disrupt opponents' wins around the same turn sits higher in its bracket.");
         if (bracket is not null)
         {
             builder.AppendLine($"Target the Commander experience of {bracket.Label}.");
