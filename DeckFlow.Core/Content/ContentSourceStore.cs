@@ -111,6 +111,26 @@ public sealed class ContentSourceStore : IContentSourceStore
     }
 
     /// <inheritdoc />
+    public async Task SetEnabledAsync(long id, bool isEnabled, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE content_sources
+               SET is_enabled = @isEnabled
+             WHERE id = @id;
+            """;
+        RelationalDatabaseConnection.AddParameter(
+            command,
+            "@isEnabled",
+            _connectionInfo.IsPostgres ? (object)isEnabled : isEnabled ? 1 : 0);
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ContentSource>> ListEnabledSourcesAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
