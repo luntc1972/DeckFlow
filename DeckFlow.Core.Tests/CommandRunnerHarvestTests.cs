@@ -37,6 +37,24 @@ public sealed class CommandRunnerHarvestTests
     }
 
     [Fact]
+    public async Task RunHarvestAsync_WhisperInsertFailureAfterLedgerWriteKeepsLedgerRecord()
+    {
+        var videoStore = new FakeContentVideoStore { ThrowOnInsertTranscript = true };
+        var ledger = new FakeWhisperSpendLedger();
+        var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromWhisper("whisper body", 2520, 0.252m));
+
+        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(42))]);
+
+        Assert.Equal(0, exitCode);
+        var ledgerRecord = Assert.Single(ledger.Records);
+        Assert.Equal(10, ledgerRecord.VideoId);
+        Assert.Equal(2520, ledgerRecord.SecondsBilled);
+        Assert.Equal(0.252m, ledgerRecord.CostUsd);
+        Assert.Equal("2026-05", ledgerRecord.MonthKey);
+        Assert.Empty(videoStore.Transcripts);
+    }
+
+    [Fact]
     public async Task RunHarvestAsync_ExistingFailedVideoResumesAndExistingSuccessSkips()
     {
         var failed = CreateListedVideo("video-failed", TimeSpan.FromMinutes(5));
@@ -58,6 +76,24 @@ public sealed class CommandRunnerHarvestTests
         Assert.Empty(videoStore.InsertedVideos);
         Assert.Equal(20, Assert.Single(videoStore.Transcripts).VideoId);
         Assert.Equal("captions", Assert.Single(videoStore.StatusUpdates).Status);
+    }
+
+    [Fact]
+    public async Task RunHarvestAsync_ExistingSkippedOverCapVideoIsNotDowngradedToFailedOnRetryException()
+    {
+        var videoStore = new FakeContentVideoStore
+        {
+            ExistingVideos =
+            {
+                ["video-skipped"] = CreateExistingVideo(20, "video-skipped", TranscriptStatus.SkippedOverCap),
+            },
+        };
+        var transcriptSource = new FakeTranscriptSource(new InvalidOperationException("retry failed"));
+
+        var exitCode = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, [CreateListedVideo("video-skipped", TimeSpan.FromMinutes(5))]);
+
+        Assert.Equal(0, exitCode);
+        Assert.Empty(videoStore.StatusUpdates);
     }
 
     [Fact]
@@ -174,6 +210,8 @@ public sealed class CommandRunnerHarvestTests
 
         public Dictionary<string, ContentVideo> ExistingVideos { get; } = [];
 
+        public bool ThrowOnInsertTranscript { get; init; }
+
         public List<ContentVideo> InsertedVideos { get; } = [];
 
         public List<TranscriptWrite> Transcripts { get; } = [];
@@ -230,6 +268,11 @@ public sealed class CommandRunnerHarvestTests
             string body,
             CancellationToken cancellationToken = default)
         {
+            if (ThrowOnInsertTranscript)
+            {
+                throw new InvalidOperationException("transcript insert failed");
+            }
+
             Transcripts.Add(new TranscriptWrite(videoId, source, body));
             return Task.FromResult((long)Transcripts.Count);
         }
@@ -302,11 +345,17 @@ public sealed class CommandRunnerHarvestTests
 
     private sealed class FakeTranscriptSource : ITranscriptSource
     {
-        private readonly TranscriptFetchResult _result;
+        private readonly Exception? _exception;
+        private readonly TranscriptFetchResult? _result;
 
         public FakeTranscriptSource(TranscriptFetchResult result)
         {
             _result = result;
+        }
+
+        public FakeTranscriptSource(Exception exception)
+        {
+            _exception = exception;
         }
 
         public string SourceType => ContentSourceType.Youtube;
@@ -326,7 +375,12 @@ public sealed class CommandRunnerHarvestTests
             NaturalKeys.Add(naturalKey);
             LastKnownDuration = knownDuration;
             LastMonthKey = monthKey;
-            return Task.FromResult(_result);
+            if (_exception is not null)
+            {
+                throw _exception;
+            }
+
+            return Task.FromResult(_result!);
         }
     }
 
