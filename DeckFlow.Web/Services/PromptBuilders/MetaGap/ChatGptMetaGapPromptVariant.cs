@@ -112,6 +112,7 @@ internal sealed class ChatGptMetaGapPromptVariant : IMetaGapPromptVariant
 
         builder.AppendLine("4. MANA EFFICIENCY");
         builder.AppendLine("- Compare fast mana count (0-1 CMC ramp), total ramp density, and land count.");
+        builder.AppendLine("- Count modal double-faced cards (MDFCs) with a land back face toward each deck's land total, and weight them higher than a plain land since they double as flexible land/spell slots that improve consistency.");
         builder.AppendLine("- Identify missing high-impact acceleration pieces.");
         builder.AppendLine();
 
