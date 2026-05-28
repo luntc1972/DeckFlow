@@ -58,6 +58,23 @@ h3,
   scroll-margin-top: 4rem;
 }
 
+/* Universal keyboard-focus baseline. Most guild themes @import site.css and so
+   inherit its focus block + --focus token, but standalone forks that skip the
+   import (e.g. site-commander-table.css) had no visible focus ring (WCAG 2.4.7).
+   Living here (loaded first, before every theme) guarantees a ring on every
+   theme and any future standalone fork. The --accent fallback covers forks that
+   never define --focus. A theme's own later block still wins if it customizes focus. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--focus, var(--accent));
+  outline-offset: 2px;
+}
+
 /* === WDG audit fixes (WDG-06, Phase 11 Sweep 6) — sr-only utility ===
    Visually-hidden accessible text for <caption> elements (and any other off-screen
    labels) so screen readers announce table purpose without affecting layout. Lives
