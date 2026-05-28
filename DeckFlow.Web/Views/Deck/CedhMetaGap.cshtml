@@ -214,13 +214,13 @@
                         <thead>
                         <tr>
                             <th scope="col">Select</th>
-                            <th scope="col">#</th>
+                            <th scope="col" class="tabular">#</th>
                             <th scope="col">Player</th>
                             <th scope="col">Date</th>
-                            <th scope="col">Participants</th>
+                            <th scope="col" class="tabular">Participants</th>
                             <th scope="col">Finish</th>
-                            <th scope="col">W-L-D</th>
-                            <th scope="col">Win %</th>
+                            <th scope="col" class="tabular">W-L-D</th>
+                            <th scope="col" class="tabular">Win %</th>
                             <th scope="col">Decklist</th>
                         </tr>
                         </thead>
@@ -237,13 +237,13 @@
                                            checked="@(selectedReferenceIndexes.Contains(index) ? "checked" : null)"
                                            data-chatgpt-cedh-reference-checkbox />
                                 </td>
-                                <td>@(index + 1)</td>
+                                <td class="tabular">@(index + 1)</td>
                                 <td>@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
                                 <td>@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
-                                <td>@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
+                                <td class="tabular">@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
                                 <td>@entry.Standing</td>
-                                <td>@entry.Wins-@entry.Losses-@entry.Draws</td>
-                                <td>@entry.WinRate.ToString("P0")</td>
+                                <td class="tabular">@entry.Wins-@entry.Losses-@entry.Draws</td>
+                                <td class="tabular">@entry.WinRate.ToString("P0")</td>
                                 <td>
                                     @if (!string.IsNullOrWhiteSpace(entry.DecklistUrl))
                                     {
