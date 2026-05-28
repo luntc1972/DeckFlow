@@ -289,6 +289,7 @@ a:hover { text-decoration: underline; }
   min-width: 44px;
   display: flex;
   align-items: center;
+  touch-action: manipulation;
 }
 
 .admin-shell .admin-range-selector a,
@@ -306,6 +307,7 @@ a:hover { text-decoration: underline; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  touch-action: manipulation;
 }
 
 .admin-shell .admin-action-form input:not([type="hidden"]),
@@ -358,6 +360,7 @@ a:hover { text-decoration: underline; }
   min-width: 280px;
   max-height: min(80vh, 600px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  overscroll-behavior: contain;
   opacity: 1;
   transition: opacity 120ms ease-out, transform 120ms ease-out;
 }

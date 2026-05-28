@@ -143,6 +143,16 @@
     display: block !important;
   }
 
+  /* The disclosure ships without the `open` attribute so mobile starts collapsed.
+     Modern UAs hide a closed <details>'s contents via `content-visibility: hidden`
+     on the ::details-content pseudo, which the display:block override above cannot
+     reach. Force the pseudo visible on desktop so the nav renders regardless of the
+     closed state. Older UAs (which hid via display:none on slotted children) are
+     covered by the display:block rule above — both eras handled, no JS. */
+  .admin-shell .admin-sidebar__disclosure::details-content {
+    content-visibility: visible !important;
+  }
+
   /* Desktop keeps the <summary> clipped-but-PRESENT (display:block + .sr-only
      clip, NOT display:none) so it stays in the a11y tree and remains a real,
      operable, keyboard-focusable fallback control if any AT treats the closed
