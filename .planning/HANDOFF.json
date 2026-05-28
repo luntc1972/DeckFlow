@@ -1,38 +1,46 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-27T18:34:05.022Z",
+  "timestamp": "2026-05-28T04:01:13.313Z",
   "phase": "21",
-  "phase_name": "Content KB Distillation + Artifact Emit (local)",
+  "phase_name": "content-kb-distillation-artifact-emit-local",
   "phase_dir": ".planning/phases/21-content-kb-distillation-artifact-emit-local",
-  "plan": null,
-  "task": null,
-  "total_tasks": 0,
-  "status": "paused",
-  "stage": "planning-complete-pre-execution",
+  "plan": 4,
+  "task": 0,
+  "total_tasks": 10,
+  "status": "code-complete-pending-live-uat",
   "completed_tasks": [
-    {"id": 1, "name": "discuss-phase -> 21-CONTEXT.md (13 decisions D-01..D-13)", "status": "done", "commit": "1d84e08"},
-    {"id": 2, "name": "ai-integration-phase -> 21-AI-SPEC.md (OpenAI 2.10 ChatClient + eval strategy)", "status": "done", "commit": "ad9dacb"},
-    {"id": 3, "name": "research -> 21-RESEARCH.md (7 open Qs resolved)", "status": "done"},
-    {"id": 4, "name": "pattern-map + plan -> 21-PATTERNS.md + 4 PLAN.md (2 waves)", "status": "done"},
-    {"id": 5, "name": "Claude plan-checker PASS + Codex review converge RED->RED->GREEN", "status": "done", "commit": "cac740c"}
+    {"id": "21-01", "name": "LlmDistillationService + DistillationSchemas + Results + Tests", "status": "done", "commit": "ab2897d"},
+    {"id": "21-02", "name": "LlmSpendLedger (separate token-based ledger, $15 cap)", "status": "done", "commit": "d64d173"},
+    {"id": "21-03", "name": "ContentArtifactWriter + content_distill_status + store methods + content-kb/ gitignore", "status": "done", "commit": "c03b569"},
+    {"id": "21-04", "name": "distill orchestrator + distill/content-source-set-enabled CLI verbs", "status": "done", "commit": "10d06be"},
+    {"id": "21-04-dry-run", "name": "Dry-run UAT (10 videos, $0.045491 projected)", "status": "done", "commit": "4a62ad5"}
   ],
   "remaining_tasks": [
-    {"id": 6, "name": "/gsd-execute-phase 21 — Codex implements 4 plans (cross-AI execution), Claude reviews", "status": "not_started"}
+    {"id": "21-04-live-uat", "name": "Live distill UAT on artifacts/uat-content-kb.db (10 videos, ~$0.05 actual) + E5/E6 archetype/bracket/thesis sampling", "status": "not_started"},
+    {"id": "21-verify", "name": "/gsd-verify-work 21 after UAT passes", "status": "not_started"},
+    {"id": "21-roadmap-x", "name": "Flip ROADMAP Phase 21 [ ] -> [x]", "status": "not_started"}
   ],
-  "blockers": [],
+  "blockers": [
+    {"description": "Live UAT requires OPENAI_API_KEY in shell env", "type": "human_action", "workaround": "Set env var then run the distill command in the .continue-here.md Next Action block"}
+  ],
   "human_actions_pending": [
-    {"action": "21-02 checkpoint: confirm gpt-4o-mini price constants + DECKFLOW_LLM_MONTHLY_CAP_USD default ($15)", "context": "A1/A2 — prices not pinned; checkpoint:decision autonomous:false", "blocking": true},
-    {"action": "21-03 checkpoint: approve adding content-kb/ to .gitignore", "context": "A4 — .gitignore is on CLAUDE.md Do-Not-Modify list; checkpoint:human-action autonomous:false", "blocking": true},
-    {"action": "21-04 checkpoint: run end-to-end distill UAT + E5/E6 human sampling on the 10-video UAT db", "context": "needs OPENAI_API_KEY set; checkpoint:human-verify autonomous:false", "blocking": true}
+    {"action": "Set OPENAI_API_KEY and run live distill on artifacts/uat-content-kb.db (no --dry-run, --limit 10)", "context": "21-04 human-verify checkpoint; ~5 cents real spend; emits 10 .md artifacts under content-kb/ + 10 slim-index rows + ledger entries + content_distill_status=distilled rows", "blocking": true},
+    {"action": "Eyeball 2-3 emitted artifacts for E5 (archetype/bracket plausibility) and E6 (thesis coherence)", "context": "Code-gated evals E1-E4 are unit-test covered; E5/E6 are human-judge dims", "blocking": true}
   ],
   "decisions": [
-    {"decision": "gpt-4o-mini, three separate strict-json_schema calls (summary/clips/tags)", "rationale": "isolation/robustness; D-02", "phase": "21"},
-    {"decision": "SEPARATE llm_spend_ledger; record spend per-call immediately before next call", "rationale": "Codex HIGH-1 — partial/failed videos must still ledger incurred cost (Phase 20 CR-01 class)", "phase": "21"},
-    {"decision": "NEW content_distill_status table (CREATE TABLE IF NOT EXISTS) supersedes derived-state idempotency", "rationale": "schema-safe per-video distilled|skipped_over_cap|failed; satisfies SC5 literal + durable D-12", "phase": "21"},
-    {"decision": "source-scoped ListVideosPendingDistillAsync(sourceId)", "rationale": "Codex HIGH-2 — global query emitted under wrong slug + processed disabled sources", "phase": "21"},
-    {"decision": "SC4 amended to enable/disable-only (edit = add-new+disable-old); SC5 implemented literally (--dry-run + per-video skipped_over_cap)", "rationale": "user decisions 2026-05-27", "phase": "21"}
+    {"decision": "Locked gpt-4o-mini cost constants: input $0.15/1M, output $0.60/1M", "rationale": "Matches AI-SPEC §4 + platform.openai.com published rates; user confirmed at 21-02 checkpoint A1", "phase": "21"},
+    {"decision": "Cap env var DECKFLOW_LLM_MONTHLY_CAP_USD default $15.00", "rationale": "Independent of Whisper cap; AI-SPEC §4 estimated ~$1.10 for 200-video harvest so generous headroom; user confirmed at 21-02 checkpoint A2", "phase": "21"},
+    {"decision": "Add content-kb/ to .gitignore", "rationale": "Artifacts are local-only per D-06; .gitignore is on CLAUDE.md Do-Not-Modify list, user explicitly approved at 21-03 checkpoint A4", "phase": "21"},
+    {"decision": "Default-throwing default interface methods on IContentVideoStore/IContentSourceStore new members", "rationale": "Keeps existing test fakes (CommandRunnerHarvestTests) compiling without editing out-of-scope files; real stores override all members; orchestrator uses real stores", "phase": "21"},
+    {"decision": "Reverted Codex-injected scope creep (a1fa5ad analysis prompt dedup + 774aa1a gsd-quick record)", "rationale": "Done mid-21-01 without authorization; CLAUDE.md violation; reverted via 6da70da + b2ffba7 (work preserved in history for a future authorized /gsd-quick if wanted)", "phase": "21"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Run /gsd-execute-phase 21. Per CLAUDE.md route to Codex (cross_ai_execution). Wave 1 = 21-01/02/03 (parallel, disjoint files); 21-02 + 21-03 each hit an autonomous:false checkpoint — surface to user. Wave 2 = 21-04 (depends on all three) ends in UAT checkpoint.",
-  "context_notes": "Phase 21 fully planned and Codex-GREEN, NOTHING executed yet. All artifacts committed on v1.4 (1d84e08..cac740c), not pushed. ChatTokenUsage.InputTokenCount/OutputTokenCount confirmed present in installed OpenAI 2.10 DLL. Untracked .planning stragglers (19-PATTERNS.md, 27-RESEARCH.md) are unrelated, leave them. Phase 20 shipped+UAT-passed+pushed earlier this session."
+  "uncommitted_files": [
+    ".planning/todos/pending/admincss-phase1-tests-stale.md (deleted; pre-existed this session)",
+    ".claude/ (untracked; pre-existed this session)",
+    ".planning/phases/19-content-kb-foundation-local-schema-contracts/19-PATTERNS.md (untracked; pre-existed)",
+    ".planning/phases/27-deck-cache-content-hash-dedup-5-day-refresh/27-RESEARCH.md (untracked; pre-existed)",
+    ".planning/todos/completed/ (untracked; pre-existed)"
+  ],
+  "next_action": "export OPENAI_API_KEY=sk-... ; \"/mnt/c/Program Files/dotnet/dotnet.exe\" run --project DeckFlow.CLI -- distill --db artifacts/uat-content-kb.db --limit 10",
+  "context_notes": "Phase 21 implementation handled via cross-AI: Codex implemented every plan (per CLAUDE.md), Claude reviewed each diff before moving on. Wave 1 (21-01/02/03) was file-disjoint and ran serially through codex exec (Windows-dotnet-over-WSL means concurrent codex runs would contend on obj/bin + NuGet locks). Wave 2 (21-04) composes Wave 1 outputs into the vertical-slice distill verb. Pre-resolved both Wave-1 checkpoints up-front (price constants, gitignore) so codex never paused mid-run. Full suite green at push (Core.Tests 217/217, Web.Tests 486/486, solution build 0/0). Pushed 7cee9b0..4a62ad5 (19 commits) on v1.4. Live UAT not run because (a) needs user OPENAI_API_KEY, (b) costs money, (c) is the human-verify gate."
 }
