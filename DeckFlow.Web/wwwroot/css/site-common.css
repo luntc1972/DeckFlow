@@ -1263,6 +1263,15 @@ h3,
     color: var(--accent-strong);
 }
 
+/* The radio input is .sr-only, so its global focus-visible outline is invisible.
+   Forward keyboard focus to the visible label so radiogroup navigation is seen.
+   Fall back to --accent: several themes do not define --focus, and this rule
+   lives in site-common.css (loaded for every theme). */
+.ai-selector__option:focus-visible + .ai-selector__option-label {
+    outline: 2px solid var(--focus, var(--accent));
+    outline-offset: 2px;
+}
+
 .ai-selector__option-label:hover {
     border-color: var(--accent);
     color: var(--accent);
