@@ -21,7 +21,7 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 | Category | Item | Status |
 |----------|------|--------|
 | tech_debt | Gemini paste-limit workaround | DEFERRED to v1.5 (cluster D dropped from v1.4 scope 2026-05-23) |
-| archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | needs move to `.planning/milestones/v1.1-phases/`; v1.5 housekeeping |
+| archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | DONE 2026-05-29 — moved from `v1.3-phases/` to `.planning/milestones/v1.1-phases/` |
 | tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` | CLOSED v1.3 Phase 999.5 P02 |
 
 ### Acknowledged at v1.3 close (2026-05-23) — carried to v1.5 housekeeping
@@ -30,18 +30,18 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 
 | Category | Item | Status | Disposition |
 |----------|------|--------|-------------|
-| debug | 999.6-archidekt-cache-job | unknown | CLOSED v1.3 999.6 P03 (commit d758609); audit scanner stale-status; defer scanner alignment to v1.5 |
-| debug | 999.6-basicauth-flaky | unknown | CLOSED v1.3 999.6 P02 (commit a62f608); audit scanner stale-status; defer to v1.5 |
+| debug | 999.6-archidekt-cache-job | closed | CLOSED v1.3 999.6 P03 (commit d758609); status flipped 2026-05-29 (was stale "unknown" from audit scanner) |
+| debug | 999.6-basicauth-flaky | closed | CLOSED v1.3 999.6 P02 (commit a62f608); status flipped 2026-05-29 (was stale "unknown") |
 | debug | v13-harvest-worker-stalled | resolved_not_reproduced | CLOSED 2026-05-29 — fix+diagnostics live on prod; Render logs 05-23..05-29 show all harvest cycles healthy (matched Enqueue/Dequeue, all Running→Succeeded, 0 TerminalWriteFailed, 0 stalls). One-off v1.3 incident never recurred. |
-| uat-gap | Phase 11/13/15/999.1-999.8 UAT files (10 phases) | "unknown"/"bypassed"/"superseded-by-999.6" | FALSE POSITIVE — scanner vocabulary drift; defer alignment to v1.5 |
-| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing | DEFERRED to v1.5 |
-| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing | DEFERRED to v1.5 |
-| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | missing | DEFERRED to v1.5 |
-| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | missing | DEFERRED to v1.5 |
-| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | missing | DEFERRED to v1.5 |
-| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | missing | DEFERRED to v1.5 |
-| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | missing | DEFERRED to v1.5 |
-| quick_task | 260513-wdg-web-design-guidelines-audit-findings | missing | CLOSED v1.3 Phase 11; v1.5 housekeeping to flip index |
+| uat-gap | Phase 11/13/15/999.1-999.8 UAT files (10 phases) | false_positive | FALSE POSITIVE — audit-scanner vocabulary drift, not a real gap; acknowledged 2026-05-29 |
+| quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | complete | Verified complete (SUMMARY status:complete); "missing" was scanner false-positive, flipped 2026-05-29 |
+| quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | complete | Verified complete (SUMMARY status:complete); flipped 2026-05-29 |
+| quick_task | 260506-kwt-make-chatgpt-zip-download-button-more-pr | complete | Verified complete (SUMMARY status:complete); flipped 2026-05-29 |
+| quick_task | 260507-l7x-fix-chatgpt-packets-saved-session-upload | complete | Verified complete (SUMMARY status:complete); flipped 2026-05-29 |
+| quick_task | 260507-m8k-fix-admin-harvest-decks-counter-and-rece | complete | Verified complete (SUMMARY status:complete); flipped 2026-05-29 |
+| quick_task | 260507-ner-add-admin-analytics-auto-refresh-via-met | complete | Verified complete (SUMMARY status:complete); flipped 2026-05-29 |
+| quick_task | 260507-o20-restore-full-round-trip-on-chatgpt-saved | complete | Verified complete (SUMMARY status:complete); flipped 2026-05-29 |
+| quick_task | 260513-wdg-web-design-guidelines-audit-findings | complete | CLOSED v1.3 Phase 11 (SUMMARY status:complete); flipped 2026-05-29 |
 
 # Project State
 
