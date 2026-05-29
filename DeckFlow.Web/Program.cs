@@ -147,9 +147,9 @@ public partial class Program
                 AutomaticDecompression = System.Net.DecompressionMethods.GZip
                     | System.Net.DecompressionMethods.Deflate
                     | System.Net.DecompressionMethods.Brotli,
-                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+                PooledConnectionLifetime = TaggerSessionCache.HandlerLifetime,
             })
-            .SetHandlerLifetime(TimeSpan.FromMinutes(5));
+            .SetHandlerLifetime(TaggerSessionCache.HandlerLifetime);
 
             builder.Services.AddSingleton<ScryfallTaggerHttpClient>(sp =>
             {
