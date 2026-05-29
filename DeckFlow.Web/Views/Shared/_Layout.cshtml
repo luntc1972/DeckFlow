@@ -40,7 +40,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    @* Best-effort default (Classic theme --bg #eceef3). Follow-up: theme switcher in site.ts should update this to the active theme's --bg so mobile chrome matches dark themes. *@
+    @* Classic theme --bg; the no-JS fallback. site.ts (attachThemePicker) updates this to the active theme's live --bg on load and on theme change. *@
     <meta name="theme-color" content="#eceef3" />
     <title>@ViewData["Title"] - DeckFlow</title>
     <link rel="stylesheet" href="~/css/site-common.css" asp-append-version="true" />
