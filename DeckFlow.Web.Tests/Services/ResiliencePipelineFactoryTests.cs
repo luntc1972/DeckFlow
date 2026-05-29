@@ -13,11 +13,8 @@ namespace DeckFlow.Web.Tests;
 /// pipeline name would otherwise surface only at runtime on the first upstream call
 /// (<see cref="KeyNotFoundException"/>); this fails fast at test time instead.
 ///
-/// The provider is built ONCE in a static field and reused: AddDeckFlowResiliencePipelines
-/// registers its provider into the DI container behind a process-global guard, so only the
-/// first ServiceCollection in the process receives the registration. A single shared build
-/// keeps these tests order-independent. (The guard is a known factory fragility — see the
-/// codebase CONCERNS map.)
+/// The provider is built once in a static field and reused for convenience; registration is
+/// per-collection (TryAddSingleton) so this is not order-dependent.
 /// </summary>
 public sealed class ResiliencePipelineFactoryTests
 {

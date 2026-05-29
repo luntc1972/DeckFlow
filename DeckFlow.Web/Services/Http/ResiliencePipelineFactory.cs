@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Registry;
@@ -152,16 +153,16 @@ namespace DeckFlow.Web.Services.Http
     {
         private static readonly ResiliencePipelineRegistry<string> Registry = new();
         private static readonly ResiliencePipelineProvider<string> Provider = new DeckFlowResiliencePipelineProvider(Registry);
-        private static bool registered;
 
         public static IServiceCollection Register(IServiceCollection services)
         {
-            if (!registered)
-            {
-                services.AddSingleton(Registry);
-                services.AddSingleton(Provider);
-                registered = true;
-            }
+            // TryAddSingleton (not a process-global `registered` flag) so EVERY IServiceCollection
+            // that calls AddDeckFlowResiliencePipelines receives the registration. The old static
+            // guard registered into only the first container in the process — harmless for the
+            // single app host, but it silently left later containers (e.g. per-test ones) without
+            // a provider. The shared static Registry/Provider hold the pipelines either way.
+            services.TryAddSingleton(Registry);
+            services.TryAddSingleton<ResiliencePipelineProvider<string>>(Provider);
 
             return services;
         }
