@@ -1,243 +1,268 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-04-29
+**Analysis Date:** 2026-05-29
 
 ## Tech Debt
 
-**God-class controller (`DeckController`):**
-- Issue: `DeckController` is 1,007 lines and dispatches 25+ public actions across deck sync, ChatGPT analysis, deck comparison, cEDH meta-gap, card lookup, mechanic lookup, judge questions, category suggestions, and commander search. Each unrelated feature shares the same controller, set of 12+ injected services, and exception-handling boilerplate.
-- Files: `DeckFlow.Web/Controllers/DeckController.cs`
-- Impact: Every new feature widens the constructor. Tests must instantiate the full graph to exercise one endpoint. Cross-feature regressions are easy because a single edit touches state shared between unrelated flows.
-- Fix approach: Split per-feature into `ChatGptAnalysisController`, `ChatGptComparisonController`, `ChatGptCedhMetaGapController`, `CardLookupController`, `MechanicLookupController`, `CategorySuggestionsController`, and `DeckSyncController` — most of those views (`DeckFlow.Web/Views/Deck/*.cshtml`) already exist as discrete pages, and the corresponding services are already separate.
+**Documentation-Comment Backlog:**
+- Issue: 1591/1573/1587 warnings suppressed in `DeckFlow.Web.csproj` via `<NoWarn>$(NoWarn);1591;1573;1587</NoWarn>` (`DeckFlow.Web/DeckFlow.Web.csproj:40`)
+- Files: `DeckFlow.Web.csproj`, `DeckFlow.Web/Controllers/`, `DeckFlow.Web/Services/`
+- Impact: Phase 23 hard-blocks on documenting ~38 remaining public types + new v1.4 surface before stripping NoWarn. Until then, missing doc comments remain hidden from compiler diagnostics.
+- Fix approach: Phase 23-02 planned to complete backfill on all remaining types and strip NoWarn flag. Current status (Phase 27 shipped): 17-01 and 17-02 completed ~19 type-level declarations; Phase 23 must finish remaining ~38 before NoWarn removal.
 
-**Monster service files:**
-- Issue: Three ChatGPT services exceed 900 lines and mix prompt building, Scryfall resolution, Spellbook lookup, artifact persistence, and JSON parsing in the same class.
-- Files:
-  - `DeckFlow.Web/Services/ChatGptDeckPacketService.cs` (1,945 lines)
-  - `DeckFlow.Web/Services/ChatGptDeckComparisonService.cs` (1,260 lines)
-  - `DeckFlow.Web/Services/ChatGptCedhMetaGapService.cs` (922 lines)
-- Impact: Ownership boundaries are unclear; new questions or output formats require touching massive files. ChatGptDeckPacketService.cs has only 7 `_logger.*` calls — observability inside this critical path is thin.
-- Fix approach: Extract `PromptBuilder`, `ScryfallReferenceResolver`, `SpellbookEnricher`, and `ArtifactWriter` collaborators per service. The existing `ChatGptPacketArtifactStore.cs` shows the extraction pattern.
+**Large Service Files — Complexity Pressure:**
+- Issue: Single-file service classes approaching or exceeding 1,500 lines of code
+- Files: 
+  - `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` (1,625 lines)
+  - `DeckFlow.Web/Controllers/DeckController.cs` (1,555 lines)
+  - `DeckFlow.Web/Services/DeckComparisonService.cs` (1,304 lines)
+  - `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs` (1,263 lines)
+  - `DeckFlow.Web/Services/MetaGapService.cs` (1,001 lines)
+- Impact: Long methods, deep nesting, and scattered concerns increase cognitive load and test fragility. DeckAnalysisPacketService contains ~80 lines of prompt-building logic mixed with card-fetch orchestration.
+- Fix approach: Extract prompt-building to dedicated helper interfaces (already done for `IAnalysisPromptVariant` + `GeminiAnalysisPromptVariant`, etc.); consider further modularization of deck-assembly logic into smaller, testable units.
 
-**Legacy environment-variable name:**
-- Issue: Auto-browser launch reads `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER`, the only surviving reference to the old `MtgDeckStudio`/`DeckSyncWorkbench` project names. README and rest of codebase use `DECKFLOW_*` or `MTG_DATA_DIR`.
-- Files: `DeckFlow.Web/Program.cs:234`
-- Impact: Documentation drift — developers won't guess this name. Inconsistent env-var prefix.
-- Fix approach: Rename to `DECKFLOW_DISABLE_AUTO_BROWSER` with a one-release fallback that also reads the old name.
+**Gemini Paste-Limit Workaround Missing:**
+- Issue: Full analysis/comparison/meta-gap/set-upgrade packets frequently exceed Gemini's ~30K character paste limit, truncating instructions and producing degraded output
+- Files: `DeckFlow.Web/Configuration/AiPlatformOptions.cs:6-7`, `DeckFlow.Web/Program.cs:71-77`
+- Current state: `DECKFLOW_GEMINI_ENABLED=true` (env var toggle, default FALSE) hides Gemini from UI radio selector, but server-side prompt builders still accept "Gemini" in requests
+- Impact: Users who enable Gemini get silently degraded responses without visibility into cause; no automatic split-message or truncation warning in place
+- Fix approach: v1.5 backlog — add split-message workaround or packet-size gating per platform. Until then, keep Gemini hidden by default and document the 30K limit in release notes.
 
-**Duplicate user-local solution settings files committed:**
-- Issue: Two old-named user files coexist with the new ones: `DeckFlow.Web/MtgDeckStudio.Web.csproj.user`, `DeckFlow.Web/DeckSyncWorkbench.Web.csproj.user`, `MtgDeckStudio.sln.DotSettings.user`, `DeckSyncWorkbench.sln.DotSettings.user`. `.gitignore` has `*.user` but `git ls-files` shows none are tracked — they are untracked dead files left from the renames.
-- Files: `DeckFlow.Web/MtgDeckStudio.Web.csproj.user`, `DeckFlow.Web/DeckSyncWorkbench.Web.csproj.user`, `MtgDeckStudio.sln.DotSettings.user`, `DeckSyncWorkbench.sln.DotSettings.user`
-- Impact: Confusing local working tree; they show up in IDE searches. Harmless to git but pollute the repo.
-- Fix approach: Delete the four files from disk.
-
-**Stray probe artifact at repo root:**
-- Issue: `moxfield_probe.json` (~647 KB) sits at the repo root, untracked but never cleaned up since 2026-03-29.
-- Files: `moxfield_probe.json`, `build.log`
-- Impact: Noise; risks accidental `git add -A` commits of large binary blobs.
-- Fix approach: Delete and add explicit pattern (e.g. `*_probe.json`, `build.log`) to `.gitignore` if these are produced by ad-hoc scripts.
-
-**Tracked log directory:**
-- Issue: `DeckFlow.Web/logs/web-*.log` rolling files are present in the working tree. `.gitignore` has `*.log` so they aren't tracked, but they keep accumulating per `appsettings`/Serilog file sink which writes to `logs/web-.log` with `retainedFileCountLimit: 14`.
-- Files: `DeckFlow.Web/logs/`, `logs/`, `Program.cs:32-46`
-- Impact: Old `cli-2026032{1,9}.log` files are months stale, never cleaned up. Two log roots coexist (`logs/` at repo root and `DeckFlow.Web/logs/`).
-- Fix approach: Pick one log root (the `MTG_DATA_DIR/logs` pattern). Delete the stray repo-root `logs/` directory.
-
-**Test-only factory shipped in production assembly:**
-- Issue: `NullHttpClientFactory` and `NullScryfallRestClientFactory` are public types in `DeckFlow.Web/Services/Http/` whose XML doc explicitly says "Test-only".
-- Files: `DeckFlow.Web/Services/Http/NullHttpClientFactory.cs`, `DeckFlow.Web/Services/Http/NullScryfallRestClientFactory.cs`
-- Impact: Types intended for the test convenience constructor pattern (D-10) bleed into the production surface and can be discovered by IntelliSense in apps that consume `DeckFlow.Web` types.
-- Fix approach: Move both to `DeckFlow.Web.Tests/TestDoubles/` (alongside `FakeHttpClientFactory.cs`) and update the test-compat ctors to consume them via `internal` visibility through `[InternalsVisibleTo]`.
-
-**Generated JavaScript checked into the repo:**
-- Issue: `DeckFlow.Web/wwwroot/js/*.js` files are TypeScript build output (target `es2017`, single-file `module: "none"`) yet they are tracked in git alongside `DeckFlow.Web/wwwroot/ts/*.ts`. The `CompileTypeScriptAssets` MSBuild target regenerates them on every build.
-- Files: `DeckFlow.Web/wwwroot/js/deck-sync.js`, `DeckFlow.Web/wwwroot/js/site.js`, `DeckFlow.Web/wwwroot/js/df-select.js`, etc.
-- Impact: TS and JS drift if a developer edits the .js by mistake. Diffs noisy on every TS change. Build target re-emits files even when unchanged in source, dirtying the working tree.
-- Fix approach: Add `wwwroot/js/*.js` to `.gitignore` and keep only the generated artifacts in publish output, OR remove the MSBuild compile step and rely on a pre-commit hook.
-
-**Lingering test-only public ctors on services:**
-- Issue: HTTP services expose internal "test-compat" constructors via `InternalsVisibleTo("DeckFlow.Web.Tests")` (per memory observation 2710-2711). Sprinkles ctor-disambiguation comments referencing checker B2 and `[ActivatorUtilitiesConstructor]` that future readers won't understand.
-- Files: `DeckFlow.Web/Services/CommanderSpellbookService.cs:69-103`, `DeckFlow.Web/AssemblyInfo.cs:3`, plus `// InternalsVisibleTo for ...` comments in `CardSearchService.cs:83`, `CommanderBanListService.cs:80`
-- Impact: New services copy this pattern by inertia; the indirection is hard to follow. DI ambiguity has already caused a runtime bug (memory 2710-2712).
-- Fix approach: Standardize on one ctor per service plus a tiny named test-helper factory in `TestDoubles/`. Document the rule in `.planning/codebase/CONVENTIONS.md` (when written).
+**MDFC/DFC Card Handling Incomplete:**
+- Issue: Double-faced and modal double-faced cards parsed and handled at parser level but NOT flagged in analysis prompts (e.g., DeckFlow does not note "Fabled Passage has two sides; consider split casting")
+- Files: `DeckFlow.Core/Parsing/ArchidektParser.cs` (MDFC parsing logic exists), `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` (card reference lookup)
+- Current state: Scryfall REST API DTO (`ScryfallCard.cs` deserialization) is missing the `layout` field that would flag MDFC deterministically
+- Impact: Moderate (8-10% prompt deduplication opportunity); users don't get flagged on MDFC utility (e.g., fetch-land that also ramps). Workaround: CLI harness can infer layout from card name substring matching, but front-end lookup has no fallback.
+- Fix approach: Add conditional MDFC flag logic in `DeckAnalysisPacketService` using substring matching on common keywords ("//", "faces", modal syntax) until Scryfall DTO is updated. Low priority (affects only MDFC subsetof decks).
 
 ## Known Bugs
 
-**Scryfall Tagger returns 404 for valid card names:**
-- Symptoms: Tagger lookup for "Sol Ring" returns HTTP 200 with empty suggestions; raw Scryfall Tagger responds 404 for all card lookups (per memory observations 2722, 2724-2725).
-- Files: `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs:90-117`, `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs` set/collector resolution path
-- Trigger: Use the AI Category Suggestions page in `ScryfallTagger` mode for any card.
-- Cause: URL construction uses the wrong set code for the card lookup (memory 2725).
-- Workaround: `CategorySuggestionMode.All` falls back to cached store + EDHREC, so users still get suggestions via other paths. Pure-Tagger mode is effectively broken.
+**Phase 20 Lister N+1 Query:**
+- Symptoms: Channel lister in content harvest queries all videos per-channel one at a time instead of batch; scales poorly as channels grow
+- Files: `DeckFlow.Core/Integration/YoutubeChannelLister.cs`, `DeckFlow.Core/Integration/YoutubeContentService.cs`
+- Trigger: When harvest workflow processes a list of YouTube channels, each channel's videos are fetched individually via sequential `Videos.GetAsync` calls
+- Current mitigation: Bounded by `--limit` flag (default ~100 videos per channel); revisit if limit grows or channel count increases
+- Status: WR-02 follow-up added per-video `Videos.GetAsync` in channel lister; committed 2026-05-27. Uncommitted; commit after UAT approval.
 
-**Path-base safety relies on view discipline alone:**
-- Symptoms: Static asset paths embedded in `.cshtml` views must use `~/...` for IIS sub-app deployment (`/deckflow` example in README:78-83). Nothing enforces this.
-- Files: `DeckFlow.Web/Views/Shared/_Layout.cshtml`, all `Views/**/*.cshtml`
-- Trigger: A developer hardcodes `/css/...` instead of `~/css/...` and tests only locally; deploys to IIS sub-application.
-- Workaround: Manual review at PR time.
+**Phase 20 Harvest Source Isolation:**
+- Symptoms: One dead/aborted uploads playlist causes entire batch to fail without isolating the error to that source
+- Files: `DeckFlow.Core/Integration/YoutubeContentService.cs`, harvest runner orchestration
+- Current fix: Added per-source `try/catch` + fallback URL (`@TheCommandZone` example); one dead channel no longer aborts sibling channels
+- Status: Uncommitted; commit after UAT approval.
+
+**Sol Ring Category Suggestion — Colorless/Staple Card Bug (CAT-01):**
+- Symptoms: Category suggestion endpoint returns empty result set for Sol Ring (colorless artifact ramp staple)
+- Files: `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs`, category filter logic
+- Trigger: Card lookup matches by card name + colorless set, but filter logic excluded cards during the transition from server-harvested to local-KB model
+- Current fix: Read-time `CategoryFilter` applied in lookup path; restored category results for colorless staple cards
+- Status: SHIPPED 2026-05-25; live smoke-test passed (card + commander lookups post-schema-reset)
+
+**Database Connection Timeout During Schema Validation:**
+- Symptoms: Startup failure showing database connection timeout when schema validation runs on Render Starter (shared Basic-256mb Postgres)
+- Files: `DeckFlow.Web/Program.cs:514` (`ValidateDbAtStartup` logic)
+- Trigger: High concurrent load or slow Postgres response time causes `CreateConnection` to exceed the 30-second request timeout before schema queries complete
+- Current mitigation: Database validation waits for up to 30 seconds; Render may throttle under load; no automatic retry on startup
+- Fix approach: Increase timeout window or defer schema validation to background task post-startup; alternatively, make it optional (gated by env var) for Render deployments.
 
 ## Security Considerations
 
-**Forwarded-headers fully trusted from any upstream:**
-- Risk: `Program.cs:117-128` clears `KnownIPNetworks` and `KnownProxies`, so any upstream can spoof `X-Forwarded-For`/`X-Forwarded-Proto`/`X-Forwarded-Host`. The code comments acknowledge this and justify it ("DeckFlow does not authenticate requests").
-- Files: `DeckFlow.Web/Program.cs:117-128`
-- Current mitigation: Comments document the threat model. Admin endpoints behind `BasicAuthMiddleware` use real basic-auth credentials, not the forwarded scheme/host.
-- Recommendations: When platform IP ranges are stable (Fly.io, Render publish their CIDR blocks), tighten `KnownIPNetworks`. The feedback rate limiter at `Program.cs:130-146` partitions on `RemoteIpAddress` which is itself influenced by forwarded headers — a malicious upstream could spoof IPs to dodge rate limits.
+**Public Repository with Secrets in Render Dashboard:**
+- Risk: Codebase is public at `luntc1972/DeckFlow`; all secrets (`OPENAI_API_KEY`, `FEEDBACK_ADMIN_PASSWORD`, `DECKFLOW_LLM_MONTHLY_CAP_USD`, etc.) are stored in Render dashboard with `sync: false` (not committed)
+- Files: None in repo (by design); stored in Render service environment settings
+- Current mitigation: `sync: false` prevents Render from publishing env vars to GitHub; `.gitignore` and `.env` checks prevent local accidental commits
+- Recommendations: 
+  1. Maintain `sync: false` indefinitely on all sensitive vars
+  2. Document secret rotation procedures (Render dashboard → new value) in DEPLOYMENT.md
+  3. If secrets are ever staged in local `.env` for testing, ensure `.gitignore` explicitly blocks `*.env` and `.env.*`
+  4. Use Render's built-in secret auditing to verify no secrets leak into logs
 
-**Admin basic-auth lacks lockout / failed-attempt logging:**
-- Risk: `BasicAuthMiddleware` performs constant-time compare but never logs failures, so brute-force attempts against `/Admin/Feedback` are invisible. `Program.cs:130-146` rate-limit policy applies only to `feedback-submit`, not admin auth.
-- Files: `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs`
-- Current mitigation: Constant-time string compare via `CryptographicOperations.FixedTimeEquals`; service returns 503 if creds env vars are unset.
-- Recommendations: Log failed auth attempts at `Warning` with request IP. Add a per-IP rate-limit policy on `/Admin/*` paths to throttle attackers.
+**HTTP Basic-Auth Brute-Force Throttle (BUG-02 Fix):**
+- Risk: Admin API at `/Admin/Feedback/*` is gated by Basic Auth with a fixed 15-minute window, 10-failure limit (BUG-02 / Phase 5)
+- Files: `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs:35`, `DeckFlow.Web/Services/AdminBruteForceTrackerStore.cs:10`
+- Current mitigation: 
+  1. Throttle runs BEFORE any password parsing (prevents timing attacks)
+  2. Partition key uses `CF-Connecting-IP` (Cloudflare header) prioritized over `X-Forwarded-For` (Phase 5 BUG-02)
+  3. 10-failure limit over 15 minutes is fixed; no exponential backoff
+- Recommendations:
+  1. Monitor logs for repeated 401 responses on `/Admin/Feedback` endpoints
+  2. If brute-force attacks are observed, reduce the 10-failure threshold or increase window duration
+  3. Consider adding IP-allowlist for admin endpoints if deployment is stable (known admin IPs)
 
-**Mass-assignment surface on admin actions:**
-- Risk: `AdminFeedbackController.Apply` accepts `[FromRoute] op` strings (`markread`, `archive`, `delete`) without an enum binding, defaulting unknown values to `BadRequest()`. CSRF token is enforced. Low risk.
-- Files: `DeckFlow.Web/Controllers/Admin/AdminFeedbackController.cs:60-83`
-- Current mitigation: `[ValidateAntiForgeryToken]` on the POST. Switch on lowered op name.
-- Recommendations: Bind `op` to a typed enum (`AdminFeedbackAction`) so the model binder rejects unknown values before the action body runs.
-
-**Help content rendered with `@Html.Raw`:**
-- Risk: `Views/Help/Topic.cshtml:13` writes `@Html.Raw(Model.HtmlContent)` from Markdig output. Markdown source is local files in `DeckFlow.Web/Help/` (committed to repo), so user-controlled HTML cannot reach this path today. If `Help/` ever ingests external content, this becomes XSS.
-- Files: `DeckFlow.Web/Views/Help/Topic.cshtml:13`, `DeckFlow.Web/Services/HelpContentService.cs:13-14`
-- Current mitigation: Source content fully under repo control; pipeline uses `UseAdvancedExtensions` without raw HTML allowance toggled explicitly.
-- Recommendations: Disable raw HTML in the Markdig pipeline via `DisableHtml()` so any future external content cannot inject script tags.
+**CSRF on API Endpoints:**
+- Risk: SameOrigin validation checks Origin/Referer headers but relies on `UseForwardedHeaders()` middleware to read correct scheme from `X-Forwarded-Proto`
+- Files: `DeckFlow.Web/Security/SameOriginRequestValidator.cs`, `DeckFlow.Web/Program.cs:181-198`
+- Current mitigation: 
+  1. `UseForwardedHeaders()` runs at position 194 in middleware chain — BEFORE `SameOriginRequestValidator` (position ~225-227)
+  2. Default loopback trust list (127.0.0.1, ::1) is preserved for health checks; no `Clear()` called
+- Recommendations:
+  1. Verify `X-Forwarded-Proto` is present on all Render-ingress requests (test via curl -H X-Forwarded-Proto header)
+  2. Monitor for 403 errors on `/api/*` endpoints to catch scheme-mismatch issues early
 
 ## Performance Bottlenecks
 
-**Process-wide static Scryfall throttle is a global serialization point:**
-- Problem: `ScryfallThrottle` uses a single `static SemaphoreSlim Gate = new(1, 1)` and `static DateTime _lastCallUtc` to enforce a 200ms minimum interval across every request and every user.
-- Files: `DeckFlow.Web/Services/ScryfallThrottle.cs:24-25`
-- Cause: Static state is shared across all in-flight requests in the entire `DeckFlow.Web` process. Concurrent users sequentialize through a single 200ms gate.
-- Improvement path: Per-route async fairness queue (e.g. one gate per Scryfall endpoint), or push pacing into the Polly v8 pipeline as a `RateLimiterStrategy` so the throttle is observable, configurable, and stops tying the host's internal scheduling to a `static` mutable timestamp.
+**IMemoryCache No Configurable Size Limit:**
+- Problem: `AddMemoryCache()` in `DeckFlow.Web/Program.cs:69` uses default configuration with no explicit size limit
+- Files: `DeckFlow.Web/Program.cs:69`
+- Impact: On Render Starter with 512MB RAM cap, unbounded cache (TaggerSessionCache, search results, category knowledge) can exhaust memory. Default ASP.NET IMemoryCache expiration is 20% of process heap — but no size limit is enforced.
+- Current usage: 
+  - `TaggerSessionCache` (singleton, small ~270 bytes per session)
+  - `FeedbackStore` search results cache (bounded by in-flight requests)
+  - `CategoryKnowledgeStore` cache (bounded by card count in KB, ~0.5 MB per 1K cards)
+- Scaling limit: If KB grows to 100K+ cards, in-memory index could exceed 50+ MB; risk of memory pressure on Render.
+- Improvement path: Set explicit `MemoryCacheOptions.SizeLimit` in Program.cs (e.g., 100 MB) and tag entries with relative size; monitor production memory usage via Render logs.
 
-**ChatGPT services do work serially that could parallelize further:**
-- Problem: Even with `ChatGptDeckPacketService` running banned-list, set-packet, and Spellbook fetches concurrently (per README:521), the per-card Scryfall fallback search runs through `ScryfallThrottle` one-at-a-time.
-- Files: `DeckFlow.Web/Services/ChatGptDeckPacketService.cs:116-124`
-- Cause: `ScryfallThrottle.Gate` forces serial execution; large packet builds with many alternate-art fallbacks block on the gate.
-- Improvement path: Chunk fallback searches into a Polly resilience pipeline with a `RateLimiter` strategy that allows N concurrent requests under the 9 req/s ceiling.
+**Scryfall Throttle is Static Semaphore (Global 5 req/sec):**
+- Problem: `ScryfallThrottle.Gate` (static `SemaphoreSlim`) enforces global pacing across all concurrent requests
+- Files: `DeckFlow.Web/Services/ScryfallThrottle.cs:35` (static field)
+- Impact: In high-load scenarios (multiple deck builds in parallel), all Scryfall requests serialize through one gate. 200ms minimum interval means worst-case 5 requests/sec globally. During a "build multiple decks" batch workflow, second and third requests wait 200ms+ for first to complete, even if Cloudflare allows burst.
+- Current design rationale: Conservative pacing (200ms vs Scryfall's 50-100ms suggestion) leaves headroom for Cloudflare's burst detection. Tradeoff: latency vs stability.
+- Scaling path: Consider per-card-type throttle (e.g., collection vs search) or adaptive pacing based on Retry-After signals, but only if live metrics show 429s or timeouts.
 
-**Tagger `GetSetOptions` cache is in-process only:**
-- Problem: `IScryfallSetService` caches the full set catalog in memory for 6 hours; cold starts re-fetch from Scryfall. Each Render/Fly instance pays the cost separately.
-- Files: `DeckFlow.Web/Services/ScryfallSetService.cs`
-- Cause: `IMemoryCache` is per-process. No distributed cache.
-- Improvement path: Add a disk-backed JSON snapshot under `MTG_DATA_DIR/cache/scryfall-sets.json` with the same 6-hour TTL so multi-instance deployments and restarts skip the cold load.
+**Archidekt Cache Job Service Background Refresh:**
+- Problem: `ArchidektCacheJobService` runs on a background timer without advisory lock; multiple Render instances or pod restarts could trigger overlapping refreshes
+- Files: `DeckFlow.Web/Services/ArchidektCacheJobService.cs:525`
+- Impact: On Render Starter (single-instance), no issue. If multi-instance deployment is added, concurrent harvests will re-fetch and re-insert duplicate category rows, bloating the database. No advisory lock in place.
+- Improvement path: Add database-level advisory lock (SQL `PRAGMA wal_checkpoint` + lockfile for SQLite, `pg_advisory_lock` for Postgres) OR change to single-instance constraint in deployment config.
 
-**Background tagger session refresh fires unawaited:**
-- Problem: `ScryfallTaggerLookupService.RecordHit` line 102 spawns `Task.Run(async () => ...)` to refresh the session; failures only log at `Debug`. If the refresh enters a 4xx/5xx loop, the next user-facing call still sees the stale cached session for up to 30s.
-- Files: `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs:96-114`
-- Cause: Fire-and-forget pattern with no observability.
-- Improvement path: Use `IHostedService` with a `Channel<TaggerRefreshRequest>` consumer. Surface refresh failures at `Warning`. Cap concurrent in-flight refreshes to 1.
+**Prompt Variant Duplication (22% Overhead):**
+- Problem: Five prompt variants (ChatGpt, Claude, Gemini, etc.) exist for Analysis, Comparison, MetaGap, SetUpgrade, FollowUp; ~22% of common template language is duplicated across implementations
+- Files: `DeckFlow.Web/Services/PromptBuilders/Analysis/` (5 variant classes per prompt type), `DeckFlow.Web/Services/JsonTextFormatterService.cs`
+- Impact: Moderate — maintenance burden when prompt logic changes; inconsistency risk if one variant is updated and others are missed
+- Improvement path: v1.5 backlog — extract common scaffold template into base class or factory; override only platform-specific instruction text (e.g., GeminiJsonMandate vs ChatGpt default JSON output).
 
 ## Fragile Areas
 
-**HTTP service constructor wiring:**
-- Files: `DeckFlow.Web/Services/CommanderSpellbookService.cs:67-103`, `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs`, `DeckFlow.Web/Services/ChatGptDeckPacketService.cs`
-- Why fragile: Multi-overload ctors with `[ActivatorUtilitiesConstructor]`-style ambiguity already caused a runtime DI crash (memory 2710-2712). Test-compat ctors use `internal` visibility to avoid binding, which means publishing `DeckFlow.Web` as a library would re-expose them. Per-call `new RestClient(_taggerHttpClient.Inner)` couples consumers to RestSharp's `HttpClient` wrapping pattern.
-- Safe modification: Resolve via the public ctor only; do not add overloads. Run the full test suite after changing any ctor signature.
-- Test coverage: 328 tests; ctor binding regressions already exercised through `DeckFlow.Web.Tests/Services/CommanderSpellbookServiceTests.cs` and `DeckFlow.Web.Tests/Services/ScryfallTaggerLookupServiceTests.cs`.
+**TaggerSessionCache TTL Invariant (HIGH-2):**
+- Files: `DeckFlow.Web/Services/TaggerSessionCache.cs:54`, `DeckFlow.Web/Program.cs:109-111`
+- Why fragile: Cache TTL (270s) MUST stay strictly 30 seconds BELOW `SocketsHttpHandler.PooledConnectionLifetime` (300s). If TTL is raised or handler lifetime is lowered without updating both, a stale session cookie could be replayed against a fresh handler, breaking Tagger CSRF flow.
+- Safe modification: Any change to either constant requires updating the hardcoded 30-second margin comment AND adding a unit test that verifies `session_ttl < handler_lifetime - 30s`.
+- Test coverage: `TaggerSessionCacheTests` (xUnit) verifies TTL, but does NOT verify the 30-second invariant across both constants. Add a static test in `TaggerSessionCacheTests` that reads both values and asserts the margin.
 
-**Dual database-provider abstraction:**
-- Files: `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs` (747 lines), `DeckFlow.Core/Storage/RelationalDatabaseConnection.cs`, `DeckFlow.Web/Services/FeedbackStore.cs`
-- Why fragile: SQL is hand-written and branches on `_connectionInfo.IsSqlite`/`IsPostgres` per call. Schema differs subtly: `CategoryKnowledgeRepository.cs:46` only calls `Directory.CreateDirectory` for SQLite paths; date columns store ISO strings in SQLite vs DateTime in Postgres (`FeedbackStore.cs:51`). Any schema migration must be authored twice.
-- Safe modification: When adding columns, update both DDL paths in `EnsureSchemaAsync` and add an `ALTER TABLE` migration mirroring the existing `EnsureDeckQueueColumnsAsync` pattern. Add an integration test that spins up both providers (Testcontainers for Postgres) before merging.
-- Test coverage: SQLite covered by `DeckFlow.Web.Tests/CategoryKnowledgeStoreTests.cs` and `DeckFlow.Web.Tests/FeedbackStoreTests.cs`. No Postgres integration tests visible.
+**Polly Resilience Pipeline Registration (D-05, B2 Checker Invariant):**
+- Files: `DeckFlow.Web/Program.cs:163-165`, `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs`
+- Why fragile: Pipelines are registered into `IResiliencePipelineRegistry<string>` but resolved via `ResiliencePipelineProvider<string>` with string keys (no keyed-services attributes). If a new HTTP caller is added and the pipeline name is misspelled, resolution succeeds at runtime but returns a no-op (not-registered) pipeline instead of failing fast.
+- Safe modification: Every new HTTP service (`IDeckConvertService`, `INewLookupService`) must:
+  1. Have a corresponding pipeline registered in `ResiliencePipelineFactory.AddDeckFlowResiliencePipelines()`
+  2. Pass the exact matching string name to `ResiliencePipelineProvider<string>.GetPipeline<RestResponse>("name")`
+  3. Add a smoke test in the test project that verifies the pipeline exists (e.g., `var p = provider.GetPipeline<RestResponse>("new-service"); Assert.NotNull(p);`)
+- Test coverage: No existing test verifies pipeline existence at startup. Consider adding a `ResiliencePipelineFactoryTests` class that instantiates the factory and confirms all expected pipelines are registered.
 
-**Browser-extension Bridge contract:**
-- Files: `browser-extensions/deckflow-bridge/manifest.json`, `browser-extensions/deckflow-bridge/background.js`, `DeckFlow.Web/wwwroot/ts/deck-sync.ts:2415` (datalist clears around bridge prompts)
-- Why fragile: Extension communicates with the page via content-script injection; allowed-origin list is user-managed in extension options. Any DeckFlow domain change requires the user to reconfigure the extension. ZIP packaging happens in `DeckFlow.Web.csproj` MSBuild via `ZipDirectory` task.
-- Safe modification: Bump `manifest.json:version` whenever the protocol changes so installed copies surface a clear mismatch, and update both the extension and the server-side prompt detection in `deck-sync.ts` together.
-- Test coverage: No automated tests for the extension or the bridge handshake.
+**Forwarded Headers Trust Chain:**
+- Files: `DeckFlow.Web/Program.cs:181-198`, `DeckFlow.Web/Security/SameOriginRequestValidator.cs`
+- Why fragile: Middleware chain order is critical. If `app.UseForwardedHeaders()` is accidentally moved AFTER `app.UseRouting()` or security middleware, `request.Scheme` will be `http` (not `https` from proxy), and `SameOriginRequestValidator` will reject CORS-credentialed requests because Origin header is `https://` but scheme is `http://`.
+- Safe modification: Any addition of middleware BEFORE `UseForwardedHeaders()` requires re-testing that request.Scheme reflects the proxy's X-Forwarded-Proto. Add a comment linking to line 181-198 rationale block to prevent accidental reordering.
+- Test coverage: Integration test in `DeckFlow.Web.Tests` should verify `POST /api/suggestions` with `Origin: https://` header succeeds when `X-Forwarded-Proto: https` is present.
 
-**Hand-built CSS theme system (25 stylesheets):**
-- Files: `DeckFlow.Web/wwwroot/css/site*.css` (25 theme files), `site-common.css`, `site-mobile.css`, `theme-normalization-report.md`
-- Why fragile: 25 separate full-stylesheet forks; the in-progress `theme-normalization-report.md` documents that token leakage between guild themes already caused stacking-context bugs (memory 2852). New CSS rules added to one theme are easy to forget in the other 24.
-- Safe modification: New layout CSS goes in `site-common.css` (per `feedback_themed_pages.md` global instructions). New theme tokens follow `--theme-secondary*` pattern documented in `theme-normalization-report.md`. Test the new rule against at least Default + one guild + Planeswalker Dark.
-- Test coverage: No automated visual regression tests; manual smoke testing only.
+**EdhTop16Entry Deserialization (get-only init-property risk):**
+- Files: `DeckFlow.Web/Models/EdhTop16Entry.cs:3-30` (all properties are `{ get; init; }`)
+- Why fragile: `System.Text.Json` in .NET 9+ silently skips `get-only` properties during deserialization. If a property ever loses its setter or init keyword, the JSON field is ignored without warning. E.g., if line 25 is changed from `public IReadOnlyList<EdhTop16Card> MainDeck { get; init; }` to `public IReadOnlyList<EdhTop16Card> MainDeck { get; }`, JSON deserialization will fail silently (MainDeck remains empty array).
+- Safe modification: CLAUDE.md explicitly forbids auto-formatting tools from converting `{ get; init; }` to `{ get; }`. Manual edits to this record MUST preserve init accessor. Add a reminder comment above the class definition.
+- Test coverage: `EdhTop16ClientTests` should include a JSON roundtrip test that verifies all properties survive deserialization (spot-check a few key fields).
+
+**ContentKbEnabled Display Gate (Phase 22 Dependency):**
+- Files: Feature flag logic in `DeckFlow.Web/Views/` and controllers (content_kb_enabled, default OFF)
+- Why fragile: Content KB site integration (Phase 22) adds a new feature flag to show/hide KB browse, filter, and upload UI. If the flag name is mismatched between controller, service, and view, the UI is silently hidden even when the KB is fully functional. No warning or error message surfaces the mismatch.
+- Safe modification: Phase 22 must define the flag name as a constant in a shared location (e.g., `DeckFlow.Web/Configuration/FeatureFlagConstants.cs`) and use it everywhere. All test harnesses should verify the flag can be toggled via environment variable.
+- Test coverage: Phase 22 success criteria must include a test that sets the flag to true and verifies the KB UI is displayed; set to false and verifies it is hidden.
 
 ## Scaling Limits
 
-**SQLite default storage at single-host scale:**
-- Current capacity: SQLite at `MTG_DATA_DIR/feedback.db` and `MTG_DATA_DIR/category-knowledge.db`. Single-writer; concurrent feedback submissions serialize via `_schemaGate` semaphore.
-- Limit: Multi-instance Render/Fly deployments will fight over the same file unless a persistent volume is mounted exclusively to one instance. README:88 documents this.
-- Scaling path: `DECKFLOW_DATABASE_PROVIDER=Postgres` with `DECKFLOW_DATABASE_CONNECTION_STRING` (already implemented per README:39-43). Migrate users to Postgres before scaling horizontally.
+**RAM Allocation on Render Starter (512MB):**
+- Current capacity: ~400 MB usable (after ASP.NET runtime overhead)
+- Limit: If Content KB grows to 100K+ cards with full in-memory category index, plus concurrent request state (Scryfall collection batches, parsed decks), memory pressure occurs around 50-60 MB KB + 100 MB deck-request buffers = risk of OOM.
+- Scaling path: 
+  1. Monitor production memory usage via Render logs; set up alerting at 80% threshold
+  2. Implement lazy-loading for KB index (load-on-first-access, cache only hot categories)
+  3. Upgrade to Render Standard plan (1GB+) if KB grows beyond 50K cards
+  4. Consider read-only Postgres copy of KB to offload memory pressure (Postgres can cache large indexes efficiently)
 
-**Archidekt cache-job singleton model:**
-- Current capacity: `ArchidektCacheJobService` is registered as singleton + hosted service; uses `ConcurrentDictionary<Guid, ...>` for jobs but only one harvest may run at a time (README:412).
-- Limit: Web-app instance restart loses in-flight jobs and the queue (no persistence). Multi-instance deploys can't coordinate; both would try to harvest.
-- Scaling path: Persist job state (next deck IDs, status) into the relational store so the work survives restart. Promote the job to a separate worker process when scaling out.
+**Database Query Concurrency on Basic-256mb Postgres:**
+- Current capacity: ~5-10 concurrent connections (connection pool default)
+- Limit: If multiple Render instances or high-traffic weeks cause >10 concurrent queries, connection pool exhaustion occurs; new requests queue with 30-second timeout
+- Scaling path:
+  1. Monitor Render Postgres metrics (active connections, query time)
+  2. Upgrade to Render Standard Postgres if >80% pool utilization is observed
+  3. Add connection pooling middleware (PgBouncer) if multi-instance deployment is planned
 
-**ChatGPT artifact directory size:**
-- Current capacity: `ChatGptArtifactsDirectory` writes per-session subfolders under `MTG_DATA_DIR/ChatGPT Analysis/<commander>/<timestamp>` with no retention policy.
-- Limit: Disk fills up on long-running deployments; `EnumerateSessions` reads the entire directory tree on every "Saved Sessions" load.
-- Scaling path: Add a retention sweep (e.g. delete sessions older than 30 days) and paginate / cache the enumeration.
+**Whisper + LLM Monthly Spend Caps:**
+- Current capacity: `DECKFLOW_WHISPER_MONTHLY_CAP_USD` $15 (default), `DECKFLOW_LLM_MONTHLY_CAP_USD` $15 (default)
+- Limit: At ~$0.03 per Whisper minute + ~$0.01 per 1K tokens LLM, $15/month caps approximately:
+  - Whisper: 500 minutes of transcription (~250 videos at 2 min avg)
+  - LLM: 1.5M tokens of distillation (depending on prompt size)
+- Scaling path: 
+  1. Monitor actual spend via `llm_spend_ledger` + `whisper_spend_ledger` tables (Phase 21)
+  2. Add spend alerts when 80% of cap is reached (gated by env var `DECKFLOW_LLM_SPEND_ALERT_THRESHOLD`)
+  3. Adjust caps based on actual usage (e.g., if 250 videos/month is sustainable, raise to $25-30)
+  4. Consider per-source spend caps (e.g., each YouTube channel limited to $5/month) for future phases
 
 ## Dependencies at Risk
 
-**Polly version pinning split between projects:**
-- Risk: `DeckFlow.Web/DeckFlow.Web.csproj` uses `<PackageReference Include="Polly" Version="8.*" />` (resolves to 8.6.6 per memory 2619), while `DeckFlow.Core/DeckFlow.Core.csproj` pins `Version="8.1.0"`.
-- Impact: Diamond-dependency risk if Polly 8.x introduces breaking changes between 8.1.0 and 8.6.x. Wildcard makes builds non-reproducible across machines and times.
-- Migration plan: Pin both projects to the same explicit version (e.g. `8.6.6`) and renovate via a single bump. Add `Directory.Build.props` `<PackageVersion>` central management.
+**System.CommandLine 2.0.0-beta4 (Pre-Release):**
+- Risk: Still in beta; future version bumps may have breaking API changes
+- Files: `DeckFlow.CLI/Program.cs`, `DeckFlow.CLI/CommandRunners.cs`
+- Impact: CLI is non-critical path (dev/admin use only); if beta version breaks, workaround is to pin current version or downgrade to 1.x
+- Migration plan: Monitor NuGet for 2.0.0 RTM release; upgrade immediately when available (likely few breaking changes from beta to RTM)
 
-**Wildcard Polly + tight coupling to RestSharp 114.0.0:**
-- Risk: `<PackageReference Include="RestSharp" Version="114.0.0" />` hard-pinned across `DeckFlow.Web`, `DeckFlow.Core`, and `DeckFlow.Web.Tests`. RestSharp 114 is a recent major rewrite. Future RestSharp upgrades will need to be coordinated across all three projects in a single PR.
-- Impact: Lock-in to RestSharp's API surface. Polly v8 pipelines wrap `RestResponse`, embedding RestSharp into the resilience layer.
-- Migration plan: Hide RestSharp behind an `IUpstreamHttpClient` abstraction in `DeckFlow.Web/Services/Http/` so the choice of HTTP library is swappable. Already partially done via `IScryfallTaggerHttpClient` (typed wrapper).
+**Markdig 0.38.0 (Stable):**
+- Risk: Low; Markdown rendering is passive (no security parsing, safe subset only)
+- Usage: `HelpContentService.cs` renders help topics from `DeckFlow.Web/Help/**/*.md`
+- Migration plan: Standard NuGet package update cycle; no known blockers
 
-**Cloudflare-fronted upstreams without contract pinning:**
-- Risk: Scryfall, Moxfield, Archidekt, Commander Spellbook, EDHREC, EDH Top 16 all sit behind Cloudflare and can change rate-limit thresholds, response shapes, or block datacenter IPs at any time. Moxfield already does this (README:91).
-- Impact: Silent breakage when upstream JSON shape shifts. Moxfield fallback through Spellbook degrades metadata (set codes lost).
-- Migration plan: Maintain golden-response fixtures in `DeckFlow.Web.Tests` (already partially in `TestDoubles/StubHttpMessageHandler.cs`) and snapshot the live shape weekly via a CI smoke job.
+**RestSharp 114.0.0 (Client Wrapper):**
+- Risk: Medium; multiple HTTP callsites depend on RestSharp. API changes would require updates across ~8 service files.
+- Files: Every `IDeckConvertService`, `ICardLookupService`, banlist, spellbook, Scryfall services
+- Current pattern: RestSharp is wrapped by `IScryfallRestClientFactory` + `ResiliencePipelineProvider` (D-01); migration to `HttpClient` only would require retargeting this layer
+- Migration plan: v1.5+ backlog — consider moving to naked `HttpClient` + `System.Net.Http` for new services (post-Phase 22); legacy services remain on RestSharp with plan to retire by v2.0
 
 ## Missing Critical Features
 
-**No request-trace correlation:**
-- Problem: `Program.cs:34-47` configures Serilog with `Enrich.FromLogContext()` and `UseSerilogRequestLogging()` but no explicit correlation-id middleware. Multiple Scryfall calls per request can't be tied back to the originating user request in logs.
-- Blocks: Debugging production incidents that span ChatGPT packet building → Scryfall → Spellbook chains.
+**Content KB v1.5 Backlog — No Split-Message for Gemini:**
+- Problem: Gemini paste-limit (~30K char) frequently exceeded by full analysis/comparison packets. No automatic splitting or truncation strategy implemented.
+- Blocks: Users cannot reliably use Gemini for large decks; manual packet splitting is not documented
+- Workaround: Keep Gemini hidden by default (`DECKFLOW_GEMINI_ENABLED` default OFF); document in v1.4 release notes that Gemini supports decks <200 cards comfortably
 
-**No structured error responses on API endpoints:**
-- Problem: `DeckFlow.Web/Controllers/Api/*` controllers return `BadRequest("string message")` or `StatusCode(403, new { Message = ... })` ad-hoc.
-- Blocks: Client-side error UX consistency. The TypeScript callers in `wwwroot/ts/deck-sync.ts:2372` resort to `'<option value="">Could not load saved sessions</option>'` as a static error string.
+**Advisory Lock for Multi-Instance Archidekt Cache:**
+- Problem: `ArchidektCacheJobService` background refresh has no mutual exclusion; multiple Render instances would trigger overlapping cache jobs
+- Blocks: Multi-instance deployment (horizontal scaling)
+- Workaround: Deploy as single-instance only; document in `DEPLOYMENT.md` that Archidekt cache job must run on exactly one pod
 
-**No explicit health endpoint:**
-- Problem: `Program.cs` does not register `/health` or `/ready`. Render and Fly default deploys treat the root MVC route as the health probe.
-- Blocks: Cleaner deployment integration; faster cold-start signal; allows `/ready` to gate on database connectivity (`ValidateDatabaseConnectionsAsync` in `Program.cs:274` already does this on startup but not as a probe).
-
-**No offline-first / PWA support despite localStorage usage:**
-- Problem: The app stores theme preferences and session state in `localStorage` but does not register a service worker. Mobile users on flaky connections see plain failure pages.
-- Blocks: Mobile UX promised by `site-mobile.css` and the new responsive layout (memory 2538).
+**Per-Source Harvest Failure Retry:**
+- Problem: Phase 20 added per-source `try/catch` to isolate failures, but no retry logic within each source; one transient failure per channel aborts that channel's processing
+- Blocks: Resilience under flaky network conditions (e.g., Render egress IP throttling)
+- Workaround: Manual re-run of harvest job; document retry steps in admin console help
 
 ## Test Coverage Gaps
 
-**No Postgres integration tests:**
-- What's not tested: `RelationalDatabaseProvider.Postgres` branches in `CategoryKnowledgeRepository.cs:46-705` and `FeedbackStore.cs:51`. SQLite paths are tested in `CategoryKnowledgeStoreTests.cs`/`FeedbackStoreTests.cs` only.
-- Files: `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs`, `DeckFlow.Web/Services/FeedbackStore.cs`
-- Risk: Postgres-only schema or query bugs (e.g. ISO-string vs DateTime literal mismatch) only surface in production.
-- Priority: High — Postgres is the documented hosted-deployment path (README:38-43).
+**Tagger Session Cache 30-Second Invariant:**
+- What's not tested: The 30-second margin between `TaggerSessionCache` TTL (270s) and `SocketsHttpHandler.SetHandlerLifetime` (300s) is a hard invariant, but no test verifies it
+- Files: `DeckFlow.Web.Tests/Services/TaggerSessionCacheTests.cs`
+- Risk: Future refactor accidentally changes one constant without updating the other, breaking Tagger flow silently
+- Priority: HIGH — add a test in `TaggerSessionCacheTests` that reads both constants at runtime and asserts `(270 + 30) == 300`
 
-**No browser-extension tests:**
-- What's not tested: `browser-extensions/deckflow-bridge/*.js` has zero automated coverage. Bridge handshake and allowed-origin checks are manual-only.
-- Files: `browser-extensions/deckflow-bridge/background.js`, `browser-extensions/deckflow-bridge/deckflow-bridge.js`, the matching server detection in `DeckFlow.Web/wwwroot/ts/deck-sync.ts`
-- Risk: Bridge regressions silently break the recommended Moxfield fallback path.
-- Priority: Medium.
+**Pipeline Registration Smoke Tests:**
+- What's not tested: Polly pipelines registered in `ResiliencePipelineFactory` are not verified to exist at service startup
+- Files: Need new test class `DeckFlow.Web.Tests/Services/Http/ResiliencePipelineFactoryTests.cs`
+- Risk: Misspelled pipeline name in a new service silently falls back to no-op, producing failed requests without clear error message
+- Priority: MEDIUM — add a startup test that verifies all five named pipelines exist (banlist, spellbook, tagger, tagger-post, scryfall)
 
-**No visual regression tests for 25 themes:**
-- What's not tested: Theme application is verified manually. `theme-normalization-report.md` documents in-progress refactor; the Simic stacking-context bug (memory 2852) was caught by user feedback, not tests.
-- Files: `DeckFlow.Web/wwwroot/css/site-*.css`
-- Risk: Token leakage between themes recurs whenever a new component is added.
-- Priority: Medium — would benefit from a Playwright snapshot harness across all themes.
+**ForwardedHeaders Trust Chain Integration:**
+- What's not tested: `POST /api/suggestions` with `Origin: https://` succeeds when proxy sends `X-Forwarded-Proto: https` but fails when header is missing
+- Files: Need integration test in `DeckFlow.Web.Tests/Controllers/Api/SuggestionsApiControllerTests.cs`
+- Risk: Security regression if middleware order is accidentally changed
+- Priority: HIGH — add HTTPS forwarding test to prevent CSRF validator regressions
 
-**Light coverage for `DeckController` action surface:**
-- What's not tested: `DeckController` (1,007 lines) has only `DeckControllerTests.cs` (~141 lines per grep). Most of the 25 actions go through one happy-path test.
-- Files: `DeckFlow.Web/Controllers/DeckController.cs`
-- Risk: Cross-feature regressions when one of the 12 injected services changes shape.
-- Priority: High — DeckController is the highest-risk file by both size and dependency count.
+**EdhTop16Entry JSON Deserialization Roundtrip:**
+- What's not tested: JSON roundtrip of `EdhTop16Entry` with all init-only properties
+- Files: `DeckFlow.Web.Tests/Services/EdhTop16ClientTests.cs`
+- Risk: Silent deserialization failure if init accessor is accidentally removed
+- Priority: MEDIUM — add a test that deserializes sample EDH Top 16 JSON and asserts all properties are populated
 
-**No tests for resilience-pipeline behavior:**
-- What's not tested: `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs` defines five named pipelines (commander-banlist, commander-spellbook, scryfall-rest, tagger-page, tagger-post), with retry/timeout settings per pipeline. No tests confirm retry counts or back-off curves.
-- Files: `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs`
-- Risk: Tagger 404 bug (above) might have been masked by misconfigured retry behavior; impossible to verify without tests.
-- Priority: Medium.
+**Gemini Truncation / Paste-Limit Behavior:**
+- What's not tested: When a prompt packet exceeds Gemini's 30K limit, behavior is undefined (silent truncation? error message? degraded output?)
+- Files: No existing test; would require new `DeckFlow.Web.Tests/Services/PromptBuilders/GeminiPromptVariantTests.cs`
+- Risk: Users don't know why Gemini responses are incomplete or malformed
+- Priority: MEDIUM (backlog for v1.5) — add a test with a large deck (200+ cards) that measures packet size and warns if it exceeds 25K (safety margin below 30K)
 
 ---
 
-*Concerns audit: 2026-04-29*
+*Concerns audit: 2026-05-29*
