@@ -32,7 +32,7 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 |----------|------|--------|-------------|
 | debug | 999.6-archidekt-cache-job | unknown | CLOSED v1.3 999.6 P03 (commit d758609); audit scanner stale-status; defer scanner alignment to v1.5 |
 | debug | 999.6-basicauth-flaky | unknown | CLOSED v1.3 999.6 P02 (commit a62f608); audit scanner stale-status; defer to v1.5 |
-| debug | v13-harvest-worker-stalled | investigation_inconclusive | DEFERRED to v1.5 — diagnostic logging deployed (commit 4372de5); post-ship monitoring pending |
+| debug | v13-harvest-worker-stalled | resolved_not_reproduced | CLOSED 2026-05-29 — fix+diagnostics live on prod; Render logs 05-23..05-29 show all harvest cycles healthy (matched Enqueue/Dequeue, all Running→Succeeded, 0 TerminalWriteFailed, 0 stalls). One-off v1.3 incident never recurred. |
 | uat-gap | Phase 11/13/15/999.1-999.8 UAT files (10 phases) | "unknown"/"bypassed"/"superseded-by-999.6" | FALSE POSITIVE — scanner vocabulary drift; defer alignment to v1.5 |
 | quick_task | 260504-in1-fix-the-remaining-phase-07-1-ui-review-i | missing | DEFERRED to v1.5 |
 | quick_task | 260506-hgd-chatgpt-artifact-local-download-upload-r | missing | DEFERRED to v1.5 |

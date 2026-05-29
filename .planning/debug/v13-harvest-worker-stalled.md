@@ -1,6 +1,16 @@
 ---
 slug: v13-harvest-worker-stalled
-status: investigation_inconclusive
+status: resolved_not_reproduced
+resolved: 2026-05-29
+resolution: >-
+  Defensive + diagnostic fix shipped (TerminalWriteFailed try/catch +
+  SignalEnqueued/SignalDequeued logging, present in v1.4 tree + deployed prod).
+  Render prod logs 2026-05-23..2026-05-29 (srv-d7gmufkp3tds73a29m30) show every
+  harvest cycle healthy: each SignalEnqueued writeAccepted=True has a matching
+  SignalDequeued and each Running reaches Succeeded; zero TerminalWriteFailed,
+  zero stalls, LoopEntered after each restart. One-off v1.3 incident never
+  recurred over ~6 days on the diagnostics-equipped build. Diagnostics remain in
+  place to catch any future occurrence on first hit.
 goal: find_root_cause_only
 trigger: v1.3 production (commit edfc378 / Render srv-d7gmufkp3tds73a29m30-5lj2j)
 deploy_window_utc: 2026-05-22 20:10..20:32
