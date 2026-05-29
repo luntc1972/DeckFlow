@@ -104,3 +104,26 @@
 | AHD-01 | Admin harvested-decks paged grid (replaces top-10) | Phase 25 | [ ] |
 
 **Coverage:** 18/18 v1.4 REQ-IDs mapped (100%). No orphans. KB cluster re-architected 2026-05-26 to the local-harvester + file-artifact + slim-index model (see KB section note) — IDs preserved, meanings repurposed; harvest now runs locally, only KB-08 (slim index) + KB-09 (display gate) land on Render. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-04, KB-05, KB-06, KB-07, KB-08) split between the Phase 19 schema/contract foundation and the runtime/UI phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.
+
+---
+
+## v1.5 Candidate Requirements (not yet phased)
+
+> Captured via `/gsd-explore` 2026-05-29. **Not counted in v1.4 coverage above.** Promote to
+> a phase during v1.5 planning. Design detail: `.planning/notes/deck-primer-prompt-design.md`;
+> seed: `.planning/seeds/deck-primer-generator.md`.
+
+### Deck Primer Generator (PRM)
+
+- [ ] **PRM-01**: New paste-ready "Deck Primer" workflow (tab + `DeckPrimerPacketService`) that
+  emits a ChatGPT-ready prompt producing a full Moxfield deck primer in one round-trip. Combo
+  lines grounded by `CommanderSpellbookService` (ground truth) + AI speculative-extend (fenced);
+  mulligan/engine/interaction sections grounded by category + tagger data.
+- [ ] **PRM-02**: Primer section selection — bracket-preset defaults (cEDH / Casual-Upgraded)
+  pre-check a sane set from the 31-section catalog, rendered as 5 collapsible groups (Identity /
+  Combos / Gameplay / Matchups / Maintenance) with per-section on/off. Prompt emits only selected
+  sections.
+- [ ] **PRM-03**: Matchup section bracket-routing — bracket 5 → named meta archetypes via
+  `EdhTop16Client`; brackets 1–4 → 5 generic strategy buckets (Aggro/Control/Midrange/Combo/
+  Stax-Hate). cEDH-only sections (Must-Counter, Counter Cheat Sheet) and casual-only (Meta
+  Positioning) gate on bracket. No EDHREC integration in v1.
