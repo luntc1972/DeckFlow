@@ -146,7 +146,23 @@
       }
     };
 
+    // Keep mobile browser chrome in step with the active theme. The static
+    // <meta name="theme-color"> in _Layout is only the Classic default (and the
+    // no-JS fallback); read the live --bg after each theme stylesheet parses.
+    const themeColorMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const syncThemeColor = (): void => {
+      if (!themeColorMeta) {
+        return;
+      }
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      if (bg) {
+        themeColorMeta.content = bg;
+      }
+    };
+    themeLink.addEventListener('load', syncThemeColor);
+
     applyTheme(getStoredTheme() ?? getCookieTheme() ?? themeLink.dataset.defaultTheme ?? 'site.css', false);
+    syncThemeColor();
     themeSelect.addEventListener('change', () => {
       applyTheme(themeSelect.value, true);
     });
