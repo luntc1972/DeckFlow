@@ -1,327 +1,515 @@
-<!-- refreshed: 2026-04-29 -->
+<!-- refreshed: 2026-05-29 -->
 # Architecture
 
-**Analysis Date:** 2026-04-29
+**Analysis Date:** 2026-05-29
 
 ## System Overview
 
 ```text
-┌──────────────────────────────────────────────────────────────────────┐
-│                      Browser / External Caller                       │
-│  Razor Views (cshtml) + TS bundles + DeckFlow Bridge extension       │
-└──────────────────────────────────┬───────────────────────────────────┘
-                                   │ HTTPS (same-origin guarded)
-                                   ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                      DeckFlow.Web (ASP.NET Core MVC)                 │
-├──────────────────┬────────────────────────┬──────────────────────────┤
-│  MVC Controllers │   API Controllers      │  Admin (BasicAuth)       │
-│ `Controllers/*`  │ `Controllers/Api/*`    │ `Controllers/Admin/*`    │
-│ Razor Views      │ JSON, [ApiController]  │ Feedback console         │
-│ `Views/*`        │ Same-origin guard      │                          │
-└────────┬─────────┴──────────┬─────────────┴──────────────┬───────────┘
-         │                    │                            │
-         ▼                    ▼                            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                       DeckFlow.Web Services Layer                    │
-│ `DeckFlow.Web/Services/*` (~30 service classes, mostly singletons)   │
-│  - Deck workflow (DeckSyncService, DeckConvertService)               │
-│  - Lookup/search (CardLookup, CardSearch, MechanicLookup, SetService)│
-│  - ChatGPT packet builders (ChatGptDeckPacketService, etc.)          │
-│  - External adapters (CommanderBanList, CommanderSpellbook,          │
-│    ScryfallTagger, EdhTop16, Archidekt cache job, Moxfield/Archidekt)│
-│  - Persistence (FeedbackStore, CategoryKnowledgeStore)               │
-└────────┬─────────────────────────────┬────────────────────────────┬──┘
-         │                             │                            │
-         ▼                             ▼                            ▼
-┌────────────────────────┐  ┌──────────────────────┐  ┌────────────────────┐
-│ DeckFlow.Web HTTP      │  │  DeckFlow.Core       │  │ Persistence        │
-│ infrastructure         │  │  (domain library)    │  │                    │
-│ `Services/Http/*`      │  │ `DeckFlow.Core/*`    │  │ SQLite / Postgres  │
-│  - IHttpClientFactory  │  │  Diffing, Parsing,   │  │ via                 │
-│    named clients       │  │  Loading, Models,    │  │ `Core/Storage/*`    │
-│  - Polly v8 resilience │  │  Reporting, Knowledge│  │ pluggable dialect   │
-│    pipeline registry   │  │  Integration, Export │  │ (Sqlite/Postgres)   │
-│  - RestSharp wrappers  │  │  Filtering, Normalize│  │                     │
-└──────────┬─────────────┘  └──────────┬───────────┘  └─────────┬──────────┘
-           │                           │                         │
-           ▼                           ▼                         ▼
-   External APIs:             In-process domain          Local SQLite file
-   Scryfall (REST + Tagger),  logic (no I/O)             or Render/Fly
-   Moxfield, Archidekt,                                  Postgres
-   mtgcommander.net banlist,
-   CommanderSpellbook,
-   EDHTop16
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         DeckFlow.Web (ASP.NET 10 MVC)                    │
+├──────────────────────────────────────────────────────────────┬───────────┤
+│  Controllers Layer (MVC + JSON API)                          │ Admin     │
+│  ├─ DeckController (Razor workflows)                         │ Shell     │
+│  ├─ CommanderController (Commander categories)              │ (BasicAuth)
+│  ├─ FeedbackController (Rate-limited submissions)            │           │
+│  ├─ Api/{DeckSync,Suggestions,ArchidektCacheJobs}           │           │
+│  └─ Admin/{Feedback,Harvest,Analytics,Flags,Landing}        │ Controllers
+├──────────────────────────────────────────────────────────────┴───────────┤
+│  Services Layer (Singleton/Scoped)                                       │
+│  ├─ DeckAnalysisPacketService, DeckComparisonService                    │
+│  ├─ CategorySuggestionService, CommanderCategoryService                 │
+│  ├─ CardLookup, CardSearch, CommanderSearch, ScryfallSet,               │
+│  │   CommanderSpellbook, CommanderBanList, EdhTop16Client               │
+│  ├─ ScryfallTaggerService (w/ CookieContainer + SocketsHttpHandler)     │
+│  ├─ Prompt Variant Registries (Analysis, Comparison, FollowUp,          │
+│  │   SetUpgrade, MetaGap × ChatGPT/Claude/Gemini)                      │
+│  ├─ Harvest: HarvestScheduleService, HarvestRunStore,                   │
+│  │   HarvestScheduleStore, HarvestStatsAggregator                       │
+│  ├─ Content: ContentSourceStore, ContentVideoStore,                     │
+│  │   ContentSiteIndexStore (CLI-harvester local artifact model)         │
+│  ├─ Analytics: RequestMetricsStore, RequestMetricsFlusher,              │
+│  │   AnalyticsSaltAccessor (IP hash salt resolution)                   │
+│  ├─ Storage Dialects: SqliteRelationalDialect,                          │
+│  │   PostgresRelationalDialect (feedback, category knowledge)           │
+│  └─ Http: ScryfallRestClientFactory, ScryfallTaggerHttpClient,          │
+│      ResiliencePipelineProvider<string> (Polly v8 named pipelines)     │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Infrastructure & Security                                              │
+│  ├─ BasicAuthMiddleware (guards /Admin/*)                               │
+│  ├─ AnalyticsMiddleware (D-12: after routing, before logging)           │
+│  ├─ SameOriginRequestValidator (CSRF gate for API endpoints)            │
+│  ├─ SecurityHeadersApplicationBuilderExtensions (CSP, X-Frame, etc.)    │
+│  └─ ForwardedHeadersMiddleware (X-Forwarded-Proto/Host/For)             │
+└──────────────────────────────────────────────────────────────────────────┘
+         │                      │                      │
+         ▼                      ▼                      ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                  DeckFlow.Core (Pure Domain Logic)                        │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Models: DeckEntry, DeckDiff, LoadedDecks, MatchMode, SyncDirection     │
+│  Parsing: MoxfieldParser, ArchidektParser (→ IParser interface)         │
+│  Loading: DeckEntryLoader, IMoxfieldDeckImporter, IArchidektDeckImporter│
+│  Diffing: DiffEngine (card-by-card reconciliation)                       │
+│  Exporting: MoxfieldExporter, ArchidektExporter                          │
+│  Normalization: CardNormalizer (Scryfall → canonical form)              │
+│  Knowledge: CategoryKnowledgeRepository, DeckCategoryCacheWriter,       │
+│    ContentArtifactWriter, ContentSpendModels, ContentTagVocabulary     │
+│  Content: ContentVideoStore, ContentSourceStore,                        │
+│    ContentHarvestRunStore, ContentSiteIndexStore, IRelationalDialect   │
+│  Integration: ArchidektApiDeckImporter, MoxfieldApiDeckImporter        │
+│  Storage: RelationalDatabaseConnection (SQLite | Postgres)              │
+│  Reporting: DeckReporter (prompt artifact generation)                    │
+└──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    DeckFlow.CLI (System.CommandLine)                      │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Verbs: compare, probe-moxfield, export-moxfield, archidekt-*,          │
+│    card-lookup, scryfall-probe, content-source-add, harvest, distill    │
+│  Depends: DeckFlow.Core (parsing, loading, exporting, knowledge)        │
+│  Harvest/Distill: YouTube transcript ingestion + AI artifact emission   │
+│  Database: MTG_DATA_DIR/artifacts/{feedback,category-knowledge,         │
+│    content-kb}.db (or Postgres via DECKFLOW_DATABASE_CONNECTION_STRING) │
+└──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│              Data Stores (SQLite / Postgres)                              │
+│  └─ feedback.db: feedback, admin_bruteforce_attempts, request_metrics   │
+│  └─ category-knowledge.db: deck_categories, category_cards, sources     │
+│  └─ content-kb.db: content_sources, content_videos, content_runs,       │
+│                    content_llm_spend, content_whisper_spend              │
+│  └─ Harvest: harvest_runs, harvest_schedules (analytics state)          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Responsibilities
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| `Program.Main` | Composition root, DI wiring, middleware pipeline, Serilog config, startup DB validation | `DeckFlow.Web/Program.cs` |
-| `DeckController` | Razor views for deck sync, convert, lookup, mechanic lookup, ChatGPT packet/comparison/CEDH gap, judge questions, suggest categories | `DeckFlow.Web/Controllers/DeckController.cs` |
-| `CommanderController` | Commander category page | `DeckFlow.Web/Controllers/CommanderController.cs` |
-| `FeedbackController` | Feedback submission (rate-limited) | `DeckFlow.Web/Controllers/FeedbackController.cs` |
-| `HelpController` | Markdown-rendered help topics | `DeckFlow.Web/Controllers/HelpController.cs` |
-| `AboutController` | Credits/version page | `DeckFlow.Web/Controllers/AboutController.cs` |
-| `DeckSyncApiController` | JSON deck diff endpoint | `DeckFlow.Web/Controllers/Api/DeckSyncApiController.cs` |
-| `SuggestionsApiController` | JSON category suggestion endpoint | `DeckFlow.Web/Controllers/Api/SuggestionsApiController.cs` |
-| `ArchidektCacheJobsController` | Internal job control endpoint | `DeckFlow.Web/Controllers/Api/ArchidektCacheJobsController.cs` |
-| `AdminFeedbackController` | Admin-only feedback console (BasicAuth) | `DeckFlow.Web/Controllers/Admin/AdminFeedbackController.cs` |
-| `IDeckSyncService` | Loads two decks via `IDeckEntryLoader`, validates Commander size, runs `DiffEngine` | `DeckFlow.Web/Services/DeckSyncService.cs` |
-| `IDeckConvertService` | Converts deck text between Moxfield/Archidekt formats | `DeckFlow.Web/Services/DeckConvertService.cs` |
-| `ICategorySuggestionService` | Mode-routed category suggestion (cached, reference deck, tagger, all) | `DeckFlow.Web/Services/CategorySuggestionService.cs` |
-| `IChatGptDeckPacketService` | Builds ChatGPT prompt packets and stores artifacts | `DeckFlow.Web/Services/ChatGptDeckPacketService.cs` |
-| `IScryfallCardLookupService` / `Search` / `Set` / `CommanderSearch` | Scryfall REST adapters (RestSharp + Polly) | `DeckFlow.Web/Services/Scryfall*.cs`, `CardLookupService.cs`, `CardSearchService.cs` |
-| `IScryfallTaggerLookupService` | Scrapes tagger.scryfall.com via cookie-disabled `SocketsHttpHandler` + CSRF session cache | `DeckFlow.Web/Services/ScryfallTaggerLookupService.cs`, `TaggerSessionCache.cs` |
-| `ICommanderBanListService` | Fetches banlist HTML from mtgcommander.net | `DeckFlow.Web/Services/CommanderBanListService.cs` |
-| `ICommanderSpellbookService` | Combo lookup via backend.commanderspellbook.com | `DeckFlow.Web/Services/CommanderSpellbookService.cs` |
-| `IEdhTop16Client` | EDH metagame data | `DeckFlow.Web/Services/EdhTop16Client.cs` |
-| `ArchidektCacheJobService` | Hosted background service refreshing knowledge cache from Archidekt | `DeckFlow.Web/Services/ArchidektCacheJobService.cs` |
-| `IFeedbackStore` / `ICategoryKnowledgeStore` | Persistence over `RelationalDatabaseConnection` (SQLite or Postgres) | `DeckFlow.Web/Services/FeedbackStore.cs`, `CategoryKnowledgeStore.cs` |
-| `ResiliencePipelineFactory` | Registers five named Polly v8 `ResiliencePipeline<RestResponse>` (banlist, spellbook, tagger, tagger-post, scryfall) | `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs` |
-| `ScryfallTaggerHttpClient` | Typed `HttpClient` wrapper with cookie-disabled `SocketsHttpHandler` | `DeckFlow.Web/Services/ScryfallTaggerHttpClient.cs` |
-| `IScryfallRestClientFactory` | Builds RestSharp `RestClient` from named `IHttpClientFactory` HTTP clients | `DeckFlow.Web/Services/ScryfallRestClientFactory.cs` |
-| `SameOriginRequestValidator` | CSRF guard for API endpoints (Origin/Referer match) | `DeckFlow.Web/Security/SameOriginRequestValidator.cs` |
-| `BasicAuthMiddleware` | HTTP Basic Auth gate for `/Admin/*` | `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs` |
-| `SecurityHeadersApplicationBuilderExtensions` | CSP, X-Frame-Options, etc. | `DeckFlow.Web/Infrastructure/SecurityHeadersApplicationBuilderExtensions.cs` |
-| `DeckFlow.Core` (lib) | Pure-domain deck logic: parsers, diff, exporters, models, knowledge, normalization, reporting, storage dialect | `DeckFlow.Core/*` |
-| `DeckFlow.CLI` | `System.CommandLine` host for compare/probe/export commands | `DeckFlow.CLI/Program.cs`, `CommandRunners.cs` |
+| Program.Main | DI wiring, middleware pipeline, Serilog, startup validation | `DeckFlow.Web/Program.cs` |
+| DeckController | Deck workflows (sync, convert, lookup, categories, analysis) | `DeckFlow.Web/Controllers/DeckController.cs` |
+| CommanderController | Commander category page | `DeckFlow.Web/Controllers/CommanderController.cs` |
+| FeedbackController | Feedback submission (rate-limited 5/hr) | `DeckFlow.Web/Controllers/FeedbackController.cs` |
+| DeckSyncApiController | Deck diff JSON endpoint | `DeckFlow.Web/Controllers/Api/DeckSyncApiController.cs` |
+| SuggestionsApiController | Category suggestion JSON endpoints | `DeckFlow.Web/Controllers/Api/SuggestionsApiController.cs` |
+| ArchidektCacheJobsController | Internal job control endpoint | `DeckFlow.Web/Controllers/Api/ArchidektCacheJobsController.cs` |
+| Admin* Controllers | Admin-only (BasicAuth gated) dashboards | `DeckFlow.Web/Controllers/Admin/` |
+| DeckAnalysisPacketService | Orchestrates analysis prompt + artifacts | `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` |
+| DeckComparisonService | Two-deck comparison prompt generation | `DeckFlow.Web/Services/DeckComparisonService.cs` |
+| MetaGapService | Meta gap analysis (cEDH meta comparison) | `DeckFlow.Web/Services/MetaGapService.cs` |
+| CategorySuggestionService | Mode-routed category suggestions (cached/tagger/reference) | `DeckFlow.Web/Services/CategorySuggestionService.cs` |
+| CardLookupService | Scryfall REST adapter (RestSharp + Polly) | `DeckFlow.Web/Services/CardLookupService.cs` |
+| CardSearchService | Scryfall fuzzy search | `DeckFlow.Web/Services/CardSearchService.cs` |
+| CommanderSearchService | Commander-legal search via Scryfall | `DeckFlow.Web/Services/CommanderSearchService.cs` |
+| ScryfallSetService | MTG set data + mechanics lookup | `DeckFlow.Web/Services/ScryfallSetService.cs` |
+| CommanderSpellbookService | Combo data from commanderspellbook.com | `DeckFlow.Web/Services/CommanderSpellbookService.cs` |
+| CommanderBanListService | EDH banlist from mtgcommander.net | `DeckFlow.Web/Services/CommanderBanListService.cs` |
+| ScryfallTaggerService | Tagger.scryfall.com integration (CSRF + session) | `DeckFlow.Web/Services/ScryfallTaggerService.cs` |
+| EdhTop16Client | EDH metagame tier lists | `DeckFlow.Web/Services/EdhTop16Client.cs` |
+| ScryfallTaggerHttpClient | Typed HTTP client w/ cookie-disabled handler | `DeckFlow.Web/Services/ScryfallTaggerHttpClient.cs` |
+| ResiliencePipelineFactory | Polly v8 pipelines (banlist, spellbook, tagger, scryfall) | `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs` |
+| IAnalysisPromptVariant (ChatGpt/Claude/Gemini) | Platform-specific prompt formatting (strategy) | `DeckFlow.Web/Services/PromptBuilders/Analysis/*.cs` |
+| AnalysisPromptVariantRegistry | Routes AiPlatform → variant implementation | `DeckFlow.Web/Services/PromptBuilders/Analysis/AnalysisPromptVariantRegistry.cs` |
+| AiPlatformOptions | Feature flags (DECKFLOW_GEMINI_ENABLED) | `DeckFlow.Web/Configuration/AiPlatformOptions.cs` |
+| BasicAuthMiddleware | HTTP Basic auth gate for /Admin/* | `DeckFlow.Web/Infrastructure/BasicAuthMiddleware.cs` |
+| SameOriginRequestValidator | CSRF check (Origin/Referer match) | `DeckFlow.Web/Security/SameOriginRequestValidator.cs` |
+| AnalyticsMiddleware | Request metrics collection (before logging) | `DeckFlow.Web/Infrastructure/AnalyticsMiddleware.cs` |
+| HarvestScheduleService | Manages Archidekt cache job scheduling | `DeckFlow.Web/Services/Harvest/HarvestScheduleService.cs` |
+| HarvestRunStore | Persists job execution records | `DeckFlow.Web/Services/Harvest/HarvestRunStore.cs` |
+| RequestMetricsStore | Analytics event persistence (SQLite/Postgres) | `DeckFlow.Web/Services/Analytics/RequestMetricsStore.cs` |
+| ArchidektCacheJobService | Hosted background service for category knowledge | `DeckFlow.Web/Services/ArchidektCacheJobService.cs` |
+| CategoryKnowledgeStore | Deck→card category persistence | `DeckFlow.Web/Services/CategoryKnowledgeStore.cs` |
+| FeedbackStore | User feedback persistence (rate-limit state) | `DeckFlow.Web/Services/FeedbackStore.cs` |
+| ContentSourceStore | Content KB source registry (YouTube, podcast) | `DeckFlow.Core/Content/ContentSourceStore.cs` |
+| ContentVideoStore | Harvested video/episode metadata + transcripts | `DeckFlow.Core/Content/ContentVideoStore.cs` |
+| ContentSiteIndexStore | Slim index for browse/filter UI | `DeckFlow.Core/Content/ContentSiteIndexStore.cs` |
+| ContentArtifactWriter | Emits front-matter markdown artifacts | `DeckFlow.Core/Knowledge/ContentArtifactWriter.cs` |
+| LlmSpendLedger | Tracks distillation spend (OpenAI tokens) | `DeckFlow.Core/Content/LlmSpendLedger.cs` |
+| WhisperSpendLedger | Tracks fallback transcription spend | `DeckFlow.Core/Content/WhisperSpendLedger.cs` |
+| RelationalDatabaseConnection | Pluggable SQL dialect wrapper | `DeckFlow.Core/Storage/RelationalDatabaseConnection.cs` |
+| IRelationalDialect | SQLite vs Postgres column types | `DeckFlow.Core/Storage/IRelationalDialect.cs` |
+| DeckFlow.Core | Pure domain: parsing, diffing, normalization, reporting | `DeckFlow.Core/*` |
+| DeckFlow.CLI | System.CommandLine host for harvest/distill/compare | `DeckFlow.CLI/Program.cs` |
 
 ## Pattern Overview
 
-**Overall:** Layered ASP.NET Core MVC + Web API monolith with a separately compiled domain library (`DeckFlow.Core`) and a thin CLI front-end. Web layer talks to upstream services through a uniform "named `IHttpClientFactory` client + RestSharp + Polly v8 pipeline (resolved by name)" pattern.
+**Overall:** Service-oriented ASP.NET Core MVC with a pluggable storage dialect and strategy-pattern prompt builders.
 
 **Key Characteristics:**
-- Controller-per-feature MVC, with API controllers split into `Controllers/Api/` and admin controllers in `Controllers/Admin/`.
-- Service-oriented internals: every controller dependency is an interface (`I*Service`), registered in `Program.cs` and consumed via constructor injection.
-- HTTP egress is centralized in `DeckFlow.Web/Services/Http/` — services do not `new HttpClient()`; they receive an `IHttpClientFactory` (or typed client) plus a `ResiliencePipelineProvider<string>` and resolve a named pipeline.
-- Domain logic that is pure CPU work (parsing, diffing, exporting, normalization, reporting) lives in `DeckFlow.Core` and has no `HttpClient`/`AspNet` references.
-- Persistence is dialect-pluggable: `IRelationalDialect` with `SqliteRelationalDialect` and `PostgresRelationalDialect` implementations behind `RelationalDatabaseConnection`.
-- Razor Views drive the UI; client-side TypeScript in `wwwroot/ts/*` compiles to `wwwroot/js/*` during MSBuild.
-- A browser-extension companion (`browser-extensions/deckflow-bridge`) is zipped into `wwwroot/extensions/` at build time.
+
+- **DI-driven composition:** All services registered in `Program.cs:50-348`; no `new` outside factories.
+- **HTTP resilience:** RestSharp + Polly v8 named pipelines (banlist, spellbook, tagger, scryfall) — never direct `HttpClient()`.
+- **Prompt variants:** IXxxPromptVariant interface per prompt type × 3 platforms (ChatGPT/Claude/Gemini) + registry pattern.
+- **Pluggable storage:** IRelationalDialect abstracts SQLite vs Postgres; runtime choice via env var.
+- **Content KB hybrid model:** CLI-driven harvest (transcripts) → distillation (AI) → artifact files + slim site-index in DB.
+- **Session-based theming:** Guild theme CSS + site-common.css layout + admin theme shell.
+- **CSRF protection:** SameOriginRequestValidator on all API POST endpoints; stateless via Origin/Referer header.
+- **Rate limiting:** Fixed-window 5 req/hr per IP on /Feedback (feedback:xx partition key).
+- **Analytics:** RequestMetrics table (one row per req) + IpHasher salt isolation + request logging via Serilog.
 
 ## Layers
 
-**DeckFlow.CLI:**
-- Purpose: Headless command runner (`compare`, `probe-moxfield`, `export-moxfield`, `archidekt-categories`, etc.)
+**CLI Layer:**
+
+- Purpose: Headless command runner for power users and batch jobs (deck compare, content harvest/distill, archidekt cache).
 - Location: `DeckFlow.CLI/`
-- Contains: `System.CommandLine` setup + invocation handlers
-- Depends on: `DeckFlow.Core`
-- Used by: Local power users, scripts in `scripts/`
+- Contains: System.CommandLine command builders, CommandRunners.cs verb handlers, logging setup.
+- Depends on: DeckFlow.Core, System.CommandLine 2.0.0-beta4, Serilog.
+- Used by: Local scripts, scheduled jobs, operator CLI.
+- Entry point: `DeckFlow.CLI/Program.cs` — builds command tree, dispatches to handlers.
 
-**DeckFlow.Core (domain):**
-- Purpose: Deck domain logic, with no I/O frameworks beyond `Microsoft.Data.Sqlite`/`Npgsql` for the storage dialect and `RestSharp`/`Polly` for `Integration/*` HTTP importers
+**Core Layer (Domain Logic):**
+
+- Purpose: Deck domain logic with zero I/O frameworks (except Polly/RestSharp for Integration/* importers, Sqlite/Npgsql for Storage dialects).
 - Location: `DeckFlow.Core/`
-- Contains: `Models/`, `Parsing/`, `Diffing/`, `Exporting/`, `Filtering/`, `Loading/`, `Normalization/`, `Reporting/`, `Knowledge/`, `Integration/` (Moxfield/Archidekt importers), `Storage/` (relational dialect)
-- Depends on: `Microsoft.Data.Sqlite`, `Npgsql`, `Polly`, `RestSharp`, `Microsoft.Extensions.Logging.Abstractions`
-- Used by: `DeckFlow.Web`, `DeckFlow.CLI`, both test projects
+- Contains: Models, Parsing, Diffing, Exporting, Filtering, Normalization, Knowledge, Content (KB stores), Integration (importers), Storage (dialect), Reporting.
+- Depends on: Microsoft.Data.Sqlite, Npgsql, Polly, RestSharp, Microsoft.Extensions.Logging.Abstractions.
+- Used by: DeckFlow.Web controllers, DeckFlow.CLI, both test projects.
+- Key subsystems:
+  - **Parsing:** `IMoxfieldDeckParser`, `IArchidektDeckParser` → `DeckEntry` lists.
+  - **Loading:** `IMoxfieldDeckImporter`, `IArchidektDeckImporter` (fetch from API).
+  - **Diffing:** `DiffEngine` (card-by-card reconciliation, conflict resolution).
+  - **Knowledge:** `CategoryKnowledgeRepository`, `DeckCategoryCacheWriter` (Archidekt cache ingestion).
+  - **Content KB:** `ContentSourceStore`, `ContentVideoStore`, `ContentHarvestRunStore`, `ContentSiteIndexStore` (local artifact model).
+  - **Storage:** `RelationalDatabaseConnection` + `IRelationalDialect` (feedback, category-knowledge, content-kb DBs).
+  - **Spending:** `LlmSpendLedger`, `WhisperSpendLedger` (AI cost tracking).
 
-**DeckFlow.Web Controllers:**
-- Purpose: HTTP entry points (Razor MVC + JSON API + admin pages)
-- Location: `DeckFlow.Web/Controllers/`, `Controllers/Api/`, `Controllers/Admin/`
-- Contains: Thin orchestrators that bind models, invoke services, return `IActionResult`
-- Depends on: Web service interfaces
-- Used by: Browser, DeckFlow Bridge extension, external API consumers
+**Web Services Layer:**
 
-**DeckFlow.Web Services:**
-- Purpose: Application logic, external adapters, persistence stores
-- Location: `DeckFlow.Web/Services/`
-- Contains: ~30 services. Sub-folder `Services/Http/` holds HTTP infrastructure (resilience pipeline factory, null-impl factories used in tests/CLI).
-- Depends on: `DeckFlow.Core`, `IHttpClientFactory`, `ResiliencePipelineProvider<string>`, `IMemoryCache`, RestSharp, Markdig, Serilog
-- Used by: Controllers, hosted services
+- Purpose: Application logic, external adapters, HTTP resilience, persistence.
+- Location: `DeckFlow.Web/Services/` (30+ services in themed subfolders).
+- Contains: Lookup/search services, prompt builders, tagger session cache, harvest/content/analytics stores, HTTP infrastructure.
+- Depends on: DeckFlow.Core, IHttpClientFactory, ResiliencePipelineProvider, IMemoryCache, RestSharp, Polly, Markdig, Serilog, Microsoft.AspNetCore.*.
+- Used by: Controllers, hosted services.
+- Key subfolders:
+  - **PromptBuilders/:** Analysis, Comparison, FollowUp, MetaGap, SetUpgrade — each with ChatGptVariant/ClaudeVariant/GeminiVariant + Registry.
+  - **Http/:** ResiliencePipelineFactory, ScryfallRestClientFactory, ScryfallTaggerHttpClient (SocketsHttpHandler w/ CookieContainer).
+  - **Harvest/:** HarvestScheduleService, HarvestRunStore, HarvestScheduleStore (Archidekt cache scheduling).
+  - **Content/:** ContentSourceStore, ContentVideoStore, etc. (v1.4 KB local model).
+  - **Analytics/:** RequestMetricsStore, AnalyticsSaltAccessor (IP hash + metrics persistence).
 
-**DeckFlow.Web Infrastructure / Security:**
-- Purpose: Cross-cutting middleware and security primitives
-- Location: `DeckFlow.Web/Infrastructure/`, `DeckFlow.Web/Security/`
-- Contains: `BasicAuthMiddleware`, `SecurityHeadersApplicationBuilderExtensions`, `DevelopmentBrowserLauncher`, `SameOriginRequestValidator`
-- Used by: `Program.Main` middleware pipeline, every API controller
+**Web Controllers Layer:**
 
-**Razor View Layer:**
-- Purpose: Server-side HTML rendering
-- Location: `DeckFlow.Web/Views/`
-- Contains: One folder per controller (`Deck/`, `Commander/`, `Admin/`, `Help/`, `About/`, `Feedback/`) plus `Shared/` partials and `_Layout.cshtml`
-- Used by: `Controller.View(...)` calls
+- Purpose: HTTP entry points (MVC + JSON API + admin pages).
+- Location: `DeckFlow.Web/Controllers/`, `Controllers/Api/`, `Controllers/Admin/`.
+- Contains: Thin orchestrators that bind models, invoke services, return IActionResult.
+- Depends on: Web service interfaces, DeckFlow.Core models, SecurityValidator.
+- Used by: Browser, DeckFlow Bridge extension, external API consumers.
 
-**Static Assets / Client TS:**
-- Purpose: Themed CSS, compiled TypeScript modules, packaged browser extension
-- Location: `DeckFlow.Web/wwwroot/`
-- Contains: `css/site*.css` (one per guild theme + `site-common.css` + `site.css`), `ts/*.ts` (source), `js/*.js` (compiled output), `extensions/deckflow-bridge.zip`, `lib/`
+**Infrastructure & Security:**
+
+- Purpose: Cross-cutting middleware, CSRF, auth, security headers.
+- Location: `DeckFlow.Web/Infrastructure/`, `DeckFlow.Web/Security/`.
+- Contains: BasicAuthMiddleware, AnalyticsMiddleware, SameOriginRequestValidator, SecurityHeadersApplicationBuilderExtensions, DevelopmentBrowserLauncher.
+- Used by: Program.Main middleware pipeline, every controller.
+
+**Views & Static Assets:**
+
+- Purpose: Server-side HTML rendering, themed CSS, compiled TypeScript, packaged browser extension.
+- Location: `DeckFlow.Web/Views/`, `DeckFlow.Web/wwwroot/`.
+- Contains: Razor views (one folder per controller), CSS (site-common.css layout + guild themes + admin shell), TypeScript source + compiled JS, packaged browser extension.
+- Used by: Controller.View(…) calls; browser clients.
 
 ## Data Flow
 
-### Primary Request Path — Deck Sync (browser)
+### Primary Request Path — Deck Sync (Browser)
 
-1. User submits deck-sync form on `/sync` (`DeckFlow.Web/Views/Deck/DeckSync.cshtml`).
-2. Browser TS (`wwwroot/ts/deck-sync.ts`) POSTs JSON to `/api/deck/diff`.
-3. `DeckSyncApiController.PostDiffAsync` validates same-origin via `SameOriginRequestValidator.IsValid(Request)` (`DeckFlow.Web/Controllers/Api/DeckSyncApiController.cs:48`).
-4. Controller delegates to `IDeckSyncService.CompareDecksAsync` (`DeckFlow.Web/Services/DeckSyncService.cs:48`).
-5. Service uses `IDeckEntryLoader` to either parse pasted text via `MoxfieldParser`/`ArchidektParser` (`DeckFlow.Core/Parsing/*`) or fetch via `IMoxfieldDeckImporter`/`IArchidektDeckImporter` (`DeckFlow.Core/Integration/*`).
-6. `DiffEngine.Compare` (`DeckFlow.Core/Diffing/DiffEngine.cs`) produces `DeckDiff`.
-7. Controller serializes `DeckSyncApiResponse` (`DeckFlow.Web/Models/Api/DeckSyncApiResponse.cs`) and returns 200.
+1. Browser POST `/api/deck/diff` with two deck URLs → `DeckSyncApiController.Diff()` (`DeckFlow.Web/Controllers/Api/DeckSyncApiController.cs:30-60`).
+2. Controller validates same-origin via `SameOriginRequestValidator.IsValid(request)` (`DeckFlow.Web/Security/SameOriginRequestValidator.cs:17-32`).
+3. Controller invokes `IDeckSyncService.SyncAsync(request)` (`DeckFlow.Web/Services/DeckSyncService.cs`).
+4. Service resolves deck loaders (`IDeckEntryLoader`) → fetches via `IMoxfieldDeckImporter` / `IArchidektDeckImporter` (RestSharp + Polly).
+5. Service parses deck text via `MoxfieldParser` / `ArchidektParser` (DeckFlow.Core).
+6. Service runs `DiffEngine.DiffDecks(loaded, mode, direction)` to produce `DeckDiff` (Core).
+7. Service serializes diff to JSON, returns 200 with payload.
+8. Browser receives JSON, client-side TypeScript (`deck-sync.ts`) renders the UI.
 
-### Outgoing HTTP Adapter Flow (e.g., banlist)
+### Prompt Building Flow — Analysis Packet
 
-1. Service receives `IHttpClientFactory` and `ResiliencePipelineProvider<string>` via constructor.
-2. Service requests `client = factory.CreateClient("commander-banlist")` (named in `Program.cs:63`).
-3. Service wraps it in a RestSharp `RestClient` (via `ScryfallRestClientFactory` for Scryfall, or directly).
-4. Service resolves `pipeline = provider.GetPipeline<RestResponse>("banlist")`.
-5. Each call goes `await pipeline.ExecuteAsync(ct => client.ExecuteAsync(req, ct))` — Polly handles retry/timeout/circuit-break.
-6. `ScryfallThrottle` (static) gates concurrency for Scryfall calls (`DeckFlow.Web/Services/ScryfallThrottle.cs`).
+1. Browser POST `/deck/analysis` → `DeckController.DeckAnalysis()` (`DeckFlow.Web/Controllers/DeckController.cs:180-220`).
+2. Controller invokes `IDeckAnalysisPacketService.BuildAsync(request)` (scoped, reconstructed per request).
+3. Service fetches and normalizes deck data, commanderspellbook combos, banlist, set mechanics.
+4. Service resolves prompt variant via `AnalysisPromptVariantRegistry.GetVariant(request.AiPlatform)` → concrete ChatGptAnalysisPromptVariant / ClaudeAnalysisPromptVariant / GeminiAnalysisPromptVariant.
+5. Variant assembles prompt text → platform-specific formatting (markdown headers for ChatGPT, XML tags for Claude, persona scaffold for Gemini).
+6. Service writes artifact to session cache (`PacketSessionCache`) or persistent store (`ChatGptDeckPacketService` writes to `/data/artifacts/`).
+7. Controller returns view with packet text, user copies/pastes into ChatGPT.
 
 ### Tagger Session Flow
 
-1. `ScryfallTaggerLookupService` requests `IScryfallTaggerHttpClient` (typed client with cookies disabled, `Program.cs:85`).
-2. Service consults `ITaggerSessionCache` (singleton, 270s TTL — 30s under handler 5min lifetime) for a CSRF token + cookie set.
-3. Cache miss: GET tagger landing, scrape CSRF, store in cache.
-4. POST card lookup with stored CSRF/cookies, deserialize via `ScryfallTaggerParsers`.
+1. Service needs card tags → invokes `IScryfallTaggerService.LookupAsync(cardName)` (`DeckFlow.Web/Services/ScryfallTaggerService.cs`).
+2. Service checks `ITaggerSessionCache` for cached CSRF token (270s TTL, per HIGH-2 invariant).
+3. On miss, service uses `ScryfallTaggerHttpClient` (SocketsHttpHandler with CookieContainer) to GET `/card/{set}/{num}`, extracts CSRF token from response HTML.
+4. Service caches CSRF token + session (CookieContainer reused across calls via singleton registration).
+5. Service POST `/graphql` with cached CSRF token + mutation → Polly "tagger-post" pipeline (no retry — GraphQL POST not idempotent).
+6. Service parses response, returns tags.
 
-### CategorySuggestion Mode Routing
+### Analytics Collection Path
 
-1. UI POSTs `CategorySuggestionRequest` with `Mode` enum (`CachedData=0`, `ReferenceDeck=1`, `ScryfallTagger=2`, `All=3`).
-2. `CategorySuggestionService` switches: cache (`ICategoryKnowledgeStore`), reference (`ArchidektDeckCacheSession`), tagger (`IScryfallTaggerLookupService`), or merges all three.
-3. Result formatted by `CategorySuggestionMessageBuilder`.
+1. Request enters middleware pipeline.
+2. `AnalyticsMiddleware` (registered after `UseRouting`) logs endpoint info to `RequestMetricEvent` (in-memory buffer).
+3. `RequestMetricsFlusher` flushes buffer every N seconds to `RequestMetricsStore.InsertAsync()`.
+4. Store writes to `request_metrics` table (feedback.db or Postgres).
+5. Admin views aggregate metrics via `RequestMetricsStore.QueryAsync()`.
+
+### Content Harvest Flow (CLI)
+
+1. User runs `dotnet DeckFlow.CLI.dll harvest --limit 5 --db artifacts/content-kb.db`.
+2. CLI resolves `IContentSourceStore`, enumerates enabled sources (YouTube channels, podcast RSS feeds).
+3. For each source, fetches recent videos (YouTube Data API) or episodes (RSS parse).
+4. For each video/episode, fetches captions (YouTube) or transcription (Whisper fallback, opt-in via --enable-whisper).
+5. Stores metadata + transcript in `content_videos` table.
+6. Stores run record in `content_harvest_runs` table.
+
+### Content Distill Flow (CLI)
+
+1. User runs `dotnet DeckFlow.CLI.dll distill --limit 5 --db artifacts/content-kb.db [--dry-run]`.
+2. CLI resolves `IContentVideoStore`, queries videos with `transcript_status = "transcribed"` and `distillation_status = "pending"`.
+3. For each video (up to limit), sends transcript to OpenAI API (via OpenAI .NET SDK).
+4. OpenAI returns summary, tags, clips (custom instructions in prompt).
+5. `ContentArtifactWriter` writes front-matter markdown artifact to `content-kb/{source-slug}/{video_id}.md`.
+6. `ContentSiteIndexStore` inserts site-index row for browse/filter UI.
+7. `LlmSpendLedger` records token spend; `WhisperSpendLedger` records any Whisper fallback spend.
+8. `distillation_status` → "complete" on success.
 
 **State Management:**
-- Server state: singletons for read-mostly caches (`TaggerSessionCache`, `IMemoryCache`, hosted `ArchidektCacheJobService`).
-- Per-request state: scoped services (`IDeckSyncService`, `ICategorySuggestionService`, ChatGPT services) — `Program.cs:174-184`.
-- Persistent state: SQLite (default, file in content root) or Postgres via connection string env var; chosen at startup by `DeckFlowDatabaseConnectionFactory`.
-- Client state: page-local TS modules; no SPA framework.
+
+- **Per-request scoped services:** IDeckSyncService, IDeckAnalysisPacketService, ICategorySuggestionService (Program.cs:290-330).
+- **Singleton caches:** CardLookupCache, PacketSessionCache, TaggerSessionCache, IMemoryCache (search results, set data).
+- **Persistent state:** SQLite/Postgres — feedback.db (submissions, brute-force), category-knowledge.db (deck categories), content-kb.db (sources, videos, runs).
+- **Hosted background service:** ArchidektCacheJobService (singleton facade, runs on host scheduler).
 
 ## Key Abstractions
 
-**Domain models (`DeckFlow.Core/Models/`):**
-- Purpose: Immutable deck primitives (`DeckEntry`, `DeckDiff`, `LoadedDecks`, `MatchMode`, `SyncDirection`, `PrintingChoice`, `PrintingConflict`).
-- Pattern: C# `record` types where appropriate; nullable reference types enabled.
+**Deck Primitives:**
 
-**Parsers (`DeckFlow.Core/Parsing/`):**
-- Purpose: Convert raw deck text into `DeckEntry` lists.
-- Pattern: `IParser` interface with `MoxfieldParser` and `ArchidektParser` implementations; throws `DeckParseException` on bad input.
+- Purpose: Immutable deck container types (DeckEntry, DeckDiff, LoadedDecks, MatchMode, SyncDirection, PrintingChoice, PrintingConflict).
+- Pattern: C# `sealed record` types where immutable multi-value returns needed; nullable reference types enabled.
+- Examples: `DeckFlow.Core/Models/DeckEntry.cs`, `DeckFlow.Core/Models/DeckDiff.cs`.
 
-**Importers (`DeckFlow.Core/Integration/`):**
-- Purpose: Fetch decks from external sites.
-- Pattern: `IMoxfieldDeckImporter` / `IArchidektDeckImporter` (`DeckImporterInterfaces.cs`) with `*ApiDeckImporter` and URL-builder helpers.
+**Parsers & Importers:**
 
-**Storage dialect (`DeckFlow.Core/Storage/`):**
-- Purpose: Pluggable SQL backend.
-- Pattern: `IRelationalDialect` with `SqliteRelationalDialect` and `PostgresRelationalDialect`; `RelationalDatabaseConnection` is the consumer-facing handle.
+- Purpose: Convert raw deck text / API responses into DeckEntry lists.
+- Pattern: `IParser` interface with MoxfieldParser / ArchidektParser; throws `DeckParseException` on bad input. `IMoxfieldDeckImporter` / `IArchidektDeckImporter` for API fetching.
+- Files: `DeckFlow.Core/Parsing/*`, `DeckFlow.Core/Integration/*`.
 
-**Resilience pipeline registry (`DeckFlow.Web/Services/Http/`):**
-- Purpose: Single composition-time registration of all named Polly pipelines.
-- Pattern: `services.AddDeckFlowResiliencePipelines()` extension; consumers resolve by string name via `ResiliencePipelineProvider<string>` (NOT keyed services).
+**Prompt Variants:**
 
-**View models (`DeckFlow.Web/Models/`):**
+- Purpose: Platform-specific prompt formatting (ChatGPT vs Claude vs Gemini).
+- Pattern: `IAnalysisPromptVariant` (+ Comparison, FollowUp, SetUpgrade, MetaGap variants) interface with ChatGpt/Claude/Gemini implementations. Registry pattern (`AnalysisPromptVariantRegistry`) routes AiPlatform → variant.
+- Files: `DeckFlow.Web/Services/PromptBuilders/*/IXxxPromptVariant.cs`, `DeckFlow.Web/Services/PromptBuilders/*/ChatGptXxxPromptVariant.cs` (and Claude, Gemini).
+
+**AI Platform Value Object:**
+
+- Purpose: Strongly-typed AI platform discriminator (ChatGpt, Claude, Gemini).
+- Pattern: Sealed record with static singletons + All list + Normalize(string).
+- File: `DeckFlow.Web/Models/AiPlatform.cs`.
+
+**Storage Dialect:**
+
+- Purpose: Pluggable SQL backend (SQLite vs Postgres).
+- Pattern: `IRelationalDialect` interface with `SqliteRelationalDialect` / `PostgresRelationalDialect`; `RelationalDatabaseConnection` is consumer-facing handle.
+- Files: `DeckFlow.Core/Storage/IRelationalDialect.cs`, `DeckFlow.Core/Storage/SqliteRelationalDialect.cs`, `DeckFlow.Core/Storage/PostgresRelationalDialect.cs`.
+
+**Polly Resilience Pipelines:**
+
+- Purpose: Single composition-time registration of all named HTTP pipelines.
+- Pattern: `services.AddDeckFlowResiliencePipelines()` extension; consumers resolve via `ResiliencePipelineProvider<string>.GetPipeline<RestResponse>(name)`.
+- File: `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs`.
+
+**Content Artifact Spec:**
+
+- Purpose: Canonical front-matter markdown format for KB artifacts.
+- Pattern: Static format string + metadata record + tag serialization helpers.
+- File: `DeckFlow.Core/Knowledge/ContentArtifactSpec.cs`.
+
+**View Models & DTOs:**
+
 - Purpose: Strongly-typed payloads bound to Razor views and JSON APIs.
-- Convention: View-specific models named `*ViewModel`, request DTOs named `*Request`, response DTOs in `Models/Api/*`.
+- Convention: View-specific models named `*ViewModel`, request DTOs in Controllers, response DTOs in `Models/Api/*`.
+- Examples: `DeckAnalysisRequest`, `DeckSyncRequest`, `DeckSyncResponse`.
 
-**Workflow tabs (`DeckFlow.Web/Models/WorkflowStepTabsModel.cs`, `DeckPageTab.cs`):**
-- Purpose: Shared navigation chrome rendered by `Views/Shared/_WorkflowStepTabs.cshtml` so every Deck tool shows the same step strip.
+**Feature Flags:**
+
+- Purpose: Runtime toggles for optional features (e.g., Gemini UI visibility).
+- Pattern: Options classes bound from env vars in Program.cs (AiPlatformOptions).
+- File: `DeckFlow.Web/Configuration/AiPlatformOptions.cs`.
 
 ## Entry Points
 
-**ASP.NET Core web host:**
+**Web Host:**
+
 - Location: `DeckFlow.Web/Program.cs`
-- Triggers: `dotnet run --project DeckFlow.Web` or container startup (`Dockerfile`, `fly.toml`, `render.yaml`)
-- Responsibilities: Configure Serilog, register all DI services, build Polly pipelines, configure middleware (forwarded headers → security headers → HTTPS redirect → static files → routing → request logging → Swagger (Dev) → auth → rate limit → BasicAuth on `/Admin` → `MapControllers` + default route), validate DB connections in non-Dev, run.
+- Triggers: `dotnet run --project DeckFlow.Web` (local dev) or container startup (Dockerfile, fly.toml, render.yaml).
+- Responsibilities: Configure Serilog (console + daily file logs), register 30+ services in DI, build Polly pipelines, configure middleware (forwarded headers → security headers → HTTPS redirect → static files → routing → analytics → request logging → Swagger [Dev] → rate limit → BasicAuth on /Admin → MapControllers), validate DB connections at startup, launch browser (dev only).
+- Key bootstrap: Lines 40-463 (Main method), lines 47-60 (Serilog setup), lines 63-348 (DI registration), lines 354-389 (middleware), lines 423-450 (startup validation).
 
-**CLI host:**
+**CLI Host:**
+
 - Location: `DeckFlow.CLI/Program.cs`
-- Triggers: `dotnet run --project DeckFlow.CLI -- <command> ...`
-- Responsibilities: Configure Serilog file sink, build `System.CommandLine` root with `compare`, `probe-moxfield`, `export-moxfield`, `archidekt-categories`, `archidekt-category-cards` commands; dispatch to `CommandRunners`.
+- Triggers: `dotnet run --project DeckFlow.CLI -- <command> [options]`
+- Responsibilities: Configure Serilog file sink only, build System.CommandLine root with compare, probe-moxfield, export-moxfield, archidekt-*, card-lookup, scryfall-probe, content-source-add, harvest, distill commands; dispatch to CommandRunners.cs handlers.
+- Key commands: compare, harvest, distill (content KB focused).
 
-**MVC routes:**
+**HTTP Endpoints:**
+
 - `GET /` → `DeckController.Home`
-- `GET /sync` → `DeckController.Index`
-- Plus `/lookup`, `/mechanic-lookup`, `/convert`, `/suggest-categories`, `/judge-questions`, `/chatgpt-packets`, `/chatgpt-comparison`, `/chatgpt-cedh-meta-gap`, `/commander-categories`, `/help`, `/about`, `/feedback`.
-- Default conventional route registered at the end (`Program.cs:230`).
-
-**API routes:**
-- `POST /api/deck/diff` → `DeckSyncApiController`
-- Suggestion endpoints under `SuggestionsApiController`
-- Internal cache control under `ArchidektCacheJobsController`
-
-**Admin route:**
-- `/Admin/*` — guarded by `BasicAuthMiddleware` branch (`Program.cs:225-227`)
-
-**Swagger UI:**
-- `/swagger` — Development only.
+- `GET /sync` → `DeckController.Index` (deck sync UI)
+- `POST /api/deck/diff` → `DeckSyncApiController.Diff` (JSON endpoint)
+- `POST /deck/analysis` → `DeckController.DeckAnalysis` (analysis packet UI)
+- `POST /api/suggestions/categories` → `SuggestionsApiController.Categories` (JSON endpoint)
+- `/Admin/*` → guarded by BasicAuthMiddleware
+- `/swagger` → Development only (Swashbuckle).
 
 ## Architectural Constraints
 
-- **Threading:** Standard ASP.NET Core async request pipeline. Hosted background service `ArchidektCacheJobService` runs on the host scheduler. `ScryfallThrottle` is a static `SemaphoreSlim` enforcing global Scryfall rate limit; do not bypass it for Scryfall callers.
-- **Global state:** Static `ScryfallThrottle` (`DeckFlow.Web/Services/ScryfallThrottle.cs`) is shared across all Scryfall services. Static `ScryfallRestClientFactory` shim retained for back-compat (Phase 1 note in `Program.cs:108`).
-- **Cookie/session lifetime invariant:** `TaggerSessionCache` TTL (270s) MUST stay strictly below `ScryfallTaggerHttpClient` `SetHandlerLifetime` (5 min) — see comment at `Program.cs:83-95`.
-- **Forwarded headers:** `app.UseForwardedHeaders()` MUST run before HTTPS redirect / security headers / `SameOriginRequestValidator`, otherwise scheme mismatch breaks CSRF check (`Program.cs:194-196`).
-- **Build coupling:** `DeckFlow.Web.csproj` runs `tsc -p tsconfig.json` and zips `browser-extensions/deckflow-bridge` on every build. TS sources live in `wwwroot/ts/`, output goes to `wwwroot/js/` and is also git-tracked.
-- **Shared package path bug (env):** Building from VS-shared NuGet path on Windows can leave a stale `project.assets.json`; build from WSL or clean obj/.
+**Threading & Concurrency:**
+
+- Standard ASP.NET Core async request pipeline; no explicit multithreading.
+- Hosted background service `ArchidektCacheJobService` runs on the host scheduler (single instance, queued tasks).
+- `ScryfallThrottle` (static SemaphoreSlim in `DeckFlow.Web/Services/ScryfallThrottle.cs`) enforces global Scryfall 5 req/s rate limit across all concurrent requests — DO NOT bypass for Scryfall callers.
+- `IMemoryCache` is thread-safe (built-in).
+
+**Global State & Singletons:**
+
+- **Static throttle:** `ScryfallThrottle` gates all Scryfall calls (HIGH-1 invariant).
+- **CookieContainer:** Singleton scoped to `ScryfallTaggerHttpClient` so session cookies persist across requests; SocketsHttpHandler automatically replays them.
+- **Polly registries:** Singleton `ResiliencePipelineProvider<string>` + `ResiliencePipelineRegistry<string>` — pipelines built once at composition time, never rebuilt per call.
+- **Tagger session cache:** Singleton `TaggerSessionCache` with 270s TTL (must stay strictly below SocketsHttpHandler 5 min HandlerLifetime — 30s margin enforced by HIGH-2 comment in Program.cs:111).
+- **Static shim:** `ScryfallRestClientFactory` static instance retained for Phase 1 back-compat (Program.cs:108 D-01 note).
+
+**Circular Imports & Dependencies:**
+
+- No known circular import chains; layers flow: Controllers → Services → Core (unidirectional).
+- Tests use `[assembly: InternalsVisibleTo("DeckFlow.Web.Tests")]` (AssemblyInfo.cs:3) to access test seams without leaking to consumers.
+
+**Forwarded Headers Invariant:**
+
+- `app.UseForwardedHeaders()` MUST run BEFORE `app.UseHttpsRedirection()`, security headers, and `SameOriginRequestValidator` (Program.cs:354-365), otherwise scheme mismatch breaks CSRF check and HTTPS redirect.
+- Render's reverse proxy sets `X-Forwarded-Proto: https`; without this ordering, request.Scheme stays "http" and CSRF validation fails (CAT-FIX-01 in SameOriginRequestValidator.cs:70).
+
+**Build Coupling:**
+
+- `DeckFlow.Web.csproj` runs TypeScript compiler (`tsc -p tsconfig.json`) and zips browser-extensions on every build (BeforeTargets="Build").
+- TS sources in `wwwroot/ts/`, output in `wwwroot/js/`, both git-tracked.
+- Guild themes: CSS must split layout (site-common.css) from token overrides (site.css, site-guild-*.css); adding new theme requires CSS file + token entries.
+
+**Database Dialect at Startup:**
+
+- Runtime choice via `DECKFLOW_DATABASE_PROVIDER` env var (default: SQLite).
+- Connection string via `DECKFLOW_DATABASE_CONNECTION_STRING` (optional; defaults to MTG_DATA_DIR for SQLite).
+- Dialect chosen by `DeckFlowDatabaseConnectionFactory` at composition time (Program.cs instantiation).
+
+**Content KB Storage Namespace:**
+
+- All content-related tables prefixed `content_*` (content_sources, content_videos, content_harvest_runs, content_llm_spend, content_whisper_spend, content_site_index) in content-kb.db.
+- Separate ledger tables for LLM + Whisper spend isolation (per Phase 21 design).
+
+**Analytics IP Salt:**
+
+- IP hash salt resolved at startup via `IpHasher.ResolveSaltAsync()` and cached in `AnalyticsSaltAccessor` (Program.cs:437-450).
+- If resolution fails, `ip_hash` stays null until next restart (non-blocking failure).
+- Partition key for admin brute-force + feedback rate limit derived via `DeriveCloudflareClientIp()` (CF-Connecting-IP header) — fail-closed if missing.
 
 ## Anti-Patterns
 
-### Direct `new HttpClient()` in services
+### Direct `new HttpClient()` in Services
 
-**What happens:** A service constructs `HttpClient` instead of receiving `IHttpClientFactory`.
-**Why it's wrong:** Skips the named-client config in `Program.cs`, bypasses `SocketHttpHandler` lifetime rotation, and breaks Polly pipeline resolution.
-**Do this instead:** Inject `IHttpClientFactory` and call `factory.CreateClient("<name>")` matching the registration in `Program.cs:63-89`. For Tagger, inject `IScryfallTaggerHttpClient`.
+**What happens:** Code instantiates HttpClient directly (e.g., `new HttpClient().GetAsync(…)`).
 
-### Building Polly pipelines per call
+**Why it's wrong:** Bypasses IHttpClientFactory pooling, violates HTTP_RESILIENCE convention (D-01), loses named pipeline routing, creates port exhaustion risk at scale, breaks Polly integration.
 
-**What happens:** Service rebuilds `ResiliencePipelineBuilder<RestResponse>` inside the request method.
-**Why it's wrong:** Defeats Polly's circuit-breaker state (it must persist across calls) and adds allocation cost.
-**Do this instead:** Resolve the named pipeline once via `ResiliencePipelineProvider<string>.GetPipeline<RestResponse>("name")`. Add new pipelines in `DeckFlow.Web/Services/Http/ResiliencePipelineFactory.cs`.
+**Do this instead:** Inject `IHttpClientFactory`, call `factory.CreateClient("named-client")` (program.cs:85-102 defines named clients). Wrap with Polly pipeline resolution (`ResiliencePipelineProvider<string>.GetPipeline<RestResponse>(name)`). See `CardLookupService.cs:91-121` test seam pattern.
 
-### Using `Microsoft.Extensions.Http.Resilience` standard handler
+### Building Polly Pipelines Per Call
 
-**What happens:** Wiring `AddStandardResilienceHandler()` on the named client.
-**Why it's wrong:** Project deliberately uses **direct Polly v8 pipelines on `RestResponse`** (RestSharp), not the MS standard handler — the response shape is `RestResponse`, not `HttpResponseMessage`.
-**Do this instead:** Register pipelines in `ResiliencePipelineFactory.cs` keyed by string name and resolve by `RestResponse`.
+**What happens:** Code calls `ResiliencePipelineBuilder<RestResponse>().AddRetry(…).AddTimeout(…).Build()` inside a request handler.
 
-### Calling Scryfall without `ScryfallThrottle`
+**Why it's wrong:** Rebuilds the entire pipeline on every request, incurring reflection + allocation overhead, violates D-04 (composition-time registration).
 
-**What happens:** A new Scryfall client bypasses the static throttle.
-**Why it's wrong:** Risks tripping Scryfall rate limits and invalidates the global concurrency invariant.
-**Do this instead:** Wrap Scryfall calls with the existing `ScryfallThrottle` API used by all 7+ Scryfall services.
+**Do this instead:** Register pipelines once in Program.cs via `AddDeckFlowResiliencePipelines()` (Program.cs:165). Resolve at call time via `ResiliencePipelineProvider<string>.GetPipeline<RestResponse>(name)`. See ResiliencePipelineFactory.cs:24-31.
 
-### Skipping `SameOriginRequestValidator` on API endpoints
+### Using `Microsoft.Extensions.Http.Resilience` Standard Handler
 
-**What happens:** New API action returns data without origin check.
-**Why it's wrong:** Project relies on origin/referer matching (no auth) to keep browser-only endpoints from being abused cross-site.
-**Do this instead:** Start every state-changing or data-returning API action with `if (!SameOriginRequestValidator.IsValid(Request)) return StatusCode(403, ...)` (see `DeckSyncApiController.cs:48`).
+**What happens:** Code replaces Polly with the new standard `AddResilienceHandler` in Program.cs.
 
-### Putting layout CSS into `site.css`
+**Why it's wrong:** Project is locked to Polly v8 per CLAUDE.md constraint; migration would require retesting all upstream resilience behaviors (5 pipelines × 3 strategies = 15 scenarios), risk breaking live service.
 
-**What happens:** New site-wide CSS rule added to `wwwroot/css/site.css`.
-**Why it's wrong:** Themes are full standalone forks of `site.css` per guild — adding shared layout there means each theme silently drifts.
-**Do this instead:** Put cross-theme layout/structural rules in `wwwroot/css/site-common.css`. Theme-specific colors stay in `site-<guild>.css`.
+**Do this instead:** Continue using current Polly v8 patterns (ResiliencePipelineFactory, named pipelines, ScryfallThrottle overlay). Migration to standard handler is future work (out of scope for v1.4).
+
+### Calling Scryfall Without `ScryfallThrottle`
+
+**What happens:** Service calls Scryfall API directly without going through `ScryfallThrottle.ExecuteAsync(…)`.
+
+**Why it's wrong:** Violates global rate-limit gate (5 req/s across all services), risks 429 throttle responses from Scryfall, degraded UX for concurrent users.
+
+**Do this instead:** Every Scryfall service wrapper (`CardLookupService`, `CardSearchService`, etc.) calls `ScryfallThrottle.ExecuteAsync(…)` before invoking the Polly "scryfall" pipeline. See CardLookupService.cs:150-165.
+
+### Skipping `SameOriginRequestValidator` on API Endpoints
+
+**What happens:** API endpoint (POST /api/…) is implemented without calling `SameOriginRequestValidator.IsValid(request)`.
+
+**Why it's wrong:** Opens CSRF vulnerability; attacker can craft cross-origin form POST targeting the endpoint.
+
+**Do this instead:** Every API POST in SuggestionsApiController, DeckSyncApiController, etc. validates same-origin in the handler (e.g., DeckSyncApiController.cs:50-56: `if (!SameOriginRequestValidator.IsValid(request)) return Forbid(…)`).
+
+### Putting Layout CSS into `site.css`
+
+**What happens:** Shared layout CSS (grid, flexbox, spacing patterns) is added to the guild-specific `site.css`.
+
+**Why it's wrong:** Breaks other guild themes; layout CSS must be shared in `site-common.css` per CLAUDE.md constraint.
+
+**Do this instead:** Layout CSS goes in `DeckFlow.Web/wwwroot/css/site-common.css`. Token overrides (colors, fonts, borders) go in `site-guild-{name}.css` or `site.css` (default theme). See DeckFlow.Web/wwwroot/css/ structure.
 
 ## Error Handling
 
-**Strategy:**
-- Controllers catch domain exceptions (`DeckParseException`, validation errors) and return 400 with a structured `{ Message }` body or model-state errors for Razor.
-- Polly handles transient HTTP failures (retry + timeout + circuit breaker); persistent failures bubble up and are converted to user-facing messages via `UpstreamErrorMessageBuilder`.
-- Top-level `try/catch/finally` in `Program.Main` logs fatal startup/run exceptions through Serilog and flushes the sink before rethrowing.
-- Non-development environments use `app.UseExceptionHandler("/Deck")` to render a friendly error view.
+**Strategy:** Layered error handling with domain exceptions at the boundary, HTTP translation in controllers, and graceful degradation in services.
 
 **Patterns:**
-- Same-origin and rate-limit failures return 403 / 429 with `{ Message }`.
-- Upstream API failures funnel through `UpstreamErrorMessageBuilder` so users see service-specific copy ("Scryfall is unreachable…", etc.).
-- Tagger 404s and CSRF expiry are treated as soft errors and surfaced as empty suggestion sets, not exceptions.
+
+- **Domain exceptions** (Core layer): `DeckParseException` (bad deck text), thrown by parsers. Controllers catch and return 400 with structured error message.
+- **HTTP error translation** (Services layer): Non-2xx upstream responses (e.g., 404 from Scryfall) throw `HttpRequestException` with upstream status code preserved. Controllers catch, invoke `UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)`, return 503 with user-facing copy.
+- **Graceful degradation:** Services like `CommanderSpellbookService.FindCombosAsync()` return `null` on API failure rather than throwing; prompt builders continue without combo data (nullable pattern — see CommanderSpellbookServiceTests.FindCombosAsync_ApiFailure_ReturnsNull).
+- **Cancellation timeouts:** Controllers link user cancellation token (HttpContext?.RequestAborted) to operation timeout via `CancellationTokenSource.CreateLinkedTokenSource(…).CancelAfter(LookupTimeout)` (DeckController.cs:55-57).
+- **Polly integration:** Polly handles transient HTTP failures (retry, circuit breaker, timeout); persistent failures bubble up to services and are converted to user messages.
+- **Non-dev exception handler:** `app.UseExceptionHandler("/Deck/Error")` renders friendly error page in Production (Program.cs:358-360).
 
 ## Cross-Cutting Concerns
 
-**Logging:** Serilog configured in `Program.cs:34-47` — console sink (always on, Render/Fly only capture stdout) plus rolling daily file sink under `logs/`. Request logging via `app.UseSerilogRequestLogging()`.
+**Logging:**
 
-**Validation:** Request DTOs use data-annotations (`[Required]`, etc.) plus explicit guard methods in services (`ArgumentNullException.ThrowIfNull`, `ValidateCommanderDeckSize`).
+- Injected via `ILogger<T>` constructor parameter (nullable/optional in services, defaults to `NullLogger<T>.Instance` so tests don't wire one).
+- Structured templates with named placeholders, never string interpolation (e.g., `logger.LogInformation("Lookup for {CardName} returned {Count} results.", name, results.Count)`).
+- File sink rolls daily, retains 14 days (Program.cs:59, CLI:15).
+- Console sink always on (even in Production) for platform capture (Render, Fly).
+- Request logging via `app.UseSerilogRequestLogging()` (Program.cs:369).
 
-**Authentication:** No user auth for the public site. `/Admin/*` is gated by `BasicAuthMiddleware`. API CSRF protection is `SameOriginRequestValidator` (Origin/Referer match on browser requests; non-browser callers permitted).
+**Validation:**
 
-**Rate limiting:** ASP.NET Core `AddRateLimiter` with a `feedback-submit` policy (5/hour per IP) at `Program.cs:130-146`.
+- Argument validation at constructor entry: `ArgumentNullException.ThrowIfNull(…)` (e.g., CommanderSpellbookService.cs:77-78).
+- Model validation on Razor binding (built-in ModelState).
+- API request DTO validation via `[Required]`, `[MinLength]` attributes (xUnit tests confirm).
+- CSRF validation via `SameOriginRequestValidator.IsValid(request)` (every API POST).
 
-**Security headers:** `app.UseDeckFlowSecurityHeaders()` at `Program.cs:205` (CSP, X-Frame-Options, etc.).
+**Authentication & Authorization:**
 
-**Forwarded headers:** Required first in pipeline so Render/Fly proxy hops don't break HTTPS scheme detection.
+- No user identity/claims system (unauthenticated public app).
+- `/Admin/*` endpoints guarded by `BasicAuthMiddleware` (HTTP Basic Auth via `FEEDBACK_ADMIN_USER`/`FEEDBACK_ADMIN_PASSWORD` env vars).
+- Brute-force throttle on admin login attempts (5 fails → 1 min lockout per IP).
 
-**Configuration / environment:** `appsettings.json` + `appsettings.{Environment}.json`; runtime env vars override (e.g., DB connection strings, basic-auth creds, browser auto-launch toggle `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER`).
+**Rate Limiting:**
+
+- Feedback submission: 5 req/hr per IP (fixed-window, partitioned by `feedback:{ip}` derived from CF-Connecting-IP header).
+- Registered in Program.cs:200-213 via `app.UseRateLimiter()`.
+
+**Analytics & Observability:**
+
+- RequestMetrics logged per request (endpoint, status, duration, ip_hash, user_agent, referrer).
+- Stored in request_metrics table for admin dashboards (AdminAnalyticsController).
+- IP hash salt resolved at startup (AnalyticsSaltAccessor).
+- No external APM (all metrics local to SQLite/Postgres).
 
 ---
 
-*Architecture analysis: 2026-04-29*
+*Architecture analysis: 2026-05-29*
