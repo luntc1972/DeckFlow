@@ -33,3 +33,14 @@
   background: var(--accent-strong, var(--accent));
   color: var(--on-accent, #fff);
 }
+
+/* Step eyebrow + badge legibility (cross-theme).
+   Several dark themes set near-black text on a near-black badge background
+   (e.g. abzan: --abzan-charcoal #060704 on --abzan-charcoal-bg #0d1008), making
+   the "Prompt output" / "Required" / step-eyebrow labels invisible on every
+   workflow page. Pin them to the theme-aware --muted body-secondary token, which
+   is defined to stay readable on each theme's panel/badge surface. */
+.chatgpt-step-eyebrow,
+.chatgpt-step-badge {
+  color: var(--muted, inherit);
+}
