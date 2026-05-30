@@ -96,7 +96,6 @@
                 <h2>Load your deck and fetch reference lists</h2>
                 <p>Paste your deck URL or deck export, optionally override the commander name, then pull the top tournament lists for that commander from EDH Top 16.</p>
             </div>
-            <span class="chatgpt-step-badge">Required</span>
         </div>
 
         <div class="sync-columns">
@@ -180,7 +179,6 @@
                 <h2>Select 1 to 3 reference decks and generate the prompt</h2>
                 <p>Choose 1 to 3 EDH Top 16 entries, build the prompt, then paste it into your AI and request a readable response followed by the fenced <code>meta_gap</code> JSON block.</p>
             </div>
-            <span class="chatgpt-step-badge">Prompt output</span>
         </div>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
 
@@ -341,7 +339,6 @@
                 <h2>Paste the returned meta-gap JSON</h2>
                 <p>Paste the fenced JSON block or raw JSON payload that contains the top-level <code>meta_gap</code> object. Extra prose above it is fine.</p>
             </div>
-            <span class="chatgpt-step-badge">Final step</span>
         </div>
 
         <label class="field">
