@@ -581,11 +581,11 @@ summary:focus-visible,
   }
 }
 
-/* cEDH meta-gap reference table — mobile stacked-card layout (260530-c72).
+/* cEDH meta-gap reference table — mobile card layout (260530-c72).
    Scoped to [data-chatgpt-cedh-reference-table] so the shared .conflicts-table
    on DeckSync / CommanderCategories is intentionally untouched. At narrow
-   widths the 9-column table collapses to one labeled card per row instead of
-   squeezing headers into char-by-char wrap. */
+   widths the 9-column table collapses to one card per row: a header band
+   (checkbox + rank + player) over a tight label:value grid for the rest. */
 @media (max-width: 600px) {
   /* Hide the header row visually but keep it for assistive tech. */
   table[data-chatgpt-cedh-reference-table] thead {
@@ -601,47 +601,99 @@ summary:focus-visible,
   }
 
   table[data-chatgpt-cedh-reference-table],
-  table[data-chatgpt-cedh-reference-table] tbody,
-  table[data-chatgpt-cedh-reference-table] tr,
-  table[data-chatgpt-cedh-reference-table] td {
+  table[data-chatgpt-cedh-reference-table] tbody {
     display: block;
     width: 100%;
   }
 
+  /* Each row is a card; header cells share row 1, the rest stack full-width. */
   table[data-chatgpt-cedh-reference-table] tr {
-    margin-bottom: 0.75rem;
-    padding: 0.25rem 0.75rem;
+    display: grid;
+    grid-template-columns: max-content max-content 1fr;
+    align-items: center;
+    gap: 0.15rem 0.6rem;
+    margin-bottom: 0.85rem;
+    padding: 0.75rem 0.95rem;
     border: 1px solid var(--line, currentColor);
-    border-radius: 8px;
+    border-radius: 10px;
   }
 
-  table[data-chatgpt-cedh-reference-table] td {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    padding: 0.4rem 0;
+  /* Zero the base .conflicts-table cell borders so they don't bleed through the
+     card grid as stray partial lines; intended dividers are re-added below. */
+  table[data-chatgpt-cedh-reference-table] td,
+  table[data-chatgpt-cedh-reference-table] th {
     border: 0;
-    text-align: right;
   }
 
-  /* Divider between stacked cells within a card. */
-  table[data-chatgpt-cedh-reference-table] td + td {
+  /* --- Header band: checkbox + #rank + player --- */
+  table[data-chatgpt-cedh-reference-table] td[data-label="Select"] {
+    grid-column: 1;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Enlarge the checkbox to a comfortable touch target (WIG: >=44px hit area). */
+  table[data-chatgpt-cedh-reference-table] td[data-label="Select"] input[type="checkbox"] {
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0;
+    touch-action: manipulation;
+  }
+
+  table[data-chatgpt-cedh-reference-table] td[data-label="#"] {
+    grid-column: 2;
+    font-weight: 700;
+  }
+
+  table[data-chatgpt-cedh-reference-table] td[data-label="#"]::before {
+    content: "#";
+    color: var(--muted, inherit);
+  }
+
+  table[data-chatgpt-cedh-reference-table] td[data-label="Player"] {
+    grid-column: 3;
+    font-weight: 700;
+  }
+
+  /* --- Remaining fields: full-width label:value rows.
+     No per-row rules — vertical rhythm (tr row-gap) carries separation; a single
+     divider under the header band is enough. --- */
+  table[data-chatgpt-cedh-reference-table] td:not([data-label="Select"]):not([data-label="#"]):not([data-label="Player"]) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0.2rem 0;
+    border: 0;
+  }
+
+  /* Single divider: the first label:value row separates from the header band. */
+  table[data-chatgpt-cedh-reference-table] td[data-label="Date"] {
+    margin-top: 0.55rem;
+    padding-top: 0.6rem;
     border-top: 1px solid var(--line, currentColor);
   }
 
-  /* data-label drives the left-hand field name for each stacked cell. */
-  table[data-chatgpt-cedh-reference-table] td::before {
+  table[data-chatgpt-cedh-reference-table] td:not([data-label="Select"]):not([data-label="#"]):not([data-label="Player"])::before {
     content: attr(data-label);
-    margin-right: auto;
     font-weight: 600;
     color: var(--muted, inherit);
-    text-align: left;
+    white-space: nowrap;
   }
 
-  /* The Select checkbox reads as the card's lead control, not a right-aligned value. */
-  table[data-chatgpt-cedh-reference-table] td[data-label="Select"] {
-    justify-content: flex-start;
+  /* "Open" decklist link — comfortable tap target (WIG: hit area). */
+  table[data-chatgpt-cedh-reference-table] td[data-label="Decklist"] a {
+    display: inline-block;
+    padding: 0.2rem 0;
+    min-height: 1.75rem;
+    touch-action: manipulation;
+  }
+
+  /* Selected-state affordance for the pick-1-to-3 list. */
+  table[data-chatgpt-cedh-reference-table] tr:has([data-chatgpt-cedh-reference-checkbox]:checked) {
+    border-color: var(--accent-strong, var(--accent, currentColor));
+    box-shadow: 0 0 0 1px var(--accent-strong, var(--accent, currentColor));
   }
 }
 

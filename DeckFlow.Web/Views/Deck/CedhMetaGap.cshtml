@@ -202,42 +202,45 @@
                 </div>
 
                 <div class="table-wrapper">
-                    <table class="conflicts-table" data-chatgpt-cedh-reference-table>
+                    @* role=* attributes restore table semantics that the <=600px display:grid
+                       override would otherwise strip from screen readers (Roselli 2017). *@
+                    <table class="conflicts-table" data-chatgpt-cedh-reference-table role="table">
                         <caption class="sr-only">EDH Top 16 reference decks for the resolved commander, sorted newest first</caption>
-                        <thead>
-                        <tr>
-                            <th scope="col">Select</th>
-                            <th scope="col" class="tabular">#</th>
-                            <th scope="col">Player</th>
-                            <th scope="col">Date</th>
-                            <th scope="col" class="tabular">Participants</th>
-                            <th scope="col">Finish</th>
-                            <th scope="col" class="tabular">W-L-D</th>
-                            <th scope="col" class="tabular">Win %</th>
-                            <th scope="col">Decklist</th>
+                        <thead role="rowgroup">
+                        <tr role="row">
+                            <th scope="col" role="columnheader">Select</th>
+                            <th scope="col" class="tabular" role="columnheader">#</th>
+                            <th scope="col" role="columnheader">Player</th>
+                            <th scope="col" role="columnheader">Date</th>
+                            <th scope="col" class="tabular" role="columnheader">Participants</th>
+                            <th scope="col" role="columnheader">Finish</th>
+                            <th scope="col" class="tabular" role="columnheader">W-L-D</th>
+                            <th scope="col" class="tabular" role="columnheader">Win %</th>
+                            <th scope="col" role="columnheader">Decklist</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody role="rowgroup">
                         @for (var index = 0; index < Model.FetchedEntries.Count; index++)
                         {
                             var entry = Model.FetchedEntries[index];
                             var rowPage = (index / pageSize) + 1;
-                            <tr data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
-                                <td data-label="Select">
+                            <tr role="row" data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
+                                <td role="cell" data-label="Select">
                                     <input type="checkbox"
                                            name="SelectedReferenceIndexes"
                                            value="@index"
+                                           aria-label="Select reference deck #@(index + 1)@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "" : $" — {entry.PlayerName}")"
                                            checked="@(selectedReferenceIndexes.Contains(index) ? "checked" : null)"
                                            data-chatgpt-cedh-reference-checkbox />
                                 </td>
-                                <td class="tabular" data-label="#">@(index + 1)</td>
-                                <td data-label="Player">@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
-                                <td data-label="Date">@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
-                                <td class="tabular" data-label="Participants">@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
-                                <td data-label="Finish">@entry.Standing</td>
-                                <td class="tabular" data-label="W-L-D">@entry.Wins-@entry.Losses-@entry.Draws</td>
-                                <td class="tabular" data-label="Win %">@entry.WinRate.ToString("P0")</td>
-                                <td data-label="Decklist">
+                                <td class="tabular" role="cell" data-label="#">@(index + 1)</td>
+                                <td role="cell" data-label="Player">@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
+                                <td role="cell" data-label="Date">@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                <td class="tabular" role="cell" data-label="Participants">@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
+                                <td role="cell" data-label="Finish">@entry.Standing</td>
+                                <td class="tabular" role="cell" data-label="W-L-D">@entry.Wins-@entry.Losses-@entry.Draws</td>
+                                <td class="tabular" role="cell" data-label="Win %">@entry.WinRate.ToString("P0")</td>
+                                <td role="cell" data-label="Decklist">
                                     @if (!string.IsNullOrWhiteSpace(entry.DecklistUrl))
                                     {
                                         <a href="@entry.DecklistUrl" target="_blank" rel="noopener noreferrer">Open</a>
