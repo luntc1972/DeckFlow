@@ -581,6 +581,49 @@ summary:focus-visible,
   }
 }
 
+/* cEDH meta-gap reference table — sortable column headers (260530-c72).
+   nowrap stops the desktop headers wrapping char-by-char; the in-cell button
+   makes the heading a real control with an aria-sort-driven direction glyph. */
+table[data-chatgpt-cedh-reference-table] th {
+  white-space: nowrap;
+}
+
+table[data-chatgpt-cedh-reference-table] .cedh-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+table[data-chatgpt-cedh-reference-table] .cedh-sort-button:hover {
+  text-decoration: underline;
+}
+
+table[data-chatgpt-cedh-reference-table] .cedh-sort-indicator::after {
+  content: "\2195"; /* ↕ idle */
+  opacity: 0.4;
+  font-size: 0.85em;
+}
+
+table[data-chatgpt-cedh-reference-table] th[aria-sort="ascending"] .cedh-sort-indicator::after {
+  content: "\25B2"; /* ▲ */
+  opacity: 1;
+}
+
+table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-indicator::after {
+  content: "\25BC"; /* ▼ */
+  opacity: 1;
+}
+
 /* cEDH meta-gap reference table — mobile card layout (260530-c72).
    Scoped to [data-chatgpt-cedh-reference-table] so the shared .conflicts-table
    on DeckSync / CommanderCategories is intentionally untouched. At narrow
