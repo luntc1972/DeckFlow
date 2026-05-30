@@ -581,6 +581,30 @@ summary:focus-visible,
   }
 }
 
+/* cEDH meta-gap mobile sort control — hidden on desktop (clickable column
+   headers serve there); shown only where the headers collapse (<=600px). */
+.cedh-mobile-sort {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .cedh-mobile-sort {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .cedh-mobile-sort__field {
+    flex: 1;
+    margin: 0;
+  }
+
+  .cedh-mobile-sort__dir {
+    white-space: nowrap;
+  }
+}
+
 /* cEDH meta-gap reference table — sortable column headers (260530-c72).
    nowrap stops the desktop headers wrapping char-by-char; the in-cell button
    makes the heading a real control with an aria-sort-driven direction glyph. */

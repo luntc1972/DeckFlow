@@ -199,6 +199,27 @@
                     </div>
                 </div>
 
+                @* Mobile-only sort control: the column-header sort buttons live in
+                   <thead>, which is sr-only-hidden at <=600px, so phones get this
+                   visible equivalent wired to the same client-side sort. *@
+                <div class="cedh-mobile-sort" data-chatgpt-cedh-mobile-sort>
+                    <label class="field cedh-mobile-sort__field">
+                        <span>Sort by</span>
+                        <select data-chatgpt-cedh-mobile-sort-select>
+                            <option value="" selected>Tournament order</option>
+                            <option value="1" data-sort-type="num">#</option>
+                            <option value="2" data-sort-type="text">Player</option>
+                            <option value="3" data-sort-type="text">Date</option>
+                            <option value="4" data-sort-type="num">Participants</option>
+                            <option value="5" data-sort-type="num">Finish</option>
+                            <option value="7" data-sort-type="num">Win %</option>
+                        </select>
+                    </label>
+                    <button type="button" class="clear-cache-button cedh-mobile-sort__dir"
+                            data-chatgpt-cedh-mobile-sort-dir data-direction="ascending"
+                            aria-label="Sort ascending">Asc &#9650;</button>
+                </div>
+
                 <div class="table-wrapper">
                     @* role=* attributes restore table semantics that the <=600px display:grid
                        override would otherwise strip from screen readers (Roselli 2017).
