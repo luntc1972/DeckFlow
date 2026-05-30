@@ -223,6 +223,16 @@ Plans:
 - [x] 20-03-PLAN.md — Pure WhisperTranscriptionService (OpenAI 2.10 AudioClient + concrete 12min Polly wrapper + chunk-loop) + cap-check READ gate + FfmpegAudioChunker; persists nothing (KB-04, KB-05)
 - [x] 20-04-PLAN.md — Pure YouTubeTranscriptSource (captions→audio→Whisper) + CollectAsync-bounded lister + harvest verb (single persistence owner, resume + split logging) + 5-channel UAT (KB-03, KB-04, KB-05)
 
+### Phase 20.1: Phase 21 live-UAT gate (INSERTED)
+
+**Goal:** Execute the deferred Phase 21 live-UAT human-verify gate — run the REAL distill (operator-supplied OPENAI_API_KEY, ~$0.05 spend) over the 10-video UAT db, sample emitted artifacts for E5 (archetype/bracket plausibility) + E6 (thesis coherence), then /gsd-verify-work 21 and flip ROADMAP Phase 21 to [x]. Procedural gate; no production code.
+**Requirements**: none (procedural gate; no REQ-IDs)
+**Depends on:** Phase 20
+**Plans:** 1 plan
+
+Plans:
+- [ ] 20.1-01-PLAN.md — Live distill UAT on artifacts/uat-content-kb.db (10 videos) + E5/E6 sampling + verify + ROADMAP Phase 21 flip
+
 ### Phase 21: Content KB Distillation + Artifact Emit (local)
 
 **Goal**: The local harvester composes the Phase 20 ingestion services into an end-to-end run that distills each video into an AI-prompt artifact file + slim-index rows — LLM summary + timestamped clips + controlled-vocab tags via Structured Outputs — so the user story "I run the harvester locally over my source list and get pasteable prompt artifacts + an index ready for the site" is verifiable end-to-end. Source add/edit/disable management lives here too.
