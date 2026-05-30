@@ -183,13 +183,6 @@
             <span class="chatgpt-step-badge">Prompt output</span>
         </div>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
-        @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
-        {
-            <section class="result-panel nested-panel summary-panel">
-                <h3>Input Summary</h3>
-                <pre>@Model.InputSummary</pre>
-            </section>
-        }
 
         @if (!string.IsNullOrWhiteSpace(Model.ResolvedCommanderName))
         {
@@ -230,21 +223,21 @@
                             var entry = Model.FetchedEntries[index];
                             var rowPage = (index / pageSize) + 1;
                             <tr data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
-                                <td>
+                                <td data-label="Select">
                                     <input type="checkbox"
                                            name="SelectedReferenceIndexes"
                                            value="@index"
                                            checked="@(selectedReferenceIndexes.Contains(index) ? "checked" : null)"
                                            data-chatgpt-cedh-reference-checkbox />
                                 </td>
-                                <td class="tabular">@(index + 1)</td>
-                                <td>@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
-                                <td>@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
-                                <td class="tabular">@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
-                                <td>@entry.Standing</td>
-                                <td class="tabular">@entry.Wins-@entry.Losses-@entry.Draws</td>
-                                <td class="tabular">@entry.WinRate.ToString("P0")</td>
-                                <td>
+                                <td class="tabular" data-label="#">@(index + 1)</td>
+                                <td data-label="Player">@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
+                                <td data-label="Date">@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                <td class="tabular" data-label="Participants">@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
+                                <td data-label="Finish">@entry.Standing</td>
+                                <td class="tabular" data-label="W-L-D">@entry.Wins-@entry.Losses-@entry.Draws</td>
+                                <td class="tabular" data-label="Win %">@entry.WinRate.ToString("P0")</td>
+                                <td data-label="Decklist">
                                     @if (!string.IsNullOrWhiteSpace(entry.DecklistUrl))
                                     {
                                         <a href="@entry.DecklistUrl" target="_blank" rel="noopener noreferrer">Open</a>

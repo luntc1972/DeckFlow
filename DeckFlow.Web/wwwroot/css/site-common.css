@@ -581,6 +581,70 @@ summary:focus-visible,
   }
 }
 
+/* cEDH meta-gap reference table — mobile stacked-card layout (260530-c72).
+   Scoped to [data-chatgpt-cedh-reference-table] so the shared .conflicts-table
+   on DeckSync / CommanderCategories is intentionally untouched. At narrow
+   widths the 9-column table collapses to one labeled card per row instead of
+   squeezing headers into char-by-char wrap. */
+@media (max-width: 600px) {
+  /* Hide the header row visually but keep it for assistive tech. */
+  table[data-chatgpt-cedh-reference-table] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  table[data-chatgpt-cedh-reference-table],
+  table[data-chatgpt-cedh-reference-table] tbody,
+  table[data-chatgpt-cedh-reference-table] tr,
+  table[data-chatgpt-cedh-reference-table] td {
+    display: block;
+    width: 100%;
+  }
+
+  table[data-chatgpt-cedh-reference-table] tr {
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--line, currentColor);
+    border-radius: 8px;
+  }
+
+  table[data-chatgpt-cedh-reference-table] td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.4rem 0;
+    border: 0;
+    text-align: right;
+  }
+
+  /* Divider between stacked cells within a card. */
+  table[data-chatgpt-cedh-reference-table] td + td {
+    border-top: 1px solid var(--line, currentColor);
+  }
+
+  /* data-label drives the left-hand field name for each stacked cell. */
+  table[data-chatgpt-cedh-reference-table] td::before {
+    content: attr(data-label);
+    margin-right: auto;
+    font-weight: 600;
+    color: var(--muted, inherit);
+    text-align: left;
+  }
+
+  /* The Select checkbox reads as the card's lead control, not a right-aligned value. */
+  table[data-chatgpt-cedh-reference-table] td[data-label="Select"] {
+    justify-content: flex-start;
+  }
+}
+
 /* About page — themed panel */
 .about-page {
     border: 1px solid var(--line);
