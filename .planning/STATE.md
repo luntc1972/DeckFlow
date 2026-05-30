@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 status: executing
-stopped_at: Phase 21 context gathered
-last_updated: "2026-05-27T17:12:19.934Z"
+stopped_at: Phase 21 code complete (4/4 plans executed + reviewed), live-UAT checkpoint pending.
+last_updated: "2026-05-30T14:40:23.885Z"
 last_activity: 2026-05-27 -- Phase 20 execution started
 progress:
-  total_phases: 10
-  completed_phases: 6
-  total_plans: 15
-  completed_plans: 15
-  percent: 60
+  total_phases: 11
+  completed_phases: 7
+  total_plans: 20
+  completed_plans: 19
+  percent: 64
 ---
 
 ## Deferred Items
@@ -87,6 +87,8 @@ Last activity: 2026-05-27 -- Phase 20 execution started
 
 - v1.4 roadmap created 2026-05-23 — 8 phases, 16/16 REQ-IDs mapped. Phase numbering RESET to 1 (--reset-phase-numbers active). v1.3 phase dirs already archived to `.planning/milestones/v1.3-phases/`.
 - Gemini cluster D (GEM-01/02) DROPPED from v1.4 per user decision 2026-05-23 → v1.5. SUMMARY.md scope-update note authoritative.
+- Phase 20.1 inserted after Phase 20: Phase 21 live-UAT gate (URGENT) — superseded: renumbered to 21.1
+- Phase 21.1 inserted after Phase 21: Phase 21 live-UAT gate — renumbered from 20.1 (gate verifies/depends-on Phase 21, must sort after it) (URGENT)
 
 ### v1.0-v1.3 Shipped
 
@@ -164,6 +166,7 @@ Last session: 2026-05-27T23:00:00Z
 Stopped at: Phase 21 code complete (4/4 plans executed + reviewed), live-UAT checkpoint pending.
 
 Phase 21 (Content KB Distillation + Artifact Emit, local) — all 4 plans implemented by Codex (cross-AI per CLAUDE.md), reviewed by Claude, verified green:
+
 - 21-01 LlmDistillationService (3 strict-json gpt-4o-mini calls) + schemas/results — 6 tests.
 - 21-02 LlmSpendLedger (separate token-based ledger, cap $15, gpt-4o-mini $0.15/$0.60 per 1M) — 6 tests.
 - 21-03 ContentArtifactWriter + `content_distill_status` table (CREATE IF NOT EXISTS, no ALTER) + source-scoped store methods + `content-kb/` gitignore — 12 tests.
