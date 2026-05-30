@@ -1,46 +1,43 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-28T04:01:13.313Z",
-  "phase": "21",
-  "phase_name": "content-kb-distillation-artifact-emit-local",
-  "phase_dir": ".planning/phases/21-content-kb-distillation-artifact-emit-local",
-  "plan": 4,
+  "timestamp": "2026-05-30T16:11:39.255Z",
+  "phase": "21.1",
+  "phase_name": "phase-21-live-uat-gate",
+  "phase_dir": ".planning/phases/21.1-phase-21-live-uat-gate",
+  "plan": 1,
   "task": 0,
-  "total_tasks": 10,
-  "status": "code-complete-pending-live-uat",
+  "total_tasks": 5,
+  "status": "paused",
   "completed_tasks": [
-    {"id": "21-01", "name": "LlmDistillationService + DistillationSchemas + Results + Tests", "status": "done", "commit": "ab2897d"},
-    {"id": "21-02", "name": "LlmSpendLedger (separate token-based ledger, $15 cap)", "status": "done", "commit": "d64d173"},
-    {"id": "21-03", "name": "ContentArtifactWriter + content_distill_status + store methods + content-kb/ gitignore", "status": "done", "commit": "c03b569"},
-    {"id": "21-04", "name": "distill orchestrator + distill/content-source-set-enabled CLI verbs", "status": "done", "commit": "10d06be"},
-    {"id": "21-04-dry-run", "name": "Dry-run UAT (10 videos, $0.045491 projected)", "status": "done", "commit": "4a62ad5"}
+    {"id": "resume", "name": "Resumed v1.4; reconciled stale STATE vs git/memory", "status": "done"},
+    {"id": "20.1-insert", "name": "Inserted live-UAT-gate phase, then renumbered 20.1 -> 21.1 (sorts after Phase 21)", "status": "done", "commit": "dbf8f11"},
+    {"id": "21.1-plan", "name": "Planned Phase 21.1 (1 plan / 5 tasks, procedural UAT gate, no production code)", "status": "done", "commit": "45d73b1"},
+    {"id": "quick-260530-c72", "name": "Quick task: cEDH meta-gap UI overhaul (separate from phases) — shipped+pushed", "status": "done", "commit": "7c88022"}
   ],
   "remaining_tasks": [
-    {"id": "21-04-live-uat", "name": "Live distill UAT on artifacts/uat-content-kb.db (10 videos, ~$0.05 actual) + E5/E6 archetype/bracket/thesis sampling", "status": "not_started"},
-    {"id": "21-verify", "name": "/gsd-verify-work 21 after UAT passes", "status": "not_started"},
-    {"id": "21-roadmap-x", "name": "Flip ROADMAP Phase 21 [ ] -> [x]", "status": "not_started"}
+    {"id": "21.1-01", "name": "Execute Phase 21.1 live-UAT gate: real distill on artifacts/uat-content-kb.db --limit 10, E5/E6 sample, /gsd-verify-work 21, flip ROADMAP 21 [x]", "status": "not_started"}
   ],
   "blockers": [
-    {"description": "Live UAT requires OPENAI_API_KEY in shell env", "type": "human_action", "workaround": "Set env var then run the distill command in the .continue-here.md Next Action block"}
+    {"description": "Phase 21.1 live distill needs OPENAI_API_KEY in shell + ~$0.05 real OpenAI spend", "type": "human_action", "workaround": "Set OPENAI_API_KEY then /gsd-execute-phase 21.1; it pauses at Task 2 (key+spend) and Task 4 (E5/E6 sign-off)"},
+    {"description": "STATE.md stale vs git/memory (counters + Current Position prose; state.patch field names did not match)", "type": "technical", "workaround": "Refresh STATE.md Current Position + recompute counters when convenient; not blocking"}
   ],
   "human_actions_pending": [
-    {"action": "Set OPENAI_API_KEY and run live distill on artifacts/uat-content-kb.db (no --dry-run, --limit 10)", "context": "21-04 human-verify checkpoint; ~5 cents real spend; emits 10 .md artifacts under content-kb/ + 10 slim-index rows + ledger entries + content_distill_status=distilled rows", "blocking": true},
-    {"action": "Eyeball 2-3 emitted artifacts for E5 (archetype/bracket plausibility) and E6 (thesis coherence)", "context": "Code-gated evals E1-E4 are unit-test covered; E5/E6 are human-judge dims", "blocking": true}
+    {"action": "Set OPENAI_API_KEY and run the Phase 21.1 live distill (no --dry-run, --limit 10) on artifacts/uat-content-kb.db", "context": "Phase 21 (Content KB Distillation) is code-complete; this is its deferred human-verify gate. ~$0.05 spend; emits ~10 content-kb/ artifacts + slim-index rows + ledger + content_distill_status=distilled", "blocking": true},
+    {"action": "Eyeball 2-3 emitted artifacts for E5 (archetype/bracket plausibility) + E6 (thesis coherence)", "context": "E1-E4 are unit-test covered; E5/E6 are human-judge dims", "blocking": true}
   ],
   "decisions": [
-    {"decision": "Locked gpt-4o-mini cost constants: input $0.15/1M, output $0.60/1M", "rationale": "Matches AI-SPEC §4 + platform.openai.com published rates; user confirmed at 21-02 checkpoint A1", "phase": "21"},
-    {"decision": "Cap env var DECKFLOW_LLM_MONTHLY_CAP_USD default $15.00", "rationale": "Independent of Whisper cap; AI-SPEC §4 estimated ~$1.10 for 200-video harvest so generous headroom; user confirmed at 21-02 checkpoint A2", "phase": "21"},
-    {"decision": "Add content-kb/ to .gitignore", "rationale": "Artifacts are local-only per D-06; .gitignore is on CLAUDE.md Do-Not-Modify list, user explicitly approved at 21-03 checkpoint A4", "phase": "21"},
-    {"decision": "Default-throwing default interface methods on IContentVideoStore/IContentSourceStore new members", "rationale": "Keeps existing test fakes (CommandRunnerHarvestTests) compiling without editing out-of-scope files; real stores override all members; orchestrator uses real stores", "phase": "21"},
-    {"decision": "Reverted Codex-injected scope creep (a1fa5ad analysis prompt dedup + 774aa1a gsd-quick record)", "rationale": "Done mid-21-01 without authorization; CLAUDE.md violation; reverted via 6da70da + b2ffba7 (work preserved in history for a future authorized /gsd-quick if wanted)", "phase": "21"}
+    {"decision": "Renumbered the live-UAT gate 20.1 -> 21.1", "rationale": "The gate verifies/depends-on Phase 21, so it must sort after it; 20.1 sorted before 21", "phase": "21.1"},
+    {"decision": "Claude implemented the cEDH quick task directly (no Codex)", "rationale": "Codex out of tokens; user explicitly authorized Claude for this UI work (CLAUDE.md cross-AI exception)", "phase": "quick-260530-c72"},
+    {"decision": "cEDH client sort: data-sort-value cells + in-cell aria-sort header buttons + mobile select; commit .ts only (deck-sync.js gitignored, Docker tsc rebuilds)", "rationale": "deck-sync.js is build-output; source of truth is the .ts", "phase": "quick-260530-c72"},
+    {"decision": "Fixed dark-theme step badge/eyebrow contrast in site-theme-overrides.css (loads after themes)", "rationale": "Cross-theme charcoal-on-charcoal bug (abzan + other dark themes); --muted token is theme-aware + legible", "phase": "quick-260530-c72"}
   ],
   "uncommitted_files": [
     ".planning/todos/pending/admincss-phase1-tests-stale.md (deleted; pre-existed this session)",
-    ".claude/ (untracked; pre-existed this session)",
+    ".claude/ (untracked; pre-existed)",
     ".planning/phases/19-content-kb-foundation-local-schema-contracts/19-PATTERNS.md (untracked; pre-existed)",
     ".planning/phases/27-deck-cache-content-hash-dedup-5-day-refresh/27-RESEARCH.md (untracked; pre-existed)",
     ".planning/todos/completed/ (untracked; pre-existed)"
   ],
-  "next_action": "export OPENAI_API_KEY=sk-... ; \"/mnt/c/Program Files/dotnet/dotnet.exe\" run --project DeckFlow.CLI -- distill --db artifacts/uat-content-kb.db --limit 10",
-  "context_notes": "Phase 21 implementation handled via cross-AI: Codex implemented every plan (per CLAUDE.md), Claude reviewed each diff before moving on. Wave 1 (21-01/02/03) was file-disjoint and ran serially through codex exec (Windows-dotnet-over-WSL means concurrent codex runs would contend on obj/bin + NuGet locks). Wave 2 (21-04) composes Wave 1 outputs into the vertical-slice distill verb. Pre-resolved both Wave-1 checkpoints up-front (price constants, gitignore) so codex never paused mid-run. Full suite green at push (Core.Tests 217/217, Web.Tests 486/486, solution build 0/0). Pushed 7cee9b0..4a62ad5 (19 commits) on v1.4. Live UAT not run because (a) needs user OPENAI_API_KEY, (b) costs money, (c) is the human-verify gate."
+  "next_action": "Phase 21.1: export OPENAI_API_KEY=sk-... ; \"/mnt/c/Program Files/dotnet/dotnet.exe\" run --project DeckFlow.CLI -- distill --db artifacts/uat-content-kb.db --limit 10  (then E5/E6 sample -> /gsd-verify-work 21 -> flip ROADMAP 21 [x]). Or /gsd-execute-phase 21.1 which self-pauses at the key/spend + E5/E6 checkpoints.",
+  "context_notes": "Branch v1.4, in sync with origin (0/0). Quick task 260530-c72 (cEDH meta-gap) is fully shipped+pushed (7c88022), verified green (Web suite 496/0/5). The one open formal GSD thread is Phase 21.1 — the deferred Phase 21 live-UAT gate, planned but not executed because it needs the user's OPENAI_API_KEY + a small spend. Lower-priority follow-ups: refresh stale STATE.md; Phase 20 Whisper-fallback live exercise; Phases 22/23 remain. No new blocking methodological constraints this session."
 }
