@@ -255,6 +255,23 @@ Plans:
 Plans:
 - [ ] 21.1-01-PLAN.md — Live distill UAT on artifacts/uat-content-kb.db (10 videos) + E5/E6 sampling + verify + ROADMAP Phase 21 flip
 
+### Phase 21.2: Pluggable LLM Distill CLI Backends (INSERTED)
+
+**Goal**: The local distill step can drive its LLM extractions through a local AI CLI (Claude Code `claude` or Codex `codex`) instead of the OpenAI API, selected by env var — so an operator with a Claude/ChatGPT subscription runs the full Content KB distill (summary/clips/tags) with NO OpenAI API key or billing, from either a WSL or Windows shell. OpenAI API stays the default backend (no regression). Unblocks the Phase 21.1 live-UAT gate by removing the API-billing dependency (the original gate hit HTTP 429 insufficient_quota 2026-06-01).
+**Mode**: standard
+**Depends on**: Phase 21 (distill service + orchestrator + ledger seam)
+**Requirements**: KB-10 (pluggable LLM distill provider openai|claude|codex via env), KB-11 (cross-platform WSL+Windows CLI invocation + best-effort-JSON hardening + spend-ledger bypass for subscription backends)
+**Success Criteria** (what must be TRUE):
+
+  1. `DECKFLOW_LLM_PROVIDER` env (`openai` default | `claude` | `codex`) selects the distill backend via a factory mirroring `TranscriptProviderFactory`; unset = OpenAI, behavior byte-identical to current (no regression, existing distill tests green)
+  2. A CLI-backed `ILlmDistillationService` shells to the configured command, produces all 3 extractions (summary/clips/tags), and parses+repairs best-effort JSON (fence-strip, result-envelope unwrap, brace-match, shape-validate, retry ×N) — CLIs give no Structured-Outputs guarantee
+  3. CLI command + args are env-configurable so the same build runs the backend from a WSL shell (linux `claude`/`codex` on PATH) OR a Windows shell (`claude.cmd`/`.exe`); both invocations documented
+  4. When provider ≠ openai, `LlmSpendLedger` cap-gate + token-pricing are bypassed (subscription = no per-token cost); run record still written with spend=0; `DECKFLOW_LLM_MONTHLY_CAP_USD` governs only the openai backend
+  5. Live distill over the 10-video UAT db via a CLI backend emits valid artifacts (Phase 19 spec) + slim-index rows; E5/E6 human sample passes — this run satisfies the Phase 21.1 gate
+  6. Unit tests cover provider-factory selection, JSON-repair on dirty output, and the ledger-bypass branch via a fake-process seam (no real CLI spawned in tests)
+
+**Plans**: TBD
+
 ### Phase 22: Content KB Site Integration
 
 **Goal**: The site surfaces the distilled Content KB — a slim index table materialized on Render Postgres for browse/filter, the prompt artifacts served (committed-in-repo or uploaded to `/data`), behind a feature flag — inheriting Phase 18's responsive admin shell and the Phase 16 modal primitive.
