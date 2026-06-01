@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 status: executing
-stopped_at: "Phase 22 plans BLOCKED by Codex review (7 HIGH). NEXT (fresh ctx): /gsd-plan-phase 22 --reviews to fold them, re-review, then execute. .dockerignore needs same authorization as .gitignore/Dockerfile."
-last_updated: "2026-06-01T22:43:15.128Z"
-last_activity: 2026-06-01 -- Phase 22 planning complete
+stopped_at: "Phase 22 plans CONVERGED after 3 Codex review rounds — verdict READY-TO-EXECUTE (commit 95c864f). NEXT (fresh ctx): /clear then /gsd-execute-phase 22. Heads-up: Plan 02 Task 3 autonomous:false (protected-file edits, pre-auth 7d8b82b); seed gate jq->dotnet (jq absent in WSL). Branch v1.4 5 ahead of origin (unpushed planning commits)."
+last_updated: "2026-06-01T23:00:00.000Z"
+last_activity: 2026-06-01 -- Phase 22 plans READY-TO-EXECUTE (3 review rounds)
 progress:
   total_phases: 12
   completed_phases: 8
@@ -50,14 +50,15 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 20 — content-kb-ingestion-transcription-local
+**Current focus:** Phase 22 — content-kb-site-integration (plans READY-TO-EXECUTE)
 
 ## Current Position
 
-Phase: 20 (content-kb-ingestion-transcription-local) — EXECUTING
-Plan: 1 of 4
-Status: Ready to execute
-Last activity: 2026-06-01 -- Phase 22 planning complete
+Phase: 22 (content-kb-site-integration) — PLANNED, ready to execute
+Plan: 0 of 4 executed (4 sequential waves 01→02→03→04)
+Status: Plans converged after 3 Codex review rounds — READY-TO-EXECUTE (95c864f)
+Phases 19/20/21 [x] shipped; 22 next; 23 [ ] depends on 22
+Last activity: 2026-06-01 -- Phase 22 plans READY-TO-EXECUTE
 
 ## Performance Metrics
 
