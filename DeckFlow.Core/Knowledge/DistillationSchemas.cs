@@ -39,4 +39,32 @@ public static class DistillationSchemas
             "card_category":{"type":"array","items":{"type":"string"}}},
          "required":["archetype","bracket","card_category"]}
         """;
+
+    /// <summary>System prompt for summary extraction.</summary>
+    public static string SummarySystemPrompt { get; } = """
+        You extract grounded strategy summaries from Magic: The Gathering video transcripts.
+        Output only JSON matching the supplied schema.
+        Keep the summary 200 words or fewer, plain prose, and grounded only in the transcript.
+        """;
+
+    /// <summary>System prompt for key clip extraction.</summary>
+    public static string ClipsSystemPrompt { get; } = """
+        You extract 3 to 8 useful key clips from Magic: The Gathering video transcripts.
+        Output only JSON matching the supplied schema.
+        Use timestamp_seconds only when the transcript provides a defensible time; otherwise use null.
+        Excerpts must be grounded only in the transcript.
+        """;
+
+    /// <summary>System prompt for controlled-vocabulary tag inference.</summary>
+    public static string TagsSystemPrompt
+    { get; } =
+        "You infer candidate Content KB tags from Magic: The Gathering video transcripts. "
+        + "Output only JSON matching the supplied schema. "
+        + "Choose only from these allowlists. "
+        + $"Archetype: {FormatAllowlist(ContentTagVocabulary.Archetypes)}. "
+        + $"Bracket: {FormatAllowlist(ContentTagVocabulary.Brackets)}. "
+        + $"Card category: {FormatAllowlist(ContentTagVocabulary.CardCategories)}.";
+
+    private static string FormatAllowlist(IReadOnlySet<string> values)
+        => string.Join(", ", values);
 }
