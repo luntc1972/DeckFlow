@@ -773,22 +773,21 @@ app.Logger.LogInformation("Harvest store schemas ensured during startup.");
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All three resolved during planning (rounds 1–3). Q2 and Q3 final decisions DIVERGED from the original recommendations below — the locked decisions in CONTEXT.md / plan frontmatter are authoritative.
 
 1. **Dockerfile artifact copy path**
-   - What we know: `content-kb/` will be tracked in git; Dockerfile exists but was not fully inspected
-   - What's unclear: Whether the existing `COPY` instructions include the repo root or only the project dirs
-   - Recommendation: Planner adds a task in Wave 0 to inspect `Dockerfile` and add `COPY content-kb/ ./content-kb/` if missing
+   - RESOLVED: D-22B + Plan 02 Task 3. Runtime stage copies only `/app/publish` and `.dockerignore` excluded `*.md`; Plan 02 Task 3 (executable, post-authorization) adds `.dockerignore` `!content-kb/**` negations + runtime `COPY content-kb/ ./content-kb/` + `.gitignore` un-ignore.
+   - Original recommendation: Planner adds a task to inspect Dockerfile and add `COPY content-kb/ ./content-kb/` if missing. (Honored, expanded to cover .dockerignore + .gitignore.)
 
 2. **Route for detail page: natural key URL shape**
-   - What we know: `ContentSiteIndexRow` has `natural_key_type` (`youtube_channel` | `podcast_rss`) and `natural_key_value` (video_id or rss_guid)
-   - What's unclear: Whether the URL should be `/content-kb/{video_id}` (simple) or `/content-kb/{source-slug}/{video_id}` (scoped)
-   - Recommendation: Use `/content-kb/{key}` where `key = {source_slug}--{video_id}` (slugified, URL-safe, human-readable). The controller splits on `--` or uses the natural_key_value directly since video IDs are already URL-safe. Planner decides.
+   - RESOLVED: D-22C — `/content-kb/{id:long}` using the surrogate `content_site_index.id`. SUPERSEDES the recommendation below: RSS podcast GUIDs can contain `/ ? # --`, making the `{source_slug}--{key}` scheme unsafe in a path segment. Controller resolves via `store.GetByIdAsync(id)`.
+   - Original recommendation (REJECTED): `/content-kb/{key}` where `key = {source_slug}--{video_id}`.
 
 3. **`ArtifactPath` stored in seed vs resolved at runtime**
-   - What we know: `ArtifactPath` is currently relative (e.g., `edhrecast/zkAmYkIOx98.md`) — validated by store
-   - What's unclear: Whether the path in the seed JSON should be relative to `content-kb/` root or include `content-kb/` prefix
-   - Recommendation: Store without the `content-kb/` prefix (controller prepends the root). Consistent with how `HelpContentService` stores slug without the `Help/` prefix.
+   - RESOLVED: D-22A — store WITH the `content-kb/` prefix (`content-kb/{slug}/{id}.md`), matching `ContentArtifactWriter`. ContentBase is the directory CONTAINING `content-kb/`; combining prefixed path against that base avoids double-prefix. SUPERSEDES the recommendation below (storing without prefix would have split the convention across writer vs seed and risked `/app/content-kb/content-kb/...`).
+   - Original recommendation (REJECTED): store without the `content-kb/` prefix.
 
 ---
 
