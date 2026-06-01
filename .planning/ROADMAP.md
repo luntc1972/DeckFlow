@@ -270,7 +270,11 @@ Plans:
   5. Live distill over the 10-video UAT db via a CLI backend emits valid artifacts (Phase 19 spec) + slim-index rows; E5/E6 human sample passes — this run satisfies the Phase 21.1 gate
   6. Unit tests cover provider-factory selection, JSON-repair on dirty output, and the ledger-bypass branch via a fake-process seam (no real CLI spawned in tests)
 
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+
+- [ ] 21.2-01-PLAN.md — Shared prompt extraction (D-01a) + LlmDistillationProviderFactory + CliLlmDistillationService (process spawn + JSON repair + retry, zero token usage) + unit tests (KB-10, KB-11)
+- [ ] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + dry-run) + WSL/Windows ops doc + live 10-video CLI-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
 
 ### Phase 22: Content KB Site Integration
 
