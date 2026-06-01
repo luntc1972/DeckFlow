@@ -94,7 +94,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [x] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2* — **DONE 2026-05-25 (live smoke passed)**
 - [x] **Phase 19: Content KB Foundation — Local Schema + Contracts** — local-harvester SQLite schema (sources/videos/transcripts/spend-log/runs) + `DeckFlow.Core` distill models + AI-prompt artifact file-format spec + slim site-index schema contract; zero outbound HTTP *(re-scoped 2026-05-26: local-harvester model)* — *exec #3* (completed 2026-05-26)
 - [x] **Phase 20: Content KB Ingestion + Transcription (local)** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) fallback + plain local spend-log cap check; named HttpClients + Polly pipelines, run locally — *exec #4* (UAT passed 2026-05-27: 5-channel harvest, 10/10 captions; per-source failure isolation + opt-in Whisper added; Whisper fallback path not yet exercised live)
-- [ ] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
+- [x] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
 - [ ] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
 - [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
 - [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
@@ -240,10 +240,10 @@ Plans:
 **Plans**: 4 plans
 Plans:
 
-- [ ] 21-01-PLAN.md — Pure LLM distillation service (ChatClient, 3 strict-json_schema calls) + schemas + result records (KB-06, KB-07)
-- [ ] 21-02-PLAN.md — Separate LlmSpendLedger (token-based cap, DECKFLOW_LLM_MONTHLY_CAP_USD) + price/cap decision checkpoint (KB-06)
-- [ ] 21-03-PLAN.md — ContentArtifactWriter (locked spec emit, null-timestamp omit) + store query/transcript/clear + source enable/disable + .gitignore (KB-01, KB-06, KB-07)
-- [ ] 21-04-PLAN.md — distill orchestrator vertical slice (5 guardrails, derived idempotency, run record) + distill/content-source-set-enabled verbs (KB-01, KB-02, KB-06, KB-07)
+- [x] 21-01-PLAN.md — Pure LLM distillation service (ChatClient, 3 strict-json_schema calls) + schemas + result records (KB-06, KB-07)
+- [x] 21-02-PLAN.md — Separate LlmSpendLedger (token-based cap, DECKFLOW_LLM_MONTHLY_CAP_USD) + price/cap decision checkpoint (KB-06)
+- [x] 21-03-PLAN.md — ContentArtifactWriter (locked spec emit, null-timestamp omit) + store query/transcript/clear + source enable/disable + .gitignore (KB-01, KB-06, KB-07)
+- [x] 21-04-PLAN.md — distill orchestrator vertical slice (5 guardrails, derived idempotency, run record) + distill/content-source-set-enabled verbs (KB-01, KB-02, KB-06, KB-07)
 
 ### Phase 21.1: Phase 21 live-UAT gate (INSERTED)
 
@@ -253,7 +253,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 21.1-01-PLAN.md — Live distill UAT on artifacts/uat-content-kb.db (10 videos) + E5/E6 sampling + verify + ROADMAP Phase 21 flip
+- [x] 21.1-01-PLAN.md — Live distill UAT on artifacts/uat-content-kb.db (10 videos) + E5/E6 sampling + verify + ROADMAP Phase 21 flip
 
 ### Phase 21.2: Pluggable LLM Distill CLI Backends (INSERTED)
 
@@ -273,8 +273,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 
-- [ ] 21.2-01-PLAN.md — Shared prompt extraction (D-01a, automated byte-identical guard) + LlmDistillationProviderFactory (openai|claude; codex→21.3 error) + CliCommandSpec/CliLlmDistillationService (claude; ArgumentList spawn, {instruction} placeholder override, in-service timeout+Kill(tree), deadlock-safe pipes, balanced-object JSON repair, ValidateTags-in-retry, bounded logging, zero token usage) + unit tests (KB-10, KB-11)
-- [ ] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + conditional pricing math + dry-run) + WSL/Windows/dotnet.exe-from-WSL ops doc + live 10-video claude-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
+- [x] 21.2-01-PLAN.md — Shared prompt extraction (D-01a, automated byte-identical guard) + LlmDistillationProviderFactory (openai|claude; codex→21.3 error) + CliCommandSpec/CliLlmDistillationService (claude; ArgumentList spawn, {instruction} placeholder override, in-service timeout+Kill(tree), deadlock-safe pipes, balanced-object JSON repair, ValidateTags-in-retry, bounded logging, zero token usage) + unit tests (KB-10, KB-11)
+- [x] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + conditional pricing math + dry-run) + WSL/Windows/dotnet.exe-from-WSL ops doc + live 10-video claude-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
 
 ### Phase 21.3: Codex Distill Backend (INSERTED — deferred from 21.2)
 
