@@ -35,6 +35,8 @@
 - [x] **KB-07**: Each distilled artifact carries tags across 3 controlled-vocabulary dimensions: archetype/strategy (~15 community-standard values: voltron, aristocrats, stax, combo, control, tokens, spellslinger, reanimator, blink, …), format/bracket (Wizards Feb 2025 5-bracket system: Exhibition, Core, Upgraded, Optimized, cEDH), card_category (ramp, removal, draw, finishers, win-cons, …). Vocabulary enforced via `static class ContentTagVocabulary`; LLM-emitted tags outside the allowlist are rejected with WARN log. Tags persist locally AND on the slim site index
 - [x] **KB-08**: A **slim index** on Render Postgres (source/title/url/tags → pointer to the prompt artifact) is browsable/filterable on the site so users can find relevant distilled advice (replaces the dropped admin spend dashboard). Heavy data (transcripts, audio, spend ledger) is NEVER uploaded to Render
 - [ ] **KB-09**: The site-side Content KB display surface is gated behind a `content_kb_enabled` IFeatureFlagStore flag (default OFF until first UAT verifies browse + artifact rendering); any artifact-upload POST on the site is guarded by `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator`
+- [ ] **KB-10**: The local distill step routes its LLM extractions through a pluggable provider selected by `DECKFLOW_LLM_PROVIDER` (`openai` default | `claude` | `codex`) via a factory mirroring `TranscriptProviderFactory`; OpenAI stays the default (no regression). A CLI-backed `ILlmDistillationService` shells to a local AI CLI for all 3 extractions (summary/clips/tags) and parses+repairs best-effort JSON (no Structured-Outputs guarantee). (Added 2026-06-01 — unblocks Phase 21.1, which hit HTTP 429 insufficient_quota.)
+- [ ] **KB-11**: The CLI backend is cross-platform — env-configurable command/args run it from a WSL shell (linux `claude`/`codex` on PATH) OR a Windows shell (`claude.cmd`/`.exe`), both documented; and when provider ≠ openai the `LlmSpendLedger` cap-gate + token-pricing are bypassed (subscription = no per-token cost), run record written with spend=0, `DECKFLOW_LLM_MONTHLY_CAP_USD` governing only the openai backend. (Added 2026-06-01.)
 
 ### Card Category Lookup Bug Fix (CAT)
 
@@ -100,10 +102,12 @@
 | KB-07 | Controlled-vocab tags on artifacts + slim index | Phase 19 (`ContentTagVocabulary` + tag schema) + Phase 21 (tag inference + emit) | [ ] |
 | KB-08 | Slim site index on Render + browse/filter display | Phase 19 (slim-index schema contract) + Phase 22 (materialize + browse UI) | [ ] |
 | KB-09 | `content_kb_enabled` display-gate flag + CSRF on upload POST | Phase 22 | [ ] |
+| KB-10 | Pluggable LLM distill provider (openai\|claude\|codex via env) | Phase 21.2 | [ ] |
+| KB-11 | Cross-platform CLI invocation (WSL+Windows) + JSON hardening + ledger bypass | Phase 21.2 | [ ] |
 | CAT-01 | Card category lookup fix (Sol Ring colorless staple returns empty) | Phase 24 | [ ] |
 | AHD-01 | Admin harvested-decks paged grid (replaces top-10) | Phase 25 | [ ] |
 
-**Coverage:** 18/18 v1.4 REQ-IDs mapped (100%). No orphans. KB cluster re-architected 2026-05-26 to the local-harvester + file-artifact + slim-index model (see KB section note) — IDs preserved, meanings repurposed; harvest now runs locally, only KB-08 (slim index) + KB-09 (display gate) land on Render. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-04, KB-05, KB-06, KB-07, KB-08) split between the Phase 19 schema/contract foundation and the runtime/UI phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.
+**Coverage:** 20/20 v1.4 REQ-IDs mapped (100%). KB-10/KB-11 added 2026-06-01 (Phase 21.2 pluggable LLM CLI backends — unblocks the Phase 21.1 OpenAI-billing dependency). No orphans. KB cluster re-architected 2026-05-26 to the local-harvester + file-artifact + slim-index model (see KB section note) — IDs preserved, meanings repurposed; harvest now runs locally, only KB-08 (slim index) + KB-09 (display gate) land on Render. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-04, KB-05, KB-06, KB-07, KB-08) split between the Phase 19 schema/contract foundation and the runtime/UI phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.
 
 ---
 
