@@ -289,7 +289,15 @@ Plans:
   4. **Pitfall 11 mitigation (P11):** any artifact-upload POST carries `[ValidateAntiForgeryToken]` AND `SameOriginRequestValidator.IsValid(Request)`; CI grep gate returns empty for unguarded upload actions
   5. The display surface is gated behind `content_kb_enabled` `IFeatureFlagStore` flag (default OFF, flipped after first UAT verifies browse + artifact rendering); all new views render correctly at 375px mobile viewport per Phase 18 invariants; zero CSS bleed into 22 guild themes
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+- [ ] 22-01-PLAN.md — Store extension: is_visible additive migration (both dialects) + UpsertRowPreservingVisibilityAsync (curation-preserving) + published/all/by-id queries + per-entry/per-source SetVisibility + content.kb.enabled flag seed (default OFF) (KB-08, KB-09)
+- [ ] 22-02-PLAN.md — content-index-export CLI verb (index-only tracked JSON seed) + tracked content-kb/ publish dir + authorized .gitignore + Dockerfile/publish delivery to runtime image (KB-08)
+- [ ] 22-03-PLAN.md — Public surface: flag-gated browse (published-only hub-card grid + client-side facets + empty states) + artifact detail (Markdig + path-guarded serving + Copy-for-ChatGPT) + startup curation-preserving seed load + conditional nav (KB-08, KB-09)
+- [ ] 22-04-PLAN.md — Admin curation grid (.admin-shell): per-entry + per-source publish/hide + flag toggle + index status + reload-from-seed; every mutating POST double-CSRF-guarded; 375px scoped CSS (KB-09)
+
+**Waves:** W1 = {22-01}; W2 = {22-02, 22-03}; W3 = {22-04}
 **UI hint**: yes
 
 ### Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn
@@ -359,7 +367,7 @@ Plans:
 | 19. Content KB Foundation — Local Schema + Contracts | 4/4 | Complete    | 2026-05-26 |
 | 20. Content KB Outbound HTTP Services | 4/4 | Complete   | 2026-05-27 |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
-| 22. Content KB Admin UI | 0/TBD | Not started | - |
+| 22. Content KB Site Integration | 0/4 | Planned | - |
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
 | 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete    | 2026-05-25 |
