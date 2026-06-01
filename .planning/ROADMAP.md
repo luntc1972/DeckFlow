@@ -273,8 +273,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 
-- [ ] 21.2-01-PLAN.md — Shared prompt extraction (D-01a) + LlmDistillationProviderFactory + CliLlmDistillationService (process spawn + JSON repair + retry, zero token usage) + unit tests (KB-10, KB-11)
-- [ ] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + dry-run) + WSL/Windows ops doc + live 10-video CLI-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
+- [ ] 21.2-01-PLAN.md — Shared prompt extraction (D-01a, automated byte-identical guard) + LlmDistillationProviderFactory + CliCommandSpec/CliLlmDistillationService (ArgumentList spawn, in-service timeout+Kill(tree), codex isolation, balanced-object JSON repair, ValidateTags-in-retry, zero token usage) + unit tests (KB-10, KB-11)
+- [ ] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + conditional pricing math + dry-run) + WSL/Windows/dotnet.exe-from-WSL ops doc + live 10-video CLI-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
 
 ### Phase 22: Content KB Site Integration
 
