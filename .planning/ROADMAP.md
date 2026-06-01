@@ -85,11 +85,13 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [x] **Phase 16: WDG-04 Focus-Trapped Modal** — Close v1.3 carry-over: replace deferred `onsubmit` confirm in AdminFeedback/Detail with native `<dialog>` focus-trapped modal (completed 2026-05-24; UAT passed; tests 520/3/523; MODAL-01 satisfied)
 - [x] **Phase 17: Doc-Comment Backfill — Part 1 (Controllers + Services)** — Backfill XML `<summary>` doc-comments on ~50 of 88 v1.1-era Web types; NoWarn stays in place until Phase 23 (completed 2026-05-24)
 - [x] **Phase 18: Admin Mobile-Responsive Sweep** — Factor `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim; sidebar collapse, table strategies, ≥44px touch targets — all scoped to `.admin-shell`
+
 <!-- EXECUTION ORDER ≠ phase-number order (reordered 2026-05-24 per user: Content KB last).
      Phase numbers are stable IDs tied to existing plan dirs/files — NOT renumbered.
      Execute in the listed order below: 25 → 24 → 19 → 20 → 21 → 22 → 23.
      Content KB (19-22) is the final feature block; Phase 23 (strip NoWarn) stays
      last by hard dependency on Phase 22 (must document all new KB types first). -->
+
 - [x] **Phase 25: Admin Harvested-Decks Paged Grid** — Replace admin top-ten-decks list with server-side paged grid over all harvested decks (AHD-01) — *exec #1 (plans Codex-approved)* (completed 2026-05-24)
 - [x] **Phase 24: Card Category Lookup Fix — Colorless/Staple Cards** — Bug: category suggestion returns nothing for Sol Ring (colorless artifact ramp staple); investigate with Archidekt harvest service running AND stopped; restore category results (CAT-01) — *exec #2* — **DONE 2026-05-25 (live smoke passed)**
 - [x] **Phase 19: Content KB Foundation — Local Schema + Contracts** — local-harvester SQLite schema (sources/videos/transcripts/spend-log/runs) + `DeckFlow.Core` distill models + AI-prompt artifact file-format spec + slim site-index schema contract; zero outbound HTTP *(re-scoped 2026-05-26: local-harvester model)* — *exec #3* (completed 2026-05-26)
@@ -212,6 +214,7 @@ Plans:
   6. `OPENAI_API_KEY` read from local environment/secrets (NOT committed); zero secrets in commits
 
 **Planning amendments (2026-05-26, locked in 20-CONTEXT D-03/D-04/D-09):**
+
   - **SC5 AMENDED** — the literal `IHttpClientFactory` + `ResiliencePipelineProvider<string>` named-client mandate is a `DeckFlow.Web`-host concept the CLI/Core harvester home cannot use. Ingestion services live in `DeckFlow.Core/Integration` using RestSharp/HttpClient injected via ctor + Polly built DIRECTLY (ArchidektApiDeckImporter precedent) + `internal` `Func<...>` test seam (CardLookupService:106-121). The SPIRIT of SC5 (named resilience, zero `new HttpClient()` in method bodies, test seam, no `Microsoft.Extensions.Http.Resilience`) is preserved; no `Microsoft.Extensions.Http`/`.Hosting` added to Core.
   - **Podcast scope DEFERRED (SC3 podcast portion + the podcast `transcript_source` path)** — Phase 20 is YouTube-first: caption fetch + Whisper fallback (exercised via caption-less YouTube videos) behind a clean `ITranscriptSource` abstraction. Full podcast RSS+audio fetch is a later slice; only the abstraction is built now.
 
@@ -253,6 +256,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
+
 - [x] 21.1-01-PLAN.md — Live distill UAT on artifacts/uat-content-kb.db (10 videos) + E5/E6 sampling + verify + ROADMAP Phase 21 flip
 
 ### Phase 21.2: Pluggable LLM Distill CLI Backends (INSERTED)
@@ -292,9 +296,20 @@ Plans:
 **Plans**: 4 plans
 Plans:
 
+**Wave 1**
+
 - [ ] 22-01-PLAN.md — Store extension: is_visible additive migration (both dialects) + UpsertRowPreservingVisibilityAsync (curation-preserving) + published/all/by-id queries + per-entry/per-source SetVisibility + content.kb.enabled flag seed (default OFF) (KB-08, KB-09)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 22-02-PLAN.md — content-index-export CLI verb (index-only tracked JSON seed) + tracked content-kb/ publish dir + authorized .gitignore + Dockerfile/publish delivery to runtime image (KB-08)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 22-03-PLAN.md — Public surface: flag-gated browse (published-only hub-card grid + client-side facets + empty states) + artifact detail (Markdig + path-guarded serving + Copy-for-ChatGPT) + startup curation-preserving seed load + conditional nav (KB-08, KB-09)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 22-04-PLAN.md — Admin curation grid (.admin-shell): per-entry + per-source publish/hide + flag toggle + index status + reload-from-seed; every mutating POST double-CSRF-guarded; 375px scoped CSS (KB-09)
 
 **Waves:** W1 = {22-01}; W2 = {22-02}; W3 = {22-03}; W4 = {22-04} — sequential after 22-REVIEWS HIGH-1 (artifact-base + seed data dependency; 02→03 no longer parallel)
@@ -345,6 +360,7 @@ Plans:
   5. `/Admin/Harvest` cold-cache load latency is reduced — the stats payload no longer relies on serial full-table scans (see perf note below)
 
 **Perf investigation note (2026-05-24, captured per user during Phase 18 UAT):** `/Admin/Harvest` is slow on a COLD cache (warm loads are fine — `HarvestStatsAggregator` caches the payload 60s). The cold path runs 7 queries SEQUENTIALLY in `HarvestStatsAggregator.BuildAsync`, and the expensive ones are unindexed full scans that grow with harvest size:
+
   - `SELECT COUNT(1) FROM deck_queue WHERE processed = 1` — no index on `processed`
   - `SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff` — no `(processed, inserted_utc)` index
   - `SELECT COUNT(1) FROM card_category_observations` — full COUNT of the largest table (slow in Postgres)
@@ -445,10 +461,12 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
+
 - [x] 26-01-PLAN.md — Schema + dialect foundation: IRelationalDialect.SurrogateIdColumnType + normalized integer-keyed star schema (sources + cards dims, slim integer-keyed facts, compact indexes incl. LOWER(commander) expr index, reserved content_hash) + RED parity + SQLite-AUTOINCREMENT harness (DBO-01)
 - [x] 26-02-PLAN.md — Port write+read paths to integer keys (intern-on-write RETURNING id, batch resolve per deck, integer commander join replacing string-concat), parity GREEN, PG coverage + full-reset runbook update (DBO-01)
 
 **Verification status (2026-05-25):** Code complete + Codex peer-reviewed (RED iter-1 → YELLOW iter-2, both HIGH resolved → RED→GREEN). Build clean; Core 81/81; Web 463 pass / 13 pre-existing CSS fails / 5 PG-integration skipped. **Prod full-reset done 2026-05-25** (`DROP SCHEMA public CASCADE` + restart rebuilt integer-keyed schema; verified via `information_schema` + `pg_indexes`). Re-harvest stopped intentionally at a partial corpus (≈231 decks processed / 655 queued; obs 20.4k, totals 19.3k, cards 8.1k, sources 230).
+
   - **SC3 — ✅ PASS (measured):** both hot paths index-only, no seq scans. `GetCategoriesAsync` → `ux_cards_normalized` + `ix_obs_card` nested loop (0.3 ms). `GetCategoryRowsForCommanderAsync` → `ix_deck_queue_processed_commander_lower` + `ix_sources_deck_queue` + `ix_obs_source` (0.66 ms; was the 69 s timeout query pre-normalization).
   - **SC2 — ❌ NOT MET as originally written; criterion amended above.** Grain-key width cut ~38%; total index footprint flat-to-worse (5 indexes vs old PK+normalized index). Unreachable without interning `category`/`board`. Real wins booked under SC3 + heap dedup.
   - **Index-usage audit (partial-corpus, write-path-dominated):** grain uniques + `ix_obs_card` + `ix_obs_source` + `ix_totals_card` + dim uniques are exercised. `ix_obs_card_board` / `ix_totals_card_board` have **no production caller** (board filter param unwired — only `CategorySuggestionService:118` calls, with no board) → safe drop candidates. Fact surrogate `*_pkey` (`id`) never read (no RETURNING on fact inserts; only `cards`/`sources` dims use `RETURNING id`) → drop candidate **but defer**: Phase 27 (content-hash dedup) may need a stable fact row id (`reserved content_hash` in 26-01).
@@ -474,6 +492,7 @@ Plans:
 **Plans:** 1/1 plans complete
 
 Plans:
+
 - [x] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
 
 ---
