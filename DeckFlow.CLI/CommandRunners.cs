@@ -485,7 +485,10 @@ internal static class CommandRunners
             var indexStore = new ContentSiteIndexStore(dbPath);
             var runStore = new ContentHarvestRunStore(dbPath);
             var ledger = new LlmSpendLedger(dbPath);
-            var distiller = new LlmDistillationService(llmHttpClient);
+            var providerEnv = Environment.GetEnvironmentVariable(LlmDistillationProviderFactory.EnvironmentVariableName);
+            var isSubscriptionProvider = !string.IsNullOrWhiteSpace(providerEnv)
+                && !string.Equals(providerEnv.Trim(), "openai", StringComparison.OrdinalIgnoreCase);
+            var distiller = LlmDistillationProviderFactory.Resolve(providerEnv, llmHttpClient);
 
             return await RunDistillAsync(
                 sourceStore,
@@ -499,7 +502,8 @@ internal static class CommandRunners
                 dryRun,
                 logger,
                 () => DateTimeOffset.UtcNow,
-                ct).ConfigureAwait(false);
+                ct,
+                isSubscriptionProvider).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -521,7 +525,8 @@ internal static class CommandRunners
         bool dryRun,
         Serilog.ILogger logger,
         Func<DateTimeOffset> utcNow,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool isSubscriptionProvider = false)
     {
         ArgumentNullException.ThrowIfNull(sourceStore);
         ArgumentNullException.ThrowIfNull(videoStore);
@@ -592,9 +597,12 @@ internal static class CommandRunners
                             continue;
                         }
 
-                        var projectedCost = ComputeProjectedVideoCostUsd(transcript.Body);
-                        var wouldSkip = await ledger.WouldExceedCapAsync(projectedCost, monthKey, ct).ConfigureAwait(false);
-                        var disposition = wouldSkip ? "WOULD skip over cap" : "WOULD distill";
+                        var projectedCost = isSubscriptionProvider ? 0m : ComputeProjectedVideoCostUsd(transcript.Body);
+                        var wouldSkip = !isSubscriptionProvider
+                            && await ledger.WouldExceedCapAsync(projectedCost, monthKey, ct).ConfigureAwait(false);
+                        var disposition = wouldSkip ? "WOULD skip over cap"
+                            : isSubscriptionProvider ? "WOULD distill ($0, subscription)"
+                            : "WOULD distill";
                         logger.Information(
                             "{Disposition} {VideoId} (~${ProjectedCostUsd:F4})",
                             disposition,
@@ -623,7 +631,8 @@ internal static class CommandRunners
                         monthKey,
                         generatedUtc,
                         logger,
-                        ct).ConfigureAwait(false);
+                        ct,
+                        isSubscriptionProvider).ConfigureAwait(false);
 
                     counts.Add(outcome);
                     if (outcome.AbortedReason is not null)
@@ -658,7 +667,8 @@ internal static class CommandRunners
                 "dry-run distill complete would_run={WouldRun} projected_spend_usd={ProjectedSpendUsd:F6}",
                 counts.WouldRun,
                 counts.ProjectedSpendUsd);
-            Console.WriteLine($"Dry run complete. Would distill {counts.WouldRun} videos; projected spend ${counts.ProjectedSpendUsd:F6}.");
+            var spendDisplay = isSubscriptionProvider ? "$0 (subscription)" : $"${counts.ProjectedSpendUsd:F6}";
+            Console.WriteLine($"Dry run complete. Would distill {counts.WouldRun} videos; projected spend {spendDisplay}.");
             return 0;
         }
 
@@ -960,7 +970,8 @@ internal static class CommandRunners
         string monthKey,
         DateTimeOffset generatedUtc,
         Serilog.ILogger logger,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool isSubscriptionProvider = false)
     {
         var naturalKey = GetContentNaturalKey(video);
         var llmCalls = 0;
@@ -971,8 +982,8 @@ internal static class CommandRunners
                 ?? throw new InvalidOperationException($"Transcript missing for {naturalKey}.");
             ValidateTranscriptLength(transcript.Body);
 
-            var projectedVideoCost = ComputeProjectedVideoCostUsd(transcript.Body);
-            if (await ledger.WouldExceedCapAsync(projectedVideoCost, monthKey, ct).ConfigureAwait(false))
+            var projectedVideoCost = isSubscriptionProvider ? 0m : ComputeProjectedVideoCostUsd(transcript.Body);
+            if (!isSubscriptionProvider && await ledger.WouldExceedCapAsync(projectedVideoCost, monthKey, ct).ConfigureAwait(false))
             {
                 return await MarkSkippedOverCapAsync(
                     videoStore,
@@ -987,7 +998,7 @@ internal static class CommandRunners
 
             await videoStore.ClearDistillOutputAsync(video.Id, ct).ConfigureAwait(false);
 
-            if (await ledger.WouldExceedCapAsync(
+            if (!isSubscriptionProvider && await ledger.WouldExceedCapAsync(
                 ComputeProjectedCallCostUsd(transcript.Body, SummaryMaxOutputTokens),
                 monthKey,
                 ct).ConfigureAwait(false))
@@ -1004,7 +1015,7 @@ internal static class CommandRunners
             }
 
             var summary = await distiller.SummarizeAsync(transcript.Body, ct).ConfigureAwait(false);
-            var summaryCost = LlmSpendLedger.ComputeCostUsd(summary.Usage.InputTokens, summary.Usage.OutputTokens);
+            var summaryCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(summary.Usage.InputTokens, summary.Usage.OutputTokens);
             // Why: each OpenAI call is separately billed; record its incurred cost BEFORE the next call so a later-call failure can never orphan an already-billed cost (HIGH-1/FIX-1, Phase 20 CR-01 class -- recorded spend >= incurred).
             await ledger.RecordCallAsync(
                 video.Id,
@@ -1016,7 +1027,7 @@ internal static class CommandRunners
             llmCalls++;
             llmSpend += summaryCost;
 
-            if (await ledger.WouldExceedCapAsync(
+            if (!isSubscriptionProvider && await ledger.WouldExceedCapAsync(
                 ComputeProjectedCallCostUsd(transcript.Body, ClipsMaxOutputTokens),
                 monthKey,
                 ct).ConfigureAwait(false))
@@ -1033,7 +1044,7 @@ internal static class CommandRunners
             }
 
             var clips = await distiller.ExtractClipsAsync(transcript.Body, ct).ConfigureAwait(false);
-            var clipsCost = LlmSpendLedger.ComputeCostUsd(clips.Usage.InputTokens, clips.Usage.OutputTokens);
+            var clipsCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(clips.Usage.InputTokens, clips.Usage.OutputTokens);
             await ledger.RecordCallAsync(
                 video.Id,
                 clips.Usage.InputTokens,
@@ -1044,7 +1055,7 @@ internal static class CommandRunners
             llmCalls++;
             llmSpend += clipsCost;
 
-            if (await ledger.WouldExceedCapAsync(
+            if (!isSubscriptionProvider && await ledger.WouldExceedCapAsync(
                 ComputeProjectedCallCostUsd(transcript.Body, TagsMaxOutputTokens),
                 monthKey,
                 ct).ConfigureAwait(false))
@@ -1061,7 +1072,7 @@ internal static class CommandRunners
             }
 
             var tags = await distiller.InferTagsAsync(transcript.Body, ct).ConfigureAwait(false);
-            var tagsCost = LlmSpendLedger.ComputeCostUsd(tags.Usage.InputTokens, tags.Usage.OutputTokens);
+            var tagsCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(tags.Usage.InputTokens, tags.Usage.OutputTokens);
             await ledger.RecordCallAsync(
                 video.Id,
                 tags.Usage.InputTokens,

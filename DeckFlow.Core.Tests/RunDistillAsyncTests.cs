@@ -219,6 +219,77 @@ public sealed class RunDistillAsyncTests : IDisposable
     }
 
     [Fact]
+    public async Task RunDistillAsync_SubscriptionProviderBypassesCapAndRecordsZeroSpend()
+    {
+        var video = CreateVideo(1, 1, "subscription-video");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var ledger = new FakeLlmSpendLedger();
+        ledger.WouldExceedResults.Enqueue(true);
+        var distiller = new FakeLlmDistillationService();
+
+        var exitCode = await RunAsync(videoStore, ledger, distiller, isSubscriptionProvider: true);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(["summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
+        Assert.Empty(ledger.WouldExceedChecks);
+        Assert.Equal(3, ledger.Records.Count);
+        Assert.All(ledger.Records, record => Assert.Equal(0m, record.CostUsd));
+        Assert.Equal(new StatusUpdate(1, "distilled"), Assert.Single(videoStore.StatusUpdates));
+        var completedRun = Assert.Single(LastRunStore!.CompleteCalls);
+        Assert.Equal(3, completedRun.WhisperCalls);
+        Assert.Equal(0m, completedRun.SpendUsd);
+    }
+
+    [Fact]
+    public async Task RunDistillAsync_SubscriptionProviderDryRunReportsZeroSubscriptionSpendWithoutCapHit()
+    {
+        var video = CreateVideo(1, 1, "subscription-dry-run");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var ledger = new FakeLlmSpendLedger();
+        ledger.WouldExceedResults.Enqueue(true);
+        var distiller = new FakeLlmDistillationService();
+        var originalOut = Console.Out;
+        await using var output = new StringWriter();
+        Console.SetOut(output);
+        try
+        {
+            var exitCode = await RunAsync(videoStore, ledger, distiller, dryRun: true, isSubscriptionProvider: true);
+
+            Assert.Equal(0, exitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var consoleOutput = output.ToString();
+        Assert.Contains("WOULD distill ($0, subscription) subscription-dry-run", consoleOutput);
+        Assert.Contains("projected spend $0 (subscription)", consoleOutput);
+        Assert.DoesNotContain("cap", consoleOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(ledger.WouldExceedChecks);
+        Assert.Empty(distiller.Calls);
+        Assert.Empty(ledger.Records);
+        Assert.Empty(videoStore.StatusUpdates);
+    }
+
+    [Fact]
+    public async Task RunDistillAsync_OpenAiDefaultStillInvokesCapChecks()
+    {
+        var video = CreateVideo(1, 1, "openai-video");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var ledger = new FakeLlmSpendLedger();
+
+        var exitCode = await RunAsync(videoStore, ledger);
+
+        Assert.Equal(0, exitCode);
+        Assert.True(ledger.WouldExceedChecks.Count > 0);
+        Assert.Contains(ledger.Records, record => record.CostUsd > 0m);
+    }
+
+    [Fact]
     public async Task RunDistillAsync_UsesEachEnabledSourceSlugAndNeverQueriesDisabledSources()
     {
         var sourceStore = new FakeContentSourceStore(
@@ -302,7 +373,8 @@ public sealed class RunDistillAsyncTests : IDisposable
         FakeLlmSpendLedger? ledger = null,
         FakeLlmDistillationService? distiller = null,
         FakeContentSourceStore? sourceStore = null,
-        bool dryRun = false)
+        bool dryRun = false,
+        bool isSubscriptionProvider = false)
     {
         LastRunIndexStore = new FakeContentSiteIndexStore();
         LastRunStore = new FakeContentHarvestRunStore();
@@ -318,7 +390,8 @@ public sealed class RunDistillAsyncTests : IDisposable
             dryRun,
             _logger,
             utcNow: () => new DateTimeOffset(2026, 5, 27, 12, 34, 56, TimeSpan.Zero),
-            CancellationToken.None);
+            CancellationToken.None,
+            isSubscriptionProvider);
     }
 
     private static ContentSource CreateSource(long id, string sourceSlug, bool isEnabled)
