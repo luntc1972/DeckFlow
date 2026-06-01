@@ -8,7 +8,7 @@
 
 Surface the locally-distilled Content KB on the live site: materialize the slim index on Render Postgres, provide a **public** browse/filter surface + a **minimal admin** management view, serve each entry's prompt artifact for the ChatGPT-paste workflow, all gated behind `content_kb_enabled`. Artifacts + index reach Render via **commit-then-deploy** (no upload endpoint). KB-08 + KB-09.
 
-**In scope:** Render Postgres index materialization (`EnsureSchemaAsync` + committed-seed load), public browse/filter page (behind flag), per-entry artifact detail page + copy-for-ChatGPT, a small admin management view (index status + flag toggle + reload-from-seed), CSRF on any mutating admin POST, 375px-responsive + zero theme bleed.
+**In scope:** Render Postgres index materialization (`EnsureSchemaAsync` + committed-seed load that preserves admin curation), add per-entry `is_visible` column (D-05), public browse/filter page showing PUBLISHED entries (behind flag), per-entry artifact detail page + copy-for-ChatGPT, an admin curation view (per-entry + per-source publish/unpublish grid + flag toggle + reload-from-seed + status), CSRF on every mutating admin POST, 375px-responsive + zero theme bleed.
 **Out of scope:** the local harvest/distill pipeline (Phases 19-21, done); codex backend (backlog); admin upload-to-/data path (rejected — see D-02); server-query pagination (deferred); Phase 23 NoWarn strip.
 </domain>
 
@@ -17,18 +17,25 @@ Surface the locally-distilled Content KB on the live site: materialize the slim 
 
 ### Audience + surfaces (D-01) — BOTH public browse + minimal admin manage
 - **D-01a (public browse):** A **public** site page (e.g. route `/content-kb`) using the responsive **site** shell (`site-common.css` + v1.3 WDG-08 primitives — NOT `.admin-shell`). Gated by `content_kb_enabled` via `FeatureFlagGateAttribute` (default OFF → the route is hidden/404 when off). This is the primary deliverable (serves the user-paste core value).
-- **D-01b (admin manage — keep MINIMAL):** A small surface under `.admin-shell` (BasicAuth): shows KB index status (row count, distinct sources, last-loaded timestamp) + the `content_kb_enabled` toggle (reuse the existing `AdminFlagsController` / flags surface where possible) + a "reload index from committed seed" action. Do NOT build a full CRUD admin — management is status + flag + reload only.
+- **D-01b (admin manage — per-entry curation):** A surface under `.admin-shell` (BasicAuth) where the admin **selects which KB prompts are available to users**. Contents:
+  - A **per-entry grid** of `content_site_index` rows (title / source / tags / visible-state) with a **publish/unpublish toggle per entry** (analog: the Phase 25 admin paged grid). Each toggle = a CSRF-guarded POST that flips `is_visible` (see D-05).
+  - **Per-source bulk** publish/hide (toggle a whole channel/podcast at once) — entries cluster by source, keeps curation manageable at scale.
+  - The global `content_kb_enabled` flag toggle (reuse `AdminFlagsController` / flags surface) + index status (row count, distinct sources, last-loaded timestamp) + the "reload index from committed seed" action.
+  - Still NOT full CRUD (no editing artifact content/tags here) — curation = visibility + flag + reload.
 
 ### Artifact serving + index→Render sync (D-02) — commit-then-deploy
 - **D-02a (artifacts in repo):** Distilled artifacts are **committed to the repo** (like `prompt-templates/`) and served as content. The current `content-kb/` (and `artifacts/`) are gitignored — planner decides the **published** location (e.g. a tracked `content-kb/` publish dir or `wwwroot/`-served path) and whether served as static files or via a controller that reads the file. Only the published artifact files ship — NO transcripts/audio/spend.
-- **D-02b (index seed):** Slim-index rows ship as a **committed seed/import file** (the local CLI exports `content_site_index` rows to a tracked JSON/SQL file; planner picks format + may need a new `content-index-export` CLI verb). On Render startup: `EnsureSchemaAsync` then **idempotent load** (upsert by natural key) of the seed if the table is empty / out of date. NO direct local→Render Postgres write, NO upload endpoint.
+- **D-02b (index seed):** Slim-index rows ship as a **committed seed/import file** (the local CLI exports `content_site_index` rows to a tracked JSON/SQL file; planner picks format + may need a new `content-index-export` CLI verb). On Render startup: `EnsureSchemaAsync` then **idempotent load** (upsert by natural key `(natural_key_type, natural_key_value)`) of the seed. **CRITICAL — preserve admin curation across deploys:** the upsert MUST NOT clobber `is_visible` on rows the admin already curated on Render — set the hidden default only for NEW rows; UPDATE refreshes content fields (title/tags/artifact_path) but LEAVES `is_visible` untouched. Otherwise every commit-then-deploy re-hides everything the admin published. NO direct local→Render Postgres write, NO upload endpoint.
 - **D-02c:** Because there is NO upload endpoint, the only mutating site POST is the admin "reload index from seed" action → it still carries `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator` (SC4/P11 applies to any admin mutating POST, not just uploads).
 
 ### Entry → artifact presentation (D-03) — detail page + copy
 - **D-03:** Per-entry **detail page** (shareable URL, e.g. `/content-kb/{naturalKey}` or `{id}`) rendering the artifact's summary + timestamped clips + tags (render markdown via the existing **Markdig** path used by `HelpContentService`), with a **"copy for ChatGPT"** button reusing the existing packet/comparison copy-to-clipboard TS/UX. Must render correctly at 375px.
 
-### Browse/filter (D-04) — client-side faceted
-- **D-04:** Server renders the full list from `content_site_index` (small index — tens-to-hundreds of rows); **client-side** faceted filter by source / archetype / bracket / card_category (chips or dropdowns) + a text search; **empty-state CTA** for zero-content first run (SC2). NO pagination yet (deferred until the index is large).
+### Browse/filter (D-04) — client-side faceted, published-only
+- **D-04:** The public browse renders ONLY published rows — server query filters `WHERE is_visible = true` (D-05) — then **client-side** faceted filter by source / archetype / bracket / card_category (chips or dropdowns) + a text search; **empty-state CTA** for zero-content first run AND for "flag on but nothing published yet" (SC2). Small index → load published rows + filter client-side; NO pagination yet. (Admin grid in D-01b shows ALL rows regardless of `is_visible`.)
+
+### Schema — add per-entry visibility (D-05) — NEW this phase
+- **D-05:** Add an **`is_visible`** column (admin publish state) to `content_site_index` — distinct from the existing `published_utc` (that is the VIDEO's publish date, not visibility). Boolean, **default hidden** (`0`/`false`) so new seeded entries are opt-in (D-01a default-hidden decision). Additive migration: `EnsureSchemaAsync` keeps `CREATE TABLE IF NOT EXISTS` AND adds a guarded `ALTER TABLE ... ADD COLUMN is_visible ...` for pre-existing tables, for BOTH dialects (Postgres `BOOLEAN`/`SMALLINT`, SQLite `INTEGER`). Index store gains: a published-only query (public), an all-rows query (admin), and per-entry + per-source `SetVisibility` upsert methods (admin toggles). Planner confirms exact column name/type; `is_visible` preferred over `is_published` to avoid `published_utc` confusion.
 
 ### Locked by Success Criteria (do not re-litigate)
 - `content_kb_enabled` `IFeatureFlagStore` flag, **default OFF**, flipped only after first UAT verifies browse + artifact rendering (SC5).
@@ -57,6 +64,9 @@ Surface the locally-distilled Content KB on the live site: materialize the slim 
 - `DeckFlow.Web/Infrastructure/FeatureFlagGateAttribute.cs` — the gate attribute to put on the public controller/action.
 - `DeckFlow.Web/Extensions/FeatureFlagsServiceCollectionExtensions.cs` + `Controllers/Admin/AdminFlagsController.cs` — flag registration + admin toggle to reuse for `content_kb_enabled`.
 - `DeckFlow.Web/Security/SameOriginRequestValidator.cs` + existing `[ValidateAntiForgeryToken]` usage — CSRF on admin mutating POST.
+
+### Admin curation grid (per-entry + per-source toggles)
+- Phase 25 admin paged grid (`.planning/phases/25-*`, `Views/Admin/` harvested-decks grid + its controller) — analog for the admin per-entry KB curation grid (server-paged table + row actions); mirror its responsive `.admin-shell` table strategy (Phase 18).
 
 ### Reusable UI / rendering
 - `DeckFlow.Web/Services/HelpContentService.cs` — Markdig markdown render pattern for the artifact detail page.

@@ -24,3 +24,10 @@ admin upload-to-/data (rejected for commit-then-deploy); server pagination; full
 - "Both" audience: public browse is the main deliverable; admin manage kept deliberately minimal (status + flag + reload), not full CRUD.
 - UI hint = yes → plan-phase will gate on a UI-SPEC (run /gsd-ui-phase 22 or plan with --skip-ui).
 - 10 Phase-21.2-UAT artifacts are realistic build/UAT seed data.
+
+## Follow-up (same session): admin per-entry prompt curation
+User: "the admin site I want to be able to select which prompts are available for the users."
+- Admin manage upgraded from status-only → **per-entry + per-source publish/unpublish curation** (D-01b).
+- New `is_visible` column on content_site_index (D-05), **default hidden** (admin opts in).
+- Public browse shows published-only (D-04); seed-load preserves admin curation across deploys (D-02b critical constraint).
+- KB-09 amended to cover per-entry curation. Analog: Phase 25 admin paged grid.
