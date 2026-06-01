@@ -627,6 +627,8 @@ dotnet run --project DeckFlow.CLI -- category-find \
   --card "Guardian Project" --cache-seconds 20
 ```
 
+Content KB distill selects its LLM backend with `DECKFLOW_LLM_PROVIDER` (`openai` default, `claude` for the local CLI subscription backend). See [`docs/ops/content-kb-llm-cli-backends.md`](docs/ops/content-kb-llm-cli-backends.md) for exact WSL, Windows, and Windows `dotnet.exe` from WSL commands.
+
 ---
 
 ## Browser Extension
