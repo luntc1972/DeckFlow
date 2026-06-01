@@ -276,21 +276,6 @@ Plans:
 - [x] 21.2-01-PLAN.md — Shared prompt extraction (D-01a, automated byte-identical guard) + LlmDistillationProviderFactory (openai|claude; codex→21.3 error) + CliCommandSpec/CliLlmDistillationService (claude; ArgumentList spawn, {instruction} placeholder override, in-service timeout+Kill(tree), deadlock-safe pipes, balanced-object JSON repair, ValidateTags-in-retry, bounded logging, zero token usage) + unit tests (KB-10, KB-11)
 - [x] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + conditional pricing math + dry-run) + WSL/Windows/dotnet.exe-from-WSL ops doc + live 10-video claude-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
 
-### Phase 21.3: Codex Distill Backend (INSERTED — deferred from 21.2)
-
-**Goal**: Add the `codex` provider to the Phase 21.2 distill backend factory, with a PROVEN tool/read-isolation boundary for untrusted transcript input — codex `exec` is an agent and `--sandbox read-only` blocks writes but not reads, so a prompt-injected transcript could read+echo local files. This phase ships codex only once the read boundary is demonstrably closed (verified no-tools mode, OR a stronger sandbox/container exposing only stdin), so an operator with a ChatGPT/Codex subscription can distill safely.
-**Mode**: standard
-**Depends on**: Phase 21.2 (provider factory + CliCommandSpec + CLI service seam)
-**Requirements**: KB-12 (codex CLI distill backend with proven untrusted-input read isolation)
-**Success Criteria** (what must be TRUE):
-
-  1. `DECKFLOW_LLM_PROVIDER=codex` selects a codex-backed extraction via the existing factory + CliCommandSpec seam (no new arch); openai + claude paths unchanged
-  2. The codex spawn provably cannot read arbitrary local files under a malicious transcript — demonstrated by a documented isolation mechanism (verified codex no-tools/limited mode OR container/namespace with only stdin visible) AND a test/manual proof that an injection-style transcript cannot exfiltrate a sentinel file
-  3. codex stdout parsing (final-message-only, no envelope) + the same JSON-repair/ValidateTags/timeout/ledger-bypass guarantees as the claude backend; documented WSL + Windows invocations
-  4. Live codex distill over the UAT db emits valid artifacts + spend=0 run record; E5/E6 human sample passes
-
-**Plans**: TBD
-
 ### Phase 22: Content KB Site Integration
 
 **Goal**: The site surfaces the distilled Content KB — a slim index table materialized on Render Postgres for browse/filter, the prompt artifacts served (committed-in-repo or uploaded to `/data`), behind a feature flag — inheriting Phase 18's responsive admin shell and the Phase 16 modal primitive.
@@ -386,6 +371,15 @@ Plans:
 **Pre-allocated for ship-gate:** A `999.x` test-hardening backlog phase MAY be inserted before milestone-ship per `no-ship-failing-tests` rule (R-5) if any residual failures surface.
 
 ## Backlog
+
+### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01)
+
+**Goal:** Add the `codex` provider to the Phase 21.2 distill backend factory, with a PROVEN tool/read-isolation boundary for untrusted transcript input. codex `exec` is an agent and `--sandbox read-only` blocks writes but not reads, so a prompt-injected transcript could read+echo local files; ship codex only once the read boundary is demonstrably closed (verified no-tools mode, OR a sandbox/container exposing only stdin). claude backend (Phase 21.2) already covers the subscription-distill use case, so codex is a nice-to-have second provider — low priority.
+**Requirements:** KB-12 (codex CLI distill backend with proven untrusted-input read isolation)
+**Depends on:** Phase 21.2 (provider factory + CliCommandSpec + CLI service seam — shipped)
+**Plans:** 0 plans
+
+Acceptance when promoted: `DECKFLOW_LLM_PROVIDER=codex` works via the existing factory/CliCommandSpec seam (no new arch; openai+claude unchanged); the codex spawn provably cannot read arbitrary local files under a malicious transcript (documented isolation + sentinel-file exfil test); same JSON-repair/ValidateTags/timeout/ledger-bypass guarantees; live codex distill over the UAT db emits valid artifacts + spend=0; E5/E6 human sample passes. Promote via `/gsd-phase` (renumber) when prioritized.
 
 ### edhtop16 Filter Defaults vs DeckFlow Filter Defaults (BACKLOG — unnumbered, was 999.3 before collision with active Packet Download Session Cache phase; renumber when promoted)
 
