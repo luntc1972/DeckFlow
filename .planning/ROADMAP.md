@@ -257,24 +257,39 @@ Plans:
 
 ### Phase 21.2: Pluggable LLM Distill CLI Backends (INSERTED)
 
-**Goal**: The local distill step can drive its LLM extractions through a local AI CLI (Claude Code `claude` or Codex `codex`) instead of the OpenAI API, selected by env var — so an operator with a Claude/ChatGPT subscription runs the full Content KB distill (summary/clips/tags) with NO OpenAI API key or billing, from either a WSL or Windows shell. OpenAI API stays the default backend (no regression). Unblocks the Phase 21.1 live-UAT gate by removing the API-billing dependency (the original gate hit HTTP 429 insufficient_quota 2026-06-01).
+**Goal**: The local distill step can drive its LLM extractions through the **Claude Code (`claude`) CLI** instead of the OpenAI API, selected by env var — so an operator with a Claude subscription runs the full Content KB distill (summary/clips/tags) with NO OpenAI API key or billing, from either a WSL or Windows shell. OpenAI API stays the default backend (no regression). Unblocks the Phase 21.1 live-UAT gate by removing the API-billing dependency (the original gate hit HTTP 429 insufficient_quota 2026-06-01). **Scope note (2026-06-01, Codex round-2 review):** the `codex` backend was split out to Phase 21.3 — codex `exec` is an agent whose read-boundary under untrusted transcript input can't be cleanly proven, whereas claude's `--allowedTools ""` truly disables tools. The provider factory is built extensible (codex value → clear "not yet supported" error until 21.3).
 **Mode**: standard
 **Depends on**: Phase 21 (distill service + orchestrator + ledger seam)
-**Requirements**: KB-10 (pluggable LLM distill provider openai|claude|codex via env), KB-11 (cross-platform WSL+Windows CLI invocation + best-effort-JSON hardening + spend-ledger bypass for subscription backends)
+**Requirements**: KB-10 (pluggable LLM distill provider openai|claude via env; codex deferred to KB-12/Phase 21.3), KB-11 (cross-platform WSL+Windows CLI invocation + best-effort-JSON hardening + spend-ledger bypass for subscription backends)
 **Success Criteria** (what must be TRUE):
 
-  1. `DECKFLOW_LLM_PROVIDER` env (`openai` default | `claude` | `codex`) selects the distill backend via a factory mirroring `TranscriptProviderFactory`; unset = OpenAI, behavior byte-identical to current (no regression, existing distill tests green)
-  2. A CLI-backed `ILlmDistillationService` shells to the configured command, produces all 3 extractions (summary/clips/tags), and parses+repairs best-effort JSON (fence-strip, result-envelope unwrap, brace-match, shape-validate, retry ×N) — CLIs give no Structured-Outputs guarantee
-  3. CLI command + args are env-configurable so the same build runs the backend from a WSL shell (linux `claude`/`codex` on PATH) OR a Windows shell (`claude.cmd`/`.exe`); both invocations documented
-  4. When provider ≠ openai, `LlmSpendLedger` cap-gate + token-pricing are bypassed (subscription = no per-token cost); run record still written with spend=0; `DECKFLOW_LLM_MONTHLY_CAP_USD` governs only the openai backend
-  5. Live distill over the 10-video UAT db via a CLI backend emits valid artifacts (Phase 19 spec) + slim-index rows; E5/E6 human sample passes — this run satisfies the Phase 21.1 gate
-  6. Unit tests cover provider-factory selection, JSON-repair on dirty output, and the ledger-bypass branch via a fake-process seam (no real CLI spawned in tests)
+  1. `DECKFLOW_LLM_PROVIDER` env (`openai` default | `claude`) selects the distill backend via a factory mirroring `TranscriptProviderFactory`; unset = OpenAI, behavior byte-identical to current (no regression, existing distill tests green); `codex` value throws a clear NotSupportedException pointing to Phase 21.3
+  2. A CLI-backed `ILlmDistillationService` (claude) shells via `ProcessStartInfo.ArgumentList` (instruction+schema = a CLI **argument** with `--allowedTools ""`; transcript = stdin), produces all 3 extractions, and parses+repairs best-effort JSON (fence-strip → `.result` envelope unwrap → quote/escape-aware balanced-object scan → shape-validate incl. ValidateTags-in-retry, retry ×2) — claude gives no Structured-Outputs guarantee
+  3. CLI command is env-configurable (`DECKFLOW_LLM_CLI_COMMAND` with an `{instruction}` placeholder so the override can position the arg) so the same build runs from a WSL shell OR a Windows shell; BOTH invocations documented with EXACT commands incl. the Windows-`dotnet.exe`-from-WSL hard case
+  4. When provider ≠ openai, `LlmSpendLedger` cap-gate AND pricing math (`ComputeProjectedVideoCostUsd`/`ComputeProjectedCallCostUsd`/`ComputeCostUsd`) are bypassed (subscription = no per-token cost); run record still written with spend=0 + LLM call-count; `DECKFLOW_LLM_MONTHLY_CAP_USD` governs only the openai backend
+  5. Live distill over the 10-video UAT db via the claude backend emits valid artifacts (Phase 19 spec) + slim-index rows; E5/E6 human sample passes — this run satisfies the Phase 21.1 gate
+  6. Per-extraction timeout + `Kill(entireProcessTree:true)` enforced INSIDE the service (caller `CancellationToken.None` cannot hang); deadlock-safe pipe handling (concurrent stdout/stderr reads started before stdin write); bounded secret-safe logging; all covered by unit tests via a fake-process seam (no real CLI spawned)
 
 **Plans**: 2 plans
 Plans:
 
-- [ ] 21.2-01-PLAN.md — Shared prompt extraction (D-01a, automated byte-identical guard) + LlmDistillationProviderFactory + CliCommandSpec/CliLlmDistillationService (ArgumentList spawn, in-service timeout+Kill(tree), codex isolation, balanced-object JSON repair, ValidateTags-in-retry, zero token usage) + unit tests (KB-10, KB-11)
-- [ ] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + conditional pricing math + dry-run) + WSL/Windows/dotnet.exe-from-WSL ops doc + live 10-video CLI-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
+- [ ] 21.2-01-PLAN.md — Shared prompt extraction (D-01a, automated byte-identical guard) + LlmDistillationProviderFactory (openai|claude; codex→21.3 error) + CliCommandSpec/CliLlmDistillationService (claude; ArgumentList spawn, {instruction} placeholder override, in-service timeout+Kill(tree), deadlock-safe pipes, balanced-object JSON repair, ValidateTags-in-retry, bounded logging, zero token usage) + unit tests (KB-10, KB-11)
+- [ ] 21.2-02-PLAN.md — Wire factory into RunDistillAsync + isSubscriptionProvider ledger bypass (4 cap-gates + conditional pricing math + dry-run) + WSL/Windows/dotnet.exe-from-WSL ops doc + live 10-video claude-distill UAT clearing the Phase 21.1 gate (KB-10, KB-11)
+
+### Phase 21.3: Codex Distill Backend (INSERTED — deferred from 21.2)
+
+**Goal**: Add the `codex` provider to the Phase 21.2 distill backend factory, with a PROVEN tool/read-isolation boundary for untrusted transcript input — codex `exec` is an agent and `--sandbox read-only` blocks writes but not reads, so a prompt-injected transcript could read+echo local files. This phase ships codex only once the read boundary is demonstrably closed (verified no-tools mode, OR a stronger sandbox/container exposing only stdin), so an operator with a ChatGPT/Codex subscription can distill safely.
+**Mode**: standard
+**Depends on**: Phase 21.2 (provider factory + CliCommandSpec + CLI service seam)
+**Requirements**: KB-12 (codex CLI distill backend with proven untrusted-input read isolation)
+**Success Criteria** (what must be TRUE):
+
+  1. `DECKFLOW_LLM_PROVIDER=codex` selects a codex-backed extraction via the existing factory + CliCommandSpec seam (no new arch); openai + claude paths unchanged
+  2. The codex spawn provably cannot read arbitrary local files under a malicious transcript — demonstrated by a documented isolation mechanism (verified codex no-tools/limited mode OR container/namespace with only stdin visible) AND a test/manual proof that an injection-style transcript cannot exfiltrate a sentinel file
+  3. codex stdout parsing (final-message-only, no envelope) + the same JSON-repair/ValidateTags/timeout/ledger-bypass guarantees as the claude backend; documented WSL + Windows invocations
+  4. Live codex distill over the UAT db emits valid artifacts + spend=0 run record; E5/E6 human sample passes
+
+**Plans**: TBD
 
 ### Phase 22: Content KB Site Integration
 
