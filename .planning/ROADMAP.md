@@ -297,7 +297,7 @@ Plans:
 - [ ] 22-03-PLAN.md — Public surface: flag-gated browse (published-only hub-card grid + client-side facets + empty states) + artifact detail (Markdig + path-guarded serving + Copy-for-ChatGPT) + startup curation-preserving seed load + conditional nav (KB-08, KB-09)
 - [ ] 22-04-PLAN.md — Admin curation grid (.admin-shell): per-entry + per-source publish/hide + flag toggle + index status + reload-from-seed; every mutating POST double-CSRF-guarded; 375px scoped CSS (KB-09)
 
-**Waves:** W1 = {22-01}; W2 = {22-02, 22-03}; W3 = {22-04}
+**Waves:** W1 = {22-01}; W2 = {22-02}; W3 = {22-03}; W4 = {22-04} — sequential after 22-REVIEWS HIGH-1 (artifact-base + seed data dependency; 02→03 no longer parallel)
 **UI hint**: yes
 
 ### Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn
