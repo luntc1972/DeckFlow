@@ -1,43 +1,41 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-01T23:02:55.795Z",
+  "timestamp": "2026-06-02T17:36:04.257Z",
   "phase": "22",
   "phase_name": "content-kb-site-integration",
   "phase_dir": ".planning/phases/22-content-kb-site-integration",
-  "plan": 0,
-  "task": 0,
-  "total_tasks": 0,
+  "plan": 4,
+  "task": 3,
+  "total_tasks": 4,
   "status": "paused",
   "completed_tasks": [
-    {"id": "replan-r1", "name": "Replan phase 22 from Codex BLOCK (7 HIGH + 5 MED) — 4 plans revised, 4 sequential waves", "status": "done", "commit": "5ce24dc"},
-    {"id": "gate-close", "name": "Close decision-coverage gate (D-03/04/05 citations) + state/roadmap gates", "status": "done", "commit": "1705038"},
-    {"id": "review-r2", "name": "Codex re-review round 2 — BLOCK, 2 HIGH (Docker-delivery-checkpoint-only, app.Environment)", "status": "done", "commit": "c138582"},
-    {"id": "replan-r3", "name": "Replan round 3 — close 2 HIGH + 3 MED + 1 LOW (Plan02 4-task restructure, builder.Environment, D-22F subtree guard, Id=0, Index-generated label, jq->json-key)", "status": "done", "commit": "691bd0d"},
-    {"id": "review-r3", "name": "Codex re-review round 3 — verdict READY-TO-EXECUTE (1 new LOW: jq absent->dotnet assertion)", "status": "done", "commit": "95c864f"},
-    {"id": "state-refresh", "name": "Resume: refresh stale STATE.md + retire obsolete 21.1 HANDOFF/continue-here checkpoints", "status": "done", "commit": "9fcdfec"}
+    {"id": "22-01", "name": "visibility data layer (is_visible + preserving upsert + flag seed + tests)", "status": "done", "commit": "4e6462a"},
+    {"id": "22-01-doc", "name": "XML doc on IsVisible (review fix)", "status": "done", "commit": "a956101"},
+    {"id": "22-02", "name": "CLI content-index-export + seed + Docker delivery (protected-file edits approved)", "status": "done", "commit": "1d6ddd2"},
+    {"id": "22-03", "name": "public browse/detail + resolver + seed loader + nav (Codex impl)", "status": "done", "commit": "e8ebcf6"},
+    {"id": "22-04", "name": "admin curation + AdminFlags.Toggle CSRF fix (Claude impl)", "status": "done", "commit": "b6be9bc"},
+    {"id": "22-tests", "name": "web-layer unit tests (32, all green)", "status": "done", "commit": "13f61a2"}
   ],
   "remaining_tasks": [
-    {"id": "exec-22", "name": "Execute Phase 22: 4 plans, 4 sequential waves 22-01 -> 22-02 -> 22-03 -> 22-04 (Codex implements, Claude reviews)", "status": "not_started"},
-    {"id": "push", "name": "Push 7 unpushed v1.4 planning/review commits to origin", "status": "not_started"},
-    {"id": "phase-23", "name": "Phase 23 (doc-comment backfill + strip NoWarn) — last v1.4 phase, depends on 22", "status": "not_started"}
+    {"id": "22-03-T4", "name": "Public UAT: 503-when-off, browse/facets, detail copy frontmatter-strip, 375px, 404 hidden/missing", "status": "not_started"},
+    {"id": "22-04-T3", "name": "Admin UAT: curation round-trip, CSRF-negative on all 4 POSTs, reload-preserves-curation, honest timestamp, 375px", "status": "not_started"},
+    {"id": "roadmap-flip", "name": "Flip ROADMAP phase 22 to [x] after UAT approved", "status": "not_started"},
+    {"id": "push", "name": "Push 23 commits to origin/v1.4 (backup)", "status": "not_started"}
   ],
-  "blockers": [],
+  "blockers": [
+    {"description": "2 blocking human-UAT checkpoints require a user-started dev server (do NOT auto-launch per MEMORY)", "type": "human_action", "workaround": "none — phase cannot close without UAT"}
+  ],
   "human_actions_pending": [
-    {"action": "Approve Plan 02 Task 3 protected-file edits during execution (.dockerignore + Dockerfile + .gitignore)", "context": "Task 3 is autonomous:false; edits pre-authorized for phase 22 by commit 7d8b82b; gates on operator confirm before Codex performs them", "blocking": false},
-    {"action": "Push branch v1.4 to origin when ready", "context": "7 commits ahead of origin/v1.4 (phase-22 planning + 3 review rounds + state refresh); none pushed", "blocking": false}
+    {"action": "Start dev server (! scripts/run-web.sh) and run the 11-step UAT for 22-03 + 22-04", "context": "Both Wave 3/4 plans end in blocking human-verify checkpoints; flag content.kb.enabled defaults OFF", "blocking": true}
   ],
   "decisions": [
-    {"decision": "Phase 22 plans converged after 3 Codex review rounds; verdict READY-TO-EXECUTE", "rationale": "BLOCK(7H/5M) -> BLOCK(2H/3M) -> READY; all HIGH closed + verified vs repo", "phase": "22"},
-    {"decision": "Did NOT auto-advance to execute despite auto_advance=true", "rationale": "--reviews replans exist to satisfy block-on-HIGH; per CLAUDE.md plans route back to Codex before execute", "phase": "22"},
-    {"decision": "Locked D-22A..F", "rationale": "A=artifact_path content-kb/{slug}/{id}.md; B=ordered-candidate base resolver (builder.Environment); C={id:long} route; D=Index-generated label; E=CSRF 4/4/4 on AdminFlagsController.Toggle; F=content-kb/ subtree path-traversal guard", "phase": "22"}
+    {"decision": "Forced all 4 plans through Codex cross-AI (no per-plan cross_ai frontmatter)", "rationale": "config cross_ai_execution=true + CLAUDE.md Codex-codes rule + continue-here line 69/82", "phase": "22"},
+    {"decision": "Plan 22-04 implemented by Claude, not Codex", "rationale": "user override 'cancel codex and you finish coding' (Codex had already finished 22-03 before cancel)", "phase": "22"},
+    {"decision": "Added content-kb-admin.ts beyond plan allowed_files", "rationale": "CSP script-src 'self' blocks inline scripts; reload-modal + two-click Hide-All confirm require a compiled module", "phase": "22"},
+    {"decision": "Compiled wwwroot/js NOT committed", "rationale": ".gitignore:13 ignores js; Docker compiles TS at build (CompileTypeScriptAssets + dotnet publish); .ts is source of truth", "phase": "22"},
+    {"decision": "Web-layer tests written by Claude (not Codex)", "rationale": "continuation of the same 'you finish coding' override; user chose 'Claude writes all now'", "phase": "22"}
   ],
-  "uncommitted_files": [
-    ".planning/todos/pending/admincss-phase1-tests-stale.md (deleted; pre-existed this session)",
-    ".claude/ (untracked; pre-existed)",
-    ".planning/phases/19-content-kb-foundation-local-schema-contracts/19-PATTERNS.md (untracked; pre-existed)",
-    ".planning/phases/27-deck-cache-content-hash-dedup-5-day-refresh/27-RESEARCH.md (untracked; pre-existed)",
-    ".planning/todos/completed/ (untracked; pre-existed)"
-  ],
-  "next_action": "/clear then /gsd-execute-phase 22. Codex implements / Claude reviews. EXECUTION HEADS-UP: (1) Plan 02 Task 3 autonomous:false protected-file gate; (2) seed-safety acceptance gate written as jq but jq is NOT installed in WSL -> executor must use the dotnet-run assertion the plan permits.",
-  "context_notes": "Branch v1.4, 7 ahead of origin (unpushed). Phases 19/20/21 [x] shipped; 22 planned+ready; 23 [ ] depends on 22. No code written this session — pure planning/review convergence (Claude planner + Codex reviewer). Full per-round detail in 22-REVIEWS.md (now round-3 READY) and memory project_phase22_replanned. The lone live-execution gotcha is the jq->dotnet substitution on Plan 02's seed gate."
+  "uncommitted_files": [],
+  "next_action": "Ask user to start dev server, then run the 11-step UAT (public 22-03 + admin 22-04). On 'approved': flip ROADMAP phase 22 to [x] and update STATE. Offer to push the 23 commits.",
+  "context_notes": "Phase 22 is CODE-COMPLETE + TESTED. 25 commits on v1.4 (679b0df..25fe892), 23 ahead of origin, none pushed. Whole-solution build clean; Web.Tests 528/0, Core 257/0 (1 earlier WSL-VSTest flake, 3x green on retry). All locked decisions D-22A..F honored; KB-08/KB-09 closed; HIGH-4 CSRF gap closed (AdminFlags.Toggle now double-guarded, combined 4/4/4). jq absent in WSL — used dotnet/grep assertions throughout. Nothing left to CODE; only UAT + roadmap flip + optional push remain. Phase 23 (doc-comment backfill + strip NoWarn) is the last v1.4 phase, depends on 22."
 }
