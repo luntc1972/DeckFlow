@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 status: executing
-stopped_at: "Phase 22 CODE-COMPLETE all 4 plans (679b0df..b6be9bc). Plans 01/02/03 Codex-impl+Claude-review; Plan 04 Claude-impl (user override 'cancel codex and you finish coding') + cavecrew-review (no issues). Whole-sln build clean, CSRF 4/4/4, no theme bleed. BLOCKING: 2 human-UAT checkpoints pending — 22-03 Task4 (public browse/detail/copy/375px) + 22-04 Task3 (admin curation round-trip/CSRF-negative/reload-preserves/375px). Needs user-started dev server (do NOT auto-launch). content.kb.enabled stays OFF in prod until post-UAT flip. Deviation: added content-kb-admin.ts (CSP script-src 'self' blocks inline; not in plan allowed_files — see 22-04-SUMMARY). Web-layer unit tests added (Claude, commit 13f61a2): 32 new tests — Detail subtree guards (T-22-08/09/D-22F), AdminFlags.Toggle + admin POST same-origin CSRF (HIGH-4), parser/resolver/seed-loader/status. Web.Tests 528/0 pass, Core 257/0 (1 earlier WSL-VSTest flake, 3x green on retry). Branch v1.4 well ahead of origin (unpushed)."
-last_updated: "2026-06-02T17:30:00.000Z"
-last_activity: 2026-06-02 -- Phase 22 code-complete + web tests added (4/4 plans), pending 2 UAT checkpoints
+stopped_at: "Phase 22 COMPLETE — both human-UAT checkpoints PASSED 2026-06-02 (22-03 Task4 public browse/detail/copy/375px + 22-04 Task3 admin curation round-trip/CSRF-negative 4/4/reload-preserves/375px). All 4 plans (679b0df..b6be9bc); Plans 01/02/03 Codex-impl+Claude-review, Plan 04 Claude-impl (user override) + cavecrew-review. Web.Tests 528/0, Core 257/0. ROADMAP flipped [x], status table 4/4 Complete. REMAINING USER ACTION: flip content.kb.enabled ON in PRODUCTION via live /Admin/Flags on www.deckflow.gg (DB-backed flag, not env — cannot be done from here). Phase 23 (doc-comment backfill Part 2 + strip NoWarn) now unblocked — LAST v1.4 phase."
+last_updated: "2026-06-02T23:32:00.000Z"
+last_activity: 2026-06-02 -- Phase 22 UAT passed (both checkpoints), phase closed; pending prod flag flip + Phase 23
 progress:
   total_phases: 12
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 26
   completed_plans: 25
-  percent: 71
+  percent: 75
 ---
 
 ## Deferred Items
