@@ -2,7 +2,6 @@
 bin/
 obj/
 artifacts/
-content-kb/
 *.user
 *.suo
 *.log
