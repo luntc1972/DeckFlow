@@ -173,6 +173,11 @@ public partial class Program
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
+            builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
+                new DeckFlow.Core.Content.ContentSiteIndexStore(
+                    DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
+            builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
+            builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
             builder.Services.AddDeckFlowHarvest(builder.Environment);
@@ -421,6 +426,11 @@ public partial class Program
             }
 
             await ValidateDatabaseConnectionsAsync(app.Services, app.Environment, app.Logger);
+            app.Logger.LogInformation("Ensuring content site-index schema during startup.");
+            await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
+            await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
+            app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
+
             app.Logger.LogInformation("Ensuring harvest store schemas during startup.");
             await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestScheduleStore>().EnsureSchemaAsync();
