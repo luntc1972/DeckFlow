@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-02T17:36:04.257Z",
+  "timestamp": "2026-06-02T18:20:21.314Z",
   "phase": "22",
   "phase_name": "content-kb-site-integration",
   "phase_dir": ".planning/phases/22-content-kb-site-integration",
@@ -20,7 +20,7 @@
     {"id": "22-03-T4", "name": "Public UAT: 503-when-off, browse/facets, detail copy frontmatter-strip, 375px, 404 hidden/missing", "status": "not_started"},
     {"id": "22-04-T3", "name": "Admin UAT: curation round-trip, CSRF-negative on all 4 POSTs, reload-preserves-curation, honest timestamp, 375px", "status": "not_started"},
     {"id": "roadmap-flip", "name": "Flip ROADMAP phase 22 to [x] after UAT approved", "status": "not_started"},
-    {"id": "push", "name": "Push 23 commits to origin/v1.4 (backup)", "status": "not_started"}
+    {"id": "push", "name": "Push 24 commits to origin/v1.4 (backup)", "status": "done"}
   ],
   "blockers": [
     {"description": "2 blocking human-UAT checkpoints require a user-started dev server (do NOT auto-launch per MEMORY)", "type": "human_action", "workaround": "none — phase cannot close without UAT"}
@@ -36,6 +36,6 @@
     {"decision": "Web-layer tests written by Claude (not Codex)", "rationale": "continuation of the same 'you finish coding' override; user chose 'Claude writes all now'", "phase": "22"}
   ],
   "uncommitted_files": [],
-  "next_action": "Ask user to start dev server, then run the 11-step UAT (public 22-03 + admin 22-04). On 'approved': flip ROADMAP phase 22 to [x] and update STATE. Offer to push the 23 commits.",
-  "context_notes": "Phase 22 is CODE-COMPLETE + TESTED. 25 commits on v1.4 (679b0df..25fe892), 23 ahead of origin, none pushed. Whole-solution build clean; Web.Tests 528/0, Core 257/0 (1 earlier WSL-VSTest flake, 3x green on retry). All locked decisions D-22A..F honored; KB-08/KB-09 closed; HIGH-4 CSRF gap closed (AdminFlags.Toggle now double-guarded, combined 4/4/4). jq absent in WSL — used dotnet/grep assertions throughout. Nothing left to CODE; only UAT + roadmap flip + optional push remain. Phase 23 (doc-comment backfill + strip NoWarn) is the last v1.4 phase, depends on 22."
+  "next_action": "Ask user to start dev server, then run the 11-step UAT (public 22-03 + admin 22-04). On 'approved': flip ROADMAP phase 22 to [x] and update STATE.",
+  "context_notes": "Phase 22 is CODE-COMPLETE + TESTED + PUSHED. All commits on v1.4 pushed to origin (b923ffc, 0 unpushed — backup safe). Whole-solution build clean; Web.Tests 528/0, Core 257/0 (1 earlier WSL-VSTest flake, 3x green on retry). All locked decisions D-22A..F honored; KB-08/KB-09 closed; HIGH-4 CSRF gap closed (AdminFlags.Toggle now double-guarded, combined 4/4/4). jq absent in WSL — used dotnet/grep assertions throughout. Nothing left to CODE; only UAT + roadmap flip remain. content.kb.enabled stays OFF in prod until post-UAT flip. Phase 23 (doc-comment backfill + strip NoWarn) is the last v1.4 phase, depends on 22."
 }
