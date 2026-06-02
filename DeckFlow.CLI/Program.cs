@@ -73,6 +73,9 @@ var distillCommand = new Command("distill", "Distill harvested transcripts into 
 var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
 var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Description = "Estimate projected spend over pending videos and process nothing." };
+var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
+var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(Path.Combine("content-kb", "seed", "index-seed.json"))) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -116,6 +119,8 @@ harvestCommand.AddOption(harvestEnableWhisperOption);
 distillCommand.AddOption(distillDbOption);
 distillCommand.AddOption(distillLimitOption);
 distillCommand.AddOption(distillDryRunOption);
+contentIndexExportCommand.AddOption(contentIndexExportDbOption);
+contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -166,6 +171,7 @@ rootCommand.AddCommand(contentSourceAddCommand);
 rootCommand.AddCommand(contentSourceSetEnabledCommand);
 rootCommand.AddCommand(harvestCommand);
 rootCommand.AddCommand(distillCommand);
+rootCommand.AddCommand(contentIndexExportCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -232,6 +238,11 @@ distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun) =>
 {
     Environment.ExitCode = CommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, distillDbOption, distillLimitOption, distillDryRunOption);
+
+contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
+{
+    Environment.ExitCode = CommandRunners.RunContentIndexExportAsync(db, output).GetAwaiter().GetResult();
+}, contentIndexExportDbOption, contentIndexExportOutputOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;

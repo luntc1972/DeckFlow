@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Diffing;
@@ -508,6 +509,42 @@ internal static class CommandRunners
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.Error(exception, "Content KB distill failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Exports the local Content KB site index to a JSON seed file.
+    /// </summary>
+    /// <param name="db">Optional path to the content KB database.</param>
+    /// <param name="output">Optional destination path for the seed file.</param>
+    /// <returns>Process exit code.</returns>
+    public static async Task<int> RunContentIndexExportAsync(FileInfo? db, FileInfo? output)
+    {
+        try
+        {
+            var dbPath = ResolveContentKbDatabasePath(db);
+            var indexStore = new ContentSiteIndexStore(dbPath);
+            await indexStore.EnsureSchemaAsync().ConfigureAwait(false);
+            var rows = await indexStore.GetAllRowsAsync().ConfigureAwait(false);
+            var exportRows = rows.Select(ContentIndexExportRow.From).ToList();
+            var outputPath = output?.FullName ?? Path.Combine("content-kb", "seed", "index-seed.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? Directory.GetCurrentDirectory());
+
+            var json = JsonSerializer.Serialize(
+                exportRows,
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = true,
+                });
+            await File.WriteAllTextAsync(outputPath, json + "\n").ConfigureAwait(false);
+            Console.WriteLine($"Exported {exportRows.Count} rows to {outputPath}");
+            return 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
             Console.Error.WriteLine(exception.Message);
             return 1;
         }
@@ -1515,6 +1552,66 @@ internal static class CommandRunners
         var dbDirectory = Path.GetDirectoryName(Path.GetFullPath(dbPath))
             ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
         return Path.Combine(dbDirectory, "content-kb");
+    }
+
+    private sealed record ContentIndexExportRow
+    {
+        public required string NaturalKeyType { get; init; }
+
+        public required string NaturalKeyValue { get; init; }
+
+        public required string Source { get; init; }
+
+        public required string Title { get; init; }
+
+        public required string VideoUrl { get; init; }
+
+        public required string ArtifactPath { get; init; }
+
+        public DateTimeOffset? PublishedUtc { get; init; }
+
+        public required DateTimeOffset IndexedUtc { get; init; }
+
+        public required IReadOnlyList<string> ArchetypeTags { get; init; }
+
+        public required IReadOnlyList<string> BracketTags { get; init; }
+
+        public required IReadOnlyList<string> CardCategoryTags { get; init; }
+
+        public static ContentIndexExportRow From(ContentSiteIndexRow row)
+        {
+            var (naturalKeyType, naturalKeyValue) = GetNaturalKey(row);
+
+            return new ContentIndexExportRow
+            {
+                NaturalKeyType = naturalKeyType,
+                NaturalKeyValue = naturalKeyValue,
+                Source = row.Source,
+                Title = row.Title,
+                VideoUrl = row.VideoUrl,
+                ArtifactPath = row.ArtifactPath,
+                PublishedUtc = row.PublishedUtc,
+                IndexedUtc = row.IndexedUtc,
+                ArchetypeTags = row.ArchetypeTags,
+                BracketTags = row.BracketTags,
+                CardCategoryTags = row.CardCategoryTags,
+            };
+        }
+
+        private static (string NaturalKeyType, string NaturalKeyValue) GetNaturalKey(ContentSiteIndexRow row)
+        {
+            if (!string.IsNullOrWhiteSpace(row.YoutubeVideoId))
+            {
+                return (ContentSourceType.Youtube, row.YoutubeVideoId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(row.RssGuid))
+            {
+                return (ContentSourceType.Podcast, row.RssGuid);
+            }
+
+            throw new InvalidOperationException($"Content site-index row {row.Id} has no natural key.");
+        }
     }
 
     private static bool IsValidContentSourceType(string type)
