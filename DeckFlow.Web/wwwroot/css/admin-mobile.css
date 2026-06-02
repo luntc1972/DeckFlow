@@ -168,3 +168,14 @@
     white-space: nowrap;
   }
 }
+
+/* === Phase 22 — Content KB Admin (card-stack deltas) === */
+@media (max-width: 768px) {
+  /* In card-stack the title is its own row — let it wrap instead of ellipsis-clipping. */
+  .admin-shell .admin-table--card .admin-kb-title {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    max-width: none;
+  }
+}
