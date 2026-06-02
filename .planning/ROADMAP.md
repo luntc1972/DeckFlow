@@ -97,7 +97,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [x] **Phase 19: Content KB Foundation — Local Schema + Contracts** — local-harvester SQLite schema (sources/videos/transcripts/spend-log/runs) + `DeckFlow.Core` distill models + AI-prompt artifact file-format spec + slim site-index schema contract; zero outbound HTTP *(re-scoped 2026-05-26: local-harvester model)* — *exec #3* (completed 2026-05-26)
 - [x] **Phase 20: Content KB Ingestion + Transcription (local)** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) fallback + plain local spend-log cap check; named HttpClients + Polly pipelines, run locally — *exec #4* (UAT passed 2026-05-27: 5-channel harvest, 10/10 captions; per-source failure isolation + opt-in Whisper added; Whisper fallback path not yet exercised live)
 - [x] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
-- [ ] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
+- [x] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
 - [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
 - [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
 - [x] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26* (completed 2026-05-26)
@@ -383,7 +383,7 @@ Plans:
 | 19. Content KB Foundation — Local Schema + Contracts | 4/4 | Complete    | 2026-05-26 |
 | 20. Content KB Outbound HTTP Services | 4/4 | Complete   | 2026-05-27 |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
-| 22. Content KB Site Integration | 0/4 | Planned | - |
+| 22. Content KB Site Integration | 4/4 | Complete | 2026-06-02 |
 | 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
 | 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete    | 2026-05-25 |
