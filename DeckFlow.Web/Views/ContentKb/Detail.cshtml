@@ -1,0 +1,48 @@
+@model ContentKbDetailViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<nav class="help-breadcrumb" aria-label="Breadcrumb">
+    <a href="@Url.Content("~/content-kb")">Knowledge Base</a>
+    <span aria-hidden="true">/</span>
+    <span>@Model.Title</span>
+</nav>
+
+<header>
+    <h1>@Model.Title</h1>
+    <p class="hub-card__description">
+        Source:
+        <a href="@Model.SourceUrl" target="_blank" rel="noopener noreferrer">@Model.SourceName</a>
+        <span aria-hidden="true"> · </span>
+        @Model.PublishedDisplay
+        <span aria-hidden="true"> · </span>
+        @Model.Bracket
+        <span aria-hidden="true"> · </span>
+        @Model.Archetype
+    </p>
+</header>
+
+<article class="help-prose kb-artifact-prose">
+    @if (Model.ArtifactUnavailable)
+    {
+        <p>This entry's prompt artifact is temporarily unavailable.</p>
+    }
+    else
+    {
+        <div class="chatgpt-sticky-download" role="region" aria-label="Copy artifact">
+            <button type="button"
+                    class="copy-button run-button"
+                    data-copy-target="kb-artifact-text"
+                    aria-label="Copy this artifact for ChatGPT">
+                Copy for ChatGPT
+            </button>
+        </div>
+        <textarea id="kb-artifact-text" readonly hidden>@Model.CleanBodyText</textarea>
+        @Model.RenderedHtml
+    }
+</article>
+
+@section Scripts {
+    <script src="~/js/content-kb.js" asp-append-version="true"></script>
+}
