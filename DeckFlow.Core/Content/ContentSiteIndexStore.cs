@@ -105,6 +105,40 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    public async Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
+        ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
+        ArgumentNullException.ThrowIfNull(row.BracketTags);
+        ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
+
+        var naturalKey = GetNaturalKey(row);
+        ValidateArtifactPath(row.ArtifactPath);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = UpsertPreservingVisibilitySql;
+        RelationalDatabaseConnection.AddParameter(command, "@source", row.Source);
+        RelationalDatabaseConnection.AddParameter(command, "@title", row.Title);
+        RelationalDatabaseConnection.AddParameter(command, "@videoUrl", row.VideoUrl);
+        RelationalDatabaseConnection.AddParameter(command, "@artifactPath", row.ArtifactPath);
+        RelationalDatabaseConnection.AddParameter(command, "@publishedUtc", FormatTimestamp(row.PublishedUtc));
+        RelationalDatabaseConnection.AddParameter(command, "@indexedUtc", FormatTimestamp(row.IndexedUtc));
+        RelationalDatabaseConnection.AddParameter(command, "@archetypeTags", ContentArtifactSpec.SerializeTags(row.ArchetypeTags));
+        RelationalDatabaseConnection.AddParameter(command, "@bracketTags", ContentArtifactSpec.SerializeTags(row.BracketTags));
+        RelationalDatabaseConnection.AddParameter(command, "@cardCategoryTags", ContentArtifactSpec.SerializeTags(row.CardCategoryTags));
+        RelationalDatabaseConnection.AddParameter(command, "@naturalKeyType", naturalKey.Type);
+        RelationalDatabaseConnection.AddParameter(command, "@naturalKeyValue", naturalKey.Value);
+        RelationalDatabaseConnection.AddParameter(command, "@isVisible", FormatVisibility(false));
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(
         string naturalKeyType,
         string naturalKeyValue,
@@ -128,7 +162,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    bracket_tags,
                    card_category_tags,
                    natural_key_type,
-                   natural_key_value
+                   natural_key_value,
+                   is_visible
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
@@ -145,8 +180,153 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         return ReadRow(reader);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id,
+                   source,
+                   title,
+                   video_url,
+                   artifact_path,
+                   published_utc,
+                   indexed_utc,
+                   archetype_tags,
+                   bracket_tags,
+                   card_category_tags,
+                   natural_key_type,
+                   natural_key_value,
+                   is_visible
+              FROM content_site_index
+             WHERE is_visible = @visible
+             ORDER BY source, title, id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(true));
+
+        return await ReadRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id,
+                   source,
+                   title,
+                   video_url,
+                   artifact_path,
+                   published_utc,
+                   indexed_utc,
+                   archetype_tags,
+                   bracket_tags,
+                   card_category_tags,
+                   natural_key_type,
+                   natural_key_value,
+                   is_visible
+              FROM content_site_index
+             ORDER BY source, title, id;
+            """;
+
+        return await ReadRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id,
+                   source,
+                   title,
+                   video_url,
+                   artifact_path,
+                   published_utc,
+                   indexed_utc,
+                   archetype_tags,
+                   bracket_tags,
+                   card_category_tags,
+                   natural_key_type,
+                   natural_key_value,
+                   is_visible
+              FROM content_site_index
+             WHERE id = @id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return ReadRow(reader);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE content_site_index
+               SET is_visible = @visible
+             WHERE id = @id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(visible));
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE content_site_index
+               SET is_visible = @visible
+             WHERE source = @source;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(visible));
+        RelationalDatabaseConnection.AddParameter(command, "@source", source);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+    private static async Task<IReadOnlyList<ContentSiteIndexRow>> ReadRowsAsync(
+        DbCommand command,
+        CancellationToken cancellationToken)
+    {
+        var rows = new List<ContentSiteIndexRow>();
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add(ReadRow(reader));
+        }
+
+        return rows;
+    }
 
     private async Task<IReadOnlySet<string>> GetTableColumnsAsync(
         DbConnection connection,
@@ -203,6 +383,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             ? value.Value.UtcDateTime
             : value.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
     }
+
+    private object FormatVisibility(bool visible)
+        => _connectionInfo.IsPostgres ? visible : visible ? 1 : 0;
 
     private static (string Type, string Value) GetNaturalKey(ContentSiteIndexRow row)
     {
@@ -271,7 +454,22 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             BracketTags = ContentArtifactSpec.DeserializeTags(reader.GetString(8)),
             CardCategoryTags = ContentArtifactSpec.DeserializeTags(reader.GetString(9)),
             YoutubeVideoId = youtubeVideoId,
-            RssGuid = rssGuid
+            RssGuid = rssGuid,
+            IsVisible = ReadVisibility(reader, 12)
+        };
+    }
+
+    private static bool ReadVisibility(DbDataReader reader, int ordinal)
+    {
+        var raw = reader.GetValue(ordinal);
+        return raw switch
+        {
+            bool b => b,
+            long l => l != 0,
+            int i => i != 0,
+            short s => s != 0,
+            string text => text == "1" || string.Equals(text, "true", StringComparison.OrdinalIgnoreCase),
+            _ => Convert.ToInt64(raw, CultureInfo.InvariantCulture) != 0
         };
     }
 
@@ -312,6 +510,45 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @cardCategoryTags,
           @naturalKeyType,
           @naturalKeyValue)
+        ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
+          source             = EXCLUDED.source,
+          title              = EXCLUDED.title,
+          video_url          = EXCLUDED.video_url,
+          artifact_path      = EXCLUDED.artifact_path,
+          published_utc      = EXCLUDED.published_utc,
+          indexed_utc        = EXCLUDED.indexed_utc,
+          archetype_tags     = EXCLUDED.archetype_tags,
+          bracket_tags       = EXCLUDED.bracket_tags,
+          card_category_tags = EXCLUDED.card_category_tags;
+        """;
+
+    private const string UpsertPreservingVisibilitySql = """
+        INSERT INTO content_site_index (
+          source,
+          title,
+          video_url,
+          artifact_path,
+          published_utc,
+          indexed_utc,
+          archetype_tags,
+          bracket_tags,
+          card_category_tags,
+          natural_key_type,
+          natural_key_value,
+          is_visible)
+        VALUES (
+          @source,
+          @title,
+          @videoUrl,
+          @artifactPath,
+          @publishedUtc,
+          @indexedUtc,
+          @archetypeTags,
+          @bracketTags,
+          @cardCategoryTags,
+          @naturalKeyType,
+          @naturalKeyValue,
+          @isVisible)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,

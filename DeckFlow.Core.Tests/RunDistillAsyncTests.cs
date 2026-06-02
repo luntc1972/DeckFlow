@@ -613,11 +613,90 @@ public sealed class RunDistillAsyncTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+        {
+            var index = Rows.FindIndex(existing => MatchesNaturalKey(existing, row));
+            if (index < 0)
+            {
+                Rows.Add(row with { IsVisible = false });
+                return Task.CompletedTask;
+            }
+
+            Rows[index] = row with
+            {
+                Id = Rows[index].Id,
+                IsVisible = Rows[index].IsVisible
+            };
+            return Task.CompletedTask;
+        }
+
         public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(
             string naturalKeyType,
             string naturalKeyValue,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(Rows.FirstOrDefault(row => row.YoutubeVideoId == naturalKeyValue || row.RssGuid == naturalKeyValue));
+            => Task.FromResult(Rows.FirstOrDefault(row => MatchesNaturalKey(row, naturalKeyType, naturalKeyValue)));
+
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(row => row.IsVisible).ToArray());
+
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows);
+
+        public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+            => Task.FromResult(Rows.FirstOrDefault(row => row.Id == id));
+
+        public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
+        {
+            var count = 0;
+            for (var i = 0; i < Rows.Count; i++)
+            {
+                if (Rows[i].Id != id)
+                {
+                    continue;
+                }
+
+                Rows[i] = Rows[i] with { IsVisible = visible };
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
+        public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
+        {
+            var count = 0;
+            for (var i = 0; i < Rows.Count; i++)
+            {
+                if (!string.Equals(Rows[i].Source, source, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Rows[i] = Rows[i] with { IsVisible = visible };
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
+        private static bool MatchesNaturalKey(ContentSiteIndexRow left, ContentSiteIndexRow right)
+            => MatchesNaturalKey(left, ContentSourceType.Youtube, right.YoutubeVideoId)
+               || MatchesNaturalKey(left, ContentSourceType.Podcast, right.RssGuid);
+
+        private static bool MatchesNaturalKey(ContentSiteIndexRow row, string naturalKeyType, string? naturalKeyValue)
+        {
+            if (string.IsNullOrWhiteSpace(naturalKeyValue))
+            {
+                return false;
+            }
+
+            return naturalKeyType switch
+            {
+                ContentSourceType.Youtube => string.Equals(row.YoutubeVideoId, naturalKeyValue, StringComparison.Ordinal),
+                ContentSourceType.Podcast => string.Equals(row.RssGuid, naturalKeyValue, StringComparison.Ordinal),
+                _ => false
+            };
+        }
     }
 
     private sealed class FakeContentHarvestRunStore : IContentHarvestRunStore
