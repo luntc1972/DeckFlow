@@ -1,28 +1,40 @@
 ---
 phase: 22-content-kb-site-integration
 plan: 02
-task_scope: task-1-only
-subsystem: content-kb-cli-seed
-tags: [content-kb, cli, seed-json]
+task_scope: tasks-1-and-3-complete
+subsystem: content-kb-cli-seed-and-runtime-delivery
+tags: [content-kb, cli, seed-json, docker-runtime]
 
 requires: [22-01]
 provides:
   - content-index-export CLI verb
-  - RunContentIndexExportAsync using the CLI/Core ContentSiteIndexStore layer
   - committed content-kb/seed/index-seed.json with 10 index-only rows
-affects: [content-kb-seed-loader, content-kb-public-browse]
+  - tracked content-kb/{source-slug}/{video_id}.md publish artifacts
+  - Dockerfile runtime COPY delivery to /app/content-kb
+affects: [content-kb-seed-loader, content-kb-public-browse, render-runtime-image]
 
 tech-stack:
   added: []
-  patterns: [CLI/Core store composition, whitelist JSON export DTO, committed seed artifact]
+  patterns: [CLI/Core store composition, whitelist JSON export DTO, commit-then-deploy content publish, Dockerfile runtime COPY]
 
 key-files:
   created:
-    - content-kb/seed/index-seed.json
-    - .planning/phases/22-content-kb-site-integration/22-02-SUMMARY.md
+    - content-kb/README.md
+    - content-kb/edhrecast/ZSfzhBcLM9Q.md
+    - content-kb/edhrecast/zkAmYkIOx98.md
+    - content-kb/mtggoldfish/OihCV9qvCrk.md
+    - content-kb/mtggoldfish/mDmI-gypvGw.md
+    - content-kb/playing-with-power/Bq-nFi0f1jA.md
+    - content-kb/playing-with-power/J-QU1G0ZQg0.md
+    - content-kb/the-command-zone/f8782tCIwmk.md
+    - content-kb/the-command-zone/s_B1wCIWGR0.md
+    - content-kb/tolarian-community-college/SMxRbH11oiM.md
+    - content-kb/tolarian-community-college/smOZcfAHjpQ.md
   modified:
-    - DeckFlow.CLI/Program.cs
-    - DeckFlow.CLI/CommandRunners.cs
+    - .gitignore
+    - .dockerignore
+    - Dockerfile
+    - .planning/phases/22-content-kb-site-integration/22-02-SUMMARY.md
 
 requirements-completed: [KB-08]
 completed: 2026-06-02
@@ -32,31 +44,32 @@ completed: 2026-06-02
 
 ## Scope
 
-Task 1 only was implemented. Tasks 2-4 remain pending behind the human-approval checkpoint; no `.gitignore`, `.dockerignore`, `Dockerfile`, `content-kb/README.md`, or `content-kb/{source-slug}/` artifact-copy edits were made.
+Task 1 was already implemented and committed before this run. Task 3 was implemented after the operator approved the protected-file edits for `.gitignore`, `.dockerignore`, and `Dockerfile`. Tasks 2 and 4 remain human checkpoints.
+
+No `DeckFlow.CLI/*`, `.cs`, or `content-kb/seed/*` files were changed during Task 3.
 
 ## What Built
 
-- Added the `content-index-export` CLI verb with `--db` and `--output`.
-- Added `RunContentIndexExportAsync(FileInfo? db, FileInfo? output)` using `ResolveContentKbDatabasePath(db)` and `new ContentSiteIndexStore(dbPath)`.
-- Export rows are serialized through a whitelist DTO containing only `naturalKeyType`, `naturalKeyValue`, `source`, `title`, `videoUrl`, `artifactPath`, `publishedUtc`, `indexedUtc`, `archetypeTags`, `bracketTags`, and `cardCategoryTags`.
-- Added `content-kb/seed/index-seed.json` from the 10 existing artifact frontmatters under `artifacts/content-kb/**`. The source artifacts had no `publishedUtc` frontmatter field, so the seed uses `null` for `publishedUtc`.
+- Removed the `.gitignore` rule that ignored `content-kb/`, while leaving `artifacts/` ignored.
+- Added `.dockerignore` negations after the blanket `*.md` exclusion so `content-kb/` markdown remains in the Docker build context.
+- Added `COPY content-kb/ ./content-kb/` immediately after `COPY --from=build /app/publish .` in the runtime stage.
+- Copied the 10 seed-declared markdown artifacts from `artifacts/content-kb/**` into tracked `content-kb/{source-slug}/{video_id}.md` paths.
+- Added `content-kb/README.md` documenting the commit-then-deploy flow: run `content-index-export`, copy `artifacts/content-kb/*` into `content-kb/*`, commit, deploy.
 
 ## Delivery Decisions Recorded
 
-- Delivery route for later tasks: Dockerfile explicit `COPY content-kb/ ./content-kb/`.
+- Delivery route: Dockerfile explicit `COPY content-kb/ ./content-kb/`.
 - Realized runtime artifact directory: `/app/content-kb`.
-- Resolver base for Plan 03: `ContentRootPath`; seed `artifactPath` values keep the `content-kb/` prefix.
-- Docker image `ls /app/content-kb` verification did not run in Task 1 because Task 3 delivery edits are still blocked by the human checkpoint.
+- Plan 03 resolver base: `ContentRootPath`; seed `artifactPath` values keep the `content-kb/` prefix, so resolving from `/app` yields `/app/content-kb/{source-slug}/{video_id}.md`.
+- Docker image `ls /app/content-kb` verification was not run here. It is deferred to Task 4 / deploy; Docker is unavailable in this WSL distro.
 
 ## Verification
 
-- Pre-change red check: `dotnet run --project DeckFlow.CLI/DeckFlow.CLI.csproj -- --help | rg "content-index-export"` exited 1 before implementation.
-- CLI build: `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.CLI/DeckFlow.CLI.csproj -c Debug` passed with 0 warnings and 0 errors.
-- Green command check: `dotnet run --project DeckFlow.CLI/DeckFlow.CLI.csproj -- --help | rg "content-index-export"` found the new verb.
-- Runner grep: `RunContentIndexExportAsync` uses `ResolveContentKbDatabasePath(db)` and `new ContentSiteIndexStore(dbPath)`.
-- Web-layer exclusion grep: no `DeckFlowDatabaseConnectionFactory` or `IWebHostEnvironment` references in `DeckFlow.CLI/Program.cs` or `DeckFlow.CLI/CommandRunners.cs`.
-- Seed assertion: .NET 10 file-based C# check with `System.Text.Json` passed, confirming 10 objects, no forbidden keys (`transcript`, `audio`, `spend`, `isVisible`, `is_visible`), only allowed keys, and every `artifactPath` starts with `content-kb/`.
-
-## Pending Checkpoint
-
-Task 2 must still obtain human approval before Task 3 touches `.gitignore`, `.dockerignore`, `Dockerfile`, copies markdown artifacts into `content-kb/{source-slug}/`, or adds `content-kb/README.md`.
+- `grep -c '^content-kb/' .gitignore` -> `0`.
+- `git check-ignore artifacts/content-kb/edhrecast` -> `artifacts/content-kb/edhrecast`.
+- `git check-ignore content-kb/seed/index-seed.json` -> no output.
+- `grep -nA3 '^\*\.md' .dockerignore | grep -c 'content-kb'` -> `3`.
+- `grep -c 'COPY content-kb' Dockerfile` -> `1`.
+- Seed-declared artifact path check: `seed_paths=10`, `missing=0`; copied markdown count under `content-kb/{slug}/` = `10`.
+- Protected-file diff review: `.gitignore` has only the approved `content-kb/` removal; `.dockerignore` has only the three approved negation insertions; `Dockerfile` has only the approved runtime `COPY content-kb/ ./content-kb/` insertion.
+- `git diff --cached --check -- .gitignore .dockerignore Dockerfile content-kb/README.md .planning/phases/22-content-kb-site-integration/22-02-SUMMARY.md` exited `0`.
