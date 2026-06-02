@@ -132,6 +132,7 @@ public sealed record ContentSiteIndexRow
     /// <summary>UTC timestamp when the index row was generated.</summary>
     public required DateTimeOffset IndexedUtc { get; init; }
 
+    /// <summary>Whether this row is published to the public Content KB surface; <see langword="false"/> (hidden) by default until an admin curates it visible.</summary>
     public bool IsVisible { get; init; }
 
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
