@@ -53,6 +53,16 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
+            var columns = await GetTableColumnsAsync(connection, "content_site_index", cancellationToken).ConfigureAwait(false);
+            if (!columns.Contains("is_visible"))
+            {
+                await using var addVisible = connection.CreateCommand();
+                addVisible.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT FALSE;"
+                    : "ALTER TABLE content_site_index ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 0;";
+                await addVisible.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             _schemaReady = true;
         }
         finally
@@ -137,6 +147,50 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+    private async Task<IReadOnlySet<string>> GetTableColumnsAsync(
+        DbConnection connection,
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (_connectionInfo.IsSqlite)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info({tableName});";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (!reader.IsDBNull(1))
+                {
+                    columns.Add(reader.GetString(1));
+                }
+            }
+
+            return columns;
+        }
+
+        var pgCommand = connection.CreateCommand();
+        pgCommand.CommandText = """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = @tableName
+            ORDER BY ordinal_position;
+            """;
+        RelationalDatabaseConnection.AddParameter(pgCommand, "@tableName", tableName);
+        await using var pgReader = await pgCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await pgReader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (!pgReader.IsDBNull(0))
+            {
+                columns.Add(pgReader.GetString(0));
+            }
+        }
+
+        return columns;
+    }
 
     private object FormatTimestamp(DateTimeOffset? value)
     {
@@ -284,6 +338,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags TEXT NOT NULL DEFAULT '[]',
           natural_key_type   TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')),
           natural_key_value  TEXT NOT NULL,
+          is_visible         BOOLEAN NOT NULL DEFAULT FALSE,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -302,6 +357,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags TEXT NOT NULL DEFAULT '[]',
           natural_key_type   TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')),
           natural_key_value  TEXT NOT NULL,
+          is_visible         INTEGER NOT NULL DEFAULT 0,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;

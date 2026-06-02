@@ -132,6 +132,8 @@ public sealed record ContentSiteIndexRow
     /// <summary>UTC timestamp when the index row was generated.</summary>
     public required DateTimeOffset IndexedUtc { get; init; }
 
+    public bool IsVisible { get; init; }
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 
