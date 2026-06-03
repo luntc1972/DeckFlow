@@ -18,6 +18,7 @@ public interface IEdhTop16Client
     /// <param name="minEventSize">Minimum tournament size to include.</param>
     /// <param name="maxStanding">Highest allowed final standing; null leaves standing unbounded.</param>
     /// <param name="count">Maximum number of entries to return.</param>
+    /// <param name="cancellationToken">Token used to cancel the EDH Top 16 request.</param>
     /// <returns>A read-only list of EDH Top 16 entry rows for the commander.</returns>
     Task<IReadOnlyList<EdhTop16Entry>> SearchCommanderEntriesAsync(
         string commanderName,
@@ -62,6 +63,11 @@ public sealed class EdhTop16Client : IEdhTop16Client
 
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse>> _executeAsync;
 
+    /// <summary>
+    /// Initializes the EDH Top 16 client with optional HTTP execution overrides for tests.
+    /// </summary>
+    /// <param name="restClient">Optional RestSharp client used instead of the default endpoint client.</param>
+    /// <param name="executeAsync">Optional request executor used by tests to bypass live HTTP.</param>
     public EdhTop16Client(RestClient? restClient = null, Func<RestRequest, CancellationToken, Task<RestResponse>>? executeAsync = null)
     {
         var client = restClient ?? new RestClient(new RestClientOptions(Endpoint));

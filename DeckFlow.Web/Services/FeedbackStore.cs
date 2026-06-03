@@ -13,11 +13,19 @@ public sealed class FeedbackStore : IFeedbackStore
     private volatile bool _schemaReady;
     private string? _ipSalt;
 
+    /// <summary>
+    /// Initializes the feedback store using a SQLite database path.
+    /// </summary>
+    /// <param name="databasePath">Path to the SQLite feedback database.</param>
     public FeedbackStore(string databasePath)
         : this(RelationalDatabaseConnection.FromSqlitePath(databasePath))
     {
     }
 
+    /// <summary>
+    /// Initializes the feedback store using a resolved relational database connection.
+    /// </summary>
+    /// <param name="connectionInfo">Database provider and connection details for feedback persistence.</param>
     public FeedbackStore(RelationalDatabaseConnection connectionInfo)
     {
         _connectionInfo = connectionInfo;
@@ -31,6 +39,10 @@ public sealed class FeedbackStore : IFeedbackStore
         }
     }
 
+    /// <summary>
+    /// Initializes the feedback store from the web host environment configuration.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve feedback database settings.</param>
     public FeedbackStore(IWebHostEnvironment environment)
         : this(DeckFlowDatabaseConnectionFactory.CreateFeedbackConnection(environment))
     {
