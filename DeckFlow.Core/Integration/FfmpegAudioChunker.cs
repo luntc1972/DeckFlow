@@ -8,7 +8,6 @@ namespace DeckFlow.Core.Integration;
 public sealed class FfmpegAudioChunker : IFfmpegAudioChunker
 {
     private const string FfmpegExecutable = "ffmpeg";
-    private const int ErrorTailLength = 800;
 
     /// <inheritdoc />
     public async Task<bool> IsAvailableAsync(CancellationToken ct = default)
@@ -73,7 +72,7 @@ public sealed class FfmpegAudioChunker : IFfmpegAudioChunker
 
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"ffmpeg exited with code {process.ExitCode}: {Tail(stderr)}");
+            throw new InvalidOperationException($"ffmpeg exited with code {process.ExitCode}: {ProcessOutput.Tail(stderr)}");
         }
 
         return Directory.GetFiles(outputDirectory, "chunk_*" + extension)
@@ -83,14 +82,4 @@ public sealed class FfmpegAudioChunker : IFfmpegAudioChunker
 
     internal static string BuildSegmentArguments(string inputPath, string outputPattern, int segmentSeconds)
         => $"-i \"{inputPath}\" -f segment -segment_time {segmentSeconds} -c copy -reset_timestamps 1 \"{outputPattern}\"";
-
-    private static string Tail(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text) || text.Length <= ErrorTailLength)
-        {
-            return text;
-        }
-
-        return text[^ErrorTailLength..];
-    }
 }

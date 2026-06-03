@@ -16,9 +16,6 @@ public sealed class LlmDistillationService : ILlmDistillationService
     private const int SummaryMaxOutputTokens = 400;
     private const int ClipsMaxOutputTokens = 1200;
     private const int TagsMaxOutputTokens = 200;
-    private const int SummaryMaxWords = 200;
-    private const int MinClipCount = 3;
-    private const int MaxClipCount = 8;
     private const string OpenAiApiKeyEnvironmentKey = "OPENAI_API_KEY";
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -60,7 +57,7 @@ public sealed class LlmDistillationService : ILlmDistillationService
             DistillationSchemas.SummarySchema,
             SummaryMaxOutputTokens,
             cancellationToken).ConfigureAwait(false);
-        ValidateSummary(extracted.Payload.Summary);
+        DistillationValidation.ValidateSummary(extracted.Payload.Summary);
 
         return new SummaryResult(extracted.Payload.Summary, extracted.Usage);
     }
@@ -79,7 +76,7 @@ public sealed class LlmDistillationService : ILlmDistillationService
             DistillationSchemas.ClipsSchema,
             ClipsMaxOutputTokens,
             cancellationToken).ConfigureAwait(false);
-        ValidateClips(extracted.Payload.Clips);
+        DistillationValidation.ValidateClips(extracted.Payload.Clips);
 
         return new ClipsResult(extracted.Payload.Clips, extracted.Usage);
     }
@@ -206,36 +203,4 @@ public sealed class LlmDistillationService : ILlmDistillationService
         return apiKey;
     }
 
-    private static void ValidateSummary(string summary)
-    {
-        if (CountWords(summary) > SummaryMaxWords)
-        {
-            throw new InvalidOperationException("Summary exceeded the 200-word limit.");
-        }
-    }
-
-    private static int CountWords(string text)
-        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-
-    private static void ValidateClips(IReadOnlyList<ClipItem> clips)
-    {
-        if (clips.Count is < MinClipCount or > MaxClipCount)
-        {
-            throw new InvalidOperationException("Clip extraction must return 3 to 8 clips.");
-        }
-
-        if (clips.Any(clip => clip.TimestampSeconds < 0))
-        {
-            throw new InvalidOperationException("Clip timestamps cannot be negative.");
-        }
-    }
-
-    private sealed record SummaryPayload(string Summary);
-
-    private sealed record ClipsPayload(IReadOnlyList<ClipItem> Clips);
-
-    private sealed record TagsPayload(
-        IReadOnlyList<string> Archetype,
-        IReadOnlyList<string> Bracket,
-        IReadOnlyList<string> CardCategory);
 }
