@@ -5,7 +5,7 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and AI deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall and Commander Spellbook references.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, distills MTG content videos into a browsable knowledge base, and exposes CLI/web tools for diffs, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and AI deck-analysis, cEDH meta-gap, and deck-comparison prompts.
 
 ## User Feedback
 
@@ -17,11 +17,11 @@ An admin page at `/Admin/Feedback` displays submissions with filters for status 
 
 Set these environment variables (via `fly secrets set ...` on Fly.io or the Render env var UI):
 
-- `FEEDBACK_ADMIN_USER` — basic auth username for `/Admin/Feedback`.
+- `FEEDBACK_ADMIN_USER` — basic auth username for all `/Admin/*` pages.
 - `FEEDBACK_ADMIN_PASSWORD` — basic auth password.
 - `FEEDBACK_IP_SALT` (optional) — salt for hashing submitter IPs. If unset, a random 32-byte salt is generated on first run and persisted in the feedback metadata table.
 
-If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedback` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
+Basic auth covers the whole admin shell: Dashboard (`/Admin`), Feedback, Flags, Harvest, Analytics, Content KB curation, and YouTube Export. If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/*` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
 
 Public submissions are rate-limited to 5 per hour per IP.
 
@@ -130,7 +130,7 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
 - `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
-- `DeckFlow.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
+- `DeckFlow.CLI` exposes deck comparison, category harvesting, cache querying, and the local Content KB pipeline (source management, transcript harvest, LLM distillation, site-index export) in a console tool.
 
 ### What's new in v1.3
 - **AI-agnostic workflow URLs (v1.3 / Phase 12):** `/chatgpt-deck-analysis`, `/chatgpt-deck-comparison`, and `/chatgpt-cedh-meta-gap` now 301-redirect to `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`; page H1s, nav labels, hub labels, and artifact zip filenames use AI-agnostic wording.
@@ -139,6 +139,17 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - **Truncated AI response inline errors (v1.3 / Phase 999.4):** Truncated JSON pasted into the response textarea on Deck Analysis, Deck Comparison, or cEDH Meta-Gap now renders the inline workflow message "The pasted response appears truncated — wait for the AI to finish generating before copying, then re-submit." instead of a generic error page with a raw stack trace.
 - **Test hardening and semantic guards (v1.3 / Phase 999.5):** Four pre-existing test failures were fixed, `DeckComparisonService.ParseComparisonResponse` and `MetaGapService.ParseResponse` now reject valid JSON with no meaningful Deck Comparison or Meta-Gap content, and redundant ChatGPT `<result>` prompt directives were removed from five ChatGPT prompt variants.
 - **Harvest job lookup fix (v1.3 / Phase 999.6):** `IHarvestRunStore.GetByIdAsync(Guid id, CancellationToken ct = default)` lets `ArchidektCacheJobService.GetJob(jobId)` return completed and terminal harvest job states using provider-specific Guid binding for SQLite and Postgres.
+
+### What's new in v1.4
+- **Content Knowledge Base (Phases 19-22):** a local CLI pipeline harvests YouTube captions (Whisper fallback with monthly spend caps), distills each video into a markdown prompt artifact (≤200-word summary, 3-8 timestamped clips, controlled-vocabulary tags) via OpenAI **or** the `claude` CLI ($0 subscription path), and publishes a slim index to the site. The public `/content-kb` browse/detail pages are gated behind the `content.kb.enabled` feature flag; admins curate which entries are visible per entry or per source. See the Content Knowledge Base section below.
+- **Category cache rebuild (Phases 24/26/27):** integer-keyed star schema (hot commander aggregate went from a 69s timeout to 0.66ms), read-time `CategoryFilter` fix so colorless staples like Sol Ring always return categories, and content-hash dedup with a 5-day refresh on deck writes.
+- **Admin mobile + tooling (Phases 16/18/25):** the admin shell is mobile-responsive (≥320px, ≥44px touch targets), the harvested-decks view is a server-side paged commander grid, and destructive admin actions use a native focus-trapped `<dialog>` confirm modal.
+- **Doc-warning gate (Phases 17/23):** every public type and member in `DeckFlow.Web` carries XML doc-comments; the `NoWarn 1591;1573;1587` suppression was removed and the warning gate is live, scoped to `DeckFlow.Web/**`.
+- **Removed:** the user-triggered "Run 5-Minute Archidekt Harvest" button on Category Suggestions — harvesting is driven by the background hosted service.
+
+### What's new in v1.5 (in progress)
+- **CLI `--video-ids`:** `harvest` and `distill` accept a comma-separated list of YouTube video ids (plus `--source-id` to disambiguate the target source) to process exactly those videos instead of the most-recent walk.
+- **Admin YouTube Export:** `/Admin/YoutubeExport` downloads a channel's upload list (title, view count, upload date, URL) as a text file or CSV, walking the full uploads playlist up to 500 videos.
 - The Deck Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
 - The cEDH Meta Gap page compares a submitted deck against 1 to 3 EDH Top 16 reference lists for the same commander, resolves canonical card names through Scryfall, injects Commander Spellbook combo references, generates a structured `meta_gap` AI prompt, and renders the returned JSON as a readable upgrade path.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
@@ -524,18 +535,45 @@ Current behavior:
 - `ScryfallTagger` returns oracle-tag style suggestions from Scryfall Tagger.
 - `All` combines the cached-store path and tagger path, with EDHREC as a fallback when no other source returns anything.
 
-The page also exposes a background Archidekt harvest button so the local category store can be refreshed while the rest of the UI remains usable.
-
 ---
 
 ## Archidekt category cache
 - Run `dotnet run --project DeckFlow.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
 - The CLI runs a dedicated cache session that respects rate limits via Polly, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
-- The web cache service reuses the same session logic for background harvests started from the MVC UI.
-- The Category Suggestions page can start a 5-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
-- Background harvest state is polled from the web app, and the start button stays disabled while the job is queued or running.
+- The background hosted service reuses the same session logic to keep the cache fresh (the user-triggered harvest button was removed in v1.4).
 - The cache session now stays alive for the requested harvest window even when the queue runs dry, and it retries transient recent-page fetch failures instead of ending the whole job early.
 - Basic card type categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are filtered out of cache suggestions.
+
+---
+
+## Content Knowledge Base
+
+DeckFlow distills MTG content-creator videos into paste-ready prompt artifacts and a browsable site index. Heavy work (transcripts, audio, LLM calls, spend ledgers) runs **locally** via the CLI against `artifacts/content-kb.db`; only a slim index and the markdown artifacts ship to the site.
+
+Local pipeline (run from the repo root):
+
+```bash
+# 1. Register a source (YouTube channel or podcast RSS)
+dotnet run --project DeckFlow.CLI -- content-source-add \
+  --url https://www.youtube.com/@salubrioussnail --name "Salubrious Snail"
+
+# 2. Harvest transcripts (captions first; --enable-whisper opts into the Whisper audio fallback)
+dotnet run --project DeckFlow.CLI -- harvest --limit 5
+#    ...or pick exact videos instead of the most-recent walk (v1.5):
+dotnet run --project DeckFlow.CLI -- harvest --video-ids "VLdny8IVXYE,IJYU_rzCcP8"
+
+# 3. Distill into artifacts + index rows (--dry-run estimates spend first)
+dotnet run --project DeckFlow.CLI -- distill --limit 5
+dotnet run --project DeckFlow.CLI -- distill --video-ids "VLdny8IVXYE"
+
+# 4. Export the index seed for commit-then-deploy
+dotnet run --project DeckFlow.CLI -- content-index-export
+```
+
+- Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 timestamped clips, and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category).
+- The distill LLM backend is selected by `DECKFLOW_LLM_PROVIDER` (`openai` default with Structured Outputs, or `claude` to shell the Claude Code CLI at $0 subscription cost). Monthly spend caps: `DECKFLOW_LLM_MONTHLY_CAP_USD` and `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15; cap-gating applies to the OpenAI/Whisper paid paths).
+- The public browse/detail pages at `/content-kb` are gated behind the `content.kb.enabled` feature flag (default OFF) and only show entries an admin published via `/Admin/ContentKb` (per-entry or per-source bulk curation; visibility survives seed reloads).
+- `/Admin/YoutubeExport` downloads a channel's upload list (title, views, upload date, URL) as text or CSV — useful for picking `--video-ids` targets.
 
 ---
 
