@@ -83,15 +83,19 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         IReadOnlyList<string> videoIds,
         CancellationToken ct)
     {
-        var videos = new List<YouTubeChannelVideo>(videoIds.Count);
-        foreach (var rawId in videoIds)
+        var parsedIds = videoIds
+            .Select(rawId => VideoId.TryParse(rawId)
+                ?? throw new ArgumentException($"Unable to parse YouTube video id: {rawId}", nameof(videoIds)))
+            .ToList();
+
+        using var gate = new SemaphoreSlim(MetadataLookupConcurrency);
+        var lookups = parsedIds.Select(async parsed =>
         {
-            var parsed = VideoId.TryParse(rawId)
-                ?? throw new ArgumentException($"Unable to parse YouTube video id: {rawId}", nameof(videoIds));
+            await gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
                 var metadata = await youtube.Videos.GetAsync(parsed, ct).ConfigureAwait(false);
-                videos.Add(new YouTubeChannelVideo
+                return new YouTubeChannelVideo
                 {
                     VideoId = metadata.Id.Value,
                     Url = metadata.Url,
@@ -99,7 +103,7 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
                     Duration = metadata.Duration,
                     PublishedUtc = metadata.UploadDate,
                     ViewCount = metadata.Engagement.ViewCount,
-                });
+                };
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -109,12 +113,22 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             {
                 // Why: a single unavailable/private video should not abort an explicit-id
                 // harvest; mirror the per-source isolation policy and omit the id.
-                continue;
+                return null;
             }
-        }
+            finally
+            {
+                gate.Release();
+            }
+        });
 
-        return videos;
+        var results = await Task.WhenAll(lookups).ConfigureAwait(false);
+        return results.Where(video => video is not null).Select(video => video!).ToList();
     }
+
+    // Why: YouTube tolerates modest parallelism and the per-video metadata lookup is the
+    // dominant cost (one call per listed video); 6-wide keeps a 100-video export under
+    // ~30s instead of minutes while staying far below abuse thresholds.
+    private const int MetadataLookupConcurrency = 6;
 
     private static async Task<IReadOnlyList<YouTubeChannelVideo>> ListWithClientAsync(
         YoutubeClient youtube,
@@ -124,17 +138,34 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
     {
         var channelId = await ResolveChannelIdAsync(youtube, channelUrl, ct).ConfigureAwait(false);
         var uploads = await youtube.Channels.GetUploadsAsync(channelId, ct).CollectAsync(limit).ConfigureAwait(false);
-        var videos = new List<YouTubeChannelVideo>(uploads.Count);
-        foreach (var upload in uploads)
-        {
-            // PlaylistVideo in YoutubeExplode 6.6.0 does not expose upload date or views;
-            // this bounded metadata lookup populates published_utc/view_count when available.
-            var (publishedUtc, viewCount) = await GetVideoStatsAsync(youtube, upload.Id, ct).ConfigureAwait(false);
-            videos.Add(MapVideo(upload, publishedUtc, viewCount));
-        }
 
-        return videos;
+        // PlaylistVideo in YoutubeExplode 6.6.0 does not expose upload date or views;
+        // this bounded parallel metadata lookup populates published_utc/view_count when available.
+        using var gate = new SemaphoreSlim(MetadataLookupConcurrency);
+        var lookups = uploads.Select(async upload =>
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var (publishedUtc, viewCount) = await GetVideoStatsAsync(youtube, upload.Id, ct).ConfigureAwait(false);
+                return MapVideo(upload, publishedUtc, viewCount);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        });
+
+        return await Task.WhenAll(lookups).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Parses a channel handle from a bare handle, an <c>@</c>-prefixed handle, or a channel URL.
+    /// </summary>
+    /// <param name="input">Operator-entered channel handle or URL.</param>
+    /// <returns>The parsed handle, or null when the input is not a handle form.</returns>
+    internal static ChannelHandle? TryParseChannelHandle(string input)
+        => ChannelHandle.TryParse(input) ?? ChannelHandle.TryParse(input.TrimStart('@'));
 
     private static async Task<ChannelId> ResolveChannelIdAsync(
         YoutubeClient youtube,
@@ -147,7 +178,7 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             return parsedId.Value;
         }
 
-        var handle = ChannelHandle.TryParse(channelUrl);
+        var handle = TryParseChannelHandle(channelUrl);
         if (handle is not null)
         {
             return (await youtube.Channels.GetByHandleAsync(handle.Value, ct).ConfigureAwait(false)).Id;
