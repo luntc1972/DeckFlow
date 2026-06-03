@@ -46,6 +46,21 @@ public sealed class DeckCategoryCacheWriterTests : IDisposable
         Assert.Equal(1, newCardTotals.TotalDeckCount);
     }
 
+    [Fact]
+    public async Task ReplaceDeckEntriesAsync_PersistsOnlyCardTypeCategory()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:TESTDECK", new[]
+        {
+            CreateEntry("Sol Ring", "Artifact")
+        });
+
+        var categories = await repository.GetCategoriesAsync("Sol Ring");
+
+        Assert.Equal(new[] { "Artifact" }, categories);
+    }
+
     private static DeckEntry CreateEntry(string cardName, string category) => new()
     {
         Name = cardName,

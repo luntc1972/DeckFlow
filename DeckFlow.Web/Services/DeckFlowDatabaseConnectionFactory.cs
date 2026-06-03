@@ -4,11 +4,18 @@ using Npgsql;
 
 namespace DeckFlow.Web.Services;
 
+/// <summary>
+/// Creates relational database handles for DeckFlow stores, choosing SQLite artifacts by default or Postgres from environment configuration while small operational stores share the feedback database.
+/// </summary>
 public static class DeckFlowDatabaseConnectionFactory
 {
     private const string DatabaseProviderEnvVar = "DECKFLOW_DATABASE_PROVIDER";
     private const string DatabaseConnectionStringEnvVar = "DECKFLOW_DATABASE_CONNECTION_STRING";
 
+    /// <summary>
+    /// Returns the relational connection used by feedback persistence.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve local artifact paths.</param>
     public static RelationalDatabaseConnection CreateFeedbackConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "feedback.db");
 
@@ -39,8 +46,30 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateHarvestStateConnection(IWebHostEnvironment environment)
         => CreateFeedbackConnection(environment);
 
+    /// <summary>
+    /// Returns the relational connection used by the category knowledge cache.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve local artifact paths.</param>
     public static RelationalDatabaseConnection CreateCategoryKnowledgeConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "category-knowledge.db");
+
+    /// <summary>
+    /// Returns the always-SQLite Content KB connection, ignoring the provider environment because transcripts,
+    /// audio, and spend data are local-only and must never be uploaded to Render (D-14).
+    /// </summary>
+    public static RelationalDatabaseConnection CreateLocalContentKbConnection(IWebHostEnvironment environment)
+    {
+        var artifactsPath = ResolveArtifactsPath(environment);
+        Directory.CreateDirectory(artifactsPath);
+        return RelationalDatabaseConnection.FromSqlitePath(Path.Combine(artifactsPath, "content-kb.db"));
+    }
+
+    /// <summary>
+    /// Returns the provider-aware content site-index connection, the only Render-bound content shape for the
+    /// slim index (D-12/D-14).
+    /// </summary>
+    public static RelationalDatabaseConnection CreateContentSiteIndexConnection(IWebHostEnvironment environment)
+        => CreateConnection(environment, "content-site-index.db");
 
     private static RelationalDatabaseConnection CreateConnection(IWebHostEnvironment environment, string sqliteFileName)
     {

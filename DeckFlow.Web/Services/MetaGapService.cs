@@ -204,6 +204,7 @@ public sealed class MetaGapService : IMetaGapService
         return PacketSessionCache.ComputeKey(inputs);
     }
 
+    /// <inheritdoc/>
     public async Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -236,18 +237,16 @@ public sealed class MetaGapService : IMetaGapService
         var fetchedEntries = TryUseFetchedEntriesOverride(request);
         if (fetchedEntries is null)
         {
-            fetchedEntries = (await _edhTop16Client.SearchCommanderEntriesAsync(
-                resolvedCommanderName,
-                request.TimePeriod,
-                request.SortBy,
-                request.MinEventSize,
-                request.MaxStanding,
-                FetchCount,
-                cancellationToken).ConfigureAwait(false))
-                .OrderByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
-                .ThenBy(entry => entry.Standing)
-                .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            fetchedEntries = OrderEntries(
+                await _edhTop16Client.SearchCommanderEntriesAsync(
+                    resolvedCommanderName,
+                    request.TimePeriod,
+                    request.SortBy,
+                    request.MinEventSize,
+                    request.MaxStanding,
+                    FetchCount,
+                    cancellationToken).ConfigureAwait(false),
+                request.SortBy);
         }
 
         if (fetchedEntries.Count == 0)
@@ -527,6 +526,24 @@ public sealed class MetaGapService : IMetaGapService
             return _archidektParser.ParseText(normalizedDeckSource);
         }
     }
+
+    // Why: the displayed reference order must honor the user's "Sort by" choice.
+    // Previously every fetch was re-sorted newest-first regardless of SortBy, so
+    // the TOP/NEW dropdown changed nothing visible. TOP = best finish first
+    // (lowest Standing), win-rate as tiebreak; NEW = most recent tournament first.
+    private static List<EdhTop16Entry> OrderEntries(IEnumerable<EdhTop16Entry> entries, CedhMetaSortBy sortBy) =>
+        sortBy == CedhMetaSortBy.TOP
+            ? entries
+                .OrderBy(entry => entry.Standing)
+                .ThenByDescending(entry => entry.WinRate)
+                .ThenByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
+                .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : entries
+                .OrderByDescending(entry => entry.TournamentDate ?? DateOnly.MinValue)
+                .ThenBy(entry => entry.Standing)
+                .ThenBy(entry => entry.PlayerName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
     private static string BuildInputSummary(
         LoadedDeck loadedDeck,

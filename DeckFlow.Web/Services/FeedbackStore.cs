@@ -5,6 +5,7 @@ using DeckFlow.Web.Security;
 
 namespace DeckFlow.Web.Services;
 
+/// <inheritdoc/>
 public sealed class FeedbackStore : IFeedbackStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -12,11 +13,19 @@ public sealed class FeedbackStore : IFeedbackStore
     private volatile bool _schemaReady;
     private string? _ipSalt;
 
+    /// <summary>
+    /// Initializes the feedback store using a SQLite database path.
+    /// </summary>
+    /// <param name="databasePath">Path to the SQLite feedback database.</param>
     public FeedbackStore(string databasePath)
         : this(RelationalDatabaseConnection.FromSqlitePath(databasePath))
     {
     }
 
+    /// <summary>
+    /// Initializes the feedback store using a resolved relational database connection.
+    /// </summary>
+    /// <param name="connectionInfo">Database provider and connection details for feedback persistence.</param>
     public FeedbackStore(RelationalDatabaseConnection connectionInfo)
     {
         _connectionInfo = connectionInfo;
@@ -30,11 +39,16 @@ public sealed class FeedbackStore : IFeedbackStore
         }
     }
 
+    /// <summary>
+    /// Initializes the feedback store from the web host environment configuration.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve feedback database settings.</param>
     public FeedbackStore(IWebHostEnvironment environment)
         : this(DeckFlowDatabaseConnectionFactory.CreateFeedbackConnection(environment))
     {
     }
 
+    /// <inheritdoc/>
     public async Task<long> AddAsync(FeedbackSubmission submission, FeedbackRequestContext context, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(submission);
@@ -60,6 +74,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return Convert.ToInt64(idObj);
     }
 
+    /// <inheritdoc/>
     public async Task<FeedbackItem?> GetAsync(long id, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -78,6 +93,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return ReadItem(reader);
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<FeedbackItem>> ListAsync(FeedbackListQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
@@ -109,6 +125,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return results;
     }
 
+    /// <inheritdoc/>
     public async Task<int> CountAsync(FeedbackStatus? status, FeedbackType? type, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -120,6 +137,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return Convert.ToInt32(result);
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyDictionary<FeedbackStatus, int>> CountsByStatusAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -145,6 +163,7 @@ public sealed class FeedbackStore : IFeedbackStore
         return map;
     }
 
+    /// <inheritdoc/>
     public async Task UpdateStatusAsync(long id, FeedbackStatus status, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -156,6 +175,7 @@ public sealed class FeedbackStore : IFeedbackStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -166,6 +186,7 @@ public sealed class FeedbackStore : IFeedbackStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public string HashIp(string? ip) => HashIpInternal(ip) ?? string.Empty;
 
     private string? HashIpInternal(string? ip)
@@ -268,7 +289,7 @@ public sealed class FeedbackStore : IFeedbackStore
                     );
                     """;
                 create.CommandText = create.CommandText
-                    .Replace("__ID_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackIdColumnType, StringComparison.Ordinal)
+                    .Replace("__ID_COLUMN_TYPE__", _connectionInfo.Dialect.SurrogateIdColumnType, StringComparison.Ordinal)
                     .Replace("__CREATED_UTC_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackCreatedUtcColumnType, StringComparison.Ordinal);
                 await create.ExecuteNonQueryAsync(cancellationToken);
             }

@@ -1,0 +1,13 @@
+@* Singleton admin confirm-dialog DOM template.
+   Populated at runtime by admin-modal.ts via textContent.
+   Consumers: AdminFeedback Detail v1.4 Phase 1; future Phase 7 ContentSources delete reuse. *@
+<dialog id="admin-confirm-modal" class="admin-modal" aria-labelledby="admin-modal-title" aria-describedby="admin-modal-message">
+    <div class="admin-modal__panel">
+        <p id="admin-modal-title" class="admin-modal__title"></p>
+        <p id="admin-modal-message" class="admin-modal__message"></p>
+        <div class="admin-modal__actions">
+            <button type="button" class="admin-modal__button admin-modal__button--cancel" value="cancel" data-admin-modal-cancel autofocus>Cancel</button>
+            <button type="button" class="admin-modal__button admin-modal__button--confirm" value="confirm" data-admin-modal-confirm>Confirm</button>
+        </div>
+    </div>
+</dialog>

@@ -2,5 +2,22 @@
     ViewData["Title"] = "Admin";
 }
 <section class="admin-landing">
-    <p>Pick a section from the sidebar.</p>
+    <div class="admin-hub-grid">
+        <a class="admin-hub-card" href="@Url.Content("~/Admin/Feedback")">
+            <h2 class="admin-hub-card__title">Feedback</h2>
+            <p class="admin-hub-card__description">Review and triage user-submitted feedback and bug reports.</p>
+        </a>
+        <a class="admin-hub-card" href="@Url.Content("~/Admin/Flags")">
+            <h2 class="admin-hub-card__title">Flags</h2>
+            <p class="admin-hub-card__description">Toggle feature flags on and off.</p>
+        </a>
+        <a class="admin-hub-card" href="@Url.Content("~/Admin/Harvest")">
+            <h2 class="admin-hub-card__title">Harvest</h2>
+            <p class="admin-hub-card__description">Run and monitor deck-knowledge harvest jobs and view stats.</p>
+        </a>
+        <a class="admin-hub-card" href="@Url.Content("~/Admin/Analytics")">
+            <h2 class="admin-hub-card__title">Analytics</h2>
+            <p class="admin-hub-card__description">Page-view and traffic analytics over time.</p>
+        </a>
+    </div>
 </section>

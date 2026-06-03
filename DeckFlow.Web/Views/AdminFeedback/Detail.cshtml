@@ -36,11 +36,18 @@
                 <button type="submit">Archive</button>
             </form>
         }
-        @* Deferred: inline onsubmit confirm() retained per Phase 11 D-05; v1.4 will replace with a styled focus-trapped modal. See .planning/quick/260513-wdg-web-design-guidelines-audit-findings/260513-wdg-FINDINGS.md finding D + BB. *@
-        <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" class="admin-action-form"
-              onsubmit="return confirm('Delete feedback #@Model.Id permanently?');">
+        <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete"
+              class="admin-action-form" data-admin-confirm-delete data-admin-feedback-id="@Model.Id">
             @Html.AntiForgeryToken()
             <button type="submit" class="danger">Delete</button>
         </form>
     </div>
+
+    @await Html.PartialAsync("_AdminConfirmModal")
 </section>
+
+@section Scripts
+{
+    <script src="~/js/admin-modal.js" asp-append-version="true"></script>
+    <script src="~/js/admin-feedback.js" asp-append-version="true"></script>
+}

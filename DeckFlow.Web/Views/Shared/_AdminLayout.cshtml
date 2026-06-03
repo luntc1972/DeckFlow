@@ -10,20 +10,31 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @* theme-color must be a literal; mirror --bg (#0f172a) so mobile browser chrome matches the dark admin shell. *@
+    <meta name="theme-color" content="#0f172a" />
     <title>@ViewData["Title"] - DeckFlow Admin</title>
-    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin-common.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin-mobile.css" asp-append-version="true" />
 </head>
 <body>
     <a class="skip-link" href="#admin-content">Skip to main content</a>
     <div class="admin-shell">
         <aside class="admin-sidebar" aria-label="Admin sections">
-            <div class="admin-sidebar__brand">DeckFlow Admin</div>
-            <nav class="admin-sidebar__nav">
-                <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
-                <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
-                <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
-                <a class="@ActiveClass("AdminFlags")"     aria-current="@ActiveAria("AdminFlags")"     href="@Url.Content("~/Admin/Flags")">Flags</a>
-            </nav>
+            <details class="admin-sidebar__disclosure">
+                <summary class="admin-sidebar__toggle">
+                    <span class="sr-only">Navigation menu</span>
+                    <span aria-hidden="true">&#9776; Menu</span>
+                </summary>
+                <a class="admin-sidebar__brand" href="@Url.Content("~/Admin")">DeckFlow Admin</a>
+                <nav class="admin-sidebar__nav">
+                    <a class="@ActiveClass("AdminLanding")"   aria-current="@ActiveAria("AdminLanding")"   href="@Url.Content("~/Admin")">Dashboard</a>
+                    <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
+                    <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
+                    <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
+                    <a class="@ActiveClass("AdminFlags")"     aria-current="@ActiveAria("AdminFlags")"     href="@Url.Content("~/Admin/Flags")">Flags</a>
+                    <a class="@ActiveClass("AdminContentKb")" aria-current="@ActiveAria("AdminContentKb")" href="@Url.Content("~/Admin/ContentKb")">Content KB</a>
+                </nav>
+            </details>
         </aside>
         <header class="admin-topbar">
             <h1 class="admin-topbar__title">@ViewData["Title"]</h1>

@@ -180,6 +180,9 @@ public sealed class MetaGapServiceTests
         {
             WorkflowStep = 2,
             DeckSource = "https://www.moxfield.com/decks/test-list",
+            // Pin NEW so the assertion below tests a deterministic date-desc order
+            // independent of the default SortBy (TOP would order by finish).
+            SortBy = CedhMetaSortBy.NEW,
             SelectedReferenceIndexes = new List<int> { 0, 1 }
         });
 
@@ -376,6 +379,42 @@ public sealed class MetaGapServiceTests
         }));
 
         Assert.Equal("Select no more than 3 EDH Top 16 reference decks before generating the prompt.", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(CedhMetaSortBy.NEW, "Recent")]
+    [InlineData(CedhMetaSortBy.TOP, "Winner")]
+    public async Task BuildAsync_OrdersFetchedEntriesBySortBy(CedhMetaSortBy sortBy, string expectedFirstPlayer)
+    {
+        // "Winner" has the best finish (Standing 1) but an older tournament;
+        // "Recent" has the most recent tournament but a poor finish (Standing 9).
+        // NEW must surface Recent first; TOP must surface Winner first. Regression
+        // guard for the bug where every fetch was re-sorted newest-first regardless
+        // of SortBy, making the dropdown a no-op.
+        var entries = new[]
+        {
+            new EdhTop16Entry { Standing = 9, PlayerName = "Recent", TournamentDate = new DateOnly(2026, 5, 1), Wins = 1, Losses = 4, Draws = 0 },
+            new EdhTop16Entry { Standing = 1, PlayerName = "Winner", TournamentDate = new DateOnly(2026, 1, 1), Wins = 5, Losses = 0, Draws = 0 }
+        };
+
+        var service = CreateService(
+            new FakeMoxfieldDeckImporter(new List<DeckEntry>
+            {
+                CreateDeckEntry("Kinnan, Bonder Prodigy", "commander"),
+                CreateDeckEntry("Sol Ring")
+            }),
+            new FakeArchidektDeckImporter(),
+            new FakeEdhTop16Client(entries),
+            new FakeCommanderSpellbookService());
+
+        var result = await service.BuildAsync(new MetaGapRequest
+        {
+            WorkflowStep = 1,
+            DeckSource = "https://www.moxfield.com/decks/test-list",
+            SortBy = sortBy
+        });
+
+        Assert.Equal(expectedFirstPlayer, result.FetchedEntries[0].PlayerName);
     }
 
     [Fact]

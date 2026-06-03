@@ -27,6 +27,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Exception? RunCacheSweepException { get; set; }
 
+    public int TotalProcessedDeckCount { get; set; }
+
+    public int DistinctProcessedCommanderCount { get; set; }
+
+    public IReadOnlyList<HarvestedCommanderRow> PagedCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
+
+    public int LastPagedCommanderPage { get; private set; }
+
+    public int LastPagedCommanderPageSize { get; private set; }
+
     public void SetProcessedDeckCounts(params int[] counts)
     {
         _processedDeckCounts.Clear();
@@ -76,7 +86,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         => Task.CompletedTask;
 
     public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(0);
+        => Task.FromResult(TotalProcessedDeckCount);
 
     public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
         => Task.FromResult(0);
@@ -86,6 +96,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
+
+    public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        LastPagedCommanderPage = page;
+        LastPagedCommanderPageSize = pageSize;
+        return Task.FromResult(PagedCommandersResult);
+    }
+
+    public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(DistinctProcessedCommanderCount);
 
     public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<long?>(null);

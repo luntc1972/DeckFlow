@@ -7,6 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Infrastructure;
 
+/// <summary>
+/// Protects admin routes with HTTP Basic authentication and brute-force throttling.
+/// </summary>
 public sealed class BasicAuthMiddleware
 {
     private readonly RequestDelegate _next;
@@ -14,6 +17,13 @@ public sealed class BasicAuthMiddleware
     private readonly string _realm;
     private readonly IAdminBruteForceTrackerStore _store;
 
+    /// <summary>
+    /// Initializes the middleware with its next delegate, realm, logger, and throttle store.
+    /// </summary>
+    /// <param name="next">Next middleware delegate in the admin branch.</param>
+    /// <param name="logger">Logger for admin authentication challenges and throttling.</param>
+    /// <param name="realm">HTTP Basic realm advertised in challenge responses.</param>
+    /// <param name="store">Throttle store used to track failed admin authentication attempts.</param>
     public BasicAuthMiddleware(
         RequestDelegate next,
         ILogger<BasicAuthMiddleware> logger,
@@ -30,6 +40,10 @@ public sealed class BasicAuthMiddleware
         _store = store;
     }
 
+    /// <summary>
+    /// Authenticates an admin request or emits the appropriate challenge/throttle response.
+    /// </summary>
+    /// <param name="context">Current HTTP request context.</param>
     public async Task InvokeAsync(HttpContext context)
     {
         // BUG-02 / Phase 5 — throttle gate BEFORE any auth parsing or env-var checks.

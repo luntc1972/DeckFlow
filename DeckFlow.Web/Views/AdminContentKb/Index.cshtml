@@ -1,0 +1,146 @@
+@model DeckFlow.Web.Models.AdminContentKbViewModel
+@{
+    ViewData["Title"] = "Content KB";
+}
+
+@if (!string.IsNullOrEmpty(Model.SuccessBanner))
+{
+    <p class="admin-banner admin-banner--success" role="status">@Model.SuccessBanner</p>
+}
+
+<section class="admin-harvest__panel" aria-labelledby="kb-status-heading">
+    <h2 id="kb-status-heading">Index Status</h2>
+    <p>@Model.Status.TotalCount entries total (@Model.Status.PublishedCount published)</p>
+    <p>@Model.Status.SourceCount sources</p>
+    <p>
+        Index generated:
+        @(Model.Status.IndexGeneratedUtc is { } generated
+            ? generated.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss") + " UTC"
+            : "Never")
+    </p>
+
+    <div class="admin-kb-status__actions">
+        <form method="post" asp-controller="AdminFlags" asp-action="Toggle"
+              asp-route-key="content.kb.enabled" asp-route-enabled="@((!Model.Status.FlagEnabled).ToString().ToLowerInvariant())"
+              class="admin-action-form">
+            @Html.AntiForgeryToken()
+            <button type="submit">@(Model.Status.FlagEnabled ? "Disable" : "Enable")</button>
+        </form>
+
+        <form method="post" asp-action="ReloadSeed" class="admin-action-form" data-admin-confirm-reload>
+            @Html.AntiForgeryToken()
+            <button type="submit">Reload Index from Seed</button>
+        </form>
+    </div>
+</section>
+
+@if (Model.Entries.Count == 0)
+{
+    <p class="admin-kb-empty">No entries loaded. Use 'Reload Index from Seed' to populate the index.</p>
+}
+else
+{
+    <section aria-labelledby="kb-bulk-heading">
+        <h2 id="kb-bulk-heading">Sources</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Content sources — bulk publish controls</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Source</th>
+                    <th scope="col">Entries</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var source in Model.Sources)
+                {
+                    <tr>
+                        <td data-label="Source"><strong>@source.Source</strong></td>
+                        <td data-label="Entries">@source.EntryCount</td>
+                        <td data-label="Actions">
+                            <form method="post" asp-action="BulkSetVisibility" class="admin-action-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="source" value="@source.Source" />
+                                <input type="hidden" name="visible" value="true" />
+                                <button type="submit" aria-label="Publish all entries from @source.Source">Publish All</button>
+                            </form>
+                            <form method="post" asp-action="BulkSetVisibility" class="admin-action-form" data-admin-confirm-twoclick>
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="source" value="@source.Source" />
+                                <input type="hidden" name="visible" value="false" />
+                                <button type="submit" class="danger" data-confirm-label="Confirm Hide All"
+                                        aria-label="Hide all entries from @source.Source">Hide All</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section aria-labelledby="kb-entries-heading">
+        <h2 id="kb-entries-heading">Entries</h2>
+        <div class="admin-table-scroll" tabindex="0">
+            <table class="admin-table admin-table--card">
+                <caption class="sr-only">Content KB entries — per-entry publish controls</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Title</th>
+                        <th scope="col">Source</th>
+                        <th scope="col">Tags</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model.Entries)
+                    {
+                        <tr>
+                            <td data-label="Title" class="admin-kb-title">@entry.Title</td>
+                            <td data-label="Source" class="admin-kb-source">@entry.Source</td>
+                            <td data-label="Tags">
+                                @foreach (var tag in entry.Tags)
+                                {
+                                    <span class="kb-tag">@tag</span>
+                                }
+                            </td>
+                            <td data-label="Status">
+                                @if (entry.IsVisible)
+                                {
+                                    <span class="kb-status kb-status--published" aria-label="Published">Published</span>
+                                }
+                                else
+                                {
+                                    <span class="kb-status kb-status--hidden" aria-label="Hidden">Hidden</span>
+                                }
+                            </td>
+                            <td data-label="Action">
+                                <form method="post" asp-action="SetVisibility" class="admin-action-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="entryId" value="@entry.Id" />
+                                    <input type="hidden" name="visible" value="@((!entry.IsVisible).ToString().ToLowerInvariant())" />
+                                    @if (entry.IsVisible)
+                                    {
+                                        <button type="submit" aria-label="Unpublish '@entry.Title'">Unpublish</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
+                                    }
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@await Html.PartialAsync("_AdminConfirmModal")
+
+@section Scripts
+{
+    <script src="~/js/admin-modal.js" asp-append-version="true"></script>
+    <script src="~/js/content-kb-admin.js" asp-append-version="true"></script>
+}

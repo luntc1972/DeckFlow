@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DeckFlow.CLI\DeckFlow.CLI.csproj" />
     <ProjectReference Include="..\DeckFlow.Core\DeckFlow.Core.csproj" />
   </ItemGroup>
 

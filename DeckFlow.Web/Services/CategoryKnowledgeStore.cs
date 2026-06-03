@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using DeckFlow.Core.Integration;
@@ -12,6 +13,7 @@ using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Services;
 
+/// <inheritdoc/>
 public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
@@ -29,14 +31,15 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// Initializes the knowledge store for the web app environment.
     /// </summary>
     /// <param name="environment">Web host environment for locating artifacts.</param>
-    public CategoryKnowledgeStore(IWebHostEnvironment environment)
+    /// <param name="logger">Optional logger forwarded to the category repository.</param>
+    public CategoryKnowledgeStore(IWebHostEnvironment environment, ILogger<CategoryKnowledgeStore>? logger = null)
     {
         _connectionInfo = DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment);
         _artifactsPath = ResolveArtifactsPath(environment);
         _databasePath = _connectionInfo.IsSqlite
             ? Path.Combine(_artifactsPath, "category-knowledge.db")
             : null;
-        _repository = new CategoryKnowledgeRepository(_connectionInfo);
+        _repository = new CategoryKnowledgeRepository(_connectionInfo, logger);
         _archidektImporter = new ArchidektApiDeckImporter();
         _recentDeckImporter = new ArchidektRecentDecksImporter();
     }
@@ -52,6 +55,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
     }
 
+    /// <summary>
+    /// Gets the resolved category knowledge database path, when available.
+    /// </summary>
     public string? DatabasePath => _databasePath;
 
     /// <summary>
@@ -73,6 +79,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="cardName">Card name.</param>
     /// <param name="categories">Categories to persist.</param>
     /// <param name="quantity">Quantity recorded.</param>
+    /// <param name="board">Deck board where the observation was recorded.</param>
+    /// <param name="deckCountIncrement">Amount to add to processed deck counters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
     {
@@ -85,8 +93,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         await _repository.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
     }
 
+    /// <inheritdoc/>
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default) => _repository.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -96,6 +106,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public async Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -106,15 +117,32 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public async Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        if (_connectionInfo.IsPostgres)
+        {
+            await using var estimateCommand = connection.CreateCommand();
+            // Why: reltuples is a planner estimate refreshed by ANALYZE/autovacuum; the
+            // schema-qualified to_regclass lookup avoids cross-schema name collisions, and
+            // the <= 0 guard handles fresh deploys before planner stats exist.
+            estimateCommand.CommandText = "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass('public.card_category_observations');";
+            var estimate = await ExecuteCountAsync(estimateCommand, cancellationToken).ConfigureAwait(false);
+            if (estimate > 0)
+            {
+                return estimate;
+            }
+        }
+
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(1) FROM card_category_observations;";
         return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -140,6 +168,27 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return rows;
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Max(pageSize, 1);
+
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await _repository.GetPagedProcessedCommanderRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
+        return rows
+            .Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc))
+            .ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await _repository.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
     public async Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -161,6 +210,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="logger">Logger for the sweep.</param>
     /// <param name="durationSeconds">Duration in seconds.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="progress">Optional progress reporter for processed deck counts.</param>
     public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         await EnsureSchemaReadyAsync(cancellationToken);
@@ -175,6 +225,12 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 fetchBatchSize: HarvestDeckCount,
                 cancellationToken: cancellationToken,
                 progress: progress);
+            logger.LogInformation(
+                "Archidekt cache sweep completed with {DecksAdded} added, {DecksUpdated} updated, {DecksUnchanged} unchanged, and {DecksSkipped} skipped decks.",
+                result.DecksAdded,
+                result.DecksUpdated,
+                result.DecksUnchanged,
+                result.DecksSkipped);
             return result.DecksProcessed;
         }
         finally
@@ -187,6 +243,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// Retrieves cached category rows for a card.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>
+    /// <param name="boardFilter">Optional board name used to filter observations.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
@@ -279,15 +336,23 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private static async Task<int> ExecuteCountAsync(DbCommand command, CancellationToken cancellationToken)
     {
         var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return CoerceCount(result);
+    }
+
+    internal static int CoerceCount(object? result)
+    {
         return result switch
         {
             null => 0,
             DBNull => 0,
-            long value => checked((int)value),
-            int value => value,
-            _ => Convert.ToInt32(result)
+            long value => ClampCount(value),
+            int value => Math.Max(value, 0),
+            _ => ClampCount(Convert.ToInt64(result, CultureInfo.InvariantCulture))
         };
     }
+
+    private static int ClampCount(long value)
+        => value <= 0 ? 0 : value > int.MaxValue ? int.MaxValue : (int)value;
 
     private static void AddTimestampParameter(DbCommand command, string name, DateTime cutoffUtc)
     {

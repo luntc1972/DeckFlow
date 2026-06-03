@@ -1,293 +1,326 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-04-29
+**Analysis Date:** 2026-05-29
 
 ## Test Framework
 
 **Runner:**
-- xUnit 2.9.3 (`xunit`, `xunit.runner.visualstudio` 3.1.4) on .NET 10.
-- `Microsoft.NET.Test.Sdk` 17.14.1 in both test projects.
-- No `xunit.runner.json` checked in — defaults apply (parallel test classes within an assembly, single-threaded inside a class).
+- xUnit 2.9.3 (both test projects)
+- Config: `DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj` and `DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj`
+- Test SDK: Microsoft.NET.Test.Sdk 17.14.1
+- Test discovery: xunit.runner.visualstudio 3.1.4
 
 **Assertion Library:**
-- xUnit `Assert.*` (`Assert.Equal`, `Assert.Single`, `Assert.Contains`, `Assert.Throws`, `Assert.IsType`, `Assert.NotNull`, `Assert.Empty`). No FluentAssertions or Shouldly.
-
-**Mocking / HTTP doubles:**
-- `RichardSzalay.MockHttp` 7.0.0 is referenced by `DeckFlow.Web.Tests` but the in-repo pattern is **hand-rolled** test doubles (see `DeckFlow.Web.Tests/TestDoubles/`).
-- No Moq / NSubstitute / FakeItEasy.
-
-**Coverage tool:**
-- `coverlet.collector` 6.0.4 in `DeckFlow.Core.Tests.csproj` only. Not wired into `DeckFlow.Web.Tests.csproj` yet.
+- xUnit assertions (`Assert.Equal`, `Assert.Single`, `Assert.Throws`, `Assert.IsType`, etc.)
 
 **Run Commands:**
 ```bash
-dotnet test DeckFlow.sln                         # all tests, both assemblies
-dotnet test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj   # core only
-dotnet test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj     # web only
-dotnet test --filter FullyQualifiedName~CardLookup           # by name filter
-dotnet test --collect:"XPlat Code Coverage"                  # coverage (Core only by default)
+dotnet build                          # Compile and run tests (build-clean is the gate; VSTest unreliable in WSL)
+dotnet build --no-restore            # Rebuild without package restore
+dotnet test                           # Run all tests (cross-platform)
+dotnet test --filter "TestClassName" # Run specific test class
+dotnet test --collect:"XPlat Code Coverage"  # Collect coverage via coverlet.collector 6.0.4
 ```
 
-Integration tests gated by env var:
-```bash
-DECKSYNC_RUN_SCRYFALL_INTEGRATION=1 dotnet test \
-    --filter FullyQualifiedName~CardLookupIntegrationTests
-```
+**Special Note (WSL):**
+- VSTest is unreliable in WSL. Rely on `dotnet build` clean + targeted manual harness or push-and-watch CI.
+- Build via Windows dotnet.exe over WSL (workspace-write sandbox cannot run Windows dotnet, use `--sandbox danger-full-access` for Codex dispatch).
 
 ## Test File Organization
 
 **Location:**
-- **Separate assemblies, mirrored layout.** `DeckFlow.Core` ↔ `DeckFlow.Core.Tests` and `DeckFlow.Web` ↔ `DeckFlow.Web.Tests`. No tests inside production projects.
-- Tests live flat at the root of the test project (e.g., `DeckFlow.Web.Tests/CardLookupServiceTests.cs`). Subfolders only for `Services/` (multi-file feature tests) and `TestDoubles/` (shared helpers).
+- `DeckFlow.Core.Tests/` for core domain logic tests.
+- `DeckFlow.Web.Tests/` for service, controller, and integration tests.
+- `DeckFlow.Web.Tests/TestDoubles/` for shared test-double factories and stubs.
+- `DeckFlow.Web.Tests/Services/` for service-specific tests (e.g., `ScryfallTaggerLookupServiceTests.cs`).
+- `DeckFlow.Web.Tests/Infrastructure/` for test utilities (`EnvScope.cs`).
+- `DeckFlow.Web.Tests/Integration/` for integration and container-based tests (`PostgresContainerFixture.cs`, `ScryfallTaggerCookieReplayTests.cs`).
 
 **Naming:**
-- File name = `<TypeUnderTest>Tests.cs`.
-- Class: `public sealed class <TypeUnderTest>Tests`.
-- Method: `MethodUnderTest_Scenario_ExpectedOutcome` (snake-style with underscores between segments).
-  - `LookupAsync_PreservesQuantities_AndCollectsMissingLines`
-  - `LookupAsync_ThrowsHttpRequestException_WhenScryfallFails`
-  - `FindCombosAsync_HitsCache_OnSecondCall`
-  - `Compare_LooseMode_FindsPrintingConflictAndSkipsDelta`
+- Test class: `public sealed class XxxTests` (e.g., `CardLookupServiceTests`).
+- Test methods: descriptive names, often `Method_Scenario_ExpectedResult` (e.g., `LookupAsync_PreservesQuantities_AndCollectsMissingLines`).
 
-**Structure:**
-```
-DeckFlow.Core.Tests/
-├── ParserTests.cs
-├── DiffEngineTests.cs
-├── ExporterTests.cs
-└── ...                               # one file per Core type, flat
-
-DeckFlow.Web.Tests/
-├── CardLookupServiceTests.cs         # one file per Web service/controller
-├── DeckControllerTests.cs
-├── CategoryKnowledgeStoreTests.cs
-├── Services/
-│   ├── CommanderSpellbookServiceTests.cs
-│   └── ScryfallTaggerLookupServiceTests.cs
-└── TestDoubles/
-    ├── StubHttpMessageHandler.cs     # internal sealed
-    ├── FakeHttpClientFactory.cs      # internal sealed
-    ├── FakeResiliencePipelineProvider.cs
-    ├── FakeScryfallRestClientFactory.cs
-    └── FakeCategoryKnowledgeStore.cs # public sealed (interface impl)
-```
+**Namespace:**
+- All tests in a single namespace per project (`DeckFlow.Web.Tests`, `DeckFlow.Core.Tests`) regardless of subfolder.
+- File-scoped: `namespace DeckFlow.Web.Tests;` or `namespace DeckFlow.Core.Tests;`.
 
 ## Test Structure
 
 **Suite Organization:**
 ```csharp
-// DeckFlow.Web.Tests/CardLookupServiceTests.cs
 namespace DeckFlow.Web.Tests;
 
+/// <summary>
+/// Tests for <see cref="ScryfallCardLookupService"/> covering quantity preservation, missing-line collection, ...
+/// </summary>
 public sealed class CardLookupServiceTests
 {
     [Fact]
     public async Task LookupAsync_PreservesQuantities_AndCollectsMissingLines()
     {
-        var service = new ScryfallCardLookupService(
-            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(...)),
-            executeSearchAsync: (request, _) => Task.FromResult(...));
+        // Arrange
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(...)));
 
-        var result = await service.LookupAsync("1 Sol Ring\nArcane Signet\nMade Up Card");
+        // Act
+        var result = await service.LookupAsync("1 Sol Ring\nArcane Signet");
 
-        Assert.Contains("Sol Ring", result.VerifiedOutputs[0]);
-        Assert.Equal(new[] { "ERROR: Made Up Card" }, result.MissingLines);
+        // Assert
+        Assert.Single(result.VerifiedOutputs);
+        Assert.Empty(result.MissingLines);
     }
-
-    private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(...) { ... }
 }
 ```
 
 **Patterns:**
-- **AAA inline, no comment markers.** Arrange / Act / Assert separated by blank lines.
-- **One assertion *concept* per test** — multiple `Assert.*` calls are fine when they describe one outcome.
-- `[Theory]` + `[InlineData(...)]` for parameterized cases; combined with `Assert.ThrowsAsync<TException>` for negative paths (see `CategoryKnowledgeStoreTests.GetCategoriesAsync_ThrowsForBlankCardName` at `DeckFlow.Web.Tests/CategoryKnowledgeStoreTests.cs:60-77`).
-- **No setup/teardown base classes.** Per-test construction inline; tiny private static helpers when shared (`MainboardEntry`, `CommanderEntry`, `BuildService`, `CreateCollectionResponse`).
-- **Process-wide environment isolation** via xUnit collections:
-  ```csharp
-  [CollectionDefinition("CategoryKnowledgeStoreTests", DisableParallelization = true)]
-  public sealed class CategoryKnowledgeStoreTestsCollection { }
-
-  [Collection("CategoryKnowledgeStoreTests")]
-  public sealed class CategoryKnowledgeStoreTests { ... }
-  ```
-  Used when tests mutate `Environment.SetEnvironmentVariable` (e.g., `MTG_DATA_DIR`) — `CategoryKnowledgeStoreTests.cs:9-14`.
-- Always restore env state in a `try/finally` block (`CategoryKnowledgeStoreTests.cs:23-37`).
+- Setup: Inline via local variables or test-double factories (see `TestServiceFactory.CreateScryfallCardLookupService`).
+- Teardown: `IDisposable` on test class for resource cleanup (temp files, SQLite connections); implement `Dispose()` and clean up (`DeckFlow.Core.Tests/ContentVideoStoreDistillTests.cs:13-35`).
+- Async lifetime: `IAsyncLifetime` on test classes that need async setup/teardown (e.g., `PostgresContainerFixture.cs`).
+- Collection serialization: Use xUnit `[CollectionDefinition(..., DisableParallelization = true)]` + `[Collection(...)]` on test class for process-wide env variable mutation (e.g., `MTG_DATA_DIR` in `CategoryKnowledgeStoreTests.cs:14-22`).
 
 ## Mocking
 
-**Framework:** None. The codebase uses three hand-rolled patterns.
+**Framework:** RichardSzalay.MockHttp 7.0.0 for HTTP mocking.
 
-### Pattern 1 — Delegate test seam (preferred for HTTP services)
-The service's internal ctor accepts `Func<RestRequest, CancellationToken, Task<RestResponse<T>>>` delegates that bypass the live RestSharp client:
+**Patterns:**
 ```csharp
-// DeckFlow.Web/Services/CardLookupService.cs:106-121 (internal ctor)
-internal ScryfallCardLookupService(
-    RestClient? restClient = null,
-    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsync = null,
-    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
-    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsync = null)
-```
-Tests construct directly with named args:
-```csharp
-var service = new ScryfallCardLookupService(
-    executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(...)),
-    executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
-    {
-        StatusCode = HttpStatusCode.OK,
-        Data = new ScryfallSearchResponse([])
-    }));
-```
-Granted via `[assembly: InternalsVisibleTo("DeckFlow.Web.Tests")]` (`DeckFlow.Web/AssemblyInfo.cs:3`).
+using var scryfallMock = new MockHttpMessageHandler();
+using var taggerMock = new MockHttpMessageHandler();
 
-### Pattern 2 — `StubHttpMessageHandler` + `FakeHttpClientFactory`
-Use when the service holds `IHttpClientFactory` directly (e.g., `CommanderSpellbookService`):
-```csharp
-// DeckFlow.Web.Tests/Services/CommanderSpellbookServiceTests.cs:29-39
-private static CommanderSpellbookService BuildService(StubHttpMessageHandler stub, IMemoryCache? cache = null)
-{
-    var factory = new FakeHttpClientFactory(new Dictionary<string, HttpMessageHandler>
+var scryfallRoute = scryfallMock
+    .When(HttpMethod.Get, "https://api.scryfall.com/cards/named*")
+    .Respond(HttpStatusCode.OK, "application/json", ScryfallCardJson);
+
+var csrfRoute = taggerMock
+    .When(HttpMethod.Get, "https://tagger.scryfall.com/card/lea/161")
+    .Respond(_ =>
     {
-        ["commander-spellbook"] = stub
+        var r = new HttpResponseMessage(HttpStatusCode.OK);
+        r.Content = new StringContent(TaggerCsrfHtml, Encoding.UTF8, "text/html");
+        r.Headers.Add("Set-Cookie", "_ga=test-cookie; Path=/; HttpOnly");
+        return r;
     });
-    return new CommanderSpellbookService(
-        factory,
-        new FakeResiliencePipelineProvider(),
-        cache ?? new MemoryCache(new MemoryCacheOptions()));
-}
 
-var stub = new StubHttpMessageHandler();
-stub.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
-{
-    Content = new StringContent(json, Encoding.UTF8, "application/json")
-});
-```
-`StubHttpMessageHandler` exposes `Enqueue(HttpResponseMessage)`, `RecordedRequests`, `CallCount`, and `NextException` for fault injection. Records `(Uri, Method)` snapshots so assertions work after the request is disposed (`StubHttpMessageHandler.cs:8-9`).
+var sut = CreateService(scryfallMock, taggerMock);
+var tags = await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
 
-### Pattern 3 — Hand-written interface fakes
-For non-HTTP collaborators, write a `Fake*` implementing the production interface with public `*Calls` counters and configurable returns:
-```csharp
-// DeckFlow.Web.Tests/TestDoubles/FakeCategoryKnowledgeStore.cs
-public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
-{
-    public int RunCacheSweepCalls { get; private set; }
-    public int RunCacheSweepResult { get; set; }
-    public Exception? RunCacheSweepException { get; set; }
-
-    public Task<int> RunCacheSweepAsync(ILogger logger, int duration, CancellationToken ct = default)
-    {
-        RunCacheSweepCalls++;
-        if (RunCacheSweepException is not null) throw RunCacheSweepException;
-        return Task.FromResult(RunCacheSweepResult);
-    }
-    // ...
-}
-```
-Same shape for controller tests: `FakeDeckSyncService`, `FakeDeckConvertService`, `FakeChatGptDeckPacketService`, `ThrowingCardSearchService`, etc. (used in `DeckControllerTests.cs:23-35`).
-
-### Polly resilience pipeline fake
-`FakeResiliencePipelineProvider` returns `ResiliencePipeline<T>.Empty` for every key — disables retries/timeouts so tests aren't slow:
-```csharp
-internal sealed class FakeResiliencePipelineProvider : ResiliencePipelineProvider<string>
-{
-    public override ResiliencePipeline<T> GetPipeline<T>(string key) => ResiliencePipeline<T>.Empty;
-}
+// Assert both mocks fired exactly once
+Assert.Equal(1, scryfallMock.GetMatchCount(scryfallRoute));
+Assert.Equal(1, taggerMock.GetMatchCount(csrfRoute));
 ```
 
 **What to Mock:**
-- External HTTP (Scryfall, Commander Spellbook, Archidekt, Moxfield, EDH Top 16, WOTC, Scryfall Tagger) — always.
-- `ICategoryKnowledgeStore`, `IFeedbackStore`, and other DB-backed stores when testing services/controllers that consume them.
-- `ResiliencePipelineProvider<string>` — replace with `FakeResiliencePipelineProvider` so retries don't fire.
-- `ILogger<T>` — use `NullLogger<T>.Instance` (do not Fake; do not assert on logs).
+- External HTTP calls via `MockHttpMessageHandler`.
+- Database operations via stateful test doubles (`FakeContentVideoStore`, `FakeCategoryKnowledgeStore`).
+- Service dependencies via `Func<...>` override delegates in internal constructors.
 
 **What NOT to Mock:**
-- `MemoryCache` — instantiate the real `MemoryCache(new MemoryCacheOptions())` (e.g., `CommanderSpellbookServiceTests.cs:137`).
-- Parsers (`MoxfieldParser`, `ArchidektParser`), normalizers (`CardNormalizer`), and other pure helpers — call them directly (`ParserTests.cs`, `DiffEngineTests.cs`).
-- `DiffEngine` — instantiate with the production `MatchMode` enum.
-- Domain records / DTOs — construct directly with `new`.
+- In-memory caches (`IMemoryCache`) — use real `MemoryCache` in tests.
+- Parsers and domain logic — use real implementations.
+- Serialization (JSON, Markdown) — use real implementations.
+
+## Test Doubles
+
+**Naming Convention:**
+- `Fake*` — stateful behavior fakes with internal state (queues, lists, dicts): `FakeCategoryKnowledgeStore`, `FakeHttpClientFactory`, `FakeContentVideoStore`, `FakeScryfallRestClientFactory`, `FakeResiliencePipelineProvider`, `FakeFeatureFlagCache`.
+- `Stub*` — queue-driven stubs that return pre-enqueued responses: `StubHttpMessageHandler` (records requests, dequeues responses, optionally throws).
+- `Throwing*` — exception injection doubles: `ThrowingCardSearchService`.
+
+**Location:** `DeckFlow.Web.Tests/TestDoubles/` for shared doubles; inline in test file for test-local doubles.
+
+**Examples:**
+
+`StubHttpMessageHandler` (`DeckFlow.Web.Tests/TestDoubles/StubHttpMessageHandler.cs:10-40`):
+```csharp
+internal sealed class StubHttpMessageHandler : HttpMessageHandler
+{
+    private readonly Queue<HttpResponseMessage> _responses = new();
+    public IList<RecordedRequest> RecordedRequests { get; } = new List<RecordedRequest>();
+    public int CallCount => RecordedRequests.Count;
+    public Exception? NextException { get; set; }
+
+    public void Enqueue(HttpResponseMessage response) => _responses.Enqueue(response);
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        RecordedRequests.Add(new RecordedRequest(request.RequestUri, request.Method.Method));
+        
+        if (NextException is not null)
+        {
+            var ex = NextException;
+            NextException = null;
+            throw ex;
+        }
+
+        var response = _responses.Count > 0
+            ? _responses.Dequeue()
+            : new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        return Task.FromResult(response);
+    }
+}
+```
+
+`FakeCategoryKnowledgeStore` (inline test double in `AdminFeedbackControllerTests.cs:106-120`):
+```csharp
+private sealed class FakeStore : IFeedbackStore
+{
+    public List<FeedbackItem> Items { get; } = new();
+    public List<(long Id, FeedbackStatus Status)> StatusUpdates { get; } = new();
+    public List<long> Deletes { get; } = new();
+
+    public Task<long> AddAsync(FeedbackSubmission s, FeedbackRequestContext c, CancellationToken ct = default) => Task.FromResult(0L);
+    public Task<FeedbackItem?> GetAsync(long id, CancellationToken ct = default) =>
+        Task.FromResult(Items.FirstOrDefault(i => i.Id == id));
+    public Task<IReadOnlyList<FeedbackItem>> ListAsync(FeedbackListQuery query, CancellationToken ct = default)
+    {
+        var filtered = Items.AsEnumerable();
+        if (query.Status.HasValue) filtered = filtered.Where(i => i.Status == query.Status.Value);
+        if (query.Type.HasValue) filtered = filtered.Where(i => i.Type == query.Type.Value);
+        return Task.FromResult<IReadOnlyList<FeedbackItem>>(filtered.ToList());
+    }
+}
+```
+
+## Test Seam Pattern
+
+**Core Pattern:**
+Every service that touches HTTP, persistence, or external dependencies exposes an `internal` test-compatible constructor that accepts optional `Func<...>` override delegates.
+
+**Example:** `ScryfallCardLookupService` (`DeckFlow.Web/Services/CardLookupService.cs:56-95`)
+
+Production ctor (implicit via DI):
+```csharp
+public ScryfallCardLookupService(
+    IScryfallRestClientFactory scryfallRestClientFactory,
+    ResiliencePipelineProvider<string> pipelineProvider)
+{
+    // production wiring
+}
+```
+
+Internal test ctor (exposed via `[InternalsVisibleTo("DeckFlow.Web.Tests")]`):
+```csharp
+internal ScryfallCardLookupService(
+    IScryfallRestClientFactory scryfallRestClientFactory,
+    ResiliencePipelineProvider<string> pipelineProvider,
+    CardLookupCache? cache = null,
+    RestClient? restClientOverride = null,
+    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsyncOverride = null,
+    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
+    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null,
+    Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsyncOverride = null)
+{
+    ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+    ArgumentNullException.ThrowIfNull(pipelineProvider);
+    _cache = cache ?? new CardLookupCache();
+    var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
+    var client = restClientOverride ?? scryfallRestClientFactory.Create();
+    _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
+        ScryfallThrottle.ExecuteAsync(
+            token => pipeline.ExecuteAsync(
+                async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
+                token).AsTask(),
+            cancellationToken));
+    // ... similar for search, named, rulings
+}
+```
+
+**Test Usage:**
+```csharp
+var service = TestServiceFactory.CreateScryfallCardLookupService(
+    executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(...)),
+    executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(...)));
+
+var result = await service.LookupAsync("Sol Ring");
+```
+
+**InternalsVisibleTo:**
+- Configured in `DeckFlow.Web/AssemblyInfo.cs:3`: `[assembly: InternalsVisibleTo("DeckFlow.Web.Tests")]`
+- Allows test project to call `internal` ctors and access `internal` test doubles without leaking to external consumers.
 
 ## Fixtures and Factories
 
 **Test Data:**
-- Constructed inline as object initializers / `new` — there is no shared fixture project.
-- Small private static helpers per test class for repetitive shapes:
-  ```csharp
-  private static DeckEntry MainboardEntry(string name) => new DeckEntry
-  {
-      Name = name,
-      NormalizedName = name.ToLowerInvariant(),
-      Quantity = 1,
-      Board = "mainboard"
-  };
-  ```
-  (`CommanderSpellbookServiceTests.cs:13-19`).
-- JSON payloads are inline raw-string literals (`"""..."""`) when the service consumes JSON (`CommanderSpellbookServiceTests.cs:44-57`).
-- Decklist text uses raw strings so indentation is literal (`ParserTests.cs:46-54`).
+- Use `TestServiceFactory` for common service construction patterns (`DeckFlow.Web.Tests/TestDoubles/TestServiceFactory.cs`).
+- Inline helpers for test-specific setup (e.g., `CreateCollectionResponse` in `CardLookupServiceTests.cs:268-278`).
+- Seed helpers for database tests (e.g., `InsertSourceAsync`, `InsertVideoWithTranscriptAsync` in `ContentVideoStoreDistillTests.cs`).
 
 **Location:**
-- No `Fixtures/` folder. Helpers stay private to the test class unless reused — when reused they go in `DeckFlow.Web.Tests/TestDoubles/`.
+- Shared: `DeckFlow.Web.Tests/TestDoubles/TestServiceFactory.cs` (routes all service construction through internal ctors).
+- Per-test: inline private helpers or `IDisposable` setup in test class.
+
+**Example Seed Helper:**
+```csharp
+private async Task<long> InsertSourceAsync(string slug)
+    => await _sourceStore.InsertSourceAsync(
+        slug,
+        $"Source {slug}",
+        ContentSourceType.Youtube,
+        $"https://example.test/{slug}");
+```
 
 ## Coverage
 
-**Requirements:** None enforced. No CI gate, no minimum coverage threshold.
+**Requirements:** None enforced by build.
 
-**View Coverage (Core only):**
+**View Coverage:**
 ```bash
-dotnet test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj \
-    --collect:"XPlat Code Coverage"
-# Output: DeckFlow.Core.Tests/TestResults/<guid>/coverage.cobertura.xml
+dotnet test --collect:"XPlat Code Coverage"
 ```
 
-`DeckFlow.Web.Tests` has no `coverlet.collector` reference; add it before running coverage there.
+**Tool:** coverlet.collector 6.0.4 (integrated into `DeckFlow.Core.Tests` csproj).
 
 ## Test Types
 
-**Unit Tests (the bulk of the suite):**
-- **Scope:** one class per test file; collaborators replaced via delegate seams or `Fake*` doubles.
-- **Approach:** synchronous arrange + `await` act + `Assert.*`. No I/O, no real network, no real database.
-- Examples: every file in `DeckFlow.Core.Tests/` and most of `DeckFlow.Web.Tests/`.
+**Unit Tests:**
+- Scope: Single class or function, mocked dependencies.
+- Examples: `CardLookupServiceTests`, `DiffEngineTests`, `CategoryKnowledgeRepositoryTests`.
+- All tests in `DeckFlow.Web.Tests` and `DeckFlow.Core.Tests` are unit tests with mocked/faked externals.
 
-**Service-level integration-ish tests:**
-- `CommanderSpellbookServiceTests` and `ScryfallTaggerLookupServiceTests` exercise the full `IHttpClientFactory` + Polly + RestSharp pipeline against a `StubHttpMessageHandler`. They count HTTP calls (`stub.RecordedRequests`, `stub.CallCount`) to verify caching/retry behavior.
-- `CategoryKnowledgeStoreTests` exercises real SQLite paths via `MTG_DATA_DIR` redirection in temp dirs.
+**Integration Tests:**
+- Scope: Real or containerized externals (databases, HTTP services).
+- Subfolders: `DeckFlow.Web.Tests/Integration/` (e.g., `PostgresContainerFixture.cs` with Testcontainers.PostgreSql 3.10.0, `ScryfallTaggerCookieReplayTests.cs` with real SocketsHttpHandler).
+- Marked with `[Collection(..., DisableParallelization = true)]` if they mutate process-wide state (e.g., env vars).
 
-**End-to-end / live integration:**
-- `CardLookupIntegrationTests` shells out to the **real CLI** and hits **live Scryfall**. Gated by `DECKSYNC_RUN_SCRYFALL_INTEGRATION=1`; the body returns early when the env var is unset, so default `dotnet test` runs are offline-clean (`CardLookupIntegrationTests.cs:9, 17-20`).
-
-**E2E / browser tests:** None. No Playwright, Selenium, or Cypress in the repo.
+**E2E Tests:**
+- Not used. Test coverage focuses on unit + integration layers.
 
 ## Common Patterns
 
 **Async Testing:**
 ```csharp
 [Fact]
-public async Task FindCombosAsync_HitsCache_OnSecondCall()
+public async Task LookupAsync_PreservesQuantities_AndCollectsMissingLines()
 {
-    var stub = new StubHttpMessageHandler();
-    stub.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
-    {
-        Content = new StringContent(json, Encoding.UTF8, "application/json")
-    });
-    var sut = BuildService(stub, new MemoryCache(new MemoryCacheOptions()));
+    var service = TestServiceFactory.CreateScryfallCardLookupService(
+        executeAsync: (request, _) => Task.FromResult(...));
 
-    var first = await sut.FindCombosAsync(deck, CancellationToken.None);
-    var second = await sut.FindCombosAsync(deck, CancellationToken.None);
+    var result = await service.LookupAsync("1 Sol Ring");
 
-    Assert.Single(stub.RecordedRequests);   // HTTP fired once; second served from cache
-    Assert.NotNull(first);
-    Assert.NotNull(second);
+    Assert.Single(result.VerifiedOutputs);
 }
 ```
-- Always pass `CancellationToken.None` explicitly when the production API requires a token.
-- Variable conventionally named `sut` (system under test) or `service`.
 
 **Error Testing:**
 ```csharp
-var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.LookupAsync("Sol Ring"));
-Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
+[Fact]
+public async Task LookupAsync_ThrowsHttpRequestException_WhenScryfallFails()
+{
+    var service = TestServiceFactory.CreateScryfallCardLookupService(
+        executeAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+        {
+            StatusCode = HttpStatusCode.ServiceUnavailable
+        }));
+
+    var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.LookupAsync("Sol Ring"));
+
+    Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
+}
 ```
-For `[Theory]` parametric exception types:
+
+**Theory Tests (Parameterized):**
 ```csharp
 [Theory]
 [InlineData(null, typeof(ArgumentNullException))]
@@ -296,31 +329,72 @@ For `[Theory]` parametric exception types:
 public async Task GetCategoriesAsync_ThrowsForBlankCardName(string? cardName, Type expectedExceptionType)
 {
     var store = CreateStore();
+
     if (expectedExceptionType == typeof(ArgumentNullException))
     {
-        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => store.GetCategoriesAsync(cardName!));
-        Assert.Equal("cardName", ex.ParamName);
+        var nullException = await Assert.ThrowsAsync<ArgumentNullException>(() => store.GetCategoriesAsync(cardName!));
+        Assert.Equal("cardName", nullException.ParamName);
         return;
     }
-    var argEx = await Assert.ThrowsAsync<ArgumentException>(() => store.GetCategoriesAsync(cardName!));
-    Assert.Equal("cardName", argEx.ParamName);
+
+    var valueException = await Assert.ThrowsAsync<ArgumentException>(() => store.GetCategoriesAsync(cardName!));
+    Assert.Equal("cardName", valueException.ParamName);
 }
 ```
-(`CategoryKnowledgeStoreTests.cs:60-77`)
 
-**Cache verification:**
-- Construct a real `MemoryCache(new MemoryCacheOptions())`, call the method twice, then assert `stub.RecordedRequests` count to prove the second call was served from cache.
+**Disposable Setup/Teardown:**
+```csharp
+public sealed class CategoryKnowledgeRepositoryTests : IDisposable
+{
+    private readonly string _databasePath;
+    private readonly string _tempDirectory;
 
-**Controller tests:**
-- Construct the controller manually with all `Fake*` collaborators (no `WebApplicationFactory<T>` / `TestServer`).
-- Provide `ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }` when the action reads `HttpContext` (`DeckControllerTests.cs:75-79`).
-- Assert on `IActionResult` shape: `Assert.IsType<ViewResult>(result)`, then drill into `.Model` / `.ViewName`.
+    public CategoryKnowledgeRepositoryTests()
+    {
+        _tempDirectory = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_tempDirectory);
+        _databasePath = Path.Combine(_tempDirectory, "category-knowledge.db");
+    }
 
-**Fault injection:**
-- HTTP failure → enqueue `new HttpResponseMessage(HttpStatusCode.InternalServerError)` on the stub.
-- Network exception → set `stub.NextException = new HttpRequestException(...)`.
-- Service-collaborator failure → set `fake.RunCacheSweepException = new InvalidOperationException(...)`.
+    public void Dispose()
+    {
+        if (File.Exists(_databasePath))
+        {
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            File.Delete(_databasePath);
+        }
+    }
+
+    [Fact]
+    public async Task AddDeckIdsAsync_DoesNotRequeueRecentlyProcessedDeck()
+    {
+        var repository = CreateRepository();
+        // test body
+    }
+}
+```
+
+## Content KB Testing Additions (v1.4)
+
+**Dual-Dialect Support:**
+- Tests use temporary SQLite databases; Postgres support tested via `Testcontainers.PostgreSql 3.10.0`.
+- Example: `ContentVideoStoreDistillTests.cs` creates temp SQLite for distill operations.
+
+**LLM Distillation Service Tests:**
+- Mock `ILlmDistillationService` via `Func<...>` override delegates.
+- Example: `CommandRunnerHarvestTests.cs` tests harvest command with `FakeWhisperSpendLedger`, `FakeContentVideoStore`, `FakeTranscriptSource`.
+
+**Spend Ledger Tests:**
+- Verify cost tracking and per-video cost calculations.
+- Use `FakeWhisperSpendLedger` with `Records` list for assertion.
+
+**CLI Command Runner Tests:**
+- Test orchestration seams (harvest, probe, export commands).
+- Location: `DeckFlow.Core.Tests/CommandRunnerHarvestTests.cs`.
+- Pattern: stateful fakes capture side effects (ledger records, video inserts, status updates).
 
 ---
 
-*Testing analysis: 2026-04-29*
+*Testing analysis: 2026-05-29*

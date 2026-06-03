@@ -8,11 +8,11 @@
     var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
     var hasExact = !string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText);
     var hasInferred = !string.IsNullOrWhiteSpace(Model.InferredCategoriesText);
-    ViewData["Title"] = "AI Category Suggestions";
+    ViewData["Title"] = "Category Suggestions";
 }
 
 <section class="hero">
-    <h1>AI Category Suggestions</h1>
+    <h1>Category Suggestions</h1>
     <p class="lede">Look up a single card against the local category store and recent public Archidekt decks.</p>
 </section>
 
@@ -31,7 +31,7 @@
     <span data-api-field="card-search-error-text"></span>
 </div>
 
-<form method="post" action="@Url.Content("~/suggest-categories")" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store and recent Archidekt decks." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="@Url.Content("~/api/suggestions/card")">
+<form method="post" action="@Url.Content("~/suggest-categories")" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking cached category data and optional sources." data-busy-progress="Checking cached store|Querying optional sources|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="@Url.Content("~/api/suggestions/card")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
@@ -55,23 +55,7 @@
         <span>Cached data is the default. Switch to a reference deck only when you want exact deck-local categories from a specific Archidekt list.</span>
     </div>
     <div class="mode-note">
-        <span>Click Suggest to keep scanning Archidekt decks for another 20 seconds and expand the cached category store.</span>
-    </div>
-    <div class="mode-note desktop-only">
-        <span>Need a bigger refresh? Start a 5-minute Archidekt harvest in the background and keep using the rest of the app while it runs.</span>
-    </div>
-    <div class="toolbar toolbar--secondary desktop-only">
-        <button
-            type="button"
-            class="run-button"
-            data-archidekt-cache-start
-            data-start-url="@Url.Content("~/api/archidekt-cache-jobs")"
-            data-status-base-url="@Url.Content("~/api/archidekt-cache-jobs")"
-            data-active-url="@Url.Content("~/api/archidekt-cache-jobs/active")"
-            data-duration-seconds="300">Run 5-Minute Archidekt Harvest</button>
-    </div>
-    <div class="info-banner hidden desktop-only" data-archidekt-cache-status-panel>
-        <p data-archidekt-cache-status-text></p>
+        <span>Cached results reflect the latest completed Archidekt harvest stored locally.</span>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName) && Model.CardDeckTotals.TotalDeckCount > 0)
@@ -114,7 +98,7 @@
         }
         else if (cardSpecified)
         {
-            <text>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName. Click Suggest to keep scanning public decks for another 20 seconds so those categories can populate.</text>
+            <text>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName when they have been observed by a completed harvest.</text>
         }
         else
         {

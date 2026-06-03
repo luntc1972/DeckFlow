@@ -5,7 +5,10 @@ namespace DeckFlow.Core.Storage;
 /// </summary>
 public interface IRelationalDialect
 {
-    string FeedbackIdColumnType { get; }
+    /// <summary>
+    /// Gets the SQL column definition for a surrogate auto-incrementing primary key.
+    /// </summary>
+    string SurrogateIdColumnType { get; }
     string FeedbackCreatedUtcColumnType { get; }
     string FeedbackOrderByClause { get; }
     string FeedbackInsertReturningIdSql { get; }

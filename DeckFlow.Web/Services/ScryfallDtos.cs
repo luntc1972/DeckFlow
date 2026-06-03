@@ -36,7 +36,6 @@ public sealed record ScryfallCollectionResponse(
 /// <summary>
 /// Represents a Scryfall card payload.
 /// </summary>
-
 public sealed record ScryfallCard(
     string Name,
     [property: JsonPropertyName("mana_cost")] string? ManaCost,
@@ -50,7 +49,8 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("set_name")] string? SetName,
     [property: JsonPropertyName("collector_number")] string? CollectorNumber,
     [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null,
-    [property: JsonPropertyName("id")] string? Id = null);
+    [property: JsonPropertyName("id")] string? Id = null,
+    [property: JsonPropertyName("layout")] string? Layout = null);
 
 /// <summary>
 /// Container for a Scryfall rulings list response.
@@ -65,6 +65,9 @@ public sealed record ScryfallRuling(
     [property: JsonPropertyName("source")] string? Source,
     [property: JsonPropertyName("comment")] string? Comment);
 
+/// <summary>
+/// Represents one face of a multi-faced Scryfall card payload, such as a double-faced, split, or adventure card.
+/// </summary>
 public sealed record ScryfallCardFace(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("mana_cost")] string? ManaCost,

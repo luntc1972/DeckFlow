@@ -8,8 +8,8 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 public static class CategorySuggestionMessageBuilder
 {
-    private const string NoCachedDataMessage = "No card categories for {0} have been observed in the cached data yet. Run Show Categories again to refresh the cache.";
-    private const string NoSuggestionsElsewhereMessage = "No category suggestions were found for {0}. You can run the lookup again to retry the live Archidekt and EDHREC checks.";
+    private const string NoCachedDataMessage = "No card categories for {0} have been observed in the cached data yet.";
+    private const string NoSuggestionsElsewhereMessage = "No category suggestions were found for {0} in the selected sources.";
 
     /// <summary>
     /// Builds the message that appears when no category suggestions were found.

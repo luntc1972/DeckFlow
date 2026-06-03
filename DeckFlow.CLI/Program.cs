@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.IO;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.CLI;
 using Serilog;
@@ -55,6 +56,26 @@ var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or 
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
 var scryfallProbeRepeatOption = new Option<int>("--repeat", () => 1) { Description = "How many times to call the endpoint back-to-back (use to force 429)." };
+var contentSourceAddCommand = new Command("content-source-add", "Add a content source for the Content KB harvester.");
+var contentSourceAddUrlOption = new Option<string>("--url") { IsRequired = true };
+var contentSourceAddNameOption = new Option<string>("--name") { IsRequired = true };
+var contentSourceAddTypeOption = new Option<string>("--type", () => ContentSourceType.Youtube) { Description = "youtube_channel | podcast_rss" };
+var contentSourceAddDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var contentSourceSetEnabledCommand = new Command("content-source-set-enabled", "Enable or disable a Content KB source.");
+var contentSourceSetEnabledIdOption = new Option<long>("--id") { IsRequired = true };
+var contentSourceSetEnabledEnabledOption = new Option<bool>("--enabled") { IsRequired = true };
+var contentSourceSetEnabledDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var harvestCommand = new Command("harvest", "Fetch transcripts for enabled Content KB sources.");
+var harvestDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var harvestLimitOption = new Option<int>("--limit", () => 5) { Description = "Recent videos per enabled source." };
+var harvestEnableWhisperOption = new Option<bool>("--enable-whisper", () => false) { Description = "Enable Whisper audio-transcription fallback when captions are unavailable (off by default; captions-only)." };
+var distillCommand = new Command("distill", "Distill harvested transcripts into Content KB artifacts.");
+var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
+var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Description = "Estimate projected spend over pending videos and process nothing." };
+var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
+var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(Path.Combine("content-kb", "seed", "index-seed.json"))) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -85,6 +106,21 @@ cardLookupCommand.AddOption(cardLookupNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
+contentSourceAddCommand.AddOption(contentSourceAddUrlOption);
+contentSourceAddCommand.AddOption(contentSourceAddNameOption);
+contentSourceAddCommand.AddOption(contentSourceAddTypeOption);
+contentSourceAddCommand.AddOption(contentSourceAddDbOption);
+contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledIdOption);
+contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledEnabledOption);
+contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledDbOption);
+harvestCommand.AddOption(harvestDbOption);
+harvestCommand.AddOption(harvestLimitOption);
+harvestCommand.AddOption(harvestEnableWhisperOption);
+distillCommand.AddOption(distillDbOption);
+distillCommand.AddOption(distillLimitOption);
+distillCommand.AddOption(distillDryRunOption);
+contentIndexExportCommand.AddOption(contentIndexExportDbOption);
+contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -131,6 +167,11 @@ rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
+rootCommand.AddCommand(contentSourceAddCommand);
+rootCommand.AddCommand(contentSourceSetEnabledCommand);
+rootCommand.AddCommand(harvestCommand);
+rootCommand.AddCommand(distillCommand);
+rootCommand.AddCommand(contentIndexExportCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -178,4 +219,30 @@ scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) 
     Environment.ExitCode = CommandRunners.RunScryfallProbeAsync(endpoint, cardName, repeat).GetAwaiter().GetResult();
 }, scryfallProbeEndpointOption, scryfallProbeNameOption, scryfallProbeRepeatOption);
 
-return await rootCommand.InvokeAsync(args);
+contentSourceAddCommand.SetHandler((string url, string name, string type, FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
+}, contentSourceAddUrlOption, contentSourceAddNameOption, contentSourceAddTypeOption, contentSourceAddDbOption);
+
+contentSourceSetEnabledCommand.SetHandler((long id, bool enabled, FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunContentSourceSetEnabledAsync(id, enabled, db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, contentSourceSetEnabledIdOption, contentSourceSetEnabledEnabledOption, contentSourceSetEnabledDbOption);
+
+harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper) =>
+{
+    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption);
+
+distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun) =>
+{
+    Environment.ExitCode = CommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, distillDbOption, distillLimitOption, distillDryRunOption);
+
+contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
+{
+    Environment.ExitCode = CommandRunners.RunContentIndexExportAsync(db, output).GetAwaiter().GetResult();
+}, contentIndexExportDbOption, contentIndexExportOutputOption);
+
+var invokeExitCode = await rootCommand.InvokeAsync(args);
+return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;

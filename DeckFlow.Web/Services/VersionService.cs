@@ -10,10 +10,18 @@ public sealed class VersionService : IVersionService
 {
     private readonly Assembly _assembly;
 
+    /// <summary>
+    /// Initializes the version service for the DeckFlow web assembly.
+    /// </summary>
     public VersionService() : this(typeof(VersionService).Assembly) { }
 
+    /// <summary>
+    /// Initializes the version service for a specific assembly.
+    /// </summary>
+    /// <param name="assembly">Assembly whose informational version should be read.</param>
     public VersionService(Assembly assembly) => _assembly = assembly;
 
+    /// <inheritdoc/>
     public string GetVersion()
     {
         var informational = _assembly

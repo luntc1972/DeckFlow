@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Models;
@@ -27,7 +28,7 @@ public sealed class SuggestionsApiControllerTests
     {
         var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
             NullLogger<SuggestionsApiController>.Instance);
 
@@ -48,13 +49,11 @@ public sealed class SuggestionsApiControllerTests
             Array.Empty<string>(),
             new CardDeckTotals(3, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["mainboard"] = 3 }),
             new[] { "cached store" },
-            false,
-            2,
-            true);
+            false);
 
         var controller = CreateController(
             new FakeCategorySuggestionService(result),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
             NullLogger<SuggestionsApiController>.Instance);
 
@@ -67,8 +66,6 @@ public sealed class SuggestionsApiControllerTests
         var payload = Assert.IsType<CategorySuggestionApiResponse>(ok.Value);
         Assert.Equal("Guardian Project", payload.CardName);
         Assert.True(payload.HasInferredCategories);
-        Assert.Equal(2, payload.AdditionalDecksFound);
-        Assert.True(payload.CacheSweepPerformed);
     }
 
     [Fact]
@@ -82,13 +79,11 @@ public sealed class SuggestionsApiControllerTests
             new[] { "Protection", "Value" },
             CardDeckTotals.Empty,
             new[] { "Scryfall Tagger" },
-            false,
-            0,
             false);
 
         var controller = CreateController(
             new FakeCategorySuggestionService(result),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
             NullLogger<SuggestionsApiController>.Instance);
 
@@ -104,7 +99,6 @@ public sealed class SuggestionsApiControllerTests
         Assert.Contains("Protection", payload.TaggerCategoriesText);
         Assert.Equal("These are community-curated functional tags from Scryfall Tagger.", payload.TaggerSuggestionContextText);
         Assert.Equal("Source used: Scryfall Tagger", payload.SuggestionSourceSummary);
-        Assert.False(payload.CacheSweepPerformed);
     }
 
     [Fact]
@@ -112,7 +106,7 @@ public sealed class SuggestionsApiControllerTests
     {
         var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
             NullLogger<SuggestionsApiController>.Instance);
 
@@ -130,9 +124,7 @@ public sealed class SuggestionsApiControllerTests
             new[] { new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2) },
             new[] { new CommanderCategorySummary("Ramp", 2, 2) },
             8,
-            new CardDeckTotals(4, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["commander"] = 4 }),
-            3,
-            true);
+            new CardDeckTotals(4, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["commander"] = 4 }));
 
         var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
@@ -149,8 +141,25 @@ public sealed class SuggestionsApiControllerTests
         var payload = Assert.IsType<CommanderCategoryApiResponse>(ok.Value);
         Assert.Equal("Bello", payload.CommanderName);
         Assert.Equal(1, payload.CategoryCount);
-        Assert.Equal(3, payload.AdditionalDecksFound);
-        Assert.True(payload.CacheSweepPerformed);
+    }
+
+    [Fact]
+    public async Task PostCommanderSuggestionAsync_ReturnsCachedDataMessage_WhenNoResults()
+    {
+        var controller = CreateController(
+            new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
+            new FakeCommanderCategoryService(EmptyCommanderResult() with { CommanderName = "Bello" }),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCommanderSuggestionAsync(new CommanderCategoryRequest
+        {
+            CommanderName = "Bello"
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<CommanderCategoryApiResponse>(ok.Value);
+        Assert.Equal("No commander categories for Bello have been observed in the cached data yet.", payload.NoResultsMessage);
     }
 
     [Fact]
@@ -158,7 +167,7 @@ public sealed class SuggestionsApiControllerTests
     {
         var controller = CreateController(
             new ThrowingCategorySuggestionService(new HttpRequestException("EDHREC returned HTTP 503.", null, System.Net.HttpStatusCode.ServiceUnavailable)),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
             NullLogger<SuggestionsApiController>.Instance);
 
@@ -173,11 +182,31 @@ public sealed class SuggestionsApiControllerTests
     }
 
     [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsServiceUnavailable_WhenDatabaseLookupFails()
+    {
+        var controller = CreateController(
+            new ThrowingCategorySuggestionService(new TestDbException("read timed out")),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Sol Ring"
+        }, CancellationToken.None);
+
+        var serviceUnavailable = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, serviceUnavailable.StatusCode);
+        var message = serviceUnavailable.Value?.GetType().GetProperty("Message")?.GetValue(serviceUnavailable.Value) as string;
+        Assert.Equal("Category lookup is temporarily unavailable, please try again.", message);
+    }
+
+    [Fact]
     public async Task PostMechanicLookupAsync_ReturnsStructuredResponse()
     {
         var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(new MechanicLookupResult(
                 "Prowess",
                 true,
@@ -207,7 +236,7 @@ public sealed class SuggestionsApiControllerTests
     {
         var controller = new SuggestionsApiController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
-            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
             NullLogger<SuggestionsApiController>.Instance)
         {
@@ -248,6 +277,9 @@ public sealed class SuggestionsApiControllerTests
         return controller;
     }
 
+    private static CommanderCategoryResult EmptyCommanderResult()
+        => new("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty);
+
     private sealed class FakeCategorySuggestionService : ICategorySuggestionService
     {
         private readonly CategorySuggestionResult _result;
@@ -285,6 +317,14 @@ public sealed class SuggestionsApiControllerTests
 
         public Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
             => Task.FromException<CategorySuggestionResult>(_exception);
+    }
+
+    private sealed class TestDbException : DbException
+    {
+        public TestDbException(string message)
+            : base(message)
+        {
+        }
     }
 
     private sealed class FakeMechanicLookupService : IMechanicLookupService

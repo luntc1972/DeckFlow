@@ -23,4 +23,29 @@
       });
     });
   });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const deleteForms = document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-delete]');
+    deleteForms.forEach((form) => {
+      form.addEventListener('submit', async (event: SubmitEvent) => {
+        event.preventDefault();
+        const showConfirm = window.DeckFlowAdminModal?.showConfirm;
+        if (showConfirm === undefined) {
+          // admin-modal.js not loaded - fail closed (do NOT submit silently).
+          return;
+        }
+
+        const id = form.dataset.adminFeedbackId ?? '?';
+        const confirmed = await showConfirm({
+          title: 'Delete Feedback',
+          message: `Delete feedback #${id} permanently?`,
+          confirmLabel: 'Delete',
+          danger: true,
+        });
+        if (confirmed) {
+          form.submit();
+        }
+      });
+    });
+  });
 })();

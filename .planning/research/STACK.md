@@ -1,270 +1,360 @@
-# Technology Stack — v1.1 Admin Console Additions
+# Technology Stack — v1.4 Content Knowledge Base Foundation + Admin Mobile
 
-**Project:** DeckFlow v1.1 Admin Console
-**Researched:** 2026-05-02
-**Scope:** NEW packages only. Existing stack (ASP.NET 10, Razor, Postgres/Npgsql 10, RestSharp 114, Polly 8.6.6, Serilog 9, Markdig 0.38, Swashbuckle 7, IMemoryCache) is validated and unchanged.
-
----
-
-## 1. Cron Scheduling
-
-**Recommendation: NCrontab 3.4.0 + existing BackgroundService/Channel pattern**
-
-Do NOT add Quartz.NET. Do NOT add Coravel. Do NOT add Hangfire.
-
-### Rationale
-
-`ArchidektCacheJobService` already extends `BackgroundService` and uses `System.Threading.Channels` (already in the repo at lines 1-2 of that file). The only missing piece is cron-expression parsing — computing "time until next run" from a cron string. NCrontab 3.4.0 does exactly that: it is a pure cron-expression parser with zero runtime overhead, no threads, no timers, no DI registrations. It targets netstandard1.0, published 2025-09-13, confirmed compatible with .NET 10.
-
-Quartz.NET 3.18.1 (latest, published 2026-04-25) requires its own `ISchedulerFactory`, `IJobDetail`, `ITrigger`, `IScheduler` abstraction layer, plus a hosted service thread pool, and optionally a database persistence store. All of that duplicates what the existing `Channel<ArchidektCacheJobStatus>` + `BackgroundService` already does. Quartz brings 200+ KB of assembly, its own job store, and its own retry/misfires model that conflicts with the DeckFlow Polly pipeline pattern.
-
-Coravel is a full-feature scheduler + queue + mailer; 50 KB of overhead, last substantial commit 2023, not worth the dependency for one cron expression.
-
-Hangfire (InMemory) has real-world reports of memory leaks and retention issues; its dashboard would conflict with the admin sidebar; its Postgres storage option would add a separate schema and polling loop — all wrong for a 512MB Starter tier with one operator.
-
-### Integration
-
-Add `NCrontab` 3.4.0 to `DeckFlow.Web.csproj`:
-
-```xml
-<PackageReference Include="NCrontab" Version="3.4.0" />
-```
-
-Extend `ArchidektCacheJobService` with a `_cronSchedule` field (nullable `CrontabSchedule`). In `ExecuteAsync` replace `Channel.ReadAllAsync(stoppingToken)` with a hybrid loop:
-
-```csharp
-// Pseudo-pattern — not final code
-while (!stoppingToken.IsCancellationRequested)
-{
-    var nextRun = _cronSchedule?.GetNextOccurrence(DateTime.UtcNow);
-    var delay = nextRun.HasValue
-        ? nextRun.Value - DateTime.UtcNow
-        : Timeout.InfiniteTimeSpan;
-
-    var triggered = await WaitForJobOrDelayAsync(delay, stoppingToken);
-    // ... execute job
-}
-```
-
-`SetCronSchedule(string expr)` validates with `CrontabSchedule.TryParse(expr)` and stores the result. Store last/next run times in the same in-memory `ConcurrentDictionary<Guid, ArchidektCacheJobStatus>` pattern, extended with `LastRunUtc` and `NextRunUtc` fields. No new DB table needed for schedule state (single-operator, process-restarts reset it; cron expression lives in a Postgres feature-flag row — see section 4).
-
-**What NOT to add:** Quartz.AspNetCore, Coravel, Hangfire, Hangfire.InMemory, Hangfire.PostgreSql.
+**Project:** DeckFlow v1.4
+**Researched:** 2026-05-23
+**Confidence:** HIGH (versions verified against NuGet 2026-05; pricing verified against vendor pricing pages 2026-05)
+**Scope:** NEW packages only. Existing v1.0–v1.3 stack (ASP.NET 10, Razor, RestSharp 114, Polly 8.x, Npgsql 10, Microsoft.Data.Sqlite 10, Serilog 9, Markdig 0.38, Swashbuckle 7, IMemoryCache, IHttpClientFactory, `ResiliencePipelineProvider<string>`, v1.1 admin shell / IFeatureFlagCache / HarvestRunStore / HarvestScheduleService) is validated and unchanged. v1.4 explicitly does NOT migrate to `Microsoft.Extensions.Http.Resilience` standard handler (forbidden by `CLAUDE.md`).
 
 ---
 
-## 2. Feature Flags
+## Stack Additions (at a glance)
 
-**Recommendation: Roll-own — `IFeatureFlagStore` + `IOptionsMonitor`-style hot-reload poller. Do NOT add Microsoft.FeatureManagement.**
-
-### Rationale
-
-`Microsoft.FeatureManagement.AspNetCore` 4.5.0 (published 2026-04-23, targets net8.0+, compatible with net10.0) supports a custom `IFeatureDefinitionProvider` that could back flags from Postgres. However:
-
-- The interface requires mapping DeckFlow's simple `bool enabled` rows to `FeatureDefinition` objects with `IEnumerable<FeaturFilterConfiguration>` — significant ceremony for kill switches and boolean gates.
-- The `IFeatureManager.IsEnabledAsync(string)` call path re-evaluates on every invocation but still depends on `IConfiguration`, meaning the custom provider still gets called via the configuration pipeline — the caching and reload semantics are opaque (GitHub issue #367 confirms caching inside the provider is the caller's responsibility).
-- The package pulls in Azure App Configuration SDK as a transitive dependency — 400KB+ extra for a feature that can be done in ~100 lines.
-
-For DeckFlow's use case (6-10 boolean flags, one operator, kill switches + a Tagger toggle + beta gates) a purpose-built store is less surface area and easier to reason about.
-
-### Design
-
-`IFeatureFlagStore` (new interface in `DeckFlow.Web/Services/`):
-
-```csharp
-public interface IFeatureFlagStore
-{
-    ValueTask<bool> IsEnabledAsync(string flag, CancellationToken ct = default);
-    Task<IReadOnlyList<FeatureFlag>> GetAllAsync(CancellationToken ct = default);
-    Task SetAsync(string flag, bool enabled, string? description, CancellationToken ct = default);
-}
-```
-
-`FeatureFlag` is a `sealed record` with `string Key`, `bool Enabled`, `string? Description`, `DateTimeOffset UpdatedUtc`.
-
-Postgres schema (added to `EnsureSchemaAsync` in the existing dialect pattern):
-
-```sql
-CREATE TABLE IF NOT EXISTS feature_flags (
-    key         TEXT PRIMARY KEY,
-    enabled     BOOLEAN NOT NULL DEFAULT TRUE,
-    description TEXT,
-    updated_utc TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-```
-
-Hot reload: a singleton `FeatureFlagCache` wraps the store and polls every 30 seconds via a `PeriodicTimer` inside a `BackgroundService`. `IsEnabledAsync` reads from an `ImmutableDictionary<string, bool>` snapshot, replaced atomically on each poll. Default-open (returns `true`) if flag not found, except explicit kill-switch flags which should default-closed — document per flag. No IConfiguration involved.
-
-Registration in `Program.cs`:
-
-```csharp
-builder.Services.AddSingleton<IFeatureFlagStore, PostgresFeatureFlagStore>();
-builder.Services.AddSingleton<FeatureFlagCache>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<FeatureFlagCache>());
-```
-
-Controllers and services inject `FeatureFlagCache` (or `IFeatureFlagStore` for the admin write path).
-
-**What NOT to add:** Microsoft.FeatureManagement, Microsoft.FeatureManagement.AspNetCore, LaunchDarkly, ConfigCat, Azure App Configuration.
+| Capability | Package | Version | Authority | Notes |
+|------------|---------|---------|-----------|-------|
+| YouTube transcript fetch | `YoutubeExplode` | 6.6.0 (2026-04-22) | Tyrrrz (community, dominant) | No API key, no quota, owns both metadata + ASR caption tracks. Use over `Google.Apis.YouTube.v3` because v3's `captions.download` returns 403 for almost every third-party video. |
+| Podcast RSS / iTunes namespace | `System.ServiceModel.Syndication` | 10.0.2 | Microsoft | Already in the BCL family; add as csproj reference; reads `<itunes:*>` via `ElementExtensions`. Avoid `CodeHollow.FeedReader` (less actively maintained, smaller surface). |
+| Whisper API transcription | `OpenAI` (official) | 2.10.0 | OpenAI | `AudioClient` with `whisper-1` model; supports `verbose_json` + segment timestamps. Use existing RestSharp directly as the alternative — but the official SDK saves us writing a multipart-form upload by hand. |
+| LLM summarization + tagging | `OpenAI` (same package) | 2.10.0 | OpenAI | Single SDK covers Whisper + chat-completion + structured outputs. **One AI vendor for v1.4 ingestion** to minimize cap-tracking complexity. v1.5 can route per-feature once usage is baselined. |
+| Gemini direct API (paste-limit unblock) | RestSharp 114 (existing) | n/a | DeckFlow pattern | Hand-roll the 4 endpoints we need against `generativelanguage.googleapis.com` via the existing RestSharp + named Polly pipeline pattern. Do **NOT** add `Google.GenAI` 1.7.0 or `Google_GenerativeAI` 3.6.6 — both bring transitive `Microsoft.Extensions.AI` / `Newtonsoft.Json` baggage and a different HTTP stack. |
+| Cost tracking storage (Whisper $ cap) | none — reuse `IRelationalDialect` + Postgres `numeric(10,4)` | n/a | DeckFlow pattern | New `whisper_spend_ledger` table; same dialect-pluggable `RelationalDatabaseConnection` as `IFeedbackStore` / `IHarvestRunStore`. No `Serilog.Sinks.Postgres`, no metrics package. |
+| Admin mobile responsive sweep | none — extend `site-common.css` + `admin.css` | n/a | DeckFlow pattern | v1.3 WDG-04 already shipped touch-action / focus-visible / ≥44px targets to `site-common.css`. Admin sweep is custom-property + `@media` work, not a framework add. Do **NOT** add Bootstrap, Tailwind, or `@fluentui/web-components`. |
+| Doc-comment NoWarn backlog | none | n/a | DeckFlow pattern | Pure csproj edit + XML `<summary>` backfill. No analyzer (StyleCop) added. |
 
 ---
 
-## 3. Sparkline / Chart Rendering
+## Per-Capability Breakdown
 
-**Recommendation: Server-rendered inline SVG via Razor — zero packages, zero JS libraries.**
+### 1. YouTube Transcript Fetch
 
-### Rationale
+**Library:** `YoutubeExplode`
+**Version:** 6.6.0 (published 2026-04-22)
+**NuGet ID:** `YoutubeExplode`
+**Target frameworks:** net6.0 + netstandard2.0 — confirmed compatible with .NET 10 (consumed by net6.0 contract).
 
-The analytics page needs daily sparklines for per-route request counts: a small line chart over 7-30 data points per route. Pure SVG math requires only subtraction and division. The approach (verified from alexplescan.com, 2023):
+**Rationale (HIGH confidence):**
 
-1. Y-flip each value: `yCoord = maxValue - value` (SVG origin is top-left).
-2. Set `viewBox="0 0 {count-1} {maxValue}"` — SVG scales coordinates automatically.
-3. Emit a `<polyline>` with `points="{i},{yFlipped} ..."` (or `<path>` for filled area).
+`Google.Apis.YouTube.v3` (the official Google SDK) **cannot fetch auto-generated captions for third-party videos**. The `captions.download` endpoint returns HTTP 403 unless the video owner enabled "third-party contributions," which the overwhelming majority of cEDH content creators (cEDH Mind, Playing With Power, LabManiacs, Tolarian Community College, etc.) have not. Official Google docs and Issue Tracker 241669016 confirm this is by design, not a bug. Using the official SDK would require an OAuth flow per channel owner, which is operationally untenable for a curated-source ingestion pipeline.
 
-The entire sparkline is a Razor partial or Display Template with ~15 lines of C# coordinate math and ~5 lines of SVG markup. No JS at runtime. No HTTP round-trip. No external package. Renders correctly in all browsers. Scales infinitely with guild themes via `stroke: var(--accent-strong)`.
+`YoutubeExplode` reverse-engineers the same JSON endpoints the YouTube watch page uses. No API key. No quota. ASR (Automatic Speech Recognition / auto-generated) caption tracks are returned through `Videos.ClosedCaptions.GetManifestAsync(videoId)` alongside manual tracks; `ClosedCaptionTrackInfo.IsAutoGenerated` (boolean) discriminates. Track download via `GetAsync(trackInfo)` returns parsed `ClosedCaptionTrack` with per-line timestamps, which feeds our per-clip excerpt extraction directly.
 
-### Implementation
+**Integration pattern:**
 
-Add `Views/Shared/DisplayTemplates/Sparkline.cshtml` (or inline in the analytics partial). The view model passes `IReadOnlyList<int> DailyCounts`. The template emits:
+- Register a **named** `IHttpClientFactory` client: `"youtube-explode"` configured with `User-Agent` + `Accept-Language: en-US,en`. Set handler lifetime ≥ 5 min (matches existing tagger client pattern in `Program.cs:83-95`).
+- `YoutubeClient` accepts an `HttpClient` in its constructor (`new YoutubeClient(httpClient)`). DI-resolve `IHttpClientFactory`, request the named client, inject it.
+- Wrap calls in a NEW named resilience pipeline `"youtube-explode"` registered in `ResiliencePipelineFactory.cs` (retry on 429/5xx, timeout strategy, NO circuit breaker since manual harvest cadence already provides backpressure).
+- Service interface lives in `DeckFlow.Web/Services/Content/` (new folder): `IYouTubeTranscriptService` with one method `Task<TranscriptResult?> FetchTranscriptAsync(string videoId, CancellationToken ct = default)`. Returns null on "no captions available" so caller can fall back to Whisper. Follows existing `Task<T?>` "operation succeeded but no match" pattern documented in CLAUDE.md.
+- Internal test ctor seam: `Func<string, CancellationToken, Task<TranscriptResult?>>` delegate per `CardLookupService` convention (`InternalsVisibleTo("DeckFlow.Web.Tests")`).
 
-```html
-<svg viewBox="0 0 @(counts.Count - 1) @maxVal" preserveAspectRatio="none"
-     width="120" height="30" class="sparkline">
-  <polyline points="@string.Join(" ", points)" fill="none"
-            stroke="var(--accent-strong)" stroke-width="1.5" />
-</svg>
-```
+**Don't add:**
+- `Google.Apis.YouTube.v3` — captions.download is unusable for third-party videos. Use it only for **metadata** (video list / upload date / duration) IF YouTubeExplode's metadata surface proves insufficient. Probable verdict: YouTubeExplode covers metadata too; do not add Google.Apis.
+- `YoutubeReExplode` / `YoutubeExplodeZ` (forks) — main project is actively maintained (6.6.0 shipped 2026-04). No reason to fork.
+- `node-ytdl-core` / shelling out to `yt-dlp` — adds Node/Python runtime to a .NET-only container, violates 512MB RAM cap, breaks reproducible Docker layer.
 
-Where `points` is computed server-side as `(i, maxVal - counts[i])` pairs.
-
-**What NOT to add:** Chart.js, ApexCharts, Recharts, D3.js, Telerik, Syncfusion, any npm chart package.
-
----
-
-## 4. Long-Running Cancellable Job Pattern
-
-**Recommendation: Extend existing `BackgroundService` + `System.Threading.Channels` — no new package.**
-
-### Rationale
-
-`ArchidektCacheJobService` already uses this exact pattern (confirmed in source). It already has `EnqueueAsync`, `GetJob`, `GetActiveJob`, and `ExecuteAsync` over `Channel.CreateUnbounded`. What it lacks for v1.1:
-
-- **Cancel:** expose a per-job `CancellationTokenSource` linked to the `stoppingToken`. Store it alongside the job status in the `ConcurrentDictionary`. `CancelJobAsync(Guid)` calls `cts.Cancel()`.
-- **Pause/Resume:** add a `SemaphoreSlim(1,1)` as a pause gate. `PauseJobAsync` acquires the semaphore; `ResumeJobAsync` releases it. The job loop checks `await _pauseGate.WaitAsync(ct)` inside its inner iteration.
-- **Single-URL harvest:** add `EnqueueSingleUrlAsync(string archidektUrl, CancellationToken)` to `IArchidektCacheJobService`; enqueues a job with `DurationSeconds = 0` and a `TargetUrl` field on the status record.
-- **Stats panel:** `GetStatsAsync()` on `IArchidektCacheJobService` returns totals from the knowledge store plus last/next run times from the job state. No new persistence needed except the `feature_flags` row for the cron expression (see section 2).
-
-`System.Threading.Channels` is a BCL type (no NuGet needed). `BackgroundService` is in `Microsoft.Extensions.Hosting` (already transitive). `CancellationTokenSource` is BCL.
-
-`ArchidektCacheJobStatus` record gets extended fields: `CancellationTokenSource? Cts`, `bool IsPaused`, `string? TargetUrl`.
-
-**What NOT to add:** Hangfire, MediatR, any message broker, any actor framework.
+**Confidence:** HIGH (NuGet version + caption 403 limitation + reverse-engineered approach all verified against official YouTube Data API docs + Google Issue Tracker.)
 
 ---
 
-## 5. Per-Request Metrics Persistence
+### 2. Whisper API Transcription (Audio-Only Podcasts + Caption-Less Videos)
 
-**Recommendation: Bounded `Channel<PageHitEvent>` accumulator + singleton `BackgroundService` flusher — direct INSERT batches every 5 seconds. No external metrics package.**
+**Library:** `OpenAI` (official .NET SDK)
+**Version:** 2.10.0
+**NuGet ID:** `OpenAI`
+**Target framework:** netstandard2.0 — works on .NET 10.
 
-### Rationale
+**Rationale (HIGH confidence):**
 
-Direct INSERT per request on the hot path is wrong at Render Starter tier: under any burst (bot crawl, shared-link spike), one INSERT per request will queue up against a Basic-256mb Postgres instance with low connection count. OpenTelemetry + Prometheus exporter is overkill — it adds a collector sidecar or a pull endpoint, neither of which DeckFlow has budget or ops complexity for.
+Two real options: (a) hand-roll the `multipart/form-data` POST to `https://api.openai.com/v1/audio/transcriptions` via RestSharp, or (b) use the official OpenAI SDK's `AudioClient`. The official SDK is preferred for three reasons:
 
-The right pattern is the same one already used by `ArchidektCacheJobService`: a `Channel.CreateBounded<PageHitEvent>(new BoundedChannelOptions(2000) { FullMode = BoundedChannelFullMode.DropOldest })` as a ring buffer. The middleware writes to the channel (non-blocking `TryWrite`); a `BackgroundService` drains and batch-INSERTs every 5 seconds using Dapper-style raw SQL via the existing `IRelationalDatabaseConnection` dialect.
+1. **Single SDK covers Whisper AND chat-completion summarization AND structured-output tagging.** One package, one API-key env var, one billing surface. Reduces the v1.4 dependency footprint to one new AI package.
+2. **`verbose_json` + segment timestamps are a one-line option** (`new AudioTranscriptionOptions { ResponseFormat = AudioTranscriptionFormat.VerboseJson, TimestampGranularities = AudioTimestampGranularities.Segment }`). Hand-rolling multipart upload + parsing the same verbose JSON is ~80 LOC of boilerplate per call site.
+3. **Stable v2 line.** OpenAI shipped the rewritten v2 .NET SDK in 2024; 2.10.0 is current as of 2026-05.
 
-A dropped event under load is acceptable — DeckFlow analytics is operational telemetry for one operator, not billing. `DropOldest` with capacity 2000 events is ~50KB at ~25 bytes/event, negligible RAM.
+**Cost & risk:** $0.006/min for `whisper-1`. A 60-minute podcast = $0.36. The `gpt-4o-mini-transcribe` model is $0.003/min (half cost) but is a different endpoint and currently lacks the segment-timestamp granularity that the per-clip excerpt feature requires. **v1.4 ships on `whisper-1`** to keep segment timestamps; revisit `gpt-4o-mini-transcribe` if segment timestamps land for it pre-v1.5.
 
-### Schema
+**Integration pattern (carefully threaded into the RestSharp + Polly + IHttpClientFactory pattern):**
 
-```sql
-CREATE TABLE IF NOT EXISTS page_hits (
-    id          BIGSERIAL PRIMARY KEY,        -- Sqlite: INTEGER PRIMARY KEY AUTOINCREMENT
-    route       TEXT NOT NULL,
-    hit_day     DATE NOT NULL,
-    hit_count   INTEGER NOT NULL DEFAULT 1,
-    unique_ips  INTEGER NOT NULL DEFAULT 0,
-    error_count INTEGER NOT NULL DEFAULT 0
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uix_page_hits_route_day ON page_hits (route, hit_day);
-```
+The OpenAI 2.x SDK uses Azure's `System.ClientModel` transport, not `HttpClient` directly. It exposes `OpenAIClientOptions.Transport` which accepts a `PipelineTransport`; `HttpClientPipelineTransport(httpClient)` adapts any `HttpClient` into it. This is the seam we MUST use to stay inside the existing `IHttpClientFactory` lifecycle.
 
-The flusher drains the channel into a `Dictionary<(string route, DateOnly day), PageHitAccumulator>` then upserts one row per (route, day) key. Postgres upsert:
+- Register a named factory client `"openai"` in `Program.cs` with reasonable handler lifetime + timeout. **Do NOT** put a Polly resilience pipeline on the HttpClient itself (would conflict with SDK's own retry); instead wrap the SDK call sites in our own thin Polly retry for 429/5xx upstream classification — but rely primarily on the SDK's built-in retry for transient HTTP.
+- Build `AudioClient` per request (it's lightweight; OpenAI docs say "Clients are inexpensive to construct"): `new AudioClient("whisper-1", apiKey, new OpenAIClientOptions { Transport = new HttpClientPipelineTransport(httpClient) })`.
+- Service interface in `DeckFlow.Web/Services/Content/`: `IWhisperTranscriptionService` with `Task<TranscriptResult> TranscribeAsync(Stream audio, string mimeType, CancellationToken ct = default)`. **Caller MUST consult `IWhisperSpendGuard` first** — see Section 5.
+- Audio download: use existing RestSharp client for the podcast MP3 fetch (named client `"podcast-audio"` + named Polly pipeline). Stream the response body **directly to disk** at `${MTG_DATA_DIR}/whisper-tmp/{videoId}.mp3` (Render's `/data` persistent disk; 1 GB allocated), NOT into memory. Delete after transcription (finally block). 512MB RAM cap is the constraint — a 1-hour 64kbps MP3 is ~28 MB and we cannot afford to hold multiple in memory under request load.
+- Internal test ctor seam: `Func<Stream, string, CancellationToken, Task<TranscriptResult>>` delegate.
 
-```sql
-INSERT INTO page_hits (route, hit_day, hit_count, unique_ips, error_count)
-VALUES (@route, @day, @hitCount, @uniqueIps, @errorCount)
-ON CONFLICT (route, hit_day) DO UPDATE
-SET hit_count   = page_hits.hit_count + EXCLUDED.hit_count,
-    unique_ips  = page_hits.unique_ips + EXCLUDED.unique_ips,
-    error_count = page_hits.error_count + EXCLUDED.error_count;
-```
+**Don't add:**
+- `Whisper.net` / `Const-me/Whisper` — local Whisper inference. Loading even the `tiny` model (~75 MB) blows the 512MB Render Starter RAM cap once ASP.NET, Postgres connection pool, and Scryfall caches are loaded. Hard NO.
+- Azure OpenAI Whisper / `Azure.AI.OpenAI` — adds an Azure subscription, separate billing surface, separate quota. We pay OpenAI directly already (via the `OPENAI_API_KEY` model). No value here.
+- Hand-rolled multipart upload via RestSharp — viable fallback if OpenAI 2.x SDK becomes blocking. Keep as documented escape hatch in PITFALLS.md, do not implement up front.
 
-SQLite equivalent uses `INSERT OR REPLACE` with pre-read — follow existing `IRelationalDialect` branch pattern.
-
-### Middleware
-
-`PageHitMiddleware : IMiddleware` (registered as scoped, added in `Program.cs` before `MapControllers`). Reads `HttpContext.Request.Path` (normalised to controller route template), checks `context.Response.StatusCode` after `await _next(context)` to determine error flag, hashes IP to a `bool isNewIp` check against an `IMemoryCache` sliding 24h key. `TryWrite` to the channel — fire and forget.
-
-### Registration
-
-```csharp
-// In Program.cs, DI section
-builder.Services.AddSingleton<PageHitChannel>();   // wraps Channel<PageHitEvent>
-builder.Services.AddSingleton<PageHitFlusher>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<PageHitFlusher>());
-builder.Services.AddScoped<PageHitMiddleware>();
-// In middleware pipeline, after UseRouting, before MapControllers:
-app.UseMiddleware<PageHitMiddleware>();
-```
-
-**What NOT to add:** OpenTelemetry SDK, prometheus-net, App.Metrics, Application Insights, any OTEL collector, any time-series database.
+**Confidence:** HIGH (SDK version verified on NuGet; `HttpClientPipelineTransport` seam verified against OpenAI .NET docs + community articles; pricing verified against OpenAI pricing page 2026-05.)
 
 ---
 
-## Summary — New Packages
+### 3. LLM Summarization + Tag Inference
 
-| Package | Version | Purpose | Add to |
-|---------|---------|---------|--------|
-| `NCrontab` | 3.4.0 | Cron expression parsing for harvest schedule | `DeckFlow.Web.csproj` |
+**Library:** `OpenAI` (same package as Section 2)
+**Version:** 2.10.0
+**NuGet ID:** `OpenAI`
 
-That is the only NuGet addition for v1.1.
+**Rationale (HIGH confidence):**
 
-All other capabilities (feature flags, sparklines, cancellable jobs, metrics accumulator) are built from BCL types and existing project patterns.
+Three real candidates:
+
+| Vendor | SDK | Strengths | Cost (1M in / 1M out) | Verdict |
+|--------|-----|-----------|-----------------------|---------|
+| OpenAI gpt-4o-mini | `OpenAI` 2.10 | Already adopted for Whisper; native structured outputs (`ChatResponseFormat.CreateJsonSchemaFormat`); cheap; one API key | $0.15 / $0.60 (est. May 2026) | **CHOSEN** |
+| Anthropic Claude | `Anthropic` 12.23.0 (official as of v10+) | Best long-context summarization quality; tool-use for tagging | $3 / $15 (3.5 Sonnet est.) | Defer to v1.5 if quality issues surface |
+| Google Gemini 2.5 Flash | RestSharp hand-roll | Cheapest input; 1M context | $0.30 / $2.50 | Already part of v1.4 scope for paste-unblock; reuse that surface for summarization in v1.5 |
+
+**Why one vendor in v1.4, not the existing `AiPlatform` multi-AI pattern:** The user-facing `AiPlatform` value object (shipped v1.3 Phase 15) is for **paste-target selection** — the user picks where they will paste the prompt. The content-ingestion pipeline is a server-side **machine-to-machine** call where the LLM is an implementation detail. Mixing vendors inside one harvest run multiplies the monthly cost cap arithmetic by N and complicates the spend ledger. **v1.4 commits to OpenAI for ingestion only**; admin user-facing paste targeting remains AI-agnostic.
+
+**Tag inference approach:** Use OpenAI **Structured Outputs** (the JSON-schema-strict mode introduced 2024-08-06 with gpt-4o-mini-2024-07-18 and later). Define one strict JSON schema for the tagging response: `{ archetype: enum, format: enum, bracket: enum, card_category: string[], confidence: number }`. Schema enforcement at API level eliminates the "regex-extract-JSON-from-prose" tax we already paid in v1.3 Phase 999.2 for the Claude `<result>` wrapper. The `OpenAI` 2.10 SDK supports this directly via `ChatResponseFormat.CreateJsonSchemaFormat(name, schema, strict: true)`.
+
+**Integration pattern:**
+
+- Same named HttpClient + `HttpClientPipelineTransport` seam as Whisper.
+- `IContentSummarizationService` in `DeckFlow.Web/Services/Content/`: `Task<SummaryResult> SummarizeAsync(TranscriptResult transcript, CancellationToken ct = default)` + `Task<TagResult> InferTagsAsync(string transcriptText, CancellationToken ct = default)`. Both consult `IWhisperSpendGuard` equivalent extended to cover LLM token spend (renamed `IAiSpendGuard`).
+- Prompt templates live as Markdown / raw-string literals in `DeckFlow.Web/Services/Content/Prompts/` and respect the existing CLAUDE.md rule: **do not re-indent C# raw-string literals**.
+
+**Don't add:**
+- `Microsoft.Extensions.AI` / `Microsoft.SemanticKernel` — heavyweight abstractions that change DI shape across the app and bring transitive `Azure.*` packages. v1.4 is a 5-feature surgical milestone, not a re-architecture.
+- `LangChain.net` — same objection plus less stable; this is a CRUD-shaped problem, not a chain-of-tools problem.
+- A second AI vendor for v1.4 ingestion (see rationale above).
+
+**Confidence:** HIGH (SDK version + structured-outputs feature verified against OpenAI .NET docs; pricing tier comparison verified against vendor pricing pages 2026-05.)
 
 ---
 
-## Package Reference Block
+### 4. Podcast RSS Parsing
 
-```xml
-<!-- Add to DeckFlow.Web/DeckFlow.Web.csproj ItemGroup -->
-<PackageReference Include="NCrontab" Version="3.4.0" />
-```
+**Library:** `System.ServiceModel.Syndication`
+**Version:** 10.0.2
+**NuGet ID:** `System.ServiceModel.Syndication`
+
+**Rationale (MEDIUM confidence):**
+
+Two real candidates:
+
+- **`System.ServiceModel.Syndication` 10.0.2** — Microsoft package, version-locked to .NET 10, zero dependencies, in-BCL family. Reads RSS 2.0 + Atom. Does NOT natively parse the `<itunes:*>` namespace (duration, explicit, episode, season, image) — those come through as raw `XmlElement` instances on `SyndicationItem.ElementExtensions`. We must call `item.ElementExtensions.ReadElementExtensions<string>("duration", "http://www.itunes.com/dtds/podcast-1.0.dtd")` ourselves. About 30 LOC of helper code total.
+- **`CodeHollow.FeedReader` 1.2.6** — community package with first-class iTunes namespace support exposed as strongly-typed `ItunesItem` properties. Last update 2024-ish (less active than Microsoft's package). Zero dependencies.
+
+**Verdict:** Choose `System.ServiceModel.Syndication` for the same reason we use `Npgsql` over a third-party Postgres ORM — **first-party Microsoft package, version-locked to runtime, zero risk of abandonment**. The 30 LOC of iTunes-namespace helper code is a small price for keeping the dependency surface to Microsoft + things we already trust. CodeHollow.FeedReader is a fine fallback if the helper proves painful (revisit in PITFALLS.md).
+
+**Integration pattern:**
+
+- Named HttpClient `"podcast-rss"` (separate from `"podcast-audio"` because RSS is tiny + cacheable while audio is large + one-shot).
+- Named Polly pipeline `"podcast-rss"` (retry 429/5xx; circuit breaker OK here — RSS feed dead = whole source paused).
+- Static helper `DeckFlow.Web/Services/Content/PodcastRssParser.cs` exposing `PodcastFeed Parse(Stream rssBody)` — pure CPU, no DI, mirrors existing `MoxfieldParser` / `ArchidektParser` static-helper pattern.
+- Feed model lives in `DeckFlow.Core/Models/Content/` since RSS parsing is pure-domain (no HTTP) — same precedent as the existing parsers in `DeckFlow.Core/Parsing/`.
+
+**Don't add:**
+- `CodeHollow.FeedReader` (see verdict above; viable but second choice).
+- `System.Xml.Linq` hand-roll — `Syndication` already does this correctly; rolling our own re-introduces RSS quirks (CDATA inside `<description>`, mixed Atom-in-RSS feeds).
+- Any "feed aggregator" SaaS (Feedly API etc.) — adds external dependency for a parsing problem already solved in-BCL.
+
+**Confidence:** MEDIUM (iTunes-namespace extension via `ElementExtensions` is documented but the exact helper code shape needs a one-day spike to confirm — likely fine, flag in PITFALLS.)
 
 ---
 
-## What NOT to Add (explicit exclusions)
+### 5. Gemini Direct API (Paste-Limit Workaround)
 
-| Rejected Package | Reason |
-|-----------------|--------|
-| `Quartz` / `Quartz.AspNetCore` | Heavyweight scheduler; own thread pool; own job store; duplicates existing Channel+BackgroundService pattern |
-| `Coravel` | Full feature scheduler+queue+mailer; 2023 last major commit; over-kill for one cron expression |
-| `Hangfire` / `Hangfire.PostgreSql` | Adds schema, polling loop, dashboard conflicts with admin sidebar; memory leak history |
-| `Microsoft.FeatureManagement.AspNetCore` | Azure App Configuration transitive dep; 400KB+; IConfiguration coupling; ceremony exceeds value for 6-10 boolean flags |
-| `LaunchDarkly` / `ConfigCat` | External SaaS; network dependency for a kill switch; secrets; overkill |
-| `Chart.js` / `ApexCharts` / `D3.js` | Client-side JS charting; violates "minimal JS" constraint; sparklines need no JS |
-| `OpenTelemetry.*` / `prometheus-net` | Metrics collection for external collectors; no collector infra exists; overkill for in-app analytics |
-| `App.Metrics` | Same concern as above; last major activity 2022 |
-| `MediatR` | No pub/sub or CQRS need; Channel covers the decoupling that matters here |
+**Library:** none new — **reuse existing RestSharp 114 + named Polly pipeline pattern**
+**NuGet IDs:** none added
+
+**Rationale (HIGH confidence):**
+
+The v1.3 close-out left Gemini behind a `DECKFLOW_GEMINI_ENABLED` env flag because the full ChatGPT packet (commander + bracket + 100-card oracle text + analysis instructions) routinely exceeds `gemini.google.com`'s paste cap (~32K characters via the website paste box). Two unblock paths:
+
+**Path A — Split-message strategy (UI-only).** Server splits the existing zip into N copy-paste chunks; user pastes each in sequence; Gemini stitches the conversation. Zero new dependencies. Fragile to user paste-order errors.
+
+**Path B — Direct Gemini API (server-to-server).** DeckFlow holds a Gemini API key; user clicks "Analyze with Gemini" and we POST the full packet to `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent`. No paste cap (1M token context). Adds a vendor dependency + spend exposure (Gemini 2.5 Flash is $0.30/M in / $2.50/M out; full packet ≈ 30K tokens × ~$0.01 per analysis).
+
+**Verdict (HIGH):** Phase plan should make this an `/gsd-discuss-phase` decision because both paths are viable and the user has explicit context on the tradeoff. For STACK purposes: **if Path B is chosen, hand-roll against existing RestSharp + named Polly pattern.** Do NOT add either `Google.GenAI` 1.7.0 (official, but transitive `Microsoft.Extensions.AI` + `Google.Apis.Auth` baggage) or `Google_GenerativeAI` 3.6.6 (community, complete rewrite but unofficial and brings LangChain interop we don't want).
+
+**Why no Google SDK:**
+- DeckFlow already has 5 working RestSharp-wrapped HTTP integrations against vendor APIs (Scryfall REST, Spellbook, banlist, Tagger, EDHTop16). The Gemini REST surface is shaped identically: GET/POST with API key in header. Adding a vendor SDK contradicts the "single HTTP client abstraction" architectural constraint in CLAUDE.md.
+- Both Google SDKs bring transitive `System.Text.Json` constraints that conflict with the existing `{ get; init; }` property rule we maintain (the formatting constraint in CLAUDE.md mentions this has already broken `EdhTop16Client` once).
+- Hand-rolled Gemini integration is ~150 LOC. The SDK saves maybe 80 LOC and costs us a new transitive-dep surface to audit on every NuGet restore.
+
+**Integration pattern (Path B):**
+
+- Named HttpClient `"gemini-rest"`.
+- Named Polly pipeline `"gemini-rest"` (retry 429/5xx with respect for Gemini's `Retry-After` header).
+- Service interface `IGeminiDirectClient` in `DeckFlow.Web/Services/Ai/` (NEW folder — note: distinct from `Services/Content/` because this is user-facing paste-replacement, not content ingestion).
+- API key from env var `DECKFLOW_GEMINI_API_KEY` (rename existing `DECKFLOW_GEMINI_ENABLED` to remain as the gate, add the key alongside). Render dashboard `sync: false` per public-repo discipline.
+- Spend tracking REUSES the same `IAiSpendGuard` infrastructure as Whisper (single source of truth).
+
+**Confidence:** HIGH (vendor surface area + SDK transitive-dep risk both verified.)
+
+---
+
+### 6. Whisper + LLM Spend Cap Tracking
+
+**Libraries:** none new — **reuse `IRelationalDialect` + existing `IHarvestRunStore` pattern**
+**NuGet IDs:** none added
+
+**Rationale (HIGH confidence):**
+
+Spend tracking is **a row-per-call ledger plus a monthly aggregate query** — exactly the shape of `IHarvestRunStore` (v1.1) and `IFeedbackStore` (v1.0). Adding a metrics package (Prometheus.NET, OpenTelemetry exporters, Serilog.Sinks.Postgres) for this problem would be over-architected and would introduce a second persistence path.
+
+**Design (informs FEATURES.md / ARCHITECTURE.md too):**
+
+- New Postgres table `whisper_spend_ledger` (and equivalent SQLite schema for dev): `id`, `created_utc`, `vendor` (enum: `whisper` | `openai-chat` | `gemini`), `model`, `units` (minutes or tokens), `dollar_cost numeric(10,4)`, `source_kind` (`youtube` | `podcast` | `user-facing-ai`), `source_id`. Created via `EnsureSchemaAsync` on startup (existing pattern in `DeckFlow.Web/Services/FeedbackStore.cs`).
+- New service `IAiSpendGuard` in `DeckFlow.Web/Services/Content/`:
+  - `Task<bool> CanSpendAsync(decimal estimatedDollars, CancellationToken ct = default)` — returns false if month-to-date + estimated > monthly cap.
+  - `Task RecordSpendAsync(SpendLedgerEntry entry, CancellationToken ct = default)` — appends row + invalidates an in-memory month-to-date aggregate cache (IMemoryCache, 5-min TTL).
+- New admin tile in `/Admin/` showing month-to-date spend by vendor + cap + remaining. Reuses v1.1 admin shell + admin.css.
+- Cap configured via env var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default e.g. `10.00`). Hard abort harvest loop when `CanSpendAsync(estimateForOneVideo)` returns false; admin sees "Cap reached at <timestamp>" status.
+
+**Implementation discipline:**
+- Use `decimal` (NOT `double`) for all dollar amounts. Postgres `numeric(10,4)`. SQLite `TEXT` per the existing dialect convention (string-encoded decimal).
+- Estimate-then-record: estimate dollars BEFORE the API call (transcribe-duration-known, prompt-token-count-known), call `RecordSpendAsync` AFTER with the actual amount returned by the SDK (`AudioTranscription.Duration` + Whisper's flat $0.006/min; `ChatCompletion.Usage.TotalTokens` for OpenAI chat).
+- Race condition: two harvest workers could both pass `CanSpendAsync` then together exceed cap. v1.4 ships with **single-worker harvest** (matches "manual admin-triggered harvest, no scheduler" milestone scope) — race is impossible. Document the constraint in HarvestScheduleService comments; v1.5's scheduler MUST hold a Postgres advisory lock around the check-and-record.
+
+**Don't add:**
+- `Serilog.Sinks.Postgres` — Serilog is for logs (operational), not metrics (financial). Mixing concerns invites a future "let's grep the log for spend" anti-pattern.
+- Prometheus.NET / OpenTelemetry exporters — no metrics backend exists for DeckFlow; adding the exporter without a backend is pointless YAGNI.
+- A new ORM (Dapper, EF Core) — `RelationalDatabaseConnection` already abstracts the dialect; the existing stores write raw parameterized SQL successfully.
+
+**Confidence:** HIGH (pattern reuses existing v1.0+v1.1 stores verbatim; only new surface is the cap-gate logic.)
+
+---
+
+### 7. Admin Mobile Responsive Sweep
+
+**Libraries:** none new
+**NuGet IDs:** none added
+
+**Rationale (HIGH confidence):**
+
+This is **theme/CSS work, not a stack addition**. v1.3 Phase 11 (WDG-04) already shipped the a11y primitives — `touch-action`, `focus-visible`, ≥44 px touch targets, `prefers-reduced-motion` — to `site-common.css`. v1.4 extends those primitives into the admin shell + `admin.css`.
+
+**Conventions (informs ARCHITECTURE.md):**
+- All new responsive rules go in `admin.css` and `site-common.css` per the strict CLAUDE.md theme constraint ("layout CSS must go in `site-common.css`, not `site.css`").
+- Touch-target floor: 44×44 px (WCAG 2.5.5 Level AAA; matches the v1.3 WDG-04 token).
+- Breakpoint: single `@media (max-width: 640px)` block per file; no breakpoint sprawl.
+- Admin tables: pick **either** `overflow-x: auto` (preserves columns, requires horizontal scroll) **or** card-stack pattern (each row becomes a labeled card). Decide per-table in PLAN phase; the FeedbackStore admin table is wide enough to want card-stack, the HarvestRunStore table is narrow enough for overflow-x.
+- Admin sidebar collapse: `<details><summary>` semantic HTML, no JS. v1.3 already established this pattern (verify against `/Admin/_Layout.cshtml`).
+- Forms: single-column on narrow viewports, two-column on ≥ 768 px.
+
+**Don't add:**
+- Bootstrap 5 / Tailwind / `@fluentui/web-components` — adds 50–200KB of CSS and a class-naming convention that fights the 25-guild-theme system.
+- Any CSS-in-JS or build-step CSS preprocessor (PostCSS, Sass) — DeckFlow theme files are hand-edited CSS forks per guild; introducing a build step duplicates work and breaks the maintainer's existing edit workflow.
+- A "responsive testing framework" — manual viewport-resize test in a real browser is the existing v1.0 testing gate per CLAUDE.md ("rely on `dotnet build` clean + targeted manual harness or push-and-watch CI").
+
+**Confidence:** HIGH (CSS-only change in a system already shipped with WDG-04 primitives.)
+
+---
+
+### 8. Doc-Comment NoWarn Backlog
+
+**Libraries:** none
+**NuGet IDs:** none added
+
+**Rationale:**
+
+Pure csproj + Razor-view edit. Remove `<NoWarn>$(NoWarn);1591;1573;1587</NoWarn>` from `DeckFlow.Web.csproj`. Backfill `/// <summary>` doc-comments on ~88 v1.1-era types (controllers, services, models, view models). v1.3 Phase 13/14 already did this for renamed types; v1.4 finishes the backlog of pre-existing undocumented types.
+
+**Don't add:**
+- StyleCop.Analyzers / Roslynator — would add ~200 new warnings on existing code formatted in DeckFlow's pinned conventions (Allman braces, file-scoped namespaces, etc.). The CLAUDE.md formatting constraint explicitly forbids analyzer-driven reformatting passes.
+
+**Confidence:** HIGH (mechanical edit only.)
+
+---
+
+## Integration Constraints (RestSharp + Polly + IHttpClientFactory)
+
+All v1.4 HTTP-touching code MUST follow the established DeckFlow conventions documented in CLAUDE.md and the architecture section of the orchestrator-provided ROADMAP context:
+
+1. **No `new HttpClient()` ever.** Every HTTP client comes from a named `IHttpClientFactory` registration in `Program.cs`. New named clients for v1.4: `"youtube-explode"`, `"podcast-rss"`, `"podcast-audio"`, `"openai"`, `"gemini-rest"`.
+2. **Every named client gets a matching named Polly pipeline** registered in `ResiliencePipelineFactory.AddDeckFlowResiliencePipelines()`. Resolve via `ResiliencePipelineProvider<string>` keyed by name — NOT keyed services. Existing v1.0–v1.3 pipelines (`banlist`, `spellbook`, `tagger`, `tagger-post`, `scryfall`) stay untouched.
+3. **OpenAI SDK exception:** uses `HttpClientPipelineTransport` to wrap the factory's `HttpClient`. Polly retry sits AROUND the SDK call at the service-method level rather than as a `DelegatingHandler` on the HttpClient — to avoid double-retry with the SDK's built-in retry logic.
+4. **Test seam pattern:** every new service exposes a public DI ctor and an `internal` test ctor that injects a `Func<...>` delegate. `[InternalsVisibleTo("DeckFlow.Web.Tests")]` already declared in `DeckFlow.Web/AssemblyInfo.cs`.
+5. **Cancellation tokens:** every `Async` method takes `CancellationToken cancellationToken = default` as the LAST parameter. Linked-source pattern at request boundary per existing `CommanderController.cs:55-57` precedent.
+6. **NEVER migrate to `Microsoft.Extensions.Http.Resilience` standard handler.** CLAUDE.md is explicit. The named-pipeline pattern is the DeckFlow contract.
+7. **Secrets via env vars + Render dashboard `sync: false`** for all new keys: `OPENAI_API_KEY`, `DECKFLOW_GEMINI_API_KEY`, `DECKFLOW_WHISPER_MONTHLY_CAP_USD`. NEVER committed.
+
+---
+
+## Cost + Resource Implications
+
+### Per-call cost (May 2026 pricing, USD)
+
+| Operation | Unit | Unit cost | 100-source/month volume | Monthly cost |
+|-----------|------|-----------|--------------------------|--------------|
+| YouTube transcript fetch (auto-captions) | per video | $0.00 | 100 | $0.00 |
+| Whisper transcription fallback | per minute | $0.006 | 30 podcasts × 60 min | $10.80 |
+| OpenAI gpt-4o-mini summarization | per 1M input tokens | $0.15 | 100 transcripts × 15K tokens | $0.225 |
+| OpenAI gpt-4o-mini summarization | per 1M output tokens | $0.60 | 100 summaries × 1K tokens | $0.06 |
+| OpenAI gpt-4o-mini tag inference | per 1M input tokens | $0.15 | 100 transcripts × 15K tokens | $0.225 |
+| OpenAI gpt-4o-mini tag inference | per 1M output tokens | $0.60 | 100 tags × 200 tokens | $0.012 |
+| Gemini 2.5 Pro user-facing direct (Path B) | per analysis | ~$0.01 | 200 analyses | $2.00 |
+| **Total estimated v1.4 monthly run-rate** | | | | **~$13.32** |
+
+**Recommended initial cap:** `DECKFLOW_WHISPER_MONTHLY_CAP_USD=15.00` (covers expected run-rate + 12% headroom). Admin sees spend tile; adjust upward only on user signal.
+
+### Resource implications on Render Starter (512 MB RAM cap)
+
+- **YoutubeExplode:** negligible RAM; ~10 MB working set per fetch.
+- **Whisper API call:** audio streamed to `/data/whisper-tmp/{id}.mp3` (never held in memory). Disk: 1 GB persistent — 30 MP3s × ~30 MB = 900 MB worst case if not cleaned up. Aggressive `finally`-block cleanup is REQUIRED (PITFALL).
+- **OpenAI summarization/tagging:** in-memory transcript + response. ~50 KB per call. Negligible.
+- **Postgres connections:** existing connection pool sized for ~20 concurrent on Basic-256MB. v1.4 spend-ledger writes are infrequent (≤ 1/sec under harvest), no pool change needed.
+- **No local model inference.** Hard constraint. Whisper.net / Const-me/Whisper / llama.cpp / ONNX Runtime — all forbidden under the 512 MB cap.
+
+### Whisper temp-file disk discipline
+
+- Write to `${MTG_DATA_DIR}/whisper-tmp/` (Render `/data/whisper-tmp/`).
+- Cleanup in `finally` block of `TranscribeAsync`.
+- Startup-time sweep of `whisper-tmp/` on `Program.cs` boot to clean orphans from crashed harvests.
+- Document the directory in `render.yaml` comments so future disk-resize decisions account for it.
+
+---
+
+## What NOT to Add
+
+Aggregated reject-list across capabilities, with reasons:
+
+| Don't add | Why not |
+|-----------|---------|
+| `Google.Apis.YouTube.v3` | `captions.download` returns 403 for third-party videos — unusable for ingestion pipeline. |
+| `Whisper.net` / `Const-me/Whisper` / any local Whisper model | Blows 512 MB Render Starter RAM cap. Hard NO. |
+| `Microsoft.Extensions.Http.Resilience` standard handler | Forbidden by CLAUDE.md — DeckFlow uses RestSharp + direct named Polly pipelines. |
+| `Google.GenAI` 1.7.0 (official Gemini SDK) | Transitive `Microsoft.Extensions.AI` + auth-stack baggage; conflicts with single-RestSharp HTTP convention. |
+| `Google_GenerativeAI` 3.6.6 (community) | Unofficial; LangChain interop unwanted; transitive-dep churn risk. |
+| `Anthropic` 12.23.0 (Claude SDK) | v1.4 commits to one ingestion AI vendor (OpenAI). Revisit v1.5 if quality issues surface. |
+| `Microsoft.SemanticKernel` / `Microsoft.Extensions.AI` | Heavyweight; changes DI shape; v1.4 is surgical. |
+| `LangChain.net` | Wrong abstraction for a CRUD-shaped problem. |
+| Azure OpenAI / `Azure.AI.OpenAI` | Separate billing surface, separate Azure subscription requirement. No value. |
+| `CodeHollow.FeedReader` | Second choice to `System.ServiceModel.Syndication`; only revisit if iTunes-namespace helper proves painful. |
+| `Quartz.NET` / `Hangfire` / `Coravel` | No new background-job framework in v1.4; manual admin-triggered harvest, no scheduler. |
+| `Serilog.Sinks.Postgres` | Logs ≠ metrics. Spend ledger uses `RelationalDatabaseConnection` per existing IFeedbackStore pattern. |
+| Prometheus.NET / OpenTelemetry exporters | No metrics backend exists; YAGNI. |
+| Bootstrap / Tailwind / `@fluentui/web-components` | Fights the 25-guild-theme system; v1.3 WDG-04 already established the a11y/responsive primitive pattern. |
+| StyleCop.Analyzers / Roslynator | Would conflict with pinned DeckFlow formatting conventions per CLAUDE.md. |
+| Dapper / EF Core | `RelationalDatabaseConnection` + raw parameterized SQL is the established dialect-pluggable pattern. |
+| `yt-dlp` shell-out / Node-based youtube tools | Adds Python/Node runtime to .NET-only container; breaks reproducible Docker build. |
 
 ---
 
 ## Sources
 
-- NCrontab NuGet: https://www.nuget.org/packages/NCrontab/ (v3.4.0, published 2025-09-13, netstandard1.0)
-- Quartz.NET NuGet: https://www.nuget.org/packages/quartz/ (v3.18.1, published 2026-04-25, net8.0+)
-- Microsoft.FeatureManagement.AspNetCore NuGet: https://www.nuget.org/packages/Microsoft.FeatureManagement.AspNetCore/ (v4.5.0, published 2026-04-23)
-- IFeatureDefinitionProvider interface: https://learn.microsoft.com/en-us/dotnet/api/microsoft.featuremanagement.ifeaturedefinitionprovider
-- Custom DB ConfigurationProvider pattern: https://gavilan.blog/2025/03/29/write-a-custom-configuration-provider-that-connects-to-a-database-asp-net-core/
-- SVG sparkline coordinate math: https://alexplescan.com/posts/2023/07/08/easy-svg-sparklines/
-- System.Threading.Channels background processing: https://devblogs.microsoft.com/dotnet/an-introduction-to-system-threading-channels/
-- Quartz.NET Context7 docs: https://context7.com/quartznet/quartznet
-- Microsoft.FeatureManagement Context7 docs: https://context7.com/microsoft/featuremanagement-dotnet
+- [OpenAI .NET SDK 2.10.0 (NuGet)](https://www.nuget.org/packages/OpenAI) — official SDK version + AudioClient/Whisper support, HIGH confidence
+- [openai/openai-dotnet on GitHub](https://github.com/openai/openai-dotnet) — AudioClient + GetAudioClient + structured outputs surface
+- [OpenAI API Pricing 2026](https://openai.com/api/pricing/) — Whisper $0.006/min + gpt-4o-mini token rates
+- [Whisper API Pricing 2026 — brasstranscripts](https://brasstranscripts.com/blog/openai-whisper-api-pricing-2025-self-hosted-vs-managed) — $0.006/min managed
+- [YoutubeExplode 6.6.0 (NuGet)](https://www.nuget.org/packages/YoutubeExplode) — version + .NET targets
+- [Tyrrrz/YoutubeExplode (GitHub)](https://github.com/Tyrrrz/YoutubeExplode) — caption manifest API + ClosedCaptionTrackInfo.IsAutoGenerated
+- [solrevdev — Building ytx (.NET 8 Global Tool with YoutubeExplode 6.5.4+)](https://solrevdev.com/2025/10/27/building-ytx-a-youtube-transcript-extractor-as-a-dotnet-global-tool.html) — real-world transcript extraction reference
+- [YouTube Data API v3 captions.download docs](https://developers.google.com/youtube/v3/docs/captions/download) — official endpoint
+- [Google Issue Tracker 241669016 — captions.download 403](https://issuetracker.google.com/issues/241669016) — confirms third-party caption download is locked
+- [System.ServiceModel.Syndication 10.0.2 (NuGet)](https://www.nuget.org/packages/System.ServiceModel.Syndication/) — Microsoft package, .NET 10
+- [System.ServiceModel.Syndication namespace docs](https://learn.microsoft.com/en-us/dotnet/api/system.servicemodel.syndication?view=net-10.0-pp) — RSS/Atom + ElementExtensions
+- [CodeHollow.FeedReader 1.2.6 (NuGet)](https://www.nuget.org/packages/CodeHollow.FeedReader) — community alternative with iTunes namespace
+- [Google.GenAI 1.7.0 (NuGet)](https://www.nuget.org/packages/Google.GenAI) — official Gemini SDK (rejected)
+- [Google_GenerativeAI 3.6.6 (NuGet)](https://www.nuget.org/packages/Google_GenerativeAI/) — community Gemini SDK (rejected)
+- [Gemini API pricing 2026 (Google AI)](https://ai.google.dev/gemini-api/docs/pricing) — Gemini 2.5 Pro / Flash / Flash-Lite tiers
+- [Anthropic 12.23.0 (NuGet, official as of v10+)](https://www.nuget.org/packages/Anthropic) — official Claude SDK (deferred to v1.5)
+- [Claude C# SDK docs](https://platform.claude.com/docs/en/api/sdks/csharp) — official SDK pointer
+- [OpenAI Structured Outputs docs](https://developers.openai.com/api/docs/guides/structured-outputs) — JSON-schema-strict mode for tag inference
+- [Build an Aspire API Using Microsoft OpenAI (dev.to)](https://dev.to/victorioberra/build-an-aspire-api-using-microsoft-openai-scalar-openrouter-structured-output-and-custom-3a6) — `HttpClientPipelineTransport` integration pattern with `IHttpClientFactory`
+- [Render Persistent Disks docs](https://render.com/docs/disks) — Starter plan + 1 GB disk + `/data` mount semantics

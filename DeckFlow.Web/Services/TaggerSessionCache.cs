@@ -49,18 +49,31 @@ public sealed class TaggerSessionCache : ITaggerSessionCache
     private const string CacheKey = "tagger:session";
 
     /// <summary>
+    /// SocketsHttpHandler rotation lifetime for the Tagger client. Single source of truth for
+    /// the HIGH-2 invariant — Program.cs sets both PooledConnectionLifetime and
+    /// SetHandlerLifetime from this value so the cache TTL and the handler lifetime cannot
+    /// drift apart silently. Guarded by TaggerSessionCacheInvariantTests in DeckFlow.Web.Tests.
+    /// </summary>
+    internal static readonly TimeSpan HandlerLifetime = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Minimum gap the cache TTL must stay below <see cref="HandlerLifetime"/> (HIGH-2 margin).
+    /// </summary>
+    internal static readonly TimeSpan RotationSafetyMargin = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Cache TTL: 270s. 30s below HandlerLifetime (300s) to avoid the boundary race where
     /// a request near rotation replays a stale cookie+token against a freshly rotated handler.
     /// (HIGH-2 fix — decouples cache expiry from handler lifetime.)
     /// </summary>
-    private static readonly TimeSpan SessionCacheTtl = TimeSpan.FromSeconds(270);
+    internal static readonly TimeSpan SessionCacheTtl = TimeSpan.FromSeconds(270);
 
     /// <summary>
     /// Age threshold for proactive background refresh. When a cached session is older than
     /// 240s, the next read triggers a background re-fetch while still serving the cached value
     /// so the subsequent POST sees a fresh handler+session pair.
     /// </summary>
-    private static readonly TimeSpan SessionRefreshAge = TimeSpan.FromSeconds(240);
+    internal static readonly TimeSpan SessionRefreshAge = TimeSpan.FromSeconds(240);
 
     private readonly IMemoryCache _memoryCache;
 

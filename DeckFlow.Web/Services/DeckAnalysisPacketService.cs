@@ -987,12 +987,17 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         {
             foreach (var cardReference in cardReferences)
             {
-                builder.AppendLine($"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine} | {cardReference.OracleText}");
+                var mdfcMarker = cardReference.IsMdfcLand ? " [MDFC-land]" : string.Empty;
+                builder.AppendLine($"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine} | {cardReference.OracleText}{mdfcMarker}");
             }
         }
 
         return builder.ToString().TrimEnd();
     }
+
+    internal static bool IsModalDfcLand(ScryfallCard card)
+        => card.Layout == "modal_dfc"
+            && card.CardFaces?.Any(face => face.TypeLine?.Contains("Land", StringComparison.OrdinalIgnoreCase) == true) == true;
 
     private static IReadOnlyList<CardReferenceRequest> BuildAnalysisCardReferenceRequests(
         IReadOnlyList<DeckEntry> deckEntries,
@@ -1117,6 +1122,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ["game_plan"] = string.Empty,
             ["primary_axes"] = Array.Empty<string>(),
             ["speed"] = string.Empty,
+            ["estimated_win_turn"] = 0,
+            ["can_answer_win_turn"] = false,
+            ["assessed_bracket"] = string.Empty,
+            ["bracket_justification"] = string.Empty,
             ["strengths"] = Array.Empty<string>(),
             ["weaknesses"] = Array.Empty<string>(),
             ["deck_needs"] = Array.Empty<string>(),
@@ -1199,7 +1208,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     card.Name,
                     card.ManaCost ?? string.Empty,
                     card.TypeLine,
-                    NormalizeOracleText(card));
+                    NormalizeOracleText(card),
+                    IsModalDfcLand(card));
 
                 foreach (var mechanicName in ExtractMechanicNames(card))
                 {
@@ -1225,7 +1235,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     displayName,
                     fallbackCard.ManaCost ?? string.Empty,
                     fallbackCard.TypeLine,
-                    NormalizeOracleText(fallbackCard));
+                    NormalizeOracleText(fallbackCard),
+                    IsModalDfcLand(fallbackCard));
 
                 foreach (var mechanicName in ExtractMechanicNames(fallbackCard))
                 {
@@ -1606,7 +1617,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
 
     private sealed record CardReferenceRequest(string Name, string Scope);
-    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText);
+    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand);
 
     private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
 

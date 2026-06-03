@@ -1,5 +1,9 @@
 using System.Collections.Generic;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Reporting;
 
 namespace DeckFlow.Core.Knowledge;
@@ -38,38 +42,92 @@ internal static class DeckCategoryCacheWriter
             return;
         }
 
+        var batch = BuildCanonicalBatch(entries);
+
+        await repository.PersistDeckCategoryBatchAsync(source, batch.Observations, batch.Totals, cancellationToken);
+    }
+
+    internal static (IReadOnlyList<(string CardName, string Category, string Board, int Quantity, int DeckCountIncrement)> Observations, IReadOnlyList<(string CardName, string Board)> Totals) BuildCanonicalBatch(IEnumerable<DeckEntry>? entries)
+    {
         var counts = new Dictionary<(string CardName, string Category, string Board), (int Quantity, int DeckIncrement)>(BoardCategoryComparer.Instance);
         var cardBoardHits = new HashSet<(string CardName, string Board)>(CardBoardComparer.Instance);
 
-        foreach (var entry in entries)
+        if (entries is not null)
         {
-            var board = NormalizeBoard(entry.Board);
-            cardBoardHits.Add((entry.Name, board));
-            foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
+            foreach (var entry in entries)
             {
-                var key = (entry.Name, category, board);
-                counts[key] = counts.TryGetValue(key, out var existing)
-                    ? (existing.Quantity + entry.Quantity, existing.DeckIncrement)
-                    : (entry.Quantity, 0);
+                var board = NormalizeBoard(entry.Board);
+                cardBoardHits.Add((entry.Name, board));
+                foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
+                {
+                    var key = (entry.Name, category, board);
+                    counts[key] = counts.TryGetValue(key, out var existing)
+                        ? (existing.Quantity + entry.Quantity, existing.DeckIncrement)
+                        : (entry.Quantity, 0);
+                }
             }
         }
 
+        var observations = new List<(string CardName, string Category, string Board, int Quantity, int DeckCountIncrement)>(counts.Count);
         foreach (var group in counts)
         {
-            await repository.PersistObservedCategoriesAsync(
-                source,
+            observations.Add((
                 group.Key.CardName,
-                new[] { group.Key.Category },
-                group.Value.Quantity,
+                group.Key.Category,
                 group.Key.Board,
-                deckCountIncrement: 1,
-                cancellationToken);
+                group.Value.Quantity,
+                DeckCountIncrement: 1));
         }
 
+        var totals = new List<(string CardName, string Board)>(cardBoardHits.Count);
         foreach (var cardBoard in cardBoardHits)
         {
-            await repository.PersistCardDeckTotalsAsync(source, cardBoard.CardName, cardBoard.Board, deckCountIncrement: 1, cancellationToken: cancellationToken);
+            totals.Add(cardBoard);
         }
+
+        return (observations, totals);
+    }
+
+    internal static string ComputeCanonicalHash(IEnumerable<DeckEntry>? entries)
+    {
+        var batch = BuildCanonicalBatch(entries);
+        var records = new List<string>(batch.Observations.Count + batch.Totals.Count);
+
+        foreach (var observation in batch.Observations)
+        {
+            records.Add(EncodeRecord(
+                "obs",
+                CardNormalizer.Normalize(observation.CardName),
+                observation.Category,
+                observation.Board,
+                observation.Quantity.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        foreach (var total in batch.Totals)
+        {
+            records.Add(EncodeRecord(
+                "total",
+                CardNormalizer.Normalize(total.CardName),
+                total.Board));
+        }
+
+        records.Sort(StringComparer.Ordinal);
+        var canonical = string.Join('\n', records);
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static string EncodeRecord(params string[] fields)
+    {
+        var builder = new StringBuilder();
+        foreach (var field in fields)
+        {
+            builder.Append(Encoding.UTF8.GetByteCount(field));
+            builder.Append(':');
+            builder.Append(field);
+        }
+
+        return builder.ToString();
     }
 
     private static string NormalizeBoard(string? board)

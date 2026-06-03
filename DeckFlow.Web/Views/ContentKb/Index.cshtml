@@ -1,0 +1,120 @@
+@model ContentKbBrowseViewModel
+@{
+    ViewData["Title"] = "Knowledge Base";
+    var hasEntries = Model.Entries.Count > 0;
+}
+
+<section aria-labelledby="content-kb-title">
+    <h1 id="content-kb-title">Knowledge Base</h1>
+    <p class="page-lede">Distilled advice from Commander and cEDH content — ready to paste into ChatGPT.</p>
+
+    <fieldset class="kb-filter-bar" @(hasEntries ? null : "disabled")>
+        <legend class="sr-only">Filter knowledge base entries</legend>
+        <input type="search" placeholder="Search entries…" aria-label="Search entries" data-kb-search />
+
+        <label>
+            <span>Source</span>
+            <select data-df-select data-kb-filter="source">
+                <option value="">Any source</option>
+                @foreach (var source in Model.Sources)
+                {
+                    <option value="@source">@source</option>
+                }
+            </select>
+        </label>
+
+        <label>
+            <span>Archetype</span>
+            <select data-df-select data-kb-filter="archetype">
+                <option value="">Any archetype</option>
+                @foreach (var archetype in Model.Archetypes)
+                {
+                    <option value="@archetype">@archetype</option>
+                }
+            </select>
+        </label>
+
+        <label>
+            <span>Bracket</span>
+            <select data-df-select data-kb-filter="bracket">
+                <option value="">Any bracket</option>
+                @foreach (var bracket in Model.Brackets)
+                {
+                    <option value="@bracket">@bracket</option>
+                }
+            </select>
+        </label>
+
+        <label>
+            <span>Card category</span>
+            <select data-df-select data-kb-filter="card-category">
+                <option value="">Any category</option>
+                @foreach (var category in Model.CardCategories)
+                {
+                    <option value="@category">@category</option>
+                }
+            </select>
+        </label>
+    </fieldset>
+
+    <div class="hub-grid" data-kb-grid>
+        @foreach (var entry in Model.Entries)
+        {
+            <article class="hub-card"
+                     data-kb-entry
+                     data-search="@($"{entry.Title} {entry.Source}")"
+                     data-source="@entry.Source"
+                     data-archetype="@JoinTags(entry.ArchetypeTags)"
+                     data-bracket="@JoinTags(entry.BracketTags)"
+                     data-card-category="@JoinTags(entry.CardCategoryTags)">
+                <h2 class="hub-card__title">
+                    <a href="@entry.DetailUrl">@entry.Title</a>
+                </h2>
+                <p class="hub-card__description">@CardDescription(entry)</p>
+                <div aria-hidden="true">
+                    <span class="kb-tag" data-source="@entry.Source">@entry.Source</span>
+                    @foreach (var bracket in entry.BracketTags)
+                    {
+                        <span class="kb-tag" data-bracket="@bracket">@bracket</span>
+                    }
+                    @foreach (var archetype in entry.ArchetypeTags)
+                    {
+                        <span class="kb-tag" data-archetype="@archetype">@archetype</span>
+                    }
+                    @foreach (var category in entry.CardCategoryTags)
+                    {
+                        <span class="kb-tag" data-card-category="@category">@category</span>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+
+    @if (!hasEntries)
+    {
+        <section class="kb-empty" data-kb-empty-published>
+            <h2>No entries published yet</h2>
+            <p>The Knowledge Base is enabled but no entries have been made public. Check back later.</p>
+        </section>
+    }
+
+    <section class="kb-empty" data-kb-empty-filter hidden>
+        <h2>No entries match your filters</h2>
+        <p>Try broadening your search or clearing a filter.</p>
+        <button type="button" class="maintenance-page__action" data-kb-clear-filters>Clear filters</button>
+    </section>
+
+    <div class="sr-only" role="status" aria-live="polite" data-kb-match-count></div>
+</section>
+
+@section Scripts {
+    <script src="~/js/content-kb.js" asp-append-version="true"></script>
+}
+
+@functions {
+    private static string JoinTags(IEnumerable<string> tags) => string.Join("|", tags);
+
+    private static string CardDescription(ContentKbBrowseViewModel.Entry entry)
+        => string.Join(" · ", new[] { entry.Source, entry.Bracket, entry.Archetype }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}
