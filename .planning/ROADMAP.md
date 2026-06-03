@@ -99,7 +99,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [x] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
 - [x] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
 - [x] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)* (completed 2026-06-03)
-- [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
+- [x] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27* (functionally closed 2026-05-25: SC1/SC3/SC4/SC5 met, SC2 amended to achieved scope per b1a5cc8)
 - [x] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26* (completed 2026-05-26)
 
 ## Phase Details
