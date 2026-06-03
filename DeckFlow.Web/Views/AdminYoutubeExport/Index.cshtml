@@ -16,7 +16,7 @@
         date. Each video costs one metadata lookup, so large counts take a while.
     </p>
 
-    <form method="post" asp-action="Export" class="admin-action-form">
+    <form method="post" asp-action="Export" class="admin-action-form" data-yt-export-form>
         @Html.AntiForgeryToken()
         <label for="yt-export-channel">Channel</label>
         <input id="yt-export-channel" name="channel" type="text" required
@@ -26,3 +26,8 @@
         <button type="submit">Download list</button>
     </form>
 </section>
+
+@section Scripts
+{
+    <script src="~/js/admin-youtube-export.js" asp-append-version="true"></script>
+}
