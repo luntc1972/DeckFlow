@@ -18,29 +18,41 @@ public sealed class CategorySuggestionApiResponse
     /// Exact category text from the optional reference deck.
     /// </summary>
     public string ExactCategoriesText { get; init; } = string.Empty;
+    /// <summary>Prompt context explaining the exact reference-deck categories.</summary>
     public string ExactSuggestionContextText { get; init; } = string.Empty;
     /// <summary>
     /// Categories inferred from the local cache.
     /// </summary>
     public string InferredCategoriesText { get; init; } = string.Empty;
+    /// <summary>Prompt context explaining locally inferred categories.</summary>
     public string InferredSuggestionContextText { get; init; } = string.Empty;
     /// <summary>
     /// Fallback themes inferred from EDHREC data.
     /// </summary>
     public string EdhrecCategoriesText { get; init; } = string.Empty;
+    /// <summary>Prompt context explaining EDHREC-derived category hints.</summary>
     public string EdhrecSuggestionContextText { get; init; } = string.Empty;
+    /// <summary>Whether the response includes exact reference-deck categories.</summary>
     public bool HasExactCategories { get; init; }
+    /// <summary>Whether the response includes locally inferred categories.</summary>
     public bool HasInferredCategories { get; init; }
+    /// <summary>Whether the response includes EDHREC-derived category hints.</summary>
     public bool HasEdhrecCategories { get; init; }
     /// <summary>
     /// Oracle/functional tags from Scryfall Tagger.
     /// </summary>
     public string TaggerCategoriesText { get; init; } = string.Empty;
+    /// <summary>Prompt context explaining Scryfall Tagger category hints.</summary>
     public string TaggerSuggestionContextText { get; init; } = string.Empty;
+    /// <summary>Whether the response includes Scryfall Tagger category hints.</summary>
     public bool HasTaggerCategories { get; init; }
+    /// <summary>Human-readable summary of the sources that contributed suggestions.</summary>
     public string? SuggestionSourceSummary { get; init; }
+    /// <summary>Whether every suggestion source returned no useful category data.</summary>
     public bool NoSuggestionsFound { get; init; }
+    /// <summary>User-facing message shown when no suggestions are available.</summary>
     public string? NoSuggestionsMessage { get; init; }
+    /// <summary>Deck-count totals describing how often the card appears in harvested data.</summary>
     public CardDeckTotals CardDeckTotals { get; init; } = CardDeckTotals.Empty;
 }
 
@@ -53,11 +65,17 @@ public sealed class CommanderCategoryApiResponse
     /// Commander name that was queried.
     /// </summary>
     public string CommanderName { get; init; } = string.Empty;
+    /// <summary>Number of card rows matched for the commander.</summary>
     public int CardRowCount { get; init; }
+    /// <summary>Number of distinct categories represented in the response.</summary>
     public int CategoryCount { get; init; }
+    /// <summary>Number of harvested decks contributing commander data.</summary>
     public int HarvestedDeckCount { get; init; }
+    /// <summary>Deck-count totals for the cards included in the commander category response.</summary>
     public CardDeckTotals CardDeckTotals { get; init; } = CardDeckTotals.Empty;
+    /// <summary>Category summaries sorted for display by the commander category UI.</summary>
     public IReadOnlyList<CommanderCategorySummaryDto> Summaries { get; init; } = Array.Empty<CommanderCategorySummaryDto>();
+    /// <summary>User-facing message shown when the commander has no harvested results.</summary>
     public string? NoResultsMessage { get; init; }
 }
 
@@ -66,8 +84,11 @@ public sealed class CommanderCategoryApiResponse
 /// </summary>
 public sealed class CommanderCategorySummaryDto
 {
+    /// <summary>Category label assigned to harvested commander cards.</summary>
     public string Category { get; init; } = string.Empty;
+    /// <summary>Total card rows assigned to the category.</summary>
     public int Count { get; init; }
+    /// <summary>Total harvested decks represented by the category.</summary>
     public int DeckCount { get; init; }
 }
 
@@ -127,26 +148,41 @@ public sealed class MechanicLookupApiResponse
     public string? NotFoundMessage { get; init; }
 }
 
+/// <summary>Request payload used to start a bounded Archidekt cache harvest job.</summary>
 public sealed class ArchidektCacheJobStartRequest
 {
+    /// <summary>Maximum number of seconds the harvest job should run.</summary>
     public int DurationSeconds { get; init; }
 }
 
+/// <summary>Status payload describing the current or most recent Archidekt cache harvest job.</summary>
 public class ArchidektCacheJobStatusResponse
 {
+    /// <summary>Stable identifier for the harvest job.</summary>
     public Guid JobId { get; init; }
+    /// <summary>Current lifecycle state of the harvest job.</summary>
     public string State { get; init; } = string.Empty;
+    /// <summary>Requested maximum runtime for the harvest job.</summary>
     public int DurationSeconds { get; init; }
+    /// <summary>UTC timestamp when the job was requested.</summary>
     public DateTimeOffset RequestedUtc { get; init; }
+    /// <summary>UTC timestamp when processing started, if it has started.</summary>
     public DateTimeOffset? StartedUtc { get; init; }
+    /// <summary>UTC timestamp when processing completed, if it has completed.</summary>
     public DateTimeOffset? CompletedUtc { get; init; }
+    /// <summary>Number of decks processed by the harvest job.</summary>
     public int DecksProcessed { get; init; }
+    /// <summary>Number of additional decks discovered while processing.</summary>
     public int AdditionalDecksFound { get; init; }
+    /// <summary>Error message captured from the job, if it failed.</summary>
     public string? ErrorMessage { get; init; }
 }
 
+/// <summary>Response payload returned after requesting an Archidekt cache harvest job.</summary>
 public sealed class ArchidektCacheJobEnqueueResponse : ArchidektCacheJobStatusResponse
 {
+    /// <summary>Whether the request started a new job instead of reusing an active one.</summary>
     public bool StartedNewJob { get; init; }
+    /// <summary>URL clients can poll for job status.</summary>
     public string StatusUrl { get; init; } = string.Empty;
 }
