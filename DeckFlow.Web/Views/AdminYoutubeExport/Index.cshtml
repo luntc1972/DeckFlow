@@ -23,6 +23,11 @@
                value="@Model.Channel" placeholder="@@handle or channel URL" autocomplete="off" />
         <label for="yt-export-limit">Max videos</label>
         <input id="yt-export-limit" name="limit" type="number" min="1" max="500" value="@Model.Limit" />
+        <label for="yt-export-format">Format</label>
+        <select id="yt-export-format" name="format">
+            <option value="text" selected>Text file (.txt)</option>
+            <option value="csv">CSV (.csv)</option>
+        </select>
         <button type="submit">Download list</button>
     </form>
 </section>

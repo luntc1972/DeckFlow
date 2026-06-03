@@ -45,14 +45,15 @@ public sealed class AdminYoutubeExportController : Controller
 
     /// <summary>
     /// Lists the channel's most recent uploads and returns them as a downloadable
-    /// plain-text file (title, views, upload date, URL per video).
+    /// file (title, views, upload date, URL per video) in text or CSV format.
     /// </summary>
     /// <param name="channel">YouTube channel handle, URL, id, or slug.</param>
     /// <param name="limit">Maximum uploads to include (clamped to 1-500).</param>
+    /// <param name="format">Download format: <c>text</c> (default) or <c>csv</c>.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("Export")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Export(string? channel, int limit = DefaultLimit, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Export(string? channel, int limit = DefaultLimit, string? format = null, CancellationToken cancellationToken = default)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -81,9 +82,13 @@ public sealed class AdminYoutubeExportController : Controller
                 });
             }
 
-            var text = YouTubeVideoListExport.BuildText(channel, videos, DateTimeOffset.UtcNow);
-            var fileName = BuildFileName(channel);
-            return File(Encoding.UTF8.GetBytes(text), "text/plain; charset=utf-8", fileName);
+            var asCsv = string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase);
+            var content = asCsv
+                ? YouTubeVideoListExport.BuildCsv(videos)
+                : YouTubeVideoListExport.BuildText(channel, videos, DateTimeOffset.UtcNow);
+            var fileName = BuildFileName(channel, asCsv ? "csv" : "txt");
+            var contentType = asCsv ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8";
+            return File(Encoding.UTF8.GetBytes(content), contentType, fileName);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -106,7 +111,7 @@ public sealed class AdminYoutubeExportController : Controller
         }
     }
 
-    private static string BuildFileName(string channel)
+    private static string BuildFileName(string channel, string extension)
     {
         var trimmed = channel.Trim();
         var builder = new StringBuilder(trimmed.Length);
@@ -121,6 +126,6 @@ public sealed class AdminYoutubeExportController : Controller
             slug = "channel";
         }
 
-        return $"{slug}-videos.txt";
+        return $"{slug}-videos.{extension}";
     }
 }

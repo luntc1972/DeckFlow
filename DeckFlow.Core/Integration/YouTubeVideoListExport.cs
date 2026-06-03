@@ -57,4 +57,38 @@ public static class YouTubeVideoListExport
             .Append('\n');
         return builder.ToString();
     }
+
+    /// <summary>
+    /// Builds a CSV export (header row + one row per video) with quote escaping and a
+    /// spreadsheet formula-injection guard on text fields.
+    /// </summary>
+    /// <param name="videos">Videos to list, in listing order.</param>
+    /// <returns>CSV text (LF line endings) with columns video_id, title, views, uploaded_utc, url.</returns>
+    public static string BuildCsv(IReadOnlyList<YouTubeChannelVideo> videos)
+    {
+        ArgumentNullException.ThrowIfNull(videos);
+
+        var builder = new StringBuilder();
+        builder.Append("video_id,title,views,uploaded_utc,url\n");
+        foreach (var video in videos)
+        {
+            builder.Append(CsvField(video.VideoId)).Append(',');
+            builder.Append(CsvField(video.Title)).Append(',');
+            builder.Append(video.ViewCount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).Append(',');
+            builder.Append(video.PublishedUtc?.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty).Append(',');
+            builder.Append(CsvField(video.Url)).Append('\n');
+        }
+
+        return builder.ToString();
+    }
+
+    private static string CsvField(string value)
+    {
+        // Why: titles are attacker-influenced (channel owners); a leading =,+,-,@ executes
+        // as a formula when the CSV opens in Excel/Sheets, so neutralize with a quote prefix.
+        var guarded = value.Length > 0 && value[0] is '=' or '+' or '-' or '@'
+            ? "'" + value
+            : value;
+        return "\"" + guarded.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+    }
 }
