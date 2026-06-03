@@ -18,6 +18,7 @@
 
     <form method="post" asp-action="Export" class="admin-action-form" data-yt-export-form>
         @Html.AntiForgeryToken()
+        <input type="hidden" name="downloadToken" value="" />
         <label for="yt-export-channel">Channel</label>
         <input id="yt-export-channel" name="channel" type="text" required
                value="@Model.Channel" placeholder="@@handle or channel URL" autocomplete="off" />

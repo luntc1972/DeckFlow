@@ -91,6 +91,32 @@ public sealed class AdminYoutubeExportControllerTests
     }
 
     [Fact]
+    public async Task Export_WithDownloadToken_EchoesCompletionCookieOnFileResponse()
+    {
+        var lister = new FakeLister([Video("vid-1", "Title", 1, new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))]);
+        var controller = Build(lister, crossOrigin: false);
+
+        var result = await controller.Export("@chan", 10, null, "abc123DEF", default);
+
+        Assert.IsType<FileContentResult>(result);
+        var setCookie = controller.HttpContext.Response.Headers.SetCookie.ToString();
+        Assert.Contains("yt-export-done=abc123DEF", setCookie, StringComparison.Ordinal);
+        Assert.Contains("path=/Admin/YoutubeExport", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Export_WithMalformedDownloadToken_DoesNotSetCookie()
+    {
+        var lister = new FakeLister([Video("vid-1", "Title", 1, new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))]);
+        var controller = Build(lister, crossOrigin: false);
+
+        var result = await controller.Export("@chan", 10, null, "evil;Path=/;token", default);
+
+        Assert.IsType<FileContentResult>(result);
+        Assert.True(string.IsNullOrEmpty(controller.HttpContext.Response.Headers.SetCookie.ToString()));
+    }
+
+    [Fact]
     public async Task Export_NoVideos_RendersError()
     {
         var lister = new FakeLister([]);
