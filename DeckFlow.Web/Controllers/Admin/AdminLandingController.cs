@@ -9,6 +9,9 @@ namespace DeckFlow.Web.Controllers.Admin;
 [Route("Admin")]
 public sealed class AdminLandingController : Controller
 {
+    /// <summary>
+    /// Renders the admin section landing page.
+    /// </summary>
     [HttpGet("")]
     public IActionResult Index() => View();
 }

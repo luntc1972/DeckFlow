@@ -12,11 +12,11 @@ using System.Net;
 
 namespace DeckFlow.Web.Controllers.Api;
 
-[ApiController]
-[Route("api/deck")]
 /// <summary>
 /// Exposes deck compare and merge operations through the JSON API.
 /// </summary>
+[ApiController]
+[Route("api/deck")]
 public sealed class DeckSyncApiController : ControllerBase
 {
     private readonly IDeckSyncService _deckSyncService;

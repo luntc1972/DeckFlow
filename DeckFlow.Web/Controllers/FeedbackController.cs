@@ -13,18 +13,29 @@ public sealed class FeedbackController : Controller
     private readonly IFeedbackStore _store;
     private readonly IVersionService _versionService;
 
+    /// <summary>
+    /// Creates the feedback controller.
+    /// </summary>
     public FeedbackController(IFeedbackStore store, IVersionService versionService)
     {
         _store = store;
         _versionService = versionService;
     }
 
+    /// <summary>
+    /// Renders the public feedback submission form.
+    /// </summary>
     [HttpGet]
     public IActionResult Index()
     {
         return View(new FeedbackSubmission());
     }
 
+    /// <summary>
+    /// Stores a public feedback submission with request context for admin triage.
+    /// </summary>
+    /// <param name="submission">Feedback form payload.</param>
+    /// <param name="cancellationToken">Cancellation token for the store write.</param>
     [HttpPost]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting("feedback-submit")]
