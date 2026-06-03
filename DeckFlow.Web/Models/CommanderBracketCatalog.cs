@@ -1,13 +1,20 @@
 namespace DeckFlow.Web.Models;
 
+/// <summary>Selectable Commander bracket option used to describe expected deck power and pace.</summary>
+/// <param name="Value">Stable bracket value posted by forms and APIs.</param>
+/// <param name="Label">Human-readable bracket label shown in the UI.</param>
+/// <param name="Summary">Short description of the bracket's expected deck shape.</param>
+/// <param name="TurnsExpectation">Expected turn range for wins or losses in the bracket.</param>
 public sealed record CommanderBracketOption(
     string Value,
     string Label,
     string Summary,
     string TurnsExpectation);
 
+/// <summary>Provides the Commander bracket options used by deck analysis prompts.</summary>
 public static class CommanderBracketCatalog
 {
+    /// <summary>Ordered Commander bracket options from casual exhibition through cEDH.</summary>
     public static IReadOnlyList<CommanderBracketOption> Options { get; } =
     [
         new(
@@ -37,6 +44,9 @@ public static class CommanderBracketCatalog
             "Games can end on any turn.")
     ];
 
+    /// <summary>Finds a Commander bracket option by its posted value.</summary>
+    /// <param name="value">Bracket value to match, ignoring case.</param>
+    /// <returns>The matching bracket option, or null when the value is unknown.</returns>
     public static CommanderBracketOption? Find(string? value)
     {
         return Options.FirstOrDefault(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase));
