@@ -17,19 +17,29 @@ public sealed class HelpContentService : IHelpContentService
     private readonly Lazy<IReadOnlyList<HelpTopic>> _all;
     private readonly ConcurrentDictionary<string, HelpTopic> _bySlug = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Initializes the help-content cache from the web app Help directory.
+    /// </summary>
+    /// <param name="environment">Web host environment used to locate the Help directory.</param>
     public HelpContentService(IWebHostEnvironment environment)
         : this(Path.Combine(environment.ContentRootPath, "Help"))
     {
     }
 
+    /// <summary>
+    /// Initializes the help-content cache from an explicit markdown root path.
+    /// </summary>
+    /// <param name="rootPath">Directory containing markdown help topics.</param>
     public HelpContentService(string rootPath)
     {
         _root = rootPath;
         _all = new Lazy<IReadOnlyList<HelpTopic>>(LoadAll);
     }
 
+    /// <inheritdoc/>
     public IReadOnlyList<HelpTopic> GetAll() => _all.Value;
 
+    /// <inheritdoc/>
     public HelpTopic? GetBySlug(string slug)
     {
         if (string.IsNullOrWhiteSpace(slug)) return null;

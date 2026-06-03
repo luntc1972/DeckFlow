@@ -21,6 +21,14 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<HarvestStatsAggregator> _logger;
 
+    /// <summary>
+    /// Initializes the harvest stats aggregator with its SQL stores and cache.
+    /// </summary>
+    /// <param name="runStore">Harvest run store used for recent and last-success run data.</param>
+    /// <param name="scheduleCache">Schedule cache used to calculate the next expected run.</param>
+    /// <param name="categoryStore">Category knowledge store used for processed deck and observation totals.</param>
+    /// <param name="memoryCache">Memory cache that stores the stats payload.</param>
+    /// <param name="logger">Logger that records stats rebuild diagnostics.</param>
     public HarvestStatsAggregator(
         IHarvestRunStore runStore,
         IHarvestScheduleCache scheduleCache,
@@ -41,6 +49,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         _logger = logger;
     }
 
+    /// <inheritdoc/>
     public Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
         => _memoryCache.GetOrCreateAsync(CacheKey, async entry =>
         {
@@ -48,6 +57,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             return await BuildAsync(cancellationToken).ConfigureAwait(false);
         })!;
 
+    /// <inheritdoc/>
     public void Invalidate()
     {
         _memoryCache.Remove(CacheKey);

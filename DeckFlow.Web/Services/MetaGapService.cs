@@ -204,6 +204,7 @@ public sealed class MetaGapService : IMetaGapService
         return PacketSessionCache.ComputeKey(inputs);
     }
 
+    /// <inheritdoc/>
     public async Task<MetaGapResult> BuildAsync(MetaGapRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
