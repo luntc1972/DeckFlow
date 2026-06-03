@@ -98,7 +98,7 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 - [x] **Phase 20: Content KB Ingestion + Transcription (local)** — YouTube (YoutubeExplode) + Podcast (Syndication) + Whisper (OpenAI 2.10) fallback + plain local spend-log cap check; named HttpClients + Polly pipelines, run locally — *exec #4* (UAT passed 2026-05-27: 5-channel harvest, 10/10 captions; per-source failure isolation + opt-in Whisper added; Whisper fallback path not yet exercised live)
 - [x] **Phase 21: Content KB Distillation + Artifact Emit (local)** — LLM summary + timestamped clips + controlled-vocab tags (OpenAI Structured Outputs) → emit AI-prompt artifact files + slim-index rows; simple local end-to-end orchestration (no advisory lock) — *exec #5*
 - [x] **Phase 22: Content KB Site Integration** — slim index table materialized on Render + browse/filter display + artifact upload-or-serve; CSRF-guarded uploads; `content_kb_enabled` display-gate flag — *exec #6*
-- [ ] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)*
+- [x] **Phase 23: Doc-Comment Backfill — Part 2 + Strip NoWarn** — Remaining ~38 types + new v1.4 surface; LAST step strips `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` — *exec #7 (depends on Phase 22)* (completed 2026-06-03)
 - [ ] **Phase 26: Category Cache Schema Normalization (fresh-start)** — Normalize repeated deck/card TEXT into integer-keyed dimensions + compact indexes; full DB reset + re-harvest into new schema (no online migration) (DBO-01) — *off critical path; sequence before Phase 27*
 - [x] **Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh** — Skip rewriting a deck's rows when cards/categories unchanged (content hash) + re-check after 5 days (CAT-02) — *off critical path; depends on Phase 26* (completed 2026-05-26)
 
@@ -332,14 +332,14 @@ Plans:
 
 **Wave 1** *(parallel — exclusive non-overlapping file sets; all 475 doc sites backfilled, NoWarn still in place)*
 
-- [ ] 23-01-PLAN.md — Models response DTOs A: MetaGapResponse/DeckComparisonResponse/DeckAnalysisResponse/SetUpgradeResponse/EdhTop16Entry (144 sites) (DOC-01)
-- [ ] 23-02-PLAN.md — Models remainder + Models/Api + Models/Admin: SuggestionResponses, viewmodels, DTOs, enums (~183 sites) (DOC-01)
-- [ ] 23-03-PLAN.md — Controllers tree (96 sites) incl. ALL 29 CS1587 relocate-above-attribute fixes (DeckController + CommanderController + DeckSyncApiController; re-derived at execute time) (DOC-01)
-- [ ] 23-04-PLAN.md — Services + Infrastructure (52 sites) incl. ALL 22 CS1573 complete-param-set fixes (overrides Phase 17 D-02) (DOC-01)
+- [x] 23-01-PLAN.md — Models response DTOs A: MetaGapResponse/DeckComparisonResponse/DeckAnalysisResponse/SetUpgradeResponse/EdhTop16Entry (144 sites) (DOC-01)
+- [x] 23-02-PLAN.md — Models remainder + Models/Api + Models/Admin: SuggestionResponses, viewmodels, DTOs, enums (~183 sites) (DOC-01)
+- [x] 23-03-PLAN.md — Controllers tree (96 sites) incl. ALL 29 CS1587 relocate-above-attribute fixes (DeckController + CommanderController + DeckSyncApiController; re-derived at execute time) (DOC-01)
+- [x] 23-04-PLAN.md — Services + Infrastructure (52 sites) incl. ALL 22 CS1573 complete-param-set fixes (overrides Phase 17 D-02) (DOC-01)
 
 **Wave 2** *(serial — blocked on 23-01..23-04; the strip lands LAST per Pitfall 8)*
 
-- [ ] 23-05-PLAN.md — DOC-02 two-file gate flip: delete csproj <NoWarn> + set .editorconfig CS1591/1573/1587 severity=warning (user-approved Do-Not-Modify edit) + probe-validated -warnaserror:CS1591 clean build (DOC-02)
+- [x] 23-05-PLAN.md — DOC-02 two-file gate flip: delete csproj <NoWarn> + set .editorconfig CS1591/1573/1587 severity=warning (user-approved Do-Not-Modify edit) + probe-validated -warnaserror:CS1591 clean build (DOC-02)
 
 ### Phase 24: Card Category Lookup Fix — Colorless/Staple Cards
 
@@ -396,7 +396,7 @@ Plans:
 | 20. Content KB Outbound HTTP Services | 4/4 | Complete   | 2026-05-27 |
 | 21. Content KB Orchestrator + Harvest Runs | 0/TBD | Not started | - |
 | 22. Content KB Site Integration | 4/4 | Complete | 2026-06-02 |
-| 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 0/TBD | Not started | - |
+| 23. Doc-Comment Backfill Part 2 + Strip NoWarn | 5/5 | Complete   | 2026-06-03 |
 | 24. Card Category Lookup Fix — Colorless/Staple Cards | 0/TBD | Not started | - |
 | 25. Admin Harvested-Decks Paged Grid | 2/2 | Complete    | 2026-05-25 |
 | 26. Category Cache Schema Normalization (fresh-start) | 2/2 | Implemented (live verify pending) | - |

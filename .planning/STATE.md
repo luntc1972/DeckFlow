@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
-status: executing
-stopped_at: "Phase 22 COMPLETE — both human-UAT checkpoints PASSED 2026-06-02 (22-03 Task4 public browse/detail/copy/375px + 22-04 Task3 admin curation round-trip/CSRF-negative 4/4/reload-preserves/375px). All 4 plans (679b0df..b6be9bc); Plans 01/02/03 Codex-impl+Claude-review, Plan 04 Claude-impl (user override) + cavecrew-review. Web.Tests 528/0, Core 257/0. ROADMAP flipped [x], status table 4/4 Complete. REMAINING USER ACTION: flip content.kb.enabled ON in PRODUCTION via live /Admin/Flags on www.deckflow.gg (DB-backed flag, not env — cannot be done from here). Phase 23 (doc-comment backfill Part 2 + strip NoWarn) now unblocked — LAST v1.4 phase."
-last_updated: "2026-06-02T23:32:00.000Z"
-last_activity: 2026-06-02 -- Phase 22 UAT passed (both checkpoints), phase closed; pending prod flag flip + Phase 23
+status: completed
+stopped_at: "Phase 22 plans BLOCKED by Codex review (7 HIGH). NEXT (fresh ctx): /gsd-plan-phase 22 --reviews to fold them, re-review, then execute. .dockerignore needs same authorization as .gitignore/Dockerfile."
+last_updated: "2026-06-03T17:09:59.178Z"
+last_activity: 2026-06-03 -- Phase 23 marked complete
 progress:
   total_phases: 12
-  completed_phases: 9
-  total_plans: 26
-  completed_plans: 25
-  percent: 75
+  completed_phases: 10
+  total_plans: 31
+  completed_plans: 30
+  percent: 83
 ---
 
 ## Deferred Items
@@ -50,15 +50,15 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 22 — content-kb-site-integration (plans READY-TO-EXECUTE)
+**Current focus:** Phase 23 — doc-comment-backfill-part-2-strip-nowarn (COMPLETE); v1.4 phases 19-27 all closed
 
 ## Current Position
 
-Phase: 22 (content-kb-site-integration) — PLANNED, ready to execute
-Plan: 0 of 4 executed (4 sequential waves 01→02→03→04)
-Status: Plans converged after 3 Codex review rounds — READY-TO-EXECUTE (95c864f)
-Phases 19/20/21 [x] shipped; 22 next; 23 [ ] depends on 22
-Last activity: 2026-06-01 -- Phase 22 plans READY-TO-EXECUTE
+Phase: 23 — COMPLETE
+Plan: 5 of 5 executed (Wave 1: 23-01..04 parallel-eligible; Wave 2: 23-05 gate flip)
+Status: Phase 23 complete — XML doc-comment backfill done; doc-warning gate scoped live to DeckFlow.Web (DOC-01 + DOC-02). DeckFlow.Core (186 sites) deferred to a future phase.
+Phases 19/20/21/22 [x] shipped; 23 [x] complete
+Last activity: 2026-06-03 -- Phase 23 executed (Codex impl 23-01..04, Claude impl 23-05 rescope, full-solution build 0/0)
 
 ## Performance Metrics
 
