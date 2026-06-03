@@ -1,4 +1,5 @@
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Xunit;
@@ -143,6 +144,68 @@ public sealed class CategoryKnowledgeStoreTests
         var store = CreateStore();
 
         await store.PersistObservedCategoriesAsync("source", cardName, categories, quantity);
+    }
+
+    [Fact]
+    public async Task GetPagedProcessedCommandersAsync_MapsRepositoryRowsAndClampsPagingInputs()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Commander One");
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Commander One");
+            await store.MarkUrlDeckProcessedAsync("deck-003", "Commander Two");
+
+            var rows = await store.GetPagedProcessedCommandersAsync(page: 0, pageSize: 0);
+            var count = await store.GetDistinctProcessedCommanderCountAsync();
+
+            var row = Assert.Single(rows);
+            Assert.Equal("Commander One", row.CommanderName);
+            Assert.Equal(2, row.DeckCount);
+            Assert.False(string.IsNullOrWhiteSpace(row.LastProcessedUtc));
+            Assert.Equal(2, count);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredPagedCommandersAndRecordsInputs()
+    {
+        var fake = new FakeCategoryKnowledgeStore
+        {
+            PagedCommandersResult = new[]
+            {
+                new HarvestedCommanderRow("Commander", 7, "2026-01-01T00:00:00.0000000Z")
+            }
+        };
+
+        var rows = await fake.GetPagedProcessedCommandersAsync(page: 3, pageSize: 25);
+
+        var row = Assert.Single(rows);
+        Assert.Equal("Commander", row.CommanderName);
+        Assert.Equal(7, row.DeckCount);
+        Assert.Equal(3, fake.LastPagedCommanderPage);
+        Assert.Equal(25, fake.LastPagedCommanderPageSize);
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(-1L, 0)]
+    [InlineData(42L, 42)]
+    [InlineData(2147483648L, int.MaxValue)]
+    public void CoerceCount_SaturatesLargeAndNegativeCounts(object? result, int expected)
+    {
+        var count = CategoryKnowledgeStore.CoerceCount(result);
+
+        Assert.Equal(expected, count);
     }
 
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)

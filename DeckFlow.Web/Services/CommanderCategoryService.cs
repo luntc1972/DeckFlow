@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Models;
-using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Services;
 
@@ -29,31 +28,21 @@ public sealed record CommanderCategoryResult(
     IReadOnlyList<CategoryKnowledgeRow> Rows,
     IReadOnlyList<CommanderCategorySummary> Summaries,
     int HarvestedDeckCount,
-    CardDeckTotals CardDeckTotals,
-    int AdditionalDecksFound,
-    bool CacheSweepPerformed);
+    CardDeckTotals CardDeckTotals);
 
 /// <summary>
 /// Default implementation of the commander category service.
 /// </summary>
 public sealed class CommanderCategoryService : ICommanderCategoryService
 {
-    private const int ClickSweepDurationSeconds = 30;
     private readonly ICategoryKnowledgeStore _knowledgeStore;
-    private readonly IArchidektCacheJobService _harvestJobService;
-    private readonly ILogger<CommanderCategoryService> _logger;
 
     /// <summary>
     /// Initializes a new instance of <see cref="CommanderCategoryService"/>.
     /// </summary>
-    public CommanderCategoryService(
-        ICategoryKnowledgeStore knowledgeStore,
-        IArchidektCacheJobService harvestJobService,
-        ILogger<CommanderCategoryService> logger)
+    public CommanderCategoryService(ICategoryKnowledgeStore knowledgeStore)
     {
         _knowledgeStore = knowledgeStore;
-        _harvestJobService = harvestJobService;
-        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -62,16 +51,6 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
         ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
 
         var trimmed = commanderName.Trim();
-        var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
-        // Skip the click-triggered sweep when an admin bulk harvest is already running.
-        // Queuing a 30s suggestion sweep behind (or ahead of) the harvest gate starves
-        // the admin run. Stale cache is acceptable while a harvest is in flight.
-        var sweepPerformed = _harvestJobService.GetActiveJob() is null;
-        if (sweepPerformed)
-        {
-            await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
-        }
-
         var rows = await _knowledgeStore.GetCategoryRowsForCommanderAsync(trimmed, cancellationToken);
 
         var deckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
@@ -87,7 +66,6 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
             .ThenBy(summary => summary.Category, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var additionalDecksFound = Math.Max(deckCount - initialDeckCount, 0);
-        return new CommanderCategoryResult(trimmed, rows, summaries, deckCount, cardTotals, additionalDecksFound, sweepPerformed);
+        return new CommanderCategoryResult(trimmed, rows, summaries, deckCount, cardTotals);
     }
 }

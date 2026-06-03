@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Linq;
 using System.Net.Http;
 using DeckFlow.Core.Models;
@@ -11,6 +12,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Api;
 
+/// <summary>
+/// Serves JSON suggestion endpoints with same-origin checks so browser deck helpers are not exposed cross-site.
+/// </summary>
 [ApiController]
 [Route("api/suggestions")]
 public sealed class SuggestionsApiController : ControllerBase
@@ -20,6 +24,9 @@ public sealed class SuggestionsApiController : ControllerBase
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ILogger<SuggestionsApiController> _logger;
 
+    /// <summary>
+    /// Creates the suggestions API controller.
+    /// </summary>
     public SuggestionsApiController(
         ICategorySuggestionService categorySuggestionService,
         ICommanderCategoryService commanderCategoryService,
@@ -43,6 +50,7 @@ public sealed class SuggestionsApiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<CategorySuggestionApiResponse>> PostCardSuggestionAsync([FromBody] CategorySuggestionRequest request, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
@@ -86,15 +94,18 @@ public sealed class SuggestionsApiController : ControllerBase
                 SuggestionSourceSummary = result.UsedSources.Count == 0 ? null : $"Source used: {string.Join(" + ", result.UsedSources)}",
                 NoSuggestionsFound = result.NothingFound,
                 NoSuggestionsMessage = result.NothingFound ? CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage(result.CardName, result.CardDeckTotals) : null,
-                CardDeckTotals = result.CardDeckTotals,
-                AdditionalDecksFound = result.AdditionalDecksFound,
-                CacheSweepPerformed = result.CacheHarvestTriggered
+                CardDeckTotals = result.CardDeckTotals
             };
             return Ok(response);
         }
         catch (OperationCanceledException)
         {
             return StatusCode(408, new { Message = "Category lookup timed out after 20 seconds. Try again, or use a direct Archidekt deck with the card already categorized." });
+        }
+        catch (DbException exception)
+        {
+            _logger.LogWarning(exception, "Card suggestion database lookup failed.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { Message = "Category lookup is temporarily unavailable, please try again." });
         }
         catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)
         {
@@ -135,9 +146,7 @@ public sealed class SuggestionsApiController : ControllerBase
                 CardRowCount = result.Rows.Count,
                 CategoryCount = result.Summaries.Count,
                 HarvestedDeckCount = result.HarvestedDeckCount,
-                AdditionalDecksFound = result.AdditionalDecksFound,
                 CardDeckTotals = result.CardDeckTotals,
-                CacheSweepPerformed = result.CacheSweepPerformed,
                 Summaries = result.Summaries
                     .Select(summary => new CommanderCategorySummaryDto
                     {
@@ -147,7 +156,7 @@ public sealed class SuggestionsApiController : ControllerBase
                     })
                     .ToList(),
                 NoResultsMessage = result.Summaries.Count == 0
-                    ? $"No commander categories for {result.CommanderName} have been observed in the cached data yet. Run Show Categories again to refresh the cache."
+                    ? $"No commander categories for {result.CommanderName} have been observed in the cached data yet."
                     : null
             };
             return Ok(response);

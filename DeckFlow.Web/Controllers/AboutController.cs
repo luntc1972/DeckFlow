@@ -27,8 +27,14 @@ public sealed class AboutController : Controller
 
     private readonly IVersionService _versionService;
 
+    /// <summary>
+    /// Creates the about-page controller.
+    /// </summary>
     public AboutController(IVersionService versionService) => _versionService = versionService;
 
+    /// <summary>
+    /// Renders the About page with version and credit metadata.
+    /// </summary>
     [HttpGet("/about")]
     public IActionResult Index()
     {

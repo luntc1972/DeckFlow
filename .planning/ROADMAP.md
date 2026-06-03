@@ -6,7 +6,7 @@
 - ✅ **v1.1 Admin Console** — Phases 6-8 (shipped 2026-05-08)
 - ✅ **v1.2 Multi-AI Prompts** — Phases 9-10 (shipped 2026-05-13) — see `.planning/milestones/v1.2-ROADMAP.md`
 - ✅ **v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene** — Phases 11-15 + 999.1-999.8 (shipped 2026-05-23) — see `.planning/milestones/v1.3-ROADMAP.md`
-- 📋 **v1.4** — TBD (start via `/gsd-new-milestone`)
+- ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 
 ## Phases
 
@@ -49,6 +49,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 <summary>✅ v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (Phases 11-15, 999.1-999.8) — SHIPPED 2026-05-23</summary>
 
 **Production phases (5):**
+
 - [x] Phase 11: Web Design Guidelines Audit Fixes — 10/10 plans (WDG-01..10)
 - [x] Phase 12: AI-Agnostic URL + Page Rename — 5/5 plans (RENAME-01..03)
 - [x] Phase 13: ChatGpt* Class Rename + Summary Doc Comments — 4/4 plans (CLASSRENAME-01..03)
@@ -56,6 +57,7 @@ Audit: `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — documentation-only gap
 - [x] Phase 15: AiPlatform Value Object Refactor — 3/3 plans (AIPLATFORM-01..03)
 
 **Backlog phases (8) — closed v1.3 quality debt:**
+
 - [x] Phase 999.1: AI-Agnostic Prose Adaptation in Razor Views — 7/7 plans
 - [x] Phase 999.2: Claude `<result>` Wrapper — Direct JSON Output — 1/1 plan
 - [x] Phase 999.3: Packet Download Session Cache — 3/4 plans (P01 rolled into P02-04)
@@ -75,20 +77,44 @@ Audit archive: `.planning/milestones/v1.3-MILESTONE-AUDIT.md`
 
 </details>
 
-### 📋 v1.4 (Planned)
+<details>
+<summary>✅ v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (Phases 16-27, 21.1-21.2) — SHIPPED 2026-06-03</summary>
 
-To be defined via `/gsd-new-milestone`. v1.4 candidates surfaced during v1.3:
+- [x] Phase 16: WDG-04 Focus-Trapped Modal — 1/1 plans (MODAL-01)
+- [x] Phase 17: Doc-Comment Backfill Part 1 — 2/2 plans (DOC-01 partial)
+- [x] Phase 18: Admin Mobile-Responsive Sweep — 2/2 plans (AMOB-01..04)
+- [x] Phase 19: Content KB Foundation — Local Schema + Contracts — 4/4 plans (KB schema/contracts; re-scoped 2026-05-26 to local-harvester model)
+- [x] Phase 20: Content KB Ingestion + Transcription (local) — 4/4 plans (KB-03/04/05; UAT 2026-05-27: 5-channel harvest, 10/10 captions)
+- [x] Phase 21: Content KB Distillation + Artifact Emit (local) — 4/4 plans (KB-01/02/06/07)
+- [x] Phase 21.1: Phase 21 Live-UAT Gate (INSERTED) — 1/1 plans (satisfied via 21.2 live claude-distill UAT, 10/10 at $0)
+- [x] Phase 21.2: Pluggable LLM Distill CLI Backends (INSERTED) — 2/2 plans (KB-10/11; codex backend → KB-12 backlog)
+- [x] Phase 22: Content KB Site Integration — 4/4 plans (KB-08/09; both UAT checkpoints passed; prod flag flip pending)
+- [x] Phase 23: Doc-Comment Backfill Part 2 + Strip NoWarn — 5/5 plans (DOC-01/02; gate scoped to DeckFlow.Web, Core 186 sites deferred)
+- [x] Phase 24: Card Category Lookup Fix — quick-fix (CAT-01; live smoke passed 2026-05-25)
+- [x] Phase 25: Admin Harvested-Decks Paged Grid — 2/2 plans (AHD-01)
+- [x] Phase 26: Category Cache Schema Normalization — 2/2 plans (DBO-01; SC2 amended per b1a5cc8, SC3 69s→0.66ms)
+- [x] Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh — 1/1 plans (CAT-02)
 
-- WDG-04 styled focus-trapped modal (deferred from Phase 11 WDG-04 override 2026-05-16)
-- DeckFlow.Web.csproj NoWarn 1591;1573;1587 deferred backlog (~88 v1.1-era undocumented Web types)
-- IN-01 _AiSelector vs view-level Normalize Gemini-flag fallback divergence (pre-existing latent inconsistency)
-- v1.1 phase-dir archive move (06, 07, 07.1, 08 → `.planning/milestones/v1.1-phases/`)
-- CSS-class / data-attribute / TS-constant chatgpt-* cleanup (AI-agnostic styling backlog)
-- Gemini paste-limit workaround (flag-gated DECKFLOW_GEMINI_ENABLED; needs paste-cap raise OR API-key strategy)
-- v13-harvest-worker-stalled debug follow-up (diagnostic logging deployed 2026-05-22; monitor post-v1.3-ship)
-- audit-open scanner vocabulary alignment (status field naming convention drift)
+**Stats:** 343 commits, 638 files, +54,651/−4,726 LOC, 2026-05-23 → 2026-06-03 (11 days).
+**Requirements:** 20/20 active v1.4 REQ-IDs satisfied (KB-12 → backlog). Final tests: Core 257/257, Web 528 pass / 5 PG-skips.
+**Audit:** tech_debt (0 critical gaps; artifact-hygiene items carried to v1.5 — see audit archive).
+
+Full archive: `.planning/milestones/v1.4-ROADMAP.md`
+Requirements archive: `.planning/milestones/v1.4-REQUIREMENTS.md`
+Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
+
+</details>
 
 ## Backlog
+
+### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01)
+
+**Goal:** Add the `codex` provider to the Phase 21.2 distill backend factory, with a PROVEN tool/read-isolation boundary for untrusted transcript input. codex `exec` is an agent and `--sandbox read-only` blocks writes but not reads, so a prompt-injected transcript could read+echo local files; ship codex only once the read boundary is demonstrably closed (verified no-tools mode, OR a sandbox/container exposing only stdin). claude backend (Phase 21.2) already covers the subscription-distill use case, so codex is a nice-to-have second provider — low priority.
+**Requirements:** KB-12 (codex CLI distill backend with proven untrusted-input read isolation)
+**Depends on:** Phase 21.2 (provider factory + CliCommandSpec + CLI service seam — shipped)
+**Plans:** 0 plans
+
+Acceptance when promoted: `DECKFLOW_LLM_PROVIDER=codex` works via the existing factory/CliCommandSpec seam (no new arch; openai+claude unchanged); the codex spawn provably cannot read arbitrary local files under a malicious transcript (documented isolation + sentinel-file exfil test); same JSON-repair/ValidateTags/timeout/ledger-bypass guarantees; live codex distill over the UAT db emits valid artifacts + spend=0; E5/E6 human sample passes. Promote via `/gsd-phase` (renumber) when prioritized.
 
 ### edhtop16 Filter Defaults vs DeckFlow Filter Defaults (BACKLOG — unnumbered, was 999.3 before collision with active Packet Download Session Cache phase; renumber when promoted)
 
@@ -116,6 +142,70 @@ Plans:
 
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
+### Deferred to v1.5 (per 2026-05-23 scope decision)
+
+- **Gemini paste-limit workaround** (cluster D dropped from v1.4; needs split-message vs direct-API path decision)
+- **Content KB deck-analysis integration** — prompt-injection + "What experts say" UI panel
+- **New-deck-building interactive guide** (wizard) leveraging Content KB tags
+- **Scheduled (cron) content harvest cadence**
+- IN-01 `_AiSelector` vs view-level Normalize Gemini-flag fallback divergence
+- v1.1 phase-dir archive move (06, 07, 07.1, 08 → `.planning/milestones/v1.1-phases/`)
+- CSS-class / data-attribute / TS-constant `chatgpt-*` cleanup
+- v13-harvest-worker-stalled debug follow-up
+- audit-open scanner vocabulary alignment
+
+### Phase 26: Category Cache Schema Normalization (fresh-start)
+
+**Goal:** Re-harvested category data lands in a normalized, integer-keyed schema that fits the 256 MB Postgres working set and serves card/commander lookups from compact indexes — replacing the wide TEXT-keyed `card_category_observations` / `card_deck_totals` design. Built fresh (DB wiped + re-harvested), so no in-place migration of existing rows.
+**Requirements**: DBO-01
+**Depends on:** Nothing (off critical path; fresh-start rebuild — full DB reset authorized 2026-05-24)
+**Spec**: `.planning/research/db-storage-query-optimization.md`, `docs/ops/db-full-reset.md`
+**Success Criteria** (what must be TRUE):
+
+  1. New schema interns deck identity and card names into integer-keyed dimension tables; fact tables reference them by `int` (no repeated `source` / `card_name` / `normalized_card_name` TEXT per row)
+  2. **[AMENDED 2026-05-25 — see note]** After a full wipe + re-harvest, the grain index drops the wide TEXT keys: `ux_obs_grain` interns `source`/`card_name` to `int`, cutting grain-key width ~38% (old composite-TEXT PK ≈89 B/row → measured `ux_obs_grain` 55.5 B/row). The original ≥50% *total* index-footprint target is **NOT MET and unreachable with this design**: `category`+`board` stay TEXT in the grain key, and the 4 secondary integer indexes required for SC3's sargable joins raise total index count vs the old single composite PK (even trimming unused indexes lands ~34%). Hitting ≥50% would require interning `category`/`board` too — a separate redesign. The phase's real footprint win is heap dedup (no repeated `source`/`normalized_card_name` TEXT per row), and the headline win is SC3 latency. *(Old baseline was destroyed in the reset before measurement; the ≈89 B/row old figure is reconstructed from current TEXT column lengths + btree overhead, not directly measured.)*
+  3. `GetCategoriesAsync` and `GetCategoryRowsForCommanderAsync` are index-backed (EXPLAIN: index scans) and return the same categories as the old design for a fixed sample (Sol Ring + a commander)
+  4. `EnsureSchemaAsync` creates the new schema idempotently on a clean DB; old tables dropped via the full-reset runbook (no data carried over)
+  5. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
+
+**Risk:** Medium — coordinated deploy + wipe + re-harvest (empty-cache window acceptable since data is reset); new write path must reproduce identical lookup results. Own plan + Codex review.
+**Plans:** 2 plans
+
+Plans:
+
+- [x] 26-01-PLAN.md — Schema + dialect foundation: IRelationalDialect.SurrogateIdColumnType + normalized integer-keyed star schema (sources + cards dims, slim integer-keyed facts, compact indexes incl. LOWER(commander) expr index, reserved content_hash) + RED parity + SQLite-AUTOINCREMENT harness (DBO-01)
+- [x] 26-02-PLAN.md — Port write+read paths to integer keys (intern-on-write RETURNING id, batch resolve per deck, integer commander join replacing string-concat), parity GREEN, PG coverage + full-reset runbook update (DBO-01)
+
+**Verification status (2026-05-25):** Code complete + Codex peer-reviewed (RED iter-1 → YELLOW iter-2, both HIGH resolved → RED→GREEN). Build clean; Core 81/81; Web 463 pass / 13 pre-existing CSS fails / 5 PG-integration skipped. **Prod full-reset done 2026-05-25** (`DROP SCHEMA public CASCADE` + restart rebuilt integer-keyed schema; verified via `information_schema` + `pg_indexes`). Re-harvest stopped intentionally at a partial corpus (≈231 decks processed / 655 queued; obs 20.4k, totals 19.3k, cards 8.1k, sources 230).
+
+  - **SC3 — ✅ PASS (measured):** both hot paths index-only, no seq scans. `GetCategoriesAsync` → `ux_cards_normalized` + `ix_obs_card` nested loop (0.3 ms). `GetCategoryRowsForCommanderAsync` → `ix_deck_queue_processed_commander_lower` + `ix_sources_deck_queue` + `ix_obs_source` (0.66 ms; was the 69 s timeout query pre-normalization).
+  - **SC2 — ❌ NOT MET as originally written; criterion amended above.** Grain-key width cut ~38%; total index footprint flat-to-worse (5 indexes vs old PK+normalized index). Unreachable without interning `category`/`board`. Real wins booked under SC3 + heap dedup.
+  - **Index-usage audit (partial-corpus, write-path-dominated):** grain uniques + `ix_obs_card` + `ix_obs_source` + `ix_totals_card` + dim uniques are exercised. `ix_obs_card_board` / `ix_totals_card_board` have **no production caller** (board filter param unwired — only `CategorySuggestionService:118` calls, with no board) → safe drop candidates. Fact surrogate `*_pkey` (`id`) never read (no RETURNING on fact inserts; only `cards`/`sources` dims use `RETURNING id`) → drop candidate **but defer**: Phase 27 (content-hash dedup) may need a stable fact row id (`reserved content_hash` in 26-01).
+
+  Phase considered **functionally closed** (SC1/SC3/SC4/SC5 met; SC2 amended to achieved scope). Optional follow-up: index trims (~2 MB/M rows) + Phase 27 decision on fact surrogate `id`.
+
+### Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh
+
+**Goal:** The harvest skips rewriting a deck's cached rows when its cards/categories are unchanged (content hash per deck source), and re-checks a deck only after 5 days — cutting write amplification on the category cache while keeping data fresh.
+**Requirements**: CAT-02
+**Depends on:** Phase 26 (layers on the normalized schema)
+**Spec**: `.planning/specs/deck-cache-content-hash-refresh.md`
+**Success Criteria** (what must be TRUE):
+
+  1. Re-harvesting a deck whose cards/categories are unchanged performs NO delete/insert on the fact tables (only `last_checked_utc` updates) — proven by a write-counting test
+  2. Re-harvesting a deck whose cards/categories changed DOES rewrite its rows (replace semantics preserved) and updates the stored hash
+  3. Content hash is stable and order-independent for the same logical deck content
+  4. A processed deck is not re-fetched until 5 days after its last check (`last_checked_utc`-based)
+  5. Hash stored idempotently (additive schema); existing NULL-hash rows recompute once without error
+  6. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
+
+**Risk:** Low-medium — additive schema; main care is the requeue predicate using `last_checked_utc` and the hash covering exactly the written shape so a real change is never missed.
+**Plans:** 1/1 plans complete
+
+Plans:
+
+- [x] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
+
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 started 2026-05-23 (phase numbering reset)*

@@ -8,8 +8,12 @@ namespace DeckFlow.Web.Models.Admin;
 /// </summary>
 public sealed class MaintenanceViewModel
 {
+    /// <summary>Headline shown at the top of the maintenance page.</summary>
     public string Title { get; init; } = "Temporarily unavailable";
+    /// <summary>Operator-supplied explanation for why the route is unavailable.</summary>
     public string Message { get; init; } = "This page is offline for maintenance. Please try again shortly.";
+    /// <summary>Optional label for the primary maintenance-page action.</summary>
     public string? PrimaryActionLabel { get; init; }
+    /// <summary>Optional URL for the primary maintenance-page action.</summary>
     public string? PrimaryActionUrl { get; init; }
 }

@@ -37,7 +37,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
-    <NoWarn>$(NoWarn);1591;1573;1587</NoWarn>
   </PropertyGroup>
 
   <Target Name="CompileTypeScriptAssets" BeforeTargets="Build">

@@ -118,6 +118,59 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
     }
 
     [PostgresFact]
+    public async Task CategoryKnowledgeRepository_CommanderRows_UseLiveSourceIntegerLink()
+    {
+        var repo = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var deckId = $"pg-live-{unique}";
+        var commander = $"Postgres Commander {unique}";
+        var cardName = $"Live Test Card {unique}";
+
+        await repo.AddDeckIdsAsync(new[] { deckId });
+        await repo.PersistObservedCategoriesAsync(
+            $"archidekt_live:{deckId}",
+            cardName,
+            new[] { "Ramp" },
+            quantity: 2,
+            board: "mainboard",
+            deckCountIncrement: 1);
+        await repo.MarkDeckProcessedAsync(deckId, commander);
+
+        var rows = await repo.GetCategoryRowsForCommanderAsync(commander);
+
+        var row = Assert.Single(rows);
+        Assert.Equal("Ramp", row.Category);
+        Assert.Equal(cardName, row.CardName);
+        Assert.Equal(2, row.Count);
+        Assert.Equal(1, row.DeckCount);
+        Assert.Equal(1, await CountLinkedSourceRowsAsync($"archidekt_live:{deckId}"));
+    }
+
+    [PostgresFact]
+    public async Task CategoryKnowledgeRepository_NonLiveSources_DoNotEnterCommanderAggregateOrQueue()
+    {
+        var repo = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var deckId = $"pg-non-live-{unique}";
+        var commander = $"Postgres Isolation {unique}";
+        var urlSource = $"archidekt_url:https://archidekt.com/decks/{unique}/test";
+        var edhrecCardName = $"Edhrec Test Card {unique}";
+        var urlCardName = $"Url Test Card {unique}";
+
+        await repo.AddDeckIdsAsync(new[] { deckId });
+        await repo.MarkDeckProcessedAsync(deckId, commander);
+        await repo.PersistObservedCategoriesAsync("edhrec", edhrecCardName, new[] { "Ramp" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+        await repo.PersistObservedCategoriesAsync(urlSource, urlCardName, new[] { "Ramp" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+
+        var rows = await repo.GetCategoryRowsForCommanderAsync(commander);
+
+        Assert.Empty(rows);
+        Assert.Equal(0, await CountLinkedSourceRowsAsync("edhrec"));
+        Assert.Equal(0, await CountLinkedSourceRowsAsync(urlSource));
+        Assert.Equal(0, await CountDeckQueueRowsAsync(urlSource));
+    }
+
+    [PostgresFact]
     public async Task CategoryKnowledgeRepository_DeckQueue_AddClaimAndMarkProcessed_Roundtrips()
     {
         var repo = await CreateRepositoryAsync();
@@ -139,5 +192,40 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
         await repo.SetRecentDeckCrawlPageAsync(7);
         Assert.Equal(7, await repo.GetRecentDeckCrawlPageAsync());
+    }
+
+    private async Task<long> CountLinkedSourceRowsAsync(string source)
+    {
+        var connectionInfo = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync());
+        await using var connection = connectionInfo.CreateConnection();
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(1)
+            FROM sources
+            WHERE source = @source
+              AND deck_queue_id IS NOT NULL;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@source", source);
+
+        return Convert.ToInt64(await command.ExecuteScalarAsync() ?? 0L);
+    }
+
+    private async Task<long> CountDeckQueueRowsAsync(string deckId)
+    {
+        var connectionInfo = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync());
+        await using var connection = connectionInfo.CreateConnection();
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(1)
+            FROM deck_queue
+            WHERE deck_id = @deckId;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+
+        return Convert.ToInt64(await command.ExecuteScalarAsync() ?? 0L);
     }
 }

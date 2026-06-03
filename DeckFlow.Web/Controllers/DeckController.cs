@@ -65,10 +65,10 @@ public sealed class DeckController : Controller
         _logger = logger;
     }
 
-    [HttpGet("/")]
     /// <summary>
     /// Renders the landing hub listing every tool in the app.
     /// </summary>
+    [HttpGet("/")]
     public IActionResult Home()
     {
         return View("Home", DeckPageTab.Home);
@@ -82,10 +82,10 @@ public sealed class DeckController : Controller
         return View("Error");
     }
 
-    [HttpGet("/sync")]
     /// <summary>
     /// Renders the deck sync view with default tab state.
     /// </summary>
+    [HttpGet("/sync")]
     public IActionResult Index()
     {
         return View("DeckSync", new DeckDiffViewModel
@@ -94,15 +94,15 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/suggest-categories")]
-    [FeatureFlagGate("feature.categories.enabled",
-        Title = "Category suggestions temporarily unavailable",
-        Message = "AI Category Suggestions is offline for maintenance. Category Reference remains available.",
-        PrimaryActionLabel = "Open Category Reference",
-        PrimaryActionUrl = "/commander-categories")]
     /// <summary>
     /// Renders the suggest categories tab with fresh state.
     /// </summary>
+    [HttpGet("/suggest-categories")]
+    [FeatureFlagGate("feature.categories.enabled",
+        Title = "Category suggestions temporarily unavailable",
+        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
+        PrimaryActionLabel = "Open Category Reference",
+        PrimaryActionUrl = "/commander-categories")]
     public IActionResult SuggestCategories()
     {
         return View("SuggestCategories", new DeckDiffViewModel
@@ -112,10 +112,10 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/card-lookup")]
     /// <summary>
     /// Renders the card lookup page.
     /// </summary>
+    [HttpGet("/card-lookup")]
     public IActionResult CardLookup()
     {
         return View("CardLookup", new CardLookupViewModel
@@ -124,10 +124,10 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/mechanic-lookup")]
     /// <summary>
     /// Renders the mechanic rules lookup page.
     /// </summary>
+    [HttpGet("/mechanic-lookup")]
     public IActionResult MechanicLookup()
     {
         return View("MechanicLookup", new MechanicLookupViewModel
@@ -136,13 +136,13 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/judge-questions")]
     /// <summary>
     /// Renders the "Ask a Judge" page that primarily links to the live MTG judge chat
     /// and offers a secondary ChatGPT prompt generator. Optionally pre-fills a card name
     /// passed in via query string from a Card Lookup deep link.
     /// </summary>
     /// <param name="card">Optional card name to pre-populate the question form.</param>
+    [HttpGet("/judge-questions")]
     public IActionResult JudgeQuestions(string? card)
     {
         return View("JudgeQuestions", new JudgeQuestionViewModel
@@ -152,10 +152,10 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/deck-analysis")]
     /// <summary>
     /// Renders the staged deck-analysis packet workflow. Set options load asynchronously on the client.
     /// </summary>
+    [HttpGet("/deck-analysis")]
     public IActionResult DeckAnalysis()
     {
         return View("DeckAnalysis", new DeckAnalysisViewModel
@@ -165,10 +165,10 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/deck-comparison")]
     /// <summary>
     /// Renders the staged deck-comparison workflow.
     /// </summary>
+    [HttpGet("/deck-comparison")]
     public IActionResult DeckComparison()
     {
         return View("DeckComparison", new DeckComparisonViewModel
@@ -178,10 +178,10 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/cedh-meta-gap")]
     /// <summary>
     /// Renders the staged cEDH meta-gap workflow.
     /// </summary>
+    [HttpGet("/cedh-meta-gap")]
     public IActionResult CedhMetaGap()
     {
         return View("CedhMetaGap", new MetaGapViewModel
@@ -191,31 +191,31 @@ public sealed class DeckController : Controller
         });
     }
 
-    [HttpGet("/api/set-options")]
     /// <summary>
     /// Returns the Scryfall set catalog as JSON for client-side async loading.
     /// </summary>
+    [HttpGet("/api/set-options")]
     public async Task<IActionResult> GetSetOptions()
     {
         var sets = await TryGetSetOptionsAsync();
         return Json(sets.Select(s => new { s.Code, s.DisplayLabel, s.SetType }));
     }
 
-    [HttpGet("/convert")]
     /// <summary>
     /// Renders the deck format conversion page.
     /// </summary>
+    [HttpGet("/convert")]
     public IActionResult Convert()
     {
         return View("DeckConvert", new DeckConvertViewModel());
     }
 
-    [HttpPost("/convert")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Converts a single deck from one platform format to another.
     /// </summary>
     /// <param name="request">Deck convert request.</param>
+    [HttpPost("/convert")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Convert(DeckConvertRequest request)
     {
         request ??= new DeckConvertRequest();
@@ -252,11 +252,11 @@ public sealed class DeckController : Controller
             });
         }
     }
-    [HttpGet("/convert/commander-search")]
     /// <summary>
     /// Returns commander-eligible card name suggestions for the deck convert form typeahead.
     /// </summary>
     /// <param name="q">Partial commander name.</param>
+    [HttpGet("/convert/commander-search")]
     public async Task<IActionResult> ConvertCommanderSearch(string q)
     {
         try
@@ -274,11 +274,11 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpGet("/suggest-categories/card-search")]
     /// <summary>
     /// Provides card name suggestions for the suggest categories form.
     /// </summary>
     /// <param name="query">Partial card name.</param>
+    [HttpGet("/suggest-categories/card-search")]
     public async Task<IActionResult> CardSearch(string query)
     {
         try
@@ -296,44 +296,44 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/sync")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Handles the deck sync POST to generate a diff report.
     /// </summary>
     /// <param name="request">Deck diff request data.</param>
+    [HttpPost("/sync")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(DeckDiffRequest request)
     {
         return await RenderDiffAsync(request);
     }
 
-    [HttpPost("/card-lookup/download")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Verifies a pasted card list and returns the output as a downloadable text file.
     /// </summary>
     /// <param name="request">Card verification request.</param>
+    [HttpPost("/card-lookup/download")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DownloadCardLookup(CardLookupRequest request)
     {
         return await DownloadCardLookupAsync(request, CardLookupDownloadFormat.Text);
     }
 
-    [HttpPost("/card-lookup/download-json")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Verifies a pasted card list and returns the output as a downloadable JSON file.
     /// </summary>
     /// <param name="request">Card verification request.</param>
+    [HttpPost("/card-lookup/download-json")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DownloadCardLookupJson(CardLookupRequest request)
     {
         return await DownloadCardLookupAsync(request, CardLookupDownloadFormat.Json);
     }
 
-    [HttpGet("/card-lookup/single")]
     /// <summary>
     /// Looks up a single card by name and returns the formatted Oracle/rulings text as JSON.
     /// </summary>
     /// <param name="name">Card name.</param>
+    [HttpGet("/card-lookup/single")]
     public async Task<IActionResult> SingleCardLookup(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -395,12 +395,12 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/mechanic-lookup")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Looks up official rules text for a mechanic or rules term.
     /// </summary>
     /// <param name="request">Mechanic lookup request.</param>
+    [HttpPost("/mechanic-lookup")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> MechanicLookup(MechanicLookupRequest request)
     {
         request ??= new MechanicLookupRequest();
@@ -454,12 +454,12 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/deck-analysis")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Processes a ChatGPT workflow postback and regenerates the next packet outputs.
     /// </summary>
     /// <param name="request">Current workflow request.</param>
+    [HttpPost("/deck-analysis")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckAnalysis(DeckAnalysisRequest request)
     {
         request ??= new DeckAnalysisRequest();
@@ -505,6 +505,10 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Builds and downloads a deck-analysis packet zip for the current workflow request.
+    /// </summary>
+    /// <param name="request">Current deck-analysis workflow request.</param>
     [HttpPost("/deck-analysis/download")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckAnalysisDownload(DeckAnalysisRequest request)
@@ -583,6 +587,10 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Restores a deck-analysis workflow from a previously downloaded packet zip.
+    /// </summary>
+    /// <param name="zipFile">Packet zip uploaded from a prior deck-analysis session.</param>
     [HttpPost("/deck-analysis/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
@@ -652,12 +660,12 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/deck-comparison")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Processes the deck-comparison workflow.
     /// </summary>
     /// <param name="request">Current comparison workflow request.</param>
+    [HttpPost("/deck-comparison")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckComparison(DeckComparisonRequest request)
     {
         request ??= new DeckComparisonRequest();
@@ -718,6 +726,10 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Builds and downloads a deck-comparison packet zip for the current workflow request.
+    /// </summary>
+    /// <param name="request">Current deck-comparison workflow request.</param>
     [HttpPost("/deck-comparison/download")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckComparisonDownload(DeckComparisonRequest request)
@@ -838,6 +850,10 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Restores a deck-comparison workflow from a previously downloaded packet zip.
+    /// </summary>
+    /// <param name="zipFile">Packet zip uploaded from a prior deck-comparison session.</param>
     [HttpPost("/deck-comparison/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
@@ -934,12 +950,12 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/cedh-meta-gap")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Processes the cEDH meta-gap workflow.
     /// </summary>
     /// <param name="request">Current meta-gap workflow request.</param>
+    [HttpPost("/cedh-meta-gap")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CedhMetaGap(MetaGapRequest request)
     {
         request ??= new MetaGapRequest();
@@ -1000,6 +1016,10 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Builds and downloads a cEDH meta-gap packet zip for the current workflow request.
+    /// </summary>
+    /// <param name="request">Current cEDH meta-gap workflow request.</param>
     [HttpPost("/cedh-meta-gap/download")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CedhMetaGapDownload(MetaGapRequest request)
@@ -1092,6 +1112,10 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Restores a cEDH meta-gap workflow from a previously downloaded packet zip.
+    /// </summary>
+    /// <param name="zipFile">Packet zip uploaded from a prior cEDH meta-gap session.</param>
     [HttpPost("/cedh-meta-gap/upload")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
@@ -1283,17 +1307,17 @@ public sealed class DeckController : Controller
         Json,
     }
 
-    [HttpPost("/suggest-categories")]
-    [FeatureFlagGate("feature.categories.enabled",
-        Title = "Category suggestions temporarily unavailable",
-        Message = "AI Category Suggestions is offline for maintenance. Category Reference remains available.",
-        PrimaryActionLabel = "Open Category Reference",
-        PrimaryActionUrl = "/commander-categories")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Suggests categories based on cached data and optional reference deck.
     /// </summary>
     /// <param name="request">Category suggestion request.</param>
+    [HttpPost("/suggest-categories")]
+    [FeatureFlagGate("feature.categories.enabled",
+        Title = "Category suggestions temporarily unavailable",
+        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
+        PrimaryActionLabel = "Open Category Reference",
+        PrimaryActionUrl = "/commander-categories")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SuggestCategories(CategorySuggestionRequest request)
     {
         request ??= new CategorySuggestionRequest();
@@ -1345,8 +1369,6 @@ public sealed class DeckController : Controller
                 SuggestionSourceSummary = result.UsedSources.Count == 0
                     ? null
                     : $"Source used: {string.Join(" + ", result.UsedSources)}",
-                ExtendedHarvestTriggered = result.CacheHarvestTriggered,
-                AdditionalDecksFound = result.AdditionalDecksFound,
                 CardDeckTotals = result.CardDeckTotals
             };
             return View("SuggestCategories", viewModel);
@@ -1372,12 +1394,12 @@ public sealed class DeckController : Controller
         }
     }
 
-    [HttpPost("/resolve")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Persists user resolutions for printing conflicts and rebuilds the view.
     /// </summary>
     /// <param name="request">Deck diff request with resolutions.</param>
+    [HttpPost("/resolve")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Resolve(DeckDiffRequest request)
     {
         try
@@ -1548,10 +1570,4 @@ public sealed class DeckController : Controller
         => request.ArchidektInputSource == DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
             : !string.IsNullOrWhiteSpace(request.ArchidektText);
-
-    /// <summary>
-    /// Searches recent Archidekt decks live for potential categories.
-    /// </summary>
-    /// <param name="cardName">Card name to search for.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
 }

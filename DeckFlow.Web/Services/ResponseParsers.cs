@@ -109,6 +109,10 @@ internal static class ResponseParsers
             "game_plan",
             "primary_axes",
             "speed",
+            "estimated_win_turn",
+            "can_answer_win_turn",
+            "assessed_bracket",
+            "bracket_justification",
             "strengths",
             "weaknesses",
             "deck_needs",
@@ -126,6 +130,8 @@ internal static class ResponseParsers
             || !string.IsNullOrWhiteSpace(response.Commander)
             || !string.IsNullOrWhiteSpace(response.GamePlan)
             || !string.IsNullOrWhiteSpace(response.Speed)
+            || !string.IsNullOrWhiteSpace(response.AssessedBracket)
+            || !string.IsNullOrWhiteSpace(response.BracketJustification)
             || response.PrimaryAxes.Count > 0
             || response.Strengths.Count > 0
             || response.Weaknesses.Count > 0

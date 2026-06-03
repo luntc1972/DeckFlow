@@ -28,30 +28,32 @@
     }
     else
     {
-        <table class="admin-table admin-analytics-table">
-            <caption class="sr-only">Top routes by hit count with unique IPs, error rate, and 14-day hit sparkline.</caption>
-            <thead>
-                <tr>
-                    <th scope="col" class="route">Route</th>
-                    <th scope="col" class="num">Hits</th>
-                    <th scope="col" class="num">Unique IPs</th>
-                    <th scope="col" class="num">Error rate</th>
-                    <th scope="col" class="spark">Last 14 days</th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var row in Model.Routes)
-            {
-                <tr>
-                    <td class="route"><code>@row.RouteKey</code></td>
-                    <td class="num">@row.Hits.ToString("N0")</td>
-                    <td class="num">@row.UniqueIps.ToString("N0")</td>
-                    <td class="num">@DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel.FormatErrorRate(row.ErrorRate)</td>
-                    <td class="spark admin-sparkline">@Html.Raw(DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel.RenderSparkline(row.HitsByDay))</td>
-                </tr>
-            }
-            </tbody>
-        </table>
+        <div class="admin-table-scroll" role="region" aria-label="Page analytics - scroll horizontally to see all columns" tabindex="0">
+            <table class="admin-table admin-analytics-table">
+                <caption class="sr-only">Top routes by hit count with unique IPs, error rate, and 14-day hit sparkline.</caption>
+                <thead>
+                    <tr>
+                        <th scope="col" class="route">Route</th>
+                        <th scope="col" class="num">Hits</th>
+                        <th scope="col" class="num">Unique IPs</th>
+                        <th scope="col" class="num">Error rate</th>
+                        <th scope="col" class="spark">Last 14 days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Routes)
+                {
+                    <tr>
+                        <td class="route"><code>@row.RouteKey</code></td>
+                        <td class="num">@row.Hits.ToString("N0")</td>
+                        <td class="num">@row.UniqueIps.ToString("N0")</td>
+                        <td class="num">@DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel.FormatErrorRate(row.ErrorRate)</td>
+                        <td class="spark admin-sparkline">@Html.Raw(DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel.RenderSparkline(row.HitsByDay))</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
     }
 </section>
 

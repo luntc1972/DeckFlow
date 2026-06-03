@@ -95,6 +95,7 @@ internal sealed class ClaudeMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("Clearly label any interpretation as inference.");
         builder.AppendLine("If evidence is weak or unclear, explicitly say so in the relevant field.");
         builder.AppendLine("Do NOT invent card text or interactions.");
+        builder.AppendLine("When assessing mana efficiency, count modal double-faced cards (MDFCs) with a land back face toward each deck's land total, and weight them higher than a plain land since they double as flexible land/spell slots that improve consistency.");
         builder.AppendLine();
         builder.AppendLine("Provide readable analysis first covering:");
         builder.AppendLine("- WIN CONDITIONS");

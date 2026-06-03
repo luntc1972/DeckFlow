@@ -509,6 +509,18 @@ Do not omit any fields from the schema.
                         {
                             <p><strong>Speed:</strong> @Model.AnalysisResponse.Speed</p>
                         }
+                        @if (Model.AnalysisResponse.EstimatedWinTurn > 0)
+                        {
+                            <p><strong>Earliest win turn:</strong> T@(Model.AnalysisResponse.EstimatedWinTurn)@(Model.AnalysisResponse.CanAnswerWinTurn ? " · can disrupt a win that turn" : " · cannot disrupt a win that turn")</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisResponse.AssessedBracket))
+                        {
+                            <p><strong>Assessed bracket:</strong> @Model.AnalysisResponse.AssessedBracket</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisResponse.BracketJustification))
+                        {
+                            <p><strong>Bracket rationale:</strong> @Model.AnalysisResponse.BracketJustification</p>
+                        }
                         @if (Model.AnalysisResponse.PrimaryAxes.Count > 0)
                         {
                             <p><strong>Primary axes:</strong> @string.Join(", ", Model.AnalysisResponse.PrimaryAxes)</p>

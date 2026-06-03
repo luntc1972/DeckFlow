@@ -33,3 +33,6 @@ Dockerfile
 .dockerignore
 README.md
 *.md
+!content-kb/
+!content-kb/**
+!content-kb/**/*.md

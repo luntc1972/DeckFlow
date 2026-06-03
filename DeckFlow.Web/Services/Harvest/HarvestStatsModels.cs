@@ -6,6 +6,9 @@ namespace DeckFlow.Web.Services.Harvest;
 /// <summary>Top-N commander row from deck_queue.commander_name (D-15).</summary>
 public sealed record TopCommanderRow(string CommanderName, int DeckCount);
 
+/// <summary>Processed commander aggregate row displayed in the admin harvested-commanders grid.</summary>
+public sealed record HarvestedCommanderRow(string CommanderName, int DeckCount, string? LastProcessedUtc);
+
 /// <summary>
 /// Full HARV-06 stats payload (D-16). Cached for 60 seconds in IMemoryCache and
 /// explicitly invalidated on harvest_runs writes (D-13).
@@ -14,7 +17,6 @@ public sealed record HarvestStatsPayload(
     int TotalDecks,
     int TotalDecks30d,
     int TotalObservations,
-    IReadOnlyList<TopCommanderRow> TopCommanders,
     IReadOnlyList<HarvestRunRow> RecentRuns,
     long? PostgresStorageBytes,
     DateTimeOffset? LastSuccessUtc,

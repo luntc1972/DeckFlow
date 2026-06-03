@@ -94,6 +94,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
                 cancellationToken));
     }
 
+    /// <inheritdoc/>
     public async Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
     {
         var parsedLines = ParseLines(cardList);
@@ -183,6 +184,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         return new CardLookupResult(verifiedOutputs, missingLines);
     }
 
+    /// <inheritdoc/>
     public async Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
     {
         var trimmedName = cardName?.Trim() ?? string.Empty;

@@ -9,16 +9,30 @@ using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web.Services;
 
+/// <summary>
+/// Provides Scryfall set metadata and compact set packets for deck-building prompts.
+/// </summary>
 public interface IScryfallSetService
 {
+    /// <summary>
+    /// Returns the playable Scryfall set catalog used by set-packet selection.
+    /// </summary>
     Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Builds a compact prompt packet for selected Scryfall sets.
+    /// </summary>
+    /// <param name="setCodes">Scryfall set codes to include.</param>
+    /// <param name="commanderColorIdentity">Optional commander color identity used to restrict candidate cards.</param>
+    /// <param name="cancellationToken">Token used to cancel Scryfall and mechanic lookups.</param>
+    /// <returns>A compact prompt packet containing set notes, mechanics, and candidate cards.</returns>
     Task<string> BuildSetPacketAsync(
         IReadOnlyList<string> setCodes,
         IReadOnlyList<string>? commanderColorIdentity = null,
         CancellationToken cancellationToken = default);
 }
 
+/// <inheritdoc/>
 public sealed partial class ScryfallSetService : IScryfallSetService
 {
     private const string SetCacheKey = "scryfall-set-options-v2";
@@ -64,6 +78,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
                 cancellationToken));
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default)
     {
         if (_cache.TryGetValue<IReadOnlyList<ScryfallSetOption>>(SetCacheKey, out var cached) && cached is not null)
@@ -96,6 +111,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         return sets;
     }
 
+    /// <inheritdoc/>
     public async Task<string> BuildSetPacketAsync(
         IReadOnlyList<string> setCodes,
         IReadOnlyList<string>? commanderColorIdentity = null,

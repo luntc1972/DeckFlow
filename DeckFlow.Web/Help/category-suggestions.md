@@ -1,12 +1,12 @@
 ---
-title: AI Category Suggestions
+title: Category Suggestions
 summary: Suggest functional categories for a card using multiple data sources.
 order: 80
 ---
 
-# AI Category Suggestions
+# Category Suggestions
 
-The AI Category Suggestions page supports multiple lookup modes:
+The Category Suggestions page supports multiple lookup modes:
 
 - `CachedData`
 - `ReferenceDeck`
@@ -16,7 +16,7 @@ The AI Category Suggestions page supports multiple lookup modes:
 Current behavior:
 
 - `ReferenceDeck` reads exact categories from a supplied Archidekt deck URL or pasted Archidekt text.
-- `CachedData` runs a short local cache sweep, then reads category hits from the local Archidekt-backed store.
+- `CachedData` reads category hits from the existing local Archidekt-backed store.
 - `ScryfallTagger` returns oracle-tag style suggestions from Scryfall Tagger.
 - `All` combines the cached-store path and tagger path, with EDHREC as a fallback when no other source returns anything.
 

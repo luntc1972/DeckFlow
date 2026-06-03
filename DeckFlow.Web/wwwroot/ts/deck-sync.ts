@@ -2433,6 +2433,92 @@ const showChatGptCedhReferencePage = (form: HTMLFormElement, page: number): void
   }
 };
 
+const parseChatGptCedhSortValue = (cell: HTMLElement | undefined, type: string): number | string => {
+  const raw = (cell?.dataset.sortValue ?? cell?.textContent ?? '').trim();
+  if (type === 'num') {
+    const parsed = parseFloat(raw);
+    return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+  }
+  return raw.toLowerCase();
+};
+
+// Core sort: shared by the desktop column-header buttons and the mobile sort
+// control (the headers are sr-only-hidden at <=600px, so phones need a visible
+// alternative that drives the same in-place sort + re-pagination).
+const applyChatGptCedhSort = (
+  form: HTMLFormElement,
+  table: HTMLTableElement,
+  columnIndex: number,
+  type: 'num' | 'text',
+  direction: 'ascending' | 'descending'
+): void => {
+  const tbody = table.querySelector<HTMLTableSectionElement>('tbody');
+  if (!tbody || columnIndex < 0) {
+    return;
+  }
+
+  const factor = direction === 'ascending' ? 1 : -1;
+  const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('[data-chatgpt-cedh-reference-row]'));
+  rows.sort((left, right) => {
+    const leftValue = parseChatGptCedhSortValue(left.cells[columnIndex], type);
+    const rightValue = parseChatGptCedhSortValue(right.cells[columnIndex], type);
+    let comparison = 0;
+    if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+      comparison = leftValue - rightValue;
+    } else {
+      comparison = String(leftValue).localeCompare(String(rightValue));
+    }
+    return comparison * factor;
+  });
+
+  // Re-paginate: server assigned data-chatgpt-cedh-page by original index; after a
+  // client re-sort the rows must be re-numbered so paging follows the new order.
+  const pageSize = Math.max(1, parseInt(table.dataset.chatgptCedhPageSize ?? '10', 10) || 10);
+  rows.forEach((row, index) => {
+    tbody.appendChild(row);
+    row.dataset.chatgptCedhPage = (Math.floor(index / pageSize) + 1).toString();
+  });
+
+  // Reflect sort state for assistive tech: only the active column carries a direction.
+  Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th')).forEach((cell, index) => {
+    if (cell.hasAttribute('aria-sort')) {
+      cell.setAttribute('aria-sort', index === columnIndex ? direction : 'none');
+    }
+  });
+
+  showChatGptCedhReferencePage(form, 1);
+};
+
+const sortChatGptCedhFromHeader = (form: HTMLFormElement, button: HTMLButtonElement): void => {
+  const table = button.closest<HTMLTableElement>('[data-chatgpt-cedh-reference-table]');
+  const headerCell = button.closest<HTMLTableCellElement>('th');
+  if (!table || !headerCell) {
+    return;
+  }
+
+  const type = button.dataset.chatgptCedhSortType === 'num' ? 'num' : 'text';
+  const direction = headerCell.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+  applyChatGptCedhSort(form, table, headerCell.cellIndex, type, direction);
+};
+
+const sortChatGptCedhFromMobileControl = (form: HTMLFormElement): void => {
+  const select = form.querySelector<HTMLSelectElement>('[data-chatgpt-cedh-mobile-sort-select]');
+  const dirButton = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-mobile-sort-dir]');
+  const table = form.querySelector<HTMLTableElement>('[data-chatgpt-cedh-reference-table]');
+  if (!select || !table) {
+    return;
+  }
+
+  const columnIndex = parseInt(select.value, 10);
+  if (Number.isNaN(columnIndex)) {
+    return;
+  }
+
+  const type = select.selectedOptions[0]?.dataset.sortType === 'num' ? 'num' : 'text';
+  const direction = dirButton?.dataset.direction === 'descending' ? 'descending' : 'ascending';
+  applyChatGptCedhSort(form, table, columnIndex, type, direction);
+};
+
 const attachChatGptCedhWorkflow = (): void => {
   const form = document.querySelector<HTMLFormElement>('[data-chatgpt-cedh-form]');
   if (!form) {
@@ -2476,6 +2562,28 @@ const attachChatGptCedhWorkflow = (): void => {
       const delta = button.dataset.chatgptCedhPageNav === 'next' ? 1 : -1;
       showChatGptCedhReferencePage(form, currentPage + delta);
     });
+  });
+
+  form.querySelectorAll<HTMLButtonElement>('[data-chatgpt-cedh-sort]').forEach(button => {
+    button.addEventListener('click', () => {
+      sortChatGptCedhFromHeader(form, button);
+    });
+  });
+
+  const mobileSortSelect = form.querySelector<HTMLSelectElement>('[data-chatgpt-cedh-mobile-sort-select]');
+  mobileSortSelect?.addEventListener('change', () => {
+    sortChatGptCedhFromMobileControl(form);
+  });
+
+  const mobileSortDir = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-mobile-sort-dir]');
+  mobileSortDir?.addEventListener('click', () => {
+    const next = mobileSortDir.dataset.direction === 'ascending' ? 'descending' : 'ascending';
+    mobileSortDir.dataset.direction = next;
+    mobileSortDir.textContent = next === 'ascending' ? 'Asc ▲' : 'Desc ▼';
+    mobileSortDir.setAttribute('aria-label', next === 'ascending' ? 'Sort ascending' : 'Sort descending');
+    if (mobileSortSelect?.value) {
+      sortChatGptCedhFromMobileControl(form);
+    }
   });
 
   form.addEventListener('submit', event => {

@@ -7,6 +7,9 @@ using DeckFlow.Web.Services;
 
 namespace DeckFlow.Web.Controllers;
 
+/// <summary>
+/// Serves the commander category workflow so players can inspect harvested Archidekt category usage for a commander.
+/// </summary>
 public sealed class CommanderController : Controller
 {
     private static readonly TimeSpan LookupTimeout = TimeSpan.FromSeconds(20);
@@ -14,6 +17,9 @@ public sealed class CommanderController : Controller
     private readonly ICommanderCategoryService _commanderCategoryService;
     private readonly ILogger<CommanderController> _logger;
 
+    /// <summary>
+    /// Creates the commander category controller.
+    /// </summary>
     public CommanderController(ICommanderSearchService searchService, ICommanderCategoryService commanderCategoryService, ILogger<CommanderController> logger)
     {
         _searchService = searchService;
@@ -21,23 +27,23 @@ public sealed class CommanderController : Controller
         _logger = logger;
     }
 
-    [HttpGet("/commander-categories")]
     /// <summary>
     /// Renders the commander categories form.
     /// </summary>
     /// <param name="commander">Optional commander name to pre-populate.</param>
+    [HttpGet("/commander-categories")]
     public IActionResult Index(string? commander)
     {
         var request = new CommanderCategoryRequest { CommanderName = commander ?? string.Empty };
         return View("CommanderCategories", new CommanderCategoryViewModel { Request = request });
     }
 
-    [HttpPost("/commander-categories")]
-    [ValidateAntiForgeryToken]
     /// <summary>
     /// Looks up commander categories using the knowledge store.
     /// </summary>
     /// <param name="request">Commander category request.</param>
+    [HttpPost("/commander-categories")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(CommanderCategoryRequest request)
     {
         if (request is null || string.IsNullOrWhiteSpace(request.CommanderName))
@@ -62,8 +68,6 @@ public sealed class CommanderController : Controller
                 CategoryRows = result.Rows,
                 CategorySummaries = result.Summaries,
                 HarvestedDeckCount = result.HarvestedDeckCount,
-                AdditionalDecksFound = result.AdditionalDecksFound,
-                ExtendedHarvestTriggered = result.CacheSweepPerformed,
                 CardDeckTotals = result.CardDeckTotals
             };
             return View("CommanderCategories", viewModel);
@@ -88,11 +92,11 @@ public sealed class CommanderController : Controller
         }
     }
 
-    [HttpGet("/commander-categories/search")]
     /// <summary>
     /// Provides a look-ahead list of commander names.
     /// </summary>
     /// <param name="query">Partial commander name.</param>
+    [HttpGet("/commander-categories/search")]
     public async Task<IActionResult> Search(string query)
     {
         try

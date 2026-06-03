@@ -96,7 +96,6 @@
                 <h2>Load your deck and fetch reference lists</h2>
                 <p>Paste your deck URL or deck export, optionally override the commander name, then pull the top tournament lists for that commander from EDH Top 16.</p>
             </div>
-            <span class="chatgpt-step-badge">Required</span>
         </div>
 
         <div class="sync-columns">
@@ -180,16 +179,8 @@
                 <h2>Select 1 to 3 reference decks and generate the prompt</h2>
                 <p>Choose 1 to 3 EDH Top 16 entries, build the prompt, then paste it into your AI and request a readable response followed by the fenced <code>meta_gap</code> JSON block.</p>
             </div>
-            <span class="chatgpt-step-badge">Prompt output</span>
         </div>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
-        @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
-        {
-            <section class="result-panel nested-panel summary-panel">
-                <h3>Input Summary</h3>
-                <pre>@Model.InputSummary</pre>
-            </section>
-        }
 
         @if (!string.IsNullOrWhiteSpace(Model.ResolvedCommanderName))
         {
@@ -204,47 +195,82 @@
                 <div class="panel-heading">
                     <div>
                         <h3>EDH Top 16 References</h3>
-                        <p>Sorted by newest tournament first. Select 1 to 3 decks. The client enforces the limit before submit.</p>
+                        <p>@(Model.Request.SortBy == DeckFlow.Web.Models.CedhMetaSortBy.TOP ? "Sorted by top performance first." : "Sorted by newest tournament first.") Select 1 to 3 decks; click a column heading to re-sort. The client enforces the limit before submit.</p>
                     </div>
                 </div>
 
+                @* Mobile-only sort control: the column-header sort buttons live in
+                   <thead>, which is sr-only-hidden at <=600px, so phones get this
+                   visible equivalent wired to the same client-side sort. *@
+                <div class="cedh-mobile-sort" data-chatgpt-cedh-mobile-sort>
+                    <label class="field cedh-mobile-sort__field">
+                        <span>Sort by</span>
+                        <select data-chatgpt-cedh-mobile-sort-select>
+                            <option value="" selected>Tournament order</option>
+                            <option value="2" data-sort-type="text">Player</option>
+                            <option value="3" data-sort-type="text">Date</option>
+                            <option value="4" data-sort-type="num">Participants</option>
+                            <option value="5" data-sort-type="num">Finish</option>
+                            <option value="7" data-sort-type="num">Win %</option>
+                        </select>
+                    </label>
+                    <button type="button" class="clear-cache-button cedh-mobile-sort__dir"
+                            data-chatgpt-cedh-mobile-sort-dir data-direction="ascending"
+                            aria-label="Sort ascending">Asc &#9650;</button>
+                </div>
+
                 <div class="table-wrapper">
-                    <table class="conflicts-table" data-chatgpt-cedh-reference-table>
-                        <caption class="sr-only">EDH Top 16 reference decks for the resolved commander, sorted newest first</caption>
-                        <thead>
-                        <tr>
-                            <th scope="col">Select</th>
-                            <th scope="col">#</th>
-                            <th scope="col">Player</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Participants</th>
-                            <th scope="col">Finish</th>
-                            <th scope="col">W-L-D</th>
-                            <th scope="col">Win %</th>
-                            <th scope="col">Decklist</th>
+                    @* role=* attributes restore table semantics that the <=600px display:grid
+                       override would otherwise strip from screen readers (Roselli 2017).
+                       Sortable headers use an in-cell <button> + aria-sort; deck-sync.ts
+                       re-sorts + re-paginates client-side. *@
+                    <table class="conflicts-table" data-chatgpt-cedh-reference-table role="table" data-chatgpt-cedh-page-size="@pageSize">
+                        <caption class="sr-only">EDH Top 16 reference decks for the resolved commander. Use the column heading buttons to sort.</caption>
+                        <thead role="rowgroup">
+                        <tr role="row">
+                            <th scope="col" role="columnheader">Select</th>
+                            <th scope="col" class="tabular" role="columnheader">#</th>
+                            <th scope="col" role="columnheader" aria-sort="none">
+                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="text">Player<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                            </th>
+                            <th scope="col" role="columnheader" aria-sort="none">
+                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="text">Date<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                            </th>
+                            <th scope="col" class="tabular" role="columnheader" aria-sort="none">
+                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="num">Participants<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                            </th>
+                            <th scope="col" role="columnheader" aria-sort="none">
+                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="num">Finish<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                            </th>
+                            <th scope="col" class="tabular" role="columnheader">W-L-D</th>
+                            <th scope="col" class="tabular" role="columnheader" aria-sort="none">
+                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="num">Win %<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                            </th>
+                            <th scope="col" role="columnheader">Decklist</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody role="rowgroup">
                         @for (var index = 0; index < Model.FetchedEntries.Count; index++)
                         {
                             var entry = Model.FetchedEntries[index];
                             var rowPage = (index / pageSize) + 1;
-                            <tr data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
-                                <td>
+                            <tr role="row" data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
+                                <td role="cell" data-label="Select">
                                     <input type="checkbox"
                                            name="SelectedReferenceIndexes"
                                            value="@index"
+                                           aria-label="Select reference deck #@(index + 1)@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "" : $" — {entry.PlayerName}")"
                                            checked="@(selectedReferenceIndexes.Contains(index) ? "checked" : null)"
                                            data-chatgpt-cedh-reference-checkbox />
                                 </td>
-                                <td>@(index + 1)</td>
-                                <td>@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
-                                <td>@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
-                                <td>@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
-                                <td>@entry.Standing</td>
-                                <td>@entry.Wins-@entry.Losses-@entry.Draws</td>
-                                <td>@entry.WinRate.ToString("P0")</td>
-                                <td>
+                                <td class="tabular" role="cell" data-label="#" data-sort-value="@(index + 1)">@(index + 1)</td>
+                                <td role="cell" data-label="Player" data-sort-value="@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)">@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
+                                <td role="cell" data-label="Date" data-sort-value="@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "")">@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                <td class="tabular" role="cell" data-label="Participants" data-sort-value="@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)">@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
+                                <td role="cell" data-label="Finish" data-sort-value="@entry.Standing">@entry.Standing</td>
+                                <td class="tabular" role="cell" data-label="W-L-D">@entry.Wins-@entry.Losses-@entry.Draws</td>
+                                <td class="tabular" role="cell" data-label="Win %" data-sort-value="@entry.WinRate.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)">@entry.WinRate.ToString("P0")</td>
+                                <td role="cell" data-label="Decklist">
                                     @if (!string.IsNullOrWhiteSpace(entry.DecklistUrl))
                                     {
                                         <a href="@entry.DecklistUrl" target="_blank" rel="noopener noreferrer">Open</a>
@@ -331,7 +357,6 @@
                 <h2>Paste the returned meta-gap JSON</h2>
                 <p>Paste the fenced JSON block or raw JSON payload that contains the top-level <code>meta_gap</code> object. Extra prose above it is fine.</p>
             </div>
-            <span class="chatgpt-step-badge">Final step</span>
         </div>
 
         <label class="field">

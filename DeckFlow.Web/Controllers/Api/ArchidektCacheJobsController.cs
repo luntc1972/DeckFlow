@@ -5,17 +5,28 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Api;
 
+/// <summary>
+/// Controls internal Archidekt cache refresh jobs and exposes status payloads for background harvest work.
+/// </summary>
 [ApiController]
 [Route("api/archidekt-cache-jobs")]
 public sealed class ArchidektCacheJobsController : ControllerBase
 {
     private readonly IArchidektCacheJobService _jobService;
 
+    /// <summary>
+    /// Creates the Archidekt cache job API controller.
+    /// </summary>
     public ArchidektCacheJobsController(IArchidektCacheJobService jobService)
     {
         _jobService = jobService;
     }
 
+    /// <summary>
+    /// Enqueues an Archidekt cache refresh job and returns the job status link.
+    /// </summary>
+    /// <param name="request">Job start payload containing the requested duration.</param>
+    /// <param name="cancellationToken">Cancellation token for the enqueue request.</param>
     [HttpPost]
     [ProducesResponseType(typeof(ArchidektCacheJobEnqueueResponse), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -43,6 +54,10 @@ public sealed class ArchidektCacheJobsController : ControllerBase
         return AcceptedAtAction(nameof(GetByIdAsync), new { jobId = response.JobId }, response);
     }
 
+    /// <summary>
+    /// Returns the status payload for a tracked Archidekt cache job.
+    /// </summary>
+    /// <param name="jobId">Tracked cache job identifier.</param>
     [HttpGet("{jobId:guid}", Name = nameof(GetByIdAsync))]
     [ProducesResponseType(typeof(ArchidektCacheJobStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -52,6 +67,9 @@ public sealed class ArchidektCacheJobsController : ControllerBase
         return job is null ? NotFound() : Ok(ToStatusResponse(job));
     }
 
+    /// <summary>
+    /// Returns the currently active Archidekt cache job when one is queued or running.
+    /// </summary>
     [HttpGet("active")]
     [ProducesResponseType(typeof(ArchidektCacheJobStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

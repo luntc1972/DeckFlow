@@ -1,3 +1,4 @@
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Mvc;
 
@@ -71,6 +72,13 @@ public sealed class AdminFlagsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Toggle(string key, bool enabled, CancellationToken cancellationToken)
     {
+        // HIGH-4 / D-22E: same-origin guard alongside the existing anti-forgery token so every
+        // mutating admin POST is double-CSRF-guarded (SC4/P11), including this reused toggle.
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
         if (string.IsNullOrWhiteSpace(key))
         {
             return BadRequest();

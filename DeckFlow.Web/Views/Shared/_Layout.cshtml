@@ -1,3 +1,4 @@
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FeatureFlagCache
 @{
     var themeOptions = new (string FileName, string Label)[]
     {
@@ -40,6 +41,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @* Classic theme --bg; the no-JS fallback. site.ts (attachThemePicker) updates this to the active theme's live --bg on load and on theme change. *@
+    <meta name="theme-color" content="#eceef3" />
     <title>@ViewData["Title"] - DeckFlow</title>
     <link rel="stylesheet" href="~/css/site-common.css" asp-append-version="true" />
     <link id="theme-stylesheet" rel="stylesheet" href="@selectedThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" data-cookie-name="@themeCookieName" />
@@ -54,6 +57,10 @@
                 <a class="page-brand" href="@Url.Content("~/")" aria-label="DeckFlow home">DeckFlow</a>
                 <nav class="page-nav" aria-label="Primary">
                     <a class="page-nav__link" href="@Url.Content("~/help")">Help</a>
+                    @if (FeatureFlagCache.IsEnabled("content.kb.enabled"))
+                    {
+                        <a class="page-nav__link" asp-controller="ContentKb" asp-action="Index">Knowledge Base</a>
+                    }
                 </nav>
                 <div class="theme-picker">
                     <label class="theme-picker__label" for="theme-picker">Theme</label>
@@ -66,10 +73,6 @@
                 </div>
             </header>
             <main role="main" id="main-content" class="content-shell">
-                <div class="global-job-notice hidden" data-global-job-notice>
-                    <p class="global-job-notice__text" data-global-job-notice-text></p>
-                    <button type="button" class="global-job-notice__close" data-global-job-notice-dismiss aria-label="Dismiss background job notice">Dismiss</button>
-                </div>
                 @RenderBody()
             </main>
             <footer class="page-footer">

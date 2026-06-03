@@ -3,6 +3,8 @@ namespace DeckFlow.Web.Models;
 /// <summary>
 /// Represents a single selectable analysis question in the ChatGPT workflow.
 /// </summary>
+/// <param name="Id">Stable question identifier posted by the workflow form.</param>
+/// <param name="Text">Prompt question text shown to the user and sent to ChatGPT.</param>
 public sealed record AnalysisQuestionOption(
     string Id,
     string Text);
@@ -10,6 +12,9 @@ public sealed record AnalysisQuestionOption(
 /// <summary>
 /// Groups related analysis questions under a shared heading.
 /// </summary>
+/// <param name="Id">Stable bucket identifier used for grouping and rendering.</param>
+/// <param name="Label">Display label for the question bucket.</param>
+/// <param name="Questions">Questions included in the bucket.</param>
 public sealed record AnalysisQuestionBucket(
     string Id,
     string Label,
@@ -133,6 +138,9 @@ public static class AnalysisQuestionCatalog
             "combo-one-away"
         };
 
+    /// <summary>
+    /// Question IDs that require ChatGPT to return full 100-card decklists.
+    /// </summary>
     public static IReadOnlySet<string> FullDecklistQuestionIds { get; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -156,6 +164,9 @@ public static class AnalysisQuestionCatalog
             "update-categories"
         };
 
+    /// <summary>
+    /// Flattened list of every selectable analysis question across all buckets.
+    /// </summary>
     public static IReadOnlyList<AnalysisQuestionOption> AllQuestions { get; } = Buckets
         .SelectMany(bucket => bucket.Questions)
         .ToList();
