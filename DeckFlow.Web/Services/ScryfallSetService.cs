@@ -24,6 +24,7 @@ public interface IScryfallSetService
     /// </summary>
     /// <param name="setCodes">Scryfall set codes to include.</param>
     /// <param name="commanderColorIdentity">Optional commander color identity used to restrict candidate cards.</param>
+    /// <param name="cancellationToken">Token used to cancel Scryfall and mechanic lookups.</param>
     /// <returns>A compact prompt packet containing set notes, mechanics, and candidate cards.</returns>
     Task<string> BuildSetPacketAsync(
         IReadOnlyList<string> setCodes,

@@ -12,6 +12,7 @@ public interface IFeedbackStore
     /// </summary>
     /// <param name="submission">Feedback payload submitted by the user.</param>
     /// <param name="context">Request metadata captured with the submission.</param>
+    /// <param name="cancellationToken">Token used to cancel the insert.</param>
     /// <returns>The database id assigned to the new feedback row.</returns>
     Task<long> AddAsync(FeedbackSubmission submission, FeedbackRequestContext context, CancellationToken cancellationToken = default);
     /// <summary>
@@ -27,6 +28,7 @@ public interface IFeedbackStore
     /// </summary>
     /// <param name="status">Optional status filter.</param>
     /// <param name="type">Optional feedback type filter.</param>
+    /// <param name="cancellationToken">Token used to cancel the count query.</param>
     /// <returns>The number of matching feedback submissions.</returns>
     Task<int> CountAsync(FeedbackStatus? status, FeedbackType? type, CancellationToken cancellationToken = default);
     /// <summary>
@@ -38,6 +40,7 @@ public interface IFeedbackStore
     /// </summary>
     /// <param name="id">Feedback row id to update.</param>
     /// <param name="status">New review status.</param>
+    /// <param name="cancellationToken">Token used to cancel the update.</param>
     Task UpdateStatusAsync(long id, FeedbackStatus status, CancellationToken cancellationToken = default);
     /// <summary>
     /// Deletes a feedback row by id.
@@ -54,6 +57,9 @@ public interface IFeedbackStore
 /// Captures request-side metadata stored with a feedback submission.
 /// </summary>
 /// <param name="Ip">Raw client IP address; the store salts and hashes it before persistence.</param>
+/// <param name="UserAgent">Client User-Agent header, or null when absent.</param>
+/// <param name="PageUrl">Page the feedback was submitted from, or null when unavailable.</param>
+/// <param name="AppVersion">DeckFlow version string captured at submission time, or null.</param>
 public sealed record FeedbackRequestContext(
     string? Ip,
     string? UserAgent,

@@ -31,6 +31,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// Initializes the knowledge store for the web app environment.
     /// </summary>
     /// <param name="environment">Web host environment for locating artifacts.</param>
+    /// <param name="logger">Optional logger forwarded to the category repository.</param>
     public CategoryKnowledgeStore(IWebHostEnvironment environment, ILogger<CategoryKnowledgeStore>? logger = null)
     {
         _connectionInfo = DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment);
@@ -75,6 +76,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="cardName">Card name.</param>
     /// <param name="categories">Categories to persist.</param>
     /// <param name="quantity">Quantity recorded.</param>
+    /// <param name="board">Deck board where the observation was recorded.</param>
+    /// <param name="deckCountIncrement">Amount to add to processed deck counters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
     {
@@ -204,6 +207,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="logger">Logger for the sweep.</param>
     /// <param name="durationSeconds">Duration in seconds.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="progress">Optional progress reporter for processed deck counts.</param>
     public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         await EnsureSchemaReadyAsync(cancellationToken);
@@ -236,6 +240,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// Retrieves cached category rows for a card.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>
+    /// <param name="boardFilter">Optional board name used to filter observations.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
