@@ -22,14 +22,22 @@ public enum AdminFeedbackOp
 /// </summary>
 public sealed class AdminFeedbackListViewModel
 {
+    /// <summary>Feedback rows rendered on the current admin list page.</summary>
     public IReadOnlyList<FeedbackItem> Items { get; init; } = Array.Empty<FeedbackItem>();
+    /// <summary>Status filter currently applied to the list, or null for all statuses.</summary>
     public FeedbackStatus? StatusFilter { get; init; }
+    /// <summary>Feedback type filter currently applied to the list, or null for all types.</summary>
     public FeedbackType? TypeFilter { get; init; }
+    /// <summary>One-based page number currently rendered.</summary>
     public int Page { get; init; } = 1;
+    /// <summary>Maximum feedback rows shown per page.</summary>
     public int PageSize { get; init; } = 50;
+    /// <summary>Total number of feedback rows matching the current filters.</summary>
     public int TotalCount { get; init; }
+    /// <summary>Feedback counts grouped by status for the admin triage sidebar.</summary>
     public IReadOnlyDictionary<FeedbackStatus, int> CountsByStatus { get; init; } =
         new Dictionary<FeedbackStatus, int>();
+    /// <summary>Total number of pages available for the current filters.</summary>
     public int TotalPages => (int)Math.Ceiling((double)Math.Max(TotalCount, 1) / Math.Max(PageSize, 1));
 }
 
@@ -41,6 +49,9 @@ public sealed class AdminFeedbackController : Controller
 {
     private readonly IFeedbackStore _store;
 
+    /// <summary>
+    /// Creates the admin feedback controller.
+    /// </summary>
     public AdminFeedbackController(IFeedbackStore store)
     {
         _store = store;
@@ -76,6 +87,11 @@ public sealed class AdminFeedbackController : Controller
         return View(vm);
     }
 
+    /// <summary>
+    /// Renders one stored feedback submission for admin review.
+    /// </summary>
+    /// <param name="id">Stored feedback identifier.</param>
+    /// <returns>The feedback detail view when found; otherwise, a not-found response.</returns>
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Detail(long id)
     {

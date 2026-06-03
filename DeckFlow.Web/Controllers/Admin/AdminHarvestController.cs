@@ -30,6 +30,9 @@ public sealed class AdminHarvestController : Controller
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<AdminHarvestController> _logger;
 
+    /// <summary>
+    /// Creates the admin harvest controller.
+    /// </summary>
     public AdminHarvestController(
         IArchidektCacheJobService jobService,
         IHarvestRunStore runStore,
@@ -62,6 +65,11 @@ public sealed class AdminHarvestController : Controller
         _logger = logger;
     }
 
+    /// <summary>
+    /// Renders harvest status, recent runs, processed commanders, schedule state, and aggregate stats.
+    /// </summary>
+    /// <param name="page">One-based processed-commander page to render.</param>
+    /// <param name="cancellationToken">Cancellation token for admin data reads.</param>
     [HttpGet("")]
     public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
     {
@@ -107,6 +115,10 @@ public sealed class AdminHarvestController : Controller
         return View(viewModel);
     }
 
+    /// <summary>
+    /// Returns the cached harvest status payload used by the admin page polling loop.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for status reads.</param>
     [HttpGet("status")]
     public async Task<IActionResult> Status(CancellationToken cancellationToken)
     {
@@ -137,6 +149,11 @@ public sealed class AdminHarvestController : Controller
         return Json(payload);
     }
 
+    /// <summary>
+    /// Queues a bounded Archidekt cache harvest run from the admin controls.
+    /// </summary>
+    /// <param name="durationSeconds">Allowed run duration in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token for the enqueue request.</param>
     [HttpPost("run")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RunNow(int durationSeconds, CancellationToken cancellationToken)
@@ -152,6 +169,11 @@ public sealed class AdminHarvestController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>
+    /// Requests cancellation of the active harvest run when it matches the supplied job identifier.
+    /// </summary>
+    /// <param name="jobId">Identifier of the active harvest job to cancel.</param>
+    /// <param name="cancellationToken">Cancellation token for the cancel request.</param>
     [HttpPost("cancel/{jobId:guid}")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(Guid jobId, CancellationToken cancellationToken)
@@ -180,6 +202,11 @@ public sealed class AdminHarvestController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>
+    /// Imports one Archidekt deck URL immediately and records the observed category data.
+    /// </summary>
+    /// <param name="url">Archidekt deck URL to harvest.</param>
+    /// <param name="cancellationToken">Cancellation token for the import and persistence work.</param>
     [HttpPost("url")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitUrl(string url, CancellationToken cancellationToken)
@@ -263,6 +290,12 @@ public sealed class AdminHarvestController : Controller
         }
     }
 
+    /// <summary>
+    /// Saves the scheduled harvest interval and paused state.
+    /// </summary>
+    /// <param name="intervalHours">Selected interval in hours, or null to disable the schedule.</param>
+    /// <param name="paused">Whether scheduled harvests should be paused.</param>
+    /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
     [HttpPost("schedule")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSchedule(int? intervalHours, bool paused, CancellationToken cancellationToken)
@@ -280,6 +313,11 @@ public sealed class AdminHarvestController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>
+    /// Toggles the paused state for the existing harvest schedule.
+    /// </summary>
+    /// <param name="paused">Whether scheduled harvests should be paused.</param>
+    /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
     [HttpPost("pause")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PauseSchedule(bool paused, CancellationToken cancellationToken)

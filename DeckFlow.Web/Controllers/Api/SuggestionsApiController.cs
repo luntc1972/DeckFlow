@@ -24,6 +24,9 @@ public sealed class SuggestionsApiController : ControllerBase
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ILogger<SuggestionsApiController> _logger;
 
+    /// <summary>
+    /// Creates the suggestions API controller.
+    /// </summary>
     public SuggestionsApiController(
         ICategorySuggestionService categorySuggestionService,
         ICommanderCategoryService commanderCategoryService,
