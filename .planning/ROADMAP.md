@@ -327,7 +327,19 @@ Plans:
   3. `dotnet build -c Release -warnaserror:CS1591` succeeds from clean `obj/` — 0 errors, 0 warnings on user-authored code
   4. Test suite preserved at `Failed: 0` (doc-comment edits cannot regress runtime but verify the gate); touch-only-what-you-touch discipline preserved across every backfilled file (CLAUDE.md R-6)
 
-**Plans**: TBD
+**Plans**: 5 plans (4 parallel backfill + 1 final serial strip)
+Plans:
+
+**Wave 1** *(parallel — exclusive non-overlapping file sets; all 475 doc sites backfilled, NoWarn still in place)*
+
+- [ ] 23-01-PLAN.md — Models response DTOs A: MetaGapResponse/DeckComparisonResponse/DeckAnalysisResponse/SetUpgradeResponse/EdhTop16Entry (144 sites) (DOC-01)
+- [ ] 23-02-PLAN.md — Models remainder + Models/Api + Models/Admin: SuggestionResponses, viewmodels, DTOs, enums (~183 sites) (DOC-01)
+- [ ] 23-03-PLAN.md — Controllers tree (96 sites) incl. ALL 29 CS1587 relocate-above-attribute fixes (DeckController + CommanderController + DeckSyncApiController; re-derived at execute time) (DOC-01)
+- [ ] 23-04-PLAN.md — Services + Infrastructure (52 sites) incl. ALL 22 CS1573 complete-param-set fixes (overrides Phase 17 D-02) (DOC-01)
+
+**Wave 2** *(serial — blocked on 23-01..23-04; the strip lands LAST per Pitfall 8)*
+
+- [ ] 23-05-PLAN.md — DOC-02 two-file gate flip: delete csproj <NoWarn> + set .editorconfig CS1591/1573/1587 severity=warning (user-approved Do-Not-Modify edit) + probe-validated -warnaserror:CS1591 clean build (DOC-02)
 
 ### Phase 24: Card Category Lookup Fix — Colorless/Staple Cards
 
