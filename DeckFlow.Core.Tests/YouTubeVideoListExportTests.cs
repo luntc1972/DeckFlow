@@ -40,6 +40,24 @@ public sealed class YouTubeVideoListExportTests
             YouTubeVideoListExport.BuildText("  ", [], DateTimeOffset.UtcNow));
     }
 
+    [Fact]
+    public void BuildCsv_EscapesQuotesAndGuardsFormulaInjection()
+    {
+        var videos = new[]
+        {
+            Video("vid-1", "Title with \"quotes\", and comma", 12_345, new DateTimeOffset(2026, 1, 2, 0, 0, 0, TimeSpan.Zero)),
+            Video("vid-2", "=HYPERLINK(\"http://evil\")", null, null),
+        };
+
+        var csv = YouTubeVideoListExport.BuildCsv(videos);
+
+        var lines = csv.TrimEnd('\n').Split('\n');
+        Assert.Equal("video_id,title,views,uploaded_utc,url", lines[0]);
+        Assert.Equal("\"vid-1\",\"Title with \"\"quotes\"\", and comma\",12345,2026-01-02,\"https://youtu.be/vid-1\"", lines[1]);
+        // Formula-injection guard: leading '=' neutralized with a quote prefix; empty views/date cells.
+        Assert.Equal("\"vid-2\",\"'=HYPERLINK(\"\"http://evil\"\")\",,,\"https://youtu.be/vid-2\"", lines[2]);
+    }
+
     private static YouTubeChannelVideo Video(string id, string title, long? views, DateTimeOffset? published)
         => new()
         {

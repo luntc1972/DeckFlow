@@ -71,6 +71,26 @@ public sealed class AdminYoutubeExportControllerTests
     }
 
     [Fact]
+    public async Task Export_CsvFormat_ReturnsCsvFileWithHeader()
+    {
+        var lister = new FakeLister(
+        [
+            Video("vid-1", "A Lukewarm Defense of Sol Ring", 69_454, new DateTimeOffset(2026, 2, 25, 0, 0, 0, TimeSpan.Zero)),
+        ]);
+        var controller = Build(lister, crossOrigin: false);
+
+        var result = await controller.Export("@salubrioussnail", 10, "csv", default);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("text/csv; charset=utf-8", file.ContentType);
+        Assert.Equal("salubrioussnail-videos.csv", file.FileDownloadName);
+        var text = Encoding.UTF8.GetString(file.FileContents);
+        Assert.StartsWith("video_id,title,views,uploaded_utc,url", text, StringComparison.Ordinal);
+        Assert.Contains("69454", text, StringComparison.Ordinal);
+        Assert.Contains("2026-02-25", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Export_NoVideos_RendersError()
     {
         var lister = new FakeLister([]);
