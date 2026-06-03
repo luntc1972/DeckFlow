@@ -10,11 +10,21 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ## Current State
 
-**Shipped:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (2026-05-23) — 5 production phases (11-15) + 8 backlog/closure phases (999.1-999.8); 22/22 REQ-IDs satisfied (WDG-01..10 + RENAME-01..03 + CLASSRENAME-01..03 + AUDIT-01..03 + AIPLATFORM-01..03); AI-agnostic URLs/labels live, ChatGpt* C# types renamed, sealed `AiPlatform` value object (OCP 3→8/10), full test suite `Failed: 0, Passed: 497, Skipped: 3, Total: 500`, 8/8 SECURITY threats closed, legacy chatgpt-* 301 redirects retired.
+**Shipped:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (2026-06-03) — 14 phases (16-27 + 21.1/21.2), 31 plans, 343 commits, +54,651/−4,726 LOC across 638 files, 11 days. 20/20 active REQ-IDs satisfied. Content KB pipeline live end-to-end (local CLI harvest → claude/openai distill → markdown prompt artifacts → flag-gated site browse with admin curation); category cache rebuilt on integer-keyed star schema (69s→0.66ms hot query); admin shell mobile-responsive; Web doc-warning gate live. Tests: Core 257/257, Web 528 pass / 5 PG-skips. Audit: tech_debt (0 critical gaps). NOTE: prod flag `content.kb.enabled` still OFF — user flips via live /Admin/Flags.
 
-**Active:** v1.4 — TBD (start via `/gsd-new-milestone`).
+**Active:** v1.5 — TBD (start via `/gsd-new-milestone`). Queued candidates: Deck Primer Generator (PRM-01..03), Gemini paste-limit unblock, DeckFlow.Core doc backfill, KB-12 codex backend, v1.4 artifact-hygiene debt.
 
-## Current Milestone: v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
+## Next Milestone Goals (v1.5 candidates — not yet scoped)
+
+- Deck Primer Generator (PRM-01..03, design notes in `.planning/notes/deck-primer-prompt-design.md`)
+- Gemini paste-limit workaround (deferred from v1.4 cluster D)
+- Content KB integration into deck-analysis prompts (deferred from original KB vision)
+- Housekeeping: Core XML-doc backfill + gate widen, VERIFICATION.md hygiene, KB-12 codex distill backend
+
+<details>
+<summary>📦 v1.4 milestone detail (SHIPPED 2026-06-03 — archived)</summary>
+
+## v1.4 Milestone: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
 
 **Goal:** Land 3 v1.3 backlog items (admin focus-trapped modal, doc-comment NoWarn backlog, admin pages mobile-responsive sweep) and ship Phase 1 of the Content Knowledge Base — admin-curated YouTube channel + podcast list, transcript ingestion (YouTube captions + Whisper fallback with monthly $ cap), per-video LLM summary + per-clip timestamped excerpts, tagged by archetype/strategy + format/bracket + card category. Deck-analysis integration (prompt injection + UI panel), new-deck-building guide, AND Gemini paste-limit unblock DEFERRED to v1.5.
 
@@ -46,6 +56,8 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - v13-harvest-worker-stalled debug follow-up
 - edhtop16 filter-defaults mismatch
 - audit-open scanner vocabulary alignment
+
+</details>
 
 ## Requirements
 
@@ -88,12 +100,16 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - ✓ Packet download session cache (per-request in-memory cache keyed by request hash, TTL bounded; eliminates full Scryfall pipeline replay on preview → download) — v1.3 (Phase 999.3)
 - ✓ Truncated-JSON response UX (user-facing "wait for AI to finish generating" message replaces raw stack trace on `JsonReaderException`) — v1.3 (Phase 999.4)
 - ✓ v1.3 ship-gate test hardening: 9→0 residual test failures resolved across 3 plans (stale tests caught up to shipped renames, F-ENV-COLLECTION serialization for env-mutating tests, F-PROD-CONTRACT `IHarvestRunStore.GetByIdAsync` production-bug fix) — v1.3 (Phase 999.6)
+- ✓ Content KB pipeline: local CLI harvest (YouTube captions + Whisper fallback + spend caps) → pluggable openai/claude LLM distill → markdown prompt artifacts → slim Postgres index → flag-gated browse with admin per-entry curation, CSRF+SameOrigin-guarded — v1.4 (KB-01..11; Phases 19-22 + 21.2)
+- ✓ Category cache on integer-keyed star schema with prod full-reset (hot commander query 69s→0.66ms), Sol Ring read-time CategoryFilter fix, content-hash dedup + 5-day refresh — v1.4 (DBO-01, CAT-01, CAT-02; Phases 26/24/27)
+- ✓ Admin shell mobile-responsive (`admin-common.css`/`admin-mobile.css`, ≥320px, ≥44px targets) + harvested-decks paged grid + focus-trapped `<dialog>` confirm modal — v1.4 (AMOB-01..04, AHD-01, MODAL-01; Phases 18/25/16)
+- ✓ DeckFlow.Web fully XML-documented + doc-warning gate live (`NoWarn` stripped, editorconfig warning severity scoped `[DeckFlow.Web/**.cs]`, probe-proven) — v1.4 (DOC-01/02; Phases 17+23)
 
 ### Active
 
-<!-- v1.4 not yet scoped — run /gsd-new-milestone to define. -->
+<!-- v1.5 not yet scoped — run /gsd-new-milestone to define. -->
 
-(none — v1.4 pending definition)
+(none — v1.5 pending definition)
 
 ### Out of Scope
 
@@ -223,7 +239,9 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.2 Multi-AI Prompts (2026-05-13) — 5 requirements across Phases 9-10 (8 plans). AI target selector + Claude-optimized artifacts + cEDH Step 1 round-trip live. Gemini flag-gated.
 **Shipped:** v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (2026-05-23) — 22 REQ-IDs across Phases 11-15 + 999.1-999.8 (13 phases, 51 plans, 370 commits, +47,724 / -5,385 LOC across 386 files, 10-day timeline 2026-05-13 → 2026-05-23). Test suite Failed:0 / Passed:497 / Skipped:3. 8/8 security threats closed.
 
-**Active:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (started 2026-05-23 — see Current Milestone section).
+**Shipped:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (2026-06-03) — 20/20 active REQ-IDs across 14 phases (16-27 + 21.1/21.2, 31 plans, 343 commits, +54,651/−4,726 LOC across 638 files, 11-day timeline 2026-05-23 → 2026-06-03). Content KB end-to-end + category cache rebuild + admin mobile + doc gate. Tests Core 257/257, Web 528/533. Audit: tech_debt, 0 critical gaps.
+
+**Active:** v1.5 — pending definition via `/gsd-new-milestone`.
 
 ---
-*Last updated: 2026-05-23 — v1.4 milestone started*
+*Last updated: 2026-06-03 — v1.4 milestone shipped and archived*

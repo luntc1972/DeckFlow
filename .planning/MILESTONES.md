@@ -1,5 +1,35 @@
 # Milestones
 
+## v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (Shipped: 2026-06-03)
+
+**Phases completed:** 14 phases (16-27 + inserted 21.1/21.2), 31 plans
+
+**Stats:**
+
+- Commits: 343 (`v1.3..HEAD` on `v1.4` branch)
+- Files: 638 changed, +54,651 / −4,726 LOC
+- Timeline: 2026-05-23 → 2026-06-03 (11 days)
+- Requirements: 20/20 active v1.4 REQ-IDs shipped (KB-12 → backlog; DBO-01/CAT-02 ROADMAP-tracked inserts also shipped)
+- Final tests: Core 257/257, Web 528 pass / 5 PG-integration skips
+
+**Key accomplishments:**
+
+1. **Content Knowledge Base end-to-end (KB-01..09, Phases 19-22)** — local CLI pipeline (YouTube captions via YoutubeExplode + Whisper fallback with monthly spend caps → LLM distillation into ≤200-word summaries, 3-8 timestamped clips, controlled-vocabulary tags → markdown prompt artifacts) feeding a slim Postgres site index with flag-gated public browse/filter, per-entry admin publish curation, and CSRF+SameOrigin-guarded mutations. Mid-milestone re-architecture from server-harvest to local-CLI model (2026-05-26) preserved all REQ-IDs.
+2. **Pluggable LLM distill backends (KB-10/11, Phase 21.2)** — `LlmDistillationProviderFactory` selects openai|claude via env; claude-CLI backend runs the full 10-video distill at $0 subscription cost (cleared the Phase 21.1 gate after OpenAI 429 insufficient_quota), cross-platform WSL/Windows incl. the dotnet.exe-from-WSL hard case; codex backend deferred to backlog with documented untrusted-input read-boundary rationale.
+3. **Category cache rebuilt (DBO-01/CAT-01/CAT-02, Phases 26/24/27)** — integer-keyed star schema with prod full-reset + re-harvest (hot commander query 69s timeout → 0.66ms index-only), Sol Ring/colorless-staple empty-categories fixed via read-time `CategoryFilter`, and content-hash dedup + 5-day refresh on deck writes.
+4. **Admin mobile + tooling (AMOB-01..04/AHD-01/MODAL-01, Phases 18/25/16)** — `admin.css` factored into `admin-common.css` + `admin-mobile.css` scoped to `.admin-shell` (≥320px viewports, ≥44px touch targets), server-side paged harvested-decks commander grid, native `<dialog>` focus-trapped confirm modal reused across admin pages.
+5. **Doc-warning gate live (DOC-01/02, Phases 17+23)** — every public type AND member in DeckFlow.Web XML-documented (475 compiler-derived sites in Phase 23 alone); `NoWarn 1591;1573;1587` stripped from the csproj and the editorconfig gate flipped to warning severity scoped to `[DeckFlow.Web/**.cs]`, probe-proven real; DeckFlow.Core (186 sites) deliberately deferred.
+6. **Cross-AI delivery pattern sustained** — Codex implemented / Claude planned+reviewed across the milestone, with scope-fenced dispatches; plus a post-ship /simplify pass (SpendLedgerBase extraction, distillation validator dedup, dialect collapse) and ADR 0001 (prompt variants intentionally decoupled).
+
+**Verification:**
+
+- Milestone audit: `tech_debt` — 20/20 requirements satisfied, 4/4 E2E flows wired (integration-checker), 0 critical gaps (`.planning/milestones/v1.4-MILESTONE-AUDIT.md`)
+- Live UAT: Phase 20 5-channel harvest (10/10 captions), Phase 21.2 10/10 claude distill at $0, Phase 22 both checkpoints, Phase 24 live smoke, Phase 26 prod reset verified via information_schema/pg_indexes
+
+**Known deferred items at close:** 18 audit-open items acknowledged (11 stale scanner re-flags; see STATE.md Deferred Items) + audit tech debt: 7 phases missing VERIFICATION.md, P26 SUMMARYs, prod flag `content.kb.enabled` OFF (user flip pending), dual artifact trees, Core doc backfill, KB-12.
+
+---
+
 ## v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene (Shipped: 2026-05-23)
 
 **Phases completed:** 13 phases, 51 plans, 37 tasks
