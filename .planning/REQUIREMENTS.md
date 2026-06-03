@@ -8,19 +8,19 @@
 
 ### Admin Focus-Trapped Modal (MODAL)
 
-- [ ] **MODAL-01**: Admin can confirm destructive feedback actions via a styled focus-trapped native `<dialog>` modal (replaces deferred inline `onsubmit` confirm in `AdminFeedback/Detail.cshtml`; closes v1.3 WDG-04 override 2026-05-16)
+- [x] **MODAL-01**: Admin can confirm destructive feedback actions via a styled focus-trapped native `<dialog>` modal (replaces deferred inline `onsubmit` confirm in `AdminFeedback/Detail.cshtml`; closes v1.3 WDG-04 override 2026-05-16)
 
 ### Doc-Comment NoWarn Backlog (DOC)
 
-- [ ] **DOC-01**: All public types in `DeckFlow.Web/{Controllers,Services,Models,Models/Api,Infrastructure,Security,ViewModels}/` carry XML `<summary>` doc-comments (~88 v1.1-era types backfilled across 2 phases)
-- [ ] **DOC-02**: `DeckFlow.Web.csproj` no longer suppresses CS1591/CS1573/CS1587 globally (scoped 1591 retention permitted only for compiler-generated Razor partials if needed); `dotnet build -warnaserror:CS1591` succeeds from clean `obj/`
+- [x] **DOC-01**: All public types in `DeckFlow.Web/{Controllers,Services,Models,Models/Api,Infrastructure,Security,ViewModels}/` carry XML `<summary>` doc-comments (~88 v1.1-era types backfilled across 2 phases)
+- [x] **DOC-02**: `DeckFlow.Web.csproj` no longer suppresses CS1591/CS1573/CS1587 globally (scoped 1591 retention permitted only for compiler-generated Razor partials if needed); `dotnet build -warnaserror:CS1591` succeeds from clean `obj/`
 
 ### Admin Mobile-Responsive Sweep (AMOB)
 
-- [ ] **AMOB-01**: Admin shell renders correctly on viewports ≥320px wide; sidebar collapses to disclosure (`<details>`/`<summary>`) below the 768px breakpoint with no-JS fallback
-- [ ] **AMOB-02**: Admin tables remain usable on narrow viewports — per-table choice of `overflow-x: auto` (Analytics, HarvestRuns, ContentHarvest) or card-stack pattern (Feedback list, ContentSources list)
-- [ ] **AMOB-03**: Admin forms render single-column on narrow viewports; all interactive elements meet ≥44×44px touch-target floor (extends v1.3 WDG-08 site-common.css primitives to admin shell)
-- [ ] **AMOB-04**: `admin.css` factored into `admin-common.css` (layout primitives, mirrors `site-common.css` role) + `admin-mobile.css` (`@media` rules) + `admin.css` import shim; CSS scoped to `.admin-shell` parent class — zero bleed into 22 guild themes
+- [x] **AMOB-01**: Admin shell renders correctly on viewports ≥320px wide; sidebar collapses to disclosure (`<details>`/`<summary>`) below the 768px breakpoint with no-JS fallback
+- [x] **AMOB-02**: Admin tables remain usable on narrow viewports — per-table choice of `overflow-x: auto` (Analytics, HarvestRuns, ContentHarvest) or card-stack pattern (Feedback list, ContentSources list)
+- [x] **AMOB-03**: Admin forms render single-column on narrow viewports; all interactive elements meet ≥44×44px touch-target floor (extends v1.3 WDG-08 site-common.css primitives to admin shell)
+- [x] **AMOB-04**: `admin.css` factored into `admin-common.css` (layout primitives, mirrors `site-common.css` role) + `admin-mobile.css` (`@media` rules) + `admin.css` import shim; CSS scoped to `.admin-shell` parent class — zero bleed into 22 guild themes
 
 ### Content Knowledge Base Foundation (KB)
 
@@ -28,20 +28,20 @@
 
 - [x] **KB-01**: The local harvester maintains a source list (YouTube channels + podcast RSS) in **local SQLite** (`content_sources`); sources can be added/edited/disabled (`is_enabled` flag) via the harvester (CLI/app) — NO Render-hosted CRUD UI. Soft-disable keeps prior harvested data
 - [x] **KB-02**: The harvester runs end-to-end **locally** (single CLI/app invocation over the enabled source list) and records a local run summary (`content_harvest_runs`: sources processed, videos processed, transcripts fetched, Whisper calls, spend USD, abort reason if any) — NO server-hosted `POST .../Trigger` endpoint
-- [ ] **KB-03**: The harvester fetches YouTube auto-captions for non-owned videos via YoutubeExplode 6.6.0 (NOT `Google.Apis.YouTube.v3.captions.download` — returns 403 on third-party); proven against 5 real cEDH/Commander channels (e.g., MTGGoldfish, Command Zone, EDHRECast, Tolarian Community College, Playing With Power) run from the local environment
+- [x] **KB-03**: The harvester fetches YouTube auto-captions for non-owned videos via YoutubeExplode 6.6.0 (NOT `Google.Apis.YouTube.v3.captions.download` — returns 403 on third-party); proven against 5 real cEDH/Commander channels (e.g., MTGGoldfish, Command Zone, EDHRECast, Tolarian Community College, Playing With Power) run from the local environment
 - [x] **KB-04**: The harvester falls back to OpenAI Whisper API (via OpenAI 2.10.0 SDK + `HttpClientPipelineTransport` seam) for audio-only podcasts AND videos missing captions; transcripts persisted to local `content_transcripts` with `source` discriminator; per-call cost (seconds_billed + cost_usd) recorded in local `whisper_spend_ledger`
 - [x] **KB-05**: A **plain local spend log** tracks cumulative Whisper cost; harvest skips a Whisper call when the projected monthly total would exceed config/env `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15.00) and marks the video `skipped_over_cap`. Single-user local run — NO TOCTOU advisory-lock, SERIALIZABLE wrapping, or kill-switch env var (server-concurrency machinery dropped with the pivot)
 - [x] **KB-06**: Each harvested video is distilled into an **AI-prompt artifact file** (markdown/text) containing an LLM summary (≤200 words target) + 3-8 timestamped clip excerpts; OpenAI Structured Outputs (`strict: true`) used for parse reliability (<0.1% failure rate per PITFALLS.md P4). Artifacts land in a defined repo/`/data` location for the ChatGPT workflow (committed or uploaded)
 - [x] **KB-07**: Each distilled artifact carries tags across 3 controlled-vocabulary dimensions: archetype/strategy (~15 community-standard values: voltron, aristocrats, stax, combo, control, tokens, spellslinger, reanimator, blink, …), format/bracket (Wizards Feb 2025 5-bracket system: Exhibition, Core, Upgraded, Optimized, cEDH), card_category (ramp, removal, draw, finishers, win-cons, …). Vocabulary enforced via `static class ContentTagVocabulary`; LLM-emitted tags outside the allowlist are rejected with WARN log. Tags persist locally AND on the slim site index
 - [x] **KB-08**: A **slim index** on Render Postgres (source/title/url/tags → pointer to the prompt artifact) is browsable/filterable on the site so users can find relevant distilled advice (replaces the dropped admin spend dashboard). Heavy data (transcripts, audio, spend ledger) is NEVER uploaded to Render
-- [ ] **KB-09**: The site-side Content KB display surface is gated behind a `content_kb_enabled` IFeatureFlagStore flag (default OFF until first UAT verifies browse + artifact rendering). **Admins curate which prompts are public** via a per-entry (and per-source bulk) publish/unpublish control backed by a new `is_visible` column on `content_site_index` (default hidden — opt-in); the public browse shows only `is_visible` entries; the seed-load preserves admin visibility across deploys. Every mutating admin POST (visibility toggle, index reload, any artifact-upload) is guarded by `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator`. (Per-entry curation added 2026-06-01 per user request during Phase 22 discuss.)
+- [x] **KB-09**: The site-side Content KB display surface is gated behind a `content_kb_enabled` IFeatureFlagStore flag (default OFF until first UAT verifies browse + artifact rendering). **Admins curate which prompts are public** via a per-entry (and per-source bulk) publish/unpublish control backed by a new `is_visible` column on `content_site_index` (default hidden — opt-in); the public browse shows only `is_visible` entries; the seed-load preserves admin visibility across deploys. Every mutating admin POST (visibility toggle, index reload, any artifact-upload) is guarded by `[ValidateAntiForgeryToken]` + `SameOriginRequestValidator`. (Per-entry curation added 2026-06-01 per user request during Phase 22 discuss.)
 - [x] **KB-10**: The local distill step routes its LLM extractions through a pluggable provider selected by `DECKFLOW_LLM_PROVIDER` (`openai` default | `claude`) via a factory mirroring `TranscriptProviderFactory`; OpenAI stays the default (no regression). A CLI-backed `ILlmDistillationService` shells to the `claude` CLI (`ProcessStartInfo.ArgumentList`, instruction-as-arg + transcript-on-stdin, `--allowedTools ""`) for all 3 extractions (summary/clips/tags) and parses+repairs best-effort JSON (no Structured-Outputs guarantee). The factory is extensible (codex value → clear NotSupportedException pointing to KB-12/Phase 21.3). (Added 2026-06-01 — unblocks Phase 21.1, which hit HTTP 429 insufficient_quota. Codex backend split to KB-12 per Codex round-2 plan review: unproven read-boundary for untrusted transcript input.)
 - [x] **KB-11**: The CLI backend is cross-platform — env-configurable command (`DECKFLOW_LLM_CLI_COMMAND` with `{instruction}` placeholder) runs it from a WSL shell OR a Windows shell, both documented with exact commands incl. the Windows-`dotnet.exe`-from-WSL hard case; and when provider ≠ openai the `LlmSpendLedger` cap-gate + pricing math are bypassed (subscription = no per-token cost), run record written with spend=0, `DECKFLOW_LLM_MONTHLY_CAP_USD` governing only the openai backend. (Added 2026-06-01.)
 - [ ] **KB-12** *(BACKLOG — low priority, demoted from Phase 21.3 on 2026-06-01)*: The `codex` distill backend is added to the KB-10 provider factory with a PROVEN tool/read-isolation boundary for untrusted transcript input (codex `exec` is an agent; `--sandbox read-only` blocks writes not reads). Ships only once an injection-style transcript is demonstrably unable to read/exfiltrate a sentinel file (verified codex no-tools mode OR stronger sandbox/container with only stdin visible). claude backend (KB-10/Phase 21.2) already covers the subscription-distill use case → codex is a nice-to-have, NOT required for v1.4. See ROADMAP `## Backlog`.
 
 ### Card Category Lookup Bug Fix (CAT)
 
-- [ ] **CAT-01**: Card category suggestion returns correct, non-empty categories for staple cards that must always resolve. Regression repro: **Sol Ring** (colorless artifact ramp staple) currently returns no categories. Root cause unknown and MUST be investigated in BOTH states — while the Archidekt harvest/cache job is running AND while it is stopped (the running service is a suspected cause). Fix restores category results for Sol Ring and similar colorless/staple cards without regressing existing category coverage. (Added 2026-05-24 — captured for investigation-later.)
+- [x] **CAT-01**: Card category suggestion returns correct, non-empty categories for staple cards that must always resolve. Regression repro: **Sol Ring** (colorless artifact ramp staple) currently returns no categories. Root cause unknown and MUST be investigated in BOTH states — while the Archidekt harvest/cache job is running AND while it is stopped (the running service is a suspected cause). Fix restores category results for Sol Ring and similar colorless/staple cards without regressing existing category coverage. (Added 2026-05-24 — captured for investigation-later.)
 
 ### Admin Harvested-Decks Grid (AHD)
 
@@ -87,27 +87,27 @@
 
 | REQ-ID | Description | Phase | Status |
 |--------|-------------|-------|--------|
-| MODAL-01 | Admin focus-trapped modal | Phase 16 | [ ] |
-| DOC-01 | XML `<summary>` doc-comments on ~88 Web types | Phase 17 (Part 1: Controllers + Services) + Phase 23 (Part 2: remaining + v1.4 new types) | [ ] |
-| DOC-02 | Strip `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` | Phase 23 | [ ] |
-| AMOB-01 | Admin shell renders ≥320px viewport (sidebar disclosure) | Phase 18 | [ ] |
-| AMOB-02 | Admin tables usable on narrow viewports | Phase 18 | [ ] |
-| AMOB-03 | Admin forms single-column + ≥44×44px touch targets | Phase 18 | [ ] |
-| AMOB-04 | `admin.css` factored into common+mobile+shim | Phase 18 | [ ] |
-| KB-01 | Local source list (`content_sources` SQLite) + harvester add/edit/disable | Phase 19 (local schema) + Phase 21 (source mgmt runtime) | [ ] |
-| KB-02 | Local end-to-end harvest run + local run record | Phase 19 (`content_harvest_runs` SQLite schema) + Phase 21 (orchestration runtime) | [ ] |
-| KB-03 | YouTube auto-caption fetch via YoutubeExplode (local) | Phase 20 | [ ] |
-| KB-04 | Whisper fallback transcription + local transcript/ledger | Phase 19 (transcript + spend-log schema) + Phase 20 (Whisper runtime) | [ ] |
-| KB-05 | Plain local spend-log cap check (no TOCTOU/kill-switch) | Phase 19 (spend-log schema) + Phase 20 (local cap-check runtime) | [ ] |
-| KB-06 | LLM distill → AI-prompt artifact files (summary + clips) | Phase 19 (artifact file-format spec + distill models) + Phase 21 (distill + emit) | [ ] |
-| KB-07 | Controlled-vocab tags on artifacts + slim index | Phase 19 (`ContentTagVocabulary` + tag schema) + Phase 21 (tag inference + emit) | [ ] |
-| KB-08 | Slim site index on Render + browse/filter display | Phase 19 (slim-index schema contract) + Phase 22 (materialize + browse UI) | [ ] |
-| KB-09 | `content_kb_enabled` display-gate flag + CSRF on upload POST | Phase 22 | [ ] |
+| MODAL-01 | Admin focus-trapped modal | Phase 16 | [x] |
+| DOC-01 | XML `<summary>` doc-comments on ~88 Web types | Phase 17 (Part 1: Controllers + Services) + Phase 23 (Part 2: remaining + v1.4 new types) | [x] |
+| DOC-02 | Strip `NoWarn 1591;1573;1587` from `DeckFlow.Web.csproj` | Phase 23 | [x] |
+| AMOB-01 | Admin shell renders ≥320px viewport (sidebar disclosure) | Phase 18 | [x] |
+| AMOB-02 | Admin tables usable on narrow viewports | Phase 18 | [x] |
+| AMOB-03 | Admin forms single-column + ≥44×44px touch targets | Phase 18 | [x] |
+| AMOB-04 | `admin.css` factored into common+mobile+shim | Phase 18 | [x] |
+| KB-01 | Local source list (`content_sources` SQLite) + harvester add/edit/disable | Phase 19 (local schema) + Phase 21 (source mgmt runtime) | [x] |
+| KB-02 | Local end-to-end harvest run + local run record | Phase 19 (`content_harvest_runs` SQLite schema) + Phase 21 (orchestration runtime) | [x] |
+| KB-03 | YouTube auto-caption fetch via YoutubeExplode (local) | Phase 20 | [x] |
+| KB-04 | Whisper fallback transcription + local transcript/ledger | Phase 19 (transcript + spend-log schema) + Phase 20 (Whisper runtime) | [x] |
+| KB-05 | Plain local spend-log cap check (no TOCTOU/kill-switch) | Phase 19 (spend-log schema) + Phase 20 (local cap-check runtime) | [x] |
+| KB-06 | LLM distill → AI-prompt artifact files (summary + clips) | Phase 19 (artifact file-format spec + distill models) + Phase 21 (distill + emit) | [x] |
+| KB-07 | Controlled-vocab tags on artifacts + slim index | Phase 19 (`ContentTagVocabulary` + tag schema) + Phase 21 (tag inference + emit) | [x] |
+| KB-08 | Slim site index on Render + browse/filter display | Phase 19 (slim-index schema contract) + Phase 22 (materialize + browse UI) | [x] |
+| KB-09 | `content_kb_enabled` display-gate flag + CSRF on upload POST | Phase 22 | [x] |
 | KB-10 | Pluggable LLM distill provider (openai\|claude via env; codex→KB-12) | Phase 21.2 | [x] |
 | KB-11 | Cross-platform CLI invocation (WSL+Windows) + JSON hardening + ledger bypass | Phase 21.2 | [x] |
 | KB-12 | Codex distill backend with proven untrusted-input read isolation | BACKLOG (low priority; was Phase 21.3) | [ ] |
-| CAT-01 | Card category lookup fix (Sol Ring colorless staple returns empty) | Phase 24 | [ ] |
-| AHD-01 | Admin harvested-decks paged grid (replaces top-10) | Phase 25 | [ ] |
+| CAT-01 | Card category lookup fix (Sol Ring colorless staple returns empty) | Phase 24 | [x] |
+| AHD-01 | Admin harvested-decks paged grid (replaces top-10) | Phase 25 | [x] |
 
 **Coverage:** 20/20 active v1.4 REQ-IDs mapped (100%) + KB-12 in BACKLOG (low priority, not required for v1.4). KB-10/KB-11 added 2026-06-01 (Phase 21.2 pluggable LLM CLI backends — unblocks the Phase 21.1 OpenAI-billing dependency); KB-12 added 2026-06-01 then demoted to backlog (codex backend — claude already covers subscription-distill; codex's untrusted-input read boundary is unproven, so it's a nice-to-have). No orphans. KB cluster re-architected 2026-05-26 to the local-harvester + file-artifact + slim-index model (see KB section note) — IDs preserved, meanings repurposed; harvest now runs locally, only KB-08 (slim index) + KB-09 (display gate) land on Render. Multi-phase REQ-IDs (DOC-01, KB-01, KB-02, KB-04, KB-05, KB-06, KB-07, KB-08) split between the Phase 19 schema/contract foundation and the runtime/UI phase per layer-of-responsibility separation — each phase owns a distinct, verifiable portion; checkboxes flip when BOTH portions are complete. CAT-01 (bug) + AHD-01 (feature) added 2026-05-24 mid-milestone per user request.
 
