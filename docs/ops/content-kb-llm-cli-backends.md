@@ -38,6 +38,8 @@ DECKFLOW_LLM_PROVIDER=claude dotnet run --project DeckFlow.CLI -- distill --db a
 
 Expected dry-run copy includes `WOULD distill ($0, subscription)` and `projected spend $0 (subscription)`.
 
+All invocations also accept `--video-ids "id1,id2"` (v1.5) to distill exactly those natural keys (YouTube video ids or RSS guids) instead of the next pending batch; `--limit` is ignored when it is supplied. The matching `harvest --video-ids` flag (plus `--source-id` when several YouTube sources are enabled) fetches exactly those videos.
+
 ## Windows invocation
 
 If DeckFlow is running under Windows `dotnet` and `claude` is installed only inside WSL, set the command override as a JSON array:
