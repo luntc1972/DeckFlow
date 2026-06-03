@@ -90,7 +90,9 @@ csharp_style_var_for_built_in_types = true:silent
 csharp_style_var_when_type_is_apparent = true:silent
 csharp_style_var_elsewhere = false:silent
 
-# Suppress diagnostic warnings already suppressed in csproj (NoWarn 1591;1573;1587).
+# Suppress CS1591/CS1573/CS1587 solution-wide by default; DeckFlow.Web
+# re-enables them as warnings in the scoped section below. Phase 23 DOC-02 gates
+# DeckFlow.Web only; DeckFlow.Core remains undocumented/suppressed pending a future phase.
 dotnet_diagnostic.CS1591.severity = none
 dotnet_diagnostic.CS1573.severity = none
 dotnet_diagnostic.CS1587.severity = none
@@ -105,3 +107,9 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 
 dotnet_naming_style.camel_case_underscore_style.required_prefix = _
 dotnet_naming_style.camel_case_underscore_style.capitalization = camel_case
+
+[DeckFlow.Web/**.cs]
+# Phase 23 DOC-02: XML doc-comment gate scoped to DeckFlow.Web
+dotnet_diagnostic.CS1591.severity = warning
+dotnet_diagnostic.CS1573.severity = warning
+dotnet_diagnostic.CS1587.severity = warning

@@ -1570,10 +1570,4 @@ public sealed class DeckController : Controller
         => request.ArchidektInputSource == DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
             : !string.IsNullOrWhiteSpace(request.ArchidektText);
-
-    /// <summary>
-    /// Searches recent Archidekt decks live for potential categories.
-    /// </summary>
-    /// <param name="cardName">Card name to search for.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
 }
