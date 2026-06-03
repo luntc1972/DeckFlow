@@ -13,24 +13,30 @@ namespace DeckFlow.Core.Integration;
 public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
 {
     private readonly Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _executeAsync;
+    private readonly Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _getByIdsAsync;
 
     /// <summary>
     /// Initializes a channel video lister with an injected HTTP client.
     /// </summary>
     /// <param name="httpClient">HTTP client used by YoutubeExplode.</param>
     public YouTubeChannelVideoLister(HttpClient httpClient)
-        : this(CreateExecuteAsync(httpClient))
+        : this(CreateExecuteAsync(httpClient), CreateGetByIdsAsync(httpClient))
     {
     }
 
     /// <summary>
-    /// Initializes a channel video lister with a delegate seam for tests.
+    /// Initializes a channel video lister with delegate seams for tests.
     /// </summary>
     /// <param name="executeAsync">Recent video listing delegate.</param>
-    internal YouTubeChannelVideoLister(Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> executeAsync)
+    /// <param name="getByIdsAsync">Explicit video-id fetch delegate; defaults to a not-supported throw.</param>
+    internal YouTubeChannelVideoLister(
+        Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> executeAsync,
+        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>>? getByIdsAsync = null)
     {
         ArgumentNullException.ThrowIfNull(executeAsync);
         _executeAsync = executeAsync;
+        _getByIdsAsync = getByIdsAsync
+            ?? ((_, _) => throw new NotSupportedException("GetByIdsAsync delegate not supplied to this test instance."));
     }
 
     /// <inheritdoc />
@@ -45,12 +51,68 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         return _executeAsync(channelUrl, limit, ct);
     }
 
+    /// <inheritdoc />
+    public Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsAsync(
+        IReadOnlyList<string> videoIds,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(videoIds);
+        ArgumentOutOfRangeException.ThrowIfZero(videoIds.Count);
+
+        return _getByIdsAsync(videoIds, ct);
+    }
+
     private static Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateExecuteAsync(
         HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         var youtube = new YoutubeClient(httpClient);
         return (channelUrl, limit, ct) => ListWithClientAsync(youtube, channelUrl, limit, ct);
+    }
+
+    private static Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateGetByIdsAsync(
+        HttpClient httpClient)
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        var youtube = new YoutubeClient(httpClient);
+        return (videoIds, ct) => GetByIdsWithClientAsync(youtube, videoIds, ct);
+    }
+
+    private static async Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsWithClientAsync(
+        YoutubeClient youtube,
+        IReadOnlyList<string> videoIds,
+        CancellationToken ct)
+    {
+        var videos = new List<YouTubeChannelVideo>(videoIds.Count);
+        foreach (var rawId in videoIds)
+        {
+            var parsed = VideoId.TryParse(rawId)
+                ?? throw new ArgumentException($"Unable to parse YouTube video id: {rawId}", nameof(videoIds));
+            try
+            {
+                var metadata = await youtube.Videos.GetAsync(parsed, ct).ConfigureAwait(false);
+                videos.Add(new YouTubeChannelVideo
+                {
+                    VideoId = metadata.Id.Value,
+                    Url = metadata.Url,
+                    Title = metadata.Title,
+                    Duration = metadata.Duration,
+                    PublishedUtc = metadata.UploadDate,
+                });
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or YoutubeExplodeException)
+            {
+                // Why: a single unavailable/private video should not abort an explicit-id
+                // harvest; mirror the per-source isolation policy and omit the id.
+                continue;
+            }
+        }
+
+        return videos;
     }
 
     private static async Task<IReadOnlyList<YouTubeChannelVideo>> ListWithClientAsync(
