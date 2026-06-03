@@ -16,4 +16,14 @@ public interface IYouTubeChannelVideoLister
         string channelUrl,
         int limit,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Fetches metadata for an explicit set of YouTube video ids, preserving input order.
+    /// </summary>
+    /// <param name="videoIds">YouTube video ids to fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Videos in input order; ids that fail to resolve are omitted.</returns>
+    Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsAsync(
+        IReadOnlyList<string> videoIds,
+        CancellationToken ct = default);
 }

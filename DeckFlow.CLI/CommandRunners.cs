@@ -473,7 +473,8 @@ internal static class CommandRunners
         int limit,
         bool dryRun,
         Serilog.ILogger logger,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<string>? videoIds = null)
     {
         ArgumentNullException.ThrowIfNull(logger);
         try
@@ -504,7 +505,8 @@ internal static class CommandRunners
                 logger,
                 () => DateTimeOffset.UtcNow,
                 ct,
-                isSubscriptionProvider).ConfigureAwait(false);
+                isSubscriptionProvider,
+                videoIds).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -563,7 +565,8 @@ internal static class CommandRunners
         Serilog.ILogger logger,
         Func<DateTimeOffset> utcNow,
         CancellationToken ct,
-        bool isSubscriptionProvider = false)
+        bool isSubscriptionProvider = false,
+        IReadOnlyList<string>? videoIds = null)
     {
         ArgumentNullException.ThrowIfNull(sourceStore);
         ArgumentNullException.ThrowIfNull(videoStore);
@@ -575,7 +578,11 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(utcNow);
 
-        var maxVideosPerSource = Math.Max(1, limit);
+        // Why: explicit --video-ids means "exactly these", so the recent-N clip is bypassed.
+        var requestedKeys = videoIds is { Count: > 0 }
+            ? new HashSet<string>(videoIds, StringComparer.Ordinal)
+            : null;
+        var maxVideosPerSource = requestedKeys?.Count ?? Math.Max(1, limit);
         var monthKey = utcNow().UtcDateTime.ToString("yyyy-MM", CultureInfo.InvariantCulture);
         var generatedUtc = utcNow().ToUniversalTime();
         var counts = new DistillCounts();
@@ -605,6 +612,13 @@ internal static class CommandRunners
                 {
                     logger.Error(exception, "distill source failed {SourceSlug}", source.SourceSlug);
                     continue;
+                }
+
+                if (requestedKeys is not null)
+                {
+                    pendingVideos = pendingVideos
+                        .Where(video => requestedKeys.Contains(GetContentNaturalKey(video)))
+                        .ToList();
                 }
 
                 var attemptedForSource = 0;
@@ -720,12 +734,33 @@ internal static class CommandRunners
         return 0;
     }
 
+    /// <summary>
+    /// Parses a comma-separated --video-ids option value into a trimmed id list.
+    /// </summary>
+    /// <param name="videoIds">Raw option value; null/blank yields null (option not used).</param>
+    /// <returns>Distinct trimmed ids in input order, or null when the option was not supplied.</returns>
+    internal static IReadOnlyList<string>? ParseVideoIds(string? videoIds)
+    {
+        if (string.IsNullOrWhiteSpace(videoIds))
+        {
+            return null;
+        }
+
+        var parsed = videoIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        return parsed.Count > 0 ? parsed : null;
+    }
+
     public static async Task<int> RunHarvestAsync(
         FileInfo? db,
         int limit,
         bool enableWhisper,
         Serilog.ILogger logger,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<string>? videoIds = null,
+        long? sourceId = null)
     {
         ArgumentNullException.ThrowIfNull(logger);
         try
@@ -757,7 +792,9 @@ internal static class CommandRunners
                 limit,
                 logger,
                 () => DateTimeOffset.UtcNow,
-                ct);
+                ct,
+                videoIds,
+                sourceId);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -777,10 +814,28 @@ internal static class CommandRunners
         int limit,
         Serilog.ILogger logger,
         Func<DateTimeOffset> utcNow,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<string>? videoIds = null,
+        long? sourceId = null)
     {
         await WarnIfFfmpegUnavailableAsync(chunker, logger, ct);
         var sources = await sourceStore.ListEnabledSourcesAsync(ct);
+
+        if (videoIds is { Count: > 0 })
+        {
+            return await HarvestExplicitVideoIdsAsync(
+                sources,
+                videoIds,
+                sourceId,
+                videoStore,
+                ledger,
+                lister,
+                transcriptSource,
+                logger,
+                utcNow,
+                ct);
+        }
+
         var aggregate = new HarvestCounts();
         foreach (var source in sources.Where(source => source.SourceType == ContentSourceType.Youtube))
         {
@@ -807,6 +862,64 @@ internal static class CommandRunners
 
         LogFallbackRatio(logger, "aggregate", aggregate);
         // Phase 21 owns distillation, artifact emit, slim-index rows, and run records.
+        return 0;
+    }
+
+    // Why: --video-ids bypasses the most-recent walk so the operator can pick exact
+    // videos; a single target source keeps slug attribution unambiguous.
+    private static async Task<int> HarvestExplicitVideoIdsAsync(
+        IReadOnlyList<ContentSource> sources,
+        IReadOnlyList<string> videoIds,
+        long? sourceId,
+        IContentVideoStore videoStore,
+        IWhisperSpendLedger ledger,
+        IYouTubeChannelVideoLister lister,
+        ITranscriptSource transcriptSource,
+        Serilog.ILogger logger,
+        Func<DateTimeOffset> utcNow,
+        CancellationToken ct)
+    {
+        var youtubeSources = sources
+            .Where(source => source.SourceType == ContentSourceType.Youtube)
+            .ToList();
+        ContentSource? target;
+        if (sourceId is { } id)
+        {
+            target = youtubeSources.FirstOrDefault(source => source.Id == id);
+            if (target is null)
+            {
+                Console.Error.WriteLine($"--source-id {id} does not match an enabled YouTube source.");
+                return 1;
+            }
+        }
+        else if (youtubeSources.Count == 1)
+        {
+            target = youtubeSources[0];
+        }
+        else
+        {
+            Console.Error.WriteLine(
+                $"--video-ids needs a single target source but {youtubeSources.Count} YouTube sources are enabled; pass --source-id.");
+            return 1;
+        }
+
+        var videos = await lister.GetByIdsAsync(videoIds, ct);
+        if (videos.Count < videoIds.Count)
+        {
+            var resolved = videos.Select(video => video.VideoId).ToHashSet(StringComparer.Ordinal);
+            foreach (var missing in videoIds.Where(requested => !resolved.Contains(requested)))
+            {
+                logger.Warning("requested video id did not resolve {VideoId}", missing);
+            }
+        }
+
+        var counts = new HarvestCounts();
+        foreach (var video in videos)
+        {
+            await HarvestVideoAsync(target, video, videoStore, ledger, transcriptSource, counts, logger, utcNow, ct);
+        }
+
+        LogFallbackRatio(logger, target.SourceSlug, counts);
         return 0;
     }
 

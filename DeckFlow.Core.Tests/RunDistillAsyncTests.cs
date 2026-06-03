@@ -67,6 +67,27 @@ public sealed class RunDistillAsyncTests : IDisposable
     }
 
     [Fact]
+    public async Task RunDistillAsync_VideoIds_DistillsOnlyRequestedNaturalKeys()
+    {
+        var first = CreateVideo(1, 1, "video-one");
+        var second = CreateVideo(2, 1, "video-two");
+        var third = CreateVideo(3, 1, "video-three");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, first, "transcript 1");
+        videoStore.AddPending(1, second, "transcript 2");
+        videoStore.AddPending(1, third, "transcript 3");
+        var distiller = new FakeLlmDistillationService();
+
+        var exitCode = await RunAsync(videoStore, distiller: distiller, videoIds: ["video-two"]);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(1, distiller.SummaryCalls);
+        Assert.Equal([new StatusUpdate(2, "distilled")], videoStore.StatusUpdates);
+        var row = Assert.Single(LastRunIndexStore!.Rows);
+        Assert.Equal("Video video-two", row.Title);
+    }
+
+    [Fact]
     public async Task RunDistillAsync_SkipsDistilledAndReattemptsFailedSkippedOverCapAndMissingStatus()
     {
         var alreadyDistilled = CreateVideo(1, 1, "already-distilled");
@@ -374,7 +395,8 @@ public sealed class RunDistillAsyncTests : IDisposable
         FakeLlmDistillationService? distiller = null,
         FakeContentSourceStore? sourceStore = null,
         bool dryRun = false,
-        bool isSubscriptionProvider = false)
+        bool isSubscriptionProvider = false,
+        IReadOnlyList<string>? videoIds = null)
     {
         LastRunIndexStore = new FakeContentSiteIndexStore();
         LastRunStore = new FakeContentHarvestRunStore();
@@ -391,7 +413,8 @@ public sealed class RunDistillAsyncTests : IDisposable
             _logger,
             utcNow: () => new DateTimeOffset(2026, 5, 27, 12, 34, 56, TimeSpan.Zero),
             CancellationToken.None,
-            isSubscriptionProvider);
+            isSubscriptionProvider,
+            videoIds);
     }
 
     private static ContentSource CreateSource(long id, string sourceSlug, bool isEnabled)

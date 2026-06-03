@@ -69,10 +69,13 @@ var harvestCommand = new Command("harvest", "Fetch transcripts for enabled Conte
 var harvestDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var harvestLimitOption = new Option<int>("--limit", () => 5) { Description = "Recent videos per enabled source." };
 var harvestEnableWhisperOption = new Option<bool>("--enable-whisper", () => false) { Description = "Enable Whisper audio-transcription fallback when captions are unavailable (off by default; captions-only)." };
+var harvestVideoIdsOption = new Option<string?>("--video-ids") { Description = "Comma-separated YouTube video ids to harvest instead of the most-recent walk; --limit is ignored. Ids must belong to the target source's channel." };
+var harvestSourceIdOption = new Option<long?>("--source-id") { Description = "Content source id the --video-ids belong to. Required when more than one YouTube source is enabled." };
 var distillCommand = new Command("distill", "Distill harvested transcripts into Content KB artifacts.");
 var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
 var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Description = "Estimate projected spend over pending videos and process nothing." };
+var distillVideoIdsOption = new Option<string?>("--video-ids") { Description = "Comma-separated natural keys (YouTube video ids or RSS guids) to distill; other pending videos are skipped and --limit is ignored." };
 var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
 var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(Path.Combine("content-kb", "seed", "index-seed.json"))) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
@@ -116,9 +119,12 @@ contentSourceSetEnabledCommand.AddOption(contentSourceSetEnabledDbOption);
 harvestCommand.AddOption(harvestDbOption);
 harvestCommand.AddOption(harvestLimitOption);
 harvestCommand.AddOption(harvestEnableWhisperOption);
+harvestCommand.AddOption(harvestVideoIdsOption);
+harvestCommand.AddOption(harvestSourceIdOption);
 distillCommand.AddOption(distillDbOption);
 distillCommand.AddOption(distillLimitOption);
 distillCommand.AddOption(distillDryRunOption);
+distillCommand.AddOption(distillVideoIdsOption);
 contentIndexExportCommand.AddOption(contentIndexExportDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
 
@@ -229,15 +235,15 @@ contentSourceSetEnabledCommand.SetHandler((long id, bool enabled, FileInfo? db) 
     Environment.ExitCode = CommandRunners.RunContentSourceSetEnabledAsync(id, enabled, db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, contentSourceSetEnabledIdOption, contentSourceSetEnabledEnabledOption, contentSourceSetEnabledDbOption);
 
-harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper) =>
+harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper, string? videoIds, long? sourceId) =>
 {
-    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
-}, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption);
+    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None, CommandRunners.ParseVideoIds(videoIds), sourceId).GetAwaiter().GetResult();
+}, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption, harvestVideoIdsOption, harvestSourceIdOption);
 
-distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun) =>
+distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun, string? videoIds) =>
 {
-    Environment.ExitCode = CommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
-}, distillDbOption, distillLimitOption, distillDryRunOption);
+    Environment.ExitCode = CommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None, CommandRunners.ParseVideoIds(videoIds)).GetAwaiter().GetResult();
+}, distillDbOption, distillLimitOption, distillDryRunOption, distillVideoIdsOption);
 
 contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
 {
