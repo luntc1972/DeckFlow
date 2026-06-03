@@ -16,10 +16,6 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
 
     private const string ClaudeProvider = "claude";
     private const int MaxRetries = 3;
-    private const int SummaryMaxWords = 200;
-    private const int MinClipCount = 3;
-    private const int MaxClipCount = 8;
-    private const int ErrorTailLength = 800;
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -62,7 +58,7 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         var payload = await ExtractWithRetryAsync<SummaryPayload>(
             BuildInstruction(DistillationSchemas.SummarySystemPrompt, DistillationSchemas.SummarySchema),
             transcript,
-            payload => ValidateSummary(payload.Summary),
+            payload => DistillationValidation.ValidateSummary(payload.Summary),
             cancellationToken).ConfigureAwait(false);
 
         return new SummaryResult(payload.Summary, new TokenUsage(0, 0));
@@ -78,7 +74,7 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         var payload = await ExtractWithRetryAsync<ClipsPayload>(
             BuildInstruction(DistillationSchemas.ClipsSystemPrompt, DistillationSchemas.ClipsSchema),
             transcript,
-            payload => ValidateClips(payload.Clips),
+            payload => DistillationValidation.ValidateClips(payload.Clips),
             cancellationToken).ConfigureAwait(false);
 
         return new ClipsResult(payload.Clips, new TokenUsage(0, 0));
@@ -94,7 +90,7 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         var payload = await ExtractWithRetryAsync<TagsPayload>(
             BuildInstruction(DistillationSchemas.TagsSystemPrompt, DistillationSchemas.TagsSchema),
             transcript,
-            ValidateTags,
+            DistillationValidation.ValidateTags,
             cancellationToken).ConfigureAwait(false);
 
         return new TagsResult(
@@ -261,7 +257,7 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
 
             if (process.ExitCode != 0)
             {
-                throw new InvalidOperationException($"'{spec.FileName}' exited with code {process.ExitCode}: {Tail(stderr)}");
+                throw new InvalidOperationException($"'{spec.FileName}' exited with code {process.ExitCode}: {ProcessOutput.Tail(stderr)}");
             }
 
             return stdout;
@@ -406,78 +402,4 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         return TimeSpan.FromSeconds(seconds);
     }
 
-    private static void ValidateSummary(string summary)
-    {
-        if (CountWords(summary) > SummaryMaxWords)
-        {
-            throw new InvalidOperationException("Summary exceeded the 200-word limit.");
-        }
-    }
-
-    private static int CountWords(string text)
-        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-
-    private static void ValidateClips(IReadOnlyList<ClipItem> clips)
-    {
-        if (clips.Count is < MinClipCount or > MaxClipCount)
-        {
-            throw new InvalidOperationException("Clip extraction must return 3 to 8 clips.");
-        }
-
-        if (clips.Any(clip => clip.TimestampSeconds < 0))
-        {
-            throw new InvalidOperationException("Clip timestamps cannot be negative.");
-        }
-    }
-
-    private static void ValidateTags(TagsPayload payload)
-    {
-        ValidateTagDimension("archetype", payload.Archetype, ContentTagVocabulary.Archetypes);
-        ValidateTagDimension("bracket", payload.Bracket, ContentTagVocabulary.Brackets);
-        ValidateTagDimension("card_category", payload.CardCategory, ContentTagVocabulary.CardCategories);
-    }
-
-    private static void ValidateTagDimension(
-        string dimension,
-        IReadOnlyList<string> values,
-        IReadOnlySet<string> allowlist)
-    {
-        if (values is null)
-        {
-            throw new InvalidOperationException($"{dimension} tags cannot be null.");
-        }
-
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var value in values)
-        {
-            if (string.IsNullOrWhiteSpace(value) || !allowlist.Contains(value))
-            {
-                throw new InvalidOperationException($"{dimension} tag '{value}' is not in the content tag vocabulary.");
-            }
-
-            if (!seen.Add(value))
-            {
-                throw new InvalidOperationException($"{dimension} tag '{value}' is duplicated.");
-            }
-        }
-    }
-
-    private static string Tail(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text) || text.Length <= ErrorTailLength)
-        {
-            return text;
-        }
-
-        return text[^ErrorTailLength..];
-    }
-
-    private sealed record SummaryPayload(string Summary);
-
-    private sealed record ClipsPayload(IReadOnlyList<ClipItem> Clips);
-
-    private sealed record TagsPayload(
-        IReadOnlyList<string> Archetype,
-        IReadOnlyList<string> Bracket,
-        IReadOnlyList<string> CardCategory);
 }
