@@ -98,6 +98,7 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
                     Title = metadata.Title,
                     Duration = metadata.Duration,
                     PublishedUtc = metadata.UploadDate,
+                    ViewCount = metadata.Engagement.ViewCount,
                 });
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -126,10 +127,10 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         var videos = new List<YouTubeChannelVideo>(uploads.Count);
         foreach (var upload in uploads)
         {
-            // PlaylistVideo in YoutubeExplode 6.6.0 does not expose upload date;
-            // this bounded metadata lookup populates published_utc when available.
-            var publishedUtc = await GetPublishedUtcAsync(youtube, upload.Id, ct).ConfigureAwait(false);
-            videos.Add(MapVideo(upload, publishedUtc));
+            // PlaylistVideo in YoutubeExplode 6.6.0 does not expose upload date or views;
+            // this bounded metadata lookup populates published_utc/view_count when available.
+            var (publishedUtc, viewCount) = await GetVideoStatsAsync(youtube, upload.Id, ct).ConfigureAwait(false);
+            videos.Add(MapVideo(upload, publishedUtc, viewCount));
         }
 
         return videos;
@@ -161,7 +162,7 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         throw new ArgumentException($"Unable to parse YouTube channel URL: {channelUrl}", nameof(channelUrl));
     }
 
-    private static async Task<DateTimeOffset?> GetPublishedUtcAsync(
+    private static async Task<(DateTimeOffset? PublishedUtc, long? ViewCount)> GetVideoStatsAsync(
         YoutubeClient youtube,
         VideoId videoId,
         CancellationToken ct)
@@ -169,7 +170,7 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         try
         {
             var metadata = await youtube.Videos.GetAsync(videoId, ct).ConfigureAwait(false);
-            return metadata.UploadDate;
+            return (metadata.UploadDate, metadata.Engagement.ViewCount);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -177,11 +178,11 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or YoutubeExplodeException or ArgumentException)
         {
-            return null;
+            return (null, null);
         }
     }
 
-    internal static YouTubeChannelVideo MapVideo(PlaylistVideo video, DateTimeOffset? publishedUtc)
+    internal static YouTubeChannelVideo MapVideo(PlaylistVideo video, DateTimeOffset? publishedUtc, long? viewCount = null)
         => new()
         {
             VideoId = video.Id.Value,
@@ -189,5 +190,6 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             Title = video.Title,
             Duration = video.Duration,
             PublishedUtc = publishedUtc,
+            ViewCount = viewCount,
         };
 }

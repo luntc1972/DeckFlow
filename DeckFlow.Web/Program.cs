@@ -178,6 +178,12 @@ public partial class Program
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
+            // Admin YouTube export: transient lister so each request gets a factory-managed
+            // HttpClient (handler rotation) for the per-video YoutubeExplode metadata calls.
+            builder.Services.AddHttpClient("youtube-metadata", c => c.Timeout = TimeSpan.FromMinutes(5));
+            builder.Services.AddTransient<DeckFlow.Core.Integration.IYouTubeChannelVideoLister>(sp =>
+                new DeckFlow.Core.Integration.YouTubeChannelVideoLister(
+                    sp.GetRequiredService<IHttpClientFactory>().CreateClient("youtube-metadata")));
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
             builder.Services.AddDeckFlowHarvest(builder.Environment);

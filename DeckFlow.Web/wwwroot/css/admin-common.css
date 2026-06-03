@@ -159,6 +159,7 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .admin-banner { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); }
 .admin-shell .admin-banner--success { border-color: var(--accent); }
+.admin-shell .admin-banner--error { border-color: var(--danger); }
 
 .admin-shell .feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
 .admin-shell .feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }

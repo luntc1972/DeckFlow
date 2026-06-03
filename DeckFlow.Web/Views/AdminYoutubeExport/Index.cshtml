@@ -1,0 +1,28 @@
+@model DeckFlow.Web.Models.Admin.AdminYoutubeExportViewModel
+@{
+    ViewData["Title"] = "YouTube Export";
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <p class="admin-banner admin-banner--error" role="alert">@Model.ErrorMessage</p>
+}
+
+<section class="admin-harvest__panel" aria-labelledby="yt-export-heading">
+    <h2 id="yt-export-heading">YouTube Channel Export</h2>
+    <p>
+        Enter a YouTube channel (handle like <code>@@salubrioussnail</code>, full URL, or channel id)
+        to download a text file listing its most recent uploads with title, view count, and upload
+        date. Each video costs one metadata lookup, so large counts take a while.
+    </p>
+
+    <form method="post" asp-action="Export" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label for="yt-export-channel">Channel</label>
+        <input id="yt-export-channel" name="channel" type="text" required
+               value="@Model.Channel" placeholder="@@handle or channel URL" autocomplete="off" />
+        <label for="yt-export-limit">Max videos</label>
+        <input id="yt-export-limit" name="limit" type="number" min="1" max="500" value="@Model.Limit" />
+        <button type="submit">Download list</button>
+    </form>
+</section>
