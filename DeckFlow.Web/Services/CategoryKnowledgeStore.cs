@@ -55,6 +55,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
     }
 
+    /// <summary>
+    /// Gets the resolved category knowledge database path, when available.
+    /// </summary>
     public string? DatabasePath => _databasePath;
 
     /// <summary>
