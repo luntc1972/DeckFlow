@@ -289,7 +289,7 @@ public sealed class FeedbackStore : IFeedbackStore
                     );
                     """;
                 create.CommandText = create.CommandText
-                    .Replace("__ID_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackIdColumnType, StringComparison.Ordinal)
+                    .Replace("__ID_COLUMN_TYPE__", _connectionInfo.Dialect.SurrogateIdColumnType, StringComparison.Ordinal)
                     .Replace("__CREATED_UTC_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackCreatedUtcColumnType, StringComparison.Ordinal);
                 await create.ExecuteNonQueryAsync(cancellationToken);
             }

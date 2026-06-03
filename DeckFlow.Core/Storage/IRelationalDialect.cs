@@ -9,7 +9,6 @@ public interface IRelationalDialect
     /// Gets the SQL column definition for a surrogate auto-incrementing primary key.
     /// </summary>
     string SurrogateIdColumnType { get; }
-    string FeedbackIdColumnType { get; }
     string FeedbackCreatedUtcColumnType { get; }
     string FeedbackOrderByClause { get; }
     string FeedbackInsertReturningIdSql { get; }
