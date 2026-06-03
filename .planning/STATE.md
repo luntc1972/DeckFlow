@@ -177,6 +177,7 @@ v1.0 (15/15 reqs, 2026-05-02) | v1.1 (27/27 reqs, 2026-05-08) | v1.2 (5/5 reqs, 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260530-c72 | cEDH meta-gap: remove Input Summary panel + mobile-friendly reference table | 2026-05-30 | 1133151 | [260530-c72-cedh-meta-gap-remove-input-summary-panel](./quick/260530-c72-cedh-meta-gap-remove-input-summary-panel/) |
+| 260603 | CLI --video-ids selection on harvest + distill (pick exact videos, bypass most-recent walk) | 2026-06-03 | dd09fa3 | [260603-cli-video-ids-filter](./quick/260603-cli-video-ids-filter/) |
 
 ## Session Continuity
 
