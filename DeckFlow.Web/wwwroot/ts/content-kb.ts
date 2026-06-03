@@ -11,6 +11,16 @@
       return;
     }
 
+    // Card dataset values never change after render — normalize them once instead of per filter pass.
+    const indexed = cards.map(card => ({
+      card,
+      search: normalize(card.dataset.search ?? ''),
+      source: card.dataset.source ?? '',
+      archetype: card.dataset.archetype ?? '',
+      bracket: card.dataset.bracket ?? '',
+      cardCategory: card.dataset.cardCategory ?? '',
+    }));
+
     const search = document.querySelector<HTMLInputElement>('[data-kb-search]');
     const filters = Array.from(document.querySelectorAll<HTMLSelectElement>('[data-kb-filter]'));
     const noMatch = document.querySelector<HTMLElement>('[data-kb-empty-filter]');
@@ -22,14 +32,14 @@
       const selected = new Map(filters.map(filter => [filter.dataset.kbFilter ?? '', normalize(filter.value)]));
       let shown = 0;
 
-      cards.forEach(card => {
-        const visible = normalize(card.dataset.search ?? '').includes(query)
-          && hasToken(card.dataset.source ?? '', selected.get('source') ?? '')
-          && hasToken(card.dataset.archetype ?? '', selected.get('archetype') ?? '')
-          && hasToken(card.dataset.bracket ?? '', selected.get('bracket') ?? '')
-          && hasToken(card.dataset.cardCategory ?? '', selected.get('card-category') ?? '');
+      indexed.forEach(entry => {
+        const visible = entry.search.includes(query)
+          && hasToken(entry.source, selected.get('source') ?? '')
+          && hasToken(entry.archetype, selected.get('archetype') ?? '')
+          && hasToken(entry.bracket, selected.get('bracket') ?? '')
+          && hasToken(entry.cardCategory, selected.get('card-category') ?? '');
 
-        card.style.display = visible ? '' : 'none';
+        entry.card.style.display = visible ? '' : 'none';
         if (visible) {
           shown += 1;
         }
