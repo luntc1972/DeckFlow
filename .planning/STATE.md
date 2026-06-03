@@ -24,6 +24,19 @@ Reviewed 2026-05-13 via `/gsd-review-backlog`. Promoted to v1.3 candidates: harv
 | archive | v1.1 phase dirs (`06-admin-shell-flags-foundation`, `07-harvest-controls-stats`, `07.1-categories-feature-flag-sameorigin-ajax-fix`, `08-analytics`) | DONE 2026-05-29 — moved from `v1.3-phases/` to `.planning/milestones/v1.1-phases/` |
 | tech_debt | Semantic-completeness guards for `DeckComparisonService.ParseComparisonResponse` + `MetaGapService.ParseResponse` | CLOSED v1.3 Phase 999.5 P02 |
 
+### Acknowledged at v1.4 close (2026-06-03)
+
+Audit-open scan surfaced 18 items at `/gsd-complete-milestone v1.4` pre-flight; user chose [A] acknowledge-all. 11 of 18 are re-flags of entries already triaged closed/complete in the v1.3 table below (scanner status cache never updated). Genuinely open items deferred to v1.5:
+
+| Category | Item | Status | Disposition |
+|----------|------|--------|-------------|
+| quick_task | 260530-c72-cedh-meta-gap-remove-input-summary-panel | missing SUMMARY | Verify at v1.5 scoping; ship state unknown |
+| verification_gap | 20-VERIFICATION.md `human_needed` | stale | UAT passed 2026-05-27 (5-channel, 10/10 captions); file never updated — v1.5 housekeeping |
+| uat_gap | non-passed UAT statuses (partial/unknown/testing ×3) | stale labels | Phases closed via ROADMAP/UAT records; scanner vocabulary drift — v1.5 housekeeping |
+| todo | 1 pending todo file | open | Review at v1.5 scoping |
+
+Plus milestone-audit tech debt (see `.planning/v1.4-MILESTONE-AUDIT.md`): 7 phases missing VERIFICATION.md, P26 missing SUMMARYs, P24 quick-fix artifact chain, prod flag `content.kb.enabled` OFF (user flip pending), dual artifact trees drift risk, DeckFlow.Core 186 doc sites, KB-12 codex backend (backlog).
+
 ### Acknowledged at v1.3 close (2026-05-23) — carried to v1.5 housekeeping
 
 Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. All triaged and acknowledged for deferral per user `[A]` choice 2026-05-23. Items marked v1.4 backlog in original STATE were reassessed at v1.4 scoping and deferred to v1.5 (v1.4 scope is fixed at 4 clusters / 16 REQ-IDs).
@@ -50,15 +63,14 @@ Audit-open scan surfaced 21 items at `/gsd-complete-milestone v1.3` pre-flight. 
 See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 23 — doc-comment-backfill-part-2-strip-nowarn (COMPLETE); v1.4 phases 19-27 all closed
+**Current focus:** v1.4 SHIPPED + archived 2026-06-03. v1.5 pending definition (`/gsd-new-milestone`).
 
 ## Current Position
 
-Phase: 23 — COMPLETE
-Plan: 5 of 5 executed (Wave 1: 23-01..04 parallel-eligible; Wave 2: 23-05 gate flip)
-Status: Phase 23 complete — XML doc-comment backfill done; doc-warning gate scoped live to DeckFlow.Web (DOC-01 + DOC-02). DeckFlow.Core (186 sites) deferred to a future phase.
-Phases 19/20/21/22 [x] shipped; 23 [x] complete
-Last activity: 2026-06-03 -- Phase 23 executed (Codex impl 23-01..04, Claude impl 23-05 rescope, full-solution build 0/0)
+Milestone: v1.4 — COMPLETE (audit: tech_debt, 0 critical gaps; archived to .planning/milestones/)
+Status: between milestones — v1.5 not yet scoped
+Pending ops action: flip `content.kb.enabled` ON in prod via live /Admin/Flags
+Last activity: 2026-06-03 -- v1.4 milestone audited, archived, tagged
 
 ## Performance Metrics
 
