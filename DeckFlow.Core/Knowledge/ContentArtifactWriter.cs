@@ -17,9 +17,8 @@ public static class ContentArtifactWriter
     /// <returns>A relative <c>content-kb/{sourceSlug}/{videoId}.md</c> path using forward slashes.</returns>
     public static string ComputeRelativeArtifactPath(string sourceSlug, string videoId)
     {
-        var safeSourceSlug = SanitizePathSegment(sourceSlug, nameof(sourceSlug));
-        var safeVideoId = SanitizePathSegment(videoId, nameof(videoId));
-        return $"content-kb/{safeSourceSlug}/{safeVideoId}.md";
+        var (safeSourceSlug, fileName) = BuildArtifactSegments(sourceSlug, videoId);
+        return $"content-kb/{safeSourceSlug}/{fileName}";
     }
 
     /// <summary>
@@ -103,9 +102,8 @@ public static class ContentArtifactWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(artifactRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
-        var safeSourceSlug = SanitizePathSegment(sourceSlug, nameof(sourceSlug));
-        var safeVideoId = SanitizePathSegment(videoId, nameof(videoId));
-        var outputPath = Path.GetFullPath(Path.Combine(artifactRoot, safeSourceSlug, safeVideoId + ".md"));
+        var (safeSourceSlug, fileName) = BuildArtifactSegments(sourceSlug, videoId);
+        var outputPath = Path.GetFullPath(Path.Combine(artifactRoot, safeSourceSlug, fileName));
         var parent = Path.GetDirectoryName(outputPath)
             ?? throw new ArgumentException("Artifact output path must have a parent directory.", nameof(artifactRoot));
 
@@ -113,6 +111,12 @@ public static class ContentArtifactWriter
         File.WriteAllText(outputPath, text);
         return outputPath;
     }
+
+    // Why: WriteFile and ComputeRelativeArtifactPath must agree on the on-disk layout or the
+    // site index points at files that were never written — derive the segments in one place.
+    private static (string SourceSlug, string FileName) BuildArtifactSegments(string sourceSlug, string videoId)
+        => (SanitizePathSegment(sourceSlug, nameof(sourceSlug)),
+            SanitizePathSegment(videoId, nameof(videoId)) + ".md");
 
     private static string GetArtifactVideoId(ContentArtifactMetadata metadata)
     {
