@@ -47,9 +47,17 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
+    /// <summary>
+    /// Initializes the tracker store using a SQLite database path.
+    /// </summary>
+    /// <param name="databasePath">Path to the SQLite feedback database.</param>
     public AdminBruteForceTrackerStore(string databasePath)
         : this(RelationalDatabaseConnection.FromSqlitePath(databasePath)) { }
 
+    /// <summary>
+    /// Initializes the tracker store using a resolved relational database connection.
+    /// </summary>
+    /// <param name="connectionInfo">Database provider and connection details for throttle persistence.</param>
     public AdminBruteForceTrackerStore(RelationalDatabaseConnection connectionInfo)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
@@ -64,9 +72,14 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
         }
     }
 
+    /// <summary>
+    /// Initializes the tracker store from the web host environment configuration.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve admin throttle database settings.</param>
     public AdminBruteForceTrackerStore(IWebHostEnvironment environment)
         : this(DeckFlowDatabaseConnectionFactory.CreateAdminThrottleConnection(environment)) { }
 
+    /// <inheritdoc/>
     public async Task<(bool Throttled, int RetryAfterSeconds)> IsThrottledAsync(
         string partitionKey, DateTimeOffset now, CancellationToken cancellationToken = default)
     {
@@ -103,6 +116,7 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
         return (false, 0);
     }
 
+    /// <inheritdoc/>
     public async Task RecordFailureAsync(
         string partitionKey, DateTimeOffset now, CancellationToken cancellationToken = default)
     {

@@ -202,6 +202,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         return PacketSessionCache.ComputeKey(inputs);
     }
 
+    /// <inheritdoc/>
     public async Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);

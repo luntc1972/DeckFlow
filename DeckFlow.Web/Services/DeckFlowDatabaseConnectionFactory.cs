@@ -12,6 +12,10 @@ public static class DeckFlowDatabaseConnectionFactory
     private const string DatabaseProviderEnvVar = "DECKFLOW_DATABASE_PROVIDER";
     private const string DatabaseConnectionStringEnvVar = "DECKFLOW_DATABASE_CONNECTION_STRING";
 
+    /// <summary>
+    /// Returns the relational connection used by feedback persistence.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve local artifact paths.</param>
     public static RelationalDatabaseConnection CreateFeedbackConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "feedback.db");
 
@@ -42,6 +46,10 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateHarvestStateConnection(IWebHostEnvironment environment)
         => CreateFeedbackConnection(environment);
 
+    /// <summary>
+    /// Returns the relational connection used by the category knowledge cache.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve local artifact paths.</param>
     public static RelationalDatabaseConnection CreateCategoryKnowledgeConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "category-knowledge.db");
 
