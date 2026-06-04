@@ -5,6 +5,7 @@ priority: medium
 source: /gsd-explore session 2026-05-29
 target_milestone: v1.5
 blocks: deck-primer-generator
+resolves_phase: 31
 ---
 
 # Spike: combo data → primer grounding
