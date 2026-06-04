@@ -15,3 +15,7 @@ reversal removed/renamed the marker block the tests pin). Unrelated to Phase 25
 
 Fix: realign the tests with the shipped CSS, or restore the marker block if the
 removal was unintended. Candidate for the Phase 24 bug-fix block.
+
+
+---
+RESOLVED 2026-05-27 (commit 7cee9b0): test-only fix — repointed AdminCssPhase1Tests at admin-common.css (Phase 18 moved the block) + updated danger-color assertion for the --danger token. Full web suite 486/0.
