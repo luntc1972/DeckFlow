@@ -1,7 +1,7 @@
 ---
 phase: 20-content-kb-ingestion-transcription-local
 verified: 2026-05-26T20:29:00-06:00
-status: human_needed
+status: passed
 score: 14/15 must-haves verified (1 live-UAT item pending)
 overrides_applied: 0
 human_verification:
@@ -14,7 +14,7 @@ human_verification:
 
 **Phase Goal:** The local harvester's upstream surfaces (YouTube captions, Whisper transcription) are wired through the project's pattern with proven third-party caption coverage, plus a plain local spend-log cap check — so Phase 21 can compose them into end-to-end distillation. All run locally; nothing executes on Render.
 **Verified:** 2026-05-26T20:29:00-06:00
-**Status:** human_needed
+**Status:** passed
 **Re-verification:** No — initial verification
 
 ---
@@ -184,6 +184,8 @@ All critical review findings (CR-01, CR-02) and high-value warnings (WR-01, WR-0
 - WR-05: `MarkFailedIfPossibleAsync` gated by `!statusPersisted` at line 580
 
 Remaining review findings (WR-03, WR-04, IN-01, IN-02, IN-03, IN-04) are INFO/WARNING level and do not block the phase goal.
+
+Correction note: corrected 2026-06-04 (HSK-03, D-10) — UAT PASSED 2026-05-27 per `.planning/milestones/v1.4-MILESTONE-AUDIT.md` (5-channel harvest, 10/10 captions).
 
 ---
 
