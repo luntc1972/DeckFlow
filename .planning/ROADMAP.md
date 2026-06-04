@@ -124,7 +124,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Requirements**: HSK-02, HSK-03, HSK-04
 **Success Criteria** (what must be TRUE):
 
-  1. `DECKFLOW_LLM_PROVIDER=codex` distills a test transcript end-to-end via the codex branch of `CliLlmDistillationService` (no `NotSupportedException` thrown); existing openai and claude paths unchanged
+  1. ~~`DECKFLOW_LLM_PROVIDER=codex` distills a test transcript end-to-end via the codex branch of `CliLlmDistillationService` (no `NotSupportedException` thrown); existing openai and claude paths unchanged~~ — AMENDED 2026-06-04: HSK-02 re-demoted to backlog per D-03 (28-03 discovery found no provable read-isolation boundary in codex 0.136.0; user ratified re-demote). Replacement criterion: the ship/re-demote decision gate ran with documented evidence and the outcome is recorded in `28-DISCOVERY.md` + backlog note
   2. All 7 previously-missing v1.4 VERIFICATION.md files exist and stale UAT labels (human_needed / partial / unknown) reflect actual shipped state
   3. P26 missing SUMMARY files, P24 quick-fix artifact chain, and dual artifact-tree drift items from the v1.4 audit are resolved
 
@@ -139,7 +139,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 28-04-PLAN.md — Codex distill backend implementation + sentinel-exfil regression (HSK-02; depends on 28-03 ship decision)
+- [ ] ~~28-04-PLAN.md — Codex distill backend implementation + sentinel-exfil regression (HSK-02; depends on 28-03 ship decision)~~ — SKIPPED 2026-06-04: 28-03 decision gate resolved "re-demote" (D-03); implementation must not proceed
 
 ### Phase 29: Core XML-Doc Backfill + Gate Widen
 
@@ -187,7 +187,9 @@ Plans:
 
 ## Backlog
 
-### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01)
+### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
+
+> Investigation 2026-06-04 (codex 0.136.0, Phase 28-03 / `28-DISCOVERY.md`): `--sandbox read-only` documented as "can read files in workspace" (structural evidence from binary). No `--no-tools` flag exists. `deny_read` glob mechanism requires `codex-linux-sandbox` + bubblewrap infrastructure not present, with no documented global read disable. Re-investigable when a future codex version provides documented read-blocking. D-03 re-demote applied; user ratified 2026-06-04.
 
 **Goal:** Add the `codex` provider to the Phase 21.2 distill backend factory, with a PROVEN tool/read-isolation boundary for untrusted transcript input. codex `exec` is an agent and `--sandbox read-only` blocks writes but not reads, so a prompt-injected transcript could read+echo local files; ship codex only once the read boundary is demonstrably closed (verified no-tools mode, OR a sandbox/container exposing only stdin). claude backend (Phase 21.2) already covers the subscription-distill use case, so codex is a nice-to-have second provider — low priority.
 **Requirements:** KB-12 (codex CLI distill backend with proven untrusted-input read isolation)
