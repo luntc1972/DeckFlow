@@ -1661,10 +1661,8 @@ internal static class CommandRunners
             return Path.GetFullPath(Path.Combine(dataDir, "content-kb"));
         }
 
-        var dbPath = ResolveContentKbDatabasePath(db);
-        var dbDirectory = Path.GetDirectoryName(Path.GetFullPath(dbPath))
-            ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
-        return Path.Combine(dbDirectory, "content-kb");
+        // Why: D-11 / HSK-04 collapses the dual artifact tree to the repo-root content-kb so drift is impossible.
+        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
     }
 
     private sealed record ContentIndexExportRow
