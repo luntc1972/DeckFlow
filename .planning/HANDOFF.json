@@ -1,38 +1,42 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-03T00:56:54.006Z",
-  "phase": "23",
-  "phase_name": "Doc-Comment Backfill — Part 2 + Strip NoWarn",
-  "phase_dir": ".planning/phases/23-doc-comment-backfill-part-2-strip-nowarn",
-  "plan": 0,
-  "task": 0,
-  "total_tasks": 5,
+  "timestamp": "2026-06-04T04:47:09.920Z",
+  "phase": null,
+  "phase_name": "between milestones — v1.5 initialized, Phase 28 not started",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
   "status": "paused",
-  "stage": "planned-and-reviewed-not-executed",
   "completed_tasks": [
-    {"id": "research", "name": "Research (compiler-derived 475-site inventory; two-suppressor finding)", "status": "done", "commit": "28cca16"},
-    {"id": "plan", "name": "5 PLANs / 2 waves authored", "status": "done", "commit": "28cca16"},
-    {"id": "plan-check", "name": "plan-checker verify (1 blocker caught+fixed: CS1587 spans 3 controllers) -> PASS", "status": "done", "commit": "28cca16"},
-    {"id": "codex-review", "name": "Codex peer review (2 HIGH + 4 lower) -> replan-all folded in", "status": "done", "commit": "28cca16"},
-    {"id": "commit", "name": "Commit planning artifacts", "status": "done", "commit": "28cca16"}
+    {"id": 1, "name": "v1.5 milestone goals gathered (3 of 4 candidates; Gemini deferred to v1.6)", "status": "done", "commit": "a5519ac"},
+    {"id": 2, "name": "PROJECT.md Current Milestone section + Active requirements updated; STATE.md milestone-switch to v1.5", "status": "done", "commit": "a5519ac"},
+    {"id": 3, "name": "4 parallel researchers (STACK/FEATURES/ARCHITECTURE/PITFALLS) + synthesizer SUMMARY.md", "status": "done", "commit": "571558e"},
+    {"id": 4, "name": "REQUIREMENTS.md — 22 REQ-IDs (PRM-01..12, KBI-01..06, HSK-01..04)", "status": "done", "commit": "9e54ddf"},
+    {"id": 5, "name": "ROADMAP.md — 4 phases (28-31), 22/22 mapped, user-approved", "status": "done", "commit": "7d6bfc9"},
+    {"id": 6, "name": "Pending spike todo tagged resolves_phase: 31", "status": "done", "commit": "f748488"},
+    {"id": 7, "name": "v1.4 phase dirs restored + archived to .planning/milestones/v1.4-phases (phases.clear had deleted instead of archiving)", "status": "done", "commit": "a4b2352"}
   ],
   "remaining_tasks": [
-    {"id": "exec-wave1", "name": "Execute Wave 1 (parallel): 23-01 Models, 23-02 Models/Api/Admin, 23-03 Controllers+all CS1587, 23-04 Services/Infra+all CS1573", "status": "not_started"},
-    {"id": "exec-wave2", "name": "Execute Wave 2 (serial, LAST): 23-05 two-file gate flip + all-three-code proof build", "status": "not_started"},
-    {"id": "verify", "name": "Verify SC1-4; commit per logical change; test suite Failed:0", "status": "not_started"}
+    {"id": 8, "name": "Phase 28: Housekeeping Bundle (HSK-02 KB-12 codex backend, HSK-03 VERIFICATION hygiene, HSK-04 artifact hygiene)", "status": "not_started"},
+    {"id": 9, "name": "Phase 29: Core XML-Doc Backfill + Gate Widen (HSK-01)", "status": "not_started"},
+    {"id": 10, "name": "Phase 30: Content KB Integration (KBI-01..06, incl. prod flag flip)", "status": "not_started"},
+    {"id": 11, "name": "Phase 31: Deck Primer Generator (PRM-01..12, spike first)", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [
-    {"action": ".editorconfig edit (Do-Not-Modify list) at 23-05 checkpoint", "context": "DOC-02 needs .editorconfig lines 94-96 none->warning. User ALREADY approved this edit this session (LD-2). 23-05 has a human-verify checkpoint before the flip.", "blocking": false}
+    {"action": "Flip content.kb.enabled ON in prod via live /Admin/Flags (carried from v1.4; now scoped as KBI-01 in Phase 30)", "context": "Prerequisite for KB integration UAT; do during Phase 30, not before", "blocking": false}
   ],
   "decisions": [
-    {"decision": "LD-1: fix all THREE warning classes (CS1591+CS1573+CS1587)", "rationale": "full DOC-02 strip requires zero warnings on all three; overrides Phase 17 partial-param policy", "phase": "23"},
-    {"decision": "LD-2: DOC-02 is a TWO-FILE flip — delete csproj <NoWarn> AND set .editorconfig CS1591/1573/1587 severity none->warning", "rationale": "research PROVED csproj-only is a no-op; .editorconfig is a second solution-wide suppressor. User approved the Do-Not-Modify .editorconfig edit.", "phase": "23"},
-    {"decision": "LD-3: gate wiring = verify-once -warnaserror; no permanent TreatWarningsAsErrors, no new CI/.github file", "rationale": "lowest risk, avoids touching more Do-Not-Modify files", "phase": "23"},
-    {"decision": "LD-4: full strip, no Razor scoped-retention escape hatch", "rationale": ".NET 10 MVC emits 0 .cshtml.g.cs at build; no CS1591 from generated Razor", "phase": "23"},
-    {"decision": "23-05 proof-gate promotes ALL THREE codes: -warnaserror:CS1591,CS1573,CS1587 + log-grep fail-check", "rationale": "Codex HIGH-1: -warnaserror:CS1591 alone false-greens while 1573/1587 stay warnings", "phase": "23"}
+    {"decision": "v1.5 scope = Primer + KB integration + Housekeeping; Gemini paste-limit deferred to v1.6 (third deferral)", "rationale": "User selection at scoping 2026-06-03", "phase": "milestone-init"},
+    {"decision": "All primer differentiators IN (combo ranking spike-gated, localStorage, badges, help text); KB injection DeckAnalysis-only; all KB extras IN; all 4 housekeeping items IN", "rationale": "User scoping answers", "phase": "milestone-init"},
+    {"decision": "Phase numbering continues (28-31), no --reset-phase-numbers", "rationale": "Default behavior; stable IDs", "phase": "milestone-init"},
+    {"decision": "Order 28→29→30→31: housekeeping fast-win first; 29 must precede 31 (new Core types documented before gate); 30 before 31 validates prod flag-flip path; primer last on cleanest baseline", "rationale": "Roadmapper rationale, user-approved", "phase": "milestone-init"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Run /gsd-execute-phase 23 (Codex implements per CLAUDE.md, Claude reviews). Wave 1 four plans parallel, Wave 2 strip LAST. Do NOT re-flip suppressors during Wave 1 (23-03 uses awk adjacency scan); 23-05 is the authoritative all-three-code gate.",
-  "context_notes": "Phase 23 fully planned, plan-checked, Codex-reviewed, hardened, committed (28cca16) on branch v1.4. Exec #7 / LAST in v1.4 order. All deps (through Phase 22) complete. MECHANICAL doc-comment backfill — zero runtime change. Execution risk is entirely (a) the compiler gate being REAL: BOTH suppressors flipped + all three codes promoted; (b) touch-only discipline: no attribute inlining, no raw-string re-indent, preserve {get;init;}. Codex codes, Claude reviews per CLAUDE.md. 475 sites / 54 files: 144+183+96+52."
+  "uncommitted_files": [
+    ".planning/todos/pending/admincss-phase1-tests-stale.md (deletion, pre-existing — pairs with untracked .planning/todos/completed/; todo-completion move from earlier session, never committed)",
+    ".claude/ (untracked, pre-existing)"
+  ],
+  "next_action": "/gsd-discuss-phase 28 (or /gsd-plan-phase 28 to skip discussion)",
+  "context_notes": "Milestone v1.5 fully initialized in one session: questioning → 4-researcher parallel research → requirements → roadmap, all committed a5519ac..a4b2352 on branch v1.5 (not pushed). Key research watch-items for later phases: primer prompt size 60-100KB vs paste caps (PRM-01 spike measures), PacketArtifactStore zip allowlist silently drops unknown entries (PRM-09 needs PrimerAllowedNames + round-trip test), KB tag-distribution audit required before relevance-matching code (Phase 30 planning), HSK-01 gate widen must be FINAL commit after 186-site backfill. Cross-AI pattern applies: Codex implements, Claude plans/reviews; every plan through /gsd-review Codex peer review before execute."
 }
