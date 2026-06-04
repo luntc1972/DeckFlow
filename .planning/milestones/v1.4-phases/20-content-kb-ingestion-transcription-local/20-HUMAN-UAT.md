@@ -1,5 +1,5 @@
 ---
-status: partial
+status: passed
 phase: 20-content-kb-ingestion-transcription-local
 source: [20-VERIFICATION.md]
 started: 2026-05-26T20:30:00-06:00
@@ -31,3 +31,5 @@ skipped: 0
 blocked: 0
 
 ## Gaps
+
+Correction note: corrected 2026-06-04 (HSK-03, D-10) — UAT PASSED 2026-05-27 per `.planning/milestones/v1.4-MILESTONE-AUDIT.md` (5-channel harvest, 10/10 captions).
