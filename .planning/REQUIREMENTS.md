@@ -34,7 +34,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Housekeeping
 
 - [ ] **HSK-01**: DeckFlow.Core XML-doc backfill (186 sites) complete and doc-warning gate widened to `[DeckFlow.Core/**.cs]` in the final commit — build clean, 0 new warnings
-- [ ] **HSK-02**: KB-12 codex distill backend — `distill` CLI verb works end-to-end with codex backend (`CliEnvelopeKind.Raw`), replacing the `NotSupportedException` stub
+- [ ] **HSK-02**: KB-12 codex distill backend — `distill` CLI verb works end-to-end with codex backend (`CliEnvelopeKind.Raw`), replacing the `NotSupportedException` stub — RE-DEMOTED to backlog 2026-06-04 per D-03 (Phase 28-03 discovery: no provable read-isolation boundary in codex 0.136.0; see `28-DISCOVERY.md`)
 - [ ] **HSK-03**: VERIFICATION.md hygiene — 7 missing v1.4 phase VERIFICATION files back-filled and stale UAT labels corrected
 - [ ] **HSK-04**: v1.4 artifact hygiene — P26 missing SUMMARYs, P24 quick-fix artifact chain, and dual artifact-tree drift items from the milestone audit resolved
 
