@@ -118,53 +118,70 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 ## Phase Details
 
 ### Phase 28: Housekeeping Bundle
+
 **Goal**: v1.4 quality debt is cleared — KB-12 codex distill backend works, VERIFICATION.md files are accurate, and milestone artifact gaps are closed
 **Depends on**: Nothing (off critical path, no web surface)
 **Requirements**: HSK-02, HSK-03, HSK-04
 **Success Criteria** (what must be TRUE):
+
   1. `DECKFLOW_LLM_PROVIDER=codex` distills a test transcript end-to-end via the codex branch of `CliLlmDistillationService` (no `NotSupportedException` thrown); existing openai and claude paths unchanged
   2. All 7 previously-missing v1.4 VERIFICATION.md files exist and stale UAT labels (human_needed / partial / unknown) reflect actual shipped state
   3. P26 missing SUMMARY files, P24 quick-fix artifact chain, and dual artifact-tree drift items from the v1.4 audit are resolved
+
 **Plans**: 4 plans (2 waves)
 
 Plans:
+**Wave 1**
+
 - [ ] 28-01-PLAN.md — VERIFICATION.md hygiene: back-fill 7 retro VERIFICATION files + correct stale Phase 20 status labels (HSK-03)
 - [ ] 28-02-PLAN.md — Artifact hygiene: dual-tree CLI fix (D-11) + retro P26/P24 SUMMARYs (D-12) + audit dedup (D-13) (HSK-04)
 - [ ] 28-03-PLAN.md — Codex isolation discovery + ship/re-demote decision gate (HSK-02, D-01/D-02/D-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 28-04-PLAN.md — Codex distill backend implementation + sentinel-exfil regression (HSK-02; depends on 28-03 ship decision)
 
 ### Phase 29: Core XML-Doc Backfill + Gate Widen
+
 **Goal**: DeckFlow.Core is fully XML-documented and the doc-warning gate covers both projects — build is clean at 0 CS1591 warnings across the entire solution
 **Depends on**: Nothing (parallel to Phase 28; must complete before any Core files are touched in Phases 30-31)
 **Requirements**: HSK-01
 **Success Criteria** (what must be TRUE):
+
   1. All 186 previously-undocumented DeckFlow.Core public sites have `<summary>` XML doc comments — `dotnet build -warnaserror:CS1591` passes from a clean `obj/`
   2. `.editorconfig` CS1591 gate is widened to `[DeckFlow.Core/**.cs]` as the final commit of this phase; existing `[DeckFlow.Web/**.cs]` gate unchanged
   3. Build is clean (0 errors, 0 new warnings) across both `DeckFlow.Core` and `DeckFlow.Web` after the gate widen
+
 **Plans**: TBD
 
 ### Phase 30: Content KB Integration
+
 **Goal**: Curated expert knowledge is injected into deck-analysis prompts and surfaced in a "What Experts Say" panel — `content.kb.enabled` is ON in production with verified live content
 **Depends on**: Phase 28 (prod flag flip is a housekeeping step; Phase 28 verifies the KB artifact state is clean before the flag goes live)
 **Requirements**: KBI-01, KBI-02, KBI-03, KBI-04, KBI-05, KBI-06
 **Success Criteria** (what must be TRUE):
+
   1. `content.kb.enabled` is flipped ON in prod after a fresh harvest run; at least one clip is visible on the public KB browse page
   2. A generated deck-analysis prompt artifact includes a `## Expert Context` block with up to 5 curated clip excerpts (block-quoted, attributed, `is_kept = true` only) when matching clips exist; the block is absent — not empty — when no clips match
   3. The DeckAnalysis result page shows a collapsed "What Experts Say" panel with source channel, title, timestamp deep-link, and harvest date for each injected clip; the panel is hidden entirely when no clips matched
   4. Admin sources view displays a per-clip relevance match score for curation tuning
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 31: Deck Primer Generator
+
 **Goal**: Users can generate a complete, paste-ready Moxfield primer prompt from a decklist and bracket selection — the fourth workflow tab, peer of DeckAnalysis, DeckComparison, and CedhMetaGap
 **Depends on**: Phase 29 (Core must be doc-clean before new Core-touching services are added); combo-data spike (PRM-01) runs as the first execution unit
 **Requirements**: PRM-01, PRM-02, PRM-03, PRM-04, PRM-05, PRM-06, PRM-07, PRM-08, PRM-09, PRM-10, PRM-11, PRM-12
 **Success Criteria** (what must be TRUE):
+
   1. A "Deck Primer" tab appears in the workflow nav; user can load a decklist via URL or paste using the same import flow as other workflows
   2. Selecting bracket 1–5 pre-applies a section preset (cEDH for 5, Casual/Upgraded for 1–4); user can then toggle individual sections from 5 collapsible groups; collapsed group headers show a selected-count badge
   3. Generated prompt grounds combo sections with Commander Spellbook data as verified truth, structurally fenced from a labeled speculative-synergies ask; when Spellbook returns null, an explicit disclosure replaces the grounded block
   4. Matchup sections are bracket-routed: EdhTop16 named archetypes for bracket 5; five generic strategy buckets (Aggro / Control / Midrange / Combo / Stax-Hate) for brackets 1–4
   5. Per-AI artifacts (ChatGPT / Claude / Gemini) are generated and stored via `PacketArtifactStore` with a working zip round-trip — re-uploading a session restores bracket and section selections; section selections persist in localStorage across visits
+
 **Plans**: TBD
 **UI hint**: yes
 
