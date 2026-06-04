@@ -12,14 +12,19 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (2026-06-03) — 14 phases (16-27 + 21.1/21.2), 31 plans, 343 commits, +54,651/−4,726 LOC across 638 files, 11 days. 20/20 active REQ-IDs satisfied. Content KB pipeline live end-to-end (local CLI harvest → claude/openai distill → markdown prompt artifacts → flag-gated site browse with admin curation); category cache rebuilt on integer-keyed star schema (69s→0.66ms hot query); admin shell mobile-responsive; Web doc-warning gate live. Tests: Core 257/257, Web 528 pass / 5 PG-skips. Audit: tech_debt (0 critical gaps). NOTE: prod flag `content.kb.enabled` still OFF — user flips via live /Admin/Flags.
 
-**Active:** v1.5 — TBD (start via `/gsd-new-milestone`). Queued candidates: Deck Primer Generator (PRM-01..03), Gemini paste-limit unblock, DeckFlow.Core doc backfill, KB-12 codex backend, v1.4 artifact-hygiene debt.
+**Active:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (started 2026-06-03).
 
-## Next Milestone Goals (v1.5 candidates — not yet scoped)
+## Current Milestone: v1.5 Deck Primer Generator + Content KB Integration + Housekeeping
 
-- Deck Primer Generator (PRM-01..03, design notes in `.planning/notes/deck-primer-prompt-design.md`)
-- Gemini paste-limit workaround (deferred from v1.4 cluster D)
-- Content KB integration into deck-analysis prompts (deferred from original KB vision)
-- Housekeeping: Core XML-doc backfill + gate widen, VERIFICATION.md hygiene, KB-12 codex distill backend
+**Goal:** Ship the Deck Primer Generator as a fourth paste-ready workflow, wire Content KB knowledge into deck-analysis prompts, and clear v1.4 quality debt.
+
+**Target features:**
+
+1. **Deck Primer Generator** — new paste-ready workflow + tab (peer of DeckAnalysis / DeckComparison / CedhMetaGap): decklist + bracket → ChatGPT-ready prompt producing a complete Moxfield primer in one round-trip. 31-section catalog, bracket presets (cEDH + Casual/Upgraded) with B+C hybrid per-section selection (5 collapsible groups), combo grounding via Commander Spellbook + fenced speculative asks, bracket-routed matchups (EdhTop16 named archetypes for bracket 5, generic strategy buckets for 1–4; no EDHREC in v1). Preceded by combo-data-richness spike (`spike-combo-data-to-primer-grounding` todo). Design pre-decided in seed + `.planning/notes/deck-primer-prompt-design.md`.
+2. **Content KB → deck-analysis integration** — inject curated expert content into deck-analysis prompts + "What experts say" panel (deferred from original KB vision). Prod flag `content.kb.enabled` flip is a prerequisite/part of this work.
+3. **Housekeeping debt bundle** — DeckFlow.Core XML-doc backfill (186 sites) + widen doc-warning gate to Core, KB-12 codex distill backend, VERIFICATION.md hygiene (7 v1.4 phases missing files, stale UAT labels), v1.4 artifact-hygiene items.
+
+**Explicitly excluded:** Gemini paste-limit unblock — deferred again to v1.6 (stays flag-gated via `DECKFLOW_GEMINI_ENABLED`).
 
 <details>
 <summary>📦 v1.4 milestone detail (SHIPPED 2026-06-03 — archived)</summary>
@@ -107,9 +112,11 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ### Active
 
-<!-- v1.5 not yet scoped — run /gsd-new-milestone to define. -->
+<!-- v1.5 — scoped 2026-06-03; REQ-IDs assigned in REQUIREMENTS.md. -->
 
-(none — v1.5 pending definition)
+- Deck Primer Generator workflow (decklist + bracket → paste-ready primer prompt)
+- Content KB integration into deck-analysis prompts + "What experts say" panel
+- Housekeeping: Core doc backfill + gate widen, KB-12 codex backend, VERIFICATION.md hygiene, artifact hygiene
 
 ### Out of Scope
 
@@ -241,7 +248,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 **Shipped:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (2026-06-03) — 20/20 active REQ-IDs across 14 phases (16-27 + 21.1/21.2, 31 plans, 343 commits, +54,651/−4,726 LOC across 638 files, 11-day timeline 2026-05-23 → 2026-06-03). Content KB end-to-end + category cache rebuild + admin mobile + doc gate. Tests Core 257/257, Web 528/533. Audit: tech_debt, 0 critical gaps.
 
-**Active:** v1.5 — pending definition via `/gsd-new-milestone`.
+**Active:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping — started 2026-06-03.
 
 ---
-*Last updated: 2026-06-03 — v1.4 milestone shipped and archived*
+*Last updated: 2026-06-03 — v1.5 milestone started*
