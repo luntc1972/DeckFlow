@@ -110,7 +110,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 **Milestone Goal:** Ship the Deck Primer Generator as a fourth paste-ready workflow, wire Content KB knowledge into deck-analysis prompts, and clear v1.4 quality debt.
 
-- [ ] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene
+- [x] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene (completed 2026-06-04)
 - [ ] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 186 DeckFlow.Core doc sites + editorconfig gate widen
 - [ ] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
@@ -133,9 +133,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 Plans:
 **Wave 1**
 
-- [ ] 28-01-PLAN.md — VERIFICATION.md hygiene: back-fill 7 retro VERIFICATION files + correct stale Phase 20 status labels (HSK-03)
-- [ ] 28-02-PLAN.md — Artifact hygiene: dual-tree CLI fix (D-11) + retro P26/P24 SUMMARYs (D-12) + audit dedup (D-13) (HSK-04)
-- [ ] 28-03-PLAN.md — Codex isolation discovery + ship/re-demote decision gate (HSK-02, D-01/D-02/D-03)
+- [x] 28-01-PLAN.md — VERIFICATION.md hygiene: back-fill 7 retro VERIFICATION files + correct stale Phase 20 status labels (HSK-03)
+- [x] 28-02-PLAN.md — Artifact hygiene: dual-tree CLI fix (D-11) + retro P26/P24 SUMMARYs (D-12) + audit dedup (D-13) (HSK-04)
+- [x] 28-03-PLAN.md — Codex isolation discovery + ship/re-demote decision gate (HSK-02, D-01/D-02/D-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -295,7 +295,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 28. Housekeeping Bundle | 0/4 | Planned | - |
+| 28. Housekeeping Bundle | 4/4 | Complete   | 2026-06-04 |
 | 29. Core XML-Doc Backfill + Gate Widen | 0/TBD | Not started | - |
 | 30. Content KB Integration | 0/TBD | Not started | - |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
