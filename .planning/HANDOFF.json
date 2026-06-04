@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-06-04T21:36:39.010Z",
+  "phase": "29",
+  "phase_name": "Core XML-Doc Backfill + Gate Widen",
+  "phase_dir": ".planning/phases/29-core-xml-doc-backfill-gate-widen",
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Research (90-site probe inventory, suppressor analysis)", "status": "done", "commit": "6019bf7"},
+    {"id": 2, "name": "Pattern mapping (29-PATTERNS.md, 30 files classified)", "status": "done", "commit": "pending-wip-commit"},
+    {"id": 3, "name": "5 PLAN.md files created (2 waves)", "status": "done", "commit": "f9546da"},
+    {"id": 4, "name": "Internal gsd-plan-checker pass (0 blockers, 1 warning fixed)", "status": "done", "commit": "780ea6e"},
+    {"id": 5, "name": "Codex review round 1 fixes (probe isolation, final-commit semantics)", "status": "done", "commit": "f26e486"},
+    {"id": 6, "name": "Codex review round 2 fixes (atomic mkdir lock, trap cleanup, emission artifacts stripped) — verdict READY", "status": "done", "commit": "31d8872"}
+  ],
+  "remaining_tasks": [
+    {"id": 7, "name": "Execute Phase 29 (5 plans: 29-01..04 Wave 1 parallel, 29-05 Wave 2 non-autonomous)", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "29-05 human-verify checkpoint will fire during execute-phase (.editorconfig is Do-Not-Modify; gate widen needs explicit approval)", "context": "Planned, not yet reached", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Roadmap '186 sites' corrected to 90 unique sites / 29 files", "rationale": "Compiler probe build 2026-06-04 is authoritative; phases 19-28 shipped pre-documented Core code", "phase": "29"},
+    {"decision": "Atomic mkdir sidecar lock (DeckFlow.Core/.editorconfig.probe.lock) for Wave-1 parallel probe builds", "rationale": "Codex HIGH finding: test-then-create raced; mkdir is atomic; trap cleans up on interrupt", "phase": "29"},
+    {"decision": "Final-commit rule = final SOURCE/CONFIG commit; SUMMARY.md files exempt", "rationale": "Codex HIGH finding: SUMMARY requirement contradicted '.editorconfig only/last commit' as originally worded", "phase": "29"},
+    {"decision": "Residual LOW accepted (ms-scale stale-lock recovery race)", "rationale": "Trigger requires 120s timeout AND absent probe; worst case one sibling retries", "phase": "29"},
+    {"decision": "Codex session models confirmed: gpt-5.5 medium review/planning, gpt-5.4 medium coding", "rationale": "User kept defaults via session-start ask", "phase": "29"}
+  ],
+  "uncommitted_files": [
+    ".planning/phases/29-core-xml-doc-backfill-gate-widen/29-PATTERNS.md"
+  ],
+  "next_action": "/clear then /gsd-execute-phase 29 — dispatch to Codex (gpt-5.4 medium, --sandbox danger-full-access, scope fences are in plans)",
+  "context_notes": "Phase 29 planning fully converged: internal checker pass + 3-round Codex convergence (BLOCK -> BLOCK -> READY, thread 019e947a-b90b-7321-a54c-5974b6299965). Plans are execution-ready. Wave 1 = 4 parallel doc-backfill plans with probe-lock protocol; Wave 2 = 29-05 gate widen, autonomous:false, human checkpoint. Verification is build-based (Windows dotnet.exe from WSL), not tests. auto_advance=true in config but CLAUDE.md Codex-review gate was honored instead of auto-advancing."
+}
