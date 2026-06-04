@@ -122,10 +122,16 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Depends on**: Nothing (off critical path, no web surface)
 **Requirements**: HSK-02, HSK-03, HSK-04
 **Success Criteria** (what must be TRUE):
-  1. `DECKFLOW_LLM_PROVIDER=codex` distills a test transcript end-to-end via the new `CodexCliLlmDistillationService` (no `NotSupportedException` thrown); existing openai and claude paths unchanged
+  1. `DECKFLOW_LLM_PROVIDER=codex` distills a test transcript end-to-end via the codex branch of `CliLlmDistillationService` (no `NotSupportedException` thrown); existing openai and claude paths unchanged
   2. All 7 previously-missing v1.4 VERIFICATION.md files exist and stale UAT labels (human_needed / partial / unknown) reflect actual shipped state
   3. P26 missing SUMMARY files, P24 quick-fix artifact chain, and dual artifact-tree drift items from the v1.4 audit are resolved
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
+
+Plans:
+- [ ] 28-01-PLAN.md — VERIFICATION.md hygiene: back-fill 7 retro VERIFICATION files + correct stale Phase 20 status labels (HSK-03)
+- [ ] 28-02-PLAN.md — Artifact hygiene: dual-tree CLI fix (D-11) + retro P26/P24 SUMMARYs (D-12) + audit dedup (D-13) (HSK-04)
+- [ ] 28-03-PLAN.md — Codex isolation discovery + ship/re-demote decision gate (HSK-02, D-01/D-02/D-03)
+- [ ] 28-04-PLAN.md — Codex distill backend implementation + sentinel-exfil regression (HSK-02; depends on 28-03 ship decision)
 
 ### Phase 29: Core XML-Doc Backfill + Gate Widen
 **Goal**: DeckFlow.Core is fully XML-documented and the doc-warning gate covers both projects — build is clean at 0 CS1591 warnings across the entire solution
@@ -270,7 +276,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 28. Housekeeping Bundle | 0/TBD | Not started | - |
+| 28. Housekeeping Bundle | 0/4 | Planned | - |
 | 29. Core XML-Doc Backfill + Gate Widen | 0/TBD | Not started | - |
 | 30. Content KB Integration | 0/TBD | Not started | - |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
