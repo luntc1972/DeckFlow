@@ -295,7 +295,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 28. Housekeeping Bundle | 4/4 | Complete   | 2026-06-04 |
+| 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
 | 29. Core XML-Doc Backfill + Gate Widen | 0/TBD | Not started | - |
 | 30. Content KB Integration | 0/TBD | Not started | - |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
