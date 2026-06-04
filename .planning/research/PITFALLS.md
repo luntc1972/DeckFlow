@@ -1,510 +1,426 @@
-# Domain Pitfalls — DeckFlow v1.4 Content Knowledge Base + Admin Mobile + Backlog
+# Domain Pitfalls — DeckFlow v1.5: Deck Primer Generator + Content KB Integration + Housekeeping
 
-**Domain:** ASP.NET 10 / Razor / Postgres on Render — adding YouTube + Whisper + LLM ingestion to a live app
-**Researched:** 2026-05-23
-**Overall confidence:** HIGH for external-API quirks (verified against official docs), HIGH for Render/repo constraints (verified against codebase), MEDIUM for "recurring v1.3 patterns" (drawn from RETROSPECTIVE.md only)
+**Domain:** Adding (a) large multi-section AI prompt-generator workflow, (b) curated-content RAG-style injection into existing analysis prompts, and (c) doc-gate widening + third LLM backend to an existing ASP.NET 10 / Razor / prompt-artifact app.
+**Researched:** 2026-06-03
+**Overall confidence:** HIGH for pitfalls grounded in codebase inspection and prior milestone post-mortems; MEDIUM for AI output-quality pitfalls (drawn from project history + known LLM behavior patterns)
 
-Pitfalls ordered by **likelihood × impact** (highest first). Each is calibrated to **THIS** system, not a generic warning. Phase numbering uses placeholder "Phase 16/17/18/19/20" — exact numbering belongs to the roadmapper. Where v1.4 uses 999.x backlog phases for backlog cleanup, the assignment notes that.
+> **Scope boundary:** This file covers v1.5 pitfalls ONLY. v1.4 pitfalls (YouTube API 403, Whisper cost race, Postgres pool starvation, admin CSS bleed, WDG-04 modal, etc.) are archived in the prior PITFALLS.md and are not repeated here — those concerns are fully shipped.
 
----
-
-## Pitfall 1: YouTube Data API `captions.download` returns 403 for videos you don't own (CATASTROPHIC for ingestion design)
-
-### Failure Mode
-The official `captions.download` endpoint returns **HTTP 403 Forbidden** for **virtually every video the DeckFlow admin does not own** — even for public videos with public captions. The MTG content creators DeckFlow wants to ingest (MTGGoldfish, The Command Zone, Game Knights, EDHRECast, Tolarian Community College, Playing With Power, etc.) are all third-party channels. **Zero coverage** via the official API.
-
-### Root Cause
-Google's caption-download docs explicitly state: *"The caption download method requires the user to have permission to edit the video."* Even with valid OAuth, captions on videos the requestor doesn't own return 403 with `forbidden` reason. This restriction has been in place for years and is not a quota or API-key fix — it's a policy.
-
-### Prevention
-- **Pivot the design before Phase 1.** Do NOT plan around `captions.download`. The viable paths are:
-  1. **Scrape the timed-text endpoint directly** (the same URL the YouTube player consumes — `https://www.youtube.com/api/timedtext?v=...&lang=en`). No API key needed. Subject to IP blocking from cloud egress.
-  2. **Port the `youtube-transcript-api` (Python) approach to C#** — fetches the watch-page HTML, extracts the player config JSON, then hits the timed-text URL. Same IP-blocking risk.
-  3. **Use a paid third-party (Supadata, Apify YouTube Transcript Scraper, ScrapingBee)** — they pay for residential proxy pools so you don't have to.
-- **Document the design decision** in the spec: "We are NOT using Google's official caption API; we are scraping the player timed-text endpoint" so future maintainers don't waste a sprint trying to make the official API work.
-- **Build a single `IYouTubeTranscriptFetcher` interface** with at least two implementations from day 1: `PlayerTimedTextFetcher` (default) + `SupadataFetcher` (paid fallback). Toggle via env var `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER`.
-
-### Detection
-- **Test against 5 real MTG channels** (NOT a video Chris owns) before declaring transcript-fetch "done." Sample list: MTGGoldfish "Budget Magic" / The Command Zone / EDHRECast / Tolarian / Playing With Power. If `captions.download` 403s on 5/5, the design is fundamentally broken.
-- **Log structured field `transcript_source: {player-timedtext|supadata|whisper-fallback}`** on every successful fetch so operator can see distribution.
-- **CI smoke test in Phase 1:** stub the watch-page HTML and assert `PlayerTimedTextFetcher` extracts the timed-text URL from current YouTube markup. Re-run periodically — YouTube changes this surface annually.
-
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — first plan after schema. Before any service code is written, prove `IYouTubeTranscriptFetcher` returns captions for a video Chris does NOT own. If it doesn't, no other Phase 16 work matters.
+Pitfalls ordered by **likelihood × impact** (highest first). Each is calibrated to THIS system, not a generic warning.
 
 ---
 
-## Pitfall 2: YouTube IP blocking from Render egress (cloud provider blacklist)
+## Critical Pitfalls
 
-### Failure Mode
-The `PlayerTimedTextFetcher` (and any scraping path) works fine from Chris's WSL dev box, then **silently 429/blocks on Render**. YouTube has aggressively blacklisted egress IPs from AWS / GCP / Azure / Render / Fly. The transcript fetcher returns 429 or a CAPTCHA HTML page (parsed as garbage), causing Whisper-fallback to fire on **every video** — burning Whisper budget for free transcripts that should have been "free."
+### Pitfall 1: Primer prompt blows the Gemini paste cap before users ever try it
 
-### Root Cause
-YouTube's `youtube-transcript-api` GitHub issue tracker has explicit confirmation: cloud-provider IPs are flagged. Render's outbound IP pool is shared and well-known. Once one tenant abuses, the whole pool gets a soft-block.
+**What goes wrong:**
+The primer workflow targets ChatGPT first, but the AI selector on every existing workflow page shows all three AIs. A user selects Gemini, generates a primer with 20+ sections enabled, and the output is silently truncated in the Gemini web UI. The section marked "## COMBO LINES" may be cut mid-block. The AI never sees the combo ground truth, generates speculative combos for the entire section, and the user pastes a hallucination-dense prompt with no visible warning.
 
-### Prevention
-- **Render does NOT serve transcript fetches.** Either:
-  1. Route YouTube fetches through a residential-proxy service (Webshare, Bright Data, Smartproxy) on a per-request basis — add proxy support to `IHttpClientFactory` named client `youtube-timedtext`. Cost: ~$1-3/mo at low volume.
-  2. Use a paid managed transcript API (Supadata $0/mo for low tier, Apify pay-per-run) that pays for the proxy infra. Returns clean JSON; no scraping in our codebase.
-- **Treat IP block as a first-class state in the Whisper budget calculator.** If `transcript_source: whisper-fallback` jumps from <10% to >50% in a 24h window, that's an IP-block signal — alert, don't silently bleed Whisper budget.
-- **Apply the v1.0 Phase 5 lesson** (`feedback_http_resilience_pattern.md`): when egressing from Render to anything that fingerprints clients, browser-shaped headers + `AutomaticDecompression` are required. Reuse the `ScryfallTaggerHttpClient` Cloudflare-BIC pattern.
+The existing analysis prompt for a well-equipped Commander deck is already ~30–50KB. A 20-section primer with Spellbook combo data, EdhTop16 archetypes, and category breakdowns will routinely hit 60–100KB — 2–3× the existing size. Gemini web UI's effective paste cap is in the 30–60KB range depending on user tier (confirmed in .planning/RETROSPECTIVE.md v1.2 Key Lesson #4: "Web UIs have paste caps that the model's context window doesn't").
 
-### Detection
-- **Daily metric:** `whisper_fallback_ratio = whisper_used / total_transcripts_fetched_24h`. Alert at >25%.
-- **Structured log on YouTube 429/CAPTCHA HTML:** `Warning("youtube-timedtext-blocked", source: rendered_outbound_ip, video_id: ...)`. Single occurrence is noise; 10+ in an hour is a block.
-- **Pre-ship UAT:** harvest 5 videos from **deployed Render env**, not from WSL. Inspect the harvest log for `transcript_source` distribution. If any unexpected `whisper-fallback`, debug before ship.
+**Why it happens:**
+The primer is a NEW workflow with a NEW section-combinatorics axis. The paste-cap risk was identified for the analysis workflow (and addressed by flag-gating Gemini), but the primer's 31-section model multiplies the output size in a way the existing prompts don't. Nobody will measure the generated prompt length until a user files a truncation bug.
 
-### Phase Owner
-**Phase 16 (Content KB Phase 1)** — design the proxy abstraction into `IYouTubeTranscriptFetcher` from day 1, even if v1.4 ships with a single direct provider. Adding proxy support after the fact requires changing the HTTP-client factory wiring (touches `Program.cs` named-client registrations).
+**How to avoid:**
+- Measure generated prompt size during the spike phase (`spike-combo-data-to-primer-grounding`). For a representative cEDH deck with all 31 sections enabled and EdhTop16 data injected, record the byte count of the generated prompt.
+- Add a server-side `PromptSizeWarning` to the primer result: if `promptText.Length > 45_000` bytes, surface an inline warning on the UI ("This primer is large — paste into ChatGPT or Claude; Gemini web may truncate it").
+- Primer workflow should default Gemini radio to DISABLED (same flag-gate pattern as existing `DECKFLOW_GEMINI_ENABLED`). The primer is even larger than the analysis packet. Do not lift the flag-gate for the primer until Gemini direct-API integration lands (v1.6+).
+- Section preset defaults matter: cEDH preset enabling 24 of 31 sections is the most dangerous configuration. Measure that specifically.
 
----
+**Warning signs:**
+- Generated primer text file in the zip is larger than the existing `31-analysis-prompt.txt` for the same deck.
+- Any user report of "ChatGPT gave me incomplete combos" — the AI never saw the grounded data.
+- Spike UAT round-trip where AI-generated combo lines include cards NOT in the deck — ground truth was truncated.
 
-## Pitfall 3: Whisper monthly cost cap race condition (two admin clicks bypass the cap)
-
-### Failure Mode
-Admin opens two browser tabs of the harvest page, clicks "Run Harvest" on both within 1 second. Both reads of `whisper_spend_this_month` see the same pre-click value, both decide the cap is not yet hit, both kick off harvest jobs spending up to 2× the cap. **Monthly Whisper budget blown** on a single admin double-click.
-
-### Root Cause
-The naive cap check pattern is read-decide-write across multiple statements (TOCTOU). Without a transaction or a serialized control gate, concurrent reads from `ContentHarvestRunStore` race. v1.0 had the analogous bug with the admin brute-force throttle (BUG-02) before the Postgres-backed lazy-expiry pattern was introduced.
-
-### Prevention
-- **Single-row Postgres advisory lock per month:** `pg_try_advisory_lock(hashtext('whisper-cap-' || to_char(now(), 'YYYY-MM')))`. Acquire at the start of every harvest dispatch; release at end. Concurrent dispatch returns "already running" instead of stacking.
-- **Pre-flight transactional check:** wrap "compute current spend → compare to cap → insert harvest-run row" in a single `BEGIN ... COMMIT` with `SERIALIZABLE` isolation. Either both succeed-then-cap-hit (one rolls back), or one sees a stale value and conflicts on commit.
-- **Estimate spend BEFORE Whisper call, not after.** Use audio duration metadata (from YouTube `videos.list` `contentDetails.duration` or podcast RSS `itunes:duration`) × $0.006/min to forecast spend. If forecast + ytd > cap, abort BEFORE the API call. Confirms post-call against actual billing.
-- **Hard kill-switch env var:** `DECKFLOW_WHISPER_KILL_SWITCH=true` → no Whisper calls regardless of cap state. Always-on, evaluated as the very first check.
-- **NEVER trust the admin UI's `?confirmed=true` query param alone.** Re-check server-side.
-- **TZ ambiguity on monthly rollover:** pick ONE timezone for "month" boundary and document it. Render servers default to UTC; admin lives in MDT. A 6pm-MDT submission on the last day of the month is the 1st-UTC. Pick UTC (server-native) and display it as "UTC monthly cap" in the admin UI.
-
-### Detection
-- **Test:** spawn 5 concurrent `POST /Admin/Content/Harvest/Start` requests in xUnit (`Task.WhenAll` against a stub Whisper client that records its calls). Assert ≤ 1 harvest run row is created AND ≤ N seconds of audio are billed (where N = configured budget).
-- **Log every Whisper API call** with `correlation_id`, `harvest_run_id`, `minutes_billed`, `running_total`. Audit log query: `SUM(minutes_billed) GROUP BY DATE_TRUNC('month', billed_at AT TIME ZONE 'UTC')` must equal admin-UI displayed spend exactly.
-- **Pre-flight forecast vs. post-call actual divergence alert:** if `actual_minutes / forecast_minutes > 1.2`, surface in admin UI — duration metadata was wrong, recalibrate.
-
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — kill switch + pre-flight forecast in initial dispatcher.
-**Phase 17 (Content KB Phase 1 — Cost & Cap UI)** — advisory lock + serializable txn before any "Harvest Now" button ships.
+**Phase to address:**
+Spike phase (`spike-combo-data-to-primer-grounding`) — measure before planning the primer service. Primer packet service implementation phase — add `PromptSizeWarning` to the result record. Do not leave this to verification.
 
 ---
 
-## Pitfall 4: LLM JSON-mode parse failure on summarization (Anthropic + Gemini are NOT strict; OpenAI is)
+### Pitfall 2: AI hallucinates combo lines because grounded and speculative sections are not visibly fenced in the emitted prompt
 
-### Failure Mode
-LLM emits "Here's the summary:" prefix before the JSON block, or trailing commentary, or invalid Unicode in tags. `JsonSerializer.Deserialize<VideoSummary>(response)` throws `JsonReaderException`. The admin harvest job dies mid-batch, leaving partial transcripts but no summaries — but **the Whisper cost was already incurred.** Worse, the next "Resume Harvest" click re-Whispers everything because the harvest-run row says "failed" and there's no "transcripts complete, summaries pending" intermediate state.
+**What goes wrong:**
+The design intent is clear (seed + design note): inject Spellbook combos as "ground truth" and ask AI to extend with speculative synergies under a "speculative — verify these" heading. But when the prompt is built, the fencing gets muddled. Common failures:
+- The "speculative" heading is added as markdown `###` but the AI treats the whole combo section as one block and freely mixes invented lines with Spellbook-verified lines.
+- The primer consumer (user) reads the AI output and cannot tell which combo lines came from Spellbook and which the AI invented. They post an incorrect combo line as fact on Moxfield.
+- "Almost-included" combos (cards 1 missing from deck) are presented as "your deck can do this" rather than "add X to unlock this."
 
-### Root Cause
-- **OpenAI Structured Outputs** (with `strict: true` JSON schema, not just `json_object` mode): <0.1% failure rate. Refusals are the dominant failure.
-- **Anthropic Claude:** no schema-enforced JSON mode. "JSON mode" is a system-prompt convention. Empirical 5-10% malformed-JSON rate at production volume. Often emits prose preamble.
-- **Gemini:** `responseSchema` field constrains output but still allows wrapper text in some model versions; failure rate similar to Anthropic's.
+This is specifically dangerous because `CommanderSpellbookService.FindCombosAsync` returns `null` on API failure (graceful-degradation pattern confirmed at `DeckAnalysisPacketService.cs:563-564`). If the service returns null, the primer prompt may silently drop the grounded section entirely and leave only the speculative ask — the AI invents all combos with no reality anchor.
 
-The DeckFlow team has already been bitten by this exact class of bug — v1.3 Phase 999.4 shipped a `JsonReaderException` → user-facing "wait for AI to finish generating" message for the deck-analysis paste-back path. Same pattern recurs server-side for harvest summarization.
+**Why it happens:**
+Prompt construction relies on `StringBuilder` string concatenation with markdown headers. There is no structural enforcement that the grounded block appears before the speculative block, or that a null combo result suppresses the speculative ask rather than expands it.
 
-### Prevention
-- **Use OpenAI Structured Outputs** for summarization in v1.4. Free up Claude/Gemini for deck analysis where the user controls paste-back. Hard-pin via `Microsoft.Extensions.AI` or direct `openai` SDK calls with `response_format: { type: "json_schema", json_schema: {...}, strict: true }`.
-- **Stage harvest pipeline with intermediate persistence:**
-  1. Fetch transcript → persist `transcripts.status = 'fetched'`
-  2. Whisper if needed → update `transcripts.status = 'transcribed'` (cost recorded here, atomic)
-  3. Summarize → persist `summaries.status = 'summarized'`
-  4. Tag → persist `content_tags.status = 'tagged'`
-  Resume picks up from the first non-complete stage. **Whisper cost is NEVER re-incurred** on resume.
-- **Validate response shape with FluentValidation or a manual `ValidateAndExtract` helper** before persisting. Reject summaries with `Title.Length > 200`, `Tags.Count > 20`, etc.
-- **Single-retry with "JSON only, no preamble" re-prompt** on parse failure. Log the raw response on second failure, mark video summary as `'failed-json-parse'`, MOVE ON. Do not block the batch.
-- **Hallucinated archetype/format tag detection:** post-process tags through a `KnownTagSet` allowlist (sourced from existing DeckFlow taxonomy `Models/Knowledge/`). Tags outside the set → discarded with a log entry. NEVER silently insert LLM-invented categories into the canonical taxonomy.
+**How to avoid:**
+- Model the combo section as TWO structurally distinct prompt blocks: `KnownCombosBlock` (present only when `comboResult != null && comboResult.IncludedCombos.Count > 0`) and `SpeculativeComboAsk` (always present but explicitly labeled). Make each block a separate method so their independence is testable.
+- When `comboResult` is null: emit the speculative ask with a preamble "Commander Spellbook is unavailable; treat all combo suggestions as speculative." Do NOT silently omit the null-state disclosure.
+- The speculative ask MUST use the word "speculative" in the section heading injected into the prompt — not just in a comment in code. Test: the generated prompt text must contain the literal string "speculative" adjacent to the AI combo-extension instruction.
+- "Almost-included" combos must be labeled "NEAR-COMBO (missing: [card])" — never listed inline with confirmed combos.
+- Unit test: `BuildPrimerPrompt_NullComboResult_EmitsSpeculativeDisclosure` — assert the generated text contains the null-state disclosure message, NOT a section that looks like confirmed combos.
 
-### Detection
-- **Counter:** `llm_parse_failures_total` Serilog enrichment + alert at >1% of summarization calls.
-- **Counter:** `llm_hallucinated_tags_discarded_total` — track LLM honesty. >10% = re-engineer the prompt.
-- **Test:** unit test on `ParseAndValidateSummary` with 10 captured "weird real LLM responses" (preamble, trailing text, escaped Unicode, doubled quotes). All must produce either a clean `VideoSummary` or a clean `ParseFailureReason`, never a thrown exception escaping the service layer.
+**Warning signs:**
+- Spike UAT: AI-generated primer includes a combo line using a card not in the decklist.
+- Primer prompt text file contains a "## Combo Lines" section with no "speculative" heading anywhere following it.
+- `comboResult` is null in the service but the generated primer text does not contain a null-state disclosure.
 
-### Phase Owner
-**Phase 17 (Content KB Phase 1 — LLM Summarization)** — staged-pipeline persistence + Structured Outputs + tag allowlist all land together. **Defer Claude/Gemini summarization to v1.5.**
+**Phase to address:**
+Spike phase — validate combo data richness AND fencing strategy before committing to the full primer implementation. Primer service implementation phase — structural combo block separation as a first-class design constraint, not a later cleanup.
 
 ---
 
-## Pitfall 5: AiPlatform value-object regression — adding "GeminiDirect" as a string instead of an `AiPlatform` variant
+### Pitfall 3: Content KB injection injects irrelevant content (tag-mismatch relevance failure)
 
-### Failure Mode
-Gemini paste-limit workaround adds a "Gemini Direct API" target. Implementer adds it as a string literal `"GeminiDirect"` in 5 places (form value, controller switch, prompt builder dispatch, view label, zip artifact field). The v1.3 Phase 15 `AiPlatform` sealed-record value object (`OCP 8/10`) is bypassed because the implementer is unfamiliar with the registry pattern. OCP regresses to 3/10. Future 5th AI surface (Mistral? Llama?) requires another N-place edit.
+**What goes wrong:**
+The KB tags content by archetype/strategy/format/bracket/card-category (per `ContentTagVocabulary`). When injecting into deck-analysis prompts, the relevance matching queries: "find KB entries tagged with the deck's apparent archetype + bracket." But the deck's apparent archetype is inferred from Scryfall Tagger categories, which are functional (ramp/draw/removal/win-cons) rather than strategic (voltron/aristocrats/combo/control). The mismatch causes:
+- A reanimator deck retrieves stax content (both tagged "control" but by different semantic paths).
+- A cEDH combo deck retrieves casual combo content (both tagged "combo").
+- A deck with no clear tagger archetype match retrieves nothing — empty injection — silently.
 
-### Root Cause
-Phase 15 just shipped 5 days ago (2026-05-18). The pattern is new. v1.4 implementer (Codex) may not be deeply aware. Documentation lives in spec, not in self-explanatory call sites.
+The silent empty-injection case is actually the safest failure: the prompt continues without KB content and the user gets the same output as before. The dangerous case is the wrong-content injection: the AI confidently applies advice for the wrong archetype.
 
-### Prevention
-- **Codify in the Phase 19 (Gemini Unblock) CONTEXT.md** the explicit instruction: "Add to `AiPlatformRegistry.cs` and create a `GeminiDirectAnalysisBuilder.cs` variant. Do NOT add string literals." Reference the Phase 15 PR by commit SHA.
-- **Code review gate:** plan-checker must `grep -r '"GeminiDirect"' DeckFlow.Web/` — any match outside `AiPlatform.cs` is a BLOCKER.
-- **Existing test `AiPlatformExtensionTests` (7 facts, "4th-platform OCP proof")** is the regression guard. Add a `GeminiDirect_RegisteredAsValueObject` test case in the same fashion before adding any string.
-- **`ResultContractTests`** (added in 999.6) already enforces variant-by-variant divergence. Extend, do not bypass.
+**Why it happens:**
+KB tags were designed for content discoverability (v1.4 KB tagging model), not for deck-to-content relevance matching. The tag vocabulary overlap between "what Tagger assigns" and "what KB content authors tag their videos" was never validated. This is the primary open risk called out in `.planning/notes/deck-primer-prompt-design.md`: "Reliable category classification for mulligan / engine-breakdown buckets → research question logged."
 
-### Detection
-- **`grep -rE '"(Gemini|Claude|ChatGpt|GeminiDirect|Mistral)"' DeckFlow.Web/ DeckFlow.Core/`** in CI — only matches allowed: `AiPlatform.cs`, `AiPlatformRegistry.cs`, view markup with `@aiPlatform.DisplayName`, and a numbered allowlist in the test project. Anything else fails the build.
-- Codex peer-review on the plan must verify the AiPlatform registry change is explicit in the PLAN.md tasks.
+**How to avoid:**
+- Before wiring KB injection into any prompt: audit the live KB content (post v1.4 harvest) to understand the actual tag distribution. How many entries are tagged "combo"? "control"? "cEDH"? If 80% are tagged "combo" and "cEDH" because those are the most-published MTG content topics, relevance matching will over-retrieve for those and under-retrieve for everything else.
+- Relevance matching must use AT MINIMUM two tag dimensions in AND (not OR): bracket + at least one archetype/strategy tag. Single-dimension matching is too broad.
+- Add a `RelevanceScore` threshold: only inject KB content scoring above a minimum threshold (e.g., ≥2 matching tag dimensions out of queried dimensions). Surface the match count in the prompt header so the AI knows how curated the content is.
+- Hard cap on injection length: KB injection must never exceed N characters (recommend 4,000 chars = ~3KB) per the prompt budget analysis (see Pitfall 5). Prefer excerpt clips over full summaries when space is constrained.
+- A zero-match result must be handled as "no KB injection, no disclosure needed" — not as an error, and not as an empty "## What Experts Say" section with no content (which confuses the AI).
 
-### Phase Owner
-**Phase 19 (Gemini Paste-Limit Unblock)** — owned by whoever takes Gemini direct-API integration.
+**Warning signs:**
+- KB injection output contains a "What Experts Say" section mentioning stax or hatebear strategies for a pure-combo deck.
+- The KB injection section is empty but the section header is still emitted in the prompt.
+- All deck analysis prompts receive the same KB injection regardless of deck archetype.
 
----
-
-## Pitfall 6: Render Postgres connection-pool starvation on concurrent admin harvest action
-
-### Failure Mode
-Admin opens harvest page (1 connection for `ContentHarvestRunStore.ListAsync`). Clicks "Run Harvest" (acquires connection for run-insert, holds while the batch loops). Each per-video step (transcript persist, summary persist, tag persist) acquires a connection. Default Npgsql pool size = 100. Render's Basic-256MB Postgres tier caps connections far below that (Render's docs: connection limit depends on instance RAM; Basic-256MB is at the low end). At sustained 20+ concurrent connections, pool fills, pool exhausted, **other DeckFlow features (feedback form, category suggestions, brute-force tracker) start throwing `NpgsqlException: The connection pool has been exhausted`**.
-
-### Root Cause
-Long-running harvest worker holds connections across `await` points (network calls to YouTube + Whisper + LLM). Each `await` keeps the connection checked out from the pool. v1.3 Phase 999.6 (`F-PROD-CONTRACT IHarvestRunStore.GetByIdAsync` fix) was an analogous bug class — production-bug surfaced inside test cleanup.
-
-### Prevention
-- **NEVER hold a Postgres connection across a network call.** Pattern:
-  ```csharp
-  // BAD
-  using var conn = ...;
-  var run = await conn.QueryAsync(...);
-  var transcript = await _youtube.FetchAsync(...); // conn still checked out
-  await conn.ExecuteAsync(...);
-
-  // GOOD
-  HarvestRunRow run;
-  using (var conn = ...) { run = await conn.QueryAsync(...); }
-  var transcript = await _youtube.FetchAsync(...);
-  using (var conn = ...) { await conn.ExecuteAsync(...); }
-  ```
-- **Cap `Maximum Pool Size` explicitly in the connection string** to ~10-15 (well below Render Basic-256MB's ceiling) so DeckFlow fails fast and loudly in dev rather than silently consuming Render's whole budget in prod. Better to see `pool exhausted` in WSL than in prod.
-- **Single hosted harvest worker, sequential video processing.** v1.4 spec is "manual admin-triggered harvest (no scheduler)" — keep the worker single-threaded per-batch. Concurrency yields no UX win and breaks the pool. Reuse the `ArchidektCacheJobService` singleton-hosted pattern.
-- **Test the Whisper-stuck case:** if Whisper API hangs for 9 minutes (real failure mode — see Pitfall 7), don't hold a connection that whole time. Acquire-release around the API call boundary.
-
-### Detection
-- **Serilog enrichment:** log `npgsql_pool_active_connections` periodically via a `NpgsqlDataSource` event handler. Graph trend over a harvest run. Should stay flat near 1-3, not climb.
-- **Smoke test in Phase 16:** start a harvest of 5 videos and concurrently hit `/feedback` 20 times. All `/feedback` POSTs must succeed (no pool exhaustion).
-- **Stress test on Render staging (if one exists) before production deploy:** trigger a 50-video harvest and watch Render dashboard's "Connections" metric.
-
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — connection-handling pattern established in the first harvest worker implementation. Plan-checker enforces "no `await` between connection acquire and release across HTTP boundary" rule.
+**Phase to address:**
+Content KB integration phase — relevance matching design must be specced before the injection service is implemented, not derived from the prompt builder. Run the tag-distribution audit before writing any matching code.
 
 ---
 
-## Pitfall 7: Whisper API timeout > 10min on long podcasts (silent partial transcription)
+### Pitfall 4: Prompt budget competition between KB injection and existing analysis sections causes silent truncation at the paste destination
 
-### Failure Mode
-Admin queues a 90-minute MTG podcast (Command Zone full episodes are 120-180min). Whisper API call exceeds its server-side 10-minute processing window OR DeckFlow's `HttpClient.Timeout` (default 100s) fires first. Two failure modes:
-1. **HttpClient timeout:** `TaskCanceledException` thrown server-side. Whisper job may still be running and **billed** on OpenAI's side. DeckFlow has no transcript and no record of the cost.
-2. **Whisper returns truncated transcript with HTTP 200:** the audio was cut at 25MB upload limit, so the transcript only covers the first ~25min of audio but looks superficially valid. Summary downstream is misleading.
+**What goes wrong:**
+The deck-analysis prompt already includes: deck context, bracket/format data, reference text (Scryfall card data), combo reference (Spellbook), questions, and formatting instructions. Adding KB injection pushes total prompt size over the paste cap for at least one AI target. The AI receives a truncated prompt missing the tail — usually the questions section or the format instructions — and returns a structurally wrong response.
 
-File-size limit: **25MB hard cap** (26,214,400 bytes), independent of duration. A 2-hour mono 64kbps MP3 = ~57MB → fails. Same podcast at 32kbps = ~28MB → still fails.
+This is silent: the server emits the full prompt into the zip file, the user pastes, the AI truncates the input without warning in the web UI, and the user gets a partial analysis. There is no server-side signal that truncation happened.
 
-### Root Cause
-Whisper-1 has no chunking API. The 25MB limit is enforced server-side. OpenAI explicitly does NOT support resumable uploads or chunked transcription as a single-call primitive.
+Estimated additive risk: existing analysis prompt for a 99-card Commander deck with combos is ~35-50KB. Adding 4KB of KB content pushes the total to ~39-54KB. ChatGPT (100K token context, ~400KB) is safe. Claude (200K context) is safe. Gemini web UI at 30-60KB threshold is the risk.
 
-### Prevention
-- **Chunk audio client-side before upload.** Use a server-side ffmpeg invocation (already part of the `.NET 10 aspnet:10.0` Docker base? — **no, not included; add `RUN apt-get install -y ffmpeg` to Dockerfile**) to split podcasts into ≤10-minute, ≤20MB segments, transcribe each, concatenate transcripts with offset timestamps.
-- **Set `HttpClient.Timeout = TimeSpan.FromMinutes(15)`** on the `whisper-api` named client. Higher than Whisper's processing window so we get a clean error, not our own timeout firing first. Wrap in Polly timeout strategy at 12 minutes.
-- **Pre-flight size check:** download the audio file to /data tmp, measure size + duration via ffprobe, branch on `if (sizeBytes > 24_000_000) ChunkAndTranscribe() else SingleShot()`. NEVER attempt single-shot on a >24MB file.
-- **Cost reconciliation:** persist Whisper API request metadata (file size, duration, model) and OpenAI's returned `usage` field if present. Reconcile weekly against OpenAI's billing dashboard export. Surprising delta → there's a hidden timeout-retry billing somewhere.
-- **Render 512MB RAM cap consideration:** ffmpeg on a 180MB podcast download to /data is fine (disk-bound, low RAM). Re-encoding in-memory is NOT — must use ffmpeg `-i in.mp3 -c copy -ss ... -t ...` stream-copy, not transcode.
-- **No native idempotency-key on Whisper transcriptions endpoint** (verified — OpenAI's Idempotency-Key support is documented for Agentic Commerce, not transcriptions). DeckFlow MUST track its own "in-flight" state in `transcripts.status = 'whisper-pending'` BEFORE calling, so a retry after a network blip can decide whether to call again or wait.
+**Why it happens:**
+Each feature (combos, KB injection, bracket guidance) independently adds content to the prompt without a global budget authority. There is no prompt-length measurement at the packet service level that would signal "this deck's prompt is near-cap."
 
-### Detection
-- **Counter:** `whisper_request_duration_seconds` histogram. Alert at p99 > 600s.
-- **Counter:** `whisper_chunked_files_total` vs `whisper_single_shot_total` — should match the file-size distribution of inputs.
-- **Test:** xUnit fact `WhisperPipeline_LongFile_ChunksAndConcatenates` with a synthetic 30MB stub audio file. Assert chunk boundaries align with silence-detected breakpoints, transcript timestamps are offset correctly.
-- **Render RAM watch:** monitor `/proc/self/status VmRSS` during harvest. If RAM climbs above 350MB (out of 512MB cap), abort harvest and alert — we're loading audio into memory somewhere we shouldn't.
+**How to avoid:**
+- Add `PromptLengthBytes` to the `DeckAnalysisPacketResult` record alongside the existing fields. Compute it at packet build time. Display it (or a size tier: S/M/L/XL) in the UI so users can see when a prompt is large.
+- Establish a prompt budget hierarchy: deck context → combo reference → questions → KB injection. KB injection is LAST and can be truncated or omitted if total prompt exceeds a soft cap (recommended: 50,000 chars for Gemini safety; 150,000 chars for ChatGPT/Claude soft cap). Implement as: measure size before injection; add KB content only if remaining budget allows.
+- For the initial KB integration phase, KB injection is additive to the ChatGPT/Claude variants only (Gemini is already flag-gated). This naturally limits the risk surface.
+- Test: for a representative large Commander deck (100 cards, 5+ Spellbook combos, all questions selected), measure the full analysis prompt size and assert it is below 50,000 chars after KB injection.
 
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — chunking architecture must land before Phase 17 invokes Whisper at scale. Dockerfile ffmpeg install is a Phase 16 dep (touches `Dockerfile` + render redeploy).
+**Warning signs:**
+- Generated zip `31-analysis-prompt.txt` exceeds 50KB.
+- User reports "Claude didn't answer any of my questions" — questions section was truncated.
+- The "What Experts Say" KB section appears in the zip but not in the AI response.
+
+**Phase to address:**
+Content KB integration phase — prompt budget authority must be designed before KB injection is added to any prompt builder. The budget check must be a first-class step in the packet service, not a post-ship observation.
 
 ---
 
-## Pitfall 8: Doc-comment NoWarn strip fails the build with ~88 warnings BEFORE backfill lands (sequencing bug)
+### Pitfall 5: PacketArtifactStore `PrimerAllowedNames` whitelist not added — zip round-trip silently drops all primer artifacts
 
-### Failure Mode
-Phase 18 (Doc-Comment Backlog) plan strips `<NoWarn>$(NoWarn);1591;1573;1587</NoWarn>` from `DeckFlow.Web.csproj` as the first task. Build immediately fails with 88 CS1591 warnings (Web treats warnings as not-errors by default, but in CI/Release the gate is stricter). Codex executor sees red. Decides to revert the strip. Phase 18 churns for hours.
+**What goes wrong:**
+`PacketArtifactStore` uses three separate `HashSet<string>` allowlists for artifact names: `PacketAllowedNames`, `ComparisonAllowedNames`, `CedhAllowedNames` (verified at `PacketArtifactStore.cs:27-70`). Any entry name NOT in the allowlist is silently dropped on `ReadEntries` (line 598). The primer workflow adds a new artifact set (e.g., `31-primer-prompt.txt`, `10-primer-decklist.txt`). If the implementer adds `BuildZipPrimer` and `LoadZipPrimer` methods but forgets to add `PrimerAllowedNames` and instead reuses `PacketAllowedNames`, the primer-specific artifacts are silently dropped on reload. The "re-upload existing primer" UX shows an empty or wrong state with no error.
 
-OR: implementer adds doc-comments to 30 of 88 types, NoWarn already stripped, Build emits 58 warnings, "looks like progress" mindset commits the partial state to main. Build is now noisy in CI for everyone for days.
+This is a silent data loss: `ReadEntries` returns a dict with the known-good analysis artifacts (if any overlap) and silently omits the primer ones. No exception is thrown.
 
-### Root Cause
-NoWarn was added specifically to suppress these 88 warnings as a v1.1 deferral (per Phase 14 CONTEXT "Deferred Ideas" — captured in v1.3 audit tech_debt). Stripping the NoWarn flag without first backfilling is order-of-operations wrong.
+**Why it happens:**
+The allowlist is a security/safety measure (prevents reading arbitrary zip entries), but its enforcement is silent. The `PacketAllowedNames` set is a `static readonly` — it is not extensible at runtime. A new workflow requires a new named set. Easy to miss during implementation because `dotnet build` is clean and the feature "works" until round-trip is tested.
 
-**Additional Razor-specific quirk:** `.cshtml` files generate compiler-emitted partial classes. CS1591 fires on the *generated* partial when `<GenerateDocumentationFile>true</GenerateDocumentationFile>` is on, NOT on the user-authored partial. You cannot add a doc comment to a file you didn't write. The Roslyn issue tracker has a 9-year-old "we should not emit CS1591 on generated code" complaint that is still open (`dotnet/roslyn#12702`). **Razor views will continue to need pragma suppression even after the 88 user-authored types are documented.**
+**How to avoid:**
+- Make `PrimerAllowedNames` the FIRST task in the primer artifact store implementation, not an afterthought. Add it alongside `BuildZipPrimer` in the same commit.
+- SC for primer workflow must include: "Re-upload a downloaded primer zip; verify all sections and selections are restored exactly." This tests the round-trip, which is the only path where the allowlist gap manifests.
+- Add a unit test: `BuildAndLoadZipPrimer_RoundTrip_AllArtifactsPreserved` — build a primer zip, load it, assert every expected artifact is present with matching content.
+- Plan-checker rule: any PR adding a new workflow (non-analysis, non-comparison, non-cedh) must show a new `*AllowedNames` hashset in `PacketArtifactStore` or explain why reuse is correct.
 
-### Prevention
-- **Plan sequencing is fixed:** Backfill ALL 88 doc-comments FIRST (with NoWarn still in place — warnings hidden but doc-comments still emitted to XML). Last commit of the phase strips NoWarn AND adds a more-targeted `<NoWarn>$(NoWarn);1591</NoWarn>` in a `Condition` that scopes only to generated Razor `obj/` files OR uses `<GeneratedCodeAttribute>`-aware suppression. Test build is clean.
-- **Per-file partial-warnings handling pattern:** if a few legacy types are genuinely undocumentable (e.g., test-seam internal records that aren't supposed to surface as public XML), add file-scoped `#pragma warning disable CS1591` blocks, not project-wide suppression.
-- **Auditable grep gate** before NoWarn-strip task: `grep -L '<summary>' $(find DeckFlow.Web -name '*.cs' -not -path 'obj/*' | xargs grep -l '^public ')` must return empty (every public-type file has a `<summary>`).
-- **Razor-generated CS1591 specifically:** keep `1591` in NoWarn IF the Razor compile target emits it. Verify with `dotnet build -warnaserror:CS1591 -p:GenerateDocumentationFile=true` from a clean obj/. Test what fires.
+**Warning signs:**
+- Primer upload path loads a form with empty section selections even though the download contained selections.
+- `ReadEntries` log shows 0 entries loaded for a known-good primer zip.
+- Integration test for primer upload fails to restore any state.
 
-### Detection
-- **CI gate:** post-Phase 18, `dotnet build -warnaserror` (or at minimum `-warnaserror:CS1591;CS1573;CS1587`) is required to pass.
-- **Pre-commit grep:** for every PR touching `*.cs` files, "public type without doc-comment in same file" check.
-- **AuditBundle output review:** before Phase 18 close, count `<summary>` occurrences ≥ count `^public (sealed )?(class|record|interface)` occurrences in DeckFlow.Web.
-
-### Phase Owner
-**Phase 18 (Doc-Comment NoWarn Backlog)** — owned by Phase 18 itself. Phase 18 SC1 = "all 88 v1.1-era types documented before NoWarn touched." SC-final = "NoWarn stripped AND `dotnet build -warnaserror:CS1591` passes." Two SCs, not one.
+**Phase to address:**
+Primer packet service implementation phase — allowlist addition is mandatory alongside `BuildZipPrimer`/`LoadZipPrimer`. Verification SC must include round-trip test.
 
 ---
 
-## Pitfall 9: WDG-04 modal focus-trap hand-rolled vs `<dialog>` (accessibility + maintenance trap)
+### Pitfall 6: `get; init;` → `get;` auto-conversion on new primer/KB result record types silently breaks JSON serialization
 
-### Failure Mode
-Implementer hand-rolls a focus-trap JS module: `keydown` listener, `tab` index walker, escape-key, focus-restore. Two months later: a Razor view nests another tabbable widget (`df-typeahead`, `df-select` combobox) inside the modal. The hand-rolled walker doesn't know about these custom-element focusable descendants. Tab leaks to the underlying page. Screen reader reads the page behind the modal. WCAG 2.4.3 fail.
+**What goes wrong:**
+New C# records are added for the primer workflow (`DeckPrimerRequest`, `DeckPrimerResult`, `PrimerSectionSelection`) or for KB injection results. Codex's formatting pass (or an IDE Format Document run) converts `{ get; init; }` to `{ get; }` on init-only properties. `System.Text.Json` in .NET 9+ silently skips get-only properties during serialization. The JSON artifact written to the zip is missing fields. On re-upload, the state is not restored. No exception; no warning.
 
-Alternative failure: the hand-rolled focus trap clashes with the existing keyboard shortcuts in `wwwroot/ts/` (e.g., the WDG df-typeahead `Escape` handler) — Escape on the typeahead bubbles to the modal which closes; user loses the typeahead input mid-form.
+This has already broken `EdhTop16Client` deserialization before (confirmed in `CLAUDE.md` constraints: "never auto-convert `{ get; init; }` to `{ get; }` (System.Text.Json silently skips get-only properties in .NET 9+ — has broken `EdhTop16Client` deserialization before)").
 
-### Root Cause
-The native HTML `<dialog>` element (Baseline 2022; supported in all modern browsers) provides focus-trap + Escape + aria-modal + backdrop FOR FREE. Hand-rolling it is a 2026 anti-pattern.
+**Why it happens:**
+Codex executor may not have the constraint fully internalized on every dispatch. The failure is silent (no build error, no test failure unless a round-trip test exists for the specific record). Each new milestone introduces new record types that are fresh targets for this regression.
 
-### Prevention
-- **Use `<dialog>` element with `showModal()`.** Style the `::backdrop` pseudo-element via `site-common.css` (per the v1.3-pinned layout-CSS rule). Native focus-trap, native Escape, native `aria-modal`.
-- **Test inside a Razor view that contains a `df-typeahead` and a `df-select` combobox** — the actual `AdminFeedback/Detail.cshtml` already has the form; reproduce it. Verify Tab cycles through native + custom-element controls without leaking.
-- **Escape key handling:** delegate to the dialog. If a child component (df-typeahead) calls `event.stopPropagation()` on Escape (to close its own popover, not the dialog), document that in `site-common.css` comments and TypeScript-component contracts. Verify both interactions.
-- **`inert` attribute** on the rest of the page when the dialog opens — browsers respect this; assistive tech sees only the dialog. Polyfill not required for current browser-baseline.
+**How to avoid:**
+- Every CONTEXT.md for primer and KB phases must include the explicit constraint verbatim: "Never convert `{ get; init; }` to `{ get; }` — System.Text.Json silently skips get-only properties in .NET 9+."
+- Plan-checker grep gate: `grep -rn "{ get; }" DeckFlow.Web/Models/ DeckFlow.Core/Models/` — any new `get;` without `init;` on a record property that is also in a serialized DTO is a BLOCKER.
+- Add `ResultContractTests`-style serialization round-trip tests (already established in the codebase for `AiPlatform`) for every new request/response record used in primer zip artifacts.
+- The diff review for every primer/KB phase must include a visual check: are there any `{ get; }` on record properties that were `{ get; init; }` in the source?
 
-### Detection
-- **Manual a11y test in HUMAN-UAT.md for Phase 19/20 (WDG-04 modal):**
-  1. Open Confirm modal with keyboard (Enter on trigger button).
-  2. Tab through every focusable element — must cycle within modal only.
-  3. Shift+Tab from first element — must cycle to last in modal.
-  4. Escape — must close modal AND restore focus to trigger button.
-  5. NVDA / VoiceOver test — modal content read; page behind silent.
-- **Automated test in `wwwroot/ts/`:** Playwright (if added) or hand-rolled `document.activeElement` assertion after dispatch of Tab events.
+**Warning signs:**
+- Primer zip file `31-primer-prompt.txt` exists but section selection artifacts are empty/missing after reload.
+- JSON artifact contains `{}` or partial object for a record type with multiple properties.
+- Unit test round-trip passes but manual round-trip via UI fails.
 
-### Phase Owner
-**Phase 19 or 20 (WDG-04 Modal Replacement)** — pair with admin-mobile sweep so the same shell touches modal + admin a11y together.
+**Phase to address:**
+Every primer and KB phase. This is a cross-cutting constraint, not a single-phase fix. Reinforce in CONTEXT.md for each phase.
 
 ---
 
-## Pitfall 10: Admin mobile sweep regresses 22 guild themes (CSS bleed)
+### Pitfall 7: Stale Content KB content injected into analysis prompts (prod flag OFF → content harvested months ago → outdated meta advice)
 
-### Failure Mode
-Implementer adds responsive rules to `wwwroot/css/admin.css` for "admin shell only" — but a selector like `table { display: block; overflow-x: auto; }` or `.btn { width: 100%; }` is too broad. The same `.btn` class is used across 22 guild-themed CSS files for site-wide buttons. Admin sweep ships, mobile users complain that the homepage CTA is now full-width and wrapping ugly.
+**What goes wrong:**
+The `content.kb.enabled` flag is currently OFF in production (confirmed: v1.4 milestone audit tech_debt). When the KB integration phase flips it ON, the content in the KB was harvested at v1.4 time. MTG meta evolves quickly (ban list changes, new set releases, dominant strategy shifts). A user running a deck-analysis prompt in v1.5 receives KB content that references cards that are now banned or archetypes that have fallen out of the meta. The AI, instructed to treat KB content as expert guidance, applies stale advice confidently.
 
-OR: implementer adds the layout rule to `site-common.css` (the right file per project rules) but doesn't think about cascade order with 22 theme files. Theme files load AFTER site-common, override unexpected properties.
+This is uniquely dangerous because the KB content is presented as curated expert knowledge — it has more authority in the prompt than generic AI inference.
 
-### Root Cause
-DeckFlow's CSS architecture is unusual: 22 guild themes are FULL CSS FORKS (not overrides). `site-common.css` holds cross-cutting layout. `site.css` (legacy default) overrides per page. This invariant is project-pinned (CLAUDE.md) but easy to forget when adding new rules.
+**Why it happens:**
+Content harvest is manual (no scheduler in v1.4). If no harvest is run between v1.4 ship and v1.5 KB integration, the content is stale by definition. The system has no content-freshness signal to the prompt builder.
 
-**Table-specific note** (from Adrian Roselli + Lullabot research): horizontal-scroll tables MUST have `tabindex="0"` on the scroll container so keyboard users can pan. Card-stack pattern loses cross-row comparison utility (worth it for sparse data, bad for the admin Analytics tables which are inherently comparative). Pick PER-TABLE, not project-wide.
+**How to avoid:**
+- Before flipping `content.kb.enabled` to ON in prod, trigger a fresh harvest run to refresh the KB content. This is an ops prerequisite for the KB integration phase, not an optional step.
+- Add a `ContentHarvestedAt` field to the KB injection prompt header: "The following expert content was harvested [date]; content may not reflect the current meta." This honest disclosure lets the AI weight the content appropriately.
+- The KB integration phase success criteria must include: "KB content was harvested within [N] days before the integration UAT run." Stale-by-default is not acceptable for the initial prod flip.
+- Add a staleness warning in the Admin Flags UI next to the `content.kb.enabled` toggle: "Last harvest: [date]. Flip only after a recent harvest."
 
-### Prevention
-- **Scope every new admin selector with `.admin-shell` parent class** (or `body[data-area="admin"]` if that's how admin pages distinguish themselves; verify in `_AdminLayout.cshtml`). Admin pages are gated by `/Admin/*` route + `BasicAuthMiddleware`, so the parent-class scoping is naturally aligned.
-- **Pre-commit grep:** for every PR touching admin CSS, `grep -rE '^[^./.]' admin.css` for any unscoped element selectors (`table`, `button`, `input` without `.admin-shell` prefix) — those are BLOCKERs.
-- **Visual regression:** page-screenshot the homepage in 3-4 guild themes (Rakdos, Azorius, Boros, Selesnya) at mobile breakpoint BEFORE the admin sweep, and AFTER. Diff. Any pixel change on non-admin pages is a leak.
-- **Use CSS layer cascade:** `@layer admin { ... }` so admin rules are always lower-specificity than theme overrides on the public pages. Modern browsers support `@layer`; baseline since 2022.
-- **Table-strategy decision matrix:** per admin table, decide horizontal-scroll vs card-stack and document the rationale in the view's comment header. Analytics table → horizontal-scroll (comparison matters). Feedback list → card-stack (scanning, not comparing).
+**Warning signs:**
+- KB injection references a card that was banned more than 30 days ago.
+- The "What Experts Say" panel references a meta archetype that has not appeared in EdhTop16 in over 90 days.
+- `ContentHarvestedAt` date in the prompt header is more than 60 days before the analysis date.
 
-### Detection
-- **Manual check:** in Phase 20 HUMAN-UAT, open `/` and `/sync` in mobile viewport on **two non-default themes** (e.g., Rakdos, Gruul). Photo evidence.
-- **Test:** add `AdminCssSelectorScopeTests` that parses `admin.css` (or `site-common.css` admin-related rules) with a simple CSS-AST and asserts every top-level selector starts with `.admin-shell` or `body[data-area="admin"]`. Reject unscoped element selectors.
-
-### Phase Owner
-**Phase 20 (Admin Mobile Responsive Sweep)** — owned by Phase 20.
+**Phase to address:**
+Content KB integration phase — freshness disclosure added to the injection prompt AND the Admin Flags UI staleness warning added before `content.kb.enabled` can be flipped. Run a fresh harvest as the first step of the integration phase UAT.
 
 ---
 
-## Pitfall 11: Admin POST endpoint forgets `[ValidateAntiForgeryToken]` (SameOriginRequestValidator covers /api/* only)
+### Pitfall 8: Doc-warning gate widened to DeckFlow.Core before the 186-site backfill is complete — build breaks
 
-### Failure Mode
-New `/Admin/Content/Sources/Create` POST handler ships without `[ValidateAntiForgeryToken]`. `SameOriginRequestValidator` is wired into API endpoints (verified: 2 hits in `AdminAnalyticsController.cs:86`, `AdminHarvestController.cs:100`), not into admin Razor controllers (those use the MVC anti-forgery filter). A CSRF attack from an attacker site can submit harvest configs as a logged-in admin.
+**What goes wrong:**
+The current `.editorconfig` state (verified at lines 93-98 and 111-115): CS1591 severity is `none` globally, then overridden to `warning` in `[DeckFlow.Web/**.cs]` only. Widening to Core means changing the global `none` to `warning` OR adding a `[DeckFlow.Core/**.cs]` section. Either way, if done before backfilling the 186 undocumented sites, the build immediately emits 186 warnings. If `GenerateDocumentationFile=true` is already set on `DeckFlow.Core.csproj` (verified: it is, at line 7), those warnings are live the moment the severity changes.
 
-### Root Cause
-**Two separate CSRF mechanisms exist in DeckFlow:**
-- `/api/*` endpoints → `SameOriginRequestValidator.IsValid(Request)` check inside the action body
-- `/Admin/*` Razor POST endpoints → `[ValidateAntiForgeryToken]` filter attribute
+Scenario A (worst): Codex changes the editorconfig global severity to `warning` as step 1. Every CI run now fails on 186 warnings. Other developers (Codex dispatches for other features) cannot get a clean build. The feature is a multi-session blocker.
 
-It is easy to assume the Origin check covers admin too. It does NOT. Existing admin POSTs (verified) all carry `[ValidateAntiForgeryToken]` (`AdminFlagsController.cs:71`, `AdminFeedbackController.cs:69`, multiple in `AdminHarvestController.cs:128/143/171/254/271`) but the discipline is per-action, not enforced globally. A new controller missing the attribute is invisible to existing automation.
+Scenario B (moderate): Backfill is done in one pass, gate is widened in the same commit. Looks clean. But raw-string literals in Core (e.g., SQL constants in `SqliteRelationalDialect.cs`) get re-indented by Codex's formatter when touching nearby files. The literal value changes, the query breaks, the build is clean but runtime is broken.
 
-### Prevention
-- **Global filter pattern:** in `Program.cs`, register `services.AddControllersWithViews(options => options.Filters.Add<AutoValidateAntiforgeryTokenAttribute>())`. This requires every POST to have a token automatically. Existing API controllers (which use SameOrigin) should be exempted via `[IgnoreAntiforgeryToken]` annotation, **explicitly opting OUT** per controller. Inverts the safety default.
-- If global filter not adopted, **plan-checker grep gate:** `grep -L 'ValidateAntiForgeryToken' DeckFlow.Web/Controllers/Admin/*.cs` must return empty.
-- **Razor `_AdminLayout.cshtml` ships an `@Html.AntiForgeryToken()` already?** Verify; if not, add. New forms inherit it.
+**Why it happens:**
+The v1.4 lesson (Pitfall 8 in the prior PITFALLS.md) established the sequencing fix for DeckFlow.Web: backfill FIRST, gate LAST. The same lesson must be applied to DeckFlow.Core but the prior fix was Web-only. The Core backfill is 186 sites — more than the 88 Web sites — and Core contains more raw-string literals (SQL DDL constants, prompt templates).
 
-### Detection
-- **CI grep:** every file in `Controllers/Admin/` matching `^\s+\[HttpPost` must be within 3 lines of `[ValidateAntiForgeryToken]`.
-- **Integration test (new):** POST to every admin endpoint WITHOUT a CSRF token; assert 400. Use route discovery, not a hardcoded list, so new endpoints are auto-covered.
+**How to avoid:**
+- Same sequencing discipline as v1.4 Phase 23: backfill ALL 186 Core doc-comment sites BEFORE touching the editorconfig.
+- Backfill must be split into multiple plans (each plan targeting a namespace: `Models/`, `Parsing/`, `Knowledge/`, `Integration/`, `Storage/`, `Content/`). Do not try to backfill 186 sites in a single Codex dispatch — the diff will be unreviable.
+- The editorconfig change (widening the gate) is the LAST commit of the last plan. SC: "`dotnet build -warnaserror:CS1591` from a clean `obj/` returns 0 errors and 0 warnings."
+- CONTEXT.md for every Core backfill plan must include: "Do not touch the `.editorconfig` in this plan. Do not re-indent raw-string literals. Touch only lines that need a `<summary>` tag added."
+- Verify Razor-generated CS1591 behavior in Core (Core has no Razor files, so this is less of a concern than in Web). The gate-widen for Core is safer than the Web case.
 
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — admin content-source CRUD ships in Phase 16. Anti-forgery discipline established at the same time. Reuse the existing admin controller pattern (verified working) rather than inventing new.
+**Warning signs:**
+- Any plan that has both "add doc-comments" and "widen editorconfig gate" in the same task list — those must be separate plans.
+- Build log showing CS1591 warnings on files that have not yet received backfill.
+- Diff for a doc-comment plan shows changes to SQL string literals or indentation of raw strings.
 
----
-
-## Pitfall 12: New Postgres tables collide with v1.1 HarvestRunStore schema OR migration runs out of order
-
-### Failure Mode
-v1.4 implementer names a new table `harvest_runs` (because v1.1 already had one for Archidekt cache jobs — verified at `DeckFlow.Web/Services/Harvest/HarvestRunStore.cs:437,456`). Schema collision. Worse: the new code's `EnsureSchemaAsync` runs BEFORE the v1.1 schema runs (DI order is non-deterministic for hosted services), creating a `harvest_runs` table that the v1.1 store then partially augments via `CREATE TABLE IF NOT EXISTS` (which silently does NOTHING if the table exists), leaving v1.1 columns missing.
-
-### Root Cause
-- DeckFlow uses `EnsureSchemaAsync` per-store, called on first use, NOT a centralized migration tool. There is no Migration Run Order Authority.
-- `CREATE TABLE IF NOT EXISTS` is silently idempotent — first-create wins; subsequent creates with different columns are silently ignored. **No error surfaces.**
-- The pattern works fine for orthogonal stores; it breaks when two stores think they own the same table name.
-
-### Prevention
-- **Namespace new tables explicitly:** `content_sources`, `content_videos`, `content_transcripts`, `content_summaries`, `content_clips`, `content_tags`, `content_harvest_runs`. The `content_` prefix is the namespace. Never reuse `harvest_runs`.
-- **Create `ContentHarvestRunStore` as a separate class** from `HarvestRunStore`. Even if the schema feels duplicative, sharing it creates coupling between Archidekt harvest (v1.1) and content harvest (v1.4) lifecycles — different cadence, different cost model, different operator UI. Per the SRP, two stores.
-- **Migration ordering:** centralize schema EnsureAsync calls in a `DatabaseStartupBootstrapper` hosted service that runs FIRST (`HostedService` order in DI), calls EnsureSchema on every store in a deterministic order, then unblocks the rest of the app. Reuse the `Program.cs:188-208` startup-DB-validation block as the hook.
-- **Add a per-store schema version row** (`content_schema_version` table with `(store_name, version, applied_at)` rows). EnsureSchemaAsync compares its expected version against DB; fails fast on mismatch. Prevents the "CREATE TABLE IF NOT EXISTS silently noops" trap.
-- **Dual-dialect compatibility:** every new schema MUST be tested on BOTH SQLite (local dev — `Microsoft.Data.Sqlite 10.0.0`) AND Postgres (prod — `Npgsql 10.0.0`). Postgres-specific features (advisory locks for Pitfall 3, JSONB columns, partial indexes) need a fallback path in the `SqliteRelationalDialect` implementation OR a dialect-gated codepath.
-
-### Detection
-- **Test:** `EnsureSchemaAsync_CalledTwiceWithDifferentVersions_FailsLoudly` — set up a v1 schema, attempt v2 EnsureSchema, assert exception or migration log.
-- **Manual Postgres check:** before merging Phase 16, query Render Postgres `\dt content_*` — verify all expected tables exist with expected columns. (Render's `psql` shell works via `render psql`.)
-- **Test against both SQLite (local dev) AND Postgres (CI integration):** the existing `[Trait("Category", "Postgres")]` test bucket pattern. Add `EnsureSchema_Sqlite` AND `EnsureSchema_Postgres` parametric tests for every new store.
-
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — schema design happens once, tests are mandatory. Roadmapper should make SC explicit: "All v1.4 schema lives under `content_*` prefix; no overlap with v1.1 table names."
+**Phase to address:**
+Housekeeping phase for Core doc backfill. Must use the same two-SC structure as Phase 23: SC-1 = "all 186 sites documented with NoWarn still suppressed"; SC-final = "NoWarn widened AND `dotnet build -warnaserror:CS1591` clean from clean `obj/`."
 
 ---
 
-## Pitfall 13: Gemini paste-limit split-message UX is confusing (worse than Gemini-disabled)
+### Pitfall 9: KB-12 codex distill backend adds a string literal provider instead of extending `LlmDistillationProviderFactory`
 
-### Failure Mode
-Workaround for Gemini paste cap: split the prompt into N parts and tell the user "paste these N messages into Gemini one by one." User pastes part 1, Gemini responds "got it, send the next part." User pastes part 2. Gemini's context is reset because the user refreshed the tab, or Gemini hallucinates a response from part 1 alone. User gets garbage. Files a bug. The split-message UX is **worse than the v1.3 status quo of "Gemini hidden behind flag."**
+**What goes wrong:**
+`LlmDistillationProviderFactory` currently has three string constants: `"openai"`, `"claude"`, `"codex"` (verified at `LlmDistillationProviderFactory.cs:13-15`). The `"codex"` case throws `NotSupportedException` with a deferral message. KB-12 is the deferred phase to implement it. The risk: implementer adds `"codex"` handling by copy-pasting the `"claude"` CliLlmDistillationService pattern without reading the existing factory structure, and adds new string literals in `CommandRunners.cs` call sites rather than routing through the factory constant. Alternatively, the implementer adds a fourth provider (`"codex2"` or `"anthropic-codex"`) as a new string, bypassing the factory constant.
 
-### Root Cause
-Gemini Web UI is a chat surface; it has no first-class "queue-multi-message-as-one-prompt" feature. State persistence between messages depends on the user not navigating away.
+Unlike the `AiPlatform` value-object risk (Pitfall 5 in the prior PITFALLS.md), this is a CLI-layer factory, not a web-layer registry. But the pattern failure is the same: stringly-typed extension instead of the established factory extension point.
 
-### Prevention
-- **Skip the split-message approach.** Go direct: integrate **Gemini API** (AI Studio, free tier: 1,500 req/day for 2.5 Flash, 50/day for 2.5 Pro — sufficient for DeckFlow's volume; Pro has 5 RPM cap so plan for Flash by default).
-- Gemini API integration **must use `AiPlatform.GeminiDirect` value-object variant** (see Pitfall 5).
-- **Error envelope is different from existing AI platforms:** Gemini API returns `{"error": {"code": ..., "message": ..., "status": ...}}` structurally distinct from OpenAI/Anthropic. The existing `UpstreamErrorMessageBuilder` (verified at `CommanderController.cs:103-110`) must add a `BuildGeminiMessage(exception)` overload. Don't hand-write per-page error parsing.
-- **Cost surprise:** AI Studio FREE tier is sufficient for DeckFlow's expected volume, but data is used for training (privacy concern noted, but our prompts contain only public deck info — acceptable for v1.4). Vertex AI is the paid alternative if data-privacy ever becomes a concern.
-- **AI Studio vs Vertex AI surface differences:** different URLs, different auth (API key vs OAuth/service account), different rate limits. Pick AI Studio for v1.4 (simpler, free tier). If we ever need data-privacy + SLAs, Vertex requires a meaningful re-integration. Document this so v1.5+ planners know the migration scope.
-- **Latency:** Gemini 2.5 Flash p50 ~1-2s; the existing AISEL pages await user paste-back so there is NO latency budget for v1.4 (user controls timing). Direct API only matters when DeckFlow programmatically calls Gemini (e.g., if/when summarization moves to Gemini — currently planned for OpenAI Structured Outputs).
+**Why it happens:**
+The factory comment ("deferred to Phase 21.3 / KB-12") is in code but the resolver logic pattern is not enforced by a type system. Any Codex dispatch that has `LlmDistillationProviderFactory.cs` in scope could add a string case without realizing the `LlmDistillationServiceTests` tests need a corresponding extension. The test `LlmDistillationProviderFactoryTests` (verified to exist in `DeckFlow.Core.Tests`) is the regression guard, but only if the implementer runs it.
 
-### Detection
-- **HUMAN-UAT on Phase 19:** real Gemini API key in Render env (`GEMINI_API_KEY` with `sync: false`). Real end-to-end paste-back test on `/deck-analysis`. Verify the AI response flows back through `<result>` extractor.
-- **Counter:** `gemini_api_errors_total` by `error.status` — track 429 (rate limit), 400 (malformed prompt), 503 (Google outage). Alert if any sustains.
+**How to avoid:**
+- CONTEXT.md for KB-12: "The `codex` case is already stubbed in `LlmDistillationProviderFactory.cs` at line 49-53. Replace the `NotSupportedException` with a real implementation. Do NOT add new string constants anywhere. The factory constant `CodexProvider = "codex"` is already defined."
+- Plan task should be explicit: "In `LlmDistillationProviderFactory.cs`, replace the `throw new NotSupportedException(...)` in the `codex` branch with `return new CliLlmDistillationService(CodexProvider);`" — leaving nothing to creative interpretation.
+- Add a test: `LlmDistillationProviderFactory_Codex_ReturnsCliBackend` — the existing test class structure supports this directly.
+- Code review gate: the diff for KB-12 must show ONLY the `NotSupportedException` block replaced, no new string literals elsewhere in the codebase.
+- The "untrusted-input read boundary" concern (noted in v1.4 audit tech_debt as the reason KB-12 was deferred) must be explicitly addressed in the spec: what inputs does the codex CLI receive, and how are they validated before shelling out?
 
-### Phase Owner
-**Phase 19 (Gemini Paste-Limit Unblock)** — owned by Phase 19. Reuse the existing `AiPlatform` registry (Pitfall 5) AND `UpstreamErrorMessageBuilder` (per the v1.3-established service pattern).
+**Warning signs:**
+- Diff for KB-12 shows new string literals in `CommandRunners.cs` referencing a codex provider name.
+- A new `ILlmDistillationService` implementation is added without a corresponding `LlmDistillationProviderFactory` entry.
+- `LlmDistillationProviderFactoryTests` does not gain a new test case in the KB-12 diff.
 
----
-
-## Pitfall 14: VSTest broken in WSL — false-confidence build green vs runtime regression
-
-### Failure Mode
-Implementer pushes code with a runtime null-ref or DI-resolution bug. `dotnet build` is clean. Pushes to main. CI runs the test suite; one test fails. Operator has to context-switch from local dev to GitHub Actions log review. Slow loop.
-
-### Root Cause
-`Testing: VSTest unreliable in WSL` is a project constraint (CLAUDE.md). Local dev cannot run `dotnet test`. Build-clean is necessary, not sufficient. Without CI, no test feedback.
-
-### Prevention
-- **Push-and-watch CI** is the established discipline (CLAUDE.md). Reinforce it in v1.4 phase plans: every plan SC must explicitly mention "push, wait for green, then close."
-- **For high-confidence local validation:** instead of `dotnet test`, run `dotnet build -warnaserror -c Release` (catches more than debug build) + targeted manual harness scripts (`scripts/run-web.sh` + curl against running dev server).
-- **`run + update tests after changes` rule** (memory `feedback_run_and_update_tests`) — build via `/mnt/c/Program Files/dotnet/dotnet.exe` + run test suite + triage failures + update drifted tests in-commit; grep counts alone aren't "done." Honor this through CI even when local-test is broken.
-
-### Detection
-- The CI test suite IS the detection. If a v1.4 PR ships without a green CI on the merge SHA, the merge SHA is unverified. `no-ship-failing-tests` rule (established 2026-05-22, applied by Phase 999.6) is the operating gate.
-
-### Phase Owner
-**Every phase.** Process discipline, not feature-owned.
+**Phase to address:**
+KB-12 housekeeping phase. Bounded fix: replace one `throw` with a `return`. The real work is the untrusted-input boundary validation.
 
 ---
 
-## Pitfall 15: Public-repo secret leak (Whisper/OpenAI/Anthropic/Gemini keys in commits)
+### Pitfall 10: Section-combinatorics explosion: 31 sections × 2 AIs × 2 bracket presets = undertested surface
 
-### Failure Mode
-Implementer drops an API key into `appsettings.Development.json` "just for local testing." Forgets to revert. Pushes to a public repo. GitHub secret-scanning notifies OpenAI within minutes. OpenAI auto-revokes the key. Local dev is broken; cost was minimal. If the key wasn't auto-revoked, attacker drains the account.
+**What goes wrong:**
+The primer has 31 sections, two preset configurations (cEDH / Casual-Upgraded), per-section overrides, and at least two AI targets (ChatGPT, Claude). The combinatoric space is enormous. In practice, the prompt builder will have conditional branches: "if section 24 selected AND bracket == cEDH, inject EdhTop16 archetypes; else if bracket <= 4, inject generic buckets; else omit." A bug in any conditional emits a wrong or missing section without a visible error. Common failure modes:
+- Section 24 (Must-Counter Guide) appears in Casual/Upgraded output because the bracket preset conditional is inverted.
+- Section 11 (Combo Lines) renders correctly in ChatGPT variant but the Claude variant's XML-structure format wraps the Spellbook ground-truth block inside a speculative container (copy-paste error in the Claude variant builder).
+- Section 22 (Matchup Overview) for a bracket 3 deck shows EdhTop16 named archetypes instead of generic buckets because the bracket routing condition uses `>= 5` instead of `== 5`.
 
-### Root Cause
-`luntc1972/DeckFlow` is a public repo. v1.4 introduces FOUR new secrets that don't exist today: `OPENAI_API_KEY` (Whisper + summarization), `GEMINI_API_KEY`, optional `ANTHROPIC_API_KEY` if Claude summarization is added later, and any YouTube transcript service key (Supadata/Webshare/etc.).
+**Why it happens:**
+The existing prompt builders (Analysis, Comparison, MetaGap) each have three AI variants (ChatGPT, Claude, Gemini) that are intentionally duplicated (CLAUDE.md memory note: "prompt variants decoupled — never extract shared guidance"). The primer adds another layer: 31 sections × 2 preset modes × 3 AI variants = ~186 possible section-render paths. Manual verification covers a tiny fraction of this space.
 
-### Prevention
-- **All keys live in Render env vars with `sync: false`** (matches existing pattern — verified for `FEEDBACK_ADMIN_PASSWORD`).
-- **Add to `.gitignore`:** any `appsettings.*.local.json` pattern; any `secrets/` directory.
-- **Pre-commit hook OR Gitleaks GitHub Action:** scan diffs for OpenAI key format (`sk-...`), Google key format (`AIza...`), Anthropic format (`sk-ant-...`). Block commit/push.
-- **Document in CLAUDE.md `Constraints` section** the four new env vars and the `sync: false` requirement.
-- **GitHub secret-scanning push protection** — enable in repo settings (free for public repos).
+**How to avoid:**
+- Build a `PrimerSectionRenderTests` unit test class that parameterizes over `[SectionId, BracketPreset, AiPlatform]` tuples covering at least:
+  - cEDH preset: assert sections 24/25 ARE present, section 26 is NOT present.
+  - Casual/Upgraded preset: assert sections 24/25 are NOT present, section 26 IS present.
+  - Both presets: assert section 11 (Combo Lines) contains the grounded block when `comboResult != null`.
+  - Claude variant: assert the XML structural markers are present in combo and matchup sections.
+  - Bracket routing: bracket == 5 → EdhTop16 data present; bracket < 5 → generic bucket text present, EdhTop16 absent.
+- Each bracket-routing condition in the primer builder must have an inline comment explaining the condition: "Why: bracket 5 is cEDH; buckets 1-4 use generic strategies (no EdhTop16)." This is the CLAUDE.md "Why:" comment convention applied to conditional logic.
+- The primer workflow spike should produce a "section matrix" artifact: a simple table of which sections appear under which bracket/AI combinations, to use as a test oracle.
 
-### Detection
-- GitHub secret-scanning alerts → email Chris immediately.
-- Gitleaks CI job on every PR.
-- Manual audit pre-ship: `git log --all -p | grep -E 'sk-[a-zA-Z0-9]{20,}|AIza[a-zA-Z0-9]{35}'` — must return empty.
+**Warning signs:**
+- The primer output for a bracket 3 deck contains named archetypes like "Tymna-Thrasios Food Chain" (EdhTop16 data) — should only appear for bracket 5.
+- Section 24 (Must-Counter Guide) appears in the Casual/Upgraded output.
+- The Claude variant's combo section is missing the `<grounded-combos>` XML wrapper or the `<speculative-combos>` separator.
 
-### Phase Owner
-**Phase 16 (Content KB Phase 1 — Ingestion Foundation)** — first phase introducing API keys. Render env-var setup is a Phase 16 release-prep task. Pre-commit hook is added in Phase 16 too.
-
----
-
-## Recurring Patterns from v1.3 (v1.4 MUST NOT REPEAT)
-
-These are process pitfalls that bit v1.3 (per `.planning/RETROSPECTIVE.md` "What Was Inefficient" section). Calling them out separately so the v1.4 roadmap can install gates against each.
-
-### R-1: STATE.md arithmetic drift
-**v1.3 incident:** `completed_phases: 9 / total_phases: 11` (should be 11/11) and `completed_plans: 66 / total_plans: 46` (mathematically impossible). Shipped uncaught until milestone audit. Phase 999.7-01 + 4 closure commits to reconcile.
-**Prevention for v1.4:** STATE.md update is automated on phase close (compute counters, do not trust hand-entered). At minimum: add a CI gate `gsd-sdk verify-state` that asserts `completed_phases ≤ total_phases` AND `completed_plans ≤ total_plans` on every push to a v1.4 branch. Fail loudly.
-**Phase Owner:** all v1.4 phases. Roadmapper builds this into phase-close workflow.
-
-### R-2: REQUIREMENTS.md checkbox drift
-**v1.3 incident:** Phase 11 closed 2026-05-13. WDG-01..10 checkboxes shipped unchecked. 10 days of audit drift before Phase 999.7-02 flipped them.
-**Prevention for v1.4:** at phase-close, auto-flip checkboxes for every REQ-ID listed in `requirements-completed:` SUMMARY frontmatter. If a SUMMARY lists a REQ-ID, the REQUIREMENTS.md checkbox flips to `[x]` programmatically. Reject SUMMARYs missing the frontmatter at plan-checker time.
-**Phase Owner:** all v1.4 phases. Roadmapper enforces SUMMARY frontmatter requirement at plan-creation time.
-
-### R-3: Planning-time grep miscounts
-**v1.3 incident:** Phase 999.7-04 SC4 stated `grep -c D-11 returns 1` but HEAD had 3 instances. Verification gate format was too coarse. Audit F-01 evidence inventory similarly undercounted 3 → actual 5. Codex review caught both.
-**Prevention for v1.4:** every SC that uses grep MUST specify the exact grep command including anchors. Use `grep -cE '^[[:space:]]*\[HttpPost'` not `grep -c HttpPost`. Plan-checker validates SC grep commands are anchored (no bare-word `grep -c X file` patterns).
-**Phase Owner:** all v1.4 phases. plan-checker has explicit "anchored-grep validation" rule.
-
-### R-4: Cross-AI plan review catches what Claude's plan-checker misses
-**v1.3 incident:** Phase 999.7-01 had 2 BLOCKER issues caught by Codex peer review that Claude's `gsd-plan-checker` missed. Workflow `/gsd-plan-phase → /gsd-review → revise → /gsd-execute-phase` is the established pattern.
-**Prevention for v1.4:** every v1.4 plan goes through `/gsd-review` with Codex as reviewer BEFORE execute-phase dispatch. No exceptions for "small" plans — the v1.3 caught-BLOCKER plan was tiny.
-**Phase Owner:** all v1.4 plans. Workflow rule already in `~/.claude/CLAUDE.md`; reinforce in PROJECT.md v1.4 milestone section.
-
-### R-5: `no-ship-failing-tests` discipline
-**v1.3 incident:** Prior milestones shipped with deferred failures; v1.3 was the first to enforce Failed:0 before merge. Phase 999.6 created specifically to honor this.
-**Prevention for v1.4:** rule remains in force. ANY failing test at any milestone-ship attempt blocks merge. The v1.4 milestone adds Whisper + LLM integration code — new failure surface. Roadmapper allocates a `999.x` test-hardening phase by default before milestone-ship, ready to absorb residual failures.
-**Phase Owner:** ship gate. Roadmapper plans the test-hardening backlog phase upfront.
-
-### R-6: Auto-format / formatting paranoia
-**Project constraint not v1.3-incident, but bears repeating for v1.4** since Codex executor edits many files in a content-pipeline phase. CLAUDE.md is explicit: no Format Document, no `{ get; init; }` → `{ get; }` (System.Text.Json silently skips get-only properties in .NET 9+ — broke `EdhTop16Client` before), no inline `[Attribute]` on property line, no re-indent C# raw-string literals, preserve LF line endings, touch only lines that need touching.
-**Prevention for v1.4:** plan-checker has a "diff sanity" rule — if a PR touches >20 files with formatting-only changes interleaved with substantive changes, BLOCK. Force the implementer to split formatting and feature diffs. Codex must be reminded in every CONTEXT.md.
-**Phase Owner:** all v1.4 phases. Roadmapper includes formatting-discipline reminder in every CONTEXT.md template.
-
-### R-7: HANDOFF.json / STATE.md vs origin staleness on resume
-**v1.2 incident (cited in retrospective):** HANDOFF.json said Phase 10 was already done, but a prior session had already shipped 10-05 on a different branch. Cost: confused stash + unnecessary rebase + 30 minutes of reconstruction.
-**Prevention for v1.4:** on every resume, `git fetch` + compare `HEAD` vs `origin/<branch>` BEFORE reading any planning artifact. v1.4's long-running harvest phases (Phase 16 + 17) likely span multiple sessions; this discipline matters more, not less.
-**Phase Owner:** every session resume. Process discipline.
+**Phase to address:**
+Primer packet service implementation phase. Section-routing tests must be written alongside the conditional logic — not deferred to verification.
 
 ---
 
-## Phase-Specific Warnings Quick Reference
+## Technical Debt Patterns
 
-| Phase Topic | Likely Pitfall(s) | Mitigation |
-|-------------|-------------------|------------|
-| **Phase 16: Content KB Foundation (sources + ingestion)** | P1, P2, P3, P6, P7, P11, P12, P15 | Verify YouTube transcript path on non-owned video; route through proxy or paid API; hosted single-worker; namespace tables `content_*`; anti-forgery on admin POSTs; Render env vars for keys |
-| **Phase 17: Content KB Summarization + Cost UI** | P3, P4, P6 | Advisory-lock + serializable txn on cap check; OpenAI Structured Outputs only; staged-pipeline persistence; pool-friendly conn handling |
-| **Phase 18: Doc-Comment NoWarn Backlog** | P8 | Backfill all 88 BEFORE NoWarn strip; separate SCs for "documented" vs "warning gate"; investigate Razor partial CS1591 |
-| **Phase 19: Gemini Paste-Limit Unblock** | P5, P13 | AiPlatform value-object variant (NOT string); skip split-message UX; direct Gemini API; UpstreamErrorMessageBuilder.BuildGeminiMessage overload |
-| **Phase 20: Admin Mobile Responsive + WDG-04 Modal** | P9, P10 | Use native `<dialog>`; CSS scoped to `.admin-shell`; `@layer admin`; visual-regression on 22 themes |
-| **Every phase** | R-1, R-2, R-3, R-4, R-5, R-6, R-7 | STATE arithmetic auto-compute; REQ checkbox auto-flip; anchored grep; cross-AI plan review; no-ship-failing-tests; formatting paranoia; resume-discipline `git fetch` |
+Shortcuts that seem reasonable but create long-term problems.
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Reusing `PrimerAllowedNames = PacketAllowedNames` in zip store | Faster to implement; no new set needed | Silent data loss on primer artifact round-trip — missing artifact names dropped without error | Never. New workflow always needs its own named set. |
+| Single `DeckPrimerPacketService` handling both ChatGPT and Claude variants inline (no `IPrimerPromptVariant` registry) | Simpler for first ship | Violates the `AiPlatform` OCP pattern established in Phase 15; adding a 4th AI requires surgery to a large service class | Acceptable IF the primer is explicitly scoped to ChatGPT-only in v1; must add the registry pattern before enabling Claude or Gemini |
+| KB injection using simple substring search for relevance (e.g., `if deckText.Contains("combo")`) | Zero new query logic needed | Extremely noisy false positives; a deck with combo pieces but control strategy gets combo-focused KB content | Never. Relevance must use the structured `ContentTagVocabulary` dimensions from the KB index. |
+| Emitting KB content directly from raw distilled markdown without length-checking | Simpler injection logic | A single long KB artifact overflows the prompt budget and crowds out combo/question sections | Never. KB injection must check remaining prompt budget before appending. |
+| Widening the editorconfig doc gate in the same commit as the first 50 Core backfill doc-comments | One commit is cleaner | Build fails on the remaining 136 undocumented sites immediately; blocks CI | Never. Gate must widen in the final commit only. |
+
+---
+
+## Integration Gotchas
+
+Common mistakes when connecting to existing services in this specific system.
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| `CommanderSpellbookService` in primer | Treat non-null result as guaranteed; skip null check | `FindCombosAsync` returns `null` on API failure (graceful degradation). Primer builder MUST handle null: emit speculative-only disclosure. |
+| `EdhTop16Client` in primer matchup routing | Call it on every primer request regardless of bracket | Only call when bracket == 5 (cEDH). Brackets 1–4 use hardcoded generic strategy buckets. Use the existing `MetaGapRequest.TargetCommanderBracket` routing pattern. |
+| `ContentArtifactParser.SplitHeader` for KB content | Assume all KB entries have well-formed front matter | `SplitHeader` returns an empty header dict (not an exception) when `---` delimiter is missing. KB injection code must handle empty-header entries gracefully. |
+| `PacketArtifactStore` for primer zip | Extend `PacketAllowedNames` with primer entry names | Use a new dedicated `PrimerAllowedNames` set. `PacketAllowedNames` is a `static readonly` not designed for extension; cross-workflow name pollution is a security/safety concern. |
+| `IFeatureFlagCache` for KB enabled check | Check flag once at service construction time | Flag is designed to be checked per-request (runtime togglable). Check `IFeatureFlagCache.IsEnabled("content.kb.enabled")` per packet-build call, not at DI resolution time. |
+| `ContentKbArtifactPathResolver` for KB content lookup | Assume `ContentBase` always resolves to a non-empty content-kb dir | Resolver logs a warning and falls back to `ContentRootPath` when `content-kb` directory is absent. KB injection service must handle the "no content available" state gracefully (return null injection, no exception). |
+
+---
+
+## Performance Traps
+
+Patterns that work for small decks but degrade at scale.
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Loading all KB content entries for relevance matching on every primer/analysis request | Slow first request as KB grows; 512MB RAM cap pressure | Cache the KB slim index in `IMemoryCache` (TTL ~5 min); load once, match in-memory. The v1.4 KB design includes a "slim Postgres index" for exactly this. | When KB has 500+ entries and every request scans them. |
+| Injecting full distilled markdown summaries (can be 2–10KB each) per KB entry | Prompt budget blown by a single high-quality KB entry | Prefer injecting excerpt clips (timestamped sub-sections) over full summaries. Clip excerpts are already a first-class artifact in the v1.4 KB schema. | Immediately, for any deck with ≥1 long-form KB match. |
+| Running `FindCombosAsync` AND `EdhTop16Client` on every primer build regardless of selected sections | Unnecessary latency when combo/matchup sections are deselected | Check `selectedSections.Contains(SectionId.CoreComboLines)` before calling `FindCombosAsync`. Mirror the existing `AnalysisQuestionCatalog.RequiresComboLookup` pattern at `DeckAnalysisPacketService.cs:562-564`. | Every primer build for a user who deselects those sections — adds 1-2s latency unnecessarily. |
+| Building all 31 section text blocks then filtering | Simple builder logic | Build only selected sections — avoid generating text for deselected sections even if it seems faster to build-then-filter | Not a production problem at 31 sections, but establishes the wrong pattern for maintainability. |
+
+---
+
+## Security Mistakes
+
+Domain-specific security issues beyond general web security.
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| KB content injected into prompt without sanitization | If KB content contains prompt-injection text (e.g., "Ignore previous instructions and..."), it could influence AI behavior for the deck-analysis response | KB content goes through the Markdig `DisableHtml()` pipeline before injection (same as help content). Additionally: KB content is admin-curated, so the threat surface is lower than user-submitted content. Apply the existing HelpContentService sanitization pattern. |
+| Primer section selection submitted via form without server-side validation | User can craft a POST with 31 sections all enabled including bracket-restricted sections (e.g., section 24 for bracket 1) | Server-side: re-validate selected sections against bracket × section compatibility matrix. Do not trust the client's preset-application logic. The server must enforce "section 24 is only valid for bracket 5." |
+| `content.kb.enabled` flag bypassed by direct service injection | A future phase wires KB injection directly without checking the flag | Always check `IFeatureFlagCache.IsEnabled("content.kb.enabled")` as the outermost gate in the KB injection service, before any DB or filesystem access. Make the gate check the first statement in `InjectKbContentAsync`. |
+
+---
+
+## UX Pitfalls
+
+Common user experience mistakes specific to this domain.
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| 31 sections displayed as a flat checklist | User sees a wall of checkboxes; ignores it; selects nothing; gets a useless primer prompt | Collapsible group design as specified in seed (Identity/Combos/Gameplay/Matchups/Maintenance). The UX design is already decided — do not simplify to a flat list during implementation. |
+| Section deselection not persisted in zip round-trip | User customizes sections, downloads, re-uploads → all sections reset to preset defaults | Section selection state must be stored in the primer zip (separate artifact, e.g., `20-primer-selections.json`) and restored on load. Test this round-trip explicitly. |
+| Combo section shows "No combos found" with no explanation | User thinks their deck has no combos; Commander Spellbook may be down | When `FindCombosAsync` returns null, display "Commander Spellbook lookup unavailable — AI will suggest combos speculatively." When it returns an empty list, display "No verified combos found in Commander Spellbook for this decklist." Two distinct states, two distinct messages. |
+| "What Experts Say" panel shown with empty content | Confuses users; suggests a bug | Only render the panel when KB content was injected. If KB flag is OFF or no relevant content found, omit the panel entirely. An empty panel is worse than no panel. |
+| Primer prompts labeled "ChatGPT prompt" in UI copy | Misleads users about AI target | Primer tab follows the same AI-agnostic naming convention established in v1.3 (RENAME-01..03). Tab label: "Primer Prompt." Download filename: `deck-primer-{commander}.zip`, not `chatgpt-primer-*.zip`. |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Primer round-trip:** Primer prompt generates successfully — verify the zip round-trip (re-upload the downloaded zip, check section selections are restored).
+- [ ] **Combo null handling:** Primer works when Spellbook is live — verify behavior when `CommanderSpellbookService.FindCombosAsync` returns null (call with a malformed deck or in a network-isolated test).
+- [ ] **Bracket routing:** Primer produces correct output for bracket 5 — verify a bracket 2 deck gets generic buckets, NOT EdhTop16 archetypes, in sections 22/23.
+- [ ] **KB injection with no content:** KB integration works for a deck with strong archetype signal — verify a deck with ambiguous/no-match tags receives no KB injection without breaking the packet build.
+- [ ] **Prompt size gate:** Analysis prompt produces correct output — verify that KB injection does not push the total prompt over 50KB for a large deck with combos and all questions.
+- [ ] **Content freshness:** KB content.kb.enabled flag is flipped — verify a fresh harvest was run within the last 30 days before the flag is enabled in production.
+- [ ] **Doc gate build clean:** Core doc-comments are backfilled — verify `dotnet build -warnaserror:CS1591` from a **clean** `obj/` directory returns 0 warnings (not just a cached build).
+- [ ] **KB-12 codex provider:** Codex distill backend is implemented — verify `DECKFLOW_LLM_PROVIDER=codex` resolves to a working `CliLlmDistillationService` instance, and the existing `"codex"` `NotSupportedException` is gone.
+
+---
+
+## Recovery Strategies
+
+When pitfalls occur despite prevention, how to recover.
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Primer paste-cap truncation reported by user | LOW | Add `PromptSizeWarning` to result record (additive, no behavior change). Disable Gemini for primer (flag already exists). Deploy in next push. |
+| AI hallucinated combo lines (grounded/speculative fence failure) | MEDIUM | Re-examine primer prompt text in the user's zip artifact. If ground truth is present but AI ignored it, add stronger fencing language. If ground truth was absent (null comboResult), add null-state disclosure. Either fix is prompt-text-only — no schema change. |
+| KB injection injects irrelevant content | MEDIUM | Add minimum-threshold tag-match requirement (query change only). Or disable KB injection temporarily by flipping `content.kb.enabled` OFF in Admin Flags (zero-downtime). |
+| Primer zip round-trip drops section selections | MEDIUM | Add `PrimerAllowedNames` with missing entry names. Existing zips with the bug cannot be fixed (re-generate). New zips work correctly. |
+| Core doc gate widened prematurely (build breaks) | MEDIUM | Revert the `.editorconfig` change. Restore suppression. Complete backfill. Re-widen. No data loss; build recovers immediately on revert. |
+| `get; init;` → `get;` regression on new records (JSON silent drop) | HIGH | Add missing `init;` keyword (1-character change per property). If already deployed, stale zip artifacts will reload incorrectly until user re-generates. Cannot fix in-place zips. New zips work correctly after the fix. Test coverage prevents recurrence. |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| P1: Primer paste-cap blowout | Spike phase (measure size) + Primer service (size warning) | Assert primer text < 50KB for cEDH full preset |
+| P2: Hallucinated combo lines (grounded/speculative fence failure) | Spike phase (fence strategy) + Primer service (structural blocks) | Unit test: null comboResult → disclosure text present; non-null → grounded block present before speculative |
+| P3: Irrelevant KB content injection | KB integration (tag-match design before code) | Unit test: deck with zero-match tags → no KB injection, no error |
+| P4: Prompt budget competition (KB + existing sections) | KB integration (budget hierarchy + measurement) | Integration test: large deck with all questions + KB injection < 50KB |
+| P5: `PrimerAllowedNames` missing — silent zip data loss | Primer packet service (allowlist first commit) | Round-trip unit test: build zip, load zip, assert all artifacts present |
+| P6: `get; init;` → `get;` on new records | Every primer/KB phase (CONTEXT.md constraint + plan review) | Serialization round-trip test for every new request/result record |
+| P7: Stale KB content in production | KB integration (freshness disclosure + admin warning) | UAT: harvest date in prompt header ≤ 30 days before analysis date |
+| P8: Doc gate widened before Core backfill complete | Core doc housekeeping phase (two-SC sequencing) | `dotnet build -warnaserror:CS1591` from clean `obj/` returns 0 warnings |
+| P9: KB-12 adds string literal instead of factory extension | KB-12 housekeeping phase (constrained diff) | `LlmDistillationProviderFactoryTests` gains `Codex_ReturnsCliBackend` test |
+| P10: Section-combinatorics under-tested | Primer service (section-routing tests written alongside logic) | `PrimerSectionRenderTests` covers bracket-routing, preset-section-presence, AI-variant structural markers |
 
 ---
 
 ## Sources
 
-- [YouTube Data API Quota Calculator](https://developers.google.com/youtube/v3/determine_quota_cost) — HIGH
-- [YouTube Data API: Captions Download](https://developers.google.com/youtube/v3/docs/captions/download) — HIGH (download requires edit permission)
-- [YouTube Data API Errors Reference](https://developers.google.com/youtube/v3/docs/errors) — HIGH
-- [youtube-transcript-api IP-blocking GitHub issue](https://github.com/jdepoix/youtube-transcript-api/issues/511) — HIGH (cloud IP blocking confirmed)
-- [Fixing YouTube Transcript API RequestBlocked Error](https://medium.com/@lhc1990/fixing-youtube-transcript-api-requestblocked-error-a-developers-guide-83c77c061e7b) — MEDIUM
-- [OpenAI Whisper API Limits (file size 25MB, timeout)](https://www.transcribetube.com/blog/openai-whisper-api-limits) — MEDIUM
-- [OpenAI Whisper file-size error 26214400 bytes](https://portkey.ai/error-library/content-size-limit-error-10534) — HIGH (explicit byte limit)
-- [Whisper community thread on >25MB workaround](https://community.openai.com/t/whisper-api-how-to-upload-file-that-larger-than-25mb/693285) — MEDIUM
-- [Whisper API pricing $0.006/min](https://tokenmix.ai/blog/whisper-api-pricing) — HIGH
-- [OpenAI Structured Outputs introduction (<0.1% failure)](https://openai.com/index/introducing-structured-outputs-in-the-api/) — HIGH (official)
-- [Structured Output Reliability in Production: "JSON Mode is not a contract"](https://tianpan.co/blog/2026-04-20-structured-output-reliability-production) — MEDIUM
-- [LLM Structured Outputs: JSON Schema Enforcement](https://eastondev.com/blog/en/posts/ai/20260506-llm-structured-output/) — MEDIUM
-- [Gemini API rate limits (official)](https://ai.google.dev/gemini-api/docs/rate-limits) — HIGH
-- [Gemini API free-tier 2026 details](https://pecollective.com/tools/gemini-free-tier-guide/) — MEDIUM (free tier RPM/RPD)
-- [Vertex AI vs AI Studio differences](https://www.cloudzero.com/blog/google-vertex-ai-pricing/) — MEDIUM
-- [Npgsql connection pool exhaustion issues](https://github.com/npgsql/npgsql/issues/5156) — HIGH (official issue tracker)
-- [Render Postgres connection limits](https://community.render.com/t/postgres-max-connections/1548) — HIGH (Render official community)
-- [Render Connection Pooling docs](https://render.com/docs/postgresql-connection-pooling) — HIGH
-- [CS1591 docs (Microsoft Learn)](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/cs1591) — HIGH
-- [CS1591 generated-code suppression Roslyn issue (9-year-old open)](https://github.com/dotnet/roslyn/issues/12702) — HIGH
-- [CS1591 + Razor xmlDoc enabled](https://github.com/aspnet/Mvc/issues/4653) — HIGH (Razor-specific)
-- [Adrian Roselli: A Responsive Accessible Table](https://adrianroselli.com/2017/11/a-responsive-accessible-table.html) — HIGH (a11y authority)
-- [UXPin: Accessible Modals with Focus Traps 2026](https://www.uxpin.com/studio/blog/how-to-build-accessible-modals-with-focus-traps/) — MEDIUM
-- [The A11Y Collective: Mastering Accessible Modals with ARIA](https://www.a11y-collective.com/blog/modal-accessibility/) — HIGH
-- [Cost Circuit Breaker AI Agents pattern](https://dev.to/sebastian_chedal/the-cost-circuit-breaker-how-we-prevent-runaway-spending-across-9-ai-agents-4i5k) — MEDIUM
-- [OpenAI Agentic Commerce production idempotency guide](https://developers.openai.com/commerce/guides/production) — HIGH (idempotency-key NOT supported on transcriptions endpoint)
-- DeckFlow `.planning/RETROSPECTIVE.md` v1.3 section — HIGH (project source of truth for recurring patterns)
-- DeckFlow `.planning/milestones/v1.3-MILESTONE-AUDIT.md` — HIGH (project source for tech-debt deferrals)
-- DeckFlow `CLAUDE.md` — HIGH (project constraints, formatting rules)
-- DeckFlow `DeckFlow.Web/Services/Harvest/HarvestRunStore.cs` — HIGH (v1.1 schema pattern verified by direct grep)
-- DeckFlow `DeckFlow.Web/Controllers/Admin/*.cs` — HIGH (anti-forgery pattern verified by direct grep)
+- DeckFlow `DeckFlow.Web/Services/PacketArtifactStore.cs` — HIGH (allowlist pattern verified by direct inspection)
+- DeckFlow `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` — HIGH (combo null-handling pattern at lines 562-564 verified)
+- DeckFlow `DeckFlow.Core/Integration/LlmDistillationProviderFactory.cs` — HIGH (three-provider factory with `codex` deferral verified)
+- DeckFlow `DeckFlow.Core/Knowledge/ContentTagVocabulary.cs` — HIGH (15 archetypes, 5 brackets, 11 card categories — vocabulary mismatch risk assessed)
+- DeckFlow `.planning/notes/deck-primer-prompt-design.md` — HIGH (31-section catalog, bracket routing decisions, open risks)
+- DeckFlow `.planning/seeds/deck-primer-generator.md` — HIGH (v1.5 feature scope)
+- DeckFlow `.planning/RETROSPECTIVE.md` v1.0 + v1.2 + v1.3 — HIGH (paste-cap lesson v1.2; `{ get; init; }` regression history; raw-string re-indent risk)
+- DeckFlow `.planning/v1.4-MILESTONE-AUDIT.md` — HIGH (186-site Core doc debt; KB-12 deferral; `content.kb.enabled` still OFF)
+- DeckFlow `.editorconfig` lines 93-115 — HIGH (CS1591 gate scope verified: `none` globally, `warning` in `[DeckFlow.Web/**.cs]` only)
+- DeckFlow `CLAUDE.md` — HIGH (`{ get; init; }` constraint; prompt-variant duplication intent; raw-string literal preservation)
+- DeckFlow memory `reference_prompt_variants_intentionally_decoupled.md` — HIGH (ChatGPT/Claude/Gemini prose duplication is deliberate — never extract)
+- DeckFlow memory `project_phase21_2_shipped.md` — HIGH (pluggable claude LLM-CLI backend; existing CliLlmDistillationService pattern)
+
+---
+*Pitfalls research for: DeckFlow v1.5 — Deck Primer Generator + Content KB Integration + Housekeeping*
+*Researched: 2026-06-03*
