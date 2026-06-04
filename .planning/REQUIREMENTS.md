@@ -84,34 +84,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRM-01 | — | Pending |
-| PRM-02 | — | Pending |
-| PRM-03 | — | Pending |
-| PRM-04 | — | Pending |
-| PRM-05 | — | Pending |
-| PRM-06 | — | Pending |
-| PRM-07 | — | Pending |
-| PRM-08 | — | Pending |
-| PRM-09 | — | Pending |
-| PRM-10 | — | Pending |
-| PRM-11 | — | Pending |
-| PRM-12 | — | Pending |
-| KBI-01 | — | Pending |
-| KBI-02 | — | Pending |
-| KBI-03 | — | Pending |
-| KBI-04 | — | Pending |
-| KBI-05 | — | Pending |
-| KBI-06 | — | Pending |
-| HSK-01 | — | Pending |
-| HSK-02 | — | Pending |
-| HSK-03 | — | Pending |
-| HSK-04 | — | Pending |
+| PRM-01 | Phase 31 | Pending |
+| PRM-02 | Phase 31 | Pending |
+| PRM-03 | Phase 31 | Pending |
+| PRM-04 | Phase 31 | Pending |
+| PRM-05 | Phase 31 | Pending |
+| PRM-06 | Phase 31 | Pending |
+| PRM-07 | Phase 31 | Pending |
+| PRM-08 | Phase 31 | Pending |
+| PRM-09 | Phase 31 | Pending |
+| PRM-10 | Phase 31 | Pending |
+| PRM-11 | Phase 31 | Pending |
+| PRM-12 | Phase 31 | Pending |
+| KBI-01 | Phase 30 | Pending |
+| KBI-02 | Phase 30 | Pending |
+| KBI-03 | Phase 30 | Pending |
+| KBI-04 | Phase 30 | Pending |
+| KBI-05 | Phase 30 | Pending |
+| KBI-06 | Phase 30 | Pending |
+| HSK-01 | Phase 29 | Pending |
+| HSK-02 | Phase 28 | Pending |
+| HSK-03 | Phase 28 | Pending |
+| HSK-04 | Phase 28 | Pending |
 
 **Coverage:**
 - v1.5 requirements: 22 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 22 ⚠️ (expected — roadmap not yet created)
+- Mapped to phases: 22 (100%)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-03 after initial definition*
+*Last updated: 2026-06-03 — traceability mapped to Phases 28-31*
