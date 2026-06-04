@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
-status: completed
-stopped_at: "Phase 22 plans BLOCKED by Codex review (7 HIGH). NEXT (fresh ctx): /gsd-plan-phase 22 --reviews to fold them, re-review, then execute. .dockerignore needs same authorization as .gitignore/Dockerfile."
-last_updated: "2026-06-03T17:09:59.178Z"
-last_activity: 2026-06-03 -- Phase 23 marked complete
+milestone: v1.5
+milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
+status: planning
+last_updated: "2026-06-04T04:00:51.415Z"
+last_activity: 2026-06-04
 progress:
-  total_phases: 12
-  completed_phases: 10
-  total_plans: 31
-  completed_plans: 30
-  percent: 83
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 ## Deferred Items
@@ -67,10 +66,10 @@ See: .planning/PROJECT.md (updated 2026-05-23 for v1.4 milestone start)
 
 ## Current Position
 
-Milestone: v1.4 — COMPLETE (audit: tech_debt, 0 critical gaps; archived to .planning/milestones/)
-Status: between milestones — v1.5 not yet scoped
-Pending ops action: flip `content.kb.enabled` ON in prod via live /Admin/Flags
-Last activity: 2026-06-03 -- v1.4 milestone audited, archived, tagged
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-04 — Milestone v1.5 started
 
 ## Performance Metrics
 
