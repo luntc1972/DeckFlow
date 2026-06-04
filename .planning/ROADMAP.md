@@ -111,7 +111,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Milestone Goal:** Ship the Deck Primer Generator as a fourth paste-ready workflow, wire Content KB knowledge into deck-analysis prompts, and clear v1.4 quality debt.
 
 - [x] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene (completed 2026-06-04)
-- [ ] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 186 DeckFlow.Core doc sites + editorconfig gate widen
+- [ ] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen
 - [ ] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
@@ -148,11 +148,23 @@ Plans:
 **Requirements**: HSK-01
 **Success Criteria** (what must be TRUE):
 
-  1. All 186 previously-undocumented DeckFlow.Core public sites have `<summary>` XML doc comments — `dotnet build -warnaserror:CS1591` passes from a clean `obj/`
+  1. All previously-undocumented DeckFlow.Core public sites have `<summary>` XML doc comments — `dotnet build -warnaserror:CS1591` passes from a clean `obj/`. *(Probe-derived authoritative scope: 90 unique sites across 29 files as of 2026-06-04; the "186" figure was accurate at Phase 23 research time but Phases 19–28 documented much new Core code. Executors re-run the probe to get the live list.)*
   2. `.editorconfig` CS1591 gate is widened to `[DeckFlow.Core/**.cs]` as the final commit of this phase; existing `[DeckFlow.Web/**.cs]` gate unchanged
   3. Build is clean (0 errors, 0 new warnings) across both `DeckFlow.Core` and `DeckFlow.Web` after the gate widen
 
-**Plans**: TBD
+**Plans**: 5 plans (2 waves)
+
+Plans:
+**Wave 1** *(parallel — non-overlapping file sets; each re-runs the doc-warning probe at start)*
+
+- [ ] 29-01-PLAN.md — Storage folder doc backfill (IRelationalDialect, Postgres/Sqlite dialects, RelationalDatabaseConnection; ~21 sites) (HSK-01)
+- [ ] 29-02-PLAN.md — Reporting + Filtering doc backfill (ReconciliationReporter raw-string-safe, Category* reporters, DeckEntryFilter; ~16 sites) (HSK-01)
+- [ ] 29-03-PLAN.md — Knowledge doc backfill (CategoryKnowledgeRepository incl. 5 CS1573, BoardCategoryComparer, ArchidektDeckCacheSession; ~12 sites) (HSK-01)
+- [ ] 29-04-PLAN.md — Integration + Exporting + Parsing + Models + Normalization + Diffing doc backfill (17 files incl. 1 CS1573 + 2 enums; ~41 sites) (HSK-01)
+
+**Wave 2** *(blocked on all Wave 1 plans — the FINAL commit of the phase)*
+
+- [ ] 29-05-PLAN.md — `.editorconfig` gate widen to `[DeckFlow.Core/**.cs]` (non-autonomous; inject-probe proof + full-solution build guard + human-verify checkpoint) (HSK-01)
 
 ### Phase 30: Content KB Integration
 
@@ -296,7 +308,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
-| 29. Core XML-Doc Backfill + Gate Widen | 0/TBD | Not started | - |
+| 29. Core XML-Doc Backfill + Gate Widen | 0/5 | Planned | - |
 | 30. Content KB Integration | 0/TBD | Not started | - |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
 
