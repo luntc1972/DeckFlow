@@ -3,10 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: planning
-last_updated: "2026-06-03"
-last_activity: 2026-06-03
+stopped_at: Phase 28 context gathered
+last_updated: "2026-06-04T17:52:01.947Z"
+last_activity: 2026-06-03 — v1.5 roadmap created; Phases 28-31 defined
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -34,6 +35,7 @@ Progress: [░░░░░░░░░░] 0%
 ## Performance Metrics
 
 **Velocity (v1.4 reference — most recent shipped):**
+
 - 31 plans across 14 phases (2026-05-23 → 2026-06-03, 11 days)
 - Cross-AI execution pattern sustained: Codex codes, Claude reviews
 - Final test gate: Core 257/257, Web 528 pass / 5 PG-skips
@@ -84,6 +86,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-06-03
-Stopped at: v1.5 roadmap created (Phases 28-31, 22/22 requirements mapped). Ready to plan Phase 28.
-Resume file: None
+Last session: 2026-06-04T17:52:01.923Z
+Stopped at: Phase 28 context gathered
+Resume file: .planning/phases/28-housekeeping-bundle/28-CONTEXT.md
