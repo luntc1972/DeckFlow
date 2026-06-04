@@ -419,7 +419,7 @@ This phase edits source comments + build config only. No stored data, no live-se
 
 No missing dependencies.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Probe build duplication**
    - What we know: The non-incremental build lists each CS1591 warning twice (180 raw lines = 90 unique sites). This is consistent behavior, not a double-count of actual sites.
