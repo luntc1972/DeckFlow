@@ -11,8 +11,27 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 public interface IArchidektRecentDecksImporter
 {
+    /// <summary>
+    /// Imports the requested number of recent public Archidekt deck IDs.
+    /// </summary>
+    /// <param name="count">Number of deck identifiers to collect.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The imported recent deck identifiers.</returns>
     Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Imports the requested number of recent public Archidekt deck IDs starting from the supplied page.
+    /// </summary>
+    /// <param name="count">Number of deck identifiers to collect.</param>
+    /// <param name="startPage">Page number to start crawling from.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The imported recent deck identifiers.</returns>
     Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Imports one page of recent public Archidekt deck IDs.
+    /// </summary>
+    /// <param name="page">Page index to request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The deck identifiers found on the requested page.</returns>
     Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default);
 }
 

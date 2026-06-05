@@ -7,7 +7,9 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 public enum MoxfieldImportSource
 {
+    /// <summary>Entries came directly from Moxfield.</summary>
     Direct,
+    /// <summary>Entries came from the Commander Spellbook fallback proxy.</summary>
     CommanderSpellbookFallback
 }
 
@@ -24,6 +26,12 @@ public sealed record MoxfieldImportResult(
 /// </summary>
 public interface IMoxfieldDeckImporter
 {
+    /// <summary>
+    /// Imports a Moxfield deck by URL or deck identifier.
+    /// </summary>
+    /// <param name="urlOrDeckId">Moxfield deck URL or deck identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The imported deck entries.</returns>
     Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -44,5 +52,11 @@ public interface IMoxfieldDeckImporter
 /// </summary>
 public interface IArchidektDeckImporter
 {
+    /// <summary>
+    /// Imports an Archidekt deck by URL or deck identifier.
+    /// </summary>
+    /// <param name="urlOrDeckId">Archidekt deck URL or deck identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The imported deck entries.</returns>
     Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default);
 }

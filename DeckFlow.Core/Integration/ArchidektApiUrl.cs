@@ -5,6 +5,12 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 public static class ArchidektApiUrl
 {
+    /// <summary>
+    /// Tries to extract a deck identifier from an Archidekt URL or raw identifier.
+    /// </summary>
+    /// <param name="input">Archidekt deck URL or raw identifier text.</param>
+    /// <param name="deckId">Resolved deck identifier when parsing succeeds.</param>
+    /// <returns><see langword="true"/> when a deck identifier was resolved; otherwise <see langword="false"/>.</returns>
     public static bool TryGetDeckId(string input, out string deckId)
     {
         deckId = string.Empty;
@@ -29,6 +35,11 @@ public static class ArchidektApiUrl
         return false;
     }
 
+    /// <summary>
+    /// Builds the Archidekt deck API URI for <paramref name="deckId"/>.
+    /// </summary>
+    /// <param name="deckId">Archidekt deck identifier.</param>
+    /// <returns>The absolute API URI for the requested deck.</returns>
     public static Uri BuildDeckApiUri(string deckId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
