@@ -12,7 +12,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (2026-06-03) — 14 phases (16-27 + 21.1/21.2), 31 plans, 343 commits, +54,651/−4,726 LOC across 638 files, 11 days. 20/20 active REQ-IDs satisfied. Content KB pipeline live end-to-end (local CLI harvest → claude/openai distill → markdown prompt artifacts → flag-gated site browse with admin curation); category cache rebuilt on integer-keyed star schema (69s→0.66ms hot query); admin shell mobile-responsive; Web doc-warning gate live. Tests: Core 257/257, Web 528 pass / 5 PG-skips. Audit: tech_debt (0 critical gaps). NOTE: prod flag `content.kb.enabled` still OFF — user flips via live /Admin/Flags.
 
-**Active:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (started 2026-06-03). Phase 28 complete (2026-06-04) — HSK-03/HSK-04 closed (7 retro v1.4 VERIFICATIONs, D-11 single artifact tree, retro P26/P24 docs, audit dedup); HSK-02 codex distill backend re-demoted to backlog per D-03 (no provable read-isolation boundary in codex 0.136.0 — see `28-DISCOVERY.md`).
+**Active:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (started 2026-06-03). Phase 29 complete (2026-06-05) — HSK-01 closed: 92 DeckFlow.Core XML-doc sites backfilled (90 probe-derived + 2 gate-caught Instance singletons), [DeckFlow.Core/**.cs] CS1591/1573/1587 gate widened (probe-proven), solution builds 0/0; tests Core 270/270, Web 536+5skip. Phase 28 complete (2026-06-04) — HSK-03/HSK-04 closed (7 retro v1.4 VERIFICATIONs, D-11 single artifact tree, retro P26/P24 docs, audit dedup); HSK-02 codex distill backend re-demoted to backlog per D-03 (no provable read-isolation boundary in codex 0.136.0 — see `28-DISCOVERY.md`).
 
 ## Current Milestone: v1.5 Deck Primer Generator + Content KB Integration + Housekeeping
 
@@ -251,4 +251,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Active:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping — started 2026-06-03.
 
 ---
-*Last updated: 2026-06-04 — Phase 28 (Housekeeping Bundle) complete; HSK-02 re-demoted per D-03*
+*Last updated: 2026-06-05 — Phase 29 (Core XML-Doc Backfill + Gate Widen) complete; HSK-01 closed*
