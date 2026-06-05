@@ -625,19 +625,19 @@ WHERE is_visible = true AND (tags_bracket = '[]' OR tags_bracket IS NULL);
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **CategoryKnowledgeStore availability in DeckAnalysisPacketService context**
+1. **CategoryKnowledgeStore availability in DeckAnalysisPacketService context** — RESOLVED: D-07 is a locked user decision; plan 30-02 wires `ICategoryKnowledgeStore` into `ContentKbArchetypeDeriver` via DI (the recommendation below is overruled; keyword fallback is last-resort only when the commander has no category rows).
    - What we know: `ICategoryKnowledgeStore` is NOT currently injected into `DeckAnalysisPacketService` (constructor grep returned no matches)
    - What's unclear: whether the planner should wire it in for Phase 30's D-07 archetype derivation, or accept commander-name + bracket as sufficient inputs for v1.5
    - Recommendation: For v1.5, accept `commanderName` + `bracket` + optional `IReadOnlyList<DeckEntry>?` in `ContentKbRelevanceService` — derive archetype from keyword matching on commander name. Adding `ICategoryKnowledgeStore` to `DeckAnalysisPacketService` is scope expansion; defer to v1.6 or make it a discretion-area decision in the plan.
 
-2. **`DeckAnalysisPacketResult` record extension (positional record)**
+2. **`DeckAnalysisPacketResult` record extension (positional record)** — RESOLVED: per the recommendation; plan 30-03 adds `ExpertContextClips` as the last optional parameter.
    - What we know: `DeckAnalysisPacketResult` is a positional record with 13 named optional parameters (lines 43-56)
    - What's unclear: whether `ExpertContextClips` should be a new optional parameter on the record or surfaced only in `DeckAnalysisViewModel`
    - Recommendation: Add `IReadOnlyList<ContentKbExcerpt>? ExpertContextClips = null` as the last parameter. This propagates clips through the packet→zip→view pipeline naturally. The packet service sets it; the controller reads it into the view model.
 
-3. **D-08 admin preview — GET with query params vs. POST action**
+3. **D-08 admin preview — GET with query params vs. POST action** — RESOLVED: per the recommendation; plan 30-04 uses GET query params `previewCommander`/`previewBracket` on Index.
    - What we know: The current `Index` action is a GET with no parameters; `SetVisibility` and `BulkSetVisibility` are POST
    - What's unclear: whether D-08 preview should be a GET (commander + bracket in query string, re-renders Index with scores) or a separate POST endpoint
    - Recommendation: GET with query params is simplest — `?previewCommander=X&previewBracket=Y` appended to the Index action renders the score column. No additional round-trip; same CSRF model as existing admin page.
