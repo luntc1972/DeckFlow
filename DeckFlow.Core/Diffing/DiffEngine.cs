@@ -9,11 +9,21 @@ public sealed class DiffEngine
 {
     private readonly MatchMode _matchMode;
 
+    /// <summary>
+    /// Creates a diff engine that compares deck entries using the supplied match mode.
+    /// </summary>
+    /// <param name="matchMode">Matching behavior used during diff generation.</param>
     public DiffEngine(MatchMode matchMode)
     {
         _matchMode = matchMode;
     }
 
+    /// <summary>
+    /// Compares Moxfield and Archidekt deck entries and returns the resulting diff.
+    /// </summary>
+    /// <param name="moxfield">Deck entries imported from Moxfield.</param>
+    /// <param name="archidekt">Deck entries imported from Archidekt.</param>
+    /// <returns>The differences between the two deck lists.</returns>
     public DeckDiff Compare(List<DeckEntry> moxfield, List<DeckEntry> archidekt)
     {
         ArgumentNullException.ThrowIfNull(moxfield);
