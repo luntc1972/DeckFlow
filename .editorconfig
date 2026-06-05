@@ -113,3 +113,9 @@ dotnet_naming_style.camel_case_underscore_style.capitalization = camel_case
 dotnet_diagnostic.CS1591.severity = warning
 dotnet_diagnostic.CS1573.severity = warning
 dotnet_diagnostic.CS1587.severity = warning
+
+[DeckFlow.Core/**.cs]
+# Phase 29 HSK-01: XML doc-comment gate widened to DeckFlow.Core
+dotnet_diagnostic.CS1591.severity = warning
+dotnet_diagnostic.CS1573.severity = warning
+dotnet_diagnostic.CS1587.severity = warning
