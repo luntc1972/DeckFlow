@@ -178,7 +178,11 @@ Plans:
   3. The DeckAnalysis result page shows a collapsed "What Experts Say" panel with source channel, title, timestamp deep-link, and harvest date for each injected clip; the panel is hidden entirely when no clips matched
   4. Admin sources view displays a per-clip relevance match score for curation tuning
 
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 30-01-PLAN.md — D-09 flip-first: incremental harvest + prod flag flip + live tag-distribution audit (KBI-01)
+- [ ] 30-02-PLAN.md — ContentKbExcerpt record + clip parser + ContentKbRelevanceService + zip persistence (KBI-02, KBI-05)
+- [ ] 30-03-PLAN.md — Expert Context injection into 3 prompt variants + packet-service wiring (KBI-02, KBI-03)
+- [ ] 30-04-PLAN.md — "What Experts Say" panel + admin relevance-score preview (KBI-04, KBI-05, KBI-06)
 **UI hint**: yes
 
 ### Phase 31: Deck Primer Generator
