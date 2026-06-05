@@ -157,10 +157,10 @@ Plans:
 Plans:
 **Wave 1** *(parallel — non-overlapping file sets; each re-runs the doc-warning probe at start)*
 
-- [ ] 29-01-PLAN.md — Storage folder doc backfill (IRelationalDialect, Postgres/Sqlite dialects, RelationalDatabaseConnection; ~21 sites) (HSK-01)
-- [ ] 29-02-PLAN.md — Reporting + Filtering doc backfill (ReconciliationReporter raw-string-safe, Category* reporters, DeckEntryFilter; ~16 sites) (HSK-01)
-- [ ] 29-03-PLAN.md — Knowledge doc backfill (CategoryKnowledgeRepository incl. 5 CS1573, BoardCategoryComparer, ArchidektDeckCacheSession; ~12 sites) (HSK-01)
-- [ ] 29-04-PLAN.md — Integration + Exporting + Parsing + Models + Normalization + Diffing doc backfill (17 files incl. 1 CS1573 + 2 enums; ~41 sites) (HSK-01)
+- [x] 29-01-PLAN.md — Storage folder doc backfill (IRelationalDialect, Postgres/Sqlite dialects, RelationalDatabaseConnection; ~21 sites) (HSK-01)
+- [x] 29-02-PLAN.md — Reporting + Filtering doc backfill (ReconciliationReporter raw-string-safe, Category* reporters, DeckEntryFilter; ~16 sites) (HSK-01)
+- [x] 29-03-PLAN.md — Knowledge doc backfill (CategoryKnowledgeRepository incl. 5 CS1573, BoardCategoryComparer, ArchidektDeckCacheSession; ~12 sites) (HSK-01)
+- [x] 29-04-PLAN.md — Integration + Exporting + Parsing + Models + Normalization + Diffing doc backfill (17 files incl. 1 CS1573 + 2 enums; ~41 sites) (HSK-01)
 
 **Wave 2** *(blocked on all Wave 1 plans — the FINAL commit of the phase)*
 
@@ -308,7 +308,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
-| 29. Core XML-Doc Backfill + Gate Widen | 0/5 | Planned | - |
+| 29. Core XML-Doc Backfill + Gate Widen | 4/5 | In Progress|  |
 | 30. Content KB Integration | 0/TBD | Not started | - |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
 
