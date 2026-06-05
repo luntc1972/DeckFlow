@@ -8,9 +8,20 @@ namespace DeckFlow.Core.Exporting;
 /// </summary>
 public static class DeltaExporter
 {
+    /// <summary>
+    /// Writes add-delta entries to <paramref name="outputPath"/> using Archidekt formatting.
+    /// </summary>
+    /// <param name="toAdd">Deck entries that should be added to the target list.</param>
+    /// <param name="outputPath">Path to the output file.</param>
     public static void WriteFile(List<DeckEntry> toAdd, string outputPath)
         => WriteFile(toAdd, outputPath, "Archidekt");
 
+    /// <summary>
+    /// Writes add-delta entries to <paramref name="outputPath"/> for the requested target system.
+    /// </summary>
+    /// <param name="toAdd">Deck entries that should be added to the target list.</param>
+    /// <param name="outputPath">Path to the output file.</param>
+    /// <param name="targetSystem">Target import system that controls the output format.</param>
     public static void WriteFile(List<DeckEntry> toAdd, string outputPath, string targetSystem)
     {
         ArgumentNullException.ThrowIfNull(toAdd);
@@ -18,9 +29,20 @@ public static class DeltaExporter
         File.WriteAllText(outputPath, ToText(toAdd, targetSystem));
     }
 
+    /// <summary>
+    /// Converts add-delta entries to Archidekt import text.
+    /// </summary>
+    /// <param name="toAdd">Deck entries that should be added to the target list.</param>
+    /// <returns>The Archidekt-formatted add-delta text.</returns>
     public static string ToText(List<DeckEntry> toAdd)
         => ToText(toAdd, "Archidekt");
 
+    /// <summary>
+    /// Converts add-delta entries to import text for the requested target system.
+    /// </summary>
+    /// <param name="toAdd">Deck entries that should be added to the target list.</param>
+    /// <param name="targetSystem">Target import system that controls the output format.</param>
+    /// <returns>The formatted add-delta text.</returns>
     public static string ToText(List<DeckEntry> toAdd, string targetSystem)
     {
         ArgumentNullException.ThrowIfNull(toAdd);

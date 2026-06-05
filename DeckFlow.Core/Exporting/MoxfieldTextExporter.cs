@@ -8,6 +8,11 @@ namespace DeckFlow.Core.Exporting;
 /// </summary>
 public static class MoxfieldTextExporter
 {
+    /// <summary>
+    /// Writes deck entries to <paramref name="outputPath"/> using Moxfield plain-text import format.
+    /// </summary>
+    /// <param name="entries">Deck entries to serialize.</param>
+    /// <param name="outputPath">Path to the output file.</param>
     public static void WriteFile(List<DeckEntry> entries, string outputPath)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -15,6 +20,11 @@ public static class MoxfieldTextExporter
         File.WriteAllText(outputPath, ToText(entries));
     }
 
+    /// <summary>
+    /// Converts deck entries to Moxfield plain-text import format.
+    /// </summary>
+    /// <param name="entries">Deck entries to serialize.</param>
+    /// <returns>The serialized Moxfield import text.</returns>
     public static string ToText(List<DeckEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);

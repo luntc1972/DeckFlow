@@ -8,9 +8,27 @@ namespace DeckFlow.Core.Exporting;
 /// </summary>
 public static class FullImportExporter
 {
+    /// <summary>
+    /// Writes a full merged deck import file to <paramref name="outputPath"/> using Archidekt formatting.
+    /// </summary>
+    /// <param name="moxfield">Source deck entries imported from Moxfield.</param>
+    /// <param name="archidekt">Target deck entries imported from Archidekt.</param>
+    /// <param name="matchMode">Matching behavior used when reconciling entries.</param>
+    /// <param name="outputPath">Path to the output file.</param>
+    /// <param name="conflicts">Resolved printing conflicts to apply while exporting.</param>
     public static void WriteFile(List<DeckEntry> moxfield, List<DeckEntry> archidekt, MatchMode matchMode, string outputPath, IReadOnlyList<PrintingConflict>? conflicts = null)
         => WriteFile(moxfield, archidekt, matchMode, outputPath, "Archidekt", conflicts);
 
+    /// <summary>
+    /// Writes a full merged deck import file to <paramref name="outputPath"/> for the requested target system.
+    /// </summary>
+    /// <param name="sourceEntries">Source deck entries to merge into the output.</param>
+    /// <param name="targetEntries">Target deck entries that supply board, printing, and category metadata.</param>
+    /// <param name="matchMode">Matching behavior used when reconciling entries.</param>
+    /// <param name="outputPath">Path to the output file.</param>
+    /// <param name="targetSystem">Target import system that controls the output format.</param>
+    /// <param name="conflicts">Resolved printing conflicts to apply while exporting.</param>
+    /// <param name="categoryMode">Category synchronization behavior for the merged output.</param>
     public static void WriteFile(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string outputPath, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null, CategorySyncMode categoryMode = CategorySyncMode.TargetCategories)
     {
         ArgumentNullException.ThrowIfNull(sourceEntries);
@@ -19,9 +37,27 @@ public static class FullImportExporter
         File.WriteAllText(outputPath, ToText(sourceEntries, targetEntries, matchMode, targetSystem, conflicts, categoryMode));
     }
 
+    /// <summary>
+    /// Converts merged deck entries to Archidekt import text.
+    /// </summary>
+    /// <param name="moxfield">Source deck entries imported from Moxfield.</param>
+    /// <param name="archidekt">Target deck entries imported from Archidekt.</param>
+    /// <param name="matchMode">Matching behavior used when reconciling entries.</param>
+    /// <param name="conflicts">Resolved printing conflicts to apply while exporting.</param>
+    /// <returns>The Archidekt-formatted merged deck text.</returns>
     public static string ToText(List<DeckEntry> moxfield, List<DeckEntry> archidekt, MatchMode matchMode, IReadOnlyList<PrintingConflict>? conflicts = null)
         => ToText(moxfield, archidekt, matchMode, "Archidekt", conflicts);
 
+    /// <summary>
+    /// Converts merged deck entries to import text for the requested target system.
+    /// </summary>
+    /// <param name="sourceEntries">Source deck entries to merge into the output.</param>
+    /// <param name="targetEntries">Target deck entries that supply board, printing, and category metadata.</param>
+    /// <param name="matchMode">Matching behavior used when reconciling entries.</param>
+    /// <param name="targetSystem">Target import system that controls the output format.</param>
+    /// <param name="conflicts">Resolved printing conflicts to apply while exporting.</param>
+    /// <param name="categoryMode">Category synchronization behavior for the merged output.</param>
+    /// <returns>The formatted merged deck text.</returns>
     public static string ToText(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null, CategorySyncMode categoryMode = CategorySyncMode.TargetCategories)
     {
         ArgumentNullException.ThrowIfNull(sourceEntries);
