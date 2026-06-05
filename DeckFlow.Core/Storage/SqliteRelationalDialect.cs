@@ -5,6 +5,7 @@ namespace DeckFlow.Core.Storage;
 /// </summary>
 public sealed class SqliteRelationalDialect : IRelationalDialect
 {
+    /// <summary>Shared reusable singleton instance of the SQLite dialect.</summary>
     public static readonly SqliteRelationalDialect Instance = new();
 
     private SqliteRelationalDialect()
