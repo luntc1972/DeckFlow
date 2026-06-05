@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
-status: executing
-stopped_at: Session resumed, proceeding to execute Phase 29
-last_updated: "2026-06-05T15:31:16.460Z"
+status: ready_to_plan
+stopped_at: Phase 29 complete (5/5) — ready to discuss Phase 30
+last_updated: 2026-06-05T16:03:11.769Z
 last_activity: 2026-06-05 -- Phase 29 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 9
-  completed_plans: 4
+  completed_plans: 9
   percent: 17
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 29 — core-xml-doc-backfill-gate-widen
+**Current focus:** Phase 30 — content kb integration
 
 ## Current Position
 
-Phase: 29 (core-xml-doc-backfill-gate-widen) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 29
-Last activity: 2026-06-05 -- Phase 29 execution started
+Phase: 30
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-06-05
 
 Progress: [░░░░░░░░░░] 0%
 
