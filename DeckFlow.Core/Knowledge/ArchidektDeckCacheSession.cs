@@ -19,6 +19,14 @@ public sealed class ArchidektDeckCacheSession
     private readonly ILogger? _logger;
     private readonly TimeSpan _idlePollDelay;
 
+    /// <summary>
+    /// Initializes a cache session with the repository and Archidekt import dependencies.
+    /// </summary>
+    /// <param name="repository">Repository that persists harvested deck knowledge.</param>
+    /// <param name="deckImporter">Importer for individual Archidekt deck contents.</param>
+    /// <param name="recentImporter">Importer for paginated recent Archidekt deck identifiers.</param>
+    /// <param name="logger">Optional logger for retry and progress messages.</param>
+    /// <param name="idlePollDelay">Optional delay used when no deck work is immediately available.</param>
     public ArchidektDeckCacheSession(
         CategoryKnowledgeRepository repository,
         IArchidektDeckImporter deckImporter,
@@ -205,5 +213,6 @@ internal enum DeckCacheWriteResult
 /// </summary>
 public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksUnchanged, int DecksSkipped, TimeSpan Duration)
 {
+    /// <summary>Total number of decks that produced added or updated cache rows.</summary>
     public int DecksProcessed => DecksAdded + DecksUpdated;
 }
