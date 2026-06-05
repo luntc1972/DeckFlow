@@ -8,6 +8,10 @@ namespace DeckFlow.Core.Reporting;
 /// </summary>
 public static class CategorySuggestionReporter
 {
+    /// <summary>Returns suggested categories for <paramref name="cardName"/> from the supplied deck entries.</summary>
+    /// <param name="entries">Deck entries to inspect.</param>
+    /// <param name="cardName">Card name to match.</param>
+    /// <returns>Suggested category labels, falling back to the original labels when all are excluded.</returns>
     public static IReadOnlyList<string> SuggestCategories(IEnumerable<DeckEntry> entries, string cardName)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -23,6 +27,10 @@ public static class CategorySuggestionReporter
         return CategoryFilter.IncludedOrFallback(categories);
     }
 
+    /// <summary>Returns a text report listing the supplied category suggestions for <paramref name="cardName"/>.</summary>
+    /// <param name="categories">Category suggestions to format.</param>
+    /// <param name="cardName">Card name those suggestions apply to.</param>
+    /// <returns>A newline-delimited suggestion list, or a no-results message when no suggestions exist.</returns>
     public static string ToText(IEnumerable<string> categories, string cardName)
     {
         ArgumentNullException.ThrowIfNull(categories);
