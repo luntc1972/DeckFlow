@@ -6,8 +6,8 @@
     "title": "Bizarre Mana Curves That ACTUALLY Work | EDHRECast 407 | Magic: the Gathering | Commander",
     "videoUrl": "https://www.youtube.com/watch?v=zkAmYkIOx98\u0026list=UUApiDwDpn_JpzRGLZKrdr1g",
     "artifactPath": "content-kb/edhrecast/zkAmYkIOx98.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:45:56Z",
+    "publishedUtc": "2026-05-13T17:49:56+00:00",
+    "indexedUtc": "2026-06-01T19:45:56.4206568+00:00",
     "archetypeTags": [
       "ramp",
       "spellslinger",
@@ -38,8 +38,8 @@
     "title": "What\u0027s the LEAST Popular Commander? | Magic: the Gathering | Commander | EDHREC\u0027d",
     "videoUrl": "https://www.youtube.com/watch?v=ZSfzhBcLM9Q\u0026list=UUApiDwDpn_JpzRGLZKrdr1g",
     "artifactPath": "content-kb/edhrecast/ZSfzhBcLM9Q.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:41:11Z",
+    "publishedUtc": "2026-05-18T18:00:26+00:00",
+    "indexedUtc": "2026-06-01T19:41:11.5017382+00:00",
     "archetypeTags": [
       "tribal"
     ],
@@ -53,8 +53,8 @@
     "title": "28 Six-Drops | Against the Odds",
     "videoUrl": "https://www.youtube.com/watch?v=OihCV9qvCrk\u0026list=UUZAZTSd0xnor7hJFmINIBIw",
     "artifactPath": "content-kb/mtggoldfish/OihCV9qvCrk.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:41:11Z",
+    "publishedUtc": "2026-05-27T15:00:07+00:00",
+    "indexedUtc": "2026-06-01T19:41:11.5017382+00:00",
     "archetypeTags": [
       "reanimator",
       "ramp",
@@ -78,8 +78,8 @@
     "title": "Lets See if Pioneer is Actually a Midrange Format",
     "videoUrl": "https://www.youtube.com/watch?v=mDmI-gypvGw\u0026list=UUZAZTSd0xnor7hJFmINIBIw",
     "artifactPath": "content-kb/mtggoldfish/mDmI-gypvGw.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:45:56Z",
+    "publishedUtc": "2026-05-26T15:00:07+00:00",
+    "indexedUtc": "2026-06-01T19:45:56.4206568+00:00",
     "archetypeTags": [
       "midrange",
       "value-engine",
@@ -97,42 +97,13 @@
   },
   {
     "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "Bq-nFi0f1jA",
-    "source": "Playing With Power",
-    "title": "The Cabbage Merchant vs Yidiris vs Kinnan vs Rog/Thras | CEDH Gameplay",
-    "videoUrl": "https://www.youtube.com/watch?v=Bq-nFi0f1jA\u0026list=UUum8N4KUUC0l_NK_mybvilg",
-    "artifactPath": "content-kb/playing-with-power/Bq-nFi0f1jA.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:41:11Z",
-    "archetypeTags": [
-      "combo",
-      "ramp",
-      "value-engine"
-    ],
-    "bracketTags": [
-      "cEDH"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "draw",
-      "tutor",
-      "counter",
-      "removal",
-      "protection",
-      "finishers",
-      "win-cons",
-      "recursion"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "J-QU1G0ZQg0",
     "source": "Playing With Power",
     "title": "G\u0027raha Tia vs Hashaton vs Elsha vs Rog/Si | CEDH Gameplay",
     "videoUrl": "https://www.youtube.com/watch?v=J-QU1G0ZQg0\u0026list=UUum8N4KUUC0l_NK_mybvilg",
     "artifactPath": "content-kb/playing-with-power/J-QU1G0ZQg0.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:45:56Z",
+    "publishedUtc": "2026-05-15T14:47:25+00:00",
+    "indexedUtc": "2026-06-01T19:45:56.4206568+00:00",
     "archetypeTags": [
       "stax",
       "control",
@@ -155,13 +126,308 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "Bq-nFi0f1jA",
+    "source": "Playing With Power",
+    "title": "The Cabbage Merchant vs Yidiris vs Kinnan vs Rog/Thras | CEDH Gameplay",
+    "videoUrl": "https://www.youtube.com/watch?v=Bq-nFi0f1jA\u0026list=UUum8N4KUUC0l_NK_mybvilg",
+    "artifactPath": "content-kb/playing-with-power/Bq-nFi0f1jA.md",
+    "publishedUtc": "2026-05-22T14:07:50+00:00",
+    "indexedUtc": "2026-06-01T19:41:11.5017382+00:00",
+    "archetypeTags": [
+      "combo",
+      "ramp",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "tutor",
+      "counter",
+      "removal",
+      "protection",
+      "finishers",
+      "win-cons",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "kR3C_OC5BzU",
+    "source": "Salubrious Snail",
+    "title": "How I Failed to Build an Aggro Deck for 3 Years",
+    "videoUrl": "https://www.youtube.com/watch?v=kR3C_OC5BzU",
+    "artifactPath": "content-kb/salubrious-snail/kR3C_OC5BzU.md",
+    "publishedUtc": "2026-03-24T08:22:11+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "aggro",
+      "stax",
+      "aristocrats",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "protection",
+      "finishers",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "XE126Dy_JU8",
+    "source": "Salubrious Snail",
+    "title": "In Defense of Eminence",
+    "videoUrl": "https://www.youtube.com/watch?v=XE126Dy_JU8",
+    "artifactPath": "content-kb/salubrious-snail/XE126Dy_JU8.md",
+    "publishedUtc": "2025-10-21T16:24:53+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "tribal",
+      "aggro",
+      "tokens",
+      "aristocrats",
+      "voltron",
+      "ramp",
+      "value-engine"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "counter",
+      "draw",
+      "tutor"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "IJYU_rzCcP8",
+    "source": "Salubrious Snail",
+    "title": "Rhystic Study and the Dark Side of EDH",
+    "videoUrl": "https://www.youtube.com/watch?v=IJYU_rzCcP8",
+    "artifactPath": "content-kb/salubrious-snail/IJYU_rzCcP8.md",
+    "publishedUtc": "2026-02-05T19:45:43+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "control",
+      "value-engine",
+      "stax"
+    ],
+    "bracketTags": [
+      "cEDH",
+      "Optimized",
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "ramp",
+      "removal",
+      "counter"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "Oh_a34vdtIA",
+    "source": "Salubrious Snail",
+    "title": "The 5 Most Common Deckbuilding Mistakes, and How to Avoid Them",
+    "videoUrl": "https://www.youtube.com/watch?v=Oh_a34vdtIA",
+    "artifactPath": "content-kb/salubrious-snail/Oh_a34vdtIA.md",
+    "publishedUtc": "2025-12-16T07:17:40+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "lands",
+      "tokens",
+      "aristocrats",
+      "control",
+      "voltron",
+      "value-engine",
+      "midrange",
+      "ramp"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "protection",
+      "counter",
+      "finishers",
+      "win-cons",
+      "recursion",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "mDHrUxOWNHA",
+    "source": "Salubrious Snail",
+    "title": "The Most Forgotten Part of EDH Deckbuilding",
+    "videoUrl": "https://www.youtube.com/watch?v=mDHrUxOWNHA",
+    "artifactPath": "content-kb/salubrious-snail/mDHrUxOWNHA.md",
+    "publishedUtc": "2025-06-29T09:57:58+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "blink",
+      "stax"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "protection",
+      "counter",
+      "tutor",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "A4oASMevloo",
+    "source": "Salubrious Snail",
+    "title": "The Problem with Glass Cannon Commanders",
+    "videoUrl": "https://www.youtube.com/watch?v=A4oASMevloo",
+    "artifactPath": "content-kb/salubrious-snail/A4oASMevloo.md",
+    "publishedUtc": "2025-10-13T01:11:43+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "midrange",
+      "combo",
+      "value-engine",
+      "ramp",
+      "tribal",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized",
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "protection",
+      "board-wipe",
+      "finishers",
+      "tutor"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "0tDeIwWJg0s",
+    "source": "Salubrious Snail",
+    "title": "The Subtle Reason Why Sets Feel Worse Now",
+    "videoUrl": "https://www.youtube.com/watch?v=0tDeIwWJg0s",
+    "artifactPath": "content-kb/salubrious-snail/0tDeIwWJg0s.md",
+    "publishedUtc": "2026-05-01T04:36:56+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [],
+    "bracketTags": [
+      "Optimized"
+    ],
+    "cardCategoryTags": []
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "C2k8XJ_jGKc",
+    "source": "Salubrious Snail",
+    "title": "The Things EDH Players Get Wrong about Interaction",
+    "videoUrl": "https://www.youtube.com/watch?v=C2k8XJ_jGKc",
+    "artifactPath": "content-kb/salubrious-snail/C2k8XJ_jGKc.md",
+    "publishedUtc": "2025-06-07T06:04:44+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "control",
+      "combo",
+      "voltron",
+      "aggro",
+      "midrange",
+      "stax",
+      "tokens"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "counter",
+      "protection",
+      "board-wipe",
+      "recursion",
+      "draw",
+      "ramp"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "MGTOWsH_tsA",
+    "source": "Salubrious Snail",
+    "title": "This Land Sacrifice Precon is Great Aside From One Thing",
+    "videoUrl": "https://www.youtube.com/watch?v=MGTOWsH_tsA",
+    "artifactPath": "content-kb/salubrious-snail/MGTOWsH_tsA.md",
+    "publishedUtc": "2025-07-18T06:18:38+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "lands",
+      "value-engine",
+      "aristocrats",
+      "tokens",
+      "ramp"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "finishers",
+      "win-cons",
+      "board-wipe",
+      "recursion",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "D2MRb3j4iYk",
+    "source": "Salubrious Snail",
+    "title": "You Might Have Too Much Ramp (but you also might not)",
+    "videoUrl": "https://www.youtube.com/watch?v=D2MRb3j4iYk",
+    "artifactPath": "content-kb/salubrious-snail/D2MRb3j4iYk.md",
+    "publishedUtc": "2026-01-01T01:01:49+00:00",
+    "indexedUtc": "2026-06-05T19:44:30.2769868+00:00",
+    "archetypeTags": [
+      "ramp",
+      "voltron",
+      "control",
+      "value-engine"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "ramp",
+      "draw"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "f8782tCIwmk",
     "source": "The Command Zone",
     "title": "MTG Borborygmos Enraged Commander Deck Tech - TheCommandZone",
     "videoUrl": "https://www.youtube.com/watch?v=f8782tCIwmk\u0026list=UU0MD7W5wvGuDMzK28AinPMg",
     "artifactPath": "content-kb/the-command-zone/f8782tCIwmk.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:41:11Z",
+    "publishedUtc": "2014-06-30T04:02:10+00:00",
+    "indexedUtc": "2026-06-01T19:41:11.5017382+00:00",
     "archetypeTags": [
       "lands",
       "combo",
@@ -187,8 +453,8 @@
     "title": "Top 10 Lands for EDH/Commander - TheCommandZone",
     "videoUrl": "https://www.youtube.com/watch?v=s_B1wCIWGR0\u0026list=UU0MD7W5wvGuDMzK28AinPMg",
     "artifactPath": "content-kb/the-command-zone/s_B1wCIWGR0.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:45:56Z",
+    "publishedUtc": "2014-04-06T13:00:40+00:00",
+    "indexedUtc": "2026-06-01T19:45:56.4206568+00:00",
     "archetypeTags": [
       "lands",
       "ramp"
@@ -208,8 +474,8 @@
     "title": "One Card Needs To Be Banned From Each Format | Magic: The Gathering",
     "videoUrl": "https://www.youtube.com/watch?v=SMxRbH11oiM\u0026list=UU7-hR5EfgpM6oHfiGDkxfMA",
     "artifactPath": "content-kb/tolarian-community-college/SMxRbH11oiM.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:45:56Z",
+    "publishedUtc": "2026-05-22T16:49:52+00:00",
+    "indexedUtc": "2026-06-01T19:45:56.4206568+00:00",
     "archetypeTags": [
       "combo",
       "control",
@@ -241,8 +507,8 @@
     "title": "Secret Lair Sellouts: This Has To Stop | Magic: The Gathering",
     "videoUrl": "https://www.youtube.com/watch?v=smOZcfAHjpQ\u0026list=UU7-hR5EfgpM6oHfiGDkxfMA",
     "artifactPath": "content-kb/tolarian-community-college/smOZcfAHjpQ.md",
-    "publishedUtc": null,
-    "indexedUtc": "2026-06-01T19:41:11Z",
+    "publishedUtc": "2026-05-25T16:25:14+00:00",
+    "indexedUtc": "2026-06-01T19:41:11.5017382+00:00",
     "archetypeTags": [],
     "bracketTags": [],
     "cardCategoryTags": []
