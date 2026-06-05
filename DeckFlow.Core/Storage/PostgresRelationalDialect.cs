@@ -5,6 +5,7 @@ namespace DeckFlow.Core.Storage;
 /// </summary>
 public sealed class PostgresRelationalDialect : IRelationalDialect
 {
+    /// <summary>Shared reusable singleton instance of the Postgres dialect.</summary>
     public static readonly PostgresRelationalDialect Instance = new();
 
     private PostgresRelationalDialect()
