@@ -5,6 +5,10 @@ namespace DeckFlow.Core.Parsing;
 /// </summary>
 public sealed class DeckParseException : Exception
 {
+    /// <summary>
+    /// Creates a new parse exception with the supplied error message.
+    /// </summary>
+    /// <param name="message">Message describing the parse failure.</param>
     public DeckParseException(string message)
         : base(message)
     {
