@@ -8,6 +8,7 @@ namespace DeckFlow.Core.Reporting;
 /// </summary>
 public static class ReconciliationReporter
 {
+    /// <summary>Instructions shown to the user after generating a category-fix delta file for Archidekt.</summary>
     public const string CategoryFixInstructions =
 """
 === How to fix missing or broken categories in Archidekt ===
@@ -43,6 +44,7 @@ FOR printing conflicts (if you chose any Moxfield versions):
      The category will stay attached - only the printing changes.
 """;
 
+    /// <summary>Instructions shown to the user after generating a Moxfield import text file.</summary>
     public const string MoxfieldImportInstructions =
 """
 === How to import into Moxfield safely ===
@@ -59,6 +61,9 @@ Notes:
   - Printing conflicts are informational only. If you want the source printing, swap it manually after import.
 """;
 
+    /// <summary>Writes a reconciliation report for <paramref name="diff"/> to <paramref name="outputPath"/>.</summary>
+    /// <param name="diff">The computed deck diff to report on.</param>
+    /// <param name="outputPath">File path to write the report to.</param>
     public static void WriteReport(DeckDiff diff, string outputPath)
     {
         ArgumentNullException.ThrowIfNull(diff);
@@ -66,9 +71,17 @@ Notes:
         File.WriteAllText(outputPath, ToText(diff));
     }
 
+    /// <summary>Returns the reconciliation report text for <paramref name="diff"/> using default system labels.</summary>
+    /// <param name="diff">The computed deck diff to report on.</param>
+    /// <returns>The formatted reconciliation report text.</returns>
     public static string ToText(DeckDiff diff)
         => ToText(diff, "Moxfield", "Archidekt");
 
+    /// <summary>Returns the reconciliation report text for <paramref name="diff"/> using the supplied system labels.</summary>
+    /// <param name="diff">The computed deck diff to report on.</param>
+    /// <param name="sourceSystem">Name of the source deck system.</param>
+    /// <param name="targetSystem">Name of the target deck system.</param>
+    /// <returns>The formatted reconciliation report text.</returns>
     public static string ToText(DeckDiff diff, string sourceSystem, string targetSystem)
     {
         ArgumentNullException.ThrowIfNull(diff);
@@ -94,9 +107,16 @@ Notes:
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>Returns a printing-swap checklist for resolved conflicts using the default target-system label.</summary>
+    /// <param name="resolved">Resolved printing conflicts to include.</param>
+    /// <returns>The formatted swap checklist, or an empty string when no swaps are needed.</returns>
     public static string GenerateSwapChecklist(List<PrintingConflict> resolved)
         => GenerateSwapChecklist(resolved, "Archidekt");
 
+    /// <summary>Returns a printing-swap checklist for resolved conflicts targeting <paramref name="targetSystem"/>.</summary>
+    /// <param name="resolved">Resolved printing conflicts to include.</param>
+    /// <param name="targetSystem">Name of the destination deck system.</param>
+    /// <returns>The formatted swap checklist, or an empty string when no swaps are needed.</returns>
     public static string GenerateSwapChecklist(List<PrintingConflict> resolved, string targetSystem)
     {
         ArgumentNullException.ThrowIfNull(resolved);
@@ -122,6 +142,9 @@ Notes:
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>Returns the import instructions that match <paramref name="targetSystem"/>.</summary>
+    /// <param name="targetSystem">Name of the destination deck system.</param>
+    /// <returns>The matching import-instruction text.</returns>
     public static string GetInstructions(string targetSystem)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(targetSystem);
