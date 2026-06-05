@@ -4,8 +4,8 @@ milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
 stopped_at: Phase 30 context gathered
-last_updated: "2026-06-05T19:24:42.556Z"
-last_activity: 2026-06-05 -- Phase 30 planning complete
+last_updated: "2026-06-05T19:29:31.597Z"
+last_activity: 2026-06-05 -- Phase 30 execution started
 progress:
   total_phases: 6
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 30 — content kb integration
+**Current focus:** Phase 30 — content-kb-integration
 
 ## Current Position
 
-Phase: 30
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-05 -- Phase 30 planning complete
+Phase: 30 (content-kb-integration) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 30
+Last activity: 2026-06-05 -- Phase 30 execution started
 
 Progress: [░░░░░░░░░░] 0%
 

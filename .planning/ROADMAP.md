@@ -179,7 +179,7 @@ Plans:
   4. Admin sources view displays a per-clip relevance match score for curation tuning
 
 **Plans**: 4 plans
-- [ ] 30-01-PLAN.md — D-09 flip-first: incremental harvest + prod flag flip + live tag-distribution audit (KBI-01)
+- [x] 30-01-PLAN.md — D-09 flip-first: incremental harvest + prod flag flip + live tag-distribution audit (KBI-01)
 - [ ] 30-02-PLAN.md — ContentKbExcerpt record + clip parser + ContentKbRelevanceService + zip persistence (KBI-02, KBI-05)
 - [ ] 30-03-PLAN.md — Expert Context injection into 3 prompt variants + packet-service wiring (KBI-02, KBI-03)
 - [ ] 30-04-PLAN.md — "What Experts Say" panel + admin relevance-score preview (KBI-04, KBI-05, KBI-06)
@@ -313,7 +313,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 |-------|----------------|--------|-----------|
 | 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
 | 29. Core XML-Doc Backfill + Gate Widen | 5/5 | Complete    | 2026-06-05 |
-| 30. Content KB Integration | 0/TBD | Not started | - |
+| 30. Content KB Integration | 1/4 | In Progress|  |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
 
 ---
