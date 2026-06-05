@@ -111,7 +111,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Milestone Goal:** Ship the Deck Primer Generator as a fourth paste-ready workflow, wire Content KB knowledge into deck-analysis prompts, and clear v1.4 quality debt.
 
 - [x] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene (completed 2026-06-04)
-- [ ] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen
+- [x] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen (completed 2026-06-05)
 - [ ] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
@@ -164,7 +164,7 @@ Plans:
 
 **Wave 2** *(blocked on all Wave 1 plans — the FINAL commit of the phase)*
 
-- [ ] 29-05-PLAN.md — `.editorconfig` gate widen to `[DeckFlow.Core/**.cs]` (non-autonomous; inject-probe proof + full-solution build guard + human-verify checkpoint) (HSK-01)
+- [x] 29-05-PLAN.md — `.editorconfig` gate widen to `[DeckFlow.Core/**.cs]` (non-autonomous; inject-probe proof + full-solution build guard + human-verify checkpoint) (HSK-01)
 
 ### Phase 30: Content KB Integration
 
@@ -308,7 +308,7 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
-| 29. Core XML-Doc Backfill + Gate Widen | 4/5 | In Progress|  |
+| 29. Core XML-Doc Backfill + Gate Widen | 5/5 | Complete   | 2026-06-05 |
 | 30. Content KB Integration | 0/TBD | Not started | - |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
 
