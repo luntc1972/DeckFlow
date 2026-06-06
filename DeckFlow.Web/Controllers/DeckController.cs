@@ -539,7 +539,12 @@ public sealed class DeckController : Controller
                     cachedResult.DeckProfileSchemaJson,
                     cachedResult.SetUpgradePromptText,
                     canonicalDeckListText: cachedResult.DecklistText,
-                    originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                    originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                    expertContextJson: !string.IsNullOrWhiteSpace(request.ExpertContextJson)
+                        ? request.ExpertContextJson
+                        : cachedResult.ExpertContextClips is { Count: > 0 }
+                            ? JsonSerializer.Serialize(cachedResult.ExpertContextClips)
+                            : null);
                 var cachedFileName = PacketArtifactStore.SuggestPacketZipFileName(cachedCommanderName, request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
                 return File(cachedBytes, "application/zip", cachedFileName);
@@ -560,7 +565,12 @@ public sealed class DeckController : Controller
                 result.DeckProfileSchemaJson,
                 result.SetUpgradePromptText,
                 canonicalDeckListText: result.DecklistText,
-                originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                expertContextJson: !string.IsNullOrWhiteSpace(request.ExpertContextJson)
+                    ? request.ExpertContextJson
+                    : result.ExpertContextClips is { Count: > 0 }
+                        ? JsonSerializer.Serialize(result.ExpertContextClips)
+                        : null);
             var fileName = PacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
@@ -635,6 +645,7 @@ public sealed class DeckController : Controller
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
+                ExpertContextClips = result.ExpertContextClips,
                 ImportWarning = result.ImportWarning,
             });
         }

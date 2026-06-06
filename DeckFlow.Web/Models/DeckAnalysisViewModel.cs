@@ -66,6 +66,11 @@ public sealed class DeckAnalysisViewModel
     public SetUpgradeResponse? SetUpgradeResponse { get; init; }
 
     /// <summary>
+    /// Gets the injected expert-context clips for the What Experts Say panel rendered in plan 30-04.
+    /// </summary>
+    public IReadOnlyList<ContentKbExcerpt>? ExpertContextClips { get; init; }
+
+    /// <summary>
     /// Gets a warning surfaced when the user's deck import succeeded but with caveats worth flagging.
     /// </summary>
     public string? ImportWarning { get; init; }
