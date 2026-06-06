@@ -322,6 +322,7 @@ public partial class Program
                     sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                     sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetRequiredService<IContentKbRelevanceService>(),
                     sp.GetService<ILogger<DeckAnalysisPacketService>>()));
             builder.Services.AddScoped<IDeckComparisonService>(sp =>
                 new DeckComparisonService(
