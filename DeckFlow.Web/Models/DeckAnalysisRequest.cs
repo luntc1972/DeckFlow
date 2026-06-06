@@ -12,6 +12,7 @@ public sealed class DeckAnalysisRequest
     private string _strategyNotes = string.Empty;
     private string _metaNotes = string.Empty;
     private string _deckProfileJson = string.Empty;
+    private string _expertContextJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
     private List<string> _selectedAnalysisQuestions = [];
@@ -117,6 +118,15 @@ public sealed class DeckAnalysisRequest
     {
         get => _deckProfileJson;
         set => _deckProfileJson = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Serialized expert-context clips (32-expert-context.json) round-tripped through the analysis artifact zip so the What Experts Say panel survives re-upload (D-03 / HIGH-2).
+    /// </summary>
+    public string ExpertContextJson
+    {
+        get => _expertContextJson;
+        set => _expertContextJson = value ?? string.Empty;
     }
 
     /// <summary>
