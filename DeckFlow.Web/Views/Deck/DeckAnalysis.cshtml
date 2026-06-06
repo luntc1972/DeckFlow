@@ -531,6 +531,8 @@ Do not omit any fields from the schema.
                         }
                     </section>
 
+                    @await Html.PartialAsync("_ContentKbPanel", Model.ExpertContextClips)
+
                     <div class="sync-columns">
                         <section class="result-panel nested-panel">
                             <h4>Strengths</h4>

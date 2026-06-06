@@ -559,6 +559,44 @@ summary:focus-visible,
   text-decoration: none;
 }
 
+.kb-expert-panel summary {
+  font-weight: 700;
+}
+
+.kb-expert-clips {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.85rem;
+}
+
+.kb-expert-clip {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.kb-expert-clip blockquote {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--panel) 84%, var(--accent) 16%);
+  border-radius: 0 10px 10px 0;
+}
+
+.kb-expert-clip p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.kb-expert-source-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.kb-expert-source-group h4 {
+  margin: 0;
+}
+
 .maintenance-page__action:hover,
 .maintenance-page__action:focus-visible {
   background: var(--accent-strong, var(--accent));
