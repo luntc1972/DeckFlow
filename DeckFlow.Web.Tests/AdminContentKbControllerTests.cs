@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Controllers.Admin;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -115,23 +116,120 @@ public sealed class AdminContentKbControllerTests
         Assert.Equal(0, model.Status.TotalCount);
     }
 
+    [Fact]
+    public async Task Index_WithPreviewParams_CallsScoreAllAsync_AndPopulatesScores()
+    {
+        var store = new FakeContentSiteIndexStore();
+        var firstRow = Row(1, visible: true);
+        var secondRow = Row(2, visible: false);
+        store.Rows.Add(firstRow);
+        store.Rows.Add(secondRow);
+        var relevanceService = new FakeContentKbRelevanceService
+        {
+            ScoreResults =
+            [
+                (firstRow, 2.75d),
+                (secondRow, 0.50d),
+            ],
+        };
+        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
+
+        var result = await controller.Index(previewCommander: "Tymna", previewBracket: "cEDH", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal(1, relevanceService.ScoreAllCallCount);
+        Assert.Equal("Tymna", relevanceService.LastCommanderName);
+        Assert.Equal("cEDH", relevanceService.LastBracket);
+        Assert.Equal("Tymna", model.PreviewCommander);
+        Assert.Equal("cEDH", model.PreviewBracket);
+        Assert.Contains("cEDH", model.BracketOptions);
+        Assert.Equal(2.75d, Assert.Single(model.Entries, entry => entry.Id == 1).RelevanceScore);
+        Assert.Equal(0.50d, Assert.Single(model.Entries, entry => entry.Id == 2).RelevanceScore);
+    }
+
+    [Fact]
+    public async Task Index_WithNoPreviewParams_DoesNotCallScoreAllAsync_AndLeavesScoresNull()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var relevanceService = new FakeContentKbRelevanceService();
+        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
+
+        var result = await controller.Index(previewCommander: null, previewBracket: null, cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal(0, relevanceService.ScoreAllCallCount);
+        Assert.All(model.Entries, entry => Assert.Null(entry.RelevanceScore));
+    }
+
+    [Fact]
+    public async Task Index_WithInvalidPreviewBracket_TreatsBracketAsNull()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var relevanceService = new FakeContentKbRelevanceService
+        {
+            ScoreResults =
+            [
+                (store.Rows[0], 1.25d),
+            ],
+        };
+        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
+
+        var result = await controller.Index(previewCommander: "Kinnan", previewBracket: "Invalid", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal(1, relevanceService.ScoreAllCallCount);
+        Assert.Equal("Kinnan", relevanceService.LastCommanderName);
+        Assert.Null(relevanceService.LastBracket);
+    }
+
+    [Fact]
+    public async Task Index_NormalizesPreviewCommander_BeforeScoring()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var relevanceService = new FakeContentKbRelevanceService
+        {
+            ScoreResults =
+            [
+                (store.Rows[0], 3.00d),
+            ],
+        };
+        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
+
+        var result = await controller.Index(previewCommander: "  Tymna\nThrasios  ", previewBracket: "cEDH", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("Tymna Thrasios", relevanceService.LastCommanderName);
+    }
+
     private static void AssertForbidden(IActionResult result)
     {
         var obj = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status403Forbidden, obj.StatusCode);
     }
 
-    private static AdminContentKbController Build(FakeContentSiteIndexStore store, out FakeContentKbSeedLoader loader, bool crossOrigin)
+    private static AdminContentKbController Build(
+        FakeContentSiteIndexStore store,
+        out FakeContentKbSeedLoader loader,
+        bool crossOrigin,
+        FakeContentKbRelevanceService? relevanceService = null)
     {
         loader = new FakeContentKbSeedLoader();
-        return Build(store, loader, out _, crossOrigin);
+        return Build(store, loader, out _, crossOrigin, relevanceService);
     }
 
     private static AdminContentKbController Build(
         FakeContentSiteIndexStore store,
         FakeContentKbSeedLoader loader,
         out FakeContentKbSeedLoader loaderOut,
-        bool crossOrigin)
+        bool crossOrigin,
+        FakeContentKbRelevanceService? relevanceService = null)
     {
         loaderOut = loader;
         var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool> { ["content.kb.enabled"] = false });
@@ -139,6 +237,7 @@ public sealed class AdminContentKbControllerTests
             store,
             loader,
             flagCache,
+            relevanceService ?? new FakeContentKbRelevanceService(),
             NullLogger<AdminContentKbController>.Instance);
 
         var httpContext = new DefaultHttpContext();
@@ -173,6 +272,39 @@ public sealed class AdminContentKbControllerTests
 
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
+        }
+    }
+
+    private sealed class FakeContentKbRelevanceService : IContentKbRelevanceService
+    {
+        public int ScoreAllCallCount { get; private set; }
+
+        public string? LastCommanderName { get; private set; }
+
+        public string? LastBracket { get; private set; }
+
+        public IReadOnlyList<(ContentSiteIndexRow Row, double Score)> ScoreResults { get; init; }
+            = Array.Empty<(ContentSiteIndexRow Row, double Score)>();
+
+        public Task<IReadOnlyList<ContentKbExcerpt>?> GetRelevantClipsAsync(
+            string? commanderName,
+            string? bracket,
+            IReadOnlySet<string>? deckArchetypes = null,
+            int maxRenderedChars = 4500,
+            CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<ContentKbExcerpt>?>(null);
+        }
+
+        public Task<IReadOnlyList<(ContentSiteIndexRow Row, double Score)>> ScoreAllAsync(
+            string? commanderName,
+            string? bracket,
+            CancellationToken ct = default)
+        {
+            ScoreAllCallCount++;
+            LastCommanderName = commanderName;
+            LastBracket = bracket;
+            return Task.FromResult(ScoreResults);
         }
     }
 }

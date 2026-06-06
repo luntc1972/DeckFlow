@@ -1,6 +1,7 @@
 @model DeckFlow.Web.Models.AdminContentKbViewModel
 @{
     ViewData["Title"] = "Content KB";
+    var previewActive = !string.IsNullOrWhiteSpace(Model.PreviewCommander) || !string.IsNullOrWhiteSpace(Model.PreviewBracket);
 }
 
 @if (!string.IsNullOrEmpty(Model.SuccessBanner))
@@ -40,6 +41,43 @@
 }
 else
 {
+    <section class="admin-harvest__panel" aria-labelledby="kb-preview-heading">
+        <h2 id="kb-preview-heading">Preview Relevance</h2>
+        <p>Score is computed per artifact row; any injected clips inherit that artifact-level score.</p>
+        <form method="get" class="admin-filters-form">
+            <div class="admin-filters-grid">
+                <label>
+                    Commander
+                    <input type="text" name="previewCommander" value="@Model.PreviewCommander" />
+                </label>
+                <label>
+                    Bracket
+                    <select name="previewBracket">
+                        <option value="">Any</option>
+                        @foreach (var bracketOption in Model.BracketOptions)
+                        {
+                            if (string.Equals(bracketOption, Model.PreviewBracket, StringComparison.Ordinal))
+                            {
+                                <option value="@bracketOption" selected>@bracketOption</option>
+                            }
+                            else
+                            {
+                                <option value="@bracketOption">@bracketOption</option>
+                            }
+                        }
+                    </select>
+                </label>
+            </div>
+            <div class="admin-kb-status__actions">
+                <button type="submit">Preview Scores</button>
+                @if (previewActive)
+                {
+                    <a class="button-link" asp-action="Index">Clear Preview</a>
+                }
+            </div>
+        </form>
+    </section>
+
     <section aria-labelledby="kb-bulk-heading">
         <h2 id="kb-bulk-heading">Sources</h2>
         <table class="admin-table admin-table--card">
@@ -89,6 +127,10 @@ else
                         <th scope="col">Source</th>
                         <th scope="col">Tags</th>
                         <th scope="col">Status</th>
+                        @if (previewActive)
+                        {
+                            <th scope="col">Score (artifact)</th>
+                        }
                         <th scope="col">Action</th>
                     </tr>
                 </thead>
@@ -114,6 +156,10 @@ else
                                     <span class="kb-status kb-status--hidden" aria-label="Hidden">Hidden</span>
                                 }
                             </td>
+                            @if (previewActive)
+                            {
+                                <td data-label="Score (artifact)">@(entry.RelevanceScore?.ToString("F2") ?? "—")</td>
+                            }
                             <td data-label="Action">
                                 <form method="post" asp-action="SetVisibility" class="admin-action-form">
                                     @Html.AntiForgeryToken()

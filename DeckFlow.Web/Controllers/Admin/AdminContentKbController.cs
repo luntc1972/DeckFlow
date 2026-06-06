@@ -1,4 +1,5 @@
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
@@ -22,26 +23,31 @@ public sealed class AdminContentKbController : Controller
     private readonly IContentSiteIndexStore _store;
     private readonly IContentKbSeedLoader _seedLoader;
     private readonly IFeatureFlagCache _flagCache;
+    private readonly IContentKbRelevanceService _relevanceService;
     private readonly ILogger<AdminContentKbController> _logger;
 
-    /// <summary>Constructor injecting the index store, seed loader, flag cache, and logger.</summary>
+    /// <summary>Constructor injecting the index store, seed loader, flag cache, relevance service, and logger.</summary>
     /// <param name="store">Content site-index store (read all rows + flip visibility).</param>
     /// <param name="seedLoader">Curation-preserving seed loader for the reload action.</param>
     /// <param name="flagCache">Feature-flag cache for the content.kb.enabled status display.</param>
+    /// <param name="relevanceService">Artifact-level relevance scorer used by the admin preview.</param>
     /// <param name="logger">Logger.</param>
     public AdminContentKbController(
         IContentSiteIndexStore store,
         IContentKbSeedLoader seedLoader,
         IFeatureFlagCache flagCache,
+        IContentKbRelevanceService relevanceService,
         ILogger<AdminContentKbController> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(seedLoader);
         ArgumentNullException.ThrowIfNull(flagCache);
+        ArgumentNullException.ThrowIfNull(relevanceService);
         ArgumentNullException.ThrowIfNull(logger);
         _store = store;
         _seedLoader = seedLoader;
         _flagCache = flagCache;
+        _relevanceService = relevanceService;
         _logger = logger;
     }
 
@@ -50,12 +56,29 @@ public sealed class AdminContentKbController : Controller
     /// and per-source bulk groups. The status timestamp is max(indexed_utc) honestly labeled as
     /// the index-generation time (D-22D).
     /// </summary>
+    /// <param name="previewCommander">Optional commander text for the live relevance preview.</param>
+    /// <param name="previewBracket">Optional bracket filter for the live relevance preview.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpGet("")]
     [HttpGet("Index")]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(
+        string? previewCommander = null,
+        string? previewBracket = null,
+        CancellationToken cancellationToken = default)
     {
         var rows = await _store.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
+        var normalizedPreviewCommander = NormalizePreviewCommander(previewCommander);
+        var normalizedPreviewBracket = NormalizePreviewBracket(previewBracket);
+        Dictionary<long, double>? previewScores = null;
+
+        if (!string.IsNullOrWhiteSpace(previewCommander) || !string.IsNullOrWhiteSpace(previewBracket))
+        {
+            previewScores = (await _relevanceService
+                    .ScoreAllAsync(normalizedPreviewCommander, normalizedPreviewBracket, cancellationToken)
+                    .ConfigureAwait(false))
+                .GroupBy(item => item.Row.Id)
+                .ToDictionary(group => group.Key, group => group.First().Score);
+        }
 
         var entries = rows
             .Select(r => new KbEntryRow
@@ -65,6 +88,7 @@ public sealed class AdminContentKbController : Controller
                 Source = r.Source,
                 Tags = r.ArchetypeTags.Concat(r.BracketTags).ToArray(),
                 IsVisible = r.IsVisible,
+                RelevanceScore = previewScores is not null && previewScores.TryGetValue(r.Id, out var score) ? score : null,
             })
             .ToArray();
 
@@ -89,10 +113,37 @@ public sealed class AdminContentKbController : Controller
             Status = status,
             Sources = sources,
             Entries = entries,
+            PreviewCommander = normalizedPreviewCommander,
+            PreviewBracket = normalizedPreviewBracket,
+            BracketOptions = ContentTagVocabulary.Brackets.ToArray(),
             SuccessBanner = TempData[BannerKey] as string,
         };
 
         return View(model);
+    }
+
+    private static string? NormalizePreviewCommander(string? previewCommander)
+    {
+        if (string.IsNullOrWhiteSpace(previewCommander))
+        {
+            return null;
+        }
+
+        return string.Join(
+            ' ',
+            previewCommander
+                .Split(['\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string? NormalizePreviewBracket(string? previewBracket)
+    {
+        if (string.IsNullOrWhiteSpace(previewBracket))
+        {
+            return null;
+        }
+
+        var trimmed = previewBracket.Trim();
+        return ContentTagVocabulary.Brackets.Contains(trimmed) ? trimmed : null;
     }
 
     /// <summary>
