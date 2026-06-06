@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 30 context gathered
-last_updated: "2026-06-05T19:29:31.597Z"
-last_activity: 2026-06-05 -- Phase 30 execution started
+stopped_at: 30-02 complete — next 30-03
+last_updated: "2026-06-06T16:40:00.000Z"
+last_activity: 2026-06-06 -- 30-02 relevance-scoring core complete
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 13
-  completed_plans: 9
-  percent: 33
+  completed_plans: 10
+  percent: 38
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 ## Current Position
 
 Phase: 30 (content-kb-integration) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 30
-Last activity: 2026-06-05 -- Phase 30 execution started
+Plan: 2 of 4 complete (30-01, 30-02)
+Status: Executing Phase 30 — next plan 30-03 (prompt injection)
+Last activity: 2026-06-06 -- 30-02 relevance-scoring core complete (3 tasks, 561/561 Web tests)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -86,6 +86,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-06-06T15:58:00Z
-Stopped at: Resumed mid 30-02 — Task 1 done (4d4fa4f), dispatching Codex on Task 2 (ContentKbArchetypeDeriver + ContentKbRelevanceService)
-Resume file: .planning/phases/30-content-kb-integration/30-02-PLAN.md
+Last session: 2026-06-06T16:40:00Z
+Stopped at: 30-02 complete (4d4fa4f, 703ff97, a74007b) — next: 30-03 prompt injection
+Resume file: .planning/phases/30-content-kb-integration/30-03-PLAN.md
