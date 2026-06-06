@@ -480,6 +480,7 @@ public sealed class DeckController : Controller
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
+                ExpertContextClips = result.ExpertContextClips,
                 ImportWarning = result.ImportWarning,
             });
         }
