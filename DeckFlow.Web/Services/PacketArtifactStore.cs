@@ -32,6 +32,7 @@ internal static class PacketArtifactStore
         "10b-deck-original.txt",
         "30-reference.txt",
         "31-analysis-prompt.txt",
+        "32-expert-context.json",
         "40-deck-profile.json",
         "41-deck-profile-schema.json",
         "50-set-upgrade-prompt.txt",
@@ -100,7 +101,8 @@ internal static class PacketArtifactStore
         string deckProfileSchemaJson,
         string? setUpgradePromptText,
         string? canonicalDeckListText = null,
-        string? originalDeckText = null)
+        string? originalDeckText = null,
+        string? expertContextJson = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -112,6 +114,7 @@ internal static class PacketArtifactStore
             ("10b-deck-original.txt", "DECK ORIGINAL TEXT", originalDeckText),
             ("30-reference.txt", "REFERENCE TEXT", referenceText),
             ("31-analysis-prompt.txt", "ANALYSIS PROMPT", analysisPromptText),
+            ("32-expert-context.json", "EXPERT CONTEXT JSON", expertContextJson),
             ("41-deck-profile-schema.json", "DECK PROFILE JSON SCHEMA", deckProfileSchemaJson),
             ("50-set-upgrade-prompt.txt", "SET UPGRADE PROMPT", setUpgradePromptText)
         ]);
@@ -210,6 +213,7 @@ internal static class PacketArtifactStore
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
         entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
         entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
+        entries.TryGetValue("32-expert-context.json", out var expertContextJson);
 
         if (string.IsNullOrWhiteSpace(deckProfile) &&
             string.IsNullOrWhiteSpace(setUpgrade) &&
@@ -219,6 +223,7 @@ internal static class PacketArtifactStore
         }
 
         request.DeckProfileJson = deckProfile ?? string.Empty;
+        request.ExpertContextJson = expertContextJson ?? string.Empty;
         request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
         request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade)
             ? 5
