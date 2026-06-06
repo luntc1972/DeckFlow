@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: 30-02 complete — next 30-03
-last_updated: "2026-06-06T16:40:00.000Z"
-last_activity: 2026-06-06 -- 30-02 relevance-scoring core complete
+stopped_at: 30-03 complete — next 30-04
+last_updated: "2026-06-06T17:10:00.000Z"
+last_activity: 2026-06-06 -- 30-03 Expert Context injection + packet wiring complete
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 13
-  completed_plans: 10
-  percent: 38
+  completed_plans: 11
+  percent: 42
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 ## Current Position
 
 Phase: 30 (content-kb-integration) — EXECUTING
-Plan: 2 of 4 complete (30-01, 30-02)
-Status: Executing Phase 30 — next plan 30-03 (prompt injection)
-Last activity: 2026-06-06 -- 30-02 relevance-scoring core complete (3 tasks, 561/561 Web tests)
+Plan: 3 of 4 complete (30-01, 30-02, 30-03)
+Status: Executing Phase 30 — next plan 30-04 (panel + admin preview)
+Last activity: 2026-06-06 -- 30-03 Expert Context injection + packet wiring complete (580/580 Web tests)
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -86,6 +86,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-06-06T16:40:00Z
-Stopped at: 30-02 complete (4d4fa4f, 703ff97, a74007b) — next: 30-03 prompt injection
-Resume file: .planning/phases/30-content-kb-integration/30-03-PLAN.md
+Last session: 2026-06-06T17:10:00Z
+Stopped at: 30-03 complete (05e52b3, d8c4513) — next: 30-04 panel + admin preview
+Resume file: .planning/phases/30-content-kb-integration/30-04-PLAN.md
