@@ -180,7 +180,7 @@ Plans:
 
 **Plans**: 4 plans
 - [x] 30-01-PLAN.md — D-09 flip-first: incremental harvest + prod flag flip + live tag-distribution audit (KBI-01)
-- [ ] 30-02-PLAN.md — ContentKbExcerpt record + clip parser + ContentKbRelevanceService + zip persistence (KBI-02, KBI-05)
+- [x] 30-02-PLAN.md — ContentKbExcerpt record + clip parser + ContentKbRelevanceService + zip persistence (KBI-02, KBI-05)
 - [ ] 30-03-PLAN.md — Expert Context injection into 3 prompt variants + packet-service wiring (KBI-02, KBI-03)
 - [ ] 30-04-PLAN.md — "What Experts Say" panel + admin relevance-score preview (KBI-04, KBI-05, KBI-06)
 **UI hint**: yes
