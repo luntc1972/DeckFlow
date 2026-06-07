@@ -31,6 +31,9 @@ public sealed record ContentKbBrowseViewModel
         /// <summary>Entry title.</summary>
         public required string Title { get; init; }
 
+        /// <summary>Stable id used for pinning — YoutubeVideoId or RssGuid.</summary>
+        public required string VideoId { get; init; }
+
         /// <summary>Source display name.</summary>
         public required string Source { get; init; }
 

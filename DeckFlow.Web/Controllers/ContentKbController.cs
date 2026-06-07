@@ -59,6 +59,7 @@ public sealed class ContentKbController : Controller
             {
                 Id = row.Id,
                 Title = row.Title,
+                VideoId = row.YoutubeVideoId ?? row.RssGuid ?? row.Id.ToString(CultureInfo.InvariantCulture),
                 Source = row.Source,
                 SourceUrl = row.VideoUrl,
                 DetailUrl = $"/content-kb/{row.Id}",
