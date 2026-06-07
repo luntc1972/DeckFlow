@@ -3,7 +3,8 @@ title: User-selectable Expert Context — pin a KB video or tag into the analysi
 date: 2026-06-07
 priority: medium
 source: Phase 30 UAT feedback (checkpoint Task 3, 2026-06-06)
-target_milestone: v1.6
+target_milestone: v1.5
+status: PROMOTED — now Phase 32 (2026-06-07); spec at .planning/specs/2026-06-07-expert-context-selection-design.md
 ---
 
 # User-selectable Expert Context
