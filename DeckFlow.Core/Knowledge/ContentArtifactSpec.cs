@@ -135,6 +135,9 @@ public sealed record ContentSiteIndexRow
     /// <summary>Whether this row is published to the public Content KB surface; <see langword="false"/> (hidden) by default until an admin curates it visible.</summary>
     public bool IsVisible { get; init; }
 
+    /// <summary>Whether this artifact can fill evergreen advice slots for any deck analysis prompt.</summary>
+    public bool IsEvergreen { get; init; }
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 

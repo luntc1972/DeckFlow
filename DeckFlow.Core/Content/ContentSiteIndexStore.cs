@@ -63,6 +63,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addVisible.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("is_evergreen"))
+            {
+                await using var addEvergreen = connection.CreateCommand();
+                addEvergreen.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN is_evergreen BOOLEAN NOT NULL DEFAULT FALSE;"
+                    : "ALTER TABLE content_site_index ADD COLUMN is_evergreen INTEGER NOT NULL DEFAULT 0;";
+                await addEvergreen.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             _schemaReady = true;
         }
         finally
@@ -101,6 +110,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         RelationalDatabaseConnection.AddParameter(command, "@cardCategoryTags", ContentArtifactSpec.SerializeTags(row.CardCategoryTags));
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyType", naturalKey.Type);
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyValue", naturalKey.Value);
+        RelationalDatabaseConnection.AddParameter(command, "@isEvergreen", FormatVisibility(row.IsEvergreen));
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -135,6 +145,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyType", naturalKey.Type);
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyValue", naturalKey.Value);
         RelationalDatabaseConnection.AddParameter(command, "@isVisible", FormatVisibility(false));
+        RelationalDatabaseConnection.AddParameter(command, "@isEvergreen", FormatVisibility(false));
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -163,7 +174,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    card_category_tags,
                    natural_key_type,
                    natural_key_value,
-                   is_visible
+                   is_visible,
+                   is_evergreen
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
@@ -200,7 +212,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    card_category_tags,
                    natural_key_type,
                    natural_key_value,
-                   is_visible
+                   is_visible,
+                   is_evergreen
               FROM content_site_index
              WHERE is_visible = @visible
              ORDER BY source, title, id;
@@ -230,7 +243,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    card_category_tags,
                    natural_key_type,
                    natural_key_value,
-                   is_visible
+                   is_visible,
+                   is_evergreen
               FROM content_site_index
              ORDER BY source, title, id;
             """;
@@ -258,7 +272,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    card_category_tags,
                    natural_key_type,
                    natural_key_value,
-                   is_visible
+                   is_visible,
+                   is_evergreen
               FROM content_site_index
              WHERE id = @id;
             """;
@@ -286,6 +301,30 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
              WHERE id = @id;
             """;
         RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(visible));
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sets evergreen flag for a single site-index row.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="evergreen">Whether the row should be evergreen.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated.</returns>
+    public async Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE content_site_index
+               SET is_evergreen = @evergreen
+             WHERE id = @id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@evergreen", FormatVisibility(evergreen));
         RelationalDatabaseConnection.AddParameter(command, "@id", id);
 
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -455,7 +494,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             CardCategoryTags = ContentArtifactSpec.DeserializeTags(reader.GetString(9)),
             YoutubeVideoId = youtubeVideoId,
             RssGuid = rssGuid,
-            IsVisible = ReadVisibility(reader, 12)
+            IsVisible = ReadVisibility(reader, 12),
+            IsEvergreen = ReadVisibility(reader, 13)
         };
     }
 
@@ -497,7 +537,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           bracket_tags,
           card_category_tags,
           natural_key_type,
-          natural_key_value)
+          natural_key_value,
+          is_evergreen)
         VALUES (
           @source,
           @title,
@@ -509,7 +550,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @bracketTags,
           @cardCategoryTags,
           @naturalKeyType,
-          @naturalKeyValue)
+          @naturalKeyValue,
+          @isEvergreen)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -519,7 +561,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           indexed_utc        = EXCLUDED.indexed_utc,
           archetype_tags     = EXCLUDED.archetype_tags,
           bracket_tags       = EXCLUDED.bracket_tags,
-          card_category_tags = EXCLUDED.card_category_tags;
+          card_category_tags = EXCLUDED.card_category_tags,
+          is_evergreen       = EXCLUDED.is_evergreen;
         """;
 
     private const string UpsertPreservingVisibilitySql = """
@@ -535,7 +578,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags,
           natural_key_type,
           natural_key_value,
-          is_visible)
+          is_visible,
+          is_evergreen)
         VALUES (
           @source,
           @title,
@@ -548,7 +592,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @cardCategoryTags,
           @naturalKeyType,
           @naturalKeyValue,
-          @isVisible)
+          @isVisible,
+          @isEvergreen)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -576,6 +621,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type   TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')),
           natural_key_value  TEXT NOT NULL,
           is_visible         BOOLEAN NOT NULL DEFAULT FALSE,
+          is_evergreen       BOOLEAN NOT NULL DEFAULT FALSE,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -595,6 +641,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type   TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')),
           natural_key_value  TEXT NOT NULL,
           is_visible         INTEGER NOT NULL DEFAULT 0,
+          is_evergreen       INTEGER NOT NULL DEFAULT 0,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
