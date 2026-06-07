@@ -441,8 +441,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
                 singleLine,
                 @"\s+(?:\/\/|/|&|and|partnered with)\s+",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-            .Select(NormalizeFreeText)
-            .Where(segment => segment.Length > 0)
+            .SelectMany(ExpandCommanderMatchCandidates)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -452,6 +451,31 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         }
 
         return new NormalizedCommander(NormalizeFreeText(singleLine), partnerSegments);
+    }
+
+    private static IEnumerable<string> ExpandCommanderMatchCandidates(string commanderSegment)
+    {
+        var normalizedSegment = NormalizeFreeText(commanderSegment);
+        if (normalizedSegment.Length == 0)
+        {
+            yield break;
+        }
+
+        yield return normalizedSegment;
+
+        var commaIndex = normalizedSegment.IndexOf(',', StringComparison.Ordinal);
+        if (commaIndex < 4)
+        {
+            yield break;
+        }
+
+        // Why: artifact text often uses the short commander name ("Kinnan") while category
+        // knowledge is keyed by the full printed name ("Kinnan, Bonder Prodigy").
+        var shortName = NormalizeFreeText(normalizedSegment[..commaIndex]);
+        if (shortName.Length >= 4)
+        {
+            yield return shortName;
+        }
     }
 
     private static bool ContainsCommanderName(string searchText, NormalizedCommander normalizedCommander)

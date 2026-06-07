@@ -178,6 +178,54 @@ public sealed class ContentKbRelevanceServiceTests
     }
 
     [Fact]
+    public async Task GetRelevantClipsAsync_FullCommanderName_MatchesShortNameMentionBeforeComma()
+    {
+        var row = CreateRow(1, "artifact-a.md", ["combo"], []);
+        var store = new TrackingContentSiteIndexStore([row]);
+        var artifactText = BuildArtifact(
+            "https://www.youtube.com/watch?v=abc123",
+            "2026-06-05T12:34:56Z",
+            "Neutral summary.",
+            ("02:14", "Kinnan powers the artifact combo turn here."));
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            new Dictionary<string, string> { [row.ArtifactPath] = artifactText });
+
+        var result = await sut.GetRelevantClipsAsync(
+            "Kinnan, Bonder Prodigy",
+            bracket: null,
+            deckArchetypes: new HashSet<string>(["combo"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Single(result!);
+    }
+
+    [Fact]
+    public async Task GetRelevantClipsAsync_PreCommaTokenShorterThanFourChars_DoesNotCreateCommanderHit()
+    {
+        var row = CreateRow(1, "artifact-a.md", ["combo"], []);
+        var store = new TrackingContentSiteIndexStore([row]);
+        var artifactText = BuildArtifact(
+            "https://www.youtube.com/watch?v=abc123",
+            "2026-06-05T12:34:56Z",
+            "Neutral summary.",
+            ("02:14", "Rin carries the combo turn here."));
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            new Dictionary<string, string> { [row.ArtifactPath] = artifactText });
+
+        var result = await sut.GetRelevantClipsAsync(
+            "Rin, Test Commander",
+            bracket: null,
+            deckArchetypes: new HashSet<string>(["combo"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public async Task GetRelevantClipsAsync_TightBudget_TrimsLowestScoringClipsFirst()
     {
         var highRow = CreateRow(1, "artifact-high.md", ["combo"], ["cEDH"]);

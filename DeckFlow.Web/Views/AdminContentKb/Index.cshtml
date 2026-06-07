@@ -44,11 +44,14 @@ else
     <section class="admin-harvest__panel" aria-labelledby="kb-preview-heading">
         <h2 id="kb-preview-heading">Preview Relevance</h2>
         <p>Score is computed per artifact row; any injected clips inherit that artifact-level score.</p>
+        <div class="error-banner hidden" role="alert" data-api-panel="commander-search-error">
+            <span data-api-field="commander-search-error-text"></span>
+        </div>
         <form method="get" class="admin-filters-form">
             <div class="admin-filters-grid">
                 <label>
                     Commander
-                    <input type="text" name="previewCommander" value="@Model.PreviewCommander" />
+                    <input id="kb-preview-commander-input" type="text" name="previewCommander" value="@Model.PreviewCommander" placeholder="Kinnan, Bonder Prodigy" autocomplete="off" />
                 </label>
                 <label>
                     Bracket
@@ -76,6 +79,7 @@ else
                 }
             </div>
         </form>
+        <p class="mode-note">Type at least two letters to see commander suggestions from the existing commander search endpoint.</p>
     </section>
 
     <section aria-labelledby="kb-bulk-heading">
@@ -188,5 +192,6 @@ else
 @section Scripts
 {
     <script src="~/js/admin-modal.js" asp-append-version="true"></script>
+    <script src="~/js/df-typeahead.js" asp-append-version="true"></script>
     <script src="~/js/content-kb-admin.js" asp-append-version="true"></script>
 }
