@@ -105,6 +105,22 @@ Do not omit any fields from the schema.
         </button>
     </details>
 
+    @{
+        var packetTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
+            AriaLabel: "Deck Analysis packet workflow steps",
+            TabIdPrefix: "chatgpt-step-tab",
+            PanelIdPrefix: "chatgpt-step-panel",
+            DataShowStepAttribute: "chatgpt-show-step",
+            Steps: new[]
+            {
+                new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
+                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", !string.IsNullOrWhiteSpace(Model.AnalysisPromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Analysis Results", Model.AnalysisResponse is not null),
+                new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", !string.IsNullOrWhiteSpace(Model.SetUpgradePromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null)
+            });
+    }
+    @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
     <section class="kb-chip-area" aria-labelledby="kb-chip-heading">
         <h3 id="kb-chip-heading" class="kb-chip-area__heading">
             Expert Context
@@ -159,23 +175,6 @@ Do not omit any fields from the schema.
             <p class="kb-chip-area__empty-hint" hidden>No expert context selected. Clips will be chosen automatically.</p>
         }
     </section>
-
-    @{
-        var packetTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
-            AriaLabel: "Deck Analysis packet workflow steps",
-            TabIdPrefix: "chatgpt-step-tab",
-            PanelIdPrefix: "chatgpt-step-panel",
-            DataShowStepAttribute: "chatgpt-show-step",
-            Steps: new[]
-            {
-                new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
-                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", !string.IsNullOrWhiteSpace(Model.AnalysisPromptText)),
-                new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Analysis Results", Model.AnalysisResponse is not null),
-                new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", !string.IsNullOrWhiteSpace(Model.SetUpgradePromptText)),
-                new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null)
-            });
-    }
-    @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
             <div>
