@@ -161,6 +161,13 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-hub-card__title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
 .admin-shell .admin-hub-card__description { margin: 0; font-size: 0.85em; color: var(--muted); line-height: 1.35; }
 
+.admin-shell .admin-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .admin-shell .admin-banner { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); }
 .admin-shell .admin-banner--success { border-color: var(--accent); }
 .admin-shell .admin-banner--error { border-color: var(--danger); }
@@ -176,6 +183,27 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
 .admin-shell .feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
+
+.admin-shell .admin-kb-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-shell .admin-kb-toggle a {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.admin-shell .admin-kb-toggle a.is-active,
+.admin-shell .admin-table th a.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(59,130,246,0.12);
+}
 
 .admin-shell .admin-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 .admin-shell .admin-table th,
