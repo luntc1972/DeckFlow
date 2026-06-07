@@ -455,6 +455,8 @@ ignored
 
         public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+        public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 

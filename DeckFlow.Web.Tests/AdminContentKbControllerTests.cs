@@ -387,6 +387,17 @@ public sealed class AdminContentKbControllerTests
             return Task.FromResult<IReadOnlyList<ContentKbExcerpt>?>(null);
         }
 
+        public Task<IReadOnlyList<ContentKbExcerpt>?> GetMergedClipsAsync(
+            ExpertSelection selection,
+            string? commanderName,
+            string? bracket,
+            IReadOnlySet<string>? deckArchetypes = null,
+            int maxRenderedChars = 4500,
+            CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<ContentKbExcerpt>?>(null);
+        }
+
         public Task<IReadOnlyList<(ContentSiteIndexRow Row, double Score)>> ScoreAllAsync(
             string? commanderName,
             string? bracket,

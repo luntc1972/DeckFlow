@@ -256,6 +256,12 @@ Commander
             return Task.FromResult(Result);
         }
 
+        public Task<IReadOnlyList<ContentKbExcerpt>?> GetMergedClipsAsync(ExpertSelection selection, string? commanderName, string? bracket, IReadOnlySet<string>? deckArchetypes = null, int maxRenderedChars = 4500, CancellationToken ct = default)
+        {
+            CallCount++;
+            return Task.FromResult(Result);
+        }
+
         public Task<IReadOnlyList<(DeckFlow.Core.Knowledge.ContentSiteIndexRow Row, double Score)>> ScoreAllAsync(string? commanderName, string? bracket, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<(DeckFlow.Core.Knowledge.ContentSiteIndexRow Row, double Score)>>(Array.Empty<(DeckFlow.Core.Knowledge.ContentSiteIndexRow Row, double Score)>());
     }
