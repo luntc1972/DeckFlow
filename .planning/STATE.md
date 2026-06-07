@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 32 planned (4 plans, Codex READY)
-last_updated: "2026-06-07T18:30:00.000Z"
-last_activity: 2026-06-07 -- Phase 32 planned: 4 plans/4 waves, plan-checker PASS + Codex review converged (3 rounds) to READY
+stopped_at: Phase 32 Wave 1 (32-01) complete + reviewed
+last_updated: "2026-06-07T19:42:00.000Z"
+last_activity: 2026-06-07 -- Phase 32 Wave 1 (32-01) executed: evergreen flag + tier-fill merge core; 21 tests green
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 17
+  completed_plans: 14
   percent: 43
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 ## Current Position
 
-Phase: 32 (expert-context-selection) — PLANNED (4 plans/4 waves; checker PASS + Codex READY)
-Next: Codex plan review converged — ready for /gsd-execute-phase 32 (cross-AI: Codex codes, Claude reviews)
-Last activity: 2026-06-07 -- Phase 32 planned + reviewed; Phase 30 closed (592/592 Web tests)
+Phase: 32 (expert-context-selection) — EXECUTING (Wave 1/4 done: 32-01 complete + reviewed PASS)
+Next: Wave 2 (32-02 selection persistence + cache key); then 32-03, 32-04
+Last activity: 2026-06-07 -- 32-01 executed (Codex gpt-5.4) + Claude review PASS; SEL-02/05/06 done; 21 tests green
 
-Progress: [██████████] 100%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
