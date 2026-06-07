@@ -124,11 +124,13 @@ Do not omit any fields from the schema.
     <section class="kb-chip-area" aria-labelledby="kb-chip-heading">
         <h3 id="kb-chip-heading" class="kb-chip-area__heading">
             Expert Context
+            <span class="kb-chip-area__optional">optional</span>
             <details class="info-tooltip">
                 <summary>i</summary>
                 <p>Pinned videos and followed creators whose clips are guaranteed a place in your analysis prompt. Cleared after each run (videos) or sticky (creators).</p>
             </details>
         </h3>
+        <p class="kb-chip-area__subhead">Pin a video or follow a creator to guarantee their clips appear in your analysis.</p>
 
         <div class="kb-chip-area__chips" data-kb-chips aria-label="Selected expert context items">
             @foreach (var id in Model.Request.PinnedVideoIds)
@@ -159,7 +161,7 @@ Do not omit any fields from the schema.
         <div class="autocomplete-anchor kb-chip-area__typeahead" data-kb-chip-typeahead>
             <input type="text"
                    class="kb-chip-area__search"
-                   placeholder="Add pinned video or followed creator…"
+                   placeholder="🔍  Add a pinned video or followed creator…"
                    aria-label="Add expert context item"
                    autocomplete="off"
                    data-kb-typeahead-input />
