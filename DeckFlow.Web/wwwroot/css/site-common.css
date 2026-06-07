@@ -655,6 +655,10 @@ summary:focus-visible,
   justify-content: flex-end;
 }
 
+.chatgpt-step-footer {
+  flex-wrap: wrap;
+}
+
 .chatgpt-layout-picker {
   display: inline-flex;
   flex: 0 0 auto;
