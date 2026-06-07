@@ -669,19 +669,22 @@ private static readonly HashSet<string> PacketAllowedNames = new(StringComparer.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Where does "Follow creator" button live on browse cards?**
+   - RESOLVED: Follow button on each card (UI-SPEC C-02; Plan 03 Task 3 Follow button per card) — no source-group restructure.
    - What we know: Current browse page is a flat card grid with no source-group headings. Source is displayed as a tag badge inside each card.
    - What's unclear: Spec says "each creator heading gets ★ Follow" — but no heading exists. Is the plan to restructure the grid into source groups, or put Follow on each card?
    - Recommendation: Put Follow on each card next to the source tag (simplest; no layout restructure). Show in tray. If source-group headings are added in UI/TS plan, Follow can migrate to the heading.
 
 2. **`ExpertSelectionState` serialization contract**
+   - RESOLVED: `internal sealed record ExpertSelectionState` with camelCase JSON (Plan 02 Task 2).
    - What we know: The `33-expert-selection.json` payload must survive BuildZip -> LoadFromZip. `{ get; init; }` constraint applies.
    - What's unclear: Exact JSON shape. Suggestion: `{"pinnedVideoIds": ["abc123"], "followedCreators": ["EDHRECast"]}` using `JsonNamingPolicy.CamelCase`.
    - Recommendation: Define as `internal sealed record ExpertSelectionState` with `IReadOnlyList<string>` properties and `{ get; init; }`.
 
 3. **New API endpoint for chip area typeahead**
+   - RESOLVED: New `ContentKbSearchApiController` at `/api/content-kb/{entries,creators}` (Plan 03 Task 1).
    - What we know: The chip area needs typeahead to add more pins/follows beyond what localStorage already carries. `attachTypeahead` expects an `endpoint` returning `string[]`.
    - What's unclear: Where to add it. `SuggestionsApiController` already exists for category suggestions.
    - Recommendation: Add to `SuggestionsApiController` as `/api/content-kb/entries` (returns visible entry titles+ids) and `/api/content-kb/creators` (returns distinct source names). Both are simple reads from `IContentSiteIndexStore`.
