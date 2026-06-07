@@ -13,6 +13,9 @@ public sealed class DeckAnalysisRequest
     private string _metaNotes = string.Empty;
     private string _deckProfileJson = string.Empty;
     private string _expertContextJson = string.Empty;
+    private List<string> _pinnedVideoIds = [];
+    private List<string> _followedCreators = [];
+    private string _expertSelectionJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
     private List<string> _selectedAnalysisQuestions = [];
@@ -127,6 +130,33 @@ public sealed class DeckAnalysisRequest
     {
         get => _expertContextJson;
         set => _expertContextJson = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// One-shot pinned expert video ids restored from the selection zip payload and cleared after use.
+    /// </summary>
+    public List<string> PinnedVideoIds
+    {
+        get => _pinnedVideoIds;
+        set => _pinnedVideoIds = value ?? [];
+    }
+
+    /// <summary>
+    /// Sticky followed-creator names restored from the selection zip payload and reused across requests.
+    /// </summary>
+    public List<string> FollowedCreators
+    {
+        get => _followedCreators;
+        set => _followedCreators = value ?? [];
+    }
+
+    /// <summary>
+    /// Serialized 33-expert-selection.json payload round-tripped through the analysis artifact zip.
+    /// </summary>
+    public string ExpertSelectionJson
+    {
+        get => _expertSelectionJson;
+        set => _expertSelectionJson = value ?? string.Empty;
     }
 
     /// <summary>
