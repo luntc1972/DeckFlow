@@ -219,6 +219,19 @@ else
                                         <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
                                     }
                                 </form>
+                                <form method="post" asp-action="SetEvergreen" class="admin-action-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="entryId" value="@entry.Id" />
+                                    <input type="hidden" name="evergreen" value="@((!entry.IsEvergreen).ToString().ToLowerInvariant())" />
+                                    @if (entry.IsEvergreen)
+                                    {
+                                        <button type="submit" aria-label="Remove evergreen flag from '@entry.Title'">Evergreen: On</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" aria-label="Mark '@entry.Title' as evergreen">Evergreen: Off</button>
+                                    }
+                                </form>
                             </td>
                         </tr>
                     }
