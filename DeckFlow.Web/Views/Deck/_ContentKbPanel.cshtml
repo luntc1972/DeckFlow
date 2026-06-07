@@ -19,10 +19,38 @@
                                 [@clip.TimestampLabel],
                                 Harvested @clip.HarvestDate.ToString("yyyy-MM-dd")
                             </p>
+                            <span class="kb-clip-origin kb-clip-origin--@ClipOriginClass(clip.ClipOrigin)" aria-label="@ClipOriginLabel(clip.ClipOrigin)" title="@ClipOriginLabel(clip.ClipOrigin)">@ClipOriginGlyph(clip.ClipOrigin)</span>
                         </article>
                     }
                 </section>
             }
         </div>
     </details>
+}
+
+@functions {
+    private static string ClipOriginClass(string origin) => origin?.ToLowerInvariant() switch
+    {
+        "pinned" => "pinned",
+        "followed" => "followed",
+        "evergreen" => "evergreen",
+        "auto" => "auto",
+        _ => "auto"
+    };
+
+    private static string ClipOriginGlyph(string origin) => origin?.ToLowerInvariant() switch
+    {
+        "pinned" => "📌",
+        "followed" => "★",
+        "evergreen" => "☘",
+        _ => "auto"
+    };
+
+    private static string ClipOriginLabel(string origin) => origin?.ToLowerInvariant() switch
+    {
+        "pinned" => "Pinned by you",
+        "followed" => "From followed creator",
+        "evergreen" => "Evergreen advice",
+        _ => "Auto-selected"
+    };
 }
