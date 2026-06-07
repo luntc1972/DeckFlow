@@ -185,4 +185,136 @@ public sealed class PacketArtifactStoreTests
 
         Assert.Equal("[]", loaded.ExpertContextJson);
     }
+
+    [Fact]
+    public void BuildZip_with_selection_json_round_trips_into_request()
+    {
+        var selectionJson = JsonSerializer.Serialize(
+            new ExpertSelectionState
+            {
+                PinnedVideoIds = ["abc123"],
+                FollowedCreators = ["EDHRECast"]
+            },
+            PacketArtifactStore.ExpertSelectionJsonOptions);
+
+        var bytes = PacketArtifactStore.BuildZip(
+            new DeckAnalysisRequest
+            {
+                DeckProfileJson = "{\"deck_profile\":{\"format\":\"Commander\"}}"
+            },
+            commanderName: "Atraxa",
+            inputSummary: "summary",
+            requestContextText: "context",
+            referenceText: null,
+            analysisPromptText: "analysis prompt",
+            deckProfileSchemaJson: "{}",
+            setUpgradePromptText: null,
+            selectionJson: selectionJson);
+
+        var loaded = new DeckAnalysisRequest();
+        using var memoryStream = new MemoryStream(bytes);
+        PacketArtifactStore.LoadFromZip(memoryStream, loaded);
+
+        Assert.Equal(["abc123"], loaded.PinnedVideoIds);
+        Assert.Equal(["EDHRECast"], loaded.FollowedCreators);
+        Assert.Contains("abc123", loaded.ExpertSelectionJson);
+    }
+
+    [Fact]
+    public void LoadFromZip_with_camelCase_selection_json_binds_properties()
+    {
+        var bytes = PacketArtifactStore.BuildZip(
+            new DeckAnalysisRequest
+            {
+                DeckProfileJson = "{\"deck_profile\":{\"format\":\"Commander\"}}"
+            },
+            commanderName: "Atraxa",
+            inputSummary: "summary",
+            requestContextText: "context",
+            referenceText: null,
+            analysisPromptText: "analysis prompt",
+            deckProfileSchemaJson: "{}",
+            setUpgradePromptText: null);
+
+        using (var archiveStream = new MemoryStream())
+        {
+            archiveStream.Write(bytes);
+            archiveStream.Position = 0;
+            using (var archive = new ZipArchive(archiveStream, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("33-expert-selection.json");
+                using var writer = new StreamWriter(entry.Open());
+                writer.Write("{\"pinnedVideoIds\":[\"abc123\"],\"followedCreators\":[\"EDHRECast\"]}");
+            }
+
+            bytes = archiveStream.ToArray();
+        }
+
+        var loaded = new DeckAnalysisRequest();
+        using var memoryStream = new MemoryStream(bytes);
+        PacketArtifactStore.LoadFromZip(memoryStream, loaded);
+
+        Assert.Equal(["abc123"], loaded.PinnedVideoIds);
+        Assert.Equal(["EDHRECast"], loaded.FollowedCreators);
+    }
+
+    [Fact]
+    public void LoadFromZip_with_corrupt_selection_json_degrades_to_empty_selection()
+    {
+        var bytes = PacketArtifactStore.BuildZip(
+            new DeckAnalysisRequest
+            {
+                DeckProfileJson = "{\"deck_profile\":{\"format\":\"Commander\"}}"
+            },
+            commanderName: "Atraxa",
+            inputSummary: "summary",
+            requestContextText: "context",
+            referenceText: null,
+            analysisPromptText: "analysis prompt",
+            deckProfileSchemaJson: "{}",
+            setUpgradePromptText: null);
+
+        using (var archiveStream = new MemoryStream())
+        {
+            archiveStream.Write(bytes);
+            archiveStream.Position = 0;
+            using (var archive = new ZipArchive(archiveStream, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("33-expert-selection.json");
+                using var writer = new StreamWriter(entry.Open());
+                writer.Write("{\"pinnedVideoIds\":[");
+            }
+
+            bytes = archiveStream.ToArray();
+        }
+
+        var loaded = new DeckAnalysisRequest();
+        using var memoryStream = new MemoryStream(bytes);
+        PacketArtifactStore.LoadFromZip(memoryStream, loaded);
+
+        Assert.Empty(loaded.PinnedVideoIds);
+        Assert.Empty(loaded.FollowedCreators);
+    }
+
+    [Fact]
+    public void BuildZip_without_selection_omits_entry()
+    {
+        var bytes = PacketArtifactStore.BuildZip(
+            new DeckAnalysisRequest
+            {
+                DeckProfileJson = "{\"deck_profile\":{\"format\":\"Commander\"}}"
+            },
+            commanderName: "Atraxa",
+            inputSummary: "summary",
+            requestContextText: "context",
+            referenceText: null,
+            analysisPromptText: "analysis prompt",
+            deckProfileSchemaJson: "{}",
+            setUpgradePromptText: null,
+            selectionJson: null);
+
+        using var archiveStream = new MemoryStream(bytes);
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: false);
+        Assert.DoesNotContain(archive.Entries, entry => string.Equals(entry.FullName, "33-expert-selection.json", StringComparison.OrdinalIgnoreCase));
+    }
 }
