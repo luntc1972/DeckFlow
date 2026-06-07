@@ -481,6 +481,7 @@ public sealed class DeckController : Controller
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
                 ExpertContextClips = result.ExpertContextClips,
+                ResolvedPinTitles = result.ResolvedPinTitles ?? new Dictionary<string, string>(),
                 ImportWarning = result.ImportWarning,
             });
         }

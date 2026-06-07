@@ -71,6 +71,11 @@ public sealed class DeckAnalysisViewModel
     public IReadOnlyList<ContentKbExcerpt>? ExpertContextClips { get; init; }
 
     /// <summary>
+    /// Gets pinned video id -> title for server-rendered replay chips.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ResolvedPinTitles { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
     /// Gets a warning surfaced when the user's deck import succeeded but with caveats worth flagging.
     /// </summary>
     public string? ImportWarning { get; init; }
