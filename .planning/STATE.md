@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 30 COMPLETE (UAT passed) — next Phase 32 (Expert Context Selection)
-last_updated: "2026-06-07T17:30:00.000Z"
-last_activity: 2026-06-07 -- Phase 30 closed; UAT passed on prod; Phase 32 added to roadmap
+stopped_at: Phase 32 planned (4 plans, Codex READY)
+last_updated: "2026-06-07T18:30:00.000Z"
+last_activity: 2026-06-07 -- Phase 32 planned: 4 plans/4 waves, plan-checker PASS + Codex review converged (3 rounds) to READY
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 17
+  total_plans: 13
   completed_plans: 13
-  percent: 50
+  percent: 43
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 ## Current Position
 
-Phase: 30 (content-kb-integration) — COMPLETE (4/4 plans, UAT passed on prod 2026-06-07)
-Next: Phase 32 (expert-context-selection) — spec approved, ready for /gsd-plan-phase 32
-Last activity: 2026-06-07 -- Phase 30 closed (592/592 Web tests); Phase 32 inserted before 31
+Phase: 32 (expert-context-selection) — PLANNED (4 plans/4 waves; checker PASS + Codex READY)
+Next: Codex plan review converged — ready for /gsd-execute-phase 32 (cross-AI: Codex codes, Claude reviews)
+Last activity: 2026-06-07 -- Phase 32 planned + reviewed; Phase 30 closed (592/592 Web tests)
 
 Progress: [██████████] 100%
 
@@ -85,6 +85,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-06-07T17:30:00Z
-Stopped at: Phase 30 complete — next: /gsd-plan-phase 32 (spec at .planning/specs/2026-06-07-expert-context-selection-design.md)
-Resume file: none
+Last session: 2026-06-07T17:39:17.922Z
+Stopped at: Phase 32 UI-SPEC approved
+Resume file: .planning/phases/32-expert-context-selection-runs-after-phase-30-before-phase-31/32-UI-SPEC.md
