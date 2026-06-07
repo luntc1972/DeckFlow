@@ -112,7 +112,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 - [x] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene (completed 2026-06-04)
 - [x] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen (completed 2026-06-05)
-- [ ] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel
+- [x] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel (completed 2026-06-07; UAT passed on prod)
 - [ ] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31)
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
@@ -183,7 +183,7 @@ Plans:
 - [x] 30-01-PLAN.md — D-09 flip-first: incremental harvest + prod flag flip + live tag-distribution audit (KBI-01)
 - [x] 30-02-PLAN.md — ContentKbExcerpt record + clip parser + ContentKbRelevanceService + zip persistence (KBI-02, KBI-05)
 - [x] 30-03-PLAN.md — Expert Context injection into 3 prompt variants + packet-service wiring (KBI-02, KBI-03)
-- [ ] 30-04-PLAN.md — "What Experts Say" panel + admin relevance-score preview (KBI-04, KBI-05, KBI-06)
+- [x] 30-04-PLAN.md — "What Experts Say" panel + admin relevance-score preview (KBI-04, KBI-05, KBI-06)
 **UI hint**: yes
 
 ### Phase 31: Deck Primer Generator
