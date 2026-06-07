@@ -217,7 +217,13 @@ Plans:
   5. An Evergreen-flagged artifact fills a leftover slot (max 1 clip) for any deck; admin can toggle the flag per row
   6. The What Experts Say panel marks each clip's origin (pinned/followed/auto/evergreen)
 
-**Plans**: 4 plans (est.): schema/tiers → request/packet/zip → browse+form UI/TS → admin toggle + markers + UI checkpoint
+**Plans**: 4 plans (3 waves)
+
+Plans:
+- [ ] 32-01-PLAN.md — is_evergreen column + SetEvergreenAsync + ContentKbExcerpt.ClipOrigin + GetMergedClipsAsync tier-fill + tier/store tests (SEL-02, SEL-05, SEL-06)
+- [ ] 32-02-PLAN.md — DeckAnalysisRequest selection fields + 33-expert-selection.json zip round-trip + GetMergedClipsAsync wiring + replay restore (SEL-04, SEL-02)
+- [ ] 32-03-PLAN.md — browse Pin/Follow + tray, analysis chip area + typeahead API, kb-selection.ts, all site-common.css classes (SEL-01, SEL-03)
+- [ ] 32-04-PLAN.md — admin Evergreen toggle + panel origin markers + 2-viewport human-verify checkpoint (SEL-05, SEL-06)
 **UI hint**: yes
 
 ## Backlog
