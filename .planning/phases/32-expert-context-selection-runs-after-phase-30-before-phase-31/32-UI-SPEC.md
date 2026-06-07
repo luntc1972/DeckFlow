@@ -1,7 +1,8 @@
 ---
 phase: 32
 slug: expert-context-selection
-status: draft
+status: approved
+reviewed_at: 2026-06-07
 shadcn_initialized: false
 preset: none
 created: 2026-06-07
