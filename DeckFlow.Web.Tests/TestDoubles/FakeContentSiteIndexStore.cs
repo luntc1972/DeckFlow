@@ -71,6 +71,22 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         return Task.FromResult(count);
     }
 
+    /// <summary>Sets evergreen flag for a single site-index row.</summary>
+    public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default)
+    {
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            if (Rows[i].Id == id)
+            {
+                Rows[i] = Rows[i] with { IsEvergreen = evergreen };
+                count++;
+            }
+        }
+
+        return Task.FromResult(count);
+    }
+
     public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
     {
         var count = 0;

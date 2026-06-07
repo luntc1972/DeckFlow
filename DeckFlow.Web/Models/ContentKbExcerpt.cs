@@ -27,4 +27,7 @@ public sealed record ContentKbExcerpt
 
     /// <summary>The computed relevance score for the source artifact.</summary>
     public double Score { get; init; }
+
+    /// <summary>How this clip entered the selection (pinned / followed / auto / evergreen).</summary>
+    public string ClipOrigin { get; init; } = "auto";
 }

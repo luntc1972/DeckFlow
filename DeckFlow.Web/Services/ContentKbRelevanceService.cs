@@ -32,6 +32,25 @@ public interface IContentKbRelevanceService
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns a budget-trimmed list of clips merged across pinned, followed, auto, and evergreen
+    /// selection tiers, or <see langword="null"/> when the feature is disabled or no clips qualify.
+    /// </summary>
+    /// <param name="selection">Pinned video ids and followed creators to merge with auto selection.</param>
+    /// <param name="commanderName">Commander name used for free-text relevance.</param>
+    /// <param name="bracket">Deck bracket used as a score bonus when tags align.</param>
+    /// <param name="deckArchetypes">Optional pre-derived deck archetypes; when null, the service derives them from category knowledge.</param>
+    /// <param name="maxRenderedChars">Maximum rendered expert-context budget for the final clip set.</param>
+    /// <param name="ct">Token used to cancel the request.</param>
+    /// <returns>The selected clips, or <see langword="null"/> when no clips qualify.</returns>
+    Task<IReadOnlyList<ContentKbExcerpt>?> GetMergedClipsAsync(
+        ExpertSelection selection,
+        string? commanderName,
+        string? bracket,
+        IReadOnlySet<string>? deckArchetypes = null,
+        int maxRenderedChars = 4500,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Scores every visible artifact for admin preview use.
     /// </summary>
     /// <param name="commanderName">Commander name used for free-text relevance.</param>
@@ -43,6 +62,13 @@ public interface IContentKbRelevanceService
         string? bracket,
         CancellationToken ct = default);
 }
+
+/// <summary>
+/// User-selected expert-context inputs merged with automatic Content KB relevance.
+/// </summary>
+public sealed record ExpertSelection(
+    IReadOnlyList<string> PinnedVideoIds,
+    IReadOnlySet<string> FollowedCreators);
 
 /// <summary>
 /// Default implementation of <see cref="IContentKbRelevanceService"/>.
@@ -176,6 +202,90 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         }
 
         return selectedClips.Count == 0 ? null : selectedClips;
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<ContentKbExcerpt>?> GetMergedClipsAsync(
+        ExpertSelection selection,
+        string? commanderName,
+        string? bracket,
+        IReadOnlySet<string>? deckArchetypes = null,
+        int maxRenderedChars = DefaultMaxRenderedChars,
+        CancellationToken ct = default)
+    {
+        if (!_flagCache.IsEnabled("content.kb.enabled")) return null;
+
+        ArgumentNullException.ThrowIfNull(selection);
+
+        var normalizedCommander = NormalizeCommander(commanderName);
+        var normalizedBracket = NormalizeBracket(bracket);
+        var effectiveArchetypes = await ResolveDeckArchetypesAsync(deckArchetypes, commanderName, ct).ConfigureAwait(false);
+        var rows = await _store.GetPublishedRowsAsync(ct).ConfigureAwait(false);
+        var parsedRows = await ParseRowsAsync(rows, normalizedCommander, normalizedBracket, effectiveArchetypes, includeFailedRowsAsZeroScore: false, ct).ConfigureAwait(false);
+        var consumedRowIds = new HashSet<long>();
+        var followedCreators = new HashSet<string>(selection.FollowedCreators, StringComparer.OrdinalIgnoreCase);
+        var pinIds = selection.PinnedVideoIds.Distinct(StringComparer.Ordinal).Take(3).ToList();
+        var pinOrder = pinIds
+            .Select((id, index) => new { id, index })
+            .ToDictionary(item => item.id, item => item.index, StringComparer.Ordinal);
+
+        var tier1Rows = parsedRows
+            .Where(row =>
+            {
+                var pinId = GetPinId(row.Row);
+                return pinId is not null && pinOrder.ContainsKey(pinId);
+            })
+            .OrderBy(row => pinOrder[GetPinId(row.Row)!])
+            .ThenBy(row => row.OriginalOrder)
+            .ToList();
+        ConsumeRows(tier1Rows, consumedRowIds);
+        var tier1 = CreateClipsForArtifacts(tier1Rows, "pinned");
+
+        var tier2Rows = parsedRows
+            .Where(row => !consumedRowIds.Contains(row.Row.Id))
+            .Where(row => followedCreators.Contains(row.Row.Source))
+            .Select(row => new
+            {
+                Row = row,
+                Score = CalculateUngatedScore(row.ScoreInput, normalizedCommander, normalizedBracket, effectiveArchetypes),
+                DimensionsHit = CountDimensionsHit(row.ScoreInput, normalizedCommander, normalizedBracket, effectiveArchetypes)
+            })
+            .Where(item => item.DimensionsHit >= 1)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Row.OriginalOrder)
+            .Select(item => item.Row)
+            .ToList();
+        ConsumeRows(tier2Rows, consumedRowIds);
+        var tier2 = CreateClipsForArtifacts(tier2Rows, "followed");
+
+        var tier3Rows = parsedRows
+            .Where(row => !consumedRowIds.Contains(row.Row.Id) && row.Score >= MinSelectionScore)
+            .OrderByDescending(row => row.Score)
+            .ThenBy(row => row.OriginalOrder)
+            .ToList();
+        ConsumeRows(tier3Rows, consumedRowIds);
+        var tier3 = CreateClipsForArtifacts(tier3Rows, "auto");
+
+        var tier4Rows = parsedRows
+            .Where(row => !consumedRowIds.Contains(row.Row.Id) && row.Row.IsEvergreen)
+            .OrderBy(row => row.OriginalOrder)
+            .Take(1)
+            .ToList();
+        var tier4 = CreateClipsForArtifacts(tier4Rows, "evergreen", maxClips: 1);
+
+        var merged = new List<(ContentKbExcerpt Clip, int Tier)>(MaxClips);
+        AppendTier(merged, tier1, 1);
+        AppendTier(merged, tier2, 2);
+        AppendTier(merged, tier3, 3);
+        AppendTier(merged, tier4, 4);
+
+        TrimMergedClipsToBudget(merged, maxRenderedChars);
+        if (merged.Count == 0)
+        {
+            return null;
+        }
+
+        return merged.Select(item => item.Clip).ToList();
     }
 
     /// <inheritdoc/>
@@ -338,7 +448,8 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
                     TimestampLabel = clip.TimestampLabel,
                     Excerpt = clip.Excerpt,
                     HarvestDate = artifact.ScoreInput.HarvestDate,
-                    Score = artifact.Score
+                    Score = artifact.Score,
+                    ClipOrigin = "auto"
                 });
             }
         }
@@ -360,6 +471,145 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         }
 
         return total;
+    }
+
+    private static List<ContentKbExcerpt> CreateClipsForArtifacts(
+        IEnumerable<ParsedArtifactRow> artifacts,
+        string clipOrigin,
+        int maxClips = int.MaxValue)
+    {
+        var selected = new List<ContentKbExcerpt>();
+
+        foreach (var artifact in artifacts)
+        {
+            foreach (var clip in artifact.ScoreInput.Clips)
+            {
+                if (selected.Count >= maxClips)
+                {
+                    return selected;
+                }
+
+                selected.Add(new ContentKbExcerpt
+                {
+                    Source = artifact.Row.Source,
+                    Title = artifact.Row.Title,
+                    VideoUrl = ContentKbClipParser.BuildDeepLink(artifact.ScoreInput.SourceUrl, clip.TimestampLabel),
+                    TimestampLabel = clip.TimestampLabel,
+                    Excerpt = clip.Excerpt,
+                    HarvestDate = artifact.ScoreInput.HarvestDate,
+                    Score = artifact.Score,
+                    ClipOrigin = clipOrigin
+                });
+            }
+        }
+
+        return selected;
+    }
+
+    private static void AppendTier(List<(ContentKbExcerpt Clip, int Tier)> merged, IReadOnlyList<ContentKbExcerpt> tierClips, int tier)
+    {
+        foreach (var clip in tierClips)
+        {
+            if (merged.Count >= MaxClips)
+            {
+                return;
+            }
+
+            merged.Add((clip, tier));
+        }
+    }
+
+    private static void TrimMergedClipsToBudget(List<(ContentKbExcerpt Clip, int Tier)> merged, int maxRenderedChars)
+    {
+        while (merged.Count > 0 && EstimateRenderedChars(merged.Select(item => item.Clip).ToList()) > maxRenderedChars)
+        {
+            var removeIndex = -1;
+            for (var tier = 4; tier >= 1; tier--)
+            {
+                removeIndex = merged.FindLastIndex(item => item.Tier == tier);
+                if (removeIndex < 0)
+                {
+                    continue;
+                }
+
+                if (tier == 1 && merged.Count(item => item.Tier == 1) == 1)
+                {
+                    removeIndex = -1;
+                    continue;
+                }
+
+                break;
+            }
+
+            if (removeIndex < 0)
+            {
+                break;
+            }
+
+            merged.RemoveAt(removeIndex);
+        }
+    }
+
+    private static void ConsumeRows(IEnumerable<ParsedArtifactRow> rows, ISet<long> consumedRowIds)
+    {
+        foreach (var row in rows)
+        {
+            consumedRowIds.Add(row.Row.Id);
+        }
+    }
+
+    private static string? GetPinId(ContentSiteIndexRow row)
+        => row.YoutubeVideoId ?? row.RssGuid;
+
+    private static int CountDimensionsHit(
+        ScoreInput scoreInput,
+        NormalizedCommander? normalizedCommander,
+        string? deckBracket,
+        IReadOnlySet<string> deckArchetypes)
+        => CalculateScoreAndDimensions(scoreInput, normalizedCommander, deckBracket, deckArchetypes).DimensionsHit;
+
+    private static double CalculateUngatedScore(
+        ScoreInput scoreInput,
+        NormalizedCommander? normalizedCommander,
+        string? deckBracket,
+        IReadOnlySet<string> deckArchetypes)
+        => CalculateScoreAndDimensions(scoreInput, normalizedCommander, deckBracket, deckArchetypes).Score;
+
+    private static (double Score, int DimensionsHit) CalculateScoreAndDimensions(
+        ScoreInput scoreInput,
+        NormalizedCommander? normalizedCommander,
+        string? deckBracket,
+        IReadOnlySet<string> deckArchetypes)
+    {
+        var score = 0d;
+        var dimensionsHit = 0;
+
+        if (!string.IsNullOrWhiteSpace(deckBracket)
+            && scoreInput.BracketTags.Any(tag =>
+                ContentTagVocabulary.Brackets.Contains(tag)
+                && string.Equals(tag, deckBracket, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += BracketWeight;
+            dimensionsHit++;
+        }
+
+        var archetypeScore = scoreInput.ArchetypeTags
+            .Where(tag => ContentTagVocabulary.Archetypes.Contains(tag) && deckArchetypes.Contains(tag))
+            .Select(GetArchetypeSpecificityWeight)
+            .Sum();
+        if (archetypeScore > 0d)
+        {
+            score += archetypeScore * ArchetypeWeight;
+            dimensionsHit++;
+        }
+
+        if (normalizedCommander is not null && ContainsCommanderName(scoreInput.SearchText, normalizedCommander))
+        {
+            score += CommanderWeight;
+            dimensionsHit++;
+        }
+
+        return (score, dimensionsHit);
     }
 
     private static string ComposeSearchText(
