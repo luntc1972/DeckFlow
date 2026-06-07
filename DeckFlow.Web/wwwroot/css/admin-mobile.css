@@ -135,6 +135,21 @@
   .admin-shell .admin-table--card td[data-label="Action"] .admin-action-form {
     display: inline-flex;
   }
+
+  .admin-shell .admin-table--card td[data-label="Tags"] {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+
+  .admin-shell .admin-table--card td[data-label="Tags"]::before {
+    width: 100%;
+  }
+
+  .admin-shell .admin-table--card td[data-label="Tags"] .kb-tag {
+    flex: 0 0 auto;
+  }
 }
 
 @media (min-width: 769px) {

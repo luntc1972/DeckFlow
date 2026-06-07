@@ -5,6 +5,25 @@
 ((): void => {
   'use strict';
 
+  type DeckFlowNamespace = {
+    attachTypeahead?: (
+      input: HTMLInputElement,
+      panel: HTMLDivElement,
+      minChars: number,
+      onPick: (name: string) => void,
+      options?: {
+        endpoint?: string;
+        debounceMs?: number;
+        onError?: (message?: string) => void;
+      }
+    ) => void;
+    createTypeaheadPanel?: (anchor: HTMLElement) => HTMLDivElement;
+  };
+
+  type TypeaheadWindow = Window & {
+    DeckFlow?: DeckFlowNamespace;
+  };
+
   // Reload-from-seed: intercept submit, confirm via the shared admin modal, then submit.
   const wireReloadConfirm = (): void => {
     const forms = document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-reload]');
@@ -64,8 +83,59 @@
     });
   };
 
+  const setCommanderSearchError = (message?: string): void => {
+    const panel = document.querySelector<HTMLElement>('[data-api-panel="commander-search-error"]');
+    const text = document.querySelector<HTMLElement>('[data-api-field="commander-search-error-text"]');
+    if (!panel || !text) {
+      return;
+    }
+
+    text.textContent = message ?? '';
+    panel.classList.toggle('hidden', !message);
+  };
+
+  const ensureAutocompleteAnchor = (input: HTMLInputElement): HTMLDivElement => {
+    const parent = input.parentElement;
+    if (!parent) {
+      throw new Error('Admin Content KB preview commander input is missing a parent element.');
+    }
+
+    if (parent.classList.contains('autocomplete-anchor')) {
+      return parent as HTMLDivElement;
+    }
+
+    const anchor = document.createElement('div');
+    anchor.className = 'autocomplete-anchor';
+    input.insertAdjacentElement('beforebegin', anchor);
+    anchor.appendChild(input);
+    return anchor;
+  };
+
+  const wireCommanderPreviewTypeahead = (): void => {
+    const input = document.getElementById('kb-preview-commander-input') as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    const anchor = ensureAutocompleteAnchor(input);
+    const deckFlowWindow = window as TypeaheadWindow;
+    const panel = deckFlowWindow.DeckFlow?.createTypeaheadPanel?.(anchor);
+    if (!panel) {
+      return;
+    }
+
+    deckFlowWindow.DeckFlow?.attachTypeahead?.(input, panel, 2, () => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, {
+      endpoint: '/commander-categories/search',
+      debounceMs: 350,
+      onError: setCommanderSearchError,
+    });
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
     wireReloadConfirm();
     wireTwoClickConfirm();
+    wireCommanderPreviewTypeahead();
   });
 })();
