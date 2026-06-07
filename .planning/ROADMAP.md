@@ -113,6 +113,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene (completed 2026-06-04)
 - [x] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen (completed 2026-06-05)
 - [ ] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel
+- [ ] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31)
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
 ## Phase Details
@@ -199,6 +200,24 @@ Plans:
   5. Per-AI artifacts (ChatGPT / Claude / Gemini) are generated and stored via `PacketArtifactStore` with a working zip round-trip — re-uploading a session restores bracket and section selections; section selections persist in localStorage across visits
 
 **Plans**: TBD
+**UI hint**: yes
+
+### Phase 32: Expert Context Selection (runs after Phase 30, before Phase 31)
+
+**Goal**: Users can pin trusted KB videos and follow creators so their advice is guaranteed a place in the analysis prompt — manual control layered over Phase 30's automatic relevance selection
+**Depends on**: Phase 30 (relevance service, packet zip round-trip, panel, admin KB view)
+**Spec**: `.planning/specs/2026-06-07-expert-context-selection-design.md` (decisions S-01..S-07 locked 2026-06-07)
+**Requirements**: SEL-01 (pin video / follow creator from browse page + analysis-form chip area), SEL-02 (layered fill: pins → follows → auto → evergreen, within K=5 + budget; pins trimmed last), SEL-03 (one-shot video pins, sticky creator follows, localStorage), SEL-04 (selection persisted in packet zip `33-expert-selection.json`; re-upload restores), SEL-05 (artifact-level Evergreen admin flag, max 1 evergreen clip), SEL-06 (panel origin markers: pinned/followed/auto/evergreen)
+**Success Criteria** (what must be TRUE):
+
+  1. Pinning a video on /content-kb and running an analysis injects that video's clips first, regardless of relevance score; the pin clears after the run
+  2. Following a creator guarantees their qualifying clips (gate relaxed to ≥1 dimension) outrank auto matches; follows persist across visits
+  3. The analysis-form chip area shows carried-over pins/follows, is editable, and works as a plain form without JS (empty selection)
+  4. The packet zip round-trips the selection; re-upload restores clips AND selection state
+  5. An Evergreen-flagged artifact fills a leftover slot (max 1 clip) for any deck; admin can toggle the flag per row
+  6. The What Experts Say panel marks each clip's origin (pinned/followed/auto/evergreen)
+
+**Plans**: 4 plans (est.): schema/tiers → request/packet/zip → browse+form UI/TS → admin toggle + markers + UI checkpoint
 **UI hint**: yes
 
 ## Backlog
