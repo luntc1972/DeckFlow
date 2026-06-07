@@ -545,7 +545,10 @@ public sealed class DeckController : Controller
                         ? request.ExpertContextJson
                         : cachedResult.ExpertContextClips is { Count: > 0 }
                             ? JsonSerializer.Serialize(cachedResult.ExpertContextClips)
-                            : null);
+                            : null,
+                    selectionJson: !string.IsNullOrWhiteSpace(request.ExpertSelectionJson)
+                        ? request.ExpertSelectionJson
+                        : null);
                 var cachedFileName = PacketArtifactStore.SuggestPacketZipFileName(cachedCommanderName, request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
                 return File(cachedBytes, "application/zip", cachedFileName);
@@ -571,7 +574,10 @@ public sealed class DeckController : Controller
                     ? request.ExpertContextJson
                     : result.ExpertContextClips is { Count: > 0 }
                         ? JsonSerializer.Serialize(result.ExpertContextClips)
-                        : null);
+                        : null,
+                selectionJson: !string.IsNullOrWhiteSpace(request.ExpertSelectionJson)
+                    ? request.ExpertSelectionJson
+                    : null);
             var fileName = PacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);

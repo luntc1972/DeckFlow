@@ -51,6 +51,13 @@ public interface IContentKbRelevanceService
         CancellationToken ct = default);
 
     /// <summary>
+    /// Resolves pinned video ids to published clip titles for replay chip rendering.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> ResolvePinTitlesAsync(
+        IReadOnlyList<string> videoIds,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Scores every visible artifact for admin preview use.
     /// </summary>
     /// <param name="commanderName">Commander name used for free-text relevance.</param>
@@ -286,6 +293,37 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         }
 
         return merged.Select(item => item.Clip).ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<string, string>> ResolvePinTitlesAsync(
+        IReadOnlyList<string> videoIds,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(videoIds);
+
+        if (videoIds.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        var rows = await _store.GetPublishedRowsAsync(ct).ConfigureAwait(false);
+        var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var videoId in videoIds)
+        {
+            if (string.IsNullOrWhiteSpace(videoId) || resolved.ContainsKey(videoId))
+            {
+                continue;
+            }
+
+            var match = rows.FirstOrDefault(row => string.Equals(row.YoutubeVideoId ?? row.RssGuid, videoId, StringComparison.Ordinal));
+            if (match is not null)
+            {
+                resolved[videoId] = match.Title;
+            }
+        }
+
+        return resolved;
     }
 
     /// <inheritdoc/>

@@ -183,7 +183,9 @@ internal sealed record DeckAnalysisCacheInputs(
     bool IncludeCardVersions,
     bool IncludeCandidateReferencesInAnalysis,
     string TargetAiPlatformKey,
-    IReadOnlyList<string> SelectedQuestionIds);
+    IReadOnlyList<string> SelectedQuestionIds,
+    IReadOnlyList<string> NormalizedPinnedVideoIds,
+    IReadOnlyList<string> NormalizedFollowedCreators);
 
 internal sealed record DeckComparisonCacheInputs(
     string NormalizedDeckASource,

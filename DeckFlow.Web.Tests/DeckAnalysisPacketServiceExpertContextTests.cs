@@ -264,6 +264,9 @@ Commander
 
         public Task<IReadOnlyList<(DeckFlow.Core.Knowledge.ContentSiteIndexRow Row, double Score)>> ScoreAllAsync(string? commanderName, string? bracket, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<(DeckFlow.Core.Knowledge.ContentSiteIndexRow Row, double Score)>>(Array.Empty<(DeckFlow.Core.Knowledge.ContentSiteIndexRow Row, double Score)>());
+
+        public Task<IReadOnlyDictionary<string, string>> ResolvePinTitlesAsync(IReadOnlyList<string> videoIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string>(StringComparer.Ordinal));
     }
 
     private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
