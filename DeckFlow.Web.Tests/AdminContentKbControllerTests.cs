@@ -408,5 +408,10 @@ public sealed class AdminContentKbControllerTests
             LastBracket = bracket;
             return Task.FromResult(ScoreResults);
         }
+
+        public Task<IReadOnlyDictionary<string, string>> ResolvePinTitlesAsync(
+            IReadOnlyList<string> videoIds,
+            CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string>(StringComparer.Ordinal));
     }
 }

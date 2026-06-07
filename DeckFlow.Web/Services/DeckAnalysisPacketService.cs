@@ -54,7 +54,8 @@ public sealed record DeckAnalysisPacketResult(
     string? ImportWarning = null,
     string? ResolvedCommanderName = null,
     string? DecklistText = null,
-    IReadOnlyList<ContentKbExcerpt>? ExpertContextClips = null);
+    IReadOnlyList<ContentKbExcerpt>? ExpertContextClips = null,
+    IReadOnlyDictionary<string, string>? ResolvedPinTitles = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompt packets by hydrating decks via Scryfall, banlist, and Commander Spellbook lookups, then composing the JSON-bound prompt artifacts saved to the session zip.
@@ -290,6 +291,18 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             TargetAiPlatformKey: request.TargetAiPlatform,
             SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? new List<string>())
                 .OrderBy(static id => id, StringComparer.Ordinal)
+                .ToArray(),
+            NormalizedPinnedVideoIds: (request.PinnedVideoIds ?? new List<string>())
+                .Select(static value => value.Trim())
+                .Where(static value => value.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static value => value, StringComparer.Ordinal)
+                .ToArray(),
+            NormalizedFollowedCreators: (request.FollowedCreators ?? new List<string>())
+                .Select(static value => value.Trim().ToLowerInvariant())
+                .Where(static value => value.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static value => value, StringComparer.Ordinal)
                 .ToArray());
     }
 
@@ -528,6 +541,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         string? analysisPromptText = null;
         string? setUpgradePromptText = null;
         IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null;
+        IReadOnlyDictionary<string, string> resolvedPinTitles = new Dictionary<string, string>(StringComparer.Ordinal);
         DeckAnalysisResponse? analysisResponse = null;
         SetUpgradeResponse? setUpgradeResponse = null;
 
@@ -543,6 +557,28 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             catch (JsonException)
             {
                 kbExcerpts = null;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ExpertSelectionJson))
+        {
+            try
+            {
+                var restoredSelection = JsonSerializer.Deserialize<ExpertSelectionState>(
+                    request.ExpertSelectionJson,
+                    PacketArtifactStore.ExpertSelectionJsonOptions);
+                if (restoredSelection?.PinnedVideoIds?.Count > 0)
+                {
+                    request.PinnedVideoIds = [.. restoredSelection.PinnedVideoIds];
+                }
+
+                if (restoredSelection?.FollowedCreators?.Count > 0)
+                {
+                    request.FollowedCreators = [.. restoredSelection.FollowedCreators];
+                }
+            }
+            catch (JsonException)
+            {
             }
         }
 
@@ -663,7 +699,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 if (replayedExpertContextJson is null && _contentKbRelevanceService is not null)
                 {
                     kbExcerpts = await _contentKbRelevanceService
-                        .GetRelevantClipsAsync(
+                        .GetMergedClipsAsync(
+                            new ExpertSelection(
+                                request.PinnedVideoIds,
+                                new HashSet<string>(request.FollowedCreators, StringComparer.OrdinalIgnoreCase)),
                             commanderName,
                             request.TargetCommanderBracket,
                             deckArchetypes: null,
@@ -686,6 +725,22 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             {
                 setUpgradePromptText = BuildSetUpgradePrompt(request, decklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
             }
+        }
+
+        if (request.PinnedVideoIds.Count > 0 || request.FollowedCreators.Count > 0)
+        {
+            request.ExpertSelectionJson = JsonSerializer.Serialize(
+                new ExpertSelectionState
+                {
+                    PinnedVideoIds = [.. request.PinnedVideoIds],
+                    FollowedCreators = [.. request.FollowedCreators]
+                },
+                PacketArtifactStore.ExpertSelectionJsonOptions);
+        }
+
+        if (_contentKbRelevanceService is not null && request.PinnedVideoIds.Count > 0)
+        {
+            resolvedPinTitles = await _contentKbRelevanceService.ResolvePinTitlesAsync(request.PinnedVideoIds, cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogInformation(
@@ -712,7 +767,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
             DecklistText: decklistText,
-            ExpertContextClips: kbExcerpts);
+            ExpertContextClips: kbExcerpts,
+            ResolvedPinTitles: resolvedPinTitles);
 
         // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
         // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
