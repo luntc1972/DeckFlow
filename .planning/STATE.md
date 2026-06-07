@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 32 Wave 2 (32-02) complete + reviewed
-last_updated: "2026-06-07T19:52:00.000Z"
-last_activity: 2026-06-07 -- 32-02 executed (Codex gpt-5.4) + Claude review PASS; SEL-04 done; 13+53 tests green
+stopped_at: Phase 32 Wave 3 (32-03) complete + reviewed
+last_updated: "2026-06-07T20:06:00.000Z"
+last_activity: 2026-06-07 -- 32-03 executed (Codex gpt-5.4) + Claude review PASS; SEL-01/03 done; build clean
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 17
-  completed_plans: 15
+  completed_plans: 16
   percent: 43
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 ## Current Position
 
-Phase: 32 (expert-context-selection) — EXECUTING (Wave 2/4 done: 32-01, 32-02 complete + reviewed PASS)
-Next: Wave 3 (32-03 browse + analysis selection UI); then 32-04 (admin toggle + panel markers, has visual-verify checkpoint)
-Last activity: 2026-06-07 -- 32-02 executed (Codex gpt-5.4) + Claude review PASS; SEL-04 done; 13+53 tests green
+Phase: 32 (expert-context-selection) — EXECUTING (Wave 3/4 done: 32-01/02/03 complete + reviewed PASS)
+Next: Wave 4 (32-04 admin Evergreen toggle + panel origin markers) — HAS human-verify visual checkpoint (2 viewports; needs server running)
+Last activity: 2026-06-07 -- 32-03 executed (Codex gpt-5.4) + Claude review PASS; SEL-01/03 done; build clean
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
