@@ -20,7 +20,8 @@ public sealed class ContentKbExcerptTests
             TimestampLabel = "02:14",
             Excerpt = "Run enough interaction that you can trade up on tempo.",
             HarvestDate = new DateTimeOffset(2026, 6, 5, 12, 34, 56, TimeSpan.Zero),
-            Score = 7.25
+            Score = 7.25,
+            ClipOrigin = "auto"
         };
 
         var json = JsonSerializer.Serialize(excerpt);
@@ -34,5 +35,28 @@ public sealed class ContentKbExcerptTests
         Assert.Equal(excerpt.Excerpt, roundTripped.Excerpt);
         Assert.Equal(excerpt.HarvestDate, roundTripped.HarvestDate);
         Assert.Equal(excerpt.Score, roundTripped.Score);
+        Assert.Equal(excerpt.ClipOrigin, roundTripped.ClipOrigin);
+    }
+
+    [Fact]
+    public void ContentKbExcerpt_JsonRoundTrip_PreservesClipOrigin()
+    {
+        var excerpt = new ContentKbExcerpt
+        {
+            Source = "EDHRECast",
+            Title = "How To Build Better Removal Suites",
+            VideoUrl = "https://www.youtube.com/watch?v=abc123&t=134s",
+            TimestampLabel = "02:14",
+            Excerpt = "Run enough interaction that you can trade up on tempo.",
+            HarvestDate = new DateTimeOffset(2026, 6, 5, 12, 34, 56, TimeSpan.Zero),
+            Score = 7.25,
+            ClipOrigin = "pinned"
+        };
+
+        var json = JsonSerializer.Serialize(excerpt);
+        var roundTripped = JsonSerializer.Deserialize<ContentKbExcerpt>(json);
+
+        Assert.NotNull(roundTripped);
+        Assert.Equal("pinned", roundTripped!.ClipOrigin);
     }
 }
