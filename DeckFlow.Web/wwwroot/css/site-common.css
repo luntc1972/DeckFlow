@@ -407,7 +407,7 @@ summary:focus-visible,
 
 .kb-selection-tray__item-label {
   display: inline-block;
-  max-width: 16rem;
+  max-width: min(16rem, 60vw);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -476,6 +476,7 @@ summary:focus-visible,
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  max-width: 100%;
   padding: 0.1rem 0.45rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -489,6 +490,15 @@ summary:focus-visible,
 .kb-chip--followed {
   border-color: var(--accent);
   color: var(--accent-strong);
+}
+
+.kb-chip__label {
+  display: inline-block;
+  max-width: min(16rem, 60vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .kb-chip__remove {
