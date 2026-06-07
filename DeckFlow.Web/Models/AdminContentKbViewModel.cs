@@ -25,6 +25,12 @@ public sealed class AdminContentKbViewModel
     /// <summary>Allowlisted bracket values for the read-only preview form.</summary>
     public IReadOnlyList<string> BracketOptions { get; init; } = Array.Empty<string>();
 
+    /// <summary>Normalized entry visibility filter applied to the entries table.</summary>
+    public string VisibilityFilter { get; init; } = "all";
+
+    /// <summary>Normalized sort mode applied to the entries table.</summary>
+    public string? SortBy { get; init; }
+
     /// <summary>Success banner text from TempData after a mutating action, or <see langword="null"/>.</summary>
     public string? SuccessBanner { get; init; }
 }

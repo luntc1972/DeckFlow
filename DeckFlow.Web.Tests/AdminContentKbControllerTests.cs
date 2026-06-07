@@ -208,6 +208,97 @@ public sealed class AdminContentKbControllerTests
         Assert.Equal("Tymna Thrasios", relevanceService.LastCommanderName);
     }
 
+    [Fact]
+    public async Task Index_WithVisibilityFilterPublished_ReturnsOnlyVisibleEntries()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        store.Rows.Add(Row(2, visible: false));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(visibilityFilter: "published", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("published", model.VisibilityFilter);
+        var entry = Assert.Single(model.Entries);
+        Assert.True(entry.IsVisible);
+    }
+
+    [Fact]
+    public async Task Index_WithInvalidVisibilityFilter_FallsBackToAllEntries()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        store.Rows.Add(Row(2, visible: false));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(visibilityFilter: "garbage", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("all", model.VisibilityFilter);
+        Assert.Equal(2, model.Entries.Count);
+    }
+
+    [Fact]
+    public async Task Index_WithSortByScoreAndPreviewActive_OrdersEntriesByScoreDescendingWithNullsLast()
+    {
+        var store = new FakeContentSiteIndexStore();
+        var firstRow = Row(1, visible: true);
+        var secondRow = Row(2, visible: false);
+        var thirdRow = Row(3, visible: true);
+        store.Rows.Add(firstRow);
+        store.Rows.Add(secondRow);
+        store.Rows.Add(thirdRow);
+        var relevanceService = new FakeContentKbRelevanceService
+        {
+            ScoreResults =
+            [
+                (secondRow, 3.50d),
+                (firstRow, 1.25d),
+            ],
+        };
+        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
+
+        var result = await controller.Index(
+            previewCommander: "Tymna",
+            previewBracket: "cEDH",
+            visibilityFilter: "all",
+            sortBy: "score",
+            cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("score", model.SortBy);
+        Assert.Collection(
+            model.Entries,
+            entry => Assert.Equal(2, entry.Id),
+            entry => Assert.Equal(1, entry.Id),
+            entry => Assert.Equal(3, entry.Id));
+    }
+
+    [Fact]
+    public async Task Index_WithSortByScoreAndNoPreview_KeepsOriginalOrder()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        store.Rows.Add(Row(2, visible: false));
+        store.Rows.Add(Row(3, visible: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(sortBy: "score", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("score", model.SortBy);
+        Assert.Collection(
+            model.Entries,
+            entry => Assert.Equal(1, entry.Id),
+            entry => Assert.Equal(2, entry.Id),
+            entry => Assert.Equal(3, entry.Id));
+    }
+
     private static void AssertForbidden(IActionResult result)
     {
         var obj = Assert.IsType<ObjectResult>(result);

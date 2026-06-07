@@ -58,20 +58,28 @@ public sealed class AdminContentKbController : Controller
     /// </summary>
     /// <param name="previewCommander">Optional commander text for the live relevance preview.</param>
     /// <param name="previewBracket">Optional bracket filter for the live relevance preview.</param>
+    /// <param name="visibilityFilter">Optional entry visibility filter: all, published, or hidden.</param>
+    /// <param name="sortBy">Optional entry sort mode; score sorting is only applied when preview is active.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpGet("")]
     [HttpGet("Index")]
     public async Task<IActionResult> Index(
         string? previewCommander = null,
         string? previewBracket = null,
+        string? visibilityFilter = null,
+        string? sortBy = null,
         CancellationToken cancellationToken = default)
     {
         var rows = await _store.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
         var normalizedPreviewCommander = NormalizePreviewCommander(previewCommander);
         var normalizedPreviewBracket = NormalizePreviewBracket(previewBracket);
+        var normalizedVisibilityFilter = NormalizeVisibilityFilter(visibilityFilter);
+        var normalizedSortBy = NormalizeSortBy(sortBy);
+        var previewActive = !string.IsNullOrWhiteSpace(normalizedPreviewCommander)
+            || !string.IsNullOrWhiteSpace(normalizedPreviewBracket);
         Dictionary<long, double>? previewScores = null;
 
-        if (!string.IsNullOrWhiteSpace(previewCommander) || !string.IsNullOrWhiteSpace(previewBracket))
+        if (previewActive)
         {
             previewScores = (await _relevanceService
                     .ScoreAllAsync(normalizedPreviewCommander, normalizedPreviewBracket, cancellationToken)
@@ -80,7 +88,7 @@ public sealed class AdminContentKbController : Controller
                 .ToDictionary(group => group.Key, group => group.First().Score);
         }
 
-        var entries = rows
+        IEnumerable<KbEntryRow> entries = rows
             .Select(r => new KbEntryRow
             {
                 Id = r.Id,
@@ -89,8 +97,24 @@ public sealed class AdminContentKbController : Controller
                 Tags = r.ArchetypeTags.Concat(r.BracketTags).ToArray(),
                 IsVisible = r.IsVisible,
                 RelevanceScore = previewScores is not null && previewScores.TryGetValue(r.Id, out var score) ? score : null,
-            })
-            .ToArray();
+            });
+
+        entries = normalizedVisibilityFilter switch
+        {
+            "published" => entries.Where(entry => entry.IsVisible),
+            "hidden" => entries.Where(entry => !entry.IsVisible),
+            _ => entries
+        };
+
+        if (previewActive && string.Equals(normalizedSortBy, "score", StringComparison.Ordinal))
+        {
+            entries = entries
+                .OrderByDescending(entry => entry.RelevanceScore.HasValue)
+                .ThenByDescending(entry => entry.RelevanceScore)
+                .ThenBy(entry => entry.Title, StringComparer.Ordinal);
+        }
+
+        var entryList = entries.ToArray();
 
         var sources = rows
             .GroupBy(r => r.Source, StringComparer.Ordinal)
@@ -112,10 +136,12 @@ public sealed class AdminContentKbController : Controller
         {
             Status = status,
             Sources = sources,
-            Entries = entries,
+            Entries = entryList,
             PreviewCommander = normalizedPreviewCommander,
             PreviewBracket = normalizedPreviewBracket,
             BracketOptions = ContentTagVocabulary.Brackets.ToArray(),
+            VisibilityFilter = normalizedVisibilityFilter,
+            SortBy = normalizedSortBy,
             SuccessBanner = TempData[BannerKey] as string,
         };
 
@@ -144,6 +170,26 @@ public sealed class AdminContentKbController : Controller
 
         var trimmed = previewBracket.Trim();
         return ContentTagVocabulary.Brackets.Contains(trimmed) ? trimmed : null;
+    }
+
+    private static string NormalizeVisibilityFilter(string? visibilityFilter)
+    {
+        if (string.Equals(visibilityFilter, "published", StringComparison.OrdinalIgnoreCase))
+        {
+            return "published";
+        }
+
+        if (string.Equals(visibilityFilter, "hidden", StringComparison.OrdinalIgnoreCase))
+        {
+            return "hidden";
+        }
+
+        return "all";
+    }
+
+    private static string? NormalizeSortBy(string? sortBy)
+    {
+        return string.Equals(sortBy, "score", StringComparison.OrdinalIgnoreCase) ? "score" : null;
     }
 
     /// <summary>
