@@ -329,6 +329,34 @@ public sealed class ContentKbRelevanceServiceTests
         Assert.Equal(goodRow.Title, clip.Title);
     }
 
+    [Fact]
+    public async Task ResolvePinTitlesAsync_MapsKnownIdsToTitles_SkipsUnknown()
+    {
+        var knownRow = CreateRow(1, "artifact-known.md", ["combo"], ["cEDH"]) with
+        {
+            YoutubeVideoId = "known-id",
+            Title = "Known Title"
+        };
+        var otherRow = CreateRow(2, "artifact-other.md", ["combo"], ["cEDH"]) with
+        {
+            YoutubeVideoId = "known-other",
+            Title = "Other Title"
+        };
+        var store = new TrackingContentSiteIndexStore([knownRow, otherRow]);
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            new Dictionary<string, string>());
+
+        var resolved = await sut.ResolvePinTitlesAsync(["known-id", "missing-id"]);
+        var emptyResolved = await sut.ResolvePinTitlesAsync([]);
+
+        Assert.Equal("Known Title", resolved["known-id"]);
+        Assert.DoesNotContain("missing-id", resolved.Keys);
+        Assert.Empty(emptyResolved);
+    }
+
     private static ContentKbRelevanceService CreateService(
         TrackingContentSiteIndexStore store,
         IFeatureFlagCache flagCache,
