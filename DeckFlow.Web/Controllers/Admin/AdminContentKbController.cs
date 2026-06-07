@@ -96,6 +96,7 @@ public sealed class AdminContentKbController : Controller
                 Source = r.Source,
                 Tags = r.ArchetypeTags.Concat(r.BracketTags).ToArray(),
                 IsVisible = r.IsVisible,
+                IsEvergreen = r.IsEvergreen,
                 RelevanceScore = previewScores is not null && previewScores.TryGetValue(r.Id, out var score) ? score : null,
             });
 
@@ -209,6 +210,26 @@ public sealed class AdminContentKbController : Controller
 
         await _store.SetVisibilityAsync(entryId, visible, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = "Visibility updated.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Marks or unmarks an artifact as evergreen. Double-CSRF-guarded.
+    /// </summary>
+    /// <param name="entryId">Surrogate row id.</param>
+    /// <param name="evergreen">Desired evergreen flag value.</param>
+    /// <param name="cancellationToken">Request-aborted token.</param>
+    [HttpPost("SetEvergreen")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetEvergreen(long entryId, bool evergreen, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
+        await _store.SetEvergreenAsync(entryId, evergreen, cancellationToken).ConfigureAwait(false);
+        TempData[BannerKey] = "Evergreen status updated.";
         return RedirectToAction(nameof(Index));
     }
 

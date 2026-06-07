@@ -84,6 +84,9 @@ public sealed record KbEntryRow
     /// <summary>Whether this entry is currently published to the public surface.</summary>
     public required bool IsVisible { get; init; }
 
+    /// <summary>Whether this entry is currently marked as evergreen.</summary>
+    public bool IsEvergreen { get; init; }
+
     /// <summary>Optional live preview relevance score for this artifact row.</summary>
     public double? RelevanceScore { get; init; }
 }
