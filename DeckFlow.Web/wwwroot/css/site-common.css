@@ -435,7 +435,8 @@ summary:focus-visible,
 .kb-chip-area {
   margin: 1rem 0 1.5rem;
   padding: 1rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
   border-radius: 10px;
   background: var(--panel);
 }
@@ -448,6 +449,21 @@ summary:focus-visible,
   margin: 0 0 0.75rem;
   font-size: var(--fs-base);
   font-weight: 600;
+}
+
+.kb-chip-area__subhead {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.kb-chip-area__optional {
+  margin-left: 0.4rem;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .kb-chip-area__chips {
@@ -464,6 +480,7 @@ summary:focus-visible,
 .kb-chip-area__search {
   width: 100%;
   min-height: 44px;
+  border: 1px solid var(--accent);
 }
 
 .kb-chip-area__empty-hint {
