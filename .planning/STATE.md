@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 31 context gathered
-last_updated: "2026-06-08T16:23:02.641Z"
+stopped_at: Phase 31 planned (6 plans/4 waves; checker PASS w/ revisions; Codex review pending)
+last_updated: "2026-06-08T16:59:34.442Z"
 last_activity: 2026-06-08 -- Phase 32 closed + 8 dogfood UX fixes + 2 enhancements (prompt-size warn, set-upgrade follow-up); full regression green
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 17
+  total_plans: 23
   completed_plans: 17
   percent: 57
 ---
@@ -85,6 +85,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-06-08T16:23:02.619Z
-Stopped at: Phase 31 context gathered
-Resume file: .planning/phases/31-deck-primer-generator/31-CONTEXT.md
+Last session: 2026-06-08T16:59:34.418Z
+Stopped at: Phase 31 planned (6 plans/4 waves; checker PASS w/ revisions; Codex review pending)
+Resume file: .planning/phases/31-deck-primer-generator/31-01-PLAN.md
