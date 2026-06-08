@@ -66,22 +66,28 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
-        var youtube = new YoutubeClient(httpClient);
-        return (channelUrl, limit, ct) => ListWithClientAsync(youtube, channelUrl, limit, ct);
+        return (channelUrl, limit, ct) => ListWithClientAsync(httpClient, channelUrl, limit, ct);
     }
 
     private static Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateGetByIdsAsync(
         HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
-        var youtube = new YoutubeClient(httpClient);
-        return (videoIds, ct) => GetByIdsWithClientAsync(youtube, videoIds, ct);
+        return (videoIds, ct) => GetByIdsWithClientAsync(httpClient, videoIds, ct);
     }
 
     private static async Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsWithClientAsync(
-        YoutubeClient youtube,
+        HttpClient httpClient,
         IReadOnlyList<string> videoIds,
         CancellationToken ct)
+        => await GetByIdsWithClientAsync(httpClient, videoIds, ct, static client => new YoutubeClient(client), GetVideoByIdAsync).ConfigureAwait(false);
+
+    private static async Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsWithClientAsync(
+        HttpClient httpClient,
+        IReadOnlyList<string> videoIds,
+        CancellationToken ct,
+        Func<HttpClient, YoutubeClient> youtubeClientFactory,
+        Func<YoutubeClient, VideoId, CancellationToken, Task<YouTubeChannelVideo?>> getVideoAsync)
     {
         var parsedIds = videoIds
             .Select(rawId => VideoId.TryParse(rawId)
@@ -94,16 +100,8 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             await gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                var metadata = await youtube.Videos.GetAsync(parsed, ct).ConfigureAwait(false);
-                return new YouTubeChannelVideo
-                {
-                    VideoId = metadata.Id.Value,
-                    Url = metadata.Url,
-                    Title = metadata.Title,
-                    Duration = metadata.Duration,
-                    PublishedUtc = metadata.UploadDate,
-                    ViewCount = metadata.Engagement.ViewCount,
-                };
+                var youtube = youtubeClientFactory(httpClient);
+                return await getVideoAsync(youtube, parsed, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -125,17 +123,19 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         return results.Where(video => video is not null).Select(video => video!).ToList();
     }
 
-    // Why: YouTube tolerates modest parallelism and the per-video metadata lookup is the
-    // dominant cost (one call per listed video); 6-wide keeps a 100-video export under
-    // ~30s instead of minutes while staying far below abuse thresholds.
-    private const int MetadataLookupConcurrency = 6;
+    // Why: YoutubeExplode's HTML watch-page parser is not safe under any concurrency in this
+    // process. Per-task YoutubeClient instances still reproduced live InvalidOperationException
+    // corruption in AngleSharp.BrowsingContext.CreateChild, so metadata lookups must remain
+    // strictly sequential. Keep the semaphore/constant as the single tuning knob.
+    private const int MetadataLookupConcurrency = 1;
 
     private static async Task<IReadOnlyList<YouTubeChannelVideo>> ListWithClientAsync(
-        YoutubeClient youtube,
+        HttpClient httpClient,
         string channelUrl,
         int limit,
         CancellationToken ct)
     {
+        var youtube = new YoutubeClient(httpClient);
         var channelId = await ResolveChannelIdAsync(youtube, channelUrl, ct).ConfigureAwait(false);
         var uploads = await youtube.Channels.GetUploadsAsync(channelId, ct).CollectAsync(limit).ConfigureAwait(false);
 
@@ -147,7 +147,8 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             await gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                var (publishedUtc, viewCount) = await GetVideoStatsAsync(youtube, upload.Id, ct).ConfigureAwait(false);
+                var lookupClient = new YoutubeClient(httpClient);
+                var (publishedUtc, viewCount) = await GetVideoStatsAsync(lookupClient, upload.Id, ct).ConfigureAwait(false);
                 return MapVideo(upload, publishedUtc, viewCount);
             }
             finally
@@ -211,6 +212,23 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         {
             return (null, null);
         }
+    }
+
+    private static async Task<YouTubeChannelVideo?> GetVideoByIdAsync(
+        YoutubeClient youtube,
+        VideoId videoId,
+        CancellationToken ct)
+    {
+        var metadata = await youtube.Videos.GetAsync(videoId, ct).ConfigureAwait(false);
+        return new YouTubeChannelVideo
+        {
+            VideoId = metadata.Id.Value,
+            Url = metadata.Url,
+            Title = metadata.Title,
+            Duration = metadata.Duration,
+            PublishedUtc = metadata.UploadDate,
+            ViewCount = metadata.Engagement.ViewCount,
+        };
     }
 
     internal static YouTubeChannelVideo MapVideo(PlaylistVideo video, DateTimeOffset? publishedUtc, long? viewCount = null)
