@@ -5,6 +5,8 @@
 ((): void => {
   'use strict';
 
+  const SCROLL_KEY = 'deckflowAdminKbScrollY';
+
   type DeckFlowNamespace = {
     attachTypeahead?: (
       input: HTMLInputElement,
@@ -83,6 +85,43 @@
     });
   };
 
+  const wireScrollRestore = (): void => {
+    const scrollY = window.sessionStorage.getItem(SCROLL_KEY);
+    if (scrollY !== null) {
+      const parsedScrollY = Number(scrollY);
+      if (Number.isFinite(parsedScrollY)) {
+        window.scrollTo(0, parsedScrollY);
+      }
+      window.sessionStorage.removeItem(SCROLL_KEY);
+    }
+
+    const forms = document.querySelectorAll<HTMLFormElement>('form.admin-action-form');
+    forms.forEach((form) => {
+      form.addEventListener('submit', (event: SubmitEvent) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        window.sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+      });
+    });
+  };
+
+  const wireToast = (): void => {
+    const toast = document.querySelector<HTMLElement>('[data-admin-toast]');
+    if (toast === null) {
+      return;
+    }
+
+    toast.addEventListener('transitionend', () => {
+      toast.remove();
+    }, { once: true });
+
+    window.setTimeout(() => {
+      toast.classList.add('is-dismissing');
+    }, 4000);
+  };
+
   const setCommanderSearchError = (message?: string): void => {
     const panel = document.querySelector<HTMLElement>('[data-api-panel="commander-search-error"]');
     const text = document.querySelector<HTMLElement>('[data-api-field="commander-search-error-text"]');
@@ -136,6 +175,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     wireReloadConfirm();
     wireTwoClickConfirm();
+    wireScrollRestore();
+    wireToast();
     wireCommanderPreviewTypeahead();
   });
 })();
