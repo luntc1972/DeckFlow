@@ -64,4 +64,19 @@ public sealed class ContentHarvestRunStoreTests : IDisposable
         Assert.Equal(0.30m, run.SpendUsd);
         Assert.Equal("manual stop", run.AbortedReason);
     }
+
+    [Fact]
+    public async Task CompleteRunAsync_UnknownRunId_Throws()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => _store.CompleteRunAsync(
+            999_999,
+            sourcesProcessed: 1,
+            videosProcessed: 1,
+            transcriptsFetched: 1,
+            whisperCalls: 1,
+            spendUsd: 0.01m,
+            abortedReason: null));
+
+        Assert.Equal("No content harvest run with id 999999 to complete.", exception.Message);
+    }
 }
