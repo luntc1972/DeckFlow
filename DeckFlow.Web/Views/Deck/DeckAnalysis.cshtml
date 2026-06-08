@@ -18,6 +18,17 @@ Update the question_answers array so it includes those additional direct-chat qu
 Return only the updated deck_profile inside a fenced ```json code block.
 Do not omit any fields from the schema.
 """;
+    var setUpgradeFollowUpPrompt = """
+Answer my follow-up questions first.
+
+Then regenerate the full updated set_upgrade_report JSON so it reflects:
+- your latest conclusions and corrections
+- the additional questions I asked directly in chat
+- the answers you gave to those additional questions
+
+Return only the updated set_upgrade_report inside a fenced ```json code block.
+Do not omit any fields from the schema.
+""";
     var selectedQuestionSet = new HashSet<string>(Model.Request.SelectedAnalysisQuestions, StringComparer.OrdinalIgnoreCase);
     var openBuckets = new HashSet<string>(
         DeckFlow.Web.Models.AnalysisQuestionCatalog.Buckets
@@ -765,6 +776,16 @@ Do not omit any fields from the schema.
                     <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
                 </div>
                 <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.SetUpgradePromptText</textarea>
+            </section>
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Optional Follow-up JSON Refresh Prompt</h3>
+                        <p>Use this later only if you asked additional questions of your AI after the first set-upgrade response and need it to rebuild the updated <code>set_upgrade_report</code> JSON.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="set-upgrade-follow-up-output">Copy</button>
+                </div>
+                <textarea autocomplete="off" id="set-upgrade-follow-up-output" readonly spellcheck="false">@setUpgradeFollowUpPrompt</textarea>
             </section>
         }
         <div class="chatgpt-step-footer">
