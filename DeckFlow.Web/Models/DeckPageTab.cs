@@ -37,4 +37,7 @@ public enum DeckPageTab
 
     /// <summary>Judge-questions artifact generator page.</summary>
     JudgeQuestions = 11,
+
+    /// <summary>Content Knowledge Base browse/detail pages.</summary>
+    ContentKb = 12,
 }

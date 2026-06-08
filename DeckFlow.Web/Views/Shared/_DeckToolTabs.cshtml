@@ -5,7 +5,7 @@
 @{
     var analyzeActive = Model is DeckPageTab.DeckAnalysis or DeckPageTab.DeckComparison or DeckPageTab.CedhMetaGap;
     var buildActive = Model is DeckPageTab.Sync or DeckPageTab.Convert;
-    var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup or DeckPageTab.JudgeQuestions;
+    var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup or DeckPageTab.JudgeQuestions or DeckPageTab.ContentKb;
     var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
 }
 
@@ -39,7 +39,7 @@
             <a class="tool-nav__link @(Model == DeckPageTab.JudgeQuestions ? "is-active" : string.Empty)" href="@Url.Content("~/judge-questions")">Ask a Judge</a>
             @if (FlagCache.IsEnabled("content.kb.enabled"))
             {
-                <a class="tool-nav__link" href="@Url.Action("Index", "ContentKb")">Knowledge Base</a>
+                <a class="tool-nav__link @(Model == DeckPageTab.ContentKb ? "is-active" : string.Empty)" href="@Url.Action("Index", "ContentKb")">Knowledge Base</a>
             }
         </div>
     </div>
