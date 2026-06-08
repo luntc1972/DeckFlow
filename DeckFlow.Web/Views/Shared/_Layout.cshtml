@@ -57,10 +57,6 @@
                 <a class="page-brand" href="@Url.Content("~/")" aria-label="DeckFlow home">DeckFlow</a>
                 <nav class="page-nav" aria-label="Primary">
                     <a class="page-nav__link" href="@Url.Content("~/help")">Help</a>
-                    @if (FeatureFlagCache.IsEnabled("content.kb.enabled"))
-                    {
-                        <a class="page-nav__link" asp-controller="ContentKb" asp-action="Index">Knowledge Base</a>
-                    }
                 </nav>
                 <div class="theme-picker">
                     <label class="theme-picker__label" for="theme-picker">Theme</label>
