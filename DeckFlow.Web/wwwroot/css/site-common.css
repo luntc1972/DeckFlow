@@ -582,6 +582,11 @@ summary:focus-visible,
     gap: 0.5rem;
   }
 
+  .kb-filter-bar > input,
+  .kb-filter-bar > label {
+    flex: 0 0 auto;
+  }
+
   .kb-artifact-prose {
     padding: 1rem;
   }
