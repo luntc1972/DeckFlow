@@ -171,6 +171,25 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-banner { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); }
 .admin-shell .admin-banner--success { border-color: var(--accent); }
 .admin-shell .admin-banner--error { border-color: var(--danger); }
+.admin-shell .admin-banner[data-admin-toast] {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: min(90vw, 480px);
+  margin-bottom: 0;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.admin-shell .admin-banner[data-admin-toast].is-dismissing {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell .admin-banner[data-admin-toast] { transition: none; }
+}
 
 .admin-shell .error-banner {
   padding: 12px 16px;
