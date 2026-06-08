@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 32 Wave 3 (32-03) complete + reviewed
-last_updated: "2026-06-07T20:06:00.000Z"
-last_activity: 2026-06-07 -- 32-03 executed (Codex gpt-5.4) + Claude review PASS; SEL-01/03 done; build clean
+stopped_at: Phase 32 COMPLETE (visual-verify approved, full regression green)
+last_updated: "2026-06-08T16:00:00.000Z"
+last_activity: 2026-06-08 -- Phase 32 closed: 32-04 + visual approved; SEL-01..06 done; Core 270, Web 608/5-skip
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 17
-  completed_plans: 16
-  percent: 43
+  completed_plans: 17
+  percent: 57
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 ## Current Position
 
-Phase: 32 (expert-context-selection) — EXECUTING (Wave 3/4 done: 32-01/02/03 complete + reviewed PASS)
-Next: Wave 4 (32-04 admin Evergreen toggle + panel origin markers) — HAS human-verify visual checkpoint (2 viewports; needs server running)
-Last activity: 2026-06-07 -- 32-03 executed (Codex gpt-5.4) + Claude review PASS; SEL-01/03 done; build clean
+Phase: 32 (expert-context-selection) — COMPLETE (4/4 plans; SEL-01..06 done; visual-verify approved 2026-06-08)
+Next: secure-phase 32 (open), or next milestone phase. Phases 30+32 both have open secure-phase debt.
+Last activity: 2026-06-08 -- Phase 32 closed + 8 dogfood UX fixes + 2 enhancements (prompt-size warn, set-upgrade follow-up); full regression green
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 

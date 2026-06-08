@@ -113,7 +113,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 28: Housekeeping Bundle** — KB-12 codex distill backend + VERIFICATION.md hygiene + artifact hygiene (completed 2026-06-04)
 - [x] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen (completed 2026-06-05)
 - [x] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel (completed 2026-06-07; UAT passed on prod)
-- [ ] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31)
+- [x] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31) (completed 2026-06-08)
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
 ## Phase Details
@@ -223,7 +223,7 @@ Plans:
 - [x] 32-01-PLAN.md — is_evergreen column + SetEvergreenAsync + ContentKbExcerpt.ClipOrigin + GetMergedClipsAsync tier-fill + tier/store tests (SEL-02, SEL-05, SEL-06)
 - [x] 32-02-PLAN.md — DeckAnalysisRequest selection fields + 33-expert-selection.json zip round-trip + GetMergedClipsAsync wiring + replay restore (SEL-04, SEL-02)
 - [x] 32-03-PLAN.md — browse Pin/Follow + tray, analysis chip area + typeahead API, kb-selection.ts, all site-common.css classes (SEL-01, SEL-03)
-- [ ] 32-04-PLAN.md — admin Evergreen toggle + panel origin markers + 2-viewport human-verify checkpoint (SEL-05, SEL-06)
+- [x] 32-04-PLAN.md — admin Evergreen toggle + panel origin markers + 2-viewport human-verify checkpoint (SEL-05, SEL-06)
 **UI hint**: yes
 
 ## Backlog
