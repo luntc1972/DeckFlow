@@ -462,11 +462,19 @@ Do not omit any fields from the schema.
 
         @if (!string.IsNullOrWhiteSpace(Model.AnalysisPromptText))
         {
+            var analysisBytes = System.Text.Encoding.UTF8.GetByteCount(Model.AnalysisPromptText);
+            var analysisKb = analysisBytes / 1024d;
+            var pasteWarn = aiPlatform.PasteWarningBytes is int cap && analysisBytes > cap;
             <section class="result-panel nested-panel">
                 <div class="panel-heading">
                     <div>
                         <h3>analysis.txt</h3>
                         <p>Paste this into @aiPlatform.DisplayName for the main deck analysis. It requests prose analysis plus a structured <code>deck_profile</code> JSON object.</p>
+                        <p class="prompt-size-note">Prompt size: ~@analysisKb.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) KB</p>
+                        @if (pasteWarn)
+                        {
+                            <p class="prompt-size-note prompt-size-note--warn" role="status">⚠️ Large prompt — may exceed @aiPlatform.DisplayName's paste limit. ChatGPT and Claude handle this size fine; for @aiPlatform.DisplayName, trim questions or candidate references, or paste in parts.</p>
+                        }
                     </div>
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
