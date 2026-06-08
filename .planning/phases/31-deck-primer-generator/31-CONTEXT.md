@@ -13,7 +13,7 @@ This discussion clarifies implementation — it does not add capabilities. New c
 
 ### D-1 — Spike (PRM-01) gates execution only, not planning
 - **Plan all plans up front.** The prompt-builder plan specifies BOTH combo-ranking branches: priority-ranked (piece count / assembly cost / immediacy) when the spike verdict is "data sufficient", and AI-ranked fallback otherwise. The spike's recorded verdict selects the branch **at execution time** — no replan cycle.
-- PRM-01 remains the **first execution unit** (gating): it must record (a) Spellbook `Instructions` richness verdict (sufficient / needs enrichment / fallback) and (b) a representative cEDH primer prompt **byte-size** measured against paste caps, before `DeckPrimerPacketService` is built.
+- PRM-01 remains the **first execution unit** (gating): it must record (a) Spellbook `Instructions` richness verdict (sufficient / needs enrichment / fallback), (b) a representative cEDH primer prompt **byte-size** measured against paste caps, and (c) the EdhTop16 bracket-5 archetype-query verdict (does the GraphQL schema expose a meta-wide named-archetype query, or only the per-commander `commander(name:)` query?), before `DeckPrimerPacketService` is built.
 - The spike verdict is recorded in a decision doc (e.g. `31-SPIKE.md` or a STATE decision) that the builder plan reads.
 
 ### D-2 — Combo grounding: two structurally separated blocks + null disclosure (PRM-05/08)
@@ -24,15 +24,17 @@ This discussion clarifies implementation — it does not add capabilities. New c
 ### D-3 — Bracket change applies preset but preserves per-bracket custom toggles (PRM-03/04/10)
 - First visit to a bracket = that bracket's section **preset** (cEDH preset for 5, Casual/Upgraded preset for 1–4).
 - If the user previously customized sections for that bracket, restore their custom set. **Presets seed; user edits stick.**
+- Each bracket option carries its OWN preset — the section UI exposes per-bracket presets (per-`<option>` `data-preset-ids` or a serialized bracket→preset-ids map), so switching from the initial bracket to a DIFFERENT bracket on first visit (no saved state) applies THAT bracket's preset, not the initial bracket's.
 - Persistence: localStorage **keyed per bracket** (mirror the `kb-selection.ts` localStorage + try/catch pattern). Bracket-scoped section gating still enforced (cEDH-only #24/#25 vs casual-only #26) regardless of stored toggles.
 
 ### D-4 — Gemini paste-cap: defensive char-cap guard like the analysis variant (PRM-01/09)
 - Build the primer; if it exceeds the cap, **trim lowest-priority sections to fit** with a disclosure line — mirror the existing `GeminiAnalysisPromptVariant` `DefensivePromptCharCap` pattern (and the new `AiPlatform.PasteWarningBytes` surfaced on the analysis result).
 - The exact threshold is set by the PRM-01 spike byte-size measurement. (Not a hard Gemini-disable; ChatGPT/Claude unaffected.)
+- The Gemini trim guard only fires when Gemini is an **enabled** platform — i.e. when `DECKFLOW_GEMINI_ENABLED` is on and the `_AiSelector` exposes the Gemini radio. Gemini stays flag-gated per the v1.6 deferral; the primer reuses `_AiSelector` as-is and does NOT force-expose Gemini.
 
 ### Carried forward (locked before this discussion)
 - **Mirror the analysis architecture:** new `DeckPrimerPacketService` + a primer prompt-variant registry + **3 decoupled variant files** (ChatGPT/Claude/Gemini). Prompt-variant decoupling is invariant — no shared prose; hand-edit all 3 for content changes (ADR 0001 + a1fa5ad revert lesson).
-- **`PrimerAllowedNames` first:** add primer entries to the `PacketArtifactStore` allowlist as the first artifact-store task — `ReadEntries` silently drops names not in the active allowlist.
+- **`PrimerAllowedNames` first:** add primer entries to the `PacketArtifactStore` allowlist as the first artifact-store task — `ReadEntries` THROWS `InvalidOperationException` on any entry name not in the active allowlist (it does NOT silently drop unlisted names; the allowlist must exist before any Build/Load method references it — Pitfall 2).
 - **`{ get; init; }` guard:** every new record (section catalog entry, primer request/result DTOs) preserves the `init` accessor; include a System.Text.Json round-trip test per round-tripped record.
 
 ## Canonical Refs (MUST read before planning)
@@ -46,8 +48,9 @@ This discussion clarifies implementation — it does not add capabilities. New c
 - `DeckFlow.Web/Models/AnalysisQuestionCatalog.cs` — the catalog analog for the 31-section catalog (groups, ids, help text, badges)
 - `DeckFlow.Web/Models/CommanderBracketCatalog.cs` — bracket model (1–5) for preset routing
 - `DeckFlow.Web/Services/CommanderSpellbookService.cs` — combo ground-truth source (returns null on failure → D-2 disclosure)
-- `DeckFlow.Web/Services/EdhTop16Client.cs` — bracket-5 named-archetype matchups (PRM-06)
+- `DeckFlow.Web/Services/EdhTop16Client.cs` — bracket-5 matchups (PRM-06); exposes ONLY `SearchCommanderEntriesAsync(name)` (per-commander `commander(name:$name)` GraphQL). There is NO meta-wide top-archetypes query in the current client — the PRM-01 spike verifies whether the EdhTop16 schema exposes one; if not, bracket 5 falls back to the 5 generic strategy buckets (accepted degradation).
 - `DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs` — ramp/draw/interaction/tutor distribution numbers (PRM-07)
+- `DeckFlow.Web/Views/Shared/_AiSelector.cshtml` — the AI target selector reused as-is; ChatGPT + Claude always shown, Gemini hidden unless `DECKFLOW_GEMINI_ENABLED` (persisted Gemini→ChatGPT rewrite preserved). "Enabled platforms" downstream means whatever this selector exposes.
 
 ## Code Context (reusable assets / patterns)
 

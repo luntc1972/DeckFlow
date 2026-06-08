@@ -14,7 +14,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **PRM-03**: User can select bracket (1–5); bracket choice pre-applies a section preset (cEDH or Casual/Upgraded) and gates bracket-scoped sections (cEDH-only #24/#25 vs casual-only #26)
 - [ ] **PRM-04**: User can toggle individual sections from the 31-section catalog rendered as 5 collapsible groups (Identity / Combos / Gameplay / Matchups / Maintenance)
 - [ ] **PRM-05**: Generated prompt injects Commander Spellbook combos as ground truth, structurally separated from a fenced speculative-synergies ask, with explicit disclosure when Spellbook is unavailable (null return)
-- [ ] **PRM-06**: Matchup sections route on bracket — EdhTop16 named archetypes for bracket 5, five generic strategy buckets (Aggro/Control/Midrange/Combo/Stax-Hate) for brackets 1–4
+- [ ] **PRM-06**: Matchup sections route on bracket — EdhTop16 named archetypes for bracket 5 WHEN the EdhTop16 GraphQL schema exposes a meta-wide archetype query (verified by the PRM-01 spike); otherwise bracket 5 falls back to the five generic strategy buckets (accepted degradation). Brackets 1–4 always use the five generic strategy buckets (Aggro/Control/Midrange/Combo/Stax-Hate)
 - [ ] **PRM-07**: Prompt grounds identity/engine/mulligan sections with category-knowledge distribution numbers (ramp/draw/interaction/tutor counts)
 - [ ] **PRM-08**: Combo lines ranked by priority (piece count, assembly cost, immediacy) when spike confirms data sufficiency; AI-ranked fallback otherwise
 - [ ] **PRM-09**: User can generate per-AI artifact variants (ChatGPT/Claude/Gemini) stored via PacketArtifactStore with zip round-trip — primer entries added to the zip allowlist with a round-trip regression test
@@ -114,4 +114,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-03 — traceability mapped to Phases 28-31*
+*Last updated: 2026-06-08 — PRM-06 amended to note bracket-5 accepted degradation (EdhTop16 meta-wide archetype query may not exist; verified by PRM-01 spike, falls back to generic buckets)*
