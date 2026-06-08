@@ -685,6 +685,23 @@ public sealed class RunDistillAsyncTests : IDisposable
             return Task.FromResult(count);
         }
 
+        public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default)
+        {
+            var count = 0;
+            for (var i = 0; i < Rows.Count; i++)
+            {
+                if (Rows[i].Id != id)
+                {
+                    continue;
+                }
+
+                Rows[i] = Rows[i] with { IsEvergreen = evergreen };
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
         public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
         {
             var count = 0;
