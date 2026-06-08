@@ -119,7 +119,11 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
         RelationalDatabaseConnection.AddParameter(command, "@spendUsd", FormatDecimal(spendUsd));
         RelationalDatabaseConnection.AddParameter(command, "@abortedReason", (object?)abortedReason ?? DBNull.Value);
         RelationalDatabaseConnection.AddParameter(command, "@runId", runId);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        var affected = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        if (affected == 0)
+        {
+            throw new InvalidOperationException($"No content harvest run with id {runId} to complete.");
+        }
     }
 
     /// <inheritdoc />
