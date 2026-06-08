@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 32 COMPLETE (visual-verify approved, full regression green)
-last_updated: "2026-06-08T16:00:00.000Z"
-last_activity: 2026-06-08 -- Phase 32 closed: 32-04 + visual approved; SEL-01..06 done; Core 270, Web 608/5-skip
+stopped_at: Phase 31 context gathered
+last_updated: "2026-06-08T16:23:02.641Z"
+last_activity: 2026-06-08 -- Phase 32 closed + 8 dogfood UX fixes + 2 enhancements (prompt-size warn, set-upgrade follow-up); full regression green
 progress:
   total_phases: 7
   completed_phases: 4
@@ -85,6 +85,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-06-07T17:39:17.922Z
-Stopped at: Phase 32 UI-SPEC approved
-Resume file: .planning/phases/32-expert-context-selection-runs-after-phase-30-before-phase-31/32-UI-SPEC.md
+Last session: 2026-06-08T16:23:02.619Z
+Stopped at: Phase 31 context gathered
+Resume file: .planning/phases/31-deck-primer-generator/31-CONTEXT.md
