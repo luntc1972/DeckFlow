@@ -798,6 +798,21 @@ summary:focus-visible,
   display: none;
 }
 
+.prompt-size-note {
+  margin: 0.25rem 0 0;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.prompt-size-note--warn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+  background: var(--warning);
+  color: var(--ink);
+}
+
 .card-picker__row .card-picker__remove[hidden],
 .card-picker__row .card-picker__remove.hidden {
   display: inline-flex !important;
