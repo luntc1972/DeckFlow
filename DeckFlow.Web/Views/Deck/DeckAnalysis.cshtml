@@ -121,62 +121,6 @@ Do not omit any fields from the schema.
             });
     }
     @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
-    <section class="kb-chip-area" aria-labelledby="kb-chip-heading">
-        <h3 id="kb-chip-heading" class="kb-chip-area__heading">
-            Expert Context
-            <span class="kb-chip-area__optional">optional</span>
-            <details class="info-tooltip">
-                <summary>i</summary>
-                <p>Pinned videos and followed creators whose clips are guaranteed a place in your analysis prompt. Cleared after each run (videos) or sticky (creators).</p>
-            </details>
-        </h3>
-        <p class="kb-chip-area__subhead">Pin a video or follow a creator to guarantee their clips appear in your analysis.</p>
-
-        <div class="kb-chip-area__chips" data-kb-chips aria-label="Selected expert context items">
-            @foreach (var id in Model.Request.PinnedVideoIds)
-            {
-                <span class="kb-chip kb-chip--pinned" data-chip-id="@id" data-chip-type="video">
-                    📌 <span class="kb-chip__label">@(Model.ResolvedPinTitles.GetValueOrDefault(id, id))</span>
-                    <button type="button" class="kb-chip__remove" aria-label="Remove pinned video">×</button>
-                </span>
-            }
-            @foreach (var creator in Model.Request.FollowedCreators)
-            {
-                <span class="kb-chip kb-chip--followed" data-chip-creator="@creator" data-chip-type="creator">
-                    ★ <span class="kb-chip__label">@creator</span>
-                    <button type="button" class="kb-chip__remove" aria-label="Remove followed creator @creator">×</button>
-                </span>
-            }
-        </div>
-
-        @foreach (var id in Model.Request.PinnedVideoIds)
-        {
-            <input type="hidden" name="PinnedVideoIds" value="@id" />
-        }
-        @foreach (var creator in Model.Request.FollowedCreators)
-        {
-            <input type="hidden" name="FollowedCreators" value="@creator" />
-        }
-
-        <div class="autocomplete-anchor kb-chip-area__typeahead" data-kb-chip-typeahead>
-            <input type="text"
-                   class="kb-chip-area__search"
-                   placeholder="🔍  Add a pinned video or followed creator…"
-                   aria-label="Add expert context item"
-                   autocomplete="off"
-                   data-kb-typeahead-input />
-            <div class="autocomplete-panel" hidden data-kb-typeahead-panel role="listbox" aria-label="Suggestions"></div>
-        </div>
-
-        @if (Model.Request.PinnedVideoIds.Count == 0 && Model.Request.FollowedCreators.Count == 0)
-        {
-            <p class="kb-chip-area__empty-hint">No expert context selected. Clips will be chosen automatically.</p>
-        }
-        else
-        {
-            <p class="kb-chip-area__empty-hint" hidden>No expert context selected. Clips will be chosen automatically.</p>
-        }
-    </section>
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
             <div>
@@ -224,6 +168,57 @@ Do not omit any fields from the schema.
             </div>
             <span class="chatgpt-step-badge">Customize the analysis</span>
         </div>
+        <details class="kb-expert-accordion">
+            <summary class="kb-expert-accordion__summary">⭐ Expert Context <span class="kb-chip-area__optional">optional</span></summary>
+            <section class="kb-chip-area" aria-label="Expert context selection">
+                <p class="kb-chip-area__subhead">Pin a video or follow a creator to guarantee their clips appear in your analysis.</p>
+
+                <div class="kb-chip-area__chips" data-kb-chips aria-label="Selected expert context items">
+                    @foreach (var id in Model.Request.PinnedVideoIds)
+                    {
+                        <span class="kb-chip kb-chip--pinned" data-chip-id="@id" data-chip-type="video">
+                            📌 <span class="kb-chip__label">@(Model.ResolvedPinTitles.GetValueOrDefault(id, id))</span>
+                            <button type="button" class="kb-chip__remove" aria-label="Remove pinned video">×</button>
+                        </span>
+                    }
+                    @foreach (var creator in Model.Request.FollowedCreators)
+                    {
+                        <span class="kb-chip kb-chip--followed" data-chip-creator="@creator" data-chip-type="creator">
+                            ★ <span class="kb-chip__label">@creator</span>
+                            <button type="button" class="kb-chip__remove" aria-label="Remove followed creator @creator">×</button>
+                        </span>
+                    }
+                </div>
+
+                @foreach (var id in Model.Request.PinnedVideoIds)
+                {
+                    <input type="hidden" name="PinnedVideoIds" value="@id" />
+                }
+                @foreach (var creator in Model.Request.FollowedCreators)
+                {
+                    <input type="hidden" name="FollowedCreators" value="@creator" />
+                }
+
+                <div class="autocomplete-anchor kb-chip-area__typeahead" data-kb-chip-typeahead>
+                    <input type="text"
+                           class="kb-chip-area__search"
+                           placeholder="🔍  Add a pinned video or followed creator…"
+                           aria-label="Add expert context item"
+                           autocomplete="off"
+                           data-kb-typeahead-input />
+                    <div class="autocomplete-panel" hidden data-kb-typeahead-panel role="listbox" aria-label="Suggestions"></div>
+                </div>
+
+                @if (Model.Request.PinnedVideoIds.Count == 0 && Model.Request.FollowedCreators.Count == 0)
+                {
+                    <p class="kb-chip-area__empty-hint">No expert context selected. Clips will be chosen automatically.</p>
+                }
+                else
+                {
+                    <p class="kb-chip-area__empty-hint" hidden>No expert context selected. Clips will be chosen automatically.</p>
+                }
+            </section>
+        </details>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
