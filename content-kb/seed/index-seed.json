@@ -204,6 +204,36 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "nb_jLL3WrB4",
+    "source": "Salubrious Snail",
+    "title": "All of the Reasons You Should Put More Lands in your EDH Deck",
+    "videoUrl": "https://www.youtube.com/watch?v=nb_jLL3WrB4\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/nb_jLL3WrB4.md",
+    "publishedUtc": "2025-01-07T23:38:00+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "ramp",
+      "value-engine",
+      "midrange",
+      "spellslinger",
+      "combo"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "finishers",
+      "tutor",
+      "removal",
+      "utility",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "8OzOVRYOFQc",
     "source": "Salubrious Snail",
     "title": "Blight Curse is a Johnny Playground",
@@ -230,6 +260,94 @@
       "protection",
       "finishers",
       "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "N-dlT70doB8",
+    "source": "Salubrious Snail",
+    "title": "Eternal Might is the Messiest Zombie Deck I\u0027ve Ever Seen",
+    "videoUrl": "https://www.youtube.com/watch?v=N-dlT70doB8\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/N-dlT70doB8.md",
+    "publishedUtc": "2025-02-07T23:10:38+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "tokens",
+      "tribal",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "protection",
+      "finishers",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "o-81HF-Jp7o",
+    "source": "Salubrious Snail",
+    "title": "How I Built My Most Difficult Deck",
+    "videoUrl": "https://www.youtube.com/watch?v=o-81HF-Jp7o\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/o-81HF-Jp7o.md",
+    "publishedUtc": "2025-01-14T22:49:18+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "control",
+      "value-engine",
+      "blink",
+      "reanimator",
+      "combo"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "tutor",
+      "recursion",
+      "removal",
+      "ramp",
+      "draw",
+      "finishers",
+      "counter",
+      "protection",
+      "board-wipe"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "Din4kwnOyVI",
+    "source": "Salubrious Snail",
+    "title": "How I Built My Most Powerful Deck (for $100)",
+    "videoUrl": "https://www.youtube.com/watch?v=Din4kwnOyVI\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/Din4kwnOyVI.md",
+    "publishedUtc": "2024-05-11T08:14:51+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "combo",
+      "control",
+      "value-engine",
+      "tribal"
+    ],
+    "bracketTags": [
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "tutor",
+      "counter",
+      "finishers",
+      "win-cons",
+      "removal",
+      "protection"
     ]
   },
   {
@@ -272,6 +390,183 @@
     "archetypeTags": [],
     "bracketTags": [],
     "cardCategoryTags": []
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "yviEDQp1WRw",
+    "source": "Salubrious Snail",
+    "title": "How to Play More Removal (and be happy about it)",
+    "videoUrl": "https://www.youtube.com/watch?v=yviEDQp1WRw\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/yviEDQp1WRw.md",
+    "publishedUtc": "2024-07-03T01:00:25+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "control",
+      "value-engine",
+      "stax",
+      "voltron",
+      "combo",
+      "ramp"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "removal",
+      "board-wipe",
+      "counter",
+      "draw",
+      "ramp",
+      "protection",
+      "tutor",
+      "recursion",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ceILMLrNCGw",
+    "source": "Salubrious Snail",
+    "title": "How to be a Greedy Bastard in EDH (and get away with it)",
+    "videoUrl": "https://www.youtube.com/watch?v=ceILMLrNCGw\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/ceILMLrNCGw.md",
+    "publishedUtc": "2024-04-11T05:48:07+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "ramp",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "finishers",
+      "protection"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ktU-_awFchQ",
+    "source": "Salubrious Snail",
+    "title": "I Built a Deck That Turns EDH Games into Hellbent Cagefights",
+    "videoUrl": "https://www.youtube.com/watch?v=ktU-_awFchQ\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/ktU-_awFchQ.md",
+    "publishedUtc": "2024-10-22T16:00:47+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "aggro",
+      "aristocrats",
+      "stax",
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "removal",
+      "draw",
+      "recursion",
+      "utility",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "Ny6XxPZLjSs",
+    "source": "Salubrious Snail",
+    "title": "I Challenged My Community to Deckbuild with Some of the Least Popular Commanders",
+    "videoUrl": "https://www.youtube.com/watch?v=Ny6XxPZLjSs\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/Ny6XxPZLjSs.md",
+    "publishedUtc": "2024-11-08T03:53:05+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "voltron",
+      "combo",
+      "reanimator",
+      "lands",
+      "stax",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "win-cons",
+      "finishers",
+      "counter",
+      "protection",
+      "tutor",
+      "recursion",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "upOHRVHB22g",
+    "source": "Salubrious Snail",
+    "title": "I Challenged My Community to Make Decks with Bad Baldur\u0027s Gate Commanders",
+    "videoUrl": "https://www.youtube.com/watch?v=upOHRVHB22g\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/upOHRVHB22g.md",
+    "publishedUtc": "2025-01-30T05:46:14+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "reanimator",
+      "aristocrats",
+      "tokens",
+      "value-engine",
+      "midrange",
+      "combo"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "tutor",
+      "recursion",
+      "removal",
+      "board-wipe",
+      "draw",
+      "finishers",
+      "ramp"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "STkJOO92Ql4",
+    "source": "Salubrious Snail",
+    "title": "I Spent Two Years Playing EDH With a Pool of $25 Decks",
+    "videoUrl": "https://www.youtube.com/watch?v=STkJOO92Ql4\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/STkJOO92Ql4.md",
+    "publishedUtc": "2024-05-21T03:59:54+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "control",
+      "aristocrats",
+      "combo",
+      "midrange",
+      "lands",
+      "aggro",
+      "tokens",
+      "voltron",
+      "spellslinger",
+      "ramp",
+      "tribal",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Exhibition",
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "draw",
+      "board-wipe",
+      "counter",
+      "finishers"
+    ]
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -333,6 +628,268 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "GfAZaWRD0eo",
+    "source": "Salubrious Snail",
+    "title": "Is Courser of Kruphix card draw?",
+    "videoUrl": "https://www.youtube.com/watch?v=GfAZaWRD0eo\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/GfAZaWRD0eo.md",
+    "publishedUtc": "2025-05-16T22:51:22+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "draw"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "4jwV3wlFeac",
+    "source": "Salubrious Snail",
+    "title": "Is Enlightened Tutor a draw spell?",
+    "videoUrl": "https://www.youtube.com/watch?v=4jwV3wlFeac\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/4jwV3wlFeac.md",
+    "publishedUtc": "2025-05-14T21:56:07+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "tutor",
+      "draw"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "TO0ZqIrw9fE",
+    "source": "Salubrious Snail",
+    "title": "Is Gonti Confused or am I Confused?",
+    "videoUrl": "https://www.youtube.com/watch?v=TO0ZqIrw9fE\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/TO0ZqIrw9fE.md",
+    "publishedUtc": "2024-04-20T06:43:20+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "value-engine",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "counter",
+      "board-wipe",
+      "protection",
+      "finishers",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "q9zMR-ctjWc",
+    "source": "Salubrious Snail",
+    "title": "Is Guttersnipe good or is it worthless junk?",
+    "videoUrl": "https://www.youtube.com/watch?v=q9zMR-ctjWc\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/q9zMR-ctjWc.md",
+    "publishedUtc": "2025-04-21T00:27:18+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "spellslinger",
+      "combo",
+      "control"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "finishers",
+      "win-cons"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "f4WQRENTTIs",
+    "source": "Salubrious Snail",
+    "title": "Is Mistcutter Hydra a card draw spell?",
+    "videoUrl": "https://www.youtube.com/watch?v=f4WQRENTTIs\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/f4WQRENTTIs.md",
+    "publishedUtc": "2025-05-18T18:16:48+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "ramp",
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "ramp",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "AFWNvTzITtM",
+    "source": "Salubrious Snail",
+    "title": "Is Overwhelming Stampede actually a good card?",
+    "videoUrl": "https://www.youtube.com/watch?v=AFWNvTzITtM\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/AFWNvTzITtM.md",
+    "publishedUtc": "2025-04-22T17:04:37+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "voltron",
+      "aggro",
+      "midrange"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "finishers",
+      "win-cons"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ZnDWcmilTyQ",
+    "source": "Salubrious Snail",
+    "title": "Is the Peace Offering Deck Actually Group Hug?",
+    "videoUrl": "https://www.youtube.com/watch?v=ZnDWcmilTyQ\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/ZnDWcmilTyQ.md",
+    "publishedUtc": "2024-07-30T21:14:58+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "value-engine",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "counter",
+      "board-wipe",
+      "protection",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "eTi1PtXYzmo",
+    "source": "Salubrious Snail",
+    "title": "Let\u0027s Talk About My Most Controversial Video",
+    "videoUrl": "https://www.youtube.com/watch?v=eTi1PtXYzmo\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/eTi1PtXYzmo.md",
+    "publishedUtc": "2024-08-14T21:07:24+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "ramp",
+      "voltron",
+      "combo"
+    ],
+    "bracketTags": [
+      "Exhibition",
+      "Core",
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "rPHJc4iY3s8",
+    "source": "Salubrious Snail",
+    "title": "MTGO standard test stream",
+    "videoUrl": "https://www.youtube.com/watch?v=rPHJc4iY3s8\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/rPHJc4iY3s8.md",
+    "publishedUtc": "2025-07-02T09:57:00+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "control",
+      "midrange"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "removal",
+      "counter",
+      "draw",
+      "finishers",
+      "ramp",
+      "protection"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "0nYzkbsMFgE",
+    "source": "Salubrious Snail",
+    "title": "Morning deckbuilding stream",
+    "videoUrl": "https://www.youtube.com/watch?v=0nYzkbsMFgE\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/0nYzkbsMFgE.md",
+    "publishedUtc": "2025-07-08T19:08:41+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "blink",
+      "tribal",
+      "ramp",
+      "value-engine",
+      "control",
+      "tokens"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Core",
+      "Exhibition"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe",
+      "tutor",
+      "recursion",
+      "protection",
+      "finishers",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "YcSHb11AqL4",
+    "source": "Salubrious Snail",
+    "title": "My Brother and I Built a Tool to Yell at You About Your Manabase",
+    "videoUrl": "https://www.youtube.com/watch?v=YcSHb11AqL4\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/YcSHb11AqL4.md",
+    "publishedUtc": "2025-01-22T05:09:55+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "voltron",
+      "value-engine",
+      "control",
+      "reanimator",
+      "aggro",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded",
+      "Optimized",
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "IJYU_rzCcP8",
     "source": "Salubrious Snail",
     "title": "Rhystic Study and the Dark Side of EDH",
@@ -355,6 +912,57 @@
       "ramp",
       "removal",
       "counter"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "xM2b3QLCuxA",
+    "source": "Salubrious Snail",
+    "title": "Snail Reviews a Slug Deck (\u002B some ban opinions)",
+    "videoUrl": "https://www.youtube.com/watch?v=xM2b3QLCuxA\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/xM2b3QLCuxA.md",
+    "publishedUtc": "2024-09-25T20:59:56+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "aristocrats",
+      "control",
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "ramp",
+      "draw",
+      "board-wipe",
+      "protection",
+      "finishers",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "zAtfawtYEw4",
+    "source": "Salubrious Snail",
+    "title": "Snail\u0027s Guide to Drawing Less Junk",
+    "videoUrl": "https://www.youtube.com/watch?v=zAtfawtYEw4\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/zAtfawtYEw4.md",
+    "publishedUtc": "2025-04-19T05:09:35+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "tribal",
+      "reanimator",
+      "ramp",
+      "value-engine"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw"
     ]
   },
   {
@@ -392,6 +1000,62 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "owPWRYhY1VA",
+    "source": "Salubrious Snail",
+    "title": "Stop Shortcutting the Fun Part of your Deck",
+    "videoUrl": "https://www.youtube.com/watch?v=owPWRYhY1VA\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/owPWRYhY1VA.md",
+    "publishedUtc": "2025-02-20T00:48:46+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "control",
+      "value-engine",
+      "aristocrats"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "tutor",
+      "recursion",
+      "ramp",
+      "removal",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "LbWhyElEbLg",
+    "source": "Salubrious Snail",
+    "title": "Stop Turning your Commander into a Combo Piece",
+    "videoUrl": "https://www.youtube.com/watch?v=LbWhyElEbLg\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/LbWhyElEbLg.md",
+    "publishedUtc": "2024-06-20T23:57:53+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "combo",
+      "value-engine",
+      "midrange",
+      "voltron",
+      "tokens"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "win-cons",
+      "counter",
+      "protection",
+      "draw"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "Oh_a34vdtIA",
     "source": "Salubrious Snail",
     "title": "The 5 Most Common Deckbuilding Mistakes, and How to Avoid Them",
@@ -424,6 +1088,56 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ccAea-2xqAU",
+    "source": "Salubrious Snail",
+    "title": "The Difficult Reality of the Tutor Question",
+    "videoUrl": "https://www.youtube.com/watch?v=ccAea-2xqAU\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/ccAea-2xqAU.md",
+    "publishedUtc": "2025-03-23T05:42:58+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "combo",
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "tutor",
+      "ramp",
+      "removal",
+      "win-cons",
+      "draw",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "-VQ4DvfzQFw",
+    "source": "Salubrious Snail",
+    "title": "The Hidden Trap of Tribal Decks",
+    "videoUrl": "https://www.youtube.com/watch?v=-VQ4DvfzQFw\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/VQ4DvfzQFw.md",
+    "publishedUtc": "2024-06-11T19:56:09+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "tribal",
+      "aggro",
+      "voltron",
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "EVlLh4FI82c",
     "source": "Salubrious Snail",
     "title": "The Hybrid Mana Debacle, and how WotC caused it",
@@ -434,6 +1148,101 @@
     "archetypeTags": [],
     "bracketTags": [],
     "cardCategoryTags": []
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "j_Z7IuZQqQI",
+    "source": "Salubrious Snail",
+    "title": "The Impossible Search for a \u0022Fun\u0022 Combo Deck",
+    "videoUrl": "https://www.youtube.com/watch?v=j_Z7IuZQqQI\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/j_Z7IuZQqQI.md",
+    "publishedUtc": "2024-08-30T03:48:23+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "combo",
+      "lands",
+      "ramp",
+      "control",
+      "blink",
+      "midrange",
+      "value-engine",
+      "tribal",
+      "reanimator",
+      "stax"
+    ],
+    "bracketTags": [
+      "Optimized",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "tutor",
+      "counter",
+      "protection",
+      "removal",
+      "win-cons",
+      "finishers",
+      "recursion",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "_1H-R9NWpp0",
+    "source": "Salubrious Snail",
+    "title": "The Lessons that EDH-only Players Don\u0027t Learn",
+    "videoUrl": "https://www.youtube.com/watch?v=_1H-R9NWpp0\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/_1H-R9NWpp0.md",
+    "publishedUtc": "2024-12-03T20:57:38+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "value-engine",
+      "ramp",
+      "stax"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "finishers",
+      "removal",
+      "board-wipe",
+      "tutor"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "_1-xTvcbV4A",
+    "source": "Salubrious Snail",
+    "title": "The Most Complicated Deck I\u0027ve Ever Played",
+    "videoUrl": "https://www.youtube.com/watch?v=_1-xTvcbV4A\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/_1-xTvcbV4A.md",
+    "publishedUtc": "2024-06-01T19:37:55+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "aristocrats",
+      "combo",
+      "midrange",
+      "value-engine",
+      "control"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "board-wipe",
+      "recursion",
+      "protection",
+      "draw",
+      "finishers",
+      "tutor",
+      "ramp"
+    ]
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -488,6 +1297,63 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "aXM1P-HESLs",
+    "source": "Salubrious Snail",
+    "title": "The No Es Deckbuilding Challenge",
+    "videoUrl": "https://www.youtube.com/watch?v=aXM1P-HESLs\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/aXM1P-HESLs.md",
+    "publishedUtc": "2025-04-02T03:41:52+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "combo",
+      "control",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "win-cons",
+      "counter",
+      "protection",
+      "tutor",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "K9wmq_nepe4",
+    "source": "Salubrious Snail",
+    "title": "The Odd Truth About Draw in EDH",
+    "videoUrl": "https://www.youtube.com/watch?v=K9wmq_nepe4\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/K9wmq_nepe4.md",
+    "publishedUtc": "2025-05-09T03:58:06+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "midrange",
+      "ramp",
+      "combo",
+      "control",
+      "aristocrats",
+      "spellslinger"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "draw",
+      "ramp",
+      "tutor",
+      "recursion",
+      "removal",
+      "counter",
+      "protection"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "A4oASMevloo",
     "source": "Salubrious Snail",
     "title": "The Problem with Glass Cannon Commanders",
@@ -516,6 +1382,118 @@
       "board-wipe",
       "finishers",
       "tutor"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "tsUjce-0HkI",
+    "source": "Salubrious Snail",
+    "title": "The Simple Question that Determines What Type of EDH Player You Are",
+    "videoUrl": "https://www.youtube.com/watch?v=tsUjce-0HkI\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/tsUjce-0HkI.md",
+    "publishedUtc": "2025-03-07T22:39:26+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "tokens",
+      "combo",
+      "value-engine"
+    ],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "draw",
+      "tutor"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "iQq-WXt3Z1Q",
+    "source": "Salubrious Snail",
+    "title": "The Sluggish Era of Tall Commander",
+    "videoUrl": "https://www.youtube.com/watch?v=iQq-WXt3Z1Q\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/iQq-WXt3Z1Q.md",
+    "publishedUtc": "2024-09-13T03:59:23+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "aggro",
+      "stax",
+      "voltron",
+      "midrange",
+      "value-engine",
+      "combo",
+      "control",
+      "ramp"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "board-wipe",
+      "protection"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "PFdpbJPArU4",
+    "source": "Salubrious Snail",
+    "title": "The Strange Ethical Case for Playing Boring Decks",
+    "videoUrl": "https://www.youtube.com/watch?v=PFdpbJPArU4\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/PFdpbJPArU4.md",
+    "publishedUtc": "2024-07-18T21:24:56+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "combo",
+      "control",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Core",
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "board-wipe"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "R8LqEt7k1-c",
+    "source": "Salubrious Snail",
+    "title": "The Strange Method for Building EDH Decks that I Can\u0027t Stop Using",
+    "videoUrl": "https://www.youtube.com/watch?v=R8LqEt7k1-c\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/R8LqEt7k1-c.md",
+    "publishedUtc": "2024-11-19T22:21:41+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "control",
+      "combo",
+      "value-engine",
+      "ramp",
+      "stax",
+      "aristocrats"
+    ],
+    "bracketTags": [
+      "Exhibition",
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe",
+      "counter",
+      "win-cons",
+      "finishers",
+      "recursion",
+      "utility"
     ]
   },
   {
@@ -675,6 +1653,69 @@
     "cardCategoryTags": [
       "ramp",
       "draw"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "qB572KenoFE",
+    "source": "Salubrious Snail",
+    "title": "You\u0027re Probably Wrong about Stax in EDH",
+    "videoUrl": "https://www.youtube.com/watch?v=qB572KenoFE\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/qB572KenoFE.md",
+    "publishedUtc": "2024-10-09T07:35:32+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "stax",
+      "control",
+      "aggro",
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Optimized",
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe",
+      "protection",
+      "counter",
+      "tutor",
+      "recursion",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ivZJIDxLXAo",
+    "source": "Salubrious Snail",
+    "title": "Your Pet Cards Deserve a Better Home",
+    "videoUrl": "https://www.youtube.com/watch?v=ivZJIDxLXAo\u0026list=UUOYkwObFKjxko7oj56gVDag",
+    "artifactPath": "content-kb/salubrious-snail/ivZJIDxLXAo.md",
+    "publishedUtc": "2024-05-01T07:23:48+00:00",
+    "indexedUtc": "2026-06-08T18:14:49.1341603+00:00",
+    "archetypeTags": [
+      "midrange",
+      "value-engine",
+      "tokens",
+      "control",
+      "ramp",
+      "voltron",
+      "lands"
+    ],
+    "bracketTags": [
+      "Exhibition",
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "protection",
+      "recursion",
+      "utility"
     ]
   },
   {
