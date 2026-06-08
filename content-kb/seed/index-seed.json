@@ -155,6 +155,85 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "VLdny8IVXYE",
+    "source": "Salubrious Snail",
+    "title": "A Lukewarm Defense of Sol Ring",
+    "videoUrl": "https://www.youtube.com/watch?v=VLdny8IVXYE",
+    "artifactPath": "content-kb/salubrious-snail/VLdny8IVXYE.md",
+    "publishedUtc": "2026-02-25T05:25:43+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "ramp",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "win-cons",
+      "finishers",
+      "tutor"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "rk3o-DWPVrI",
+    "source": "Salubrious Snail",
+    "title": "A Tale of Two Commander Tax Evaders",
+    "videoUrl": "https://www.youtube.com/watch?v=rk3o-DWPVrI",
+    "artifactPath": "content-kb/salubrious-snail/rk3o-DWPVrI.md",
+    "publishedUtc": "2025-10-29T01:36:32+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "tribal",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "ramp",
+      "removal",
+      "counter"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "8OzOVRYOFQc",
+    "source": "Salubrious Snail",
+    "title": "Blight Curse is a Johnny Playground",
+    "videoUrl": "https://www.youtube.com/watch?v=8OzOVRYOFQc",
+    "artifactPath": "content-kb/salubrious-snail/8OzOVRYOFQc.md",
+    "publishedUtc": "2026-01-20T04:49:22+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "aristocrats",
+      "reanimator",
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "recursion",
+      "board-wipe",
+      "protection",
+      "finishers",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "kR3C_OC5BzU",
     "source": "Salubrious Snail",
     "title": "How I Failed to Build an Aggro Deck for 3 Years",
@@ -177,6 +256,50 @@
       "removal",
       "draw",
       "protection",
+      "finishers",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "B2WOII9v1DY",
+    "source": "Salubrious Snail",
+    "title": "How I use Commander\u0027s Most Misunderstood Tool",
+    "videoUrl": "https://www.youtube.com/watch?v=B2WOII9v1DY",
+    "artifactPath": "content-kb/salubrious-snail/B2WOII9v1DY.md",
+    "publishedUtc": "2025-07-31T22:32:23+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [],
+    "bracketTags": [],
+    "cardCategoryTags": []
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "0tOkVJcibDw",
+    "source": "Salubrious Snail",
+    "title": "I Was Given Three Perplexing Cards to Build a Deck With",
+    "videoUrl": "https://www.youtube.com/watch?v=0tOkVJcibDw",
+    "artifactPath": "content-kb/salubrious-snail/0tOkVJcibDw.md",
+    "publishedUtc": "2025-05-26T07:20:15+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "aristocrats",
+      "reanimator",
+      "tribal",
+      "lands",
+      "combo",
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "tutor",
+      "draw",
+      "recursion",
+      "removal",
       "finishers",
       "utility"
     ]
@@ -236,6 +359,39 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ISr_7Z_lzWQ",
+    "source": "Salubrious Snail",
+    "title": "Snail\u0027s Guide to Giving Your Deck More Sauce",
+    "videoUrl": "https://www.youtube.com/watch?v=ISr_7Z_lzWQ",
+    "artifactPath": "content-kb/salubrious-snail/ISr_7Z_lzWQ.md",
+    "publishedUtc": "2026-04-23T17:17:44+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "tokens",
+      "aristocrats",
+      "blink",
+      "spellslinger",
+      "reanimator",
+      "value-engine",
+      "lands",
+      "tribal"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "tutor",
+      "draw",
+      "protection",
+      "recursion",
+      "utility",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "Oh_a34vdtIA",
     "source": "Salubrious Snail",
     "title": "The 5 Most Common Deckbuilding Mistakes, and How to Avoid Them",
@@ -268,6 +424,19 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "EVlLh4FI82c",
+    "source": "Salubrious Snail",
+    "title": "The Hybrid Mana Debacle, and how WotC caused it",
+    "videoUrl": "https://www.youtube.com/watch?v=EVlLh4FI82c",
+    "artifactPath": "content-kb/salubrious-snail/EVlLh4FI82c.md",
+    "publishedUtc": "2025-11-18T03:42:11+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [],
+    "bracketTags": [],
+    "cardCategoryTags": []
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "mDHrUxOWNHA",
     "source": "Salubrious Snail",
     "title": "The Most Forgotten Part of EDH Deckbuilding",
@@ -288,6 +457,33 @@
       "counter",
       "tutor",
       "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "nG-oQA_6RUU",
+    "source": "Salubrious Snail",
+    "title": "The New Lorehold Precon Has a Bit of an Issue",
+    "videoUrl": "https://www.youtube.com/watch?v=nG-oQA_6RUU",
+    "artifactPath": "content-kb/salubrious-snail/nG-oQA_6RUU.md",
+    "publishedUtc": "2026-04-15T18:58:56+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "tokens",
+      "tribal",
+      "value-engine",
+      "reanimator"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe",
+      "recursion",
+      "finishers"
     ]
   },
   {
@@ -370,6 +566,38 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "7E4AwxKeyRY",
+    "source": "Salubrious Snail",
+    "title": "The Two Rules for Making a Successful \u0022Hidden Commander\u0022 Deck",
+    "videoUrl": "https://www.youtube.com/watch?v=7E4AwxKeyRY",
+    "artifactPath": "content-kb/salubrious-snail/7E4AwxKeyRY.md",
+    "publishedUtc": "2026-06-01T04:10:23+00:00",
+    "indexedUtc": "2026-06-08T17:06:04.5555601+00:00",
+    "archetypeTags": [
+      "aristocrats",
+      "control",
+      "tokens",
+      "value-engine",
+      "ramp",
+      "reanimator"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe",
+      "recursion",
+      "tutor",
+      "protection",
+      "utility"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "MGTOWsH_tsA",
     "source": "Salubrious Snail",
     "title": "This Land Sacrifice Precon is Great Aside From One Thing",
@@ -400,6 +628,36 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "3B4UZgJ3LE0",
+    "source": "Salubrious Snail",
+    "title": "Why I Built a Deck With Way Too Many Subthemes",
+    "videoUrl": "https://www.youtube.com/watch?v=3B4UZgJ3LE0",
+    "artifactPath": "content-kb/salubrious-snail/3B4UZgJ3LE0.md",
+    "publishedUtc": "2025-09-12T02:46:07+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [
+      "midrange",
+      "tokens",
+      "value-engine",
+      "ramp",
+      "reanimator"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe",
+      "tutor",
+      "recursion",
+      "win-cons",
+      "finishers"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "D2MRb3j4iYk",
     "source": "Salubrious Snail",
     "title": "You Might Have Too Much Ramp (but you also might not)",
@@ -418,6 +676,19 @@
       "ramp",
       "draw"
     ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "B2SufPMcJUI",
+    "source": "Salubrious Snail",
+    "title": "r/EDH and Communication",
+    "videoUrl": "https://www.youtube.com/watch?v=B2SufPMcJUI",
+    "artifactPath": "content-kb/salubrious-snail/B2SufPMcJUI.md",
+    "publishedUtc": "2025-09-04T18:46:56+00:00",
+    "indexedUtc": "2026-06-08T17:07:05.3196173+00:00",
+    "archetypeTags": [],
+    "bracketTags": [],
+    "cardCategoryTags": []
   },
   {
     "naturalKeyType": "youtube_channel",
