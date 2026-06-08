@@ -345,12 +345,13 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 ### Phase 33: Admin Content KB Curation UX (runs after Phase 32, before Phase 31 — higher priority than 31)
 
 **Goal:** An admin can quickly locate a specific KB entry to publish/unpublish in a list that has grown long — by filtering/searching on tags, title/name, and creator/source — and scan the entries list comfortably (readability improvements). Targets `AdminContentKbController.Index` + `Views/AdminContentKb/Index.cshtml`.
-**Requirements**: TBD (run /gsd-plan-phase 33)
+**Requirements**: KBUX-01 (filter/search entries by title/name, source/creator, tags), KBUX-02 (readability improvements for long entry lists)
 **Depends on:** Phase 32 (expert-context curation surface) and Phase 30 (admin KB view); no dependency on Phase 31
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 33 to break down)
+- [ ] 33-01-PLAN.md — Client-side instant filter/search box (title, source, tags) over the entries list with live count + empty state
+- [ ] 33-02-PLAN.md — Readability: zebra rows, sticky header, hover/focus row highlight, clean tag wrapping (mobile-safe)
 
 ---
 
