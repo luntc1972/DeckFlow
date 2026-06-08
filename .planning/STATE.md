@@ -61,6 +61,10 @@ Progress: [██████████] 100%
 - **`{ get; init; }` guard:** every new record type in Phases 30-31 must preserve `init` accessor — System.Text.Json silently drops get-only props in .NET 9+; include serialization round-trip test per record.
 - **PrimerAllowedNames first:** implement `PrimerAllowedNames` as the first task in Phase 31 artifact store work — `PacketArtifactStore.ReadEntries` silently drops names not in the active allowlist.
 
+### Roadmap Evolution
+
+- Phase 33 added 2026-06-08 (Admin Content KB Curation UX) — inserted **before Phase 31** per user (higher priority than the Deck Primer). Filter/search the publish-unpublish curation list by tags, title/name, creator/source + readability. Origin: admin dogfooding — the curation list has grown long and is hard to scan.
+
 ### Pending Todos
 
 1 pending todo file from v1.4 audit (review at v1.5 scoping). See `.planning/todos/pending/`.

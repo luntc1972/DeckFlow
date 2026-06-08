@@ -114,6 +114,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen (completed 2026-06-05)
 - [x] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel (completed 2026-06-07; UAT passed on prod)
 - [x] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31) (completed 2026-06-08)
+- [ ] **Phase 33: Admin Content KB Curation UX** — filter/search the publish-unpublish curation list by tags, title/name, and creator/source + readability for long entry lists (added 2026-06-08 from admin dogfooding; runs after 32, before 31 — higher priority than 31)
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
 ## Phase Details
@@ -340,6 +341,16 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 | 29. Core XML-Doc Backfill + Gate Widen | 5/5 | Complete    | 2026-06-05 |
 | 30. Content KB Integration | 1/4 | In Progress|  |
 | 31. Deck Primer Generator | 0/TBD | Not started | - |
+
+### Phase 33: Admin Content KB Curation UX (runs after Phase 32, before Phase 31 — higher priority than 31)
+
+**Goal:** An admin can quickly locate a specific KB entry to publish/unpublish in a list that has grown long — by filtering/searching on tags, title/name, and creator/source — and scan the entries list comfortably (readability improvements). Targets `AdminContentKbController.Index` + `Views/AdminContentKb/Index.cshtml`.
+**Requirements**: TBD (run /gsd-plan-phase 33)
+**Depends on:** Phase 32 (expert-context curation surface) and Phase 30 (admin KB view); no dependency on Phase 31
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 33 to break down)
 
 ---
 
