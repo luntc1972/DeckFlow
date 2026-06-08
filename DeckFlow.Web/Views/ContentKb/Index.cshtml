@@ -4,6 +4,8 @@
     var hasEntries = Model.Entries.Count > 0;
 }
 
+@await Html.PartialAsync("_DeckToolTabs", DeckFlow.Web.Models.DeckPageTab.ContentKb)
+
 <section aria-labelledby="content-kb-title">
     <h1 id="content-kb-title">Knowledge Base</h1>
     <p class="page-lede">Distilled advice from Commander and cEDH content — ready to paste into ChatGPT, Claude, or Gemini.</p>

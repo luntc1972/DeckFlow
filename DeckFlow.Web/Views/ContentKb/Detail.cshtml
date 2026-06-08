@@ -3,6 +3,8 @@
     ViewData["Title"] = Model.Title;
 }
 
+@await Html.PartialAsync("_DeckToolTabs", DeckFlow.Web.Models.DeckPageTab.ContentKb)
+
 <nav class="help-breadcrumb" aria-label="Breadcrumb">
     <a href="@Url.Content("~/content-kb")">Knowledge Base</a>
     <span aria-hidden="true">/</span>
