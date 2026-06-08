@@ -82,6 +82,7 @@ Progress: [██████████] 100%
 | tech_debt | KB-12 codex distill backend (NotSupportedException stub) | v1.5 Phase 28 scope (promoted from backlog) | v1.4 close 2026-06-03 |
 | ops | `content.kb.enabled` prod flag still OFF | v1.5 Phase 30 prerequisite step | v1.4 close 2026-06-03 |
 | tech_debt | DeckFlow.Core 186 undocumented XML-doc sites | v1.5 Phase 29 scope | v1.4 Phase 23 close |
+| tech_debt | SRP refactor: split `DeckController` (1592 lines / 11 deps) + `CommandRunners` (1893-line static god class) into feature-scoped handlers | BACKLOG — dedicated refactor phase, NOT mid-milestone (Copilot review 2026-06-08; #1/#4/#2). Working shipped code; high regression risk. Program.cs manual-wiring (#3) and codex-throw factory (#5) reviewed + dismissed as by-design | 2026-06-08 (Copilot SOLID review) |
 
 ## Session Continuity
 
