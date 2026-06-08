@@ -31,6 +31,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **KBI-05**: Graceful empty state — prompt omits the Expert Context block and the panel shows a friendly empty message when no relevant clips match
 - [ ] **KBI-06**: Admin sources view shows per-clip relevance match score (operator-only) to support `is_kept` curation tuning
 
+### Admin Content KB Curation UX
+
+- [ ] **KBUX-01**: Admin can filter/search the Content KB entries list (`AdminContentKb.Index`) by tags, title/name, and creator/source to quickly locate an entry to publish/unpublish in a list that has grown long
+- [ ] **KBUX-02**: Content KB entries list readability improvements (zebra rows, sticky header on page scroll, hover/focus row highlight, clean tag wrapping, mobile-safe) so a long list scans comfortably
+
 ### Housekeeping
 
 - [x] **HSK-01**: DeckFlow.Core XML-doc backfill (186 sites) complete and doc-warning gate widened to `[DeckFlow.Core/**.cs]` in the final commit — build clean, 0 new warnings
@@ -102,16 +107,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | KBI-04 | Phase 30 | Pending |
 | KBI-05 | Phase 30 | Pending |
 | KBI-06 | Phase 30 | Pending |
+| KBUX-01 | Phase 33 | Pending |
+| KBUX-02 | Phase 33 | Pending |
 | HSK-01 | Phase 29 | Complete |
 | HSK-02 | Phase 28 | Re-demoted to backlog (D-03, 2026-06-04) |
 | HSK-03 | Phase 28 | Complete |
 | HSK-04 | Phase 28 | Complete |
 
 **Coverage:**
-- v1.5 requirements: 22 total
-- Mapped to phases: 22 (100%)
+- v1.5 requirements: 24 total
+- Mapped to phases: 24 (100%)
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-08 — PRM-06 amended to note bracket-5 accepted degradation (EdhTop16 meta-wide archetype query may not exist; verified by PRM-01 spike, falls back to generic buckets)*
+*Last updated: 2026-06-08 — added KBUX-01/02 (Phase 33 Admin Content KB Curation UX); coverage 22 → 24*
