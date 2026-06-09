@@ -150,6 +150,24 @@
   .admin-shell .admin-table--card td[data-label="Tags"] .kb-tag {
     flex: 0 0 auto;
   }
+
+  .admin-shell #kb-entries-table thead th {
+    position: static;
+  }
+
+  .admin-shell #kb-entries-table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--panel) 40%, transparent);
+  }
+
+  .admin-shell #kb-entries-table tbody tr:nth-child(even) td,
+  .admin-shell #kb-entries-table tbody tr:hover td,
+  .admin-shell #kb-entries-table tbody tr:focus-within td {
+    background: transparent;
+  }
+
+  .admin-shell #kb-entries-table tbody tr:focus-within {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
 }
 
 @media (min-width: 769px) {
