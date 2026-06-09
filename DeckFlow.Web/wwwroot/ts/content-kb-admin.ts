@@ -172,11 +172,50 @@
     });
   };
 
+  const wireEntryFilter = (): void => {
+    const input = document.getElementById('kb-filter-search') as HTMLInputElement | null;
+    if (input === null) {
+      return;
+    }
+
+    const count = document.getElementById('kb-filter-count');
+    const emptyRow = document.getElementById('kb-filter-empty') as HTMLTableRowElement | null;
+    const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('#kb-entries-table tbody tr'))
+      .filter((row) => row.id !== 'kb-filter-empty');
+    const total = rows.length;
+
+    const applyFilter = (): void => {
+      const query = input.value.trim().toLowerCase();
+      let matched = 0;
+
+      rows.forEach((row) => {
+        const searchText = row.dataset.kbSearch ?? '';
+        const isMatch = query === '' || searchText.includes(query);
+        row.hidden = !isMatch;
+        if (isMatch) {
+          matched += 1;
+        }
+      });
+
+      if (count !== null) {
+        count.textContent = `${matched} of ${total} entries shown`;
+      }
+
+      if (emptyRow !== null) {
+        emptyRow.classList.toggle('hidden', matched !== 0 || total === 0);
+      }
+    };
+
+    input.addEventListener('input', applyFilter);
+    applyFilter();
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
     wireReloadConfirm();
     wireTwoClickConfirm();
     wireScrollRestore();
     wireToast();
     wireCommanderPreviewTypeahead();
+    wireEntryFilter();
   });
 })();
