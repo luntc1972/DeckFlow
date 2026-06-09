@@ -956,6 +956,12 @@ internal static class CommandRunners
         Func<DateTimeOffset> utcNow,
         CancellationToken ct)
     {
+        if (video.Duration is { } duration && duration <= ShortVideoMaxDuration)
+        {
+            logger.Information("skipped short {VideoId} duration_s={DurationSeconds}", video.VideoId, (int)duration.TotalSeconds);
+            return;
+        }
+
         long? contentVideoId = null;
         var mayMarkFailed = false;
         var statusPersisted = false;
@@ -1745,6 +1751,9 @@ internal static class CommandRunners
         return false;
     }
 
+    // Why: 60s is the conservative YouTube Shorts cutoff - long enough to exclude Shorts,
+    // short enough to keep legitimate brief MTG videos.
+    private static readonly TimeSpan ShortVideoMaxDuration = TimeSpan.FromSeconds(60);
     private const int SummaryMaxOutputTokens = 400;
     private const int ClipsMaxOutputTokens = 1200;
     private const int TagsMaxOutputTokens = 200;
