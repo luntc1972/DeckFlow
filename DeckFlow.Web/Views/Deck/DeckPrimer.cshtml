@@ -163,7 +163,7 @@
                     {
                         <option value="@bracket.Value"
                                 selected="@(string.Equals(selectedBracket.Value, bracket.Value, StringComparison.OrdinalIgnoreCase))"
-                                data-preset-ids="@Html.Raw(JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.GetPresetForBracket(bracket.Value)))">@bracket.Label</option>
+                                data-preset-ids="@JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.GetPresetForBracket(bracket.Value))">@bracket.Label</option>
                     }
                 </select>
                 <small class="sync-column__hint">The bracket preset controls the default primer emphasis and gates cEDH-only versus casual-only sections.</small>
