@@ -32,6 +32,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -57,6 +58,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new FakeMetaGapService(new MetaGapResult(
                 "summary",
@@ -106,6 +108,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new ThrowingMetaGapService(new HttpRequestException("Too many requests", null, HttpStatusCode.TooManyRequests)),
             new PacketSessionCache(),
@@ -161,6 +164,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -193,6 +197,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -223,6 +228,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -256,6 +262,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -289,6 +296,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -324,6 +332,7 @@ public sealed class DeckControllerTests
             new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -360,6 +369,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -390,6 +400,7 @@ public sealed class DeckControllerTests
             new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -421,6 +432,7 @@ public sealed class DeckControllerTests
             new PartiallyFailingMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -453,6 +465,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -482,6 +495,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -512,6 +526,7 @@ public sealed class DeckControllerTests
             new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -547,6 +562,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -582,6 +598,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -618,6 +635,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -657,6 +675,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             capturingService,
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -729,6 +748,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             packetService,
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -780,6 +800,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             packetService,
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -816,6 +837,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -840,6 +862,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -879,6 +902,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -921,6 +945,15 @@ public sealed class DeckControllerTests
             => throw new NotImplementedException();
 
         public Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
+    }
+
+    private sealed class StubDeckPrimerPacketService : IDeckPrimerPacketService
+    {
+        public Task<DeckPrimerPacketResult> BuildAsync(DeckPrimerRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<string?> TryComputeCacheKeyAsync(DeckPrimerRequest request, CancellationToken cancellationToken)
             => Task.FromResult<string?>(null);
     }
 
