@@ -675,5 +675,5 @@ a:hover { text-decoration: underline; }
 }
 
 .admin-shell #kb-entries-table .admin-kb-source {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
