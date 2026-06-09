@@ -58,10 +58,11 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         var payload = await ExtractWithRetryAsync<SummaryPayload>(
             BuildInstruction(DistillationSchemas.SummarySystemPrompt, DistillationSchemas.SummarySchema),
             transcript,
-            payload => DistillationValidation.ValidateSummary(payload.Summary),
             cancellationToken).ConfigureAwait(false);
 
-        return new SummaryResult(payload.Summary, new TokenUsage(0, 0));
+        return new SummaryResult(
+            DistillationValidation.TruncateSummary(payload.Summary),
+            new TokenUsage(0, 0));
     }
 
     /// <inheritdoc />
@@ -74,10 +75,11 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         var payload = await ExtractWithRetryAsync<ClipsPayload>(
             BuildInstruction(DistillationSchemas.ClipsSystemPrompt, DistillationSchemas.ClipsSchema),
             transcript,
-            payload => DistillationValidation.ValidateClips(payload.Clips),
             cancellationToken).ConfigureAwait(false);
 
-        return new ClipsResult(payload.Clips, new TokenUsage(0, 0));
+        return new ClipsResult(
+            DistillationValidation.SanitizeClips(payload.Clips),
+            new TokenUsage(0, 0));
     }
 
     /// <inheritdoc />
@@ -90,13 +92,13 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         var payload = await ExtractWithRetryAsync<TagsPayload>(
             BuildInstruction(DistillationSchemas.TagsSystemPrompt, DistillationSchemas.TagsSchema),
             transcript,
-            DistillationValidation.ValidateTags,
             cancellationToken).ConfigureAwait(false);
+        var sanitized = DistillationValidation.SanitizeTags(payload);
 
         return new TagsResult(
-            payload.Archetype,
-            payload.Bracket,
-            payload.CardCategory,
+            sanitized.Archetype,
+            sanitized.Bracket,
+            sanitized.CardCategory,
             new TokenUsage(0, 0));
     }
 
@@ -177,7 +179,6 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
     private async Task<T> ExtractWithRetryAsync<T>(
         string instruction,
         string transcript,
-        Action<T> validate,
         CancellationToken cancellationToken)
     {
         var spec = BuildCommandSpec(instruction);
@@ -194,7 +195,6 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
                 var json = ExtractBalancedJsonObject(FenceStrip(modelText));
                 var payload = JsonSerializer.Deserialize<T>(json, JsonOpts)
                     ?? throw new InvalidOperationException("CLI JSON deserialized to null.");
-                validate(payload);
                 return payload;
             }
             catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
