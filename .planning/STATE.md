@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
 stopped_at: Phase 33 closed (visual-verify passed); Phase 31 planned + Codex READY (6 plans/4 waves) is the only remaining v1.5 phase
-last_updated: "2026-06-09T14:30:00.000Z"
-last_activity: 2026-06-09 -- Phase 33 (Admin KB Curation UX) browser visual-verify PASSED desktop+mobile; source-wrap nit fixed (16fac7e); ROADMAP flipped [x]
+last_updated: "2026-06-09T16:00:00.000Z"
+last_activity: 2026-06-09 -- Phase 31-01 PRM-01 spike DONE + APPROVED; 31-SPIKE.md verdicts recorded; Wave 2 (31-03/04) unblocked
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 25
-  completed_plans: 20
-  percent: 80
+  completed_plans: 21
+  percent: 84
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 ## Current Position
 
 Phase: 33 (admin-content-kb-curation-ux) — COMPLETE (2/2 plans; KBUX-01/02; browser visual-verify passed desktop+mobile 2026-06-09; source-wrap nit fixed 16fac7e)
-In progress: Phase 31 (deck-primer-generator) — 31-02 DONE 2026-06-09 (foundation models: PrimerSectionCatalog 31/5, DeckPrimerRequest/VM, PrimerAllowedNames; Codex impl/Claude review; 11/11 tests; enum-dup bug fixed DeckPrimer=13; commit 0fae759). 31-01 = the PRM-01 spike (user's on-hold gsd-spike; writes 31-SPIKE.md verdicts). 31-03/04/05/06 BLOCKED on 31-01 spike verdicts. Resume Phase 31 after spike lands.
+In progress: Phase 31 (deck-primer-generator) — 31-01 SPIKE DONE + APPROVED 2026-06-09 (31-SPIKE.md verdicts: combo=`sufficient`→priority-rank branch; Gemini DefensivePromptCharCap=32000 [lowered from research's 50000 — 50000 would never trim]; EdhTop16=`meta-query-available` via commanders(first,sortBy,timePeriod)→data.commanders.edges[].node.name). 31-02 DONE 2026-06-09 (foundation models; commit 0fae759). 31-03/04/05/06 now UNBLOCKED. NEXT (Wave 2): 31-03 service — extend SpellbookCombo w/ PieceCount/ManaValueNeeded/Popularity (parser drops them today) + add EdhTop16 meta-wide method; 31-04 variants w/ Gemini cap 32000.
 Open debt: secure-phase 30, 32, 33 (all open); content.kb.enabled prod flag still OFF. (Distill-sanitizer fix + content-kb/ data are committed — 4015634, 2a6ea8c — not orphaned; earlier "uncommitted" note was a stale session-start snapshot.)
 Last activity: 2026-06-09 -- Phase 33 browser visual-verify PASSED; source word-break nit fixed (16fac7e); ROADMAP/STATE flipped
 
@@ -91,6 +91,6 @@ Progress: [██████████] 100% (Phase 33)
 
 ## Session Continuity
 
-Last session: 2026-06-09T15:10:00.000Z
-Stopped at: Phase 31-02 executed + committed (0fae759). 31-01 spike on hold (user). 31-03+ blocked on spike verdicts.
-Resume file: .planning/phases/31-deck-primer-generator/31-01-PLAN.md (spike) → then 31-03 once 31-SPIKE.md exists
+Last session: 2026-06-09T16:00:00.000Z
+Stopped at: Phase 31-01 PRM-01 spike DONE + APPROVED; 31-SPIKE.md + 31-01-SUMMARY.md written; STATE synced. Wave 2 unblocked.
+Resume file: .planning/phases/31-deck-primer-generator/31-03-PLAN.md (service) — reads 31-SPIKE.md verdicts at execution time
