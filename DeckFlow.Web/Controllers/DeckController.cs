@@ -28,6 +28,7 @@ public sealed class DeckController : Controller
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly IDeckAnalysisPacketService _deckAnalysisPacketService;
+    private readonly IDeckPrimerPacketService _deckPrimerPacketService;
     private readonly IDeckComparisonService _deckComparisonService;
     private readonly IMetaGapService _metaGapService;
     private readonly PacketSessionCache _packetCache;
@@ -45,6 +46,7 @@ public sealed class DeckController : Controller
         IMechanicLookupService mechanicLookupService,
         ICategorySuggestionService categorySuggestionService,
         IDeckAnalysisPacketService deckAnalysisPacketService,
+        IDeckPrimerPacketService deckPrimerPacketService,
         IDeckComparisonService deckComparisonService,
         IMetaGapService metaGapService,
         PacketSessionCache packetCache,
@@ -58,6 +60,7 @@ public sealed class DeckController : Controller
         _mechanicLookupService = mechanicLookupService;
         _categorySuggestionService = categorySuggestionService;
         _deckAnalysisPacketService = deckAnalysisPacketService;
+        _deckPrimerPacketService = deckPrimerPacketService;
         _deckComparisonService = deckComparisonService;
         _metaGapService = metaGapService;
         _packetCache = packetCache;
@@ -188,6 +191,23 @@ public sealed class DeckController : Controller
         {
             ActiveTab = DeckPageTab.CedhMetaGap,
             Request = new MetaGapRequest(),
+        });
+    }
+
+    /// <summary>
+    /// Renders the staged deck-primer workflow.
+    /// </summary>
+    [HttpGet("/deck-primer")]
+    public IActionResult DeckPrimer()
+    {
+        var defaultBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty;
+        return View("DeckPrimer", new DeckPrimerViewModel
+        {
+            ActiveTab = DeckPageTab.DeckPrimer,
+            Request = new DeckPrimerRequest
+            {
+                TargetCommanderBracket = defaultBracket,
+            },
         });
     }
 
@@ -503,6 +523,234 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.DeckAnalysis,
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    /// <summary>
+    /// Processes a deck-primer workflow postback and regenerates the selected AI prompt.
+    /// </summary>
+    /// <param name="request">Current primer workflow request.</param>
+    [HttpPost("/deck-primer")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeckPrimer(DeckPrimerRequest request)
+    {
+        request ??= new DeckPrimerRequest();
+
+        try
+        {
+            var result = await _deckPrimerPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            var selectedPlatformKey = AiPlatform.Normalize(request.TargetAiPlatform).Key;
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                InputSummary = result.InputSummary,
+                SuggestedChatTitle = result.SuggestedChatTitle,
+                PrimerPromptText = result.PromptTextsByPlatform.GetValueOrDefault(selectedPlatformKey) ?? string.Empty,
+                TimingSummary = result.TimingSummary,
+                ImportWarning = result.ImportWarning,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "Deck-primer packet generation failed validation.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Deck-primer packet generation hit an upstream dependency.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Deck-primer packet generation failed unexpectedly.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = "Deck primer generation failed unexpectedly. Try again shortly.",
+            });
+        }
+    }
+
+    /// <summary>
+    /// Builds and downloads a deck-primer packet zip for the current workflow request.
+    /// </summary>
+    /// <param name="request">Current deck-primer workflow request.</param>
+    [HttpPost("/deck-primer/download")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeckPrimerDownload(DeckPrimerRequest request)
+    {
+        request ??= new DeckPrimerRequest();
+
+        try
+        {
+            var cacheKey = await _deckPrimerPacketService.TryComputeCacheKeyAsync(request, HttpContext.RequestAborted);
+            DeckPrimerPacketResult? result = null;
+            if (cacheKey is not null
+                && _packetCache.TryGet<DeckPrimerPacketResult>(cacheKey, out var cachedResult)
+                && cachedResult is not null)
+            {
+                result = cachedResult;
+            }
+
+            result ??= await _deckPrimerPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            var bytes = PacketArtifactStore.BuildPrimerZip(
+                request,
+                result.InputSummary,
+                result.RequestContextText,
+                result.PromptTextsByPlatform.GetValueOrDefault("ChatGPT"),
+                result.PromptTextsByPlatform.GetValueOrDefault("Claude"),
+                result.PromptTextsByPlatform.GetValueOrDefault("Gemini"),
+                result.DecklistText,
+                PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+            var fileName = PacketArtifactStore.SuggestPrimerZipFileName(result.ResolvedCommanderName, request.TargetAiPlatform);
+            Response.Headers["X-DeckFlow-Filename"] = fileName;
+            return File(bytes, "application/zip", fileName);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "Deck-primer packet download failed validation.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Deck-primer packet download hit an upstream dependency.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Deck-primer packet download failed unexpectedly.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = "Deck primer download failed unexpectedly. Try again shortly.",
+            });
+        }
+    }
+
+    /// <summary>
+    /// Restores a deck-primer workflow from a previously downloaded packet zip.
+    /// </summary>
+    /// <param name="zipFile">Packet zip uploaded from a prior deck-primer session.</param>
+    [HttpPost("/deck-primer/upload")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<IActionResult> DeckPrimerUpload(IFormFile zipFile)
+    {
+        if (zipFile is null || zipFile.Length == 0)
+        {
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = new DeckPrimerRequest
+                {
+                    TargetCommanderBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty,
+                },
+                ErrorMessage = "Choose a .zip file produced by Download to import."
+            });
+        }
+
+        if (!string.Equals(Path.GetExtension(zipFile.FileName), ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = new DeckPrimerRequest
+                {
+                    TargetCommanderBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty,
+                },
+                ErrorMessage = "Only .zip files produced by Download are accepted."
+            });
+        }
+
+        var request = new DeckPrimerRequest();
+        try
+        {
+            using var stream = zipFile.OpenReadStream();
+            PacketArtifactStore.LoadPrimerFromZip(stream, request);
+            var result = await _deckPrimerPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            var selectedPlatformKey = AiPlatform.Normalize(request.TargetAiPlatform).Key;
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                InputSummary = result.InputSummary,
+                SuggestedChatTitle = result.SuggestedChatTitle,
+                PrimerPromptText = result.PromptTextsByPlatform.GetValueOrDefault(selectedPlatformKey) ?? string.Empty,
+                TimingSummary = result.TimingSummary,
+                ImportWarning = result.ImportWarning,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "Deck-primer packet upload failed validation.");
+            var errorMessage = exception.Message == ResponseParsers.TruncatedResponseMessage ? CorruptedZipMessage : exception.Message;
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = new DeckPrimerRequest
+                {
+                    TargetCommanderBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty,
+                },
+                ErrorMessage = errorMessage,
+            });
+        }
+        catch (InvalidDataException)
+        {
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = new DeckPrimerRequest
+                {
+                    TargetCommanderBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty,
+                },
+                ErrorMessage = "The uploaded file is not a valid .zip archive."
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Deck-primer packet upload hit an upstream dependency.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = request,
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Deck-primer packet upload failed unexpectedly.");
+            return View("DeckPrimer", new DeckPrimerViewModel
+            {
+                ActiveTab = DeckPageTab.DeckPrimer,
+                Request = new DeckPrimerRequest
+                {
+                    TargetCommanderBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty,
+                },
+                ErrorMessage = "Deck primer upload failed unexpectedly. Try again shortly.",
             });
         }
     }
