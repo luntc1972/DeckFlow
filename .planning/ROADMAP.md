@@ -114,7 +114,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 29: Core XML-Doc Backfill + Gate Widen** — 90 DeckFlow.Core doc sites (probe-derived; was 186 at Phase 23) + editorconfig gate widen (completed 2026-06-05)
 - [x] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel (completed 2026-06-07; UAT passed on prod)
 - [x] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31) (completed 2026-06-08)
-- [ ] **Phase 33: Admin Content KB Curation UX** — filter/search the publish-unpublish curation list by tags, title/name, and creator/source + readability for long entry lists (added 2026-06-08 from admin dogfooding; runs after 32, before 31 — higher priority than 31)
+- [x] **Phase 33: Admin Content KB Curation UX** — filter/search the publish-unpublish curation list by tags, title/name, and creator/source + readability for long entry lists (added 2026-06-08 from admin dogfooding; runs after 32, before 31 — higher priority than 31) (completed 2026-06-09; KBUX-01/02; browser visual-verify passed at desktop+mobile, source-wrap nit fixed 16fac7e)
 - [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
 
 ## Phase Details
@@ -350,8 +350,8 @@ Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends
 **Plans:** 2 plans
 
 Plans:
-- [ ] 33-01-PLAN.md — Client-side instant filter/search box (title, source, tags) over the entries list with live count + empty state
-- [ ] 33-02-PLAN.md — Readability: zebra rows, sticky header, hover/focus row highlight, clean tag wrapping (mobile-safe)
+- [x] 33-01-PLAN.md — Client-side instant filter/search box (title, source, tags) over the entries list with live count + empty state
+- [x] 33-02-PLAN.md — Readability: zebra rows, sticky header, hover/focus row highlight, clean tag wrapping (mobile-safe)
 
 ---
 

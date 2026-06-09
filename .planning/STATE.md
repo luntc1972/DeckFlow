@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
-stopped_at: Phase 31 planned + Codex READY (6 plans/4 waves; 4-round convergence)
-last_updated: "2026-06-08T19:11:56.478Z"
-last_activity: 2026-06-08 -- Phase 32 closed + 8 dogfood UX fixes + 2 enhancements (prompt-size warn, set-upgrade follow-up); full regression green
+stopped_at: Phase 33 closed (visual-verify passed); Phase 31 planned + Codex READY (6 plans/4 waves) is the only remaining v1.5 phase
+last_updated: "2026-06-09T14:30:00.000Z"
+last_activity: 2026-06-09 -- Phase 33 (Admin KB Curation UX) browser visual-verify PASSED desktop+mobile; source-wrap nit fixed (16fac7e); ROADMAP flipped [x]
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 23
-  completed_plans: 17
-  percent: 57
+  completed_phases: 5
+  total_plans: 25
+  completed_plans: 19
+  percent: 76
 ---
 
 # Project State
@@ -25,11 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 ## Current Position
 
-Phase: 32 (expert-context-selection) — COMPLETE (4/4 plans; SEL-01..06 done; visual-verify approved 2026-06-08)
-Next: secure-phase 32 (open), or next milestone phase. Phases 30+32 both have open secure-phase debt.
-Last activity: 2026-06-08 -- Phase 32 closed + 8 dogfood UX fixes + 2 enhancements (prompt-size warn, set-upgrade follow-up); full regression green
+Phase: 33 (admin-content-kb-curation-ux) — COMPLETE (2/2 plans; KBUX-01/02; browser visual-verify passed desktop+mobile 2026-06-09; source-wrap nit fixed 16fac7e)
+Next: Phase 31 (deck-primer-generator) — planned + Codex READY, 6 plans/4 waves, NOT executed. The milestone headline + only remaining v1.5 phase.
+Open debt: secure-phase 30, 32, 33 (all open); orphaned uncommitted distill/validation changes + content-kb/ data dirs (triage); content.kb.enabled prod flag still OFF.
+Last activity: 2026-06-09 -- Phase 33 browser visual-verify PASSED; source word-break nit fixed (16fac7e); ROADMAP/STATE flipped
 
-Progress: [██████████] 100%
+Progress: [██████████] 100% (Phase 33)
 
 ## Performance Metrics
 
@@ -90,6 +91,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-06-08T19:11:56.448Z
-Stopped at: Phase 31 planned + Codex READY (6 plans/4 waves; 4-round convergence)
+Last session: 2026-06-09T14:30:00.000Z
+Stopped at: Phase 33 closed (visual-verify + nit fix committed 16fac7e; ROADMAP/STATE flipped). Phase 31 next.
 Resume file: .planning/phases/31-deck-primer-generator/31-01-PLAN.md
