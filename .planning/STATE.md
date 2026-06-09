@@ -4,14 +4,14 @@ milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
 stopped_at: Phase 33 closed (visual-verify passed); Phase 31 planned + Codex READY (6 plans/4 waves) is the only remaining v1.5 phase
-last_updated: "2026-06-09T16:00:00.000Z"
-last_activity: 2026-06-09 -- Phase 31-01 PRM-01 spike DONE + APPROVED; 31-SPIKE.md verdicts recorded; Wave 2 (31-03/04) unblocked
+last_updated: "2026-06-09T16:15:00.000Z"
+last_activity: 2026-06-09 -- Phase 31-03 (service) + 31-04 (3 variants + DI) DONE (Codex impl/Claude review); full Web.Tests 648/0/5; Gemini cap=32000 per spike; NEXT 31-05/06
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 25
-  completed_plans: 21
-  percent: 84
+  completed_plans: 23
+  percent: 92
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 ## Current Position
 
 Phase: 33 (admin-content-kb-curation-ux) — COMPLETE (2/2 plans; KBUX-01/02; browser visual-verify passed desktop+mobile 2026-06-09; source-wrap nit fixed 16fac7e)
-In progress: Phase 31 (deck-primer-generator) — 31-01 SPIKE DONE + APPROVED 2026-06-09 (31-SPIKE.md verdicts: combo=`sufficient`→priority-rank branch; Gemini DefensivePromptCharCap=32000 [lowered from research's 50000 — 50000 would never trim]; EdhTop16=`meta-query-available` via commanders(first,sortBy,timePeriod)→data.commanders.edges[].node.name). 31-02 DONE 2026-06-09 (foundation models; commit 0fae759). 31-03/04/05/06 now UNBLOCKED. NEXT (Wave 2): 31-03 service — extend SpellbookCombo w/ PieceCount/ManaValueNeeded/Popularity (parser drops them today) + add EdhTop16 meta-wide method; 31-04 variants w/ Gemini cap 32000.
+In progress: Phase 31 (deck-primer-generator) — 31-01 SPIKE + 31-02 models + 31-03 service + 31-04 variants all DONE 2026-06-09 (Codex impl/Claude review). 31-03: DeckPrimerPacketService (D-2 two-block combos + null disclosure, PRM-07 category omit-on-empty, PRM-06 bracket-5 via EdhTop16Client.GetTopArchetypesAsync meta-wide query, priority-rank combo branch, build-once/render-each-enabled platform gate, cache key w/ GeminiEnabled; IPrimerPromptVariant + registry; review-fix abfffab abstract interface member). 31-04: 3 decoupled variants (ChatGPT/Claude/Gemini, ADR 0001) + Program.cs DI (3 variants + registry + AddScoped factory); Gemini DefensivePromptCharCap=32000 per spike. Full DeckFlow.Web.Tests 648 pass/0 fail/5 PG-skip. NEXT: 31-05 (zip round-trip, PRM-09) wave 3 + 31-06 (controller/view/TS, PRM-02/03/04/10/11/12, autonomous:false → human checkpoint) wave 4.
 Open debt: secure-phase 30, 32, 33 (all open); content.kb.enabled prod flag still OFF. (Distill-sanitizer fix + content-kb/ data are committed — 4015634, 2a6ea8c — not orphaned; earlier "uncommitted" note was a stale session-start snapshot.)
 Last activity: 2026-06-09 -- Phase 33 browser visual-verify PASSED; source word-break nit fixed (16fac7e); ROADMAP/STATE flipped
 
@@ -91,6 +91,6 @@ Progress: [██████████] 100% (Phase 33)
 
 ## Session Continuity
 
-Last session: 2026-06-09T16:00:00.000Z
-Stopped at: Phase 31-01 PRM-01 spike DONE + APPROVED; 31-SPIKE.md + 31-01-SUMMARY.md written; STATE synced. Wave 2 unblocked.
-Resume file: .planning/phases/31-deck-primer-generator/31-03-PLAN.md (service) — reads 31-SPIKE.md verdicts at execution time
+Last session: 2026-06-09T16:15:00.000Z
+Stopped at: Phase 31-03 (service) + 31-04 (variants + DI) DONE + reviewed; full Web.Tests 648/0/5 green; tracking committed. 23/25 plans.
+Resume file: .planning/phases/31-deck-primer-generator/31-05-PLAN.md (zip round-trip) — then 31-06 (controller/view/TS, human checkpoint)
