@@ -91,6 +91,19 @@ public sealed class DeckPrimerPacketServiceTests
     }
 
     [Fact]
+    public async Task CategoryStoreThrows_OmitsBlock_BuildSucceeds()
+    {
+        var service = CreateService(
+            categoryRowsOverride: (_, _) => throw new InvalidOperationException("category store down"));
+
+        var result = await service.BuildAsync(CreateRequest("Upgraded"));
+
+        Assert.NotNull(result);
+        var prompt = result.PromptTextsByPlatform["ChatGPT"];
+        Assert.DoesNotContain("CATEGORY_DISTRIBUTION:", prompt);
+    }
+
+    [Fact]
     public async Task Bracket5_RoutesPerSpikeVerdict()
     {
         var callCount = 0;
@@ -179,6 +192,7 @@ public sealed class DeckPrimerPacketServiceTests
     private static DeckPrimerPacketService CreateService(
         CommanderSpellbookResult? comboResult = null,
         IReadOnlyList<CategoryKnowledgeRow>? categoryRows = null,
+        Func<string, CancellationToken, Task<IReadOnlyList<CategoryKnowledgeRow>>>? categoryRowsOverride = null,
         IReadOnlyList<EdhTop16Entry>? topArchetypes = null,
         Action? onTopArchetypesRequested = null,
         bool geminiEnabled = false,
@@ -212,7 +226,7 @@ public sealed class DeckPrimerPacketServiceTests
                 onTopArchetypesRequested?.Invoke();
                 return Task.FromResult(topArchetypes ?? (IReadOnlyList<EdhTop16Entry>)Array.Empty<EdhTop16Entry>());
             },
-            getCategoryRowsForCommanderAsyncOverride: (_, _) => Task.FromResult(categoryRows ?? (IReadOnlyList<CategoryKnowledgeRow>)Array.Empty<CategoryKnowledgeRow>()),
+            getCategoryRowsForCommanderAsyncOverride: categoryRowsOverride ?? ((_, _) => Task.FromResult(categoryRows ?? (IReadOnlyList<CategoryKnowledgeRow>)Array.Empty<CategoryKnowledgeRow>())),
             geminiEnabled: geminiEnabled);
     }
 
