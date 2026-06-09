@@ -219,6 +219,52 @@ internal static class PacketArtifactStore
     }
 
     /// <summary>
+    /// Builds the deck-primer artifact zip for the current request, writing only the prompt variants
+    /// that are present in this build.
+    /// </summary>
+    /// <param name="request">Current deck-primer request.</param>
+    /// <param name="inputSummary">Rendered input summary.</param>
+    /// <param name="requestContextText">Round-trip request context text.</param>
+    /// <param name="chatGptPromptText">ChatGPT primer prompt text, when enabled.</param>
+    /// <param name="claudePromptText">Claude primer prompt text, when enabled.</param>
+    /// <param name="geminiPromptText">Gemini primer prompt text, when enabled.</param>
+    /// <param name="canonicalDeckListText">Normalized decklist text.</param>
+    /// <param name="originalDeckText">Original pasted deck text, when applicable.</param>
+    /// <returns>A zip archive containing the primer packet artifacts.</returns>
+    public static byte[] BuildPrimerZip(
+        DeckPrimerRequest request,
+        string inputSummary,
+        string? requestContextText,
+        string? chatGptPromptText,
+        string? claudePromptText,
+        string? geminiPromptText,
+        string? canonicalDeckListText = null,
+        string? originalDeckText = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var sections = NormalizeSections(
+        [
+            ("00-primer-input-summary.txt", "PRIMER INPUT SUMMARY", inputSummary),
+            ("01-primer-request-context.txt", "PRIMER REQUEST CONTEXT", requestContextText),
+            ("10-primer-deck-list.txt", "PRIMER DECK LIST", canonicalDeckListText),
+            ("10b-primer-deck-original.txt", "PRIMER DECK ORIGINAL TEXT", originalDeckText),
+            ("30-primer-chatgpt-prompt.txt", "CHATGPT PRIMER PROMPT", chatGptPromptText),
+            ("30-primer-claude-prompt.txt", "CLAUDE PRIMER PROMPT", claudePromptText),
+            ("30-primer-gemini-prompt.txt", "GEMINI PRIMER PROMPT", geminiPromptText)
+        ]);
+
+        var promptSections = sections
+            .Where(section =>
+                string.Equals(section.FileName, "30-primer-chatgpt-prompt.txt", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(section.FileName, "30-primer-claude-prompt.txt", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(section.FileName, "30-primer-gemini-prompt.txt", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return BuildArchiveWithCombinedArtifact(sections, promptSections, "all-primer-prompts.txt");
+    }
+
+    /// <summary>
     /// Rehydrates a saved ChatGPT packet zip back into a deck request.
     /// </summary>
     /// <remarks>
@@ -562,6 +608,82 @@ internal static class PacketArtifactStore
         };
     }
 
+    /// <summary>
+    /// Rehydrates a saved deck-primer zip back into a primer request.
+    /// </summary>
+    /// <param name="zipStream">Zip payload stream.</param>
+    /// <param name="request">Deck-primer request to restore.</param>
+    public static void LoadPrimerFromZip(Stream zipStream, DeckPrimerRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(zipStream);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var entries = ReadEntries(zipStream, PrimerAllowedNames);
+        entries.TryGetValue("01-primer-request-context.txt", out var requestContextText);
+
+        if (string.IsNullOrWhiteSpace(requestContextText))
+        {
+            return;
+        }
+
+        var normalized = requestContextText.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var selectedSectionIds = new List<string>();
+        string? targetCommanderBracket = null;
+        string? targetAiPlatform = null;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (line.StartsWith("target_commander_bracket:", StringComparison.Ordinal))
+            {
+                targetCommanderBracket = line["target_commander_bracket:".Length..].Trim();
+                continue;
+            }
+
+            if (line.StartsWith("target_ai_platform:", StringComparison.Ordinal))
+            {
+                targetAiPlatform = line["target_ai_platform:".Length..].Trim();
+                continue;
+            }
+
+            if (!line.StartsWith("selected_section_ids:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var nextIndex = i + 1;
+            while (nextIndex < lines.Length && lines[nextIndex].StartsWith("- ", StringComparison.Ordinal))
+            {
+                var sectionId = lines[nextIndex][2..].Trim();
+                if (!string.IsNullOrEmpty(sectionId))
+                {
+                    selectedSectionIds.Add(sectionId);
+                }
+
+                nextIndex++;
+            }
+
+            i = nextIndex - 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetCommanderBracket))
+        {
+            request.TargetCommanderBracket = targetCommanderBracket;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetAiPlatform))
+        {
+            request.TargetAiPlatform = AiPlatform.Normalize(targetAiPlatform).Key;
+        }
+
+        if (selectedSectionIds.Count > 0)
+        {
+            request.SelectedSectionIds = selectedSectionIds;
+        }
+    }
+
     private static IReadOnlyList<EdhTop16Entry> TryDeserializeFetchedEntries(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -587,6 +709,15 @@ internal static class PacketArtifactStore
 
     public static string SuggestCedhMetaGapZipFileName(string commanderName, string? targetAiPlatform = null)
         => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-cedh-meta-gap-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+
+    /// <summary>
+    /// Suggests a safe download filename for deck-primer packet zips.
+    /// </summary>
+    /// <param name="commanderName">Commander or deck name to include in the filename.</param>
+    /// <param name="targetAiPlatform">AI platform segment to include in the filename.</param>
+    /// <returns>A safe, timestamped primer zip filename.</returns>
+    public static string SuggestPrimerZipFileName(string? commanderName, string? targetAiPlatform = null)
+        => $"{CreateSafePathSegment(commanderName, "deck-primer")}-primer-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     private static byte[] BuildArchive(params IReadOnlyList<(string FileName, string Label, string Content)>[] sectionGroups)
     {
@@ -614,6 +745,29 @@ internal static class PacketArtifactStore
                 {
                     WriteEntry(archive, "all-responses.txt", responseText);
                 }
+            }
+        }
+
+        return memoryStream.ToArray();
+    }
+
+    private static byte[] BuildArchiveWithCombinedArtifact(
+        IReadOnlyList<(string FileName, string Label, string Content)> sections,
+        IReadOnlyList<(string FileName, string Label, string Content)> combinedSections,
+        string combinedArtifactFileName)
+    {
+        using var memoryStream = new MemoryStream();
+        using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var section in sections)
+            {
+                WriteEntry(archive, section.FileName, section.Content);
+            }
+
+            var combinedArtifactText = BuildCombinedArtifactText(combinedSections);
+            if (!string.IsNullOrWhiteSpace(combinedArtifactText))
+            {
+                WriteEntry(archive, combinedArtifactFileName, combinedArtifactText);
             }
         }
 
