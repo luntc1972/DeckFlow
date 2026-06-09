@@ -54,4 +54,13 @@ All plan-time STRIDE threats verified mitigated (or documented-accepted) against
 
 Verify-only audit (register authored at plan time); evidence by grep against shipped code. Phase 30 closed 2026-06-07 with prod UAT pass.
 
+### Security Audit 2026-06-09 (re-verification)
+| Metric | Count |
+|--------|-------|
+| Threats found | 14 |
+| Closed | 14 |
+| Open | 0 |
+
+Re-ran `/gsd-secure-phase 30`. Register integrity re-confirmed (all 4 PLANs carry `threat_model` → plan-authored). Spot-checked evidence still holds: T-30-05 flag gate (`ContentKbRelevanceService.cs:190,223`), T-30-07 `MaxExcerptWords=150` (`ContentKbClipParser.cs:10`), T-30-12 `Html.Raw`=0 in `_ContentKbPanel.cshtml` + `AdminContentKb/Index.cshtml`. One post-audit commit (`4015634`) added distillation-output sanitization to the Core/CLI distill path — hardens harvest input (T-30-02), opens no new threat. No regressions.
+
 **Verdict: SECURED — 0 open threats.**
