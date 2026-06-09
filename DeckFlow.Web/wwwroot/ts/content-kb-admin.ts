@@ -2,6 +2,12 @@
 // CSP is `script-src 'self'` — no inline scripts — so the reload-confirm modal and the
 // two-click "Hide All" confirm live in this compiled module, mirroring admin-feedback.ts.
 
+declare const DeckFlowKbFilter: {
+  rowMatches(searchText: string, query: string): boolean;
+  formatCount(matched: number, total: number): string;
+  emptyRowHidden(matched: number, total: number): boolean;
+};
+
 ((): void => {
   'use strict';
 
@@ -190,7 +196,7 @@
 
       rows.forEach((row) => {
         const searchText = row.dataset.kbSearch ?? '';
-        const isMatch = query === '' || searchText.includes(query);
+        const isMatch = DeckFlowKbFilter.rowMatches(searchText, query);
         row.hidden = !isMatch;
         if (isMatch) {
           matched += 1;
@@ -198,11 +204,11 @@
       });
 
       if (count !== null) {
-        count.textContent = `${matched} of ${total} entries shown`;
+        count.textContent = DeckFlowKbFilter.formatCount(matched, total);
       }
 
       if (emptyRow !== null) {
-        emptyRow.classList.toggle('hidden', matched !== 0 || total === 0);
+        emptyRow.classList.toggle('hidden', DeckFlowKbFilter.emptyRowHidden(matched, total));
       }
     };
 
