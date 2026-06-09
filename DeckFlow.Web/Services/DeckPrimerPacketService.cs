@@ -276,8 +276,18 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         timings.Add(("Commander Spellbook", comboStopwatch.ElapsedMilliseconds, $"{comboResult?.IncludedCombos.Count ?? 0} combos, {comboResult?.AlmostIncludedCombos.Count ?? 0} near-combos"));
 
         var categoryStopwatch = Stopwatch.StartNew();
-        var categoryRows = await GetCategoryRowsForCommanderAsync(commanderName, cancellationToken).ConfigureAwait(false);
-        var categoryDistribution = BuildCategoryDistribution(categoryRows);
+        CategoryDistributionSummary? categoryDistribution;
+        try
+        {
+            var categoryRows = await GetCategoryRowsForCommanderAsync(commanderName, cancellationToken).ConfigureAwait(false);
+            categoryDistribution = BuildCategoryDistribution(categoryRows);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Category knowledge lookup failed for commander {CommanderName}; omitting category distribution block.", commanderName);
+            categoryDistribution = null;
+        }
+
         timings.Add(("Category knowledge", categoryStopwatch.ElapsedMilliseconds, categoryDistribution is null ? "0 rows" : "grounded counts"));
 
         IReadOnlyList<EdhTop16Entry>? top16Entries = null;
