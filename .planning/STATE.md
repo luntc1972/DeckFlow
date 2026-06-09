@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
-status: executing
+status: milestone-complete-pending-close
 stopped_at: Phase 33 closed (visual-verify passed); Phase 31 planned + Codex READY (6 plans/4 waves) is the only remaining v1.5 phase
-last_updated: "2026-06-09T17:00:00.000Z"
-last_activity: 2026-06-09 -- Phase 31-06 CODE (Tasks 1+2: controller routes, tab, DeckPrimer.cshtml, primer-selection.ts, site-common.css) DONE + Claude-reviewed clean; D-3 per-bracket preset verified correct; BLOCKING on Task 3 human visual-verify (2 viewports)
+last_updated: "2026-06-09T17:30:00.000Z"
+last_activity: 2026-06-09 -- Phase 31 COMPLETE: 31-06 human visual-verify APPROVED (desktop+mobile); ROADMAP 31 [x]; 3 verify-found bugs fixed (9fd1c65/779affe/abbeedd); Web.Tests 654/0/5. All 7 v1.5 phases done.
 progress:
-  total_phases: 7
-  completed_phases: 5
+  total_phases: 6
+  completed_phases: 6
   total_plans: 25
-  completed_plans: 24
-  percent: 96
+  completed_plans: 25
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 ## Current Position
 
-Phase: 33 (admin-content-kb-curation-ux) — COMPLETE (2/2 plans; KBUX-01/02; browser visual-verify passed desktop+mobile 2026-06-09; source-wrap nit fixed 16fac7e)
-In progress: Phase 31 (deck-primer-generator) — 31-01 SPIKE + 31-02 models + 31-03 service + 31-04 variants all DONE 2026-06-09 (Codex impl/Claude review). 31-03: DeckPrimerPacketService (D-2 two-block combos + null disclosure, PRM-07 category omit-on-empty, PRM-06 bracket-5 via EdhTop16Client.GetTopArchetypesAsync meta-wide query, priority-rank combo branch, build-once/render-each-enabled platform gate, cache key w/ GeminiEnabled; IPrimerPromptVariant + registry; review-fix abfffab abstract interface member). 31-04: 3 decoupled variants (ChatGPT/Claude/Gemini, ADR 0001) + Program.cs DI (3 variants + registry + AddScoped factory); Gemini DefensivePromptCharCap=32000 per spike. 31-05 DONE: PacketArtifactStore.BuildPrimerZip/LoadPrimerFromZip/SuggestPrimerZipFileName (conditional per-platform entries via NormalizeSections, PrimerAllowedNames allowlist on load, bracket+platform+sections round-trip) + DeckPrimerPacketResult JSON round-trip test; cross-plan request-context key format verified matching between 31-03 BuildRequestContextText and 31-05 LoadPrimerFromZip parser. Full DeckFlow.Web.Tests 648/0/5 (after 31-04); 25/25 store+primer filter (after 31-05). 24/25 plans. ONLY REMAINING: 31-06 (controller/view/TS/_AiSelector/tab, PRM-02/03/04/10/11/12, autonomous:false → HUMAN CHECKPOINT + browser visual-verify 2+ viewports per UI-phase rule) wave 4. After 31-06: Phase 31 + v1.5 milestone complete.
-Open debt: secure-phase 30, 32, 33 (all open); content.kb.enabled prod flag still OFF. (Distill-sanitizer fix + content-kb/ data are committed — 4015634, 2a6ea8c — not orphaned; earlier "uncommitted" note was a stale session-start snapshot.)
-Last activity: 2026-06-09 -- Phase 33 browser visual-verify PASSED; source word-break nit fixed (16fac7e); ROADMAP/STATE flipped
+Phase: 31 (deck-primer-generator) — COMPLETE 2026-06-09. ALL 6 v1.5 phases (28/29/30/32/33/31) now [x]. v1.5 milestone functionally complete, pending close (/gsd-complete-milestone or PR).
+Phase 31 recap (all Codex impl / Claude review): 31-01 spike (combo=sufficient→priority-rank; Gemini cap=32000; EdhTop16=meta-query-available); 31-02 foundation models; 31-03 DeckPrimerPacketService (D-2 combos+null disclosure, PRM-07 category omit, PRM-06 bracket-5 via EdhTop16Client.GetTopArchetypesAsync meta-wide query, build-once/render-each-enabled gate, cache key; review-fix abfffab); 31-04 three ADR-0001 decoupled variants (ChatGPT/Claude/Gemini) + DI; 31-05 zip round-trip (PacketArtifactStore.BuildPrimerZip/LoadPrimerFromZip/SuggestPrimerZipFileName); 31-06 controller/tab/page/primer-selection.ts/site-common.css + human visual-verify APPROVED. Verify caught+fixed 3 bugs: 9fd1c65 (data-preset-ids @Html.Raw attr break), 779affe (category graceful-degrade + test), abbeedd (DeckControllerTests ctor — interface-change/test-project trap). Browser UAT (desktop+mobile): tab, D-3 per-bracket presets, gating, localStorage persistence, badges, end-to-end build (13.2KB primer, live Spellbook+EdhTop16), zip download (22,533B application/zip). Full DeckFlow.Web.Tests 654/0/5; Core 281/281.
+Open debt (carry to v1.5 close / v1.6): secure-phase 30, 31, 32, 33 (all open); content.kb.enabled prod flag still OFF; primer not prod-smoked; SpellbookCombo PieceCount/ManaValueNeeded/Popularity capture deferred (31-03 ranks on CardNames.Count + Results text only — documented follow-up). (Distill-sanitizer fix + content-kb/ data committed 4015634, 2a6ea8c.)
+Last activity: 2026-06-09 -- Phase 31 visual-verify APPROVED; ROADMAP 31 [x]; v1.5 all phases complete
 
-Progress: [██████████] 100% (Phase 33)
+Progress: [██████████] 100% (all v1.5 phases complete)
 
 ## Performance Metrics
 
@@ -91,6 +91,6 @@ Progress: [██████████] 100% (Phase 33)
 
 ## Session Continuity
 
-Last session: 2026-06-09T17:00:00.000Z
-Stopped at: Phase 31-06 CODE DONE (Codex impl/Claude review, commits 09e90c6/1b59cb0/76129a6; build clean, TS compiled, no js committed, LF, scope held, reviewer clean, D-3 per-bracket preset verified). BLOCKING on Task 3 human visual-verify (2 viewports). Phase 31 NOT yet complete; ROADMAP 31 stays [ ] until checkpoint approved.
-Resume file: 31-06 Task 3 — user starts dev server, then drive 2-viewport visual-verify (gstack) per UI-phase rule; on approval flip ROADMAP 31 [x] + close Phase 31 + v1.5 milestone.
+Last session: 2026-06-09T17:30:00.000Z
+Stopped at: Phase 31 COMPLETE + APPROVED; ROADMAP 31 [x]; STATE 25/25 / 6-of-6 phases. All v1.5 phases done. Tracking committed.
+Resume: v1.5 milestone close — clear open debt first (secure-phase 30/31/32/33; flip content.kb.enabled prod flag; prod-smoke the primer) OR run /gsd-complete-milestone / open the v1.5→main PR. Nothing pushed to main; no deploy.
