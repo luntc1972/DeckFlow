@@ -4,8 +4,8 @@ milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
 status: executing
 stopped_at: Phase 33 closed (visual-verify passed); Phase 31 planned + Codex READY (6 plans/4 waves) is the only remaining v1.5 phase
-last_updated: "2026-06-09T16:30:00.000Z"
-last_activity: 2026-06-09 -- Phase 31-05 (primer zip round-trip) DONE (Codex impl/Claude review); cross-plan request-context format verified 31-03↔31-05; 25/25 PacketArtifactStore+primer tests; NEXT 31-06 (UI, human checkpoint)
+last_updated: "2026-06-09T17:00:00.000Z"
+last_activity: 2026-06-09 -- Phase 31-06 CODE (Tasks 1+2: controller routes, tab, DeckPrimer.cshtml, primer-selection.ts, site-common.css) DONE + Claude-reviewed clean; D-3 per-bracket preset verified correct; BLOCKING on Task 3 human visual-verify (2 viewports)
 progress:
   total_phases: 7
   completed_phases: 5
@@ -91,6 +91,6 @@ Progress: [██████████] 100% (Phase 33)
 
 ## Session Continuity
 
-Last session: 2026-06-09T16:30:00.000Z
-Stopped at: Phase 31-05 (primer zip round-trip) DONE + reviewed; 25/25 store+primer tests; tracking committed. 24/25 plans. PAUSED before 31-06 per user (UI plan needs human checkpoint).
-Resume file: .planning/phases/31-deck-primer-generator/31-06-PLAN.md (controller/view/TS — autonomous:false, human checkpoint + browser visual-verify)
+Last session: 2026-06-09T17:00:00.000Z
+Stopped at: Phase 31-06 CODE DONE (Codex impl/Claude review, commits 09e90c6/1b59cb0/76129a6; build clean, TS compiled, no js committed, LF, scope held, reviewer clean, D-3 per-bracket preset verified). BLOCKING on Task 3 human visual-verify (2 viewports). Phase 31 NOT yet complete; ROADMAP 31 stays [ ] until checkpoint approved.
+Resume file: 31-06 Task 3 — user starts dev server, then drive 2-viewport visual-verify (gstack) per UI-phase rule; on approval flip ROADMAP 31 [x] + close Phase 31 + v1.5 milestone.
