@@ -22,14 +22,18 @@ created: 2026-06-09
 | Property | Value |
 |----------|-------|
 | **Framework (server)** | xUnit 2.9.3 (DeckFlow.Core.Tests, DeckFlow.Web.Tests) |
-| **Framework (client)** | none — no JS/TS test runner present (no jest/vitest/playwright; `package.json` has no `test` script). Adding one is forbidden by CLAUDE.md. |
-| **Config file** | `DeckFlow.Web/tsconfig.json` (compile-only, not test) |
+| **Framework (client)** | Vitest 3.x + jsdom (added 2026-06-09, user-authorized) — `DeckFlow.Web/package.json`, run via `cd DeckFlow.Web && npm test` |
+| **Config file** | `DeckFlow.Web/vitest.config.ts` (jsdom env); browser compile still `DeckFlow.Web/tsconfig.json` (module:none) |
 | **Build gate** | `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj -clp:ErrorsOnly` (compiles TS via MSBuild target) |
-| **Estimated runtime** | build ~30s |
+| **Estimated runtime** | vitest ~13s · build ~2-30s |
 
 The two xUnit test projects exercise C# domain/service/controller code. Phase 33
-touched no C# — its entire surface is browser-rendered DOM filtering and CSS, which
-the .NET test projects structurally cannot reach.
+touched no C# — its entire surface is browser DOM filtering and CSS. As of
+2026-06-09 the **pure filter logic** (KBUX-01 match / live-count / empty-state
+predicates) is extracted into the `DeckFlowKbFilter` seam and covered by Vitest
+(`ts-tests/kb-entry-filter.test.ts`, 7 tests). The DOM wiring of `wireEntryFilter`
+(script-order load, event binding) and all KBUX-02 CSS rendering remain
+browser-visual / manual — Vitest+jsdom does not assert real CSS layout.
 
 ---
 
@@ -44,8 +48,9 @@ the .NET test projects structurally cannot reach.
 
 | Task ID | Plan | Wave | Requirement | Secure Behavior | Test Type | Automated Command | Status |
 |---------|------|------|-------------|-----------------|-----------|-------------------|--------|
-| 33-01-01 | 01 | 1 | KBUX-01 | filter input + `data-kb-search` row attrs + empty-state tbody (Razor auto-encoded) | manual (browser) | none — no JS runner | ✅ visual-verified 2026-06-09 |
-| 33-01-02 | 01 | 1 | KBUX-01 | client-side instant filtering + live count (`content-kb-admin.ts`) | manual (browser) | none — no JS runner | ✅ visual-verified 2026-06-09 |
+| 33-01-01 | 01 | 1 | KBUX-01 | filter input + `data-kb-search` row attrs + empty-state tbody (Razor auto-encoded) | manual (browser) | none — markup | ✅ visual-verified 2026-06-09 |
+| 33-01-02 | 01 | 1 | KBUX-01 | filter match / live-count / empty-state **logic** (`DeckFlowKbFilter` seam) | unit (vitest) | `cd DeckFlow.Web && npm test` | ✅ 7/7 green 2026-06-09 |
+| 33-01-02b | 01 | 1 | KBUX-01 | DOM wiring of `wireEntryFilter` (event bind, script-order global load) | manual (browser) | none — jsdom ≠ live page | ✅ visual-verified 2026-06-09 |
 | 33-01-03 | 01 | 1 | KBUX-01 | filter-bar / count / empty-state CSS (admin-shell scoped) | manual (visual) | none — CSS render | ✅ visual-verified 2026-06-09 |
 | 33-02-01 | 02 | 1 | KBUX-02 | zebra + hover/`:focus-within` + sticky header (`admin-common.css`) | manual (visual) | build compiles | ✅ visual-verified 2026-06-09 |
 | 33-02-02 | 02 | 1 | KBUX-02 | mobile card-layout safety overrides (`admin-mobile.css`) | manual (responsive) | build compiles | ✅ visual-verified 2026-06-09 |
@@ -78,20 +83,34 @@ Phase 33 changed no C#. Build gate (TS compile + Razor) is the only automated ch
 - [x] Test infrastructure detected — no client test runner; server xUnit projects don't reach this surface
 - [x] All 5 tasks visual-verified in browser 2026-06-09 (see project memory `project_phase33_shipped`)
 - [x] Build gate green (33-02 SUMMARY: 0 warnings, 0 errors)
-- [ ] `nyquist_compliant: true` — **not achievable**: zero automatable behavior, no JS framework permitted. Recorded as `partial` (manual-only, fully verified).
+- [x] Automated coverage added 2026-06-09 — KBUX-01 filter logic under Vitest (7/7)
+- [ ] `nyquist_compliant: true` — **not fully achievable**: KBUX-01 DOM wiring + KBUX-02 CSS render are visual/live-page only and cannot be machine-asserted. Recorded as `partial` (highest-value logic automated; remainder human-verified).
 
-**Approval:** approved 2026-06-09 — PARTIAL (all behavior manual-only and human-verified; no automatable gaps remain)
+**Approval:** approved 2026-06-09 — PARTIAL (KBUX-01 logic automated via Vitest; DOM wiring + CSS human-verified)
 
 ---
 
-## Validation Audit 2026-06-09
+## Validation Audit 2026-06-09 (initial)
 | Metric | Count |
 |--------|-------|
 | Gaps found | 5 (all client-side) |
 | Resolved (automated) | 0 |
 | Escalated to manual-only | 5 |
 
-Reconstructed from artifacts (no prior VALIDATION.md). No automated tests
-generated: Phase 33's entire surface is TypeScript DOM filtering + CSS, which has
-no test runner in this project and adding one is forbidden by CLAUDE.md. All five
-tasks were browser visual-verified on 2026-06-09.
+Reconstructed from artifacts (no prior VALIDATION.md). At audit time no JS test
+runner existed. All five tasks were browser visual-verified on 2026-06-09.
+
+## Validation Audit 2026-06-09 (revised — runner added)
+| Metric | Count |
+|--------|-------|
+| Gaps re-examined | 5 |
+| Resolved (automated) | 1 (KBUX-01 filter logic → Vitest, 7 tests) |
+| Remaining manual-only | 4 (Razor markup, DOM wiring, two CSS surfaces) |
+
+User authorized adding a JS test runner (Vitest + jsdom). The KBUX-01 filter
+predicates were extracted into the pure `DeckFlowKbFilter` seam and unit-tested
+(`ts-tests/kb-entry-filter.test.ts`). Browser bundle still compiles under
+`tsc` (module:none) and the .NET build is `0/0`. Remaining items are inherently
+visual (CSS render) or require a live page (DOM wiring) and stay manual-only.
+Status remains `partial`: automated coverage now exists for the highest-value
+logic, but not all behavior is machine-assertable.
