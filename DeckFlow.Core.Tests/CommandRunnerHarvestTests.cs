@@ -55,6 +55,23 @@ public sealed class CommandRunnerHarvestTests
     }
 
     [Fact]
+    public async Task RunHarvestAsync_ShortVideoSkipsBeforeStorageOrTranscriptFetch()
+    {
+        var videoStore = new FakeContentVideoStore();
+        var ledger = new FakeWhisperSpendLedger();
+        var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", true));
+
+        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-short", TimeSpan.FromSeconds(60))]);
+
+        Assert.Equal(0, exitCode);
+        Assert.Empty(videoStore.InsertedVideos);
+        Assert.Empty(videoStore.Transcripts);
+        Assert.Empty(videoStore.StatusUpdates);
+        Assert.Empty(ledger.Records);
+        Assert.Empty(transcriptSource.NaturalKeys);
+    }
+
+    [Fact]
     public async Task RunHarvestAsync_ExistingFailedVideoResumesAndExistingSuccessSkips()
     {
         var failed = CreateListedVideo("video-failed", TimeSpan.FromMinutes(5));
