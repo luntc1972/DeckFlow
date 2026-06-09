@@ -609,3 +609,44 @@ a:hover { text-decoration: underline; }
   filter: brightness(1.15);
 }
 /* === END Phase 22 === */
+
+.admin-shell .kb-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.admin-shell .kb-filter label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.admin-shell #kb-filter-search {
+  width: min(100%, 32rem);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.admin-shell #kb-filter-search:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin-shell .kb-filter__count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-shell .kb-filter__empty-row td {
+  padding: 24px 16px;
+  color: var(--muted);
+  text-align: center;
+}
