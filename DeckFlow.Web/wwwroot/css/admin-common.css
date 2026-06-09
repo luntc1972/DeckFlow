@@ -650,3 +650,30 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
   text-align: center;
 }
+
+.admin-shell #kb-entries-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+}
+
+.admin-shell #kb-entries-table tbody tr:hover td,
+.admin-shell #kb-entries-table tbody tr:focus-within td {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.admin-shell #kb-entries-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+.admin-shell #kb-entries-table .admin-kb-title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  max-width: none;
+}
+
+.admin-shell #kb-entries-table .admin-kb-source {
+  overflow-wrap: anywhere;
+}
