@@ -108,6 +108,9 @@ else
     </section>
 
     <section aria-labelledby="kb-entries-heading">
+        @{
+            var columnCount = previewActive ? 6 : 5;
+        }
         <section class="admin-harvest__panel" aria-labelledby="kb-preview-heading">
             <h2 id="kb-preview-heading">Preview Relevance</h2>
             <p>Score is computed per artifact row; any injected clips inherit that artifact-level score.</p>
@@ -161,8 +164,15 @@ else
                 <a class="@(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl">Hidden</a>
             </div>
         </div>
+        <div class="kb-filter">
+            <label>
+                Filter entries
+                <input id="kb-filter-search" type="search" autocomplete="off" placeholder="Filter by title, source, or tag" aria-controls="kb-entries-table" />
+            </label>
+            <p class="kb-filter__count" id="kb-filter-count" role="status" aria-live="polite"></p>
+        </div>
         <div class="admin-table-scroll" tabindex="0">
-            <table class="admin-table admin-table--card">
+            <table id="kb-entries-table" class="admin-table admin-table--card">
                 <caption class="sr-only">Content KB entries — per-entry publish controls</caption>
                 <thead>
                     <tr>
@@ -182,7 +192,8 @@ else
                 <tbody>
                     @foreach (var entry in Model.Entries)
                     {
-                        <tr>
+                        var searchText = (entry.Title + " " + entry.Source + " " + string.Join(" ", entry.Tags)).ToLowerInvariant();
+                        <tr data-kb-search="@searchText">
                             <td data-label="Title" class="admin-kb-title">@entry.Title</td>
                             <td data-label="Source" class="admin-kb-source">@entry.Source</td>
                             <td data-label="Tags">
@@ -235,6 +246,9 @@ else
                             </td>
                         </tr>
                     }
+                    <tr class="kb-filter__empty-row hidden" id="kb-filter-empty">
+                        <td colspan="@columnCount">No entries match the current filter.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
