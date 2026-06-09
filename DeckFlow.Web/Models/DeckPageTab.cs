@@ -40,4 +40,7 @@ public enum DeckPageTab
 
     /// <summary>Content Knowledge Base browse/detail pages.</summary>
     ContentKb = 12,
+
+    /// <summary>Deck-primer artifact generator page.</summary>
+    DeckPrimer = 13,
 }

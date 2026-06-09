@@ -81,6 +81,18 @@ internal static class PacketArtifactStore
         "40-meta-gap-response.json"
     };
 
+    private static readonly HashSet<string> PrimerAllowedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "00-primer-input-summary.txt",
+        "01-primer-request-context.txt",
+        "10-primer-deck-list.txt",
+        "10b-primer-deck-original.txt",
+        "30-primer-chatgpt-prompt.txt",
+        "30-primer-claude-prompt.txt",
+        "30-primer-gemini-prompt.txt",
+        "all-primer-prompts.txt"
+    };
+
     /// <summary>
     /// Returns the source string if it is NOT a supported deck-import URL
     /// (Moxfield or Archidekt). For URL inputs returns null so the writer
