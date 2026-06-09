@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
 
 Phase: 33 (admin-content-kb-curation-ux) — COMPLETE (2/2 plans; KBUX-01/02; browser visual-verify passed desktop+mobile 2026-06-09; source-wrap nit fixed 16fac7e)
 Next: Phase 31 (deck-primer-generator) — planned + Codex READY, 6 plans/4 waves, NOT executed. The milestone headline + only remaining v1.5 phase.
-Open debt: secure-phase 30, 32, 33 (all open); orphaned uncommitted distill/validation changes + content-kb/ data dirs (triage); content.kb.enabled prod flag still OFF.
+Open debt: secure-phase 30, 32, 33 (all open); content.kb.enabled prod flag still OFF. (Distill-sanitizer fix + content-kb/ data are committed — 4015634, 2a6ea8c — not orphaned; earlier "uncommitted" note was a stale session-start snapshot.)
 Last activity: 2026-06-09 -- Phase 33 browser visual-verify PASSED; source word-break nit fixed (16fac7e); ROADMAP/STATE flipped
 
 Progress: [██████████] 100% (Phase 33)
