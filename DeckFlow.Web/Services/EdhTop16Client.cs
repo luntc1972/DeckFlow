@@ -28,6 +28,17 @@ public interface IEdhTop16Client
         int? maxStanding,
         int count,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the top named cEDH archetypes from the global EDH Top 16 metagame query.
+    /// </summary>
+    /// <param name="count">Maximum number of archetypes to return.</param>
+    /// <param name="cancellationToken">Token used to cancel the EDH Top 16 request.</param>
+    /// <returns>A read-only list of named archetype entries.</returns>
+    Task<IReadOnlyList<EdhTop16Entry>> GetTopArchetypesAsync(int count, CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("This EDH Top 16 client does not support the meta-wide archetype query.");
+    }
 }
 
 /// <inheritdoc/>
@@ -53,6 +64,13 @@ public sealed class EdhTop16Client : IEdhTop16Client
                 }
               }
             }
+          }
+        }
+        """;
+    private const string TopArchetypesQuery = """
+        query($first:Int!,$sortBy:CommandersSortBy!,$timePeriod:TimePeriod!){
+          commanders(first:$first,sortBy:$sortBy,timePeriod:$timePeriod){
+            edges{ node{ name colorId } }
           }
         }
         """;
@@ -143,6 +161,53 @@ public sealed class EdhTop16Client : IEdhTop16Client
             ?? new List<EdhTop16Entry>();
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<EdhTop16Entry>> GetTopArchetypesAsync(int count, CancellationToken cancellationToken = default)
+    {
+        if (count < 1)
+        {
+            throw new InvalidOperationException("At least one EDH Top 16 entry must be requested.");
+        }
+
+        var request = new RestRequest(string.Empty, Method.Post);
+        request.AddHeader("Content-Type", "application/json");
+        request.AddJsonBody(new
+        {
+            query = TopArchetypesQuery,
+            variables = new
+            {
+                first = count,
+                sortBy = "POPULARITY",
+                timePeriod = "SIX_MONTHS"
+            }
+        });
+
+        var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
+        var statusCode = (int)response.StatusCode;
+        if (statusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response.Content))
+        {
+            throw new HttpRequestException(
+                $"EDH Top 16 request failed with HTTP {statusCode}.",
+                null,
+                response.StatusCode);
+        }
+
+        var payload = JsonSerializer.Deserialize<EdhTop16TopArchetypesGraphQlResponse>(response.Content, JsonOptions)
+            ?? throw new InvalidOperationException("EDH Top 16 returned an unreadable response payload.");
+
+        if (payload.Errors.Count > 0)
+        {
+            throw new InvalidOperationException(payload.Errors[0].Message);
+        }
+
+        return payload.Data?.Commanders?.Edges?
+            .Select(edge => edge.Node)
+            .OfType<EdhTop16TopArchetypeNode>()
+            .Select(MapArchetype)
+            .ToList()
+            ?? new List<EdhTop16Entry>();
+    }
+
     private static DateOnly? ParseDate(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -194,6 +259,16 @@ public sealed class EdhTop16Client : IEdhTop16Client
             Type = card.Type ?? string.Empty
         };
 
+    private static EdhTop16Entry MapArchetype(EdhTop16TopArchetypeNode node)
+        => new()
+        {
+            // Reuse EdhTop16Entry within the 31-03 scope fence: PlayerName carries the named
+            // archetype label and TournamentName carries color identity for downstream formatting.
+            PlayerName = node.Name ?? string.Empty,
+            TournamentName = node.ColorId ?? string.Empty,
+            MainDeck = Array.Empty<EdhTop16Card>()
+        };
+
     private sealed class EdhTop16GraphQlResponse
     {
         public EdhTop16GraphQlData? Data { get; init; }
@@ -204,6 +279,18 @@ public sealed class EdhTop16Client : IEdhTop16Client
     private sealed class EdhTop16GraphQlData
     {
         public EdhTop16CommanderNode? Commander { get; init; }
+    }
+
+    private sealed class EdhTop16TopArchetypesGraphQlResponse
+    {
+        public EdhTop16TopArchetypesData? Data { get; init; }
+
+        public List<EdhTop16GraphQlError> Errors { get; init; } = new();
+    }
+
+    private sealed class EdhTop16TopArchetypesData
+    {
+        public EdhTop16TopArchetypeConnection? Commanders { get; init; }
     }
 
     private sealed class EdhTop16GraphQlError
@@ -268,5 +355,22 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public string? Name { get; init; }
 
         public string? Type { get; init; }
+    }
+
+    private sealed class EdhTop16TopArchetypeConnection
+    {
+        public List<EdhTop16TopArchetypeEdge> Edges { get; init; } = new();
+    }
+
+    private sealed class EdhTop16TopArchetypeEdge
+    {
+        public EdhTop16TopArchetypeNode? Node { get; init; }
+    }
+
+    private sealed class EdhTop16TopArchetypeNode
+    {
+        public string? Name { get; init; }
+
+        public string? ColorId { get; init; }
     }
 }
