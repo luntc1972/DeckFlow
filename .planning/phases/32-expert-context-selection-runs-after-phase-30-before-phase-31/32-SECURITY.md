@@ -7,7 +7,7 @@ threats_closed: 16
 threats_open: 0
 register_authored_at_plan_time: true
 asvs_level: 1
-audited: 2026-06-08
+audited: 2026-06-09
 ---
 
 # Phase 32 Security Verification — Expert Context Selection
@@ -49,5 +49,14 @@ All plan-time STRIDE threats verified mitigated against the shipped implementati
 | Open | 0 |
 
 Verify-only audit (register authored at plan time). Evidence gathered by grep + the per-plan code reviews during execution. Full regression at close-out: Core 270/270, Web 608 pass / 5 PG-skip / 0 fail.
+
+### Security Audit 2026-06-09
+| Metric | Count |
+|--------|-------|
+| Threats found | 16 |
+| Closed | 16 |
+| Open | 0 |
+
+Re-verification (`/gsd:secure-phase 32`). Short-circuit: `threats_open: 0` AND `register_authored_at_plan_time: true` — all plan-time STRIDE threats remain CLOSED. Register cross-checked against 32-01..04 PLAN threat models; evidence still cites shipped files. No implementation files modified.
 
 **Verdict: SECURED — 0 open threats.**
