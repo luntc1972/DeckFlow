@@ -35,10 +35,7 @@ public interface IEdhTop16Client
     /// <param name="count">Maximum number of archetypes to return.</param>
     /// <param name="cancellationToken">Token used to cancel the EDH Top 16 request.</param>
     /// <returns>A read-only list of named archetype entries.</returns>
-    Task<IReadOnlyList<EdhTop16Entry>> GetTopArchetypesAsync(int count, CancellationToken cancellationToken = default)
-    {
-        throw new NotSupportedException("This EDH Top 16 client does not support the meta-wide archetype query.");
-    }
+    Task<IReadOnlyList<EdhTop16Entry>> GetTopArchetypesAsync(int count, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc/>
