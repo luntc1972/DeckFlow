@@ -24,7 +24,9 @@ using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.PromptBuilders.Primer;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web;
 
@@ -306,6 +308,10 @@ public partial class Program
             builder.Services.AddSingleton<IMetaGapPromptVariant, ClaudeMetaGapPromptVariant>();
             builder.Services.AddSingleton<IMetaGapPromptVariant, GeminiMetaGapPromptVariant>();
             builder.Services.AddSingleton<MetaGapPromptVariantRegistry>();
+            builder.Services.AddSingleton<IPrimerPromptVariant, ChatGptPrimerPromptVariant>();
+            builder.Services.AddSingleton<IPrimerPromptVariant, ClaudePrimerPromptVariant>();
+            builder.Services.AddSingleton<IPrimerPromptVariant, GeminiPrimerPromptVariant>();
+            builder.Services.AddSingleton<PrimerPromptVariantRegistry>();
 
             builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
                 new DeckAnalysisPacketService(
@@ -349,6 +355,19 @@ public partial class Program
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>()));
+            builder.Services.AddScoped<IDeckPrimerPacketService>(sp =>
+                new DeckPrimerPacketService(
+                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
+                    sp.GetRequiredService<IArchidektDeckImporter>(),
+                    sp.GetRequiredService<MoxfieldParser>(),
+                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetRequiredService<IEdhTop16Client>(),
+                    sp.GetRequiredService<ICategoryKnowledgeStore>(),
+                    sp.GetRequiredService<PrimerPromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetRequiredService<IOptions<AiPlatformOptions>>(),
+                    sp.GetService<ILogger<DeckPrimerPacketService>>()));
             builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
             builder.Services.AddSingleton<ArchidektCacheJobService>();
             builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
