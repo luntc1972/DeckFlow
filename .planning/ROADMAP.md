@@ -115,7 +115,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 30: Content KB Integration** — prod flag flip + expert-context injection + "What Experts Say" panel (completed 2026-06-07; UAT passed on prod)
 - [x] **Phase 32: Expert Context Selection** — pin videos / follow creators / evergreen flag layered over auto relevance (added 2026-06-07 from Phase 30 UAT; runs after 30, before 31) (completed 2026-06-08)
 - [x] **Phase 33: Admin Content KB Curation UX** — filter/search the publish-unpublish curation list by tags, title/name, and creator/source + readability for long entry lists (added 2026-06-08 from admin dogfooding; runs after 32, before 31 — higher priority than 31) (completed 2026-06-09; KBUX-01/02; browser visual-verify passed at desktop+mobile, source-wrap nit fixed 16fac7e)
-- [ ] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing
+- [x] **Phase 31: Deck Primer Generator** — fourth paste-ready workflow, 31-section catalog, combo grounding, bracket routing (completed 2026-06-09; PRM-01..12; 6 plans; Codex impl/Claude review; browser visual-verify passed desktop+mobile; 3 verify-found bugs fixed 9fd1c65/779affe/abbeedd; Web.Tests 654/0/5)
 
 ## Phase Details
 
