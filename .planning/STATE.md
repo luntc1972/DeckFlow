@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
-status: executing
+status: verifying
 stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-last_updated: "2026-06-10T22:48:18.837Z"
+last_updated: "2026-06-10T22:56:06.489Z"
 last_activity: 2026-06-10 -- Phase 37 execution started
 progress:
   total_phases: 6
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 Phase: 37 (retire-clip-injection) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 37
+Status: Phase 37 complete + verified (6/6 RET); tests Core 282/282 Web 600/600+5skip; build 0/0
 Reqs: RET-01..06 all covered (37-01: 01/02/05 · 37-02: 03/04/06). RESEARCH flagged 5 CONTEXT discrepancies — all folded in (both packet JSON fields; browse-page kb-selection strip; content-kb-admin.ts full delete; accordion 182–232; nav-copy rewrite).
 Next after 37: Phase 37.5 (rebuild corpus — CONTEXT ready), then Phase 38 (SRP split).
 Last activity: 2026-06-10 -- Phase 37 execution started
