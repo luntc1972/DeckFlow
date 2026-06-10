@@ -177,7 +177,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('page.help.enabled', TRUE),
           ('harvest.cron.enabled', TRUE),
           ('feature.categories.enabled', TRUE),
-          ('content.kb.enabled', FALSE)
+          ('content.kb.enabled', TRUE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -187,7 +187,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('page.help.enabled', 1),
           ('harvest.cron.enabled', 1),
           ('feature.categories.enabled', 1),
-          ('content.kb.enabled', 0)
+          ('content.kb.enabled', 1)
         ON CONFLICT (key) DO NOTHING;
         """;
 
