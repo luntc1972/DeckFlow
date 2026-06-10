@@ -38,8 +38,71 @@ internal static class DistillationValidation
         ValidateTagDimension("card_category", payload.CardCategory, ContentTagVocabulary.CardCategories);
     }
 
-    private static int CountWords(string text)
-        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+    internal static string TruncateSummary(string summary)
+    {
+        summary ??= string.Empty;
+        var words = GetWords(summary);
+        return words.Length <= SummaryMaxWords
+            ? summary
+            : string.Join(" ", words.Take(SummaryMaxWords));
+    }
+
+    internal static IReadOnlyList<ClipItem> SanitizeClips(IReadOnlyList<ClipItem>? clips)
+    {
+        return (clips ?? [])
+            .Where(clip => clip.TimestampSeconds is null or >= 0)
+            .Take(MaxClipCount)
+            .ToArray();
+    }
+
+    internal static TagsPayload SanitizeTags(TagsPayload payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        return new TagsPayload(
+            SanitizeTagDimension(payload.Archetype, ContentTagVocabulary.Archetypes),
+            SanitizeTagDimension(payload.Bracket, ContentTagVocabulary.Brackets),
+            SanitizeTagDimension(payload.CardCategory, ContentTagVocabulary.CardCategories));
+    }
+
+    internal static int CountWords(string text)
+        => GetWords(text).Length;
+
+    private static string[] GetWords(string text)
+    {
+        text ??= string.Empty;
+        return text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    private static IReadOnlyList<string> SanitizeTagDimension(
+        IReadOnlyList<string>? values,
+        IReadOnlySet<string> allowlist)
+    {
+        if (values is null)
+        {
+            return [];
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sanitized = new List<string>(values.Count);
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var canonical = allowlist.FirstOrDefault(allowed => string.Equals(allowed, value, StringComparison.OrdinalIgnoreCase));
+            if (canonical is null || !seen.Add(canonical))
+            {
+                continue;
+            }
+
+            sanitized.Add(canonical);
+        }
+
+        return sanitized;
+    }
 
     private static void ValidateTagDimension(
         string dimension,

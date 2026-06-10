@@ -24,6 +24,16 @@ internal static class PacketArtifactStore
         WriteIndented = false
     };
 
+    /// <summary>
+    /// Shared camelCase + case-insensitive JSON options for 33-expert-selection.json round-trips.
+    /// </summary>
+    // Why: camelCase + case-insensitive so the zip JSON `pinnedVideoIds` binds to PinnedVideoIds on round-trip — default options would silently drop them.
+    internal static readonly JsonSerializerOptions ExpertSelectionJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
     private static readonly HashSet<string> PacketAllowedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "00-input-summary.txt",
@@ -32,6 +42,8 @@ internal static class PacketArtifactStore
         "10b-deck-original.txt",
         "30-reference.txt",
         "31-analysis-prompt.txt",
+        "32-expert-context.json",
+        "33-expert-selection.json",
         "40-deck-profile.json",
         "41-deck-profile-schema.json",
         "50-set-upgrade-prompt.txt",
@@ -69,6 +81,18 @@ internal static class PacketArtifactStore
         "40-meta-gap-response.json"
     };
 
+    private static readonly HashSet<string> PrimerAllowedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "00-primer-input-summary.txt",
+        "01-primer-request-context.txt",
+        "10-primer-deck-list.txt",
+        "10b-primer-deck-original.txt",
+        "30-primer-chatgpt-prompt.txt",
+        "30-primer-claude-prompt.txt",
+        "30-primer-gemini-prompt.txt",
+        "all-primer-prompts.txt"
+    };
+
     /// <summary>
     /// Returns the source string if it is NOT a supported deck-import URL
     /// (Moxfield or Archidekt). For URL inputs returns null so the writer
@@ -100,7 +124,9 @@ internal static class PacketArtifactStore
         string deckProfileSchemaJson,
         string? setUpgradePromptText,
         string? canonicalDeckListText = null,
-        string? originalDeckText = null)
+        string? originalDeckText = null,
+        string? expertContextJson = null,
+        string? selectionJson = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -112,6 +138,8 @@ internal static class PacketArtifactStore
             ("10b-deck-original.txt", "DECK ORIGINAL TEXT", originalDeckText),
             ("30-reference.txt", "REFERENCE TEXT", referenceText),
             ("31-analysis-prompt.txt", "ANALYSIS PROMPT", analysisPromptText),
+            ("32-expert-context.json", "EXPERT CONTEXT JSON", expertContextJson),
+            ("33-expert-selection.json", "EXPERT SELECTION JSON", selectionJson),
             ("41-deck-profile-schema.json", "DECK PROFILE JSON SCHEMA", deckProfileSchemaJson),
             ("50-set-upgrade-prompt.txt", "SET UPGRADE PROMPT", setUpgradePromptText)
         ]);
@@ -191,6 +219,52 @@ internal static class PacketArtifactStore
     }
 
     /// <summary>
+    /// Builds the deck-primer artifact zip for the current request, writing only the prompt variants
+    /// that are present in this build.
+    /// </summary>
+    /// <param name="request">Current deck-primer request.</param>
+    /// <param name="inputSummary">Rendered input summary.</param>
+    /// <param name="requestContextText">Round-trip request context text.</param>
+    /// <param name="chatGptPromptText">ChatGPT primer prompt text, when enabled.</param>
+    /// <param name="claudePromptText">Claude primer prompt text, when enabled.</param>
+    /// <param name="geminiPromptText">Gemini primer prompt text, when enabled.</param>
+    /// <param name="canonicalDeckListText">Normalized decklist text.</param>
+    /// <param name="originalDeckText">Original pasted deck text, when applicable.</param>
+    /// <returns>A zip archive containing the primer packet artifacts.</returns>
+    public static byte[] BuildPrimerZip(
+        DeckPrimerRequest request,
+        string inputSummary,
+        string? requestContextText,
+        string? chatGptPromptText,
+        string? claudePromptText,
+        string? geminiPromptText,
+        string? canonicalDeckListText = null,
+        string? originalDeckText = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var sections = NormalizeSections(
+        [
+            ("00-primer-input-summary.txt", "PRIMER INPUT SUMMARY", inputSummary),
+            ("01-primer-request-context.txt", "PRIMER REQUEST CONTEXT", requestContextText),
+            ("10-primer-deck-list.txt", "PRIMER DECK LIST", canonicalDeckListText),
+            ("10b-primer-deck-original.txt", "PRIMER DECK ORIGINAL TEXT", originalDeckText),
+            ("30-primer-chatgpt-prompt.txt", "CHATGPT PRIMER PROMPT", chatGptPromptText),
+            ("30-primer-claude-prompt.txt", "CLAUDE PRIMER PROMPT", claudePromptText),
+            ("30-primer-gemini-prompt.txt", "GEMINI PRIMER PROMPT", geminiPromptText)
+        ]);
+
+        var promptSections = sections
+            .Where(section =>
+                string.Equals(section.FileName, "30-primer-chatgpt-prompt.txt", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(section.FileName, "30-primer-claude-prompt.txt", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(section.FileName, "30-primer-gemini-prompt.txt", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return BuildArchiveWithCombinedArtifact(sections, promptSections, "all-primer-prompts.txt");
+    }
+
+    /// <summary>
     /// Rehydrates a saved ChatGPT packet zip back into a deck request.
     /// </summary>
     /// <remarks>
@@ -210,6 +284,8 @@ internal static class PacketArtifactStore
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
         entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
         entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
+        entries.TryGetValue("32-expert-context.json", out var expertContextJson);
+        entries.TryGetValue("33-expert-selection.json", out var selectionJson);
 
         if (string.IsNullOrWhiteSpace(deckProfile) &&
             string.IsNullOrWhiteSpace(setUpgrade) &&
@@ -219,6 +295,8 @@ internal static class PacketArtifactStore
         }
 
         request.DeckProfileJson = deckProfile ?? string.Empty;
+        request.ExpertContextJson = expertContextJson ?? string.Empty;
+        request.ExpertSelectionJson = selectionJson ?? string.Empty;
         request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
         request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade)
             ? 5
@@ -236,6 +314,26 @@ internal static class PacketArtifactStore
         if (!string.IsNullOrWhiteSpace(originalDeckText))
         {
             request.DeckText = originalDeckText.TrimEnd();
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectionJson))
+        {
+            try
+            {
+                var selection = JsonSerializer.Deserialize<ExpertSelectionState>(selectionJson, ExpertSelectionJsonOptions);
+                if (selection?.PinnedVideoIds?.Count > 0)
+                {
+                    request.PinnedVideoIds = [.. selection.PinnedVideoIds];
+                }
+
+                if (selection?.FollowedCreators?.Count > 0)
+                {
+                    request.FollowedCreators = [.. selection.FollowedCreators];
+                }
+            }
+            catch (JsonException)
+            {
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
@@ -510,6 +608,82 @@ internal static class PacketArtifactStore
         };
     }
 
+    /// <summary>
+    /// Rehydrates a saved deck-primer zip back into a primer request.
+    /// </summary>
+    /// <param name="zipStream">Zip payload stream.</param>
+    /// <param name="request">Deck-primer request to restore.</param>
+    public static void LoadPrimerFromZip(Stream zipStream, DeckPrimerRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(zipStream);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var entries = ReadEntries(zipStream, PrimerAllowedNames);
+        entries.TryGetValue("01-primer-request-context.txt", out var requestContextText);
+
+        if (string.IsNullOrWhiteSpace(requestContextText))
+        {
+            return;
+        }
+
+        var normalized = requestContextText.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var selectedSectionIds = new List<string>();
+        string? targetCommanderBracket = null;
+        string? targetAiPlatform = null;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (line.StartsWith("target_commander_bracket:", StringComparison.Ordinal))
+            {
+                targetCommanderBracket = line["target_commander_bracket:".Length..].Trim();
+                continue;
+            }
+
+            if (line.StartsWith("target_ai_platform:", StringComparison.Ordinal))
+            {
+                targetAiPlatform = line["target_ai_platform:".Length..].Trim();
+                continue;
+            }
+
+            if (!line.StartsWith("selected_section_ids:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var nextIndex = i + 1;
+            while (nextIndex < lines.Length && lines[nextIndex].StartsWith("- ", StringComparison.Ordinal))
+            {
+                var sectionId = lines[nextIndex][2..].Trim();
+                if (!string.IsNullOrEmpty(sectionId))
+                {
+                    selectedSectionIds.Add(sectionId);
+                }
+
+                nextIndex++;
+            }
+
+            i = nextIndex - 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetCommanderBracket))
+        {
+            request.TargetCommanderBracket = targetCommanderBracket;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetAiPlatform))
+        {
+            request.TargetAiPlatform = AiPlatform.Normalize(targetAiPlatform).Key;
+        }
+
+        if (selectedSectionIds.Count > 0)
+        {
+            request.SelectedSectionIds = selectedSectionIds;
+        }
+    }
+
     private static IReadOnlyList<EdhTop16Entry> TryDeserializeFetchedEntries(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -535,6 +709,15 @@ internal static class PacketArtifactStore
 
     public static string SuggestCedhMetaGapZipFileName(string commanderName, string? targetAiPlatform = null)
         => $"{CreateSafePathSegment(commanderName, "cedh-meta-gap")}-cedh-meta-gap-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+
+    /// <summary>
+    /// Suggests a safe download filename for deck-primer packet zips.
+    /// </summary>
+    /// <param name="commanderName">Commander or deck name to include in the filename.</param>
+    /// <param name="targetAiPlatform">AI platform segment to include in the filename.</param>
+    /// <returns>A safe, timestamped primer zip filename.</returns>
+    public static string SuggestPrimerZipFileName(string? commanderName, string? targetAiPlatform = null)
+        => $"{CreateSafePathSegment(commanderName, "deck-primer")}-primer-{CreateSafePathSegment(targetAiPlatform, "chatgpt")}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
 
     private static byte[] BuildArchive(params IReadOnlyList<(string FileName, string Label, string Content)>[] sectionGroups)
     {
@@ -562,6 +745,29 @@ internal static class PacketArtifactStore
                 {
                     WriteEntry(archive, "all-responses.txt", responseText);
                 }
+            }
+        }
+
+        return memoryStream.ToArray();
+    }
+
+    private static byte[] BuildArchiveWithCombinedArtifact(
+        IReadOnlyList<(string FileName, string Label, string Content)> sections,
+        IReadOnlyList<(string FileName, string Label, string Content)> combinedSections,
+        string combinedArtifactFileName)
+    {
+        using var memoryStream = new MemoryStream();
+        using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var section in sections)
+            {
+                WriteEntry(archive, section.FileName, section.Content);
+            }
+
+            var combinedArtifactText = BuildCombinedArtifactText(combinedSections);
+            if (!string.IsNullOrWhiteSpace(combinedArtifactText))
+            {
+                WriteEntry(archive, combinedArtifactFileName, combinedArtifactText);
             }
         }
 
@@ -696,4 +902,14 @@ internal sealed record RestoredCedhMetaGapArtifacts
     public string? PromptText { get; init; }
     public string? SchemaJson { get; init; }
     public IReadOnlyList<EdhTop16Entry> FetchedEntries { get; init; } = Array.Empty<EdhTop16Entry>();
+}
+
+/// <summary>
+/// Round-tripped expert-selection state persisted in 33-expert-selection.json.
+/// </summary>
+// Why: System.Text.Json will not round-trip get-only properties here; these must stay init-settable.
+internal sealed record ExpertSelectionState
+{
+    public IReadOnlyList<string> PinnedVideoIds { get; init; } = [];
+    public IReadOnlyList<string> FollowedCreators { get; init; } = [];
 }

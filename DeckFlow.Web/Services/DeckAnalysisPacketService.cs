@@ -53,7 +53,9 @@ public sealed record DeckAnalysisPacketResult(
     SetUpgradeResponse? SetUpgradeResponse = null,
     string? ImportWarning = null,
     string? ResolvedCommanderName = null,
-    string? DecklistText = null);
+    string? DecklistText = null,
+    IReadOnlyList<ContentKbExcerpt>? ExpertContextClips = null,
+    IReadOnlyDictionary<string, string>? ResolvedPinTitles = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompt packets by hydrating decks via Scryfall, banlist, and Commander Spellbook lookups, then composing the JSON-bound prompt artifacts saved to the session zip.
@@ -74,6 +76,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
+    private readonly IContentKbRelevanceService? _contentKbRelevanceService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
@@ -96,6 +99,49 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         AnalysisPromptVariantRegistry analysisPromptRegistry,
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
+        ILogger<DeckAnalysisPacketService>? logger = null,
+        RestClient? restClientOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
+        : this(
+            scryfallRestClientFactory,
+            pipelineProvider,
+            moxfieldDeckImporter,
+            archidektDeckImporter,
+            moxfieldParser,
+            archidektParser,
+            mechanicLookupService,
+            commanderBanListService,
+            scryfallSetService,
+            commanderSpellbookService,
+            analysisPromptRegistry,
+            setUpgradePromptRegistry,
+            packetCache,
+            contentKbRelevanceService: null,
+            logger,
+            restClientOverride,
+            executeCollectionAsyncOverride,
+            executeSearchAsyncOverride,
+            executeNamedAsyncOverride)
+    {
+    }
+
+    internal DeckAnalysisPacketService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipelineProvider<string> pipelineProvider,
+        IMoxfieldDeckImporter moxfieldDeckImporter,
+        IArchidektDeckImporter archidektDeckImporter,
+        MoxfieldParser moxfieldParser,
+        ArchidektParser archidektParser,
+        IMechanicLookupService mechanicLookupService,
+        ICommanderBanListService commanderBanListService,
+        IScryfallSetService scryfallSetService,
+        ICommanderSpellbookService commanderSpellbookService,
+        AnalysisPromptVariantRegistry analysisPromptRegistry,
+        SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
+        PacketSessionCache packetCache,
+        IContentKbRelevanceService? contentKbRelevanceService,
         ILogger<DeckAnalysisPacketService>? logger = null,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
@@ -124,6 +170,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _commanderBanListService = commanderBanListService;
         _scryfallSetService = scryfallSetService;
         _commanderSpellbookService = commanderSpellbookService;
+        _contentKbRelevanceService = contentKbRelevanceService;
         _analysisPromptRegistry = analysisPromptRegistry;
         _setUpgradePromptRegistry = setUpgradePromptRegistry;
         _packetCache = packetCache;
@@ -244,6 +291,18 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             TargetAiPlatformKey: request.TargetAiPlatform,
             SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? new List<string>())
                 .OrderBy(static id => id, StringComparer.Ordinal)
+                .ToArray(),
+            NormalizedPinnedVideoIds: (request.PinnedVideoIds ?? new List<string>())
+                .Select(static value => value.Trim())
+                .Where(static value => value.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static value => value, StringComparer.Ordinal)
+                .ToArray(),
+            NormalizedFollowedCreators: (request.FollowedCreators ?? new List<string>())
+                .Select(static value => value.Trim().ToLowerInvariant())
+                .Where(static value => value.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static value => value, StringComparer.Ordinal)
                 .ToArray());
     }
 
@@ -481,8 +540,47 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         string? referenceText = null;
         string? analysisPromptText = null;
         string? setUpgradePromptText = null;
+        IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null;
+        IReadOnlyDictionary<string, string> resolvedPinTitles = new Dictionary<string, string>(StringComparer.Ordinal);
         DeckAnalysisResponse? analysisResponse = null;
         SetUpgradeResponse? setUpgradeResponse = null;
+
+        var replayedExpertContextJson = string.IsNullOrWhiteSpace(request.ExpertContextJson)
+            ? null
+            : request.ExpertContextJson;
+        if (replayedExpertContextJson is not null)
+        {
+            try
+            {
+                kbExcerpts = JsonSerializer.Deserialize<IReadOnlyList<ContentKbExcerpt>>(replayedExpertContextJson);
+            }
+            catch (JsonException)
+            {
+                kbExcerpts = null;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ExpertSelectionJson))
+        {
+            try
+            {
+                var restoredSelection = JsonSerializer.Deserialize<ExpertSelectionState>(
+                    request.ExpertSelectionJson,
+                    PacketArtifactStore.ExpertSelectionJsonOptions);
+                if (restoredSelection?.PinnedVideoIds?.Count > 0)
+                {
+                    request.PinnedVideoIds = [.. restoredSelection.PinnedVideoIds];
+                }
+
+                if (restoredSelection?.FollowedCreators?.Count > 0)
+                {
+                    request.FollowedCreators = [.. restoredSelection.FollowedCreators];
+                }
+            }
+            catch (JsonException)
+            {
+            }
+        }
 
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
@@ -598,11 +696,25 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     commanderName = oracleCommanderName;
                 }
 
+                if (replayedExpertContextJson is null && _contentKbRelevanceService is not null)
+                {
+                    kbExcerpts = await _contentKbRelevanceService
+                        .GetMergedClipsAsync(
+                            new ExpertSelection(
+                                request.PinnedVideoIds,
+                                new HashSet<string>(request.FollowedCreators, StringComparer.OrdinalIgnoreCase)),
+                            commanderName,
+                            request.TargetCommanderBracket,
+                            deckArchetypes: null,
+                            ct: cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 var includeCardVersions = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestions) && request.IncludeCardVersions;
                 var analysisDecklistText = includeCardVersions
                     ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
                     : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions);
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions, kbExcerpts);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -613,6 +725,22 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             {
                 setUpgradePromptText = BuildSetUpgradePrompt(request, decklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
             }
+        }
+
+        if (request.PinnedVideoIds.Count > 0 || request.FollowedCreators.Count > 0)
+        {
+            request.ExpertSelectionJson = JsonSerializer.Serialize(
+                new ExpertSelectionState
+                {
+                    PinnedVideoIds = [.. request.PinnedVideoIds],
+                    FollowedCreators = [.. request.FollowedCreators]
+                },
+                PacketArtifactStore.ExpertSelectionJsonOptions);
+        }
+
+        if (_contentKbRelevanceService is not null && request.PinnedVideoIds.Count > 0)
+        {
+            resolvedPinTitles = await _contentKbRelevanceService.ResolvePinTitlesAsync(request.PinnedVideoIds, cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogInformation(
@@ -638,7 +766,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             setUpgradeResponse,
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
-            DecklistText: decklistText);
+            DecklistText: decklistText,
+            ExpertContextClips: kbExcerpts,
+            ResolvedPinTitles: resolvedPinTitles);
 
         // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
         // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
@@ -1028,13 +1158,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null)
     {
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
             commanderName, selectedQuestionIds, bannedCards,
-            comboResult, includeCardVersions);
+            comboResult, includeCardVersions, kbExcerpts);
     }
 
 

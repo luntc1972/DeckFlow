@@ -3,9 +3,9 @@
 @inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 
 @{
-    var analyzeActive = Model is DeckPageTab.DeckAnalysis or DeckPageTab.DeckComparison or DeckPageTab.CedhMetaGap;
+    var analyzeActive = Model is DeckPageTab.DeckAnalysis or DeckPageTab.DeckComparison or DeckPageTab.CedhMetaGap or DeckPageTab.DeckPrimer;
     var buildActive = Model is DeckPageTab.Sync or DeckPageTab.Convert;
-    var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup or DeckPageTab.JudgeQuestions;
+    var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup or DeckPageTab.JudgeQuestions or DeckPageTab.ContentKb;
     var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
 }
 
@@ -18,6 +18,7 @@
             <a class="tool-nav__link @(Model == DeckPageTab.DeckAnalysis ? "is-active" : string.Empty)" href="@Url.Content("~/deck-analysis")">Deck Analysis</a>
             <a class="tool-nav__link @(Model == DeckPageTab.DeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/deck-comparison")">Deck Comparison</a>
             <a class="tool-nav__link @(Model == DeckPageTab.CedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/cedh-meta-gap")">cEDH Meta Gap</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.DeckPrimer ? "is-active" : string.Empty)" href="@Url.Content("~/deck-primer")">Deck Primer</a>
         </div>
     </div>
     <div class="tool-nav__group @(buildActive ? "is-active" : string.Empty)" data-tool-nav-group>
@@ -37,6 +38,10 @@
             <a class="tool-nav__link @(Model == DeckPageTab.CardLookup ? "is-active" : string.Empty)" href="@Url.Content("~/card-lookup")">Card Lookup</a>
             <a class="tool-nav__link @(Model == DeckPageTab.MechanicLookup ? "is-active" : string.Empty)" href="@Url.Content("~/mechanic-lookup")">Mechanic Rules</a>
             <a class="tool-nav__link @(Model == DeckPageTab.JudgeQuestions ? "is-active" : string.Empty)" href="@Url.Content("~/judge-questions")">Ask a Judge</a>
+            @if (FlagCache.IsEnabled("content.kb.enabled"))
+            {
+                <a class="tool-nav__link @(Model == DeckPageTab.ContentKb ? "is-active" : string.Empty)" href="@Url.Action("Index", "ContentKb")">Knowledge Base</a>
+            }
         </div>
     </div>
     <div class="tool-nav__group @(categoriesActive ? "is-active" : string.Empty)" data-tool-nav-group>

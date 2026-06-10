@@ -4,7 +4,11 @@ namespace DeckFlow.Web.Models;
 /// Single source of truth for the set of AI platforms DeckFlow supports.
 /// Adding a new platform requires one entry in <see cref="All"/>.
 /// </summary>
-public sealed record AiPlatform(string Key, string DisplayName, string Description)
+/// <param name="Key">Stable platform key used in form posts and request context.</param>
+/// <param name="DisplayName">Human-readable platform name shown in the UI.</param>
+/// <param name="Description">Short summary of the platform's prompt contract.</param>
+/// <param name="PasteWarningBytes">UTF-8 byte size above which the web paste UI may reject the prompt; null = no practical limit.</param>
+public sealed record AiPlatform(string Key, string DisplayName, string Description, int? PasteWarningBytes = null)
 {
     /// <summary>ChatGPT — OpenAI's GPT-family models with markdown-headed prompts.</summary>
     public static readonly AiPlatform ChatGpt = new(
@@ -22,7 +26,8 @@ public sealed record AiPlatform(string Key, string DisplayName, string Descripti
     public static readonly AiPlatform Gemini = new(
         Key: "Gemini",
         DisplayName: "Gemini",
-        Description: "Google's Gemini models — markdown prompts with persona scaffold and schema-strictness language.");
+        Description: "Google's Gemini models — markdown prompts with persona scaffold and schema-strictness language.",
+        PasteWarningBytes: 32_768);
 
     /// <summary>
     /// All recognised platforms in display order. Adding a new entry here

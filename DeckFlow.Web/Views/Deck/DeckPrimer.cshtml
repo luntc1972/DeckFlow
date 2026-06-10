@@ -1,0 +1,298 @@
+@using System.Text
+@using System.Text.Json
+@model DeckFlow.Web.Models.DeckPrimerViewModel
+@{
+    ViewData["Title"] = "Deck Primer";
+    var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
+    var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
+    var selectedBracket = DeckFlow.Web.Models.CommanderBracketCatalog.Find(Model.Request.TargetCommanderBracket)
+        ?? DeckFlow.Web.Models.CommanderBracketCatalog.Find("Optimized")
+        ?? commanderBrackets.First();
+    var selectedSectionIds = Model.Request.SelectedSectionIds.Count > 0
+        ? DeckFlow.Web.Models.PrimerSectionCatalog.NormalizeSelections(Model.Request.SelectedSectionIds, selectedBracket.Value)
+        : DeckFlow.Web.Models.PrimerSectionCatalog.GetPresetForBracket(selectedBracket.Value);
+    var selectedSectionSet = new HashSet<string>(selectedSectionIds, StringComparer.OrdinalIgnoreCase);
+    var cedhOnlySectionIdsJson = JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.CedhOnlySectionIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+    var casualOnlySectionIdsJson = JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.CasualOnlySectionIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+    var promptBytes = string.IsNullOrWhiteSpace(Model.PrimerPromptText) ? 0 : Encoding.UTF8.GetByteCount(Model.PrimerPromptText);
+    var promptKb = promptBytes / 1024d;
+    var pasteWarn = !string.IsNullOrWhiteSpace(Model.PrimerPromptText)
+        && aiPlatform.PasteWarningBytes is int cap
+        && promptBytes > cap;
+    var packetTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
+        AriaLabel: "Deck Primer workflow steps",
+        TabIdPrefix: "primer-step-tab",
+        PanelIdPrefix: "primer-step-panel",
+        DataShowStepAttribute: "primer-show-step",
+        Steps: new[]
+        {
+            new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
+            new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Primer", !string.IsNullOrWhiteSpace(Model.Request.TargetCommanderBracket)),
+            new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Results", false)
+        });
+}
+
+<section class="hero">
+    <h1>Deck Primer</h1>
+    <p class="page-lede">Generate a paste-ready deck primer prompt for ChatGPT, Claude, or Gemini.</p>
+    <p class="lede">Import the deck, choose the bracket and primer sections, then generate the prompt text you want your AI to expand into a polished deck primer.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+<div class="info-banner">
+    Follow the steps in order. The generated prompt targets the AI you selected and the downloaded zip preserves the request so you can restore it later.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
+{
+    <div class="warning-banner" role="status">@Model.ImportWarning</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.TimingSummary))
+{
+    <details class="timing-summary">
+        <summary>Generation timing</summary>
+        <pre>@Model.TimingSummary</pre>
+    </details>
+}
+
+<form method="post"
+      action="@Url.Content("~/deck-primer")"
+      class="deck-form"
+      data-primer-form
+      data-busy-title="Building Deck Primer"
+      data-busy-message="Resolving the deck and generating primer prompts.">
+    <div class="chatgpt-sticky-download" role="region" aria-label="Save current primer session">
+        <span class="chatgpt-sticky-download__label">Save the current primer request and prompt variants to a zip file you can re-import later.</span>
+        <button type="submit"
+                class="run-button chatgpt-sticky-download__button"
+                data-no-busy
+                formaction="@Url.Content("~/deck-primer/download")"
+                formmethod="post"
+                formnovalidate>
+            Download session (.zip)
+        </button>
+    </div>
+    @Html.AntiForgeryToken()
+
+    <details class="chatgpt-resume">
+        <summary>Resume from a saved session (.zip)</summary>
+        <p class="sync-column__hint">
+            Choose a <code>.zip</code> file you previously downloaded from this page to restore the bracket, AI target, and selected primer sections.
+        </p>
+        <label class="field">
+            <span>Saved session file</span>
+            <input type="file" name="zipFile" accept=".zip,application/zip" />
+        </label>
+        <button type="submit"
+                class="run-button"
+                formaction="@Url.Content("~/deck-primer/upload")"
+                formenctype="multipart/form-data"
+                formmethod="post"
+                formnovalidate>
+            Upload &amp; Resume
+        </button>
+    </details>
+
+    @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
+
+    <section class="result-panel">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <h2>Import the deck</h2>
+                <p>Use the same URL-or-paste import flow as the other analyze tools.</p>
+            </div>
+            <span class="chatgpt-step-badge">Required</span>
+        </div>
+
+        <div class="sync-column__body">
+            <label class="field">
+                <span>Input method</span>
+                <select name="DeckInputSource" data-df-select>
+                    <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText)">Paste text</option>
+                    <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl)">Use public deck URL</option>
+                </select>
+            </label>
+            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="primer-deck-url">
+                <span>Public deck URL</span>
+                <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" autocomplete="url" inputmode="url" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
+                <small class="sync-column__hint">Required for URL import. Paste a public Moxfield or Archidekt deck URL.</small>
+                @await Html.PartialAsync("_DeckFlowBridgeHint")
+            </label>
+            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="primer-deck-text">
+                <span>Deck export text</span>
+                <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+                <small class="sync-column__hint">Required for paste import. Paste the deck export text directly.</small>
+                @await Html.PartialAsync("_MoxfieldBulkEditHint", "Build Primer")
+            </label>
+        </div>
+    </section>
+
+    <section class="result-panel">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <h2>Choose the AI target, bracket, and primer sections</h2>
+                <p>Bracket presets seed the section list for first-time visits, while later bracket visits restore your saved custom selection.</p>
+            </div>
+            <span class="chatgpt-step-badge">Customize the primer</span>
+        </div>
+
+        @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
+
+        <div class="bracket-callout">
+            <p class="bracket-callout__label">Required before generating</p>
+            <label class="field">
+                <span>Target Commander bracket <small>(required)</small></span>
+                <select name="TargetCommanderBracket"
+                        required
+                        aria-required="true"
+                        data-df-select
+                        data-primer-bracket
+                        data-cedh-only-ids='@cedhOnlySectionIdsJson'
+                        data-casual-only-ids='@casualOnlySectionIdsJson'>
+                    @foreach (var bracket in commanderBrackets)
+                    {
+                        <option value="@bracket.Value"
+                                selected="@(string.Equals(selectedBracket.Value, bracket.Value, StringComparison.OrdinalIgnoreCase))"
+                                data-preset-ids="@JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.GetPresetForBracket(bracket.Value))">@bracket.Label</option>
+                    }
+                </select>
+                <small class="sync-column__hint">The bracket preset controls the default primer emphasis and gates cEDH-only versus casual-only sections.</small>
+            </label>
+        </div>
+
+        <div class="info-banner">
+            Pick as many sections as you want. The generated prompt asks @aiPlatform.DisplayName to write a coherent primer that covers every checked section in order.
+        </div>
+
+        @foreach (var group in DeckFlow.Web.Models.PrimerSectionCatalog.Groups)
+        {
+            var visibleSections = group.Sections
+                .Where(entry =>
+                    string.IsNullOrWhiteSpace(entry.BracketGate)
+                    || (string.Equals(entry.BracketGate, "cedh-only", StringComparison.OrdinalIgnoreCase) && string.Equals(selectedBracket.Value, "cEDH", StringComparison.OrdinalIgnoreCase))
+                    || (string.Equals(entry.BracketGate, "casual-only", StringComparison.OrdinalIgnoreCase) && !string.Equals(selectedBracket.Value, "cEDH", StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            var visibleSelectedCount = visibleSections.Count(entry => selectedSectionSet.Contains(entry.Id));
+            <details class="result-panel nested-panel primer-group" data-primer-group="@group.Id" open>
+                <summary class="primer-group__summary">
+                    <span>@group.Label</span>
+                    <span class="primer-group__badge">@visibleSelectedCount/@visibleSections.Count sections selected</span>
+                </summary>
+                <div class="primer-group__body">
+                    @foreach (var entry in group.Sections)
+                    {
+                        var isCedhOnly = string.Equals(entry.BracketGate, "cedh-only", StringComparison.OrdinalIgnoreCase);
+                        var isCasualOnly = string.Equals(entry.BracketGate, "casual-only", StringComparison.OrdinalIgnoreCase);
+                        var isAvailable = !isCedhOnly && !isCasualOnly
+                            || (isCedhOnly && string.Equals(selectedBracket.Value, "cEDH", StringComparison.OrdinalIgnoreCase))
+                            || (isCasualOnly && !string.Equals(selectedBracket.Value, "cEDH", StringComparison.OrdinalIgnoreCase));
+                        <div class="primer-section"
+                             data-primer-section-row
+                             data-primer-group-id="@group.Id"
+                             data-bracket-gate="@entry.BracketGate"
+                             @(isAvailable ? null : "hidden")>
+                            <label class="primer-section__label">
+                                <input type="checkbox"
+                                       name="SelectedSectionIds"
+                                       value="@entry.Id"
+                                       data-primer-section-checkbox
+                                       checked="@(selectedSectionSet.Contains(entry.Id) ? "checked" : null)"
+                                       disabled="@(isAvailable ? null : "disabled")" />
+                                <span class="primer-section__copy">
+                                    <span class="primer-section__title">@($"{entry.Number}. {entry.Title}")</span>
+                                    @if (isCedhOnly)
+                                    {
+                                        <span class="primer-section__gate">cEDH only</span>
+                                    }
+                                    else if (isCasualOnly)
+                                    {
+                                        <span class="primer-section__gate">Brackets 1-4 only</span>
+                                    }
+                                </span>
+                            </label>
+                            <details class="primer-section__help">
+                                <summary>What this adds</summary>
+                                <p>@entry.HelpText</p>
+                            </details>
+                        </div>
+                    }
+                </div>
+            </details>
+        }
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-primer")">Start Over</button>
+            <button type="submit" class="run-button">Generate Primer</button>
+        </div>
+    </section>
+
+    <section class="result-panel">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <h2>Copy the generated primer prompt</h2>
+                <p>The prompt below is the variant for the currently selected AI platform.</p>
+            </div>
+            <span class="chatgpt-step-badge">Paste-ready output</span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.SuggestedChatTitle))
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Suggested @aiPlatform.DisplayName conversation title</h3>
+                        <p>Rename the AI conversation to this before pasting the primer prompt.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="primer-chat-title">Copy</button>
+                </div>
+                <input id="primer-chat-title" type="text" readonly value="@Model.SuggestedChatTitle" />
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
+        {
+            <section class="result-panel nested-panel summary-panel">
+                <h3>Deck Summary</h3>
+                <pre spellcheck="false">@Model.InputSummary</pre>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.PrimerPromptText))
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>primer.txt</h3>
+                        <p>Paste this into @aiPlatform.DisplayName to have it draft the primer in the structure implied by your selected sections.</p>
+                        <p class="prompt-size-note">Prompt size: ~@promptKb.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) KB</p>
+                        @if (pasteWarn)
+                        {
+                            <p class="prompt-size-note prompt-size-note--warn" role="status">⚠️ Large prompt — may exceed @aiPlatform.DisplayName's paste limit. Trim sections or paste in parts if needed.</p>
+                        }
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="primer-output">Copy</button>
+                </div>
+                <textarea autocomplete="off" id="primer-output" readonly spellcheck="false">@Model.PrimerPromptText</textarea>
+            </section>
+        }
+        else
+        {
+            <div class="info-banner">
+                Generate the primer to see the selected-platform prompt here.
+            </div>
+        }
+    </section>
+</form>
+
+<script src="@Url.Content("~/js/primer-selection.js")"></script>

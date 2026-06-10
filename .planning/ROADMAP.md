@@ -7,6 +7,7 @@
 - ✅ **v1.2 Multi-AI Prompts** — Phases 9-10 (shipped 2026-05-13) — see `.planning/milestones/v1.2-ROADMAP.md`
 - ✅ **v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene** — Phases 11-15 + 999.1-999.8 (shipped 2026-05-23) — see `.planning/milestones/v1.3-ROADMAP.md`
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
+- ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 
 ## Phases
 
@@ -105,9 +106,41 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 </details>
 
+<details>
+<summary>✅ v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (Phases 28-33) — SHIPPED 2026-06-10</summary>
+
+**Milestone Goal:** Ship the Deck Primer Generator as a fourth paste-ready workflow, wire Content KB knowledge into deck-analysis prompts, and clear v1.4 quality debt.
+
+- [x] Phase 28: Housekeeping Bundle — HSK-03/04 (HSK-02 re-demoted) — completed 2026-06-04
+- [x] Phase 29: Core XML-Doc Backfill + Gate Widen — HSK-01 — completed 2026-06-05
+- [x] Phase 30: Content KB Integration — KBI-01..06; prod UAT passed — completed 2026-06-07
+- [x] Phase 32: Expert Context Selection — SEL-01..06; pin/follow/evergreen 4-tier merge — completed 2026-06-08
+- [x] Phase 33: Admin Content KB Curation UX — KBUX-01/02 — completed 2026-06-09
+- [x] Phase 31: Deck Primer Generator — PRM-01..12; fourth paste-ready workflow — completed 2026-06-09
+
+**Audit:** passed — 30/30 requirements; SEL-02 expert-pin bug diagnosed + fixed at close (`a106c6a`). Full phase details: `.planning/milestones/v1.5-ROADMAP.md`.
+
+</details>
+
 ## Backlog
 
-### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01)
+### Creator Philosophy-Profile / Content KB v2 (★ NEXT-MILESTONE CANDIDATE — user-flagged 2026-06-10)
+
+**Goal:** Make the Content KB earn its keep — replace/layer the per-video "clips + tags" distillation with a per-creator **philosophy profile** (distilled style-card + RAG grounding) that conditions analysis in the creator's voice. The actual reason the KB exists (creator-as-lens).
+
+**GATE (finish first):** validate that KB expert-context actually lifts the ChatGPT answer — run **Spike 001 kb-value-ab** to completion: manual A/B of `with-context.txt` vs `baseline.txt` against the rubric (`.planning/spikes/001-kb-value-ab/README.md`), record verdict. Tracked by todo `validate-kb-value.md`. Marginal lift → reconsider the whole KB instead of building the profile.
+
+**Detail:** full shape in seed `.planning/seeds/creator-philosophy-profile.md` (style-card synthesizer + RAG; provenance per principle; contradictions-preserved; temporal drift / recency weight; hallucination gate tracing every principle to a verified passage; incremental refresh; video-level curation). Reuses existing transcripts/clips/harvest+refresh; new work = profile synthesizer + persona injection into DeckAnalysis + provenance/contradiction model.
+
+**Related KB follow-ups to fold in:** SEL-02 expert-pin live-pin re-confirm (when `content.kb.enabled` next ON); flip KB out of dark mode once value is proven.
+
+**Cleanup:** delete throwaway `DeckFlow.Web.Tests/Spike001KbValueAbHarness.cs` (untracked; writes files on run) once the spike verdict is recorded.
+
+**Requirements:** TBD (scope at `/gsd-new-milestone`). **Plans:** 0.
+
+### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
+
+> Investigation 2026-06-04 (codex 0.136.0, Phase 28-03 / `28-DISCOVERY.md`): `--sandbox read-only` documented as "can read files in workspace" (structural evidence from binary). No `--no-tools` flag exists. `deny_read` glob mechanism requires `codex-linux-sandbox` + bubblewrap infrastructure not present, with no documented global read disable. Re-investigable when a future codex version provides documented read-blocking. D-03 re-demote applied; user ratified 2026-06-04.
 
 **Goal:** Add the `codex` provider to the Phase 21.2 distill backend factory, with a PROVEN tool/read-isolation boundary for untrusted transcript input. codex `exec` is an agent and `--sandbox read-only` blocks writes but not reads, so a prompt-injected transcript could read+echo local files; ship codex only once the read boundary is demonstrably closed (verified no-tools mode, OR a sandbox/container exposing only stdin). claude backend (Phase 21.2) already covers the subscription-distill use case, so codex is a nice-to-have second provider — low priority.
 **Requirements:** KB-12 (codex CLI distill backend with proven untrusted-input read isolation)
@@ -206,6 +239,29 @@ Plans:
 
 - [x] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
 
+## Progress
+
+**Execution Order (v1.5):**
+Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends on Phase 28 (KB artifact state clean before flag flip). Phase 31 depends on Phase 29 (Core doc-clean before new Core services added) and on the PRM-01 spike completing inside Phase 31.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
+| 29. Core XML-Doc Backfill + Gate Widen | 5/5 | Complete    | 2026-06-05 |
+| 30. Content KB Integration | 1/4 | In Progress|  |
+| 31. Deck Primer Generator | 0/TBD | Not started | - |
+
+### Phase 33: Admin Content KB Curation UX (runs after Phase 32, before Phase 31 — higher priority than 31)
+
+**Goal:** An admin can quickly locate a specific KB entry to publish/unpublish in a list that has grown long — by filtering/searching on tags, title/name, and creator/source — and scan the entries list comfortably (readability improvements). Targets `AdminContentKbController.Index` + `Views/AdminContentKb/Index.cshtml`.
+**Requirements**: KBUX-01 (filter/search entries by title/name, source/creator, tags), KBUX-02 (readability improvements for long entry lists)
+**Depends on:** Phase 32 (expert-context curation surface) and Phase 30 (admin KB view); no dependency on Phase 31
+**Plans:** 2 plans
+
+Plans:
+- [x] 33-01-PLAN.md — Client-side instant filter/search box (title, source, tags) over the entries list with live count + empty state
+- [x] 33-02-PLAN.md — Readability: zebra rows, sticky header, hover/focus row highlight, clean tag wrapping (mobile-safe)
+
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 started 2026-05-23 (phase numbering reset)*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10*

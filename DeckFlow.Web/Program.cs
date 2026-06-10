@@ -24,7 +24,9 @@ using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.PromptBuilders.Primer;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web;
 
@@ -177,7 +179,22 @@ public partial class Program
                 new DeckFlow.Core.Content.ContentSiteIndexStore(
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
+            builder.Services.AddSingleton(sp => new ContentKbArchetypeDeriver(
+                sp.GetRequiredService<ICategoryKnowledgeStore>(),
+                sp.GetRequiredService<ILogger<ContentKbArchetypeDeriver>>()));
+            builder.Services.AddSingleton<IContentKbRelevanceService>(sp => new ContentKbRelevanceService(
+                sp.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>(),
+                sp.GetRequiredService<ContentKbArtifactPathResolver>(),
+                sp.GetRequiredService<DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache>(),
+                sp.GetRequiredService<ContentKbArchetypeDeriver>(),
+                sp.GetRequiredService<ILogger<ContentKbRelevanceService>>()));
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
+            // Admin YouTube export: transient lister so each request gets a factory-managed
+            // HttpClient (handler rotation) for the per-video YoutubeExplode metadata calls.
+            builder.Services.AddHttpClient("youtube-metadata", c => c.Timeout = TimeSpan.FromMinutes(5));
+            builder.Services.AddTransient<DeckFlow.Core.Integration.IYouTubeChannelVideoLister>(sp =>
+                new DeckFlow.Core.Integration.YouTubeChannelVideoLister(
+                    sp.GetRequiredService<IHttpClientFactory>().CreateClient("youtube-metadata")));
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
             builder.Services.AddDeckFlowHarvest(builder.Environment);
@@ -291,6 +308,10 @@ public partial class Program
             builder.Services.AddSingleton<IMetaGapPromptVariant, ClaudeMetaGapPromptVariant>();
             builder.Services.AddSingleton<IMetaGapPromptVariant, GeminiMetaGapPromptVariant>();
             builder.Services.AddSingleton<MetaGapPromptVariantRegistry>();
+            builder.Services.AddSingleton<IPrimerPromptVariant, ChatGptPrimerPromptVariant>();
+            builder.Services.AddSingleton<IPrimerPromptVariant, ClaudePrimerPromptVariant>();
+            builder.Services.AddSingleton<IPrimerPromptVariant, GeminiPrimerPromptVariant>();
+            builder.Services.AddSingleton<PrimerPromptVariantRegistry>();
 
             builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
                 new DeckAnalysisPacketService(
@@ -307,6 +328,7 @@ public partial class Program
                     sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                     sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetRequiredService<IContentKbRelevanceService>(),
                     sp.GetService<ILogger<DeckAnalysisPacketService>>()));
             builder.Services.AddScoped<IDeckComparisonService>(sp =>
                 new DeckComparisonService(
@@ -333,6 +355,19 @@ public partial class Program
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>()));
+            builder.Services.AddScoped<IDeckPrimerPacketService>(sp =>
+                new DeckPrimerPacketService(
+                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
+                    sp.GetRequiredService<IArchidektDeckImporter>(),
+                    sp.GetRequiredService<MoxfieldParser>(),
+                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetRequiredService<IEdhTop16Client>(),
+                    sp.GetRequiredService<ICategoryKnowledgeStore>(),
+                    sp.GetRequiredService<PrimerPromptVariantRegistry>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetRequiredService<IOptions<AiPlatformOptions>>(),
+                    sp.GetService<ILogger<DeckPrimerPacketService>>()));
             builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
             builder.Services.AddSingleton<ArchidektCacheJobService>();
             builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());

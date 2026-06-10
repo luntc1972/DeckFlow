@@ -157,6 +157,49 @@
 
 ---
 
+## Milestone: v1.5 — Deck Primer Generator + Content KB Integration + Housekeeping
+
+**Shipped:** 2026-06-10
+**Phases:** 6 (28-33) | **Plans:** 25 | **Commits:** 219 | **Timeline:** 2026-06-03 → 2026-06-09 (7 days)
+
+### What Was Built
+
+- Deck Primer Generator — fourth paste-ready workflow (`/deck-primer`): 31-section catalog, Spellbook combo grounding, bracket-routed matchups, per-AI artifacts (PRM-01..12).
+- Content KB → analysis integration: Expert Context block in all 3 prompt variants + "What Experts Say" panel (KBI-01..06); pin/follow/evergreen expert selection over a 4-tier fill merge (SEL-01..06); admin curation-list filter + readability (KBUX-01/02).
+- Housekeeping: DeckFlow.Core XML-doc backfill + doc-gate widen (HSK-01); VERIFICATION/artifact hygiene (HSK-03/04).
+- Quality infra at close: Vitest+jsdom browser test runner + first GitHub Actions CI; expert-pin injection bug fixed; pin-id derivation unified.
+
+### What Worked
+
+- **Visual-verify caught real bugs unit tests missed** — Phase 31 visual-verify surfaced 3 production bugs; the pattern keeps paying off for UI phases.
+- **Milestone audit caught the paper-trail gaps** — the first audit (`gaps_found`) correctly flagged missing VERIFICATION.md ×4, the SEL orphan, and the SEL-02 functional bug before close; backfill + fix → clean re-audit.
+- **Adversarial diagnosis beat the consensus hypothesis** — the SEL-02 pin bug had a "known" cause (pin-id mismatch) repeated across memory + two audit agents; disciplined refutation (read-invariant → dead code) found the real cause (ParseRowsAsync dropping parse-failed pin rows). An unverified hypothesis repeated three times is still unverified.
+- **Codex-codes / Claude-reviews held** — the SEL-02 TDD fix went RED→GREEN via Codex with Claude catching the auto-tier scoping gap in review before it landed.
+
+### What Was Inefficient
+
+- **Orphaned requirements** — Phase 32 (SEL) was inserted mid-milestone and its REQ-IDs were never added to REQUIREMENTS.md, only caught at milestone audit. Inserting a phase should add its requirements to the traceability table at insert time.
+- **VERIFICATION.md skipped at phase close** — 4 of 6 phases shipped without one; backfilling retroactively is more work than writing at close.
+- **Subagent final-message truncation** — the integration checker and debug-session-manager both truncated their synthesis; recovered via persisted observations + finishing the trace inline. Agents that WRITE their output (the VERIFICATION backfill) were unaffected.
+
+### Patterns Established
+
+- **Testable-TS seam under `module:none`** — extract pure logic into a global-assignment IIFE (`globalThis.X = {...}`, no export) so it compiles under the browser tsc AND imports under Vitest/esbuild; consumers reference via top-level `declare const`. Test files live outside `wwwroot/ts/`.
+- **First real CI** — GitHub Actions: `npm ci` → `dotnet build` → `dotnet test` → `npm test`; npm precedes build because the C# build invokes local tsc.
+
+### Key Lessons
+
+- Refute the loudest hypothesis before building on it — a misdiagnosis repeated three times is still a misdiagnosis.
+- Add inserted-phase requirements to the traceability table immediately, not at audit.
+- Write VERIFICATION.md at phase close; retroactive backfill is the milestone-audit tax.
+
+### Cost Observations
+
+- Model mix: Opus orchestration (main thread) + Sonnet subagents (verifiers, integration checker, doc backfill) + Codex (gpt-5.4) for all implementation/fix code.
+- Notable: parallel Sonnet agents for the 4 VERIFICATION.md backfills (independent files) — agent-writes-file sidesteps the subagent truncation issue.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

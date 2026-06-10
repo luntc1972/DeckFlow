@@ -38,7 +38,8 @@ public sealed class AiPlatformExtensionTests
             IReadOnlyList<string> selectedQuestionIds,
             IReadOnlyList<string> bannedCards,
             CommanderSpellbookResult? comboResult,
-            bool includeCardVersions) =>
+            bool includeCardVersions,
+            IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null) =>
             "<test-analysis-stub/>";
     }
 

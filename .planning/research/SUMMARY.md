@@ -1,122 +1,301 @@
-# v1.4 Research Synthesis — Roadmapper Input
+# Project Research Summary
 
-**Milestone:** DeckFlow v1.4 — Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup
-**Synthesized:** 2026-05-23
-**Confidence:** HIGH for existing-pattern reuse + library version selection; MEDIUM for Whisper $/min figures (vendor-pricing volatility).
+**Project:** DeckFlow v1.5 — Deck Primer Generator + Content KB Integration + Housekeeping
+**Domain:** MTG Commander / cEDH paste-ready AI prompt workflow (brownfield ASP.NET 10 app)
+**Researched:** 2026-06-03
+**Confidence:** HIGH
 
-> **SCOPE UPDATE 2026-05-23:** Cluster D (Gemini paste-limit unblock — GEM-01/02) REMOVED from v1.4 by user decision. Deferred to v1.5. The Phase 3 entry in build order below (Gemini split-message) is informational only — REQUIREMENTS.md is authoritative; roadmapper should skip it. Critical path now: A → C → E (#5 → #6 → #7 → #8). v1.4 = 4 clusters (MODAL, DOC, AMOB, KB) / 16 REQ-IDs.
+## Executive Summary
 
-## 1. Stack Additions Quick-Ref
+DeckFlow v1.5 is a brownfield milestone with three tracks of work on top of a fully operational
+ASP.NET 10 / RestSharp / Polly / Razor MVC system. Track A (Deck Primer Generator) adds a
+fourth packet workflow — a peer of DeckAnalysis / DeckComparison / CedhMetaGap — that generates
+a complete Moxfield-formatted primer prompt in one round-trip from decklist + bracket selection.
+Track B (Content KB Integration) wires the v1.4 Knowledge Base into deck-analysis prompts as
+expert-grounded context ("What Experts Say" RAG-style injection). Track C (Housekeeping) closes
+carry-forward debt: 186 undocumented Core sites, the deferred KB-12 Codex distill backend, and
+VERIFICATION.md hygiene. The defining characteristic of this milestone is that no new
+dependencies are required — every building block (data sources, HTTP infrastructure, prompt
+variants, artifact storage, session caching, feature flags) is already registered in DI and
+proven in production. The work is composition, not acquisition.
 
-- **YoutubeExplode 6.6.0** — YouTube transcript + ASR caption fetch (no API key, no quota); the only viable path because `Google.Apis.YouTube.v3.captions.download` returns 403 for third-party videos (Issue Tracker 241669016 verified)
-- **OpenAI 2.10.0** — single SDK for Whisper transcription (`AudioClient`) + chat summarization + Structured Outputs tagging; integrated via `HttpClientPipelineTransport(httpClient)` seam to stay inside `IHttpClientFactory` lifecycle
-- **System.ServiceModel.Syndication 10.0.2** — Microsoft RSS/Atom for podcast feeds; iTunes namespace via `ElementExtensions` (~30 LOC helper)
-- **(Gemini, no new package)** — hand-roll Gemini REST via existing RestSharp + named Polly pipeline if Path B chosen; reject `Google.GenAI` 1.7.0 + `Google_GenerativeAI` 3.6.6 (transitive `Microsoft.Extensions.AI` / Newtonsoft baggage)
-- **(Spend ledger, no new package)** — new `whisper_spend_ledger` table via existing `IRelationalDialect` + `RelationalDatabaseConnection`; `numeric(10,4)` (PG) / TEXT (SQLite)
-- **(Admin mobile + modal + doc-comments, no packages)** — CSS factoring + native `<dialog>` + csproj NoWarn strip; explicitly NO Bootstrap/Tailwind/StyleCop
+The recommended build order is: KB-12 Codex backend (fast win, pure Core, no web surface) ->
+Core XML-doc backfill -> Core doc gate widen -> Content KB integration (smaller web surface,
+validates the prod flag-flip path) -> Deck Primer Generator (largest, most visible, no upstream
+blockers from the other tracks). Tracks A and B are independent of each other; either can ship
+first, but Track A is the milestone headline and should be the majority focus. The combo-data
+spike (spike-combo-data-to-primer-grounding) must run before the primer service is implemented
+to confirm Spellbook field richness and prompt-size characteristics — it is the only sequencing
+hard dependency within Track A.
 
-**Five new named HttpClients:** `youtube-explode`, `podcast-rss`, `podcast-audio`, `openai`, `gemini-rest` (each with matching named Polly pipeline). **Five new env vars:** `OPENAI_API_KEY`, `DECKFLOW_GEMINI_API_KEY`, `DECKFLOW_WHISPER_MONTHLY_CAP_USD`, optional `DECKFLOW_WHISPER_CAP_THRESHOLD_PCT`, `DECKFLOW_WHISPER_KILL_SWITCH` — all `sync: false` on Render.
+The three most consequential risks are: (1) primer prompts blowing the Gemini paste cap due to
+31-section combinatorics — measure prompt size during the spike and gate Gemini on the primer
+the same way it is gated on analysis; (2) AI hallucinating combo lines because the grounded and
+speculative sections are not structurally fenced in the emitted prompt — model these as two
+distinct code blocks with explicit null-state handling; and (3) KB injection injecting irrelevant
+content due to tag-vocabulary mismatch between the Tagger's functional categories and KB content
+authors' strategic tags — enforce AND-based two-dimension tag matching with a minimum threshold,
+and audit the live tag distribution before writing any matching code.
 
-## 2. Feature Cluster Quick-Map
+## Key Findings
 
-| Cluster | Features (FEATURES.md) | Complexity | Critical Dep | Risk |
-|---------|------------------------|------------|--------------|------|
-| **A. WDG-04 Focus-Trapped Modal** | Feature 6 | S (1-2 plans) | None — pre-req for C + E | LOW |
-| **B. Doc-Comment NoWarn Backlog** | Feature 7 (~88 types) | M (2-4 plans, mechanical) | None; split into early + late halves | LOW (sequencing trap if NoWarn stripped before backfill) |
-| **C. Admin Mobile Sweep** | Feature 4 | S-M (2-4 plans) | Cluster A modal lands first | MED — 22-guild-theme CSS bleed risk |
-| **D. Gemini Paste-Limit Unblock** | Feature 5 | S-M (2-4 plans) | Independent; UAT-gated path choice | MED — split-message UX may fail UAT, forcing Path B Gemini API |
-| **E. Content KB Phase 1** | Features 1+2+3 (ingestion, source CRUD, spend cap) | L (6-8 plans) | Schema before HTTP before orchestrator before UI; spend-ledger before adapters fire | MED-HIGH — 4 new upstream surfaces + Whisper budget exposure + Render IP-block risk |
+### Recommended Stack
 
-## 3. Suggested Phase Sequence
+Zero new dependencies. All v1.5 capabilities are fully deliverable by composing existing
+installed services. The primer generator follows the DeckAnalysisPacketService packet/zip
+pattern exactly: IDeckPrimerPacketService + sealed implementation + result record + three
+IPrimerPromptVariant implementations (ChatGPT, Claude, Gemini) + PrimerPromptVariantRegistry
+dispatching on AiPlatform. KB injection follows a read-path RAG pattern:
+IContentSiteIndexStore.GetPublishedRowsAsync() -> in-memory tag-overlap scoring ->
+ContentKbArtifactPathResolver disk reads -> ContentArtifactParser.SplitHeader for front-matter
+stripping -> appended to prompt text via a new IContentKbRelevanceService.
 
-| # | Phase | Why this order | Deps | Risk |
-|---|-------|----------------|------|------|
-| 1 | **WDG-04 Modal (Cluster A)** | Closes v1.3 carry-over. Tiny: 1 TS + 1 view + small CSS. Zero coupling. Lands first as proof | None | LOW |
-| 2 | **Doc-Comment Backlog Part 1 — Controllers + Services (B subset)** | ~50 of 88 types. Mechanical. NoWarn stays until Part 2 | None | LOW |
-| 3 | **Gemini Unblock — split-message (D Path 1)** | Closes v1.2 deferred flag. 5 PromptBuilder files + 3 views. Preserves Phase 999.2 D-08. Regression-tested before admin sweep | None | MED — UAT-gated |
-| 4 | **Admin Mobile Sweep (C)** | AFTER WDG-04 so modal CSS doesn't need re-architecting mid-factoring. Splits `admin.css` → `admin-common.css` + `admin-mobile.css` + import shim | Cluster A | MED — full admin regression |
-| 5 | **Content KB Stores + Schema (E foundation)** | First half. 8 new `content_*` tables. Zero UI; zero outbound HTTP. Validates schema before HTTP services depend on it | None within v1.4 | MED — F-PROD-CONTRACT test-isolation (999.6 lesson) |
-| 6 | **Content KB Outbound HTTP Services (E ingestion)** | YouTube + Podcast + Whisper + LLM. IHttpClientFactory + RestSharp + Polly. WhisperSpendLedger cap-gate integrated. MockHttp tests | #5 | MED-HIGH — 4 new upstream surfaces |
-| 7 | **Content KB Orchestrator + Harvest Runs (E coordination)** | `ContentHarvestOrchestrator` + `ContentHarvestRunStore`. Wires #5 + #6. Tests assert cap-abort, idempotent re-run, partial-success | #5, #6 | MED |
-| 8 | **Content KB Admin UI (E UI)** | 3 admin controllers + 7 Razor views + sidebar additions. Inherits Cluster C's CSS. SameOriginRequestValidator on every POST | #4, #5-7 | LOW |
-| 9 | **Doc-Comment Backlog Part 2 + strip `NoWarn` (B finish)** | Remaining ~38 types. LAST is csproj edit. Triggers warnings-as-future-gate. Lands last so v1.4 new types (D + E) are documented before gate flips | All prior | LOW |
+**Core existing technologies consumed by v1.5 (unchanged, no version changes):**
+- ICommanderSpellbookService — combo ground truth for primer sections 10, 11, 20
+- IEdhTop16Client — named cEDH archetypes for bracket-5 matchup sections 22, 23, 25
+- ICategoryKnowledgeStore — engine / mulligan / tutor category buckets for primer sections 8, 9, 14, 17, 29
+- IContentSiteIndexStore + ContentKbArtifactPathResolver + ContentArtifactParser — KB retrieval pipeline
+- PacketArtifactStore + PacketSessionCache — artifact zip + preview-to-download short-circuit
+- AiPlatform value object + IFeatureFlagCache — AI dispatch and content.kb.enabled flag gate
+- LlmDistillationProviderFactory — KB-12 codex backend plugs into the existing "codex" stub
 
-**Critical path:** A → C → E (#5 → #6 → #7 → #8). Off-critical-path: B (parallelizable), D (independent).
-**Total scope estimate:** 5-8 numbered phases / ~25-35 plans (~v1.1 + v1.2 combined).
+**What NOT to add:**
+- No templating engine (Scriban, Fluid, etc.) — StringBuilder + raw-string literals is the established pattern
+- No Microsoft.Extensions.Http.Resilience standard handler — prohibited by project constraints
+- No Microsoft.SemanticKernel or vector DB — prompt artifacts are pre-built for user paste; no server-side LLM calls
+- No EDHREC integration — explicitly out of scope; EdhTop16 + 5 generic strategy buckets fully covers brackets 1-5
 
-## 4. Top Pitfalls That Drive Phase Design
+### Expected Features
 
-Ranked by likelihood × impact:
+**Must have — Deck Primer Generator (Track A):**
+- Decklist input (URL or paste) using existing import flow — users expect consistency with all other workflows
+- Bracket selector (1-5) with preset section defaults: cEDH preset + Casual/Upgraded preset
+- 31-section catalog organized into 5 collapsible groups (Identity, Combos, Gameplay, Matchups, Maintenance)
+- Per-section on/off toggles within groups — power users exclude irrelevant sections
+- Combo lines section grounded by Commander Spellbook (pieces + steps + result) with speculative-fence separator
+- Matchup section bracket-routed: bracket 5 -> EdhTop16 named archetypes; brackets 1-4 -> 5 generic strategy buckets
+- Category-derived mulligan heuristics (ramp/draw/payoff counts injected as numeric context)
+- Paste-ready artifact per AI (ChatGPT / Claude / Gemini), stored via PacketArtifactStore
+- Zip round-trip: download + re-upload with section selections restored
 
-1. **P1 — YouTube `captions.download` returns 403 for non-owned videos** → **Phase 6 (Outbound HTTP Services)** → Use YoutubeExplode (NOT Google.Apis.YouTube.v3); prove against 5 real cEDH channels before writing service code.
-2. **P2 — YouTube IP-blocks Render egress (cloud IP blacklist)** → **Phase 6** → Design `IYouTubeTranscriptFetcher` with proxy-pluggable abstraction day 1; track `whisper_fallback_ratio` >25% as IP-block signal; harvest from deployed Render, NOT WSL, before ship.
-3. **P3 — Whisper cap TOCTOU race (two admin tabs double-spend)** → **Phase 7 (Orchestrator)** + Phase 6 → Postgres `pg_try_advisory_lock` per month-key; SERIALIZABLE transaction wrapping check-and-insert; pre-flight estimate BEFORE Whisper call; UTC month boundary; hard kill-switch env var.
-4. **P4 — LLM JSON parse failure mid-harvest after Whisper cost incurred** → **Phase 6 + Phase 7** → OpenAI Structured Outputs (`strict: true`, <0.1% failure); staged-pipeline persistence (transcript/summary/tags each own row + status); KnownTagSet allowlist; never re-Whisper on resume.
-5. **P6 — Postgres pool starvation from connections held across `await`** → **Phase 6 + Phase 7** → NEVER hold connection across HTTP call; cap pool ~10-15 explicitly; single-worker hosted harvest; release-acquire pattern documented in plan-checker rule.
+**Must have — Content KB Integration (Track B):**
+- content.kb.enabled prod flag flipped ON (prerequisite step, first action of Track B)
+- Clip retrieval by tag overlap (archetype + bracket, AND-based, minimum threshold)
+- ## Expert Context block injected into deck-analysis prompt artifacts with attribution block-quotes
+- "What Experts Say" UI panel on DeckAnalysis result page (source, title, timestamp deep-link, harvest date)
+- Graceful empty-state: panel hidden when no matching clips; prompt continues unchanged
+- Content freshness disclosure in prompt header; staleness warning in Admin Flags UI next to the toggle
 
-**Secondary critical:** P7 (Whisper 25MB / 10min timeout) needs Dockerfile `apt-get install ffmpeg` + client-side audio chunking. P11 (admin POST missing anti-forgery) — global `AutoValidateAntiforgeryTokenAttribute` filter recommended. P12 (schema name collision with v1.1 `harvest_runs`) — strict `content_*` prefix; `ContentHarvestRunStore` is parallel impl, NOT subclass.
+**Must have — Housekeeping (Track C):**
+- 186 DeckFlow.Core undocumented XML-doc sites backfilled (dependency order: Models -> Parsing -> Diffing -> Exporting -> Filtering -> Normalization -> Knowledge -> Storage -> Content -> Integration -> Loading -> Reporting)
+- .editorconfig gate widened to [DeckFlow.Core/**.cs] in final commit only (after all 186 sites are clean)
+- KB-12: CodexCliLlmDistillationService replaces the NotSupportedException stub in LlmDistillationProviderFactory; uses CliEnvelopeKind.Raw (not ClaudeJson)
+- VERIFICATION.md hygiene: 7 v1.4 phases missing VERIFICATION files + stale UAT labels
 
-## 5. Cross-Cutting Invariants (MUST/MUST NOT)
+**Differentiators (should have, v1.5):**
+- Spellbook speculative-combo fence in prompt — clearly labeled, separate code blocks
+- Category-derived mulligan heuristics (ramp/draw/interaction/tutor distribution as numeric grounding)
+- Section count badges on collapsed group headers
+- DeckPageTab.DeckPrimer entry (tab int = 12) in the nav step strip
+- Admin is_kept flag respected in clip selection (curated-only injection)
+- KB source diversity indicator in the "What Experts Say" panel
 
-1. **MUST** route all outbound HTTP through `IHttpClientFactory` named clients + named Polly pipelines via `ResiliencePipelineProvider<string>`. **MUST NOT** migrate to `Microsoft.Extensions.Http.Resilience` standard handler. **MUST NOT** `new HttpClient()` anywhere.
-2. **MUST NOT** touch the `AiPlatform` value object for server-side LLM summarization; admin ingestion is a single dedicated provider. AiPlatform variant added ONLY if Gemini Path B chosen.
-3. **MUST NOT** widen the v1.1 `harvest_runs.kind` CHECK or extend `HarvestRunStore`; fork to a parallel `ContentHarvestRunStore` on `content_harvest_runs` table.
-4. **MUST** namespace all new tables with `content_*` prefix (except `whisper_spend_ledger`); zero overlap with v1.1 names.
-5. **MUST** call `IWhisperSpendLedger.WouldExceedCapAsync(estimate)` BEFORE every Whisper API invocation; cap-gate is correctness-critical. **MUST** record ledger row on success only.
-6. **MUST** use env var `DECKFLOW_WHISPER_MONTHLY_CAP_USD` for the cap (typed decimal); **MUST NOT** route cap through `IFeatureFlagStore` (wrong tool for $-cap).
-7. **MUST** put `SameOriginRequestValidator` on every `/api/*` POST AND `[ValidateAntiForgeryToken]` (or global filter) on every `/Admin/*` POST — two separate CSRF mechanisms.
-8. **MUST** preserve `{ get; init; }` on every new record type (System.Text.Json silently skips get-only props in .NET 9+ — already broke `EdhTop16Client` once).
-9. **MUST** preserve C# raw-string literals byte-for-byte in `SummaryPrompt.cs` and DDL constants; no auto-reformat passes.
-10. **MUST** use native HTML `<dialog>` element with `showModal()`; **MUST NOT** add a focus-trap npm dependency.
-11. **MUST** scope new admin CSS to `.admin-shell` parent class; **MUST NOT** add unscoped element selectors (`table`, `button`, `input`) — 22-guild-theme bleed risk. Use `@layer admin { ... }` for cascade discipline.
-12. **MUST** put layout CSS in `site-common.css` / new `admin-common.css`, NOT in `site.css` or `admin.css` directly.
-13. **MUST** isolate every store test (own SQLite file or `:memory:` per-fact scope) — F-PROD-CONTRACT lesson from 999.6.
-14. **MUST** keep all API keys in Render env vars with `sync: false`; **MUST NOT** ever commit secrets to public repo. Pre-commit Gitleaks recommended.
-15. **MUST** route every plan through Codex peer review (`/gsd-review`) before execute-phase dispatch; Codex codes, Claude reviews.
+**Defer to v1.6+:**
+- Minimal primer preset (4-section quick primer) — low demand signal, adds form complexity
+- Embedding-based semantic clip retrieval (add when KB corpus exceeds ~1000 clips)
+- Expert panel on DeckComparison / CedhMetaGap / DeckPrimer result views (start with DeckAnalysis only)
+- Scheduled KB harvest (cron) — explicitly deferred in v1.4
+- localStorage section-selection persistence across sessions
 
-## 6. Recurring v1.3 Patterns (Process Pitfalls — DO NOT REPEAT)
+### Architecture Approach
 
-- **R-1 STATE.md arithmetic drift** — auto-compute counters on phase close; CI gate `gsd-sdk verify-state` asserts `completed_phases ≤ total_phases`.
-- **R-2 REQUIREMENTS.md checkbox drift** — auto-flip `[x]` from SUMMARY frontmatter `requirements-completed:`; reject SUMMARYs missing it at plan-check time.
-- **R-3 Planning-time grep miscounts** — every SC grep MUST be anchored (`grep -cE '^[[:space:]]*\[HttpPost'`, not `grep -c HttpPost`); plan-checker validates anchoring.
-- **R-4 Cross-AI plan review catches what Claude misses** — every v1.4 plan goes through `/gsd-review` with Codex; no exceptions for "small" plans.
-- **R-5 `no-ship-failing-tests`** — Failed:0 mandatory before milestone PR. Roadmapper pre-allocates a `999.x` test-hardening backlog phase before ship.
-- **R-6 Formatting paranoia** — no Format Document; no `{ get; init; }` → `{ get; }`; no inline `[Attribute]`; no raw-string re-indent; touch only lines that need touching. Codex reminded in every CONTEXT.md.
-- **R-7 HANDOFF.json / origin staleness on resume** — every session resume `git fetch` + compare `HEAD` vs `origin/<branch>` BEFORE reading planning artifacts. Critical for v1.4's long-running harvest phases that span sessions.
+All three v1.5 tracks plug into existing seams without structural surgery. Track A follows the
+established packet service pattern (DeckAnalysisPacketService is the template): interface +
+sealed implementation + result record + prompt variant registry + per-AI variant classes. The
+primer intentionally omits Scryfall card hydration (not needed for the 31 sections) — this makes
+it cheaper and faster than DeckAnalysis. Track B is a pure read-path addition to the web tier:
+ContentKbRelevanceService runs after deck load, before prompt composition, and injects a
+contentKbBlock string that each IAnalysisPromptVariant.Build appends independently (variants
+remain intentionally decoupled — prose is never shared). Track C housekeeping is fully orthogonal
+to both A and B.
 
-## 7. Open Decisions Needed at Plan Time
+**New components:**
 
-| Decision | Blocks | Defer? |
-|----------|--------|--------|
-| **Gemini unblock path: split-message (Path A) vs direct API (Path B)** | Cluster D / Phase 3 | NO — `/gsd-discuss-phase` at Phase 3; recommend Path A (preserves Phase 999.2 D-08; no new key, no spend exposure) |
-| **YouTube transcript provider: YoutubeExplode direct vs paid proxy** | Phase 6 | NO at design time — interface MUST support both day 1; default = YoutubeExplode direct; flip via `DECKFLOW_YOUTUBE_TRANSCRIPT_PROVIDER` env var post-Render UAT |
-| **Admin table responsive strategy per-table: overflow-x vs card-stack** | Phase 4 | NO — decide per-table during plan; Analytics + HarvestRunStore → overflow-x; Feedback list + Sources list → card-stack candidates |
-| **Content KB feature flag default** | Phase 5+ | YES — defer to first admin UAT; `content_kb_enabled=false` until verified end-to-end |
-| **Tag inference vocabulary exact enum values** | Phase 6 (LLM tagging) | NO — derive at plan time; use `static class ContentTagVocabulary` (controlled vocab in code, not DB) |
-| **Render Dockerfile ffmpeg install** | Phase 6 (Whisper chunking) | NO — verify at Phase 5/6 start; if missing AND podcasts >25MB → `RUN apt-get install -y ffmpeg` required |
-| **Whisper monthly cap initial $ value** | Phase 5 + 7 | NO — set `DECKFLOW_WHISPER_MONTHLY_CAP_USD=15.00` per STACK.md cost model (expected ~$13.32 + 12% headroom) |
-| **Razor `.cshtml`-generated CS1591 handling post-NoWarn-strip** | Phase 9 | NO — Phase 9 plan verifies via `dotnet build -warnaserror:CS1591` from clean obj/; scoped 1591 retention for generated Razor partials only |
-| **Whisper-vs-LLM cap separation (single ledger or two)** | Phase 5 schema | NO — design `content_spend_ledger` with `provider` + `kind` columns day 1; per-provider caps are future drop-in |
+Track A:
+1. IDeckPrimerPacketService / DeckPrimerPacketService — orchestrates deck load, combo fetch, category query, EdhTop16 fetch (bracket 5 only), prompt composition
+2. IPrimerPromptVariant + ChatGptPrimerPromptVariant, ClaudePrimerPromptVariant, GeminiPrimerPromptVariant — per-AI prompt strategy (intentionally decoupled)
+3. PrimerPromptVariantRegistry — dispatches by AiPlatform, falls back to Default
+4. DeckPrimerRequest / DeckPrimerViewModel / DeckPrimerPacketResult — model layer
+5. PrimerSectionCatalog static class — 31-section definitions, group assignments, preset defaults
+6. PacketArtifactStore.BuildPrimerZip / LoadPrimerFromZip + PrimerAllowedNames — zip round-trip
+7. DeckPrimer.cshtml — collapsible-group section selector, bracket dropdown, generate/download/upload
 
-## 8. Watch Out For (Top 3 Worst-Case Failures)
+Track B:
+1. IContentKbRelevanceService / ContentKbRelevanceService — loads index, scores by tag overlap, reads .md artifacts, returns IReadOnlyList<ContentKbExcerpt> (cap 3-5)
+2. ContentKbExcerpt record — slim: source, title, url, body (~200 words)
+3. _ContentKbPanel.cshtml — "What Experts Say" collapsible panel partial
 
-The roadmapper MUST price these into phase Success Criteria so they are not discovered mid-execution:
+Track C:
+1. CodexCliLlmDistillationService — new sealed class using CliEnvelopeKind.Raw; plugs into existing LlmDistillationProviderFactory codex branch
 
-1. **P1 — Building Phase 5/6 around `Google.Apis.YouTube.v3` for captions.** Every cEDH channel returns 403. Pipeline is dead before Whisper fallback rate signals anything. **SC for Phase 6 MUST be:** "Successfully fetch captions for 5 real third-party MTG channels (MTGGoldfish + Command Zone + EDHRECast + Tolarian + Playing With Power) via `IYouTubeTranscriptFetcher` from deployed Render env." NOT "via YouTube Data API."
+**Modified existing files (Track B only):**
+DeckAnalysisPacketService, IAnalysisPromptVariant (+ 3 variants), DeckAnalysisViewModel, DeckAnalysis.cshtml, Program.cs
 
-2. **P2 — YouTube IP-blocks the Render egress pool silently.** WSL dev sees green; production sees `whisper_fallback_ratio=100%`; $15 monthly cap blown on day 1 because every "free" caption fell back to paid Whisper. **SC for Phase 6 MUST include:** "Pre-ship UAT: harvest 5 videos from deployed Render env; inspect `transcript_source` distribution; if any unexpected `whisper-fallback`, debug before ship. Proxy abstraction in `IYouTubeTranscriptFetcher` interface from day 1."
+### Critical Pitfalls
 
-3. **P3 — Admin double-click bypasses the Whisper cap.** Two browser tabs, two harvest dispatches, both pre-flight checks read same pre-spend value, both proceed; monthly Whisper budget 2× over. Cost is real money. **SC for Phase 7 MUST be:** "Concurrent test: 5 parallel `POST /Admin/ContentHarvest/Trigger` against stub Whisper client; assert ≤1 harvest run row created AND ≤N seconds billed (N = cap). Postgres `pg_try_advisory_lock` per `YYYY-MM` key acquired BEFORE any Whisper call. Hard `DECKFLOW_WHISPER_KILL_SWITCH=true` env var evaluated first."
+1. **Primer paste-cap blowout (Gemini)** — 20+ section primer with Spellbook + EdhTop16 data routinely hits 60-100KB; Gemini web UI caps at 30-60KB; ground truth is silently truncated. Prevention: measure prompt size during the spike; add PromptSizeWarning field to DeckPrimerPacketResult; gate Gemini on the primer the same way analysis does it. Address during spike phase, not verification.
+
+2. **Hallucinated combo lines — grounded/speculative fence failure** — if FindCombosAsync returns null and the speculative ask is still emitted without a null-state disclosure, AI invents all combo lines from card names alone. Prevention: model combo section as two structurally distinct code blocks (KnownCombosBlock present only when non-null; SpeculativeComboAsk always present but explicitly labeled "speculative"). Unit test: BuildPrimerPrompt_NullComboResult_EmitsSpeculativeDisclosure.
+
+3. **KB injection injects irrelevant content (tag-mismatch)** — KB archetype tags (voltron/aristocrats/stax) don't map to Tagger functional categories (ramp/draw/removal). Result: reanimator deck gets stax content. Prevention: audit live KB tag distribution before writing matching code; enforce AND-based two-dimension matching (bracket + archetype); set a minimum overlap threshold; never emit an empty "## What Experts Say" section header.
+
+4. **PrimerAllowedNames omitted — silent zip data loss** — PacketArtifactStore.ReadEntries silently drops any artifact name not in the active allowlist; reusing PacketAllowedNames drops all primer-specific artifacts without throwing. Prevention: add PrimerAllowedNames as the FIRST task in the primer artifact store implementation; include round-trip unit test.
+
+5. **get; init; -> get; regression on new records** — Codex or IDE formatting can silently drop init;, causing System.Text.Json to skip properties during serialization. This has already broken EdhTop16Client deserialization. Prevention: include the constraint verbatim in every phase CONTEXT.md; add serialization round-trip tests for every new request/result record used in zip artifacts.
+
+## Implications for Roadmap
+
+Based on combined research, the recommended phase structure is four numbered phases. Tracks A and
+B are independent; the ordering below places Track C housekeeping items as the first two phases
+because they are lowest-risk, have no web surface, and produce a clean build baseline before the
+larger feature tracks land.
+
+### Phase 1: KB-12 Codex Distill Backend + VERIFICATION.md Hygiene
+
+**Rationale:** Pure Core change, no web surface, zero blast radius on existing features. The
+"codex" factory slot is already stubbed — this is a bounded replace-one-throw-with-a-return task.
+Ships fast, closes a v1.4 deferred item, and proves the Codex CLI envelope shape (Raw, not
+ClaudeJson) is understood before the larger phases begin. VERIFICATION.md hygiene is pure
+documentation (no code) and can bundle into the same phase.
+
+**Delivers:** Working DECKFLOW_LLM_PROVIDER=codex distillation path; NotSupportedException stub
+removed; LlmDistillationProviderFactoryTests gains Codex_ReturnsCliBackend test; 7 missing
+VERIFICATION files + stale UAT labels resolved.
+
+**Addresses:** Housekeeping Track C (KB-12 + VERIFICATION items)
+
+**Avoids:** Pitfall 9 (stringly-typed extension / wrong envelope kind — bounded diff makes review trivial)
+
+### Phase 2: Core XML-Doc Backfill + Gate Widen
+
+**Rationale:** 186 undocumented Core sites must be documented before the gate is widened —
+widening first breaks the build immediately. Must be complete before any other phase touches
+DeckFlow.Core files for risk management. Backfill is mechanical (Codex is ideal) but must be
+split by namespace to keep diffs reviewable. The editorconfig gate widen is the final commit.
+
+**Delivers:** All 186 Core sites documented across 6-8 namespace-scoped plans; [DeckFlow.Core/**.cs]
+CS1591 gate added to .editorconfig in the final commit; dotnet build -warnaserror:CS1591 clean
+from a fresh obj/.
+
+**Addresses:** Housekeeping Track C (doc backfill item)
+
+**Avoids:** Pitfall 8 (gate widened before backfill complete — build breaks and blocks CI for
+all parallel work)
+
+### Phase 3: Content KB -> Deck-Analysis Integration
+
+**Rationale:** Smaller web surface than the Primer Generator; validates the prod
+content.kb.enabled flag-flip path in production before the Primer takes any downstream
+dependency on KB context. Tag-distribution audit runs before any matching code is written.
+KB injection is additive behind a flag guard — no change to existing prompt output when flag
+is off.
+
+**Delivers:** ContentKbRelevanceService with tag-overlap matching; ## Expert Context block
+injected into deck-analysis prompts; _ContentKbPanel.cshtml on DeckAnalysis result page;
+content.kb.enabled flipped ON in prod (with fresh harvest run first); freshness disclosure
+in prompt header and staleness warning in Admin Flags UI.
+
+**Addresses:** Content KB Integration (Track B), all Track B must-haves
+
+**Avoids:** Pitfall 3 (irrelevant content injection — audit tag distribution first), Pitfall 4
+(prompt budget competition — measure size before injection and enforce budget hierarchy), Pitfall
+7 (stale content — fresh harvest is a prerequisite UAT step)
+
+### Phase 4: Deck Primer Generator
+
+**Rationale:** Largest feature, milestone headline, no upstream blockers once Phases 1-3 are
+complete. The combo-data spike runs as the first execution unit to confirm Spellbook field
+richness and prompt-size characteristics before the service is implemented. Split into four
+sub-phases to limit blast radius.
+
+**Delivers:**
+- 4a: DeckPrimerRequest, DeckPrimerViewModel, DeckPrimerPacketResult, DeckPageTab.DeckPrimer, routing stubs, PacketArtifactStore.BuildPrimerZip, PrimerAllowedNames
+- 4b: DeckPrimerPacketService.BuildAsync — deck load, Spellbook combo fetch (with null handling), category queries, bracket routing, EdhTop16 for bracket-5, structural KnownCombos/SpeculativeCombos blocks
+- 4c: All three IPrimerPromptVariant implementations + PrimerPromptVariantRegistry + Program.cs DI registration; DeckPrimer.cshtml with collapsible groups and bracket selector
+- 4d: Download/upload round-trip, PacketSessionCache key, JS section-preset logic, PromptSizeWarning field wired to UI, Gemini gating
+
+**Addresses:** Deck Primer Generator (Track A), all Track A must-haves
+
+**Avoids:** Pitfall 1 (paste-cap — spike measures size; Gemini gated; PromptSizeWarning in result), Pitfall 2 (hallucinated combos — two-block structural separation with null-state disclosure), Pitfall 5 (PrimerAllowedNames as first task in 4a), Pitfall 6 (get; init; in CONTEXT.md for all sub-phases), Pitfall 10 (section-combinatorics under-testing — PrimerSectionRenderTests written alongside conditional logic)
+
+### Phase Ordering Rationale
+
+- KB-12 first: Zero blast radius, closes backlog debt, reveals Codex CLI envelope behavior before it matters
+- Doc backfill before Primer/KB integration: All phases touch DeckFlow.Core indirectly; a clean build signal is a prerequisite. Gate widened only after all sites are documented.
+- KB integration before Primer: Smaller surface validates the prod flag-flip path; Primer may benefit from KB context in a future phase
+- Primer last: Largest scope, most sub-phases, zero upstream blockers; benefits from the cleaner build environment established by Phase 2
+- Tracks A and B are independent: The roadmapper may reorder Phases 3 and 4 if the user's priority ranking changes — neither depends on the other
+
+### Research Flags
+
+Phases needing deeper research during planning:
+- **Phase 3 (KB integration), pre-implementation step:** Run a live tag-distribution audit on the prod KB (clips + content_tags tables) to understand actual tag vocabulary density before writing the relevance matching code. One-time query, not a full research phase, but must happen before ContentKbRelevanceService is specced.
+- **Phase 4 (Primer), spike at start of 4b:** spike-combo-data-to-primer-grounding — inspect a real Spellbook API response for a known 2-card combo to confirm Instructions field richness for step-by-step narration in section 11. Low effort (one API call + read), high-gating value. Must complete before 4b is planned.
+
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (KB-12):** Pattern is fully documented in codebase; diff is bounded (replace one throw)
+- **Phase 2 (doc backfill):** Mechanical pattern; namespace dependency order documented in ARCHITECTURE.md; no API research needed
+- **Phase 4, sub-phases 4a/4c/4d:** Follow established DeckAnalysisPacketService / AnalysisPromptVariantRegistry patterns exactly; no research needed beyond reading the template files
 
 ## Confidence Assessment
 
-| Area | Level | Notes |
-|------|-------|-------|
-| Reuse of existing DeckFlow patterns | HIGH | Verified at HEAD 65f2fe4; HarvestRunStore + IFeatureFlagCache + RestSharp+Polly directly mirrored |
-| Stack additions (versions + integration seams) | HIGH | NuGet versions verified 2026-05; `HttpClientPipelineTransport` verified against OpenAI .NET docs |
-| Feature scope boundaries (anti-features deferred to v1.5) | HIGH | PROJECT.md explicit; FEATURES.md anti-feature table aligned |
-| YouTube transcript path (YoutubeExplode vs Google.Apis) | HIGH | Issue Tracker 241669016 + 403 limitation confirmed |
-| Gemini unblock path choice | MEDIUM | UAT-dependent; both paths sound architecturally |
-| Whisper $/min pricing | MEDIUM | $0.006/min verified vendor 2026-05 but pricing has shifted twice in 2025 |
-| Render IP-block risk (P2) | MEDIUM | Documented in `youtube-transcript-api` Issue #511; not directly tested from current Render IP |
-| Recurring v1.3 process patterns | HIGH | Drawn from RETROSPECTIVE.md observed-incidents |
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | HIGH | Direct codebase inspection; every referenced service and interface verified to exist in production; no external library research required because no new libraries are added |
+| Features | HIGH | Primer section catalog grounded in 4 real Moxfield primers + community guides (BlazeHero, Eisenherz, The Mana Base); RAG/KB injection pattern grounded in IBM/AWS/PromptingGuide sources; codebase reuse map verified |
+| Architecture | HIGH | All source files inspected directly; patterns are extensions of verified production code; component boundaries well-defined; no speculative architecture |
+| Pitfalls | HIGH (most) / MEDIUM (AI output quality) | Pitfalls 1, 4, 5, 6, 8, 9 grounded in direct codebase inspection and prior milestone post-mortems (HIGH); Pitfalls 2, 3, 7, 10 grounded in LLM behavior patterns + project retrospective lessons (MEDIUM) |
+
+**Overall confidence:** HIGH
+
+### Gaps to Address
+
+- **Spellbook Instructions field richness (MEDIUM confidence):** SpellbookCombo.Instructions is confirmed to exist and is used in the existing DeckAnalysis prompt, but whether it is detailed enough for step-by-step primer narration in section 11 is a prompt-design question. The spike resolves this. Fallback: AI narrates from card names — no stack change either way.
+- **EdhTop16 archetype label quality for primer matchup section (MEDIUM confidence):** IEdhTop16Client returns raw tournament metadata, not pre-labeled archetype strings. The primer passes raw entry data to the AI to derive labels — same approach MetaGapService uses successfully, but primer framing differs. Spike UAT should include a bracket-5 deck.
+- **Live KB tag-distribution density:** Unknown until a query runs against prod. The relevance-matching design is correct in principle; matching thresholds and dimension weights must be calibrated against actual data. Handle during Phase 3 planning.
+- **content.kb.enabled prod flip timing:** Flag has been OFF since v1.4. Before Phase 3 UAT, a fresh harvest must be triggered. Ops prerequisite, not a code gap — must appear explicitly in Phase 3 execution checklist.
+
+## Sources
+
+### Primary (HIGH confidence — direct codebase inspection)
+
+- DeckFlow.Web/Services/DeckAnalysisPacketService.cs — packet service template, combo null-handling at lines 562-564
+- DeckFlow.Web/Services/PacketArtifactStore.cs — allowlist pattern (three HashSet<string> sets), zip manifest conventions
+- DeckFlow.Web/Services/PromptBuilders/Analysis/ — variant interface signature, registry pattern, intentional prose duplication
+- DeckFlow.Web/Services/CommanderSpellbookService.cs — FindCombosAsync null-on-failure confirmed
+- DeckFlow.Core/Content/IContentSiteIndexStore.cs + ContentSiteIndexStore.cs — no tag filter in SQL (in-memory only)
+- DeckFlow.Core/Knowledge/ContentArtifactSpec.cs — ContentSiteIndexRow tag fields, DeserializeTags
+- DeckFlow.Web/Services/ContentKbArtifactPathResolver.cs — artifact path resolution
+- DeckFlow.Web/Services/ContentArtifactParser.cs — SplitHeader front-matter parsing
+- DeckFlow.Core/Integration/LlmDistillationProviderFactory.cs — "codex" stub at lines 49-53
+- DeckFlow.Core/Integration/CliCommandSpec.cs — CliEnvelopeKind.Raw vs ClaudeJson
+- DeckFlow.Web/Models/DeckPageTab.cs — existing tab enum values 0-11; new entry = 12
+- .editorconfig lines 93-115 — CS1591 gate scope: none globally, warning in [DeckFlow.Web/**.cs] only
+- .planning/seeds/deck-primer-generator.md — feature shape and pre-made decisions
+- .planning/notes/deck-primer-prompt-design.md — 31-section catalog, bracket routing, combo handling
+- .planning/RETROSPECTIVE.md v1.0/v1.2/v1.3 — paste-cap lesson, get; init; regression history
+- .planning/v1.4-MILESTONE-AUDIT.md — 186-site Core doc debt, KB-12 deferral, content.kb.enabled still OFF
+
+### Secondary (MEDIUM confidence — community research)
+
+- BlazeHero's Guide to Writing Primers (Moxfield) — primer section taxonomy, community pain points
+- Eisenherz' cEDH Primer Template (Moxfield) — cEDH-specific sections validation
+- The Metaworker — Primers: A Primer (The Mana Base) — section importance ranking
+- IBM — What is RAG — RAG pattern validation
+- AWS — What is RAG — RAG pattern corroboration
+- Commander Spellbook GitHub Backend — steps/results fields confirmed present in backend model
+- PromptingGuide.ai — RAG — attribution / provenance UI patterns
+
+---
+*Research completed: 2026-06-03*
+*Ready for roadmap: yes*

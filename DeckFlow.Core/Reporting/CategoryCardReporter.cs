@@ -7,6 +7,10 @@ namespace DeckFlow.Core.Reporting;
 /// </summary>
 public static class CategoryCardReporter
 {
+    /// <summary>Returns deck entries whose category list includes <paramref name="category"/>.</summary>
+    /// <param name="entries">Deck entries to search.</param>
+    /// <param name="category">Category name to match.</param>
+    /// <returns>Matching deck entries ordered by quantity and name.</returns>
     public static IReadOnlyList<DeckEntry> CardsInCategory(IEnumerable<DeckEntry> entries, string category)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -19,6 +23,10 @@ public static class CategoryCardReporter
             .ToList();
     }
 
+    /// <summary>Returns a text report listing deck entries whose category list includes <paramref name="category"/>.</summary>
+    /// <param name="entries">Deck entries to search.</param>
+    /// <param name="category">Category name to match.</param>
+    /// <returns>A newline-delimited card list, or a no-results message when no cards match.</returns>
     public static string ToText(IEnumerable<DeckEntry> entries, string category)
     {
         var matches = CardsInCategory(entries, category);

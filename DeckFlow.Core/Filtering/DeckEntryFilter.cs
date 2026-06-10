@@ -7,6 +7,9 @@ namespace DeckFlow.Core.Filtering;
 /// </summary>
 public static class DeckEntryFilter
 {
+    /// <summary>Returns deck entries that are not assigned to the maybeboard.</summary>
+    /// <param name="entries">Deck entries to filter.</param>
+    /// <returns>Deck entries whose board is not the maybeboard.</returns>
     public static List<DeckEntry> ExcludeMaybeboard(IEnumerable<DeckEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);

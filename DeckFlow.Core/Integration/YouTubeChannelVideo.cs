@@ -29,4 +29,9 @@ public sealed record YouTubeChannelVideo
     /// Video publication timestamp, when available from the listing source.
     /// </summary>
     public DateTimeOffset? PublishedUtc { get; init; }
+
+    /// <summary>
+    /// Public view count from the per-video metadata lookup, when available.
+    /// </summary>
+    public long? ViewCount { get; init; }
 }

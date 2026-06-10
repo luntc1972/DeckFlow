@@ -1,11 +1,40 @@
 @model DeckFlow.Web.Models.AdminContentKbViewModel
 @{
     ViewData["Title"] = "Content KB";
+    var previewActive = !string.IsNullOrWhiteSpace(Model.PreviewCommander) || !string.IsNullOrWhiteSpace(Model.PreviewBracket);
+    var allFilterUrl = Url.Action("Index", new
+    {
+        previewCommander = Model.PreviewCommander,
+        previewBracket = Model.PreviewBracket,
+        visibilityFilter = "all",
+        sortBy = Model.SortBy
+    });
+    var publishedFilterUrl = Url.Action("Index", new
+    {
+        previewCommander = Model.PreviewCommander,
+        previewBracket = Model.PreviewBracket,
+        visibilityFilter = "published",
+        sortBy = Model.SortBy
+    });
+    var hiddenFilterUrl = Url.Action("Index", new
+    {
+        previewCommander = Model.PreviewCommander,
+        previewBracket = Model.PreviewBracket,
+        visibilityFilter = "hidden",
+        sortBy = Model.SortBy
+    });
+    var scoreSortUrl = Url.Action("Index", new
+    {
+        previewCommander = Model.PreviewCommander,
+        previewBracket = Model.PreviewBracket,
+        visibilityFilter = Model.VisibilityFilter,
+        sortBy = "score"
+    });
 }
 
 @if (!string.IsNullOrEmpty(Model.SuccessBanner))
 {
-    <p class="admin-banner admin-banner--success" role="status">@Model.SuccessBanner</p>
+    <p class="admin-banner admin-banner--success" role="status" data-admin-toast>@Model.SuccessBanner</p>
 }
 
 <section class="admin-harvest__panel" aria-labelledby="kb-status-heading">
@@ -79,9 +108,71 @@ else
     </section>
 
     <section aria-labelledby="kb-entries-heading">
-        <h2 id="kb-entries-heading">Entries</h2>
+        @{
+            var columnCount = previewActive ? 6 : 5;
+        }
+        <section class="admin-harvest__panel" aria-labelledby="kb-preview-heading">
+            <h2 id="kb-preview-heading">Preview Relevance</h2>
+            <p>Score is computed per artifact row; any injected clips inherit that artifact-level score.</p>
+            <div class="error-banner hidden" role="alert" data-api-panel="commander-search-error">
+                <span data-api-field="commander-search-error-text"></span>
+            </div>
+            <form method="get" class="admin-filters-form">
+                <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
+                <input type="hidden" name="sortBy" value="@Model.SortBy" />
+                <div class="admin-filters-grid">
+                    <label>
+                        Commander
+                        <input id="kb-preview-commander-input" type="text" name="previewCommander" value="@Model.PreviewCommander" placeholder="Kinnan, Bonder Prodigy" autocomplete="off" />
+                    </label>
+                    <label>
+                        Bracket
+                        <select name="previewBracket">
+                            <option value="">Any</option>
+                            @foreach (var bracketOption in Model.BracketOptions)
+                            {
+                                if (string.Equals(bracketOption, Model.PreviewBracket, StringComparison.Ordinal))
+                                {
+                                    <option value="@bracketOption" selected>@bracketOption</option>
+                                }
+                                else
+                                {
+                                    <option value="@bracketOption">@bracketOption</option>
+                                }
+                            }
+                        </select>
+                    </label>
+                </div>
+                <div class="admin-kb-status__actions">
+                    <button type="submit">Preview Scores</button>
+                    @if (previewActive)
+                    {
+                        <a class="button-link" asp-action="Index" asp-route-visibilityFilter="@Model.VisibilityFilter" asp-route-sortBy="@Model.SortBy">Clear Preview</a>
+                    }
+                </div>
+            </form>
+            <p class="mode-note">Type at least two letters to see commander suggestions from the existing commander search endpoint.</p>
+        </section>
+
+        <div class="admin-section-header">
+            <div>
+                <h2 id="kb-entries-heading">Entries</h2>
+            </div>
+            <div class="admin-kb-toggle" role="tablist" aria-label="Visibility filter">
+                <a class="@(Model.VisibilityFilter == "all" ? "is-active" : null)" href="@allFilterUrl">All</a>
+                <a class="@(Model.VisibilityFilter == "published" ? "is-active" : null)" href="@publishedFilterUrl">Published</a>
+                <a class="@(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl">Hidden</a>
+            </div>
+        </div>
+        <div class="kb-filter">
+            <label>
+                Filter entries
+                <input id="kb-filter-search" type="search" autocomplete="off" placeholder="Filter by title, source, or tag" aria-controls="kb-entries-table" />
+            </label>
+            <p class="kb-filter__count" id="kb-filter-count" role="status" aria-live="polite"></p>
+        </div>
         <div class="admin-table-scroll" tabindex="0">
-            <table class="admin-table admin-table--card">
+            <table id="kb-entries-table" class="admin-table admin-table--card">
                 <caption class="sr-only">Content KB entries — per-entry publish controls</caption>
                 <thead>
                     <tr>
@@ -89,13 +180,20 @@ else
                         <th scope="col">Source</th>
                         <th scope="col">Tags</th>
                         <th scope="col">Status</th>
+                        @if (previewActive)
+                        {
+                            <th scope="col">
+                                <a class="@(Model.SortBy == "score" ? "is-active" : null)" href="@scoreSortUrl">Score (artifact)</a>
+                            </th>
+                        }
                         <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var entry in Model.Entries)
                     {
-                        <tr>
+                        var searchText = (entry.Title + " " + entry.Source + " " + string.Join(" ", entry.Tags)).ToLowerInvariant();
+                        <tr data-kb-search="@searchText">
                             <td data-label="Title" class="admin-kb-title">@entry.Title</td>
                             <td data-label="Source" class="admin-kb-source">@entry.Source</td>
                             <td data-label="Tags">
@@ -114,6 +212,10 @@ else
                                     <span class="kb-status kb-status--hidden" aria-label="Hidden">Hidden</span>
                                 }
                             </td>
+                            @if (previewActive)
+                            {
+                                <td data-label="Score (artifact)">@(entry.RelevanceScore?.ToString("F2") ?? "—")</td>
+                            }
                             <td data-label="Action">
                                 <form method="post" asp-action="SetVisibility" class="admin-action-form">
                                     @Html.AntiForgeryToken()
@@ -128,9 +230,25 @@ else
                                         <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
                                     }
                                 </form>
+                                <form method="post" asp-action="SetEvergreen" class="admin-action-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="entryId" value="@entry.Id" />
+                                    <input type="hidden" name="evergreen" value="@((!entry.IsEvergreen).ToString().ToLowerInvariant())" />
+                                    @if (entry.IsEvergreen)
+                                    {
+                                        <button type="submit" aria-label="Remove evergreen flag from '@entry.Title'">Evergreen: On</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" aria-label="Mark '@entry.Title' as evergreen">Evergreen: Off</button>
+                                    }
+                                </form>
                             </td>
                         </tr>
                     }
+                    <tr class="kb-filter__empty-row hidden" id="kb-filter-empty">
+                        <td colspan="@columnCount">No entries match the current filter.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -142,5 +260,7 @@ else
 @section Scripts
 {
     <script src="~/js/admin-modal.js" asp-append-version="true"></script>
+    <script src="~/js/df-typeahead.js" asp-append-version="true"></script>
+    <script src="~/js/kb-entry-filter.js" asp-append-version="true"></script>
     <script src="~/js/content-kb-admin.js" asp-append-version="true"></script>
 }
