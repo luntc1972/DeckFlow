@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
-status: planning
+status: in_progress
 last_updated: "2026-06-10"
 last_activity: 2026-06-10
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
+  percent: 25
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** v1.6 — Content KB Retrieval Fix + Value Re-Validation (roadmap created 2026-06-10)
+**Current focus:** v1.6 — Phase 34 (KB Retrieval Fix) COMPLETE + verified; next is Phase 35 (Value Re-Validation Gate)
 
 ## Current Position
 
-Phase: Not started
-Plan: —
-Status: Roadmap created — awaiting Phase 34 planning
-Last activity: 2026-06-10 — v1.6 roadmap written
+Phase: 34 KB Retrieval Fix — COMPLETE (VERIFICATION: passed 2026-06-10)
+Plan: 34-01 + 34-02 done (Codex-implemented, Claude-reviewed APPROVE, WR-01 closed)
+Status: Phase 34 closed; Phase 35 (gate) ready to plan — re-run the Spike 001 A/B against the fixed retriever
+Last activity: 2026-06-10 — Phase 34 implemented, reviewed, verified (4/4 SC), committed (2daf1f1, 58e607f)
 
 ## Performance Metrics
 

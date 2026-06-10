@@ -127,7 +127,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 ## v1.6 Content KB Retrieval Fix + Value Re-Validation
 
-- [ ] **Phase 34: KB Retrieval Fix** — KBR-01, KBR-02, KBR-03, KBR-04
+- [x] **Phase 34: KB Retrieval Fix** — KBR-01, KBR-02, KBR-03, KBR-04 (VERIFICATION: passed 2026-06-10)
 - [ ] **Phase 35: Value Re-Validation Gate** — KBV-01, KBV-02, KBV-03, KBV-04
 - [ ] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** *(CONDITIONAL — runs only if Phase 35 gate = VALIDATED)* — PHIL-01, PHIL-02, PHIL-03, PHIL-04, KBD-01, KBD-02
 - [ ] **Phase 37: Controller SRP Split** — SRP-01, SRP-02, SRP-03
@@ -146,8 +146,8 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   3. The injected `## Expert Context` block in the rendered prompt is wrapped in a structural boundary and all clip text has passed the prompt-injection regex sanitizer before reaching the LLM
   4. A regression test reproducing the Spike 001 Run-2 Atraxa scenario passes: asserts per-video cap, asserts topical exclusion of the commander-leakage video, and is part of the standard test run
 **Plans**: 2 plans (1 wave, parallel)
-- [ ] 34-01-PLAN.md — Retrieval algorithm fix in ContentKbRelevanceService: per-video clip cap (KBR-01) + topical content-overlap scoring, other-commander demotion, relevance floor, null-on-no-match (KBR-02) + mandatory Spike 001 Atraxa regression tests (KBR-04)
-- [ ] 34-02-PLAN.md — Prompt-injection mitigation (KBR-03): regex sanitizer (ContentKbClipSanitizer) + structural data fence around the ## Expert Context block across all three analysis variants; keeps Spike 001 harness runnable
+- [x] 34-01-PLAN.md — Retrieval algorithm fix in ContentKbRelevanceService: per-video clip cap (KBR-01) + topical content-overlap scoring, other-commander demotion, relevance floor, null-on-no-match (KBR-02) + mandatory Spike 001 Atraxa regression tests (KBR-04)
+- [x] 34-02-PLAN.md — Prompt-injection mitigation (KBR-03): regex sanitizer (ContentKbClipSanitizer) + structural data fence around the ## Expert Context block across all three analysis variants; keeps Spike 001 harness runnable
 
 ### Phase 35: Value Re-Validation Gate
 **Goal**: A blind, multi-deck A/B verdict is recorded against the fixed retriever — the gate either clears (VALIDATED → proceed to Phase 36) or fails (MARGINAL → KB stays dark, pivot decision recorded, milestone proceeds to Phase 37 only)
