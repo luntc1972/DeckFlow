@@ -145,7 +145,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   2. A video with broad tags (e.g. "Glass Cannon Commanders") does not outscore a video whose content directly addresses the deck's archetype when the two compete for the same slot
   3. The injected `## Expert Context` block in the rendered prompt is wrapped in a structural boundary and all clip text has passed the prompt-injection regex sanitizer before reaching the LLM
   4. A regression test reproducing the Spike 001 Run-2 Atraxa scenario passes: asserts per-video cap, asserts topical exclusion of the commander-leakage video, and is part of the standard test run
-**Plans**: TBD
+**Plans**: 2 plans (1 wave, parallel)
+- [ ] 34-01-PLAN.md — Retrieval algorithm fix in ContentKbRelevanceService: per-video clip cap (KBR-01) + topical content-overlap scoring, other-commander demotion, relevance floor, null-on-no-match (KBR-02) + mandatory Spike 001 Atraxa regression tests (KBR-04)
+- [ ] 34-02-PLAN.md — Prompt-injection mitigation (KBR-03): regex sanitizer (ContentKbClipSanitizer) + structural data fence around the ## Expert Context block across all three analysis variants; keeps Spike 001 harness runnable
 
 ### Phase 35: Value Re-Validation Gate
 **Goal**: A blind, multi-deck A/B verdict is recorded against the fixed retriever — the gate either clears (VALIDATED → proceed to Phase 36) or fails (MARGINAL → KB stays dark, pivot decision recorded, milestone proceeds to Phase 37 only)
@@ -189,7 +191,7 @@ Phase 34 → Phase 35 (sequential, gate-locked). Phase 36 runs only if Phase 35 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 34. KB Retrieval Fix | 0/TBD | Not started | - |
+| 34. KB Retrieval Fix | 0/2 | Planned | - |
 | 35. Value Re-Validation Gate | 0/TBD | Not started | - |
 | 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | 0/TBD | Not started | - |
 | 37. Controller SRP Split | 0/TBD | Not started | - |
