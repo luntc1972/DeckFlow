@@ -40,7 +40,7 @@
             <a class="tool-nav__link @(Model == DeckPageTab.JudgeQuestions ? "is-active" : string.Empty)" href="@Url.Content("~/judge-questions")">Ask a Judge</a>
             @if (FlagCache.IsEnabled("content.kb.enabled"))
             {
-                <a class="tool-nav__link @(Model == DeckPageTab.ContentKb ? "is-active" : string.Empty)" href="@Url.Action("Index", "ContentKb")">Knowledge Base</a>
+                <a class="tool-nav__link @(Model == DeckPageTab.ContentKb ? "is-active" : string.Empty)" href="@Url.Action("Index", "ContentKb")" title="Browse distilled creator advice and copyable prompts">Knowledge Base</a>
             }
         </div>
     </div>
