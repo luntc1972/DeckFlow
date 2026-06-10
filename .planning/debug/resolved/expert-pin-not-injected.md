@@ -1,10 +1,12 @@
 ---
 slug: expert-pin-not-injected
-status: diagnosed
+status: resolved
 trigger: "SEL-02 expert-pin not injected into analysis prompt — pinned video missing from analysis.txt Expert Context block"
 created: 2026-06-09
 updated: 2026-06-09
 goal: find_root_cause_only
+fix_commit: a106c6a (refactor bfe16b1)
+resolution: fixed
 ---
 
 # Debug Session: expert-pin-not-injected

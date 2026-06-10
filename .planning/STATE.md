@@ -2,35 +2,33 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
-status: milestone-complete-pending-close
-stopped_at: Phase 33 closed (visual-verify passed); Phase 31 planned + Codex READY (6 plans/4 waves) is the only remaining v1.5 phase
-last_updated: "2026-06-09T17:30:00.000Z"
-last_activity: 2026-06-09 -- Phase 31 COMPLETE: 31-06 human visual-verify APPROVED (desktop+mobile); ROADMAP 31 [x]; 3 verify-found bugs fixed (9fd1c65/779affe/abbeedd); Web.Tests 654/0/5. All 7 v1.5 phases done.
+status: Awaiting next milestone
+stopped_at: Phase 31 COMPLETE + APPROVED; ROADMAP 31 [x]; STATE 25/25 / 6-of-6 phases. All v1.5 phases done. Tracking committed.
+last_updated: "2026-06-10T01:23:17.528Z"
+last_activity: 2026-06-10 — Milestone v1.5 completed and archived
 progress:
-  total_phases: 6
+  total_phases: 8
   completed_phases: 6
   total_plans: 25
   completed_plans: 25
-  percent: 100
+  percent: 75
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-03 for v1.5 milestone start)
+See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 30 — content-kb-integration
+**Current focus:** Planning next milestone (`/gsd-new-milestone`) — v1.5 shipped 2026-06-10
 
 ## Current Position
 
-Phase: 31 (deck-primer-generator) — COMPLETE 2026-06-09. ALL 6 v1.5 phases (28/29/30/32/33/31) now [x]. v1.5 milestone functionally complete, pending close (/gsd-complete-milestone or PR).
-Phase 31 recap (all Codex impl / Claude review): 31-01 spike (combo=sufficient→priority-rank; Gemini cap=32000; EdhTop16=meta-query-available); 31-02 foundation models; 31-03 DeckPrimerPacketService (D-2 combos+null disclosure, PRM-07 category omit, PRM-06 bracket-5 via EdhTop16Client.GetTopArchetypesAsync meta-wide query, build-once/render-each-enabled gate, cache key; review-fix abfffab); 31-04 three ADR-0001 decoupled variants (ChatGPT/Claude/Gemini) + DI; 31-05 zip round-trip (PacketArtifactStore.BuildPrimerZip/LoadPrimerFromZip/SuggestPrimerZipFileName); 31-06 controller/tab/page/primer-selection.ts/site-common.css + human visual-verify APPROVED. Verify caught+fixed 3 bugs: 9fd1c65 (data-preset-ids @Html.Raw attr break), 779affe (category graceful-degrade + test), abbeedd (DeckControllerTests ctor — interface-change/test-project trap). Browser UAT (desktop+mobile): tab, D-3 per-bracket presets, gating, localStorage persistence, badges, end-to-end build (13.2KB primer, live Spellbook+EdhTop16), zip download (22,533B application/zip). Full DeckFlow.Web.Tests 654/0/5; Core 281/281.
-Open debt (carry to v1.5 close / v1.6): secure-phase 30, 31, 32, 33 (all open); content.kb.enabled prod flag still OFF; primer not prod-smoked; SpellbookCombo PieceCount/ManaValueNeeded/Popularity capture deferred (31-03 ranks on CardNames.Count + Results text only — documented follow-up). (Distill-sanitizer fix + content-kb/ data committed 4015634, 2a6ea8c.)
-Last activity: 2026-06-09 -- Phase 31 visual-verify APPROVED; ROADMAP 31 [x]; v1.5 all phases complete
-
-Progress: [██████████] 100% (all v1.5 phases complete)
+Phase: Milestone v1.5 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-10 — Milestone v1.5 completed and archived
 
 ## Performance Metrics
 
@@ -80,17 +78,25 @@ Progress: [██████████] 100% (all v1.5 phases complete)
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| tech_debt | Gemini paste-limit workaround | DEFERRED to v1.6 (third consecutive deferral — stays flag-gated via `DECKFLOW_GEMINI_ENABLED`) | v1.5 scoping 2026-06-03 |
-| verification_gap | 7 v1.4 phases missing VERIFICATION.md files | v1.5 Phase 28 scope | v1.4 close 2026-06-03 |
-| uat_gap | Stale UAT labels (human_needed / partial / unknown) in v1.4 phases | v1.5 Phase 28 scope | v1.4 close 2026-06-03 |
-| artifact_hygiene | P26 missing SUMMARYs, P24 quick-fix artifact chain, dual artifact-tree drift | v1.5 Phase 28 scope | v1.4 close 2026-06-03 |
-| tech_debt | KB-12 codex distill backend (NotSupportedException stub) | v1.5 Phase 28 scope (promoted from backlog) | v1.4 close 2026-06-03 |
-| ops | `content.kb.enabled` prod flag still OFF | v1.5 Phase 30 prerequisite step | v1.4 close 2026-06-03 |
-| tech_debt | DeckFlow.Core 186 undocumented XML-doc sites | v1.5 Phase 29 scope | v1.4 Phase 23 close |
-| tech_debt | SRP refactor: split `DeckController` (1592 lines / 11 deps) + `CommandRunners` (1893-line static god class) into feature-scoped handlers | BACKLOG — dedicated refactor phase, NOT mid-milestone (Copilot review 2026-06-08; #1/#4/#2). Working shipped code; high regression risk. Program.cs manual-wiring (#3) and codex-throw factory (#5) reviewed + dismissed as by-design | 2026-06-08 (Copilot SOLID review) |
+**Resolved during v1.5** (were deferred at v1.4 close): ✅ 7 v1.4 VERIFICATION backfill + UAT labels (Phase 28 HSK-03) · ✅ P26/P24/dual-tree artifact hygiene (Phase 28 HSK-04) · ✅ Core XML-doc backfill + gate widen (Phase 29 HSK-01) · ✅ KB-12 codex backend (re-demoted to backlog, D-03) · ✅ `content.kb.enabled` proven live at Phase 30 UAT (now OFF by design).
+
+**Open / carried forward:**
+
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| tech_debt | Gemini paste-limit workaround | DEFERRED to v1.6 (flag-gated `DECKFLOW_GEMINI_ENABLED`) | v1.5 scoping |
+| tech_debt | SRP refactor: split `DeckController` + `CommandRunners` god-classes | BACKLOG — dedicated refactor phase, not mid-milestone (high regression risk) | 2026-06-08 Copilot SOLID review |
+| tech_debt | SpellbookCombo ranking fields dropped by parser → PRM-08 priority ranking degraded | DEFERRED to v1.6 | v1.5 Phase 31 |
+| ops | SEL-02 expert-pin fix (`a106c6a`) live-pin re-confirmation | PENDING next `content.kb.enabled` ON window (TDD-covered, CI green) | v1.5 close |
+| ops | `content.kb.enabled` OFF — Content KB ships dark | BY DESIGN (operator re-enables when ready) | v1.5 close |
+| housekeeping | 15 pre-v1.5 open artifacts (stale 999.6/v13 debug sessions, 9 May quick-task refs status=missing, 3 empty todos) | ACKNOWLEDGED — cross-milestone cruft, clean via `/gsd-cleanup` | v1.5 close 2026-06-10 |
 
 ## Session Continuity
 
 Last session: 2026-06-09T17:30:00.000Z
 Stopped at: Phase 31 COMPLETE + APPROVED; ROADMAP 31 [x]; STATE 25/25 / 6-of-6 phases. All v1.5 phases done. Tracking committed.
 Resume: v1.5 milestone close — clear open debt first (secure-phase 30/31/32/33; flip content.kb.enabled prod flag; prod-smoke the primer) OR run /gsd-complete-milestone / open the v1.5→main PR. Nothing pushed to main; no deploy.
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
