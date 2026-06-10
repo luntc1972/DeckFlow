@@ -5,6 +5,12 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 public static class MoxfieldApiUrl
 {
+    /// <summary>
+    /// Tries to extract a deck identifier from a Moxfield URL or raw identifier.
+    /// </summary>
+    /// <param name="input">Moxfield deck URL or raw identifier text.</param>
+    /// <param name="deckId">Resolved deck identifier when parsing succeeds.</param>
+    /// <returns><see langword="true"/> when a deck identifier was resolved; otherwise <see langword="false"/>.</returns>
     public static bool TryGetDeckId(string input, out string deckId)
     {
         deckId = string.Empty;
@@ -29,6 +35,11 @@ public static class MoxfieldApiUrl
         return false;
     }
 
+    /// <summary>
+    /// Builds the Moxfield deck API URI for <paramref name="deckId"/>.
+    /// </summary>
+    /// <param name="deckId">Moxfield deck identifier.</param>
+    /// <returns>The absolute API URI for the requested deck.</returns>
     public static Uri BuildDeckApiUri(string deckId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);

@@ -18,6 +18,17 @@ Update the question_answers array so it includes those additional direct-chat qu
 Return only the updated deck_profile inside a fenced ```json code block.
 Do not omit any fields from the schema.
 """;
+    var setUpgradeFollowUpPrompt = """
+Answer my follow-up questions first.
+
+Then regenerate the full updated set_upgrade_report JSON so it reflects:
+- your latest conclusions and corrections
+- the additional questions I asked directly in chat
+- the answers you gave to those additional questions
+
+Return only the updated set_upgrade_report inside a fenced ```json code block.
+Do not omit any fields from the schema.
+""";
     var selectedQuestionSet = new HashSet<string>(Model.Request.SelectedAnalysisQuestions, StringComparer.OrdinalIgnoreCase);
     var openBuckets = new HashSet<string>(
         DeckFlow.Web.Models.AnalysisQuestionCatalog.Buckets
@@ -168,6 +179,57 @@ Do not omit any fields from the schema.
             </div>
             <span class="chatgpt-step-badge">Customize the analysis</span>
         </div>
+        <details class="kb-expert-accordion">
+            <summary class="kb-expert-accordion__summary">⭐ Expert Context <span class="kb-chip-area__optional">optional</span></summary>
+            <section class="kb-chip-area" aria-label="Expert context selection">
+                <p class="kb-chip-area__subhead">Pin a video or follow a creator to guarantee their clips appear in your analysis.</p>
+
+                <div class="kb-chip-area__chips" data-kb-chips aria-label="Selected expert context items">
+                    @foreach (var id in Model.Request.PinnedVideoIds)
+                    {
+                        <span class="kb-chip kb-chip--pinned" data-chip-id="@id" data-chip-type="video">
+                            📌 <span class="kb-chip__label">@(Model.ResolvedPinTitles.GetValueOrDefault(id, id))</span>
+                            <button type="button" class="kb-chip__remove" aria-label="Remove pinned video">×</button>
+                        </span>
+                    }
+                    @foreach (var creator in Model.Request.FollowedCreators)
+                    {
+                        <span class="kb-chip kb-chip--followed" data-chip-creator="@creator" data-chip-type="creator">
+                            ★ <span class="kb-chip__label">@creator</span>
+                            <button type="button" class="kb-chip__remove" aria-label="Remove followed creator @creator">×</button>
+                        </span>
+                    }
+                </div>
+
+                @foreach (var id in Model.Request.PinnedVideoIds)
+                {
+                    <input type="hidden" name="PinnedVideoIds" value="@id" />
+                }
+                @foreach (var creator in Model.Request.FollowedCreators)
+                {
+                    <input type="hidden" name="FollowedCreators" value="@creator" />
+                }
+
+                <div class="autocomplete-anchor kb-chip-area__typeahead" data-kb-chip-typeahead>
+                    <input type="text"
+                           class="kb-chip-area__search"
+                           placeholder="🔍  Add a pinned video or followed creator…"
+                           aria-label="Add expert context item"
+                           autocomplete="off"
+                           data-kb-typeahead-input />
+                    <div class="autocomplete-panel" hidden data-kb-typeahead-panel role="listbox" aria-label="Suggestions"></div>
+                </div>
+
+                @if (Model.Request.PinnedVideoIds.Count == 0 && Model.Request.FollowedCreators.Count == 0)
+                {
+                    <p class="kb-chip-area__empty-hint">No expert context selected. Clips will be chosen automatically.</p>
+                }
+                else
+                {
+                    <p class="kb-chip-area__empty-hint" hidden>No expert context selected. Clips will be chosen automatically.</p>
+                }
+            </section>
+        </details>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
@@ -411,15 +473,24 @@ Do not omit any fields from the schema.
 
         @if (!string.IsNullOrWhiteSpace(Model.AnalysisPromptText))
         {
+            var analysisBytes = System.Text.Encoding.UTF8.GetByteCount(Model.AnalysisPromptText);
+            var analysisKb = analysisBytes / 1024d;
+            var pasteWarn = aiPlatform.PasteWarningBytes is int cap && analysisBytes > cap;
             <section class="result-panel nested-panel">
                 <div class="panel-heading">
                     <div>
                         <h3>analysis.txt</h3>
                         <p>Paste this into @aiPlatform.DisplayName for the main deck analysis. It requests prose analysis plus a structured <code>deck_profile</code> JSON object.</p>
+                        <p class="prompt-size-note">Prompt size: ~@analysisKb.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) KB</p>
+                        @if (pasteWarn)
+                        {
+                            <p class="prompt-size-note prompt-size-note--warn" role="status">⚠️ Large prompt — may exceed @aiPlatform.DisplayName's paste limit. ChatGPT and Claude handle this size fine; for @aiPlatform.DisplayName, trim questions or candidate references, or paste in parts.</p>
+                        }
                     </div>
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
                 <textarea autocomplete="off" id="analysis-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.AnalysisPromptText</textarea>
+                <div data-kb-clear-pins-on-load hidden></div>
             </section>
         }
 
@@ -530,6 +601,8 @@ Do not omit any fields from the schema.
                             <p><strong>Synergy tags:</strong> @string.Join(", ", Model.AnalysisResponse.SynergyTags)</p>
                         }
                     </section>
+
+                    @await Html.PartialAsync("_ContentKbPanel", Model.ExpertContextClips)
 
                     <div class="sync-columns">
                         <section class="result-panel nested-panel">
@@ -705,6 +778,16 @@ Do not omit any fields from the schema.
                 <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.SetUpgradePromptText</textarea>
             </section>
         }
+        <section class="result-panel nested-panel">
+            <div class="panel-heading">
+                <div>
+                    <h3>Optional Follow-up JSON Refresh Prompt</h3>
+                    <p>Use this later only if you asked additional questions of your AI after the first set-upgrade response and need it to rebuild the updated <code>set_upgrade_report</code> JSON.</p>
+                </div>
+                <button type="button" class="copy-button" data-copy-target="set-upgrade-follow-up-output">Copy</button>
+            </div>
+            <textarea autocomplete="off" id="set-upgrade-follow-up-output" readonly spellcheck="false">@setUpgradeFollowUpPrompt</textarea>
+        </section>
         <div class="chatgpt-step-footer">
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back: Analysis Results</button>
             <button type="button" class="run-button" data-chatgpt-next-step="5">Next: Set Upgrade Results</button>
@@ -895,4 +978,5 @@ Do not omit any fields from the schema.
 @section Scripts {
     <script src="~/js/card-lookup.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+    <script src="~/js/kb-selection.js" asp-append-version="true"></script>
 }

@@ -30,6 +30,11 @@ public sealed class CategoryKnowledgeRepository
     {
     }
 
+    /// <summary>
+    /// Initializes the repository for the provided relational connection information.
+    /// </summary>
+    /// <param name="connectionInfo">Provider and connection string details for the knowledge database.</param>
+    /// <param name="logger">Optional logger for schema and index warnings.</param>
     public CategoryKnowledgeRepository(RelationalDatabaseConnection connectionInfo, ILogger? logger = null)
     {
         _connectionInfo = connectionInfo;
@@ -42,6 +47,9 @@ public sealed class CategoryKnowledgeRepository
             : Path.GetDirectoryName(_databasePath) ?? Directory.GetCurrentDirectory();
     }
 
+    /// <summary>
+    /// Gets the SQLite database path when the repository is configured for SQLite storage.
+    /// </summary>
     public string? DatabasePath => _databasePath;
 
     /// <summary>
@@ -231,6 +239,7 @@ public sealed class CategoryKnowledgeRepository
     /// Retrieves detail rows for a card, including display name and count.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>
+    /// <param name="boardFilter">Optional board name to filter the category rows.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     public async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCardAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
@@ -405,6 +414,8 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     /// <param name="source">Source label for the data.</param>
     /// <param name="rows">Rows to persist.</param>
+    /// <param name="board">Board name applied to each persisted row.</param>
+    /// <param name="deckCount">Deck-count total applied to each persisted row.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     public async Task ReplaceSourceRowsAsync(string source, IReadOnlyList<CategoryKnowledgeRow> rows, string board = "mainboard", int deckCount = 0, CancellationToken cancellationToken = default)
     {
@@ -504,6 +515,8 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="cardName">Card name.</param>
     /// <param name="categories">Categories to record.</param>
     /// <param name="quantity">Quantity observed.</param>
+    /// <param name="board">Board name containing the observed card.</param>
+    /// <param name="deckCountIncrement">Deck-total increment applied to the card totals for this observation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
     {

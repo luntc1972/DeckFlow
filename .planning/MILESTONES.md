@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (Shipped: 2026-06-10)
+
+**Phases completed:** 6 phases (28-33), 25 plans, 29 tasks
+**Git range:** 219 commits, 781 files (+56,893/-2,108), 2026-06-03 → 2026-06-09
+**Requirements:** 30/30 satisfied (HSK-02 descoped to backlog by design)
+
+**Key accomplishments:**
+
+- **Deck Primer Generator (Phase 31, PRM-01..12):** fourth paste-ready workflow at `/deck-primer` — 31-section catalog in 5 collapsible groups, Commander Spellbook combo grounding (null-graceful), bracket routing (EdhTop16 archetypes / generic fallback), category-knowledge distribution, per-AI artifact variants (ChatGPT/Claude/Gemini) via PacketArtifactStore zip round-trip.
+- **Content KB Integration (Phase 30, KBI-01..06):** Expert Context block of top-K relevant curated clips injected into all three analysis prompt variants as attributed pull-quotes; "What Experts Say" panel on the DeckAnalysis result page; admin per-clip relevance score preview. Prod UAT passed 2026-06-07 (ships flag-gated/dark).
+- **Expert Context Selection (Phase 32, SEL-01..06):** pin videos / follow creators / evergreen flag layered over auto-relevance via a 4-tier fill merge (pinned→followed→auto→evergreen); `is_evergreen` self-healing SQLite+Postgres migration; typeahead selection endpoints.
+- **Admin Content KB Curation UX (Phase 33, KBUX-01..02):** instant client-side filter/search over the entries list + readability sweep (zebra, sticky header, hover/focus, mobile cards).
+- **Housekeeping (Phases 28-29, HSK-01/03/04):** DeckFlow.Core XML-doc backfill + compiler doc-gate widened to `[DeckFlow.Core/**.cs]`; retroactive VERIFICATION.md + artifact hygiene.
+- **Quality infra (milestone close):** added Vitest+jsdom browser test runner + first GitHub Actions CI (build + xUnit + Vitest); diagnosed and fixed the expert-pin injection bug (ParseRowsAsync dropped parse-failed pin rows — `a106c6a`) and unified pin-id derivation (`bfe16b1`).
+
+**Known deferred items at close:** 15 (pre-v1.5 carryover — stale 999.x/v13 debug sessions, May quick-task references, empty todos; see STATE.md Deferred Items). SEL-02 live-pin re-confirm pending next KB-enable window.
+
+---
+
 ## v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup (Shipped: 2026-06-03)
 
 **Phases completed:** 14 phases (16-27 + inserted 21.1/21.2), 31 plans

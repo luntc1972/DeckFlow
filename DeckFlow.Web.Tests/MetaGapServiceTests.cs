@@ -594,6 +594,9 @@ public sealed class MetaGapServiceTests
             int count,
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("edhtop16 must not be called when FetchedEntriesJson is set");
+
+        public Task<IReadOnlyList<EdhTop16Entry>> GetTopArchetypesAsync(int count, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private static MetaGapService CreateService(
@@ -666,6 +669,9 @@ public sealed class MetaGapServiceTests
             LastCommanderName = commanderName;
             return Task.FromResult(_entries);
         }
+
+        public Task<IReadOnlyList<EdhTop16Entry>> GetTopArchetypesAsync(int count, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class FakeCommanderSpellbookService : ICommanderSpellbookService

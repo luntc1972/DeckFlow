@@ -1,0 +1,56 @@
+@model IReadOnlyList<DeckFlow.Web.Models.ContentKbExcerpt>?
+
+@if (Model is { Count: > 0 })
+{
+    <details class="result-panel nested-panel kb-expert-panel">
+        <summary>What Experts Say</summary>
+        <div class="kb-expert-clips">
+            @foreach (var sourceGroup in Model.GroupBy(clip => clip.Source, StringComparer.OrdinalIgnoreCase))
+            {
+                <section class="kb-expert-source-group">
+                    <h4>@sourceGroup.Key</h4>
+                    @foreach (var clip in sourceGroup)
+                    {
+                        <article class="kb-expert-clip">
+                            <blockquote>@clip.Excerpt</blockquote>
+                            <p>
+                                &mdash; @clip.Source,
+                                <a href="@clip.VideoUrl" target="_blank" rel="noopener noreferrer">@clip.Title</a>
+                                [@clip.TimestampLabel],
+                                Harvested @clip.HarvestDate.ToString("yyyy-MM-dd")
+                            </p>
+                            <span class="kb-clip-origin kb-clip-origin--@ClipOriginClass(clip.ClipOrigin)" aria-label="@ClipOriginLabel(clip.ClipOrigin)" title="@ClipOriginLabel(clip.ClipOrigin)">@ClipOriginGlyph(clip.ClipOrigin)</span>
+                        </article>
+                    }
+                </section>
+            }
+        </div>
+    </details>
+}
+
+@functions {
+    private static string ClipOriginClass(string origin) => origin?.ToLowerInvariant() switch
+    {
+        "pinned" => "pinned",
+        "followed" => "followed",
+        "evergreen" => "evergreen",
+        "auto" => "auto",
+        _ => "auto"
+    };
+
+    private static string ClipOriginGlyph(string origin) => origin?.ToLowerInvariant() switch
+    {
+        "pinned" => "📌",
+        "followed" => "★",
+        "evergreen" => "☘",
+        _ => "auto"
+    };
+
+    private static string ClipOriginLabel(string origin) => origin?.ToLowerInvariant() switch
+    {
+        "pinned" => "Pinned by you",
+        "followed" => "From followed creator",
+        "evergreen" => "Evergreen advice",
+        _ => "Auto-selected"
+    };
+}

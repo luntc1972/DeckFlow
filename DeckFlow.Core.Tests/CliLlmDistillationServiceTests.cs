@@ -66,20 +66,16 @@ public sealed class CliLlmDistillationServiceTests
     }
 
     [Fact]
-    public async Task Summarize_MissingRequiredField_RetriesThenThrows()
+    public async Task Summarize_MissingRequiredField_ReturnsEmptySummaryWithoutRetry()
     {
-        var stdout = new Queue<string>(
-        [
-            ClaudeEnvelope("""{"not_summary":"x"}"""),
-            ClaudeEnvelope("""{"not_summary":"x"}"""),
-            ClaudeEnvelope("""{"not_summary":"x"}""")
-        ]);
+        var stdout = new Queue<string>([ClaudeEnvelope("""{"not_summary":"x"}""")]);
         var service = CreateService(stdout);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => WithCommandOverrideAsync(ValidOverride, () => service.SummarizeAsync("transcript")));
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.SummarizeAsync("transcript"));
 
-        Assert.Contains("failed after 3 attempts", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(string.Empty, result.Summary);
         Assert.Empty(stdout);
     }
 
@@ -158,6 +154,41 @@ public sealed class CliLlmDistillationServiceTests
     }
 
     [Fact]
+    public async Task Summarize_LongSummary_TruncatesWithoutRetry()
+    {
+        var longSummary = string.Join(" ", Enumerable.Range(1, 205).Select(index => $"word{index}"));
+        var stdout = new Queue<string>([ClaudeEnvelope($$"""{"summary":"{{longSummary}}"}""")]);
+        var service = CreateService(stdout);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.SummarizeAsync("transcript"));
+
+        Assert.Equal(200, DistillationValidation.CountWords(result.Summary));
+        Assert.DoesNotContain("word201", result.Summary, StringComparison.Ordinal);
+        Assert.Empty(stdout);
+    }
+
+    [Fact]
+    public async Task ExtractClips_InvalidCountAndNegativeTimestamp_SanitizesWithoutRetry()
+    {
+        var stdout = new Queue<string>(
+        [
+            ClaudeEnvelope(
+                """{"clips":[{"timestamp_seconds":-5,"excerpt":"drop"},{"timestamp_seconds":10,"excerpt":"1"},{"timestamp_seconds":20,"excerpt":"2"},{"timestamp_seconds":30,"excerpt":"3"},{"timestamp_seconds":40,"excerpt":"4"},{"timestamp_seconds":50,"excerpt":"5"},{"timestamp_seconds":60,"excerpt":"6"},{"timestamp_seconds":70,"excerpt":"7"},{"timestamp_seconds":80,"excerpt":"8"},{"timestamp_seconds":90,"excerpt":"9"}]}""")
+        ]);
+        var service = CreateService(stdout);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.ExtractClipsAsync("transcript"));
+
+        Assert.Equal(8, result.Clips.Count);
+        Assert.Equal([10, 20, 30, 40, 50, 60, 70, 80], result.Clips.Select(clip => clip.TimestampSeconds).ToArray());
+        Assert.Empty(stdout);
+    }
+
+    [Fact]
     public async Task InferTags_ValidPayload_ReturnsTagsAndZeroUsage()
     {
         var stdout = new Queue<string>([ClaudeEnvelope(ValidTagsJson())]);
@@ -174,12 +205,11 @@ public sealed class CliLlmDistillationServiceTests
     }
 
     [Fact]
-    public async Task InferTags_VocabInvalidThenValid_RetriesAndSucceeds()
+    public async Task InferTags_VocabInvalidAndDuplicate_SanitizesWithoutRetry()
     {
         var stdout = new Queue<string>(
         [
-            ClaudeEnvelope("""{"archetype":["banana"],"bracket":["Optimized"],"card_category":["draw"]}"""),
-            ClaudeEnvelope(ValidTagsJson())
+            ClaudeEnvelope("""{"archetype":["banana","Aristocrats","ARISTOCRATS","tokens"],"bracket":["Optimized","optimized","battlecruiser"],"card_category":["artifacts","draw","DRAW","ramp"]}""")
         ]);
         var service = CreateService(stdout);
 
@@ -187,37 +217,18 @@ public sealed class CliLlmDistillationServiceTests
             ValidOverride,
             () => service.InferTagsAsync("transcript"));
 
-        Assert.Equal(["aristocrats"], result.Archetype);
+        Assert.Equal(["aristocrats", "tokens"], result.Archetype);
+        Assert.Equal(["Optimized"], result.Bracket);
+        Assert.Equal(["draw", "ramp"], result.CardCategory);
         Assert.Empty(stdout);
     }
 
     [Fact]
-    public async Task InferTags_PersistentVocabInvalid_ThrowsNoSilentEmpty()
+    public async Task InferTags_AllInvalidOrNullArrays_ReturnsEmptyLists()
     {
         var stdout = new Queue<string>(
         [
-            ClaudeEnvelope("""{"archetype":["banana"],"bracket":["Optimized"],"card_category":["draw"]}"""),
-            ClaudeEnvelope("""{"archetype":["banana"],"bracket":["Optimized"],"card_category":["draw"]}"""),
-            ClaudeEnvelope("""{"archetype":["banana"],"bracket":["Optimized"],"card_category":["draw"]}""")
-        ]);
-        var service = CreateService(stdout);
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => WithCommandOverrideAsync(ValidOverride, () => service.InferTagsAsync("transcript")));
-
-        Assert.Contains("failed after 3 attempts", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(stdout);
-    }
-
-    [Theory]
-    [InlineData("""{"archetype":["aristocrats","ARISTOCRATS"],"bracket":["Optimized"],"card_category":["draw"]}""")]
-    [InlineData("""{"archetype":null,"bracket":["Optimized"],"card_category":["draw"]}""")]
-    public async Task InferTags_DuplicateOrNullArray_Retries(string invalidJson)
-    {
-        var stdout = new Queue<string>(
-        [
-            ClaudeEnvelope(invalidJson),
-            ClaudeEnvelope(ValidTagsJson())
+            ClaudeEnvelope("""{"archetype":null,"bracket":["battlecruiser"],"card_category":[" ","tempo"]}""")
         ]);
         var service = CreateService(stdout);
 
@@ -225,7 +236,9 @@ public sealed class CliLlmDistillationServiceTests
             ValidOverride,
             () => service.InferTagsAsync("transcript"));
 
-        Assert.Equal(["aristocrats"], result.Archetype);
+        Assert.Empty(result.Archetype);
+        Assert.Empty(result.Bracket);
+        Assert.Empty(result.CardCategory);
         Assert.Empty(stdout);
     }
 

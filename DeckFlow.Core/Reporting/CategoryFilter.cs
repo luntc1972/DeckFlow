@@ -23,6 +23,9 @@ public static class CategoryFilter
         "Sorceries",
     };
 
+    /// <summary>Returns whether <paramref name="category"/> is a strategy-relevant category.</summary>
+    /// <param name="category">Category label to evaluate.</param>
+    /// <returns><see langword="true"/> when the category is non-empty and not excluded; otherwise <see langword="false"/>.</returns>
     public static bool IsIncluded(string? category)
     {
         return !string.IsNullOrWhiteSpace(category) && !ExcludedCategories.Contains(category);
@@ -32,6 +35,7 @@ public static class CategoryFilter
     /// Returns non-generic categories when present, otherwise preserves the original category labels.
     /// </summary>
     /// <param name="categories">Observed category labels.</param>
+    /// <returns>Filtered category labels, or the original labels when none survive the filter.</returns>
     public static IReadOnlyList<string> IncludedOrFallback(IEnumerable<string> categories)
     {
         var items = categories

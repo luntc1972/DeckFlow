@@ -282,7 +282,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - **Global state:** Static `ScryfallThrottle` (`DeckFlow.Web/Services/ScryfallThrottle.cs`) is shared across all Scryfall services. Static `ScryfallRestClientFactory` shim retained for back-compat (Phase 1 note in `Program.cs:108`).
 - **Cookie/session lifetime invariant:** `TaggerSessionCache` TTL (270s) MUST stay strictly below `ScryfallTaggerHttpClient` `SetHandlerLifetime` (5 min) — see comment at `Program.cs:83-95`.
 - **Forwarded headers:** `app.UseForwardedHeaders()` MUST run before HTTPS redirect / security headers / `SameOriginRequestValidator`, otherwise scheme mismatch breaks CSRF check (`Program.cs:194-196`).
-- **Build coupling:** `DeckFlow.Web.csproj` runs `tsc -p tsconfig.json` and zips `browser-extensions/deckflow-bridge` on every build. TS sources live in `wwwroot/ts/`, output goes to `wwwroot/js/` and is also git-tracked.
+- **Build coupling:** `DeckFlow.Web.csproj` runs `tsc -p tsconfig.json` and zips `browser-extensions/deckflow-bridge` on every build. TS sources live in `wwwroot/ts/` (git-tracked); compiled output goes to `wwwroot/js/` and is **gitignored** (`.gitignore` ignores `DeckFlow.Web/wwwroot/js/*.js`) — never stage or commit compiled `.js`. The Docker build rebuilds all TS at deploy (Node 20 + `CompileTypeScriptAssets` on `dotnet publish`), so committed `.js` is unnecessary and creates stale-artifact drift.
 - **Shared package path bug (env):** Building from VS-shared NuGet path on Windows can leave a stale `project.assets.json`; build from WSL or clean obj/.
 ## Anti-Patterns
 ### Direct `new HttpClient()` in services

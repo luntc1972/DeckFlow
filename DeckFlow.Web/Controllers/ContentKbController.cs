@@ -59,6 +59,7 @@ public sealed class ContentKbController : Controller
             {
                 Id = row.Id,
                 Title = row.Title,
+                VideoId = row.PinId!,
                 Source = row.Source,
                 SourceUrl = row.VideoUrl,
                 DetailUrl = $"/content-kb/{row.Id}",

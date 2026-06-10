@@ -71,6 +71,15 @@ public interface IContentSiteIndexStore
     Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets evergreen flag for a single site-index row.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="evergreen">Whether the row should be evergreen.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated.</returns>
+    Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sets visibility for all site-index rows from a source.
     /// </summary>
     /// <param name="source">Source name or discriminator.</param>

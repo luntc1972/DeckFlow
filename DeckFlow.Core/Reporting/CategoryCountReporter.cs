@@ -7,6 +7,9 @@ namespace DeckFlow.Core.Reporting;
 /// </summary>
 public static class CategoryCountReporter
 {
+    /// <summary>Returns category totals aggregated from the supplied deck entries.</summary>
+    /// <param name="entries">Deck entries to aggregate.</param>
+    /// <returns>Category counts ordered by descending quantity and category name.</returns>
     public static IReadOnlyList<(string Category, int Count)> CountByQuantity(IEnumerable<DeckEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -20,6 +23,9 @@ public static class CategoryCountReporter
             .ToList();
     }
 
+    /// <summary>Returns a text report listing category totals for the supplied deck entries.</summary>
+    /// <param name="entries">Deck entries to aggregate.</param>
+    /// <returns>A newline-delimited category-count list, or a no-results message when no categories exist.</returns>
     public static string ToText(IEnumerable<DeckEntry> entries)
     {
         var counts = CountByQuantity(entries);

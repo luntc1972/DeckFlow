@@ -18,6 +18,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
     /// Initializes a new instance with an optional RestClient instance.
     /// </summary>
     /// <param name="restClient">Client used for HTTP requests (tests can override).</param>
+    /// <param name="executeAsync">Optional request executor delegate used to override HTTP execution in tests.</param>
     public MoxfieldApiDeckImporter(
         RestClient? restClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse>>? executeAsync = null)
@@ -34,12 +35,16 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
     /// When Moxfield rejects the request (typical on cloud IPs), falls back to Commander
     /// Spellbook's public card-list-from-url endpoint.
     /// </summary>
+    /// <param name="urlOrDeckId">Moxfield deck URL or deck identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The imported deck entries.</returns>
     public async Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
     {
         var result = await ImportWithSourceAsync(urlOrDeckId, cancellationToken).ConfigureAwait(false);
         return result.Entries;
     }
 
+    /// <inheritdoc />
     public async Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
     {
         if (!MoxfieldApiUrl.TryGetDeckId(urlOrDeckId, out var deckId))

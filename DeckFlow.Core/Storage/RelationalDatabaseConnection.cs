@@ -9,7 +9,9 @@ namespace DeckFlow.Core.Storage;
 /// </summary>
 public enum RelationalDatabaseProvider
 {
+    /// <summary>Uses a SQLite database.</summary>
     Sqlite,
+    /// <summary>Uses a PostgreSQL database.</summary>
     Postgres
 }
 
@@ -18,6 +20,7 @@ public enum RelationalDatabaseProvider
 /// </summary>
 public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Provider, string ConnectionString)
 {
+    /// <summary>Gets the SQL dialect helpers for the configured provider.</summary>
     public IRelationalDialect Dialect
         => Provider switch
         {
@@ -73,12 +76,23 @@ public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Pro
         return connection;
     }
 
+    /// <summary>Gets a value indicating whether the configured provider is SQLite.</summary>
     public bool IsSqlite => Provider == RelationalDatabaseProvider.Sqlite;
+    /// <summary>Gets a value indicating whether the configured provider is PostgreSQL.</summary>
     public bool IsPostgres => Provider == RelationalDatabaseProvider.Postgres;
 
+    /// <summary>
+    /// Creates a SQLite connection descriptor using the file at <paramref name="databasePath"/>.
+    /// </summary>
+    /// <param name="databasePath">Path to the SQLite file.</param>
+    /// <returns>A SQLite connection descriptor rooted at the supplied path.</returns>
     public static RelationalDatabaseConnection FromSqlitePath(string databasePath)
         => new(RelationalDatabaseProvider.Sqlite, $"Data Source={Path.GetFullPath(databasePath)}");
 
+    /// <summary>
+    /// Extracts the normalized SQLite file path from the current connection string.
+    /// </summary>
+    /// <returns>The absolute SQLite file path.</returns>
     public string ExtractSqlitePath()
     {
         if (Provider != RelationalDatabaseProvider.Sqlite)
@@ -90,6 +104,12 @@ public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Pro
         return Path.GetFullPath(builder.DataSource);
     }
 
+    /// <summary>
+    /// Adds a parameter to the supplied database command.
+    /// </summary>
+    /// <param name="command">Command that will receive the parameter.</param>
+    /// <param name="name">Parameter name.</param>
+    /// <param name="value">Parameter value, or <see langword="null"/> to store <see cref="DBNull.Value"/>.</param>
     public static void AddParameter(DbCommand command, string name, object? value)
     {
         var parameter = command.CreateParameter();

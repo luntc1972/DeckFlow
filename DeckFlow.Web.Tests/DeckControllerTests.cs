@@ -32,6 +32,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -57,6 +58,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new FakeMetaGapService(new MetaGapResult(
                 "summary",
@@ -106,6 +108,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new ThrowingMetaGapService(new HttpRequestException("Too many requests", null, HttpStatusCode.TooManyRequests)),
             new PacketSessionCache(),
@@ -161,6 +164,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -193,6 +197,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -223,6 +228,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -256,6 +262,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -289,6 +296,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -324,6 +332,7 @@ public sealed class DeckControllerTests
             new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -360,6 +369,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -390,6 +400,7 @@ public sealed class DeckControllerTests
             new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -421,6 +432,7 @@ public sealed class DeckControllerTests
             new PartiallyFailingMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -453,6 +465,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -482,6 +495,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -512,6 +526,7 @@ public sealed class DeckControllerTests
             new StubSuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -547,6 +562,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -582,6 +598,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -618,6 +635,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -657,6 +675,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             capturingService,
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -693,6 +712,121 @@ public sealed class DeckControllerTests
     }
 
     [Fact]
+    public async Task DeckAnalysis_MapsExpertContextClips_OnFreshAnalysisSuccessPath()
+    {
+        var clips = new List<ContentKbExcerpt>
+        {
+            new()
+            {
+                Source = "EDHRECast",
+                Title = "Clip One",
+                VideoUrl = "https://example.com/one",
+                TimestampLabel = "02:14",
+                Excerpt = "First expert quote.",
+                HarvestDate = new DateTimeOffset(2026, 6, 5, 12, 34, 56, TimeSpan.Zero),
+                Score = 2.75
+            }
+        };
+        var packetService = new FakeDeckAnalysisPacketService
+        {
+            Result = new DeckAnalysisPacketResult(
+                "summary",
+                "Test Deck | AI Deck Analysis",
+                "{}",
+                "reference",
+                "analysis",
+                "set-upgrade",
+                null,
+                null,
+                ExpertContextClips: clips)
+        };
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            packetService,
+            new StubDeckPrimerPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.DeckAnalysis(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
+        Assert.NotNull(model.ExpertContextClips);
+        Assert.Single(model.ExpertContextClips!);
+        Assert.Equal(clips[0].Excerpt, model.ExpertContextClips[0].Excerpt);
+    }
+
+    [Fact]
+    public async Task DeckAnalysis_LeavesExpertContextClipsNull_WhenPacketResultHasNoClips()
+    {
+        var packetService = new FakeDeckAnalysisPacketService
+        {
+            Result = new DeckAnalysisPacketResult(
+                "summary",
+                "Test Deck | AI Deck Analysis",
+                "{}",
+                "reference",
+                "analysis",
+                "set-upgrade",
+                null,
+                null,
+                ExpertContextClips: null)
+        };
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            packetService,
+            new StubDeckPrimerPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.DeckAnalysis(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
+        Assert.Null(model.ExpertContextClips);
+    }
+
+    [Fact]
     public void DeckComparison_Get_RendersPage()
     {
         var controller = new DeckController(
@@ -703,6 +837,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -727,6 +862,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -766,6 +902,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new StubDeckAnalysisPacketService(),
+            new StubDeckPrimerPacketService(),
             new FakeDeckComparisonService(),
             new StubMetaGapService(),
             new PacketSessionCache(),
@@ -808,6 +945,15 @@ public sealed class DeckControllerTests
             => throw new NotImplementedException();
 
         public Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
+    }
+
+    private sealed class StubDeckPrimerPacketService : IDeckPrimerPacketService
+    {
+        public Task<DeckPrimerPacketResult> BuildAsync(DeckPrimerRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<string?> TryComputeCacheKeyAsync(DeckPrimerRequest request, CancellationToken cancellationToken)
             => Task.FromResult<string?>(null);
     }
 
@@ -931,18 +1077,20 @@ public sealed class DeckControllerTests
     {
         public DeckAnalysisRequest? LastRequest { get; private set; }
 
+        public DeckAnalysisPacketResult Result { get; set; } = new(
+            "summary",
+            "Test Deck | AI Deck Analysis",
+            "{}",
+            "reference",
+            "analysis",
+            "set-upgrade",
+            null,
+            null);
+
         public Task<DeckAnalysisPacketResult> BuildAsync(DeckAnalysisRequest request, CancellationToken cancellationToken = default)
         {
             LastRequest = request;
-            return Task.FromResult(new DeckAnalysisPacketResult(
-                "summary",
-                "Test Deck | AI Deck Analysis",
-                "{}",
-                "reference",
-                "analysis",
-                "set-upgrade",
-                null,
-                null));
+            return Task.FromResult(Result);
         }
 
         public Task<string?> TryComputeCacheKeyAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)

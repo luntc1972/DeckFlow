@@ -57,9 +57,10 @@ public sealed class LlmDistillationService : ILlmDistillationService
             DistillationSchemas.SummarySchema,
             SummaryMaxOutputTokens,
             cancellationToken).ConfigureAwait(false);
-        DistillationValidation.ValidateSummary(extracted.Payload.Summary);
 
-        return new SummaryResult(extracted.Payload.Summary, extracted.Usage);
+        return new SummaryResult(
+            DistillationValidation.TruncateSummary(extracted.Payload.Summary),
+            extracted.Usage);
     }
 
     /// <inheritdoc />
@@ -76,9 +77,10 @@ public sealed class LlmDistillationService : ILlmDistillationService
             DistillationSchemas.ClipsSchema,
             ClipsMaxOutputTokens,
             cancellationToken).ConfigureAwait(false);
-        DistillationValidation.ValidateClips(extracted.Payload.Clips);
 
-        return new ClipsResult(extracted.Payload.Clips, extracted.Usage);
+        return new ClipsResult(
+            DistillationValidation.SanitizeClips(extracted.Payload.Clips),
+            extracted.Usage);
     }
 
     /// <inheritdoc />
@@ -95,11 +97,12 @@ public sealed class LlmDistillationService : ILlmDistillationService
             DistillationSchemas.TagsSchema,
             TagsMaxOutputTokens,
             cancellationToken).ConfigureAwait(false);
+        var sanitized = DistillationValidation.SanitizeTags(extracted.Payload);
 
         return new TagsResult(
-            extracted.Payload.Archetype,
-            extracted.Payload.Bracket,
-            extracted.Payload.CardCategory,
+            sanitized.Archetype,
+            sanitized.Bracket,
+            sanitized.CardCategory,
             extracted.Usage);
     }
 

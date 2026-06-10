@@ -2,8 +2,16 @@ using System.Text.RegularExpressions;
 
 namespace DeckFlow.Core.Normalization;
 
+/// <summary>
+/// Normalizes card names for cross-source comparisons.
+/// </summary>
 public static partial class CardNormalizer
 {
+    /// <summary>
+    /// Normalizes a card name by trimming, lowercasing, and removing printing-specific punctuation.
+    /// </summary>
+    /// <param name="cardName">Card name to normalize.</param>
+    /// <returns>The normalized card name.</returns>
     public static string Normalize(string cardName)
     {
         ArgumentNullException.ThrowIfNull(cardName);

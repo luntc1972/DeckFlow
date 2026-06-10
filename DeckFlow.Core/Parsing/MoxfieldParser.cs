@@ -9,12 +9,14 @@ namespace DeckFlow.Core.Parsing;
 /// </summary>
 public sealed partial class MoxfieldParser : IParser
 {
+    /// <inheritdoc />
     public List<DeckEntry> ParseFile(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         return ParseText(File.ReadAllText(filePath));
     }
 
+    /// <inheritdoc />
     public List<DeckEntry> ParseText(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
