@@ -130,7 +130,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 34: KB Retrieval Fix** — KBR-01, KBR-02, KBR-03, KBR-04 (VERIFICATION: passed 2026-06-10)
 - [x] **Phase 35: Value Re-Validation Gate** — KBV-01..04 — **MARGINAL** (gate NOT cleared; 2026-06-10). Pivot = **retire clip-injection**. See `35-GATE-VERDICT.md`.
 - [~] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** — **SKIPPED** (gate MARGINAL). PHIL-01..04 + KBD-01/02 not built; KB stays dark. Pivot recorded: retire the whole-channel clip-injection feature.
-- [ ] **Phase 37: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — independent of the gate)*
+- [ ] **Phase 37: Retire Clip-Injection + Un-Dark KB** — RET-01..06 *(remove the gate-condemned injection, un-dark the `/content-kb` browse, add a deck-analysis pointer to the KB's copyable prompts)*
+- [ ] **Phase 37.5: Rebuild KB Corpus** — REBUILD-01..05 *(reset corpus + re-harvest salubrious-snail under a deck-advice/philosophy LLM+manual quality filter; fix the `[00:00]` clip-extraction defect)*
+- [ ] **Phase 38: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — runs after the KB work so it splits slimmed controllers)*
 
 ---
 
@@ -174,9 +176,32 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 37: Controller SRP Split
+### Phase 37: Retire Clip-Injection + Un-Dark KB Browse
+**Goal**: The gate-condemned clip-injection into deck-analysis prompts is fully removed (the `## Expert Context` block, the expert-selection widget, the "What Experts Say" panel, the retriever services), the KB-as-reference (`/content-kb` browse) is kept and un-darked, and the deck-analysis page points users to the KB's copyable prompts
+**Depends on**: Phase 35 (executes the KBV-04 retire pivot). Runs BEFORE Phase 38 so the SRP split operates on already-slimmed DeckController/DeckAnalysisPacketService.
+**Requirements**: RET-01..06 — see `phases/37-retire-clip-injection/37-CONTEXT.md`
+**Scope (A-only, full removal):** delete the 3 retriever services + ContentKbExcerpt + expert-selection types/endpoints/TS + `_ContentKbPanel`; strip injection params from the 3 prompt variants + DeckAnalysisPacketService + DeckController; remove the admin relevance-score preview. KEEP the browse-site, admin curation grid, harvest/distill CLI, Core content stores, corpus. Flip `content.kb.enabled` ON (un-dark) + verify browse views HTML-encode harvested text (XSS). Add a deck-analysis note linking to `/content-kb` (where each entry already has a "Copy artifact" button).
+**Success Criteria** (what must be TRUE):
+  1. A generated deck-analysis prompt (all 3 AI variants) contains NO `## Expert Context` block; the DeckAnalysis page has no expert-selection accordion and no experts panel, but does carry a note linking to the KB's copyable prompts
+  2. Solution builds clean (0 new warnings); grep proves no `ContentKbRelevanceService`/`ContentKbExcerpt`/`ExpertSelection` references remain outside removed files
+  3. The KB reference is intact: `DeckFlow.CLI harvest`/`distill` still populate the corpus and `/content-kb` browse (now un-darked) lists/renders the distilled entries with harvested text HTML-encoded (XSS-safe)
+  4. A pre-retire packet zip carrying `ExpertSelectionJson` still loads without error (graceful ignore of the removed field)
+**Plans**: TBD
+
+### Phase 37.5: Rebuild KB Corpus — High-Signal Re-Harvest
+**Goal**: The KB corpus is reset and rebuilt with deck-advice/philosophy content only, with the `[00:00]` clip-extraction defect fixed so clips carry real mid-video timestamps — feeding the un-darked browse-site as a curated reference
+**Depends on**: Phase 37 (KB is browse-only + un-darked). Runs before/around Phase 38 (which splits `CommandRunners` that this phase edits).
+**Requirements**: REBUILD-01..05 — see `phases/37.5-rebuild-kb-corpus/37.5-CONTEXT.md`
+**Scope:** purge all `content_*` tables (local + prod); re-harvest Salubrious Snail first; HYBRID quality filter (distill-time LLM classifier drops trivia/news/meta/intro, operator confirms survivors in admin curation); FIX the distiller so clips have real timestamps (`TimestampSeconds ?? 0` root cause — feed timestamped transcript, require real per-clip times, reject all-zero distills). Other creators = later pass.
+**Success Criteria** (what must be TRUE):
+  1. Corpus reset to empty, then re-harvested: only quality-filtered Salubrious Snail deck-advice/philosophy videos indexed; a sampled junk video (trivia/news/intro) is demonstrably dropped
+  2. Published entries' clips have real, distinct, non-zero timestamps at the advice moment (spot-check vs the video); an all-timestamp-0 distill is rejected
+  3. `/content-kb` lists the rebuilt entries; Detail renders summary/clips HTML-encoded with a working "Copy artifact"
+**Plans**: TBD
+
+### Phase 38: Controller SRP Split
 **Goal**: `DeckController` and `CommandRunners` are decomposed into focused, single-responsibility units — all existing URLs and CLI commands preserved unchanged, no user-visible behavior altered
-**Depends on**: Nothing (unconditional, independent of all KB phases; runs regardless of gate outcome)
+**Depends on**: Phase 37 (split operates on the post-retire, slimmed controllers; otherwise independent of all KB phases)
 **Requirements**: SRP-01, SRP-02, SRP-03
 **Success Criteria** (what must be TRUE):
   1. Every URL that existed before the split returns the same response after the split — a pre-split URL list compared against a post-split URL list shows zero removals or changes
@@ -189,13 +214,16 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 ## Progress
 
 **Execution Order (v1.6):**
-Phase 34 → Phase 35 (sequential, gate-locked). Phase 36 runs only if Phase 35 = VALIDATED. Phase 37 is independent and runs last regardless of gate outcome. If the gate fails, Phase 36 is skipped: the milestone closes after Phase 37.
+Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 38 (SRP split). Milestone closes after Phase 38.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 34. KB Retrieval Fix | 0/2 | Planned | - |
-| 35. Value Re-Validation Gate | 0/TBD | Not started | - |
-| 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | 0/TBD | Not started | - |
+| 34. KB Retrieval Fix | 2/2 | ✅ Complete (VERIFICATION passed) | 2026-06-10 |
+| 35. Value Re-Validation Gate | 2/2 | ✅ Complete — **MARGINAL** | 2026-06-10 |
+| 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | — | ⊘ SKIPPED (gate MARGINAL) | - |
+| 37. Retire Clip-Injection + Un-Dark KB | 0/TBD | Scoped (CONTEXT ready) | - |
+| 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
+| 38. Controller SRP Split | 0/TBD | Not started | - |
 | 37. Controller SRP Split | 0/TBD | Not started | - |
 
 ---

@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 Phase: 35 Value Re-Validation Gate — COMPLETE; outcome **MARGINAL** (gate NOT cleared)
 Plan: 35-01 (Codex) emitted 5-deck A/B; 35-02 (Claude) judged + verdict in 35-GATE-VERDICT.md
-Status: Phase 36 SKIPPED (gate failed); pivot = RETIRE the whole-channel clip-injection feature; KB stays dark. Next/last v1.6 phase = 37 (DeckController/CommandRunners SRP split), independent of the gate.
-Last activity: 2026-06-10 — Phase 35 gate judged MARGINAL across 5 bracket-spanning decks; user ratified retire pivot
+Status: Phase 36 SKIPPED. Retire pivot SCOPED into 3 phases: **37** Retire Clip-Injection + Un-Dark KB (A-only full removal; keep browse+harvest; un-dark; deck-analysis KB pointer) → **37.5** Rebuild KB Corpus (reset + re-harvest salubrious-snail under deck-advice/philosophy hybrid filter; fix the [00:00] clip defect) → **38** Controller SRP Split. CONTEXT.md ready for all three; no plans yet.
+Last activity: 2026-06-10 — Phase 35 MARGINAL ratified; scoped the retire pivot (KB kept browsable + un-darked + re-curated; injection removed)
 
 ## Accumulated Context — Key Decisions (v1.6)
 
