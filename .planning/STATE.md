@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Deck Primer Generator + Content KB Integration + Housekeeping
-status: Awaiting next milestone
-stopped_at: Phase 31 COMPLETE + APPROVED; ROADMAP 31 [x]; STATE 25/25 / 6-of-6 phases. All v1.5 phases done. Tracking committed.
-last_updated: "2026-06-10T01:23:17.528Z"
-last_activity: 2026-06-10 — Milestone v1.5 completed and archived
+milestone: v1.6
+milestone_name: Content KB Retrieval Fix + Value Re-Validation
+status: planning
+last_updated: "2026-06-10T16:41:23.561Z"
+last_activity: 2026-06-10
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 25
-  percent: 75
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 ## Current Position
 
-Phase: Milestone v1.5 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-10 — Milestone v1.5 completed and archived
+Status: Defining requirements
+Last activity: 2026-06-10 — Milestone v1.6 started
 
 ## Performance Metrics
 
