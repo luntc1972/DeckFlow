@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
@@ -113,12 +114,19 @@ public sealed class ContentKbRelevanceServiceTests
     [Fact]
     public async Task GetRelevantClipsAsync_MoreThanFiveQualifyingClips_ReturnsBestArtifactFirstInDocumentOrder()
     {
-        var topRow = CreateRow(1, "artifact-top.md", ["combo"], ["cEDH"]);
-        var nextRow = CreateRow(2, "artifact-next.md", ["combo"], []);
-        var store = new TrackingContentSiteIndexStore([topRow, nextRow]);
+        var rows = new[]
+        {
+            CreateRow(1, "artifact-top.md", ["combo"], ["cEDH"]) with { Title = "Top Row" },
+            CreateRow(2, "artifact-next.md", ["combo"], []) with { Title = "Next Row" },
+            CreateRow(3, "artifact-third.md", ["combo"], []) with { Title = "Third Row" },
+            CreateRow(4, "artifact-fourth.md", ["combo"], []) with { Title = "Fourth Row" },
+            CreateRow(5, "artifact-fifth.md", ["combo"], []) with { Title = "Fifth Row" },
+            CreateRow(6, "artifact-sixth.md", ["combo"], []) with { Title = "Sixth Row" }
+        };
+        var store = new TrackingContentSiteIndexStore(rows);
         var artifacts = new Dictionary<string, string>
         {
-            [topRow.ArtifactPath] = BuildArtifact(
+            [rows[0].ArtifactPath] = BuildArtifact(
                 "https://www.youtube.com/watch?v=top123",
                 "2026-06-05T12:34:56Z",
                 "Strong summary.",
@@ -126,13 +134,32 @@ public sealed class ContentKbRelevanceServiceTests
                 ("00:20", "Second top clip for Tymna the Weaver."),
                 ("00:30", "Third top clip for Tymna the Weaver."),
                 ("00:40", "Fourth top clip for Tymna the Weaver.")),
-            [nextRow.ArtifactPath] = BuildArtifact(
+            [rows[1].ArtifactPath] = BuildArtifact(
                 "https://www.youtube.com/watch?v=next123",
                 "2026-06-05T12:34:56Z",
                 "Backup summary.",
                 ("01:10", "Tymna the Weaver appears in this lower-ranked artifact."),
-                ("01:20", "Second lower-ranked clip for Tymna the Weaver."),
-                ("01:30", "Third lower-ranked clip for Tymna the Weaver."))
+                ("01:20", "Second lower-ranked clip for Tymna the Weaver.")),
+            [rows[2].ArtifactPath] = BuildArtifact(
+                "https://www.youtube.com/watch?v=third123",
+                "2026-06-05T12:34:56Z",
+                "Third summary.",
+                ("02:10", "Tymna the Weaver keeps this third video relevant.")),
+            [rows[3].ArtifactPath] = BuildArtifact(
+                "https://www.youtube.com/watch?v=fourth123",
+                "2026-06-05T12:34:56Z",
+                "Fourth summary.",
+                ("03:10", "Tymna the Weaver keeps this fourth video relevant.")),
+            [rows[4].ArtifactPath] = BuildArtifact(
+                "https://www.youtube.com/watch?v=fifth123",
+                "2026-06-05T12:34:56Z",
+                "Fifth summary.",
+                ("04:10", "Tymna the Weaver keeps this fifth video relevant.")),
+            [rows[5].ArtifactPath] = BuildArtifact(
+                "https://www.youtube.com/watch?v=sixth123",
+                "2026-06-05T12:34:56Z",
+                "Sixth summary.",
+                ("05:10", "Tymna the Weaver keeps this sixth video relevant."))
         };
         var sut = CreateService(
             store,
@@ -147,10 +174,194 @@ public sealed class ContentKbRelevanceServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(5, result!.Count);
-        Assert.All(result.Take(4), clip => Assert.Equal(topRow.Title, clip.Title));
+        Assert.Equal(5, result.Select(clip => clip.Title).Distinct(StringComparer.Ordinal).Count());
+        Assert.Single(result, clip => clip.Title == rows[0].Title);
         Assert.Equal("00:10", result[0].TimestampLabel);
-        Assert.Equal("00:40", result[3].TimestampLabel);
-        Assert.Equal(nextRow.Title, result[4].Title);
+        Assert.DoesNotContain(result, clip => clip.Title == rows[5].Title);
+    }
+
+    [Fact]
+    public async Task GetRelevantClipsAsync_Spike001AtraxaScenario_DiverseTopicalNoCommanderLeakage()
+    {
+        var glassCannon = CreateRow(1, "glass-cannon.md", ["midrange", "combo", "value-engine", "ramp", "aggro"], ["Upgraded"]) with
+        {
+            Source = "Salubrious Snail",
+            Title = "The Problem with Glass Cannon Commanders"
+        };
+        var tooMuchRamp = CreateRow(2, "too-much-ramp.md", ["ramp", "midrange"], []) with
+        {
+            Source = "Salubrious Snail",
+            Title = "You Might Have Too Much Ramp"
+        };
+        var deckbuildingMistakes = CreateRow(3, "mistakes.md", ["control", "value-engine", "midrange"], []) with
+        {
+            Source = "Salubrious Snail",
+            Title = "5 Most Common Deckbuilding Mistakes"
+        };
+        var store = new TrackingContentSiteIndexStore([glassCannon, tooMuchRamp, deckbuildingMistakes]);
+        var artifacts = new Dictionary<string, string>
+        {
+            [glassCannon.ArtifactPath] = BuildArtifact(
+                glassCannon.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "A broad survey of explosive glass cannon commanders and why they stumble.",
+                ("00:00", "Take Kaalia and Animar as examples of explosive commanders that demand narrow deckbuilding."),
+                ("00:30", "Isshin doubles attack triggers while Zur the Enchanter is a pure enabler."),
+                ("01:10", "Atraxa gives proliferates, but the larger point is how fragile these commanders can be.")),
+            [tooMuchRamp.ArtifactPath] = BuildArtifact(
+                tooMuchRamp.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "Ramp is good until it crowds out removal, protection, and payoffs in a midrange shell.",
+                ("00:15", "If your ramp count is bloated, your control deck stops drawing enough removal and protection."),
+                ("01:05", "Midrange value-engine decks want ramp, but they still need payoffs and interaction.")),
+            [deckbuildingMistakes.ArtifactPath] = BuildArtifact(
+                deckbuildingMistakes.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "Focused decks win more often because every slot reinforces the same plan.",
+                ("00:45", "Value-engine control decks lose percentage points when they split between too many plans."),
+                ("01:30", "Trim distractions so your ramp, removal, and proliferate payoffs actually work together."))
+        };
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            artifacts);
+
+        var result = await sut.GetRelevantClipsAsync(
+            "Atraxa, Praetors' Voice",
+            "Upgraded",
+            deckArchetypes: new HashSet<string>(["ramp", "control", "value-engine", "midrange"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.NotNull(result);
+        Assert.True(result!.Select(clip => clip.Title).Distinct(StringComparer.Ordinal).Count() >= 2);
+        Assert.Contains(result, clip => clip.Title == tooMuchRamp.Title);
+        Assert.Contains(result, clip => clip.Title == deckbuildingMistakes.Title);
+        Assert.True(result.Count(clip => clip.Title == glassCannon.Title) <= 1);
+        Assert.DoesNotContain(result, clip => clip.Excerpt.Contains("Kaalia", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result, clip => clip.Excerpt.Contains("Animar", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task GetRelevantClipsAsync_OtherRowsExist_TopArtifactContributesOneClipMaximum()
+    {
+        var monopolyRow = CreateRow(1, "artifact-monopoly.md", ["combo"], ["cEDH"]) with { Title = "Monopoly Row" };
+        var supportingRow = CreateRow(2, "artifact-supporting.md", ["combo"], ["cEDH"]) with { Title = "Supporting Row" };
+        var store = new TrackingContentSiteIndexStore([monopolyRow, supportingRow]);
+        var artifacts = new Dictionary<string, string>
+        {
+            [monopolyRow.ArtifactPath] = BuildArtifact(
+                monopolyRow.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "Monopoly summary.",
+                ("00:10", "Tymna the Weaver opens the line."),
+                ("00:20", "Tymna the Weaver protects the line."),
+                ("00:30", "Tymna the Weaver reloads the line."),
+                ("00:40", "Tymna the Weaver closes the line.")),
+            [supportingRow.ArtifactPath] = BuildArtifact(
+                supportingRow.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "Supporting summary.",
+                ("01:10", "Tymna the Weaver still appears in the next relevant video."),
+                ("01:20", "A second supporting clip exists but should not be needed."))
+        };
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            artifacts);
+
+        var result = await sut.GetRelevantClipsAsync(
+            "Tymna the Weaver",
+            "cEDH",
+            deckArchetypes: new HashSet<string>(["combo"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.NotNull(result);
+        Assert.Single(result!, clip => clip.Title == monopolyRow.Title);
+        Assert.Contains(result, clip => clip.Title == supportingRow.Title);
+    }
+
+    [Fact]
+    public async Task GetRelevantClipsAsync_GeneralAdviceWithoutCommander_QualifiesOnArchetypeAndContentOverlap()
+    {
+        var adviceRow = CreateRow(1, "artifact-advice.md", ["ramp", "midrange"], []) with { Title = "You Might Have Too Much Ramp" };
+        var store = new TrackingContentSiteIndexStore([adviceRow]);
+        var artifactText = BuildArtifact(
+            adviceRow.VideoUrl,
+            "2026-06-05T12:34:56Z",
+            "Ramp-heavy decks often cut too much removal, protection, and card flow for extra mana rocks.",
+            ("00:15", "Midrange value-engine decks need ramp, but they also need removal and protection."),
+            ("00:45", "Your proliferate payoffs do not matter if all your nonland slots are just more ramp."));
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            new Dictionary<string, string> { [adviceRow.ArtifactPath] = artifactText });
+
+        var result = await sut.GetRelevantClipsAsync(
+            "Atraxa, Praetors' Voice",
+            bracket: null,
+            deckArchetypes: new HashSet<string>(["ramp", "control", "value-engine", "midrange"], StringComparer.OrdinalIgnoreCase));
+
+        var clip = Assert.Single(result!);
+        Assert.Equal(adviceRow.Title, clip.Title);
+    }
+
+    [Fact]
+    public void ScoreArtifact_AtraxaOwnCommanderMention_BeatsForeignCommanderBreadth()
+    {
+        var deckArchetypes = new HashSet<string>(["ramp", "control", "value-engine", "midrange"], StringComparer.OrdinalIgnoreCase);
+        var normalizedCommander = new ContentKbRelevanceService.NormalizedCommander(
+            "atraxa, praetors' voice",
+            ["atraxa"]);
+        var ownCommanderScore = ContentKbRelevanceService.ScoreArtifact(
+            CreateScoreInput(
+                CreateRow(1, "artifact-own.md", ["control"], ["Upgraded"]),
+                "Atraxa, Praetors' Voice keeps the proliferate deck focused on removal, protection, and counters."),
+            normalizedCommander,
+            "Upgraded",
+            deckArchetypes);
+        var foreignCommanderScore = ContentKbRelevanceService.ScoreArtifact(
+            CreateScoreInput(
+                CreateRow(2, "artifact-foreign.md", ["ramp", "control", "value-engine", "midrange", "aggro"], ["Upgraded"]),
+                "Kaalia wants angels and dragons while Animar wants creature storm turns."),
+            normalizedCommander,
+            "Upgraded",
+            deckArchetypes);
+
+        Assert.True(ownCommanderScore > foreignCommanderScore);
+    }
+
+    [Fact]
+    public async Task GetRelevantClipsAsync_NoRowsClearRelevanceFloor_ReturnsNull()
+    {
+        var kaaliaRow = CreateRow(1, "artifact-kaalia.md", ["ramp", "midrange"], ["Upgraded"]) with { Title = "Kaalia Spotlight" };
+        var kinnanRow = CreateRow(2, "artifact-kinnan.md", ["control", "value-engine"], ["Upgraded"]) with { Title = "Kinnan Spotlight" };
+        var store = new TrackingContentSiteIndexStore([kaaliaRow, kinnanRow]);
+        var artifacts = new Dictionary<string, string>
+        {
+            [kaaliaRow.ArtifactPath] = BuildArtifact(
+                kaaliaRow.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "Kaalia wants massive flying threats and combat shortcuts.",
+                ("00:10", "Kaalia cheats angels, demons, and dragons into play.")),
+            [kinnanRow.ArtifactPath] = BuildArtifact(
+                kinnanRow.VideoUrl,
+                "2026-06-05T12:34:56Z",
+                "Kinnan turns sea-monster haymakers into splashy highlight turns.",
+                ("00:20", "Kinnan rewards giant creature reveals and flashy activated abilities."))
+        };
+        var sut = CreateService(
+            store,
+            new TrackingFeatureFlagCache(),
+            new ContentKbArchetypeDeriver(new TrackingCategoryKnowledgeStore()),
+            artifacts);
+
+        var result = await sut.GetRelevantClipsAsync(
+            "Atraxa, Praetors' Voice",
+            "Upgraded",
+            deckArchetypes: new HashSet<string>(["ramp", "control", "value-engine", "midrange"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Null(result);
     }
 
     [Fact]
@@ -257,11 +468,11 @@ public sealed class ContentKbRelevanceServiceTests
             "Tymna the Weaver",
             "cEDH",
             deckArchetypes: new HashSet<string>(["combo"], StringComparer.OrdinalIgnoreCase),
-            maxRenderedChars: 420);
+            maxRenderedChars: 300);
 
         Assert.NotNull(result);
-        Assert.True(result!.Count is > 0 and < 5);
-        Assert.All(result, clip => Assert.Equal(highRow.Title, clip.Title));
+        var clip = Assert.Single(result!);
+        Assert.Equal(highRow.Title, clip.Title);
     }
 
     [Fact]
@@ -432,6 +643,25 @@ generated_utc: "{{generatedUtc}}"
 
 ignored
 """;
+    }
+
+    private static ContentKbRelevanceService.ScoreInput CreateScoreInput(
+        ContentSiteIndexRow row,
+        string searchText)
+    {
+        var normalizedSearchText = Regex.Replace(searchText, @"\s+", " ").Trim();
+
+        return new ContentKbRelevanceService.ScoreInput(
+            row,
+            row.Title,
+            normalizedSearchText,
+            normalizedSearchText,
+            row.VideoUrl,
+            row.ArchetypeTags,
+            row.BracketTags,
+            [(string.Empty, normalizedSearchText)],
+            row.PublishedUtc ?? row.IndexedUtc,
+            normalizedSearchText);
     }
 
     private sealed class TrackingFeatureFlagCache : IFeatureFlagCache
