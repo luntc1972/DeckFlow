@@ -316,7 +316,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
                 continue;
             }
 
-            var match = rows.FirstOrDefault(row => string.Equals(row.YoutubeVideoId ?? row.RssGuid, videoId, StringComparison.Ordinal));
+            var match = rows.FirstOrDefault(row => string.Equals(row.PinId, videoId, StringComparison.Ordinal));
             if (match is not null)
             {
                 resolved[videoId] = match.Title;
@@ -618,7 +618,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
     }
 
     private static string? GetPinId(ContentSiteIndexRow row)
-        => row.YoutubeVideoId ?? row.RssGuid;
+        => row.PinId;
 
     private static int CountDimensionsHit(
         ScoreInput scoreInput,

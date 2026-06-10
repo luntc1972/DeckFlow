@@ -152,4 +152,7 @@ public sealed record ContentSiteIndexRow
 
     /// <summary>RSS item GUID, or <see langword="null"/> for YouTube index rows.</summary>
     public string? RssGuid { get; init; }
+
+    /// <summary>Stable identifier used for pinning/matching — the row's natural key (YouTube video id or RSS guid).</summary>
+    public string? PinId => YoutubeVideoId ?? RssGuid;
 }
