@@ -186,7 +186,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   2. Solution builds clean (0 new warnings); grep proves no `ContentKbRelevanceService`/`ContentKbExcerpt`/`ExpertSelection` references remain outside removed files
   3. The KB reference is intact: `DeckFlow.CLI harvest`/`distill` still populate the corpus and `/content-kb` browse (now un-darked) lists/renders the distilled entries with harvested text HTML-encoded (XSS-safe)
   4. A pre-retire packet zip carrying `ExpertSelectionJson` still loads without error (graceful ignore of the removed field)
-**Plans**: TBD
+**Plans**: 2 plans (2 waves; wave 2 depends on wave 1)
+- [ ] 37-01-PLAN.md — Full injection removal: delete 3 retriever services + ContentKbExcerpt + typeahead API + _ContentKbPanel + kb-selection.ts; de-wire prompt variants/DeckAnalysisPacketService/request/viewmodel/packet store+cache/DeckController; prune 8+5 tests; new RET-01 (no ## Expert Context) + RET-05 (legacy zip loads) assertions (RET-01/02/05)
+- [ ] 37-02-PLAN.md — Un-dark seed flip + strip browse-page selection UI + remove admin relevance-score preview (delete content-kb-admin.ts) + RET-04 Markdig .DisableHtml() XSS-regression test + DeckAnalysis KB pointer note + fix injection-advertising nav copy (RET-03/04/06)
 
 ### Phase 37.5: Rebuild KB Corpus — High-Signal Re-Harvest
 **Goal**: The KB corpus is reset and rebuilt with deck-advice/philosophy content only, with the `[00:00]` clip-extraction defect fixed so clips carry real mid-video timestamps — feeding the un-darked browse-site as a curated reference
