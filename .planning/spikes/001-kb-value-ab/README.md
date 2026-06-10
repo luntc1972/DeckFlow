@@ -4,7 +4,12 @@
 meaningfully better/different ChatGPT answer than the baseline prompt? (The gate before building the
 creator philosophy-profile redesign.)
 
-**Verdict:** PARTIAL — harness built + prompts emitted; awaiting manual ChatGPT A/B judgment.
+**Verdict:** MARGINAL → leaning NEGATIVE (2026-06-10). Two runs on a real ~99-card Atraxa deck:
+(1) hand-picked clips = marginal lift; (2) **real `ContentKbRelevanceService` scorer = WORSE** —
+selected 5 clips from one tangential video, 3 about unrelated commanders, ignored the on-point
+ramp/focus videos. Gate NOT cleared. Do NOT green-light Content KB v2 / philosophy-profile without
+fixing retrieval first. Full reasoning + rubric + mechanism defects in `VERDICT.md`.
+(Earlier "PARTIAL" was a 3-card stub, superseded.)
 
 ## Given / When / Then
 - **Given** a sample Commander deck + real salubrious-snail clips from the KB,
@@ -40,6 +45,18 @@ Verdict: clear lift on 2-3 + no quality loss → VALIDATED (green-light profile 
   `CreateService` test pattern, drives `DeckAnalysisPacketService.BuildAsync` twice). Build+test pass.
 - Emitted: `with-context.txt` (10,430 B) and `baseline.txt` (9,209 B). Only delta = the
   `## Expert Context` block (4 real snail clips, cited, with the injection-defense preamble).
-- **Awaiting:** paste both into ChatGPT, score with the rubric, record the verdict here.
-- Cleanup TODO: remove `Spike001KbValueAbHarness.cs` from the test project (it writes files on run).
+- Two runs judged 2026-06-10 (real ~99-card Atraxa deck): Run 1 hand-picked clips, Run 2 the REAL
+  scorer. See `VERDICT.md`. Verdict MARGINAL → leaning NEGATIVE; gate NOT cleared.
+- **Harness is NOW the v1.6 re-validation gate** — keep it (was a throwaway; promoted). Re-run after
+  the retrieval fix and compare against `with-context-real.txt`.
+
+## Reproducing (v1.6 gate)
+The corpus inputs live under gitignored `artifacts/` (`spike-rows.json` + regenerated `content-kb/`
+markdown), so they must be rebuilt before running the gold Fact:
+1. `python3 .planning/spikes/001-kb-value-ab/gen-artifacts.py` — rebuilds artifact `.md` from
+   `artifacts/uat-content-kb.db` + visibility from `artifacts/content-site-index.db`, writes
+   `artifacts/spike-rows.json`.
+2. `dotnet test DeckFlow.Web.Tests --filter Spike001KbValueAbHarness` — `EmitAbPrompts` (hand-picked)
+   + `EmitRealRetrievalPrompt` (real scorer). `fetch-deck-cards.py` documents how the baked-in deck
+   card data was pulled from Scryfall.
 
