@@ -36,6 +36,8 @@ internal static class PacketArtifactStore
         "41-deck-profile-schema.json",
         "50-set-upgrade-prompt.txt",
         "51-set-upgrade-response.json",
+        "32-expert-context.json",
+        "33-expert-selection.json",
         "all-prompts.txt",
         "all-responses.txt"
     };
