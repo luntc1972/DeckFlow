@@ -94,11 +94,24 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
     // needs enough weight to let specific clip mentions qualify alongside one other dimension.
     private const double CommanderWeight = 1.5d;
 
+    // Why: Spike 001 Run 2 showed archetype-matching general advice was being suppressed despite
+    // having the right strategy language in its content, so deck-profile term overlap must add lift.
+    private const double ContentOverlapWeight = 0.45d;
+
+    // Why: the Atraxa gold failure named Kaalia/Animar/Isshin/Zur in one artifact; a small
+    // per-foreign-commander demotion sinks that noise below the floor without punishing own-commander mentions.
+    private const double OtherCommanderPenalty = 0.9d;
+
     // Calibrated from 30-TAG-AUDIT.md (2026-06-05): this allows any two-dimension match to survive
-    // while keeping single-dimension rows below threshold after the AND gate zeros them out.
+    // while the Atraxa gold fix still filters foreign-commander rows after demotion.
     private const double MinSelectionScore = 2.0d;
 
     private const int MaxClips = 5;
+
+    // Why: Spike 001 Run 2 let one video fill all 5 Expert Context slots; cap=1 maximizes
+    // distinct-video diversity across the up-to-5 slots without starving single-row matches to zero.
+    private const int MaxClipsPerVideo = 1;
+
     private const int DefaultHeaderBudget = 96;
     private const int PerClipOverhead = 48;
 
@@ -125,6 +138,48 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
             ["spellslinger"] = 1.35d,
             ["blink"] = 1.50d,
         };
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> DeckProfileTermsByArchetype =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["aggro"] = ["aggro", "combat", "attack", "attacks", "pressure", "damage"],
+            ["aristocrats"] = ["aristocrats", "sacrifice", "sac", "death", "drain", "fodder"],
+            ["blink"] = ["blink", "flicker", "etb", "reuse", "value"],
+            ["combo"] = ["combo", "combos", "line", "lines", "tutor", "tutors"],
+            ["control"] = ["control", "removal", "interaction", "protect", "protection", "counter", "counters", "wipe", "wipes"],
+            ["lands"] = ["lands", "land", "landfall", "utility", "ramp"],
+            ["midrange"] = ["midrange", "curve", "payoff", "payoffs", "board", "pressure"],
+            ["ramp"] = ["ramp", "mana", "rock", "rocks", "dork", "dorks", "land", "lands", "acceleration"],
+            ["reanimator"] = ["reanimate", "reanimation", "graveyard", "recursion", "discard"],
+            ["spellslinger"] = ["spell", "spells", "instant", "sorcery", "storm"],
+            ["stax"] = ["stax", "tax", "lock", "locks", "denial"],
+            ["tokens"] = ["token", "tokens", "go-wide", "wide", "swarm"],
+            ["tribal"] = ["tribal", "typal", "creature", "creatures", "lords"],
+            ["value-engine"] = ["value", "engine", "draw", "advantage", "protection", "removal", "recursion"],
+            ["voltron"] = ["voltron", "equipment", "equip", "aura", "auras", "commander", "damage"],
+        };
+
+    // Why: 34-CONTEXT explicitly chose the simpler zero-dependency option over a corpus-derived list.
+    private static readonly IReadOnlySet<string> KnownCommanderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "animar",
+        "atraxa",
+        "edgar",
+        "isshin",
+        "jodah",
+        "kaalia",
+        "kenrith",
+        "kinnan",
+        "korvold",
+        "kraum",
+        "miirym",
+        "nadu",
+        "najeela",
+        "tymna",
+        "urza",
+        "yuriko",
+        "zur"
+    };
 
     private readonly IContentSiteIndexStore _store;
     private readonly Func<string, string> _resolveArtifactPath;
@@ -354,34 +409,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         ArgumentNullException.ThrowIfNull(scoreInput);
         ArgumentNullException.ThrowIfNull(deckArchetypes);
 
-        var score = 0d;
-        var dimensionsHit = 0;
-
-        if (!string.IsNullOrWhiteSpace(deckBracket)
-            && scoreInput.BracketTags.Any(tag =>
-                ContentTagVocabulary.Brackets.Contains(tag)
-                && string.Equals(tag, deckBracket, StringComparison.OrdinalIgnoreCase)))
-        {
-            score += BracketWeight;
-            dimensionsHit++;
-        }
-
-        var archetypeScore = scoreInput.ArchetypeTags
-            .Where(tag => ContentTagVocabulary.Archetypes.Contains(tag) && deckArchetypes.Contains(tag))
-            .Select(GetArchetypeSpecificityWeight)
-            .Sum();
-        if (archetypeScore > 0d)
-        {
-            score += archetypeScore * ArchetypeWeight;
-            dimensionsHit++;
-        }
-
-        if (normalizedCommander is not null && ContainsCommanderName(scoreInput.SearchText, normalizedCommander))
-        {
-            score += CommanderWeight;
-            dimensionsHit++;
-        }
-
+        var (score, dimensionsHit) = CalculateScoreAndDimensions(scoreInput, normalizedCommander, deckBracket, deckArchetypes);
         return dimensionsHit >= 2 ? score : 0d;
     }
 
@@ -465,6 +493,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
     private List<ContentKbExcerpt> SelectTopClips(IReadOnlyList<ParsedArtifactRow> parsedRows)
     {
         var selected = new List<ContentKbExcerpt>(MaxClips);
+        var clipsPerVideo = new Dictionary<long, int>();
 
         foreach (var artifact in parsedRows
                      .Where(row => row.Score >= MinSelectionScore)
@@ -478,6 +507,11 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
                     return selected;
                 }
 
+                if (clipsPerVideo.TryGetValue(artifact.Row.Id, out var clipCount) && clipCount >= MaxClipsPerVideo)
+                {
+                    break;
+                }
+
                 selected.Add(new ContentKbExcerpt
                 {
                     Source = artifact.Row.Source,
@@ -489,6 +523,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
                     Score = artifact.Score,
                     ClipOrigin = "auto"
                 });
+                clipsPerVideo[artifact.Row.Id] = clipCount + 1;
             }
         }
 
@@ -642,6 +677,9 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
     {
         var score = 0d;
         var dimensionsHit = 0;
+        var searchTokens = Tokenize(scoreInput.SearchText);
+        var commanderTokens = GetCommanderTokens(normalizedCommander);
+        var topicalTerms = BuildTopicalProfileTerms(deckArchetypes, deckBracket);
 
         if (!string.IsNullOrWhiteSpace(deckBracket)
             && scoreInput.BracketTags.Any(tag =>
@@ -666,6 +704,22 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         {
             score += CommanderWeight;
             dimensionsHit++;
+        }
+
+        var contentOverlap = searchTokens.Intersect(topicalTerms, StringComparer.OrdinalIgnoreCase).Count();
+        if (contentOverlap > 0)
+        {
+            score += contentOverlap * ContentOverlapWeight;
+            dimensionsHit++;
+        }
+
+        var foreignCommanderHits = searchTokens
+            .Where(KnownCommanderNames.Contains)
+            .Except(commanderTokens, StringComparer.OrdinalIgnoreCase)
+            .Count();
+        if (foreignCommanderHits > 0)
+        {
+            score -= foreignCommanderHits * OtherCommanderPenalty;
         }
 
         return (score, dimensionsHit);
@@ -806,6 +860,77 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
     {
         var normalized = Regex.Replace(value, @"\s+", " ");
         return normalized.Trim();
+    }
+
+    private static HashSet<string> BuildTopicalProfileTerms(IReadOnlySet<string> deckArchetypes, string? deckBracket)
+    {
+        var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var archetype in deckArchetypes)
+        {
+            foreach (var token in Tokenize(archetype))
+            {
+                terms.Add(token);
+            }
+
+            if (!DeckProfileTermsByArchetype.TryGetValue(archetype, out var derivedTerms))
+            {
+                continue;
+            }
+
+            foreach (var term in derivedTerms)
+            {
+                terms.Add(term);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(deckBracket))
+        {
+            foreach (var token in Tokenize(deckBracket))
+            {
+                terms.Add(token);
+            }
+        }
+
+        return terms;
+    }
+
+    private static HashSet<string> GetCommanderTokens(NormalizedCommander? normalizedCommander)
+    {
+        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (normalizedCommander is null)
+        {
+            return tokens;
+        }
+
+        foreach (var token in Tokenize(normalizedCommander.FullName))
+        {
+            tokens.Add(token);
+        }
+
+        foreach (var partnerName in normalizedCommander.PartnerNames)
+        {
+            foreach (var token in Tokenize(partnerName))
+            {
+                tokens.Add(token);
+            }
+        }
+
+        return tokens;
+    }
+
+    private static HashSet<string> Tokenize(string value)
+    {
+        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match match in Regex.Matches(value, @"[a-z0-9][a-z0-9+-]*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            if (match.Value.Length >= 3)
+            {
+                tokens.Add(match.Value);
+            }
+        }
+
+        return tokens;
     }
 
     private static double GetArchetypeSpecificityWeight(string archetypeTag)
