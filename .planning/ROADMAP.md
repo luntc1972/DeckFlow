@@ -130,7 +130,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 34: KB Retrieval Fix** — KBR-01, KBR-02, KBR-03, KBR-04 (VERIFICATION: passed 2026-06-10)
 - [x] **Phase 35: Value Re-Validation Gate** — KBV-01..04 — **MARGINAL** (gate NOT cleared; 2026-06-10). Pivot = **retire clip-injection**. See `35-GATE-VERDICT.md`.
 - [~] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** — **SKIPPED** (gate MARGINAL). PHIL-01..04 + KBD-01/02 not built; KB stays dark. Pivot recorded: retire the whole-channel clip-injection feature.
-- [ ] **Phase 37: Retire Clip-Injection + Un-Dark KB** — RET-01..06 *(remove the gate-condemned injection, un-dark the `/content-kb` browse, add a deck-analysis pointer to the KB's copyable prompts)*
+- [x] **Phase 37: Retire Clip-Injection + Un-Dark KB** — RET-01..06 *(remove the gate-condemned injection, un-dark the `/content-kb` browse, add a deck-analysis pointer to the KB's copyable prompts)* (completed 2026-06-10)
 - [ ] **Phase 37.5: Rebuild KB Corpus** — REBUILD-01..05 *(reset corpus + re-harvest salubrious-snail under a deck-advice/philosophy LLM+manual quality filter; fix the `[00:00]` clip-extraction defect)*
 - [ ] **Phase 38: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — runs after the KB work so it splits slimmed controllers)*
 
@@ -187,8 +187,8 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   3. The KB reference is intact: `DeckFlow.CLI harvest`/`distill` still populate the corpus and `/content-kb` browse (now un-darked) lists/renders the distilled entries with harvested text HTML-encoded (XSS-safe)
   4. A pre-retire packet zip carrying `ExpertSelectionJson` still loads without error (graceful ignore of the removed field)
 **Plans**: 2 plans (2 waves; wave 2 depends on wave 1)
-- [ ] 37-01-PLAN.md — Wave 1 (full removal, build-green): delete 3 retriever services (incl. IContentKbRelevanceService) + ContentKbExcerpt + typeahead API + _ContentKbPanel + kb-selection.ts + content-kb-admin.ts; de-wire prompt variants/DeckAnalysisPacketService/request/viewmodel/packet store+cache/DeckController; pull-forward the admin score-preview removal AND the /content-kb browse-page selection strip AND dead expert-selection CSS (so the interface deletion + ALL consumers land in one build-green unit); prune 8 tests + edit 6 (incl. AdminContentKbControllerTests); new RET-01 (no ## Expert Context) + RET-05 (legacy zip loads) assertions (RET-01/02/05)
-- [ ] 37-02-PLAN.md — Wave 2 (un-dark + repoint, independent files only): flip content.kb.enabled seed default ON + RET-04 Markdig .DisableHtml() XSS-regression test + DeckAnalysis KB pointer note (add-only) + fix injection-advertising Home/nav copy (RET-03/04/06)
+- [x] 37-01-PLAN.md — Wave 1 (full removal, build-green): delete 3 retriever services (incl. IContentKbRelevanceService) + ContentKbExcerpt + typeahead API + _ContentKbPanel + kb-selection.ts + content-kb-admin.ts; de-wire prompt variants/DeckAnalysisPacketService/request/viewmodel/packet store+cache/DeckController; pull-forward the admin score-preview removal AND the /content-kb browse-page selection strip AND dead expert-selection CSS (so the interface deletion + ALL consumers land in one build-green unit); prune 8 tests + edit 6 (incl. AdminContentKbControllerTests); new RET-01 (no ## Expert Context) + RET-05 (legacy zip loads) assertions (RET-01/02/05)
+- [x] 37-02-PLAN.md — Wave 2 (un-dark + repoint, independent files only): flip content.kb.enabled seed default ON + RET-04 Markdig .DisableHtml() XSS-regression test + DeckAnalysis KB pointer note (add-only) + fix injection-advertising Home/nav copy (RET-03/04/06)
 
 ### Phase 37.5: Rebuild KB Corpus — High-Signal Re-Harvest
 **Goal**: The KB corpus is reset and rebuilt with deck-advice/philosophy content only, with the `[00:00]` clip-extraction defect fixed so clips carry real mid-video timestamps — feeding the un-darked browse-site as a curated reference
@@ -223,7 +223,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 34. KB Retrieval Fix | 2/2 | ✅ Complete (VERIFICATION passed) | 2026-06-10 |
 | 35. Value Re-Validation Gate | 2/2 | ✅ Complete — **MARGINAL** | 2026-06-10 |
 | 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | — | ⊘ SKIPPED (gate MARGINAL) | - |
-| 37. Retire Clip-Injection + Un-Dark KB | 0/TBD | Scoped (CONTEXT ready) | - |
+| 37. Retire Clip-Injection + Un-Dark KB | 2/2 | Complete   | 2026-06-10 |
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
 | 38. Controller SRP Split | 0/TBD | Not started | - |
 | 37. Controller SRP Split | 0/TBD | Not started | - |
