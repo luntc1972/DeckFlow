@@ -179,15 +179,6 @@ public partial class Program
                 new DeckFlow.Core.Content.ContentSiteIndexStore(
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
-            builder.Services.AddSingleton(sp => new ContentKbArchetypeDeriver(
-                sp.GetRequiredService<ICategoryKnowledgeStore>(),
-                sp.GetRequiredService<ILogger<ContentKbArchetypeDeriver>>()));
-            builder.Services.AddSingleton<IContentKbRelevanceService>(sp => new ContentKbRelevanceService(
-                sp.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>(),
-                sp.GetRequiredService<ContentKbArtifactPathResolver>(),
-                sp.GetRequiredService<DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache>(),
-                sp.GetRequiredService<ContentKbArchetypeDeriver>(),
-                sp.GetRequiredService<ILogger<ContentKbRelevanceService>>()));
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
             // Admin YouTube export: transient lister so each request gets a factory-managed
             // HttpClient (handler rotation) for the per-video YoutubeExplode metadata calls.
@@ -328,7 +319,6 @@ public partial class Program
                     sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                     sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>(),
-                    sp.GetRequiredService<IContentKbRelevanceService>(),
                     sp.GetService<ILogger<DeckAnalysisPacketService>>()));
             builder.Services.AddScoped<IDeckComparisonService>(sp =>
                 new DeckComparisonService(

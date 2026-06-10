@@ -24,16 +24,6 @@ internal static class PacketArtifactStore
         WriteIndented = false
     };
 
-    /// <summary>
-    /// Shared camelCase + case-insensitive JSON options for 33-expert-selection.json round-trips.
-    /// </summary>
-    // Why: camelCase + case-insensitive so the zip JSON `pinnedVideoIds` binds to PinnedVideoIds on round-trip — default options would silently drop them.
-    internal static readonly JsonSerializerOptions ExpertSelectionJsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
-
     private static readonly HashSet<string> PacketAllowedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "00-input-summary.txt",
@@ -42,8 +32,6 @@ internal static class PacketArtifactStore
         "10b-deck-original.txt",
         "30-reference.txt",
         "31-analysis-prompt.txt",
-        "32-expert-context.json",
-        "33-expert-selection.json",
         "40-deck-profile.json",
         "41-deck-profile-schema.json",
         "50-set-upgrade-prompt.txt",
@@ -124,9 +112,7 @@ internal static class PacketArtifactStore
         string deckProfileSchemaJson,
         string? setUpgradePromptText,
         string? canonicalDeckListText = null,
-        string? originalDeckText = null,
-        string? expertContextJson = null,
-        string? selectionJson = null)
+        string? originalDeckText = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -138,8 +124,6 @@ internal static class PacketArtifactStore
             ("10b-deck-original.txt", "DECK ORIGINAL TEXT", originalDeckText),
             ("30-reference.txt", "REFERENCE TEXT", referenceText),
             ("31-analysis-prompt.txt", "ANALYSIS PROMPT", analysisPromptText),
-            ("32-expert-context.json", "EXPERT CONTEXT JSON", expertContextJson),
-            ("33-expert-selection.json", "EXPERT SELECTION JSON", selectionJson),
             ("41-deck-profile-schema.json", "DECK PROFILE JSON SCHEMA", deckProfileSchemaJson),
             ("50-set-upgrade-prompt.txt", "SET UPGRADE PROMPT", setUpgradePromptText)
         ]);
@@ -284,8 +268,6 @@ internal static class PacketArtifactStore
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
         entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
         entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
-        entries.TryGetValue("32-expert-context.json", out var expertContextJson);
-        entries.TryGetValue("33-expert-selection.json", out var selectionJson);
 
         if (string.IsNullOrWhiteSpace(deckProfile) &&
             string.IsNullOrWhiteSpace(setUpgrade) &&
@@ -295,8 +277,6 @@ internal static class PacketArtifactStore
         }
 
         request.DeckProfileJson = deckProfile ?? string.Empty;
-        request.ExpertContextJson = expertContextJson ?? string.Empty;
-        request.ExpertSelectionJson = selectionJson ?? string.Empty;
         request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
         request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade)
             ? 5
@@ -314,26 +294,6 @@ internal static class PacketArtifactStore
         if (!string.IsNullOrWhiteSpace(originalDeckText))
         {
             request.DeckText = originalDeckText.TrimEnd();
-        }
-
-        if (!string.IsNullOrWhiteSpace(selectionJson))
-        {
-            try
-            {
-                var selection = JsonSerializer.Deserialize<ExpertSelectionState>(selectionJson, ExpertSelectionJsonOptions);
-                if (selection?.PinnedVideoIds?.Count > 0)
-                {
-                    request.PinnedVideoIds = [.. selection.PinnedVideoIds];
-                }
-
-                if (selection?.FollowedCreators?.Count > 0)
-                {
-                    request.FollowedCreators = [.. selection.FollowedCreators];
-                }
-            }
-            catch (JsonException)
-            {
-            }
         }
 
         if (!string.IsNullOrWhiteSpace(requestContextText))
@@ -902,14 +862,4 @@ internal sealed record RestoredCedhMetaGapArtifacts
     public string? PromptText { get; init; }
     public string? SchemaJson { get; init; }
     public IReadOnlyList<EdhTop16Entry> FetchedEntries { get; init; } = Array.Empty<EdhTop16Entry>();
-}
-
-/// <summary>
-/// Round-tripped expert-selection state persisted in 33-expert-selection.json.
-/// </summary>
-// Why: System.Text.Json will not round-trip get-only properties here; these must stay init-settable.
-internal sealed record ExpertSelectionState
-{
-    public IReadOnlyList<string> PinnedVideoIds { get; init; } = [];
-    public IReadOnlyList<string> FollowedCreators { get; init; } = [];
 }

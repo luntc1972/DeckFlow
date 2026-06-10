@@ -179,57 +179,6 @@ Do not omit any fields from the schema.
             </div>
             <span class="chatgpt-step-badge">Customize the analysis</span>
         </div>
-        <details class="kb-expert-accordion">
-            <summary class="kb-expert-accordion__summary">⭐ Expert Context <span class="kb-chip-area__optional">optional</span></summary>
-            <section class="kb-chip-area" aria-label="Expert context selection">
-                <p class="kb-chip-area__subhead">Pin a video or follow a creator to guarantee their clips appear in your analysis.</p>
-
-                <div class="kb-chip-area__chips" data-kb-chips aria-label="Selected expert context items">
-                    @foreach (var id in Model.Request.PinnedVideoIds)
-                    {
-                        <span class="kb-chip kb-chip--pinned" data-chip-id="@id" data-chip-type="video">
-                            📌 <span class="kb-chip__label">@(Model.ResolvedPinTitles.GetValueOrDefault(id, id))</span>
-                            <button type="button" class="kb-chip__remove" aria-label="Remove pinned video">×</button>
-                        </span>
-                    }
-                    @foreach (var creator in Model.Request.FollowedCreators)
-                    {
-                        <span class="kb-chip kb-chip--followed" data-chip-creator="@creator" data-chip-type="creator">
-                            ★ <span class="kb-chip__label">@creator</span>
-                            <button type="button" class="kb-chip__remove" aria-label="Remove followed creator @creator">×</button>
-                        </span>
-                    }
-                </div>
-
-                @foreach (var id in Model.Request.PinnedVideoIds)
-                {
-                    <input type="hidden" name="PinnedVideoIds" value="@id" />
-                }
-                @foreach (var creator in Model.Request.FollowedCreators)
-                {
-                    <input type="hidden" name="FollowedCreators" value="@creator" />
-                }
-
-                <div class="autocomplete-anchor kb-chip-area__typeahead" data-kb-chip-typeahead>
-                    <input type="text"
-                           class="kb-chip-area__search"
-                           placeholder="🔍  Add a pinned video or followed creator…"
-                           aria-label="Add expert context item"
-                           autocomplete="off"
-                           data-kb-typeahead-input />
-                    <div class="autocomplete-panel" hidden data-kb-typeahead-panel role="listbox" aria-label="Suggestions"></div>
-                </div>
-
-                @if (Model.Request.PinnedVideoIds.Count == 0 && Model.Request.FollowedCreators.Count == 0)
-                {
-                    <p class="kb-chip-area__empty-hint">No expert context selected. Clips will be chosen automatically.</p>
-                }
-                else
-                {
-                    <p class="kb-chip-area__empty-hint" hidden>No expert context selected. Clips will be chosen automatically.</p>
-                }
-            </section>
-        </details>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
@@ -601,9 +550,6 @@ Do not omit any fields from the schema.
                             <p><strong>Synergy tags:</strong> @string.Join(", ", Model.AnalysisResponse.SynergyTags)</p>
                         }
                     </section>
-
-                    @await Html.PartialAsync("_ContentKbPanel", Model.ExpertContextClips)
-
                     <div class="sync-columns">
                         <section class="result-panel nested-panel">
                             <h4>Strengths</h4>
@@ -978,5 +924,4 @@ Do not omit any fields from the schema.
 @section Scripts {
     <script src="~/js/card-lookup.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
-    <script src="~/js/kb-selection.js" asp-append-version="true"></script>
 }

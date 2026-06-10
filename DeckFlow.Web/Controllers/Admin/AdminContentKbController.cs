@@ -1,5 +1,4 @@
 using DeckFlow.Core.Content;
-using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
@@ -23,31 +22,26 @@ public sealed class AdminContentKbController : Controller
     private readonly IContentSiteIndexStore _store;
     private readonly IContentKbSeedLoader _seedLoader;
     private readonly IFeatureFlagCache _flagCache;
-    private readonly IContentKbRelevanceService _relevanceService;
     private readonly ILogger<AdminContentKbController> _logger;
 
-    /// <summary>Constructor injecting the index store, seed loader, flag cache, relevance service, and logger.</summary>
+    /// <summary>Constructor injecting the index store, seed loader, flag cache, and logger.</summary>
     /// <param name="store">Content site-index store (read all rows + flip visibility).</param>
     /// <param name="seedLoader">Curation-preserving seed loader for the reload action.</param>
     /// <param name="flagCache">Feature-flag cache for the content.kb.enabled status display.</param>
-    /// <param name="relevanceService">Artifact-level relevance scorer used by the admin preview.</param>
     /// <param name="logger">Logger.</param>
     public AdminContentKbController(
         IContentSiteIndexStore store,
         IContentKbSeedLoader seedLoader,
         IFeatureFlagCache flagCache,
-        IContentKbRelevanceService relevanceService,
         ILogger<AdminContentKbController> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(seedLoader);
         ArgumentNullException.ThrowIfNull(flagCache);
-        ArgumentNullException.ThrowIfNull(relevanceService);
         ArgumentNullException.ThrowIfNull(logger);
         _store = store;
         _seedLoader = seedLoader;
         _flagCache = flagCache;
-        _relevanceService = relevanceService;
         _logger = logger;
     }
 
@@ -56,37 +50,16 @@ public sealed class AdminContentKbController : Controller
     /// and per-source bulk groups. The status timestamp is max(indexed_utc) honestly labeled as
     /// the index-generation time (D-22D).
     /// </summary>
-    /// <param name="previewCommander">Optional commander text for the live relevance preview.</param>
-    /// <param name="previewBracket">Optional bracket filter for the live relevance preview.</param>
     /// <param name="visibilityFilter">Optional entry visibility filter: all, published, or hidden.</param>
-    /// <param name="sortBy">Optional entry sort mode; score sorting is only applied when preview is active.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpGet("")]
     [HttpGet("Index")]
     public async Task<IActionResult> Index(
-        string? previewCommander = null,
-        string? previewBracket = null,
         string? visibilityFilter = null,
-        string? sortBy = null,
         CancellationToken cancellationToken = default)
     {
         var rows = await _store.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
-        var normalizedPreviewCommander = NormalizePreviewCommander(previewCommander);
-        var normalizedPreviewBracket = NormalizePreviewBracket(previewBracket);
         var normalizedVisibilityFilter = NormalizeVisibilityFilter(visibilityFilter);
-        var normalizedSortBy = NormalizeSortBy(sortBy);
-        var previewActive = !string.IsNullOrWhiteSpace(normalizedPreviewCommander)
-            || !string.IsNullOrWhiteSpace(normalizedPreviewBracket);
-        Dictionary<long, double>? previewScores = null;
-
-        if (previewActive)
-        {
-            previewScores = (await _relevanceService
-                    .ScoreAllAsync(normalizedPreviewCommander, normalizedPreviewBracket, cancellationToken)
-                    .ConfigureAwait(false))
-                .GroupBy(item => item.Row.Id)
-                .ToDictionary(group => group.Key, group => group.First().Score);
-        }
 
         IEnumerable<KbEntryRow> entries = rows
             .Select(r => new KbEntryRow
@@ -97,7 +70,6 @@ public sealed class AdminContentKbController : Controller
                 Tags = r.ArchetypeTags.Concat(r.BracketTags).ToArray(),
                 IsVisible = r.IsVisible,
                 IsEvergreen = r.IsEvergreen,
-                RelevanceScore = previewScores is not null && previewScores.TryGetValue(r.Id, out var score) ? score : null,
             });
 
         entries = normalizedVisibilityFilter switch
@@ -106,14 +78,6 @@ public sealed class AdminContentKbController : Controller
             "hidden" => entries.Where(entry => !entry.IsVisible),
             _ => entries
         };
-
-        if (previewActive && string.Equals(normalizedSortBy, "score", StringComparison.Ordinal))
-        {
-            entries = entries
-                .OrderByDescending(entry => entry.RelevanceScore.HasValue)
-                .ThenByDescending(entry => entry.RelevanceScore)
-                .ThenBy(entry => entry.Title, StringComparer.Ordinal);
-        }
 
         var entryList = entries.ToArray();
 
@@ -138,39 +102,11 @@ public sealed class AdminContentKbController : Controller
             Status = status,
             Sources = sources,
             Entries = entryList,
-            PreviewCommander = normalizedPreviewCommander,
-            PreviewBracket = normalizedPreviewBracket,
-            BracketOptions = ContentTagVocabulary.Brackets.ToArray(),
             VisibilityFilter = normalizedVisibilityFilter,
-            SortBy = normalizedSortBy,
             SuccessBanner = TempData[BannerKey] as string,
         };
 
         return View(model);
-    }
-
-    private static string? NormalizePreviewCommander(string? previewCommander)
-    {
-        if (string.IsNullOrWhiteSpace(previewCommander))
-        {
-            return null;
-        }
-
-        return string.Join(
-            ' ',
-            previewCommander
-                .Split(['\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
-    }
-
-    private static string? NormalizePreviewBracket(string? previewBracket)
-    {
-        if (string.IsNullOrWhiteSpace(previewBracket))
-        {
-            return null;
-        }
-
-        var trimmed = previewBracket.Trim();
-        return ContentTagVocabulary.Brackets.Contains(trimmed) ? trimmed : null;
     }
 
     private static string NormalizeVisibilityFilter(string? visibilityFilter)
@@ -186,11 +122,6 @@ public sealed class AdminContentKbController : Controller
         }
 
         return "all";
-    }
-
-    private static string? NormalizeSortBy(string? sortBy)
-    {
-        return string.Equals(sortBy, "score", StringComparison.OrdinalIgnoreCase) ? "score" : null;
     }
 
     /// <summary>
@@ -259,8 +190,8 @@ public sealed class AdminContentKbController : Controller
     }
 
     /// <summary>
-    /// Re-runs the curation-preserving seed load (previously-published entries stay published —
-    /// Pitfall 1). Double-CSRF-guarded.
+    /// Re-runs the seed loader to upsert the committed curation seed into the live index.
+    /// Double-CSRF-guarded.
     /// </summary>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("ReloadSeed")]
@@ -272,9 +203,9 @@ public sealed class AdminContentKbController : Controller
             return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
         }
 
-        var count = await _seedLoader.LoadIfPresentAsync(cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("Admin reload-from-seed processed {Count} rows.", count);
-        TempData[BannerKey] = "Index reloaded from seed.";
+        var rowCount = await _seedLoader.LoadIfPresentAsync(cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Content KB seed reload completed. Rows={RowCount}", rowCount);
+        TempData[BannerKey] = $"Reloaded seed ({rowCount} rows).";
         return RedirectToAction(nameof(Index));
     }
 }

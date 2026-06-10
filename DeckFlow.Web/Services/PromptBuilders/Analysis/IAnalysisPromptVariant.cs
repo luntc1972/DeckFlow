@@ -23,7 +23,6 @@ internal interface IAnalysisPromptVariant
     /// <param name="bannedCards">Official banned-card names.</param>
     /// <param name="comboResult">Optional Commander Spellbook combo result.</param>
     /// <param name="includeCardVersions">Whether to preserve specific card printings in outputs.</param>
-    /// <param name="kbExcerpts">Optional curated expert-context clips appended to the prompt when present.</param>
     string Build(
         DeckAnalysisRequest request,
         string decklistText,
@@ -33,6 +32,5 @@ internal interface IAnalysisPromptVariant
         IReadOnlyList<string> selectedQuestionIds,
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
-        bool includeCardVersions,
-        IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null);
+        bool includeCardVersions);
 }
