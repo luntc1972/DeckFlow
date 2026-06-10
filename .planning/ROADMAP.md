@@ -124,6 +124,20 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 ## Backlog
 
+### Creator Philosophy-Profile / Content KB v2 (★ NEXT-MILESTONE CANDIDATE — user-flagged 2026-06-10)
+
+**Goal:** Make the Content KB earn its keep — replace/layer the per-video "clips + tags" distillation with a per-creator **philosophy profile** (distilled style-card + RAG grounding) that conditions analysis in the creator's voice. The actual reason the KB exists (creator-as-lens).
+
+**GATE (finish first):** validate that KB expert-context actually lifts the ChatGPT answer — run **Spike 001 kb-value-ab** to completion: manual A/B of `with-context.txt` vs `baseline.txt` against the rubric (`.planning/spikes/001-kb-value-ab/README.md`), record verdict. Tracked by todo `validate-kb-value.md`. Marginal lift → reconsider the whole KB instead of building the profile.
+
+**Detail:** full shape in seed `.planning/seeds/creator-philosophy-profile.md` (style-card synthesizer + RAG; provenance per principle; contradictions-preserved; temporal drift / recency weight; hallucination gate tracing every principle to a verified passage; incremental refresh; video-level curation). Reuses existing transcripts/clips/harvest+refresh; new work = profile synthesizer + persona injection into DeckAnalysis + provenance/contradiction model.
+
+**Related KB follow-ups to fold in:** SEL-02 expert-pin live-pin re-confirm (when `content.kb.enabled` next ON); flip KB out of dark mode once value is proven.
+
+**Cleanup:** delete throwaway `DeckFlow.Web.Tests/Spike001KbValueAbHarness.cs` (untracked; writes files on run) once the spike verdict is recorded.
+
+**Requirements:** TBD (scope at `/gsd-new-milestone`). **Plans:** 0.
+
 ### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
 
 > Investigation 2026-06-04 (codex 0.136.0, Phase 28-03 / `28-DISCOVERY.md`): `--sandbox read-only` documented as "can read files in workspace" (structural evidence from binary). No `--no-tools` flag exists. `deny_read` glob mechanism requires `codex-linux-sandbox` + bubblewrap infrastructure not present, with no documented global read disable. Re-investigable when a future codex version provides documented read-blocking. D-03 re-demote applied; user ratified 2026-06-04.
