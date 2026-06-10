@@ -106,6 +106,16 @@ public sealed class ContentSiteIndexStoreTests : IDisposable
             CreateYoutubeRow("yt-both") with { RssGuid = "rss-both" }));
     }
 
+    [Fact]
+    public void ContentSiteIndexRow_PinId_ReturnsNaturalKey()
+    {
+        var youtube = CreateYoutubeRow("yt-pin");
+        var rss = CreateRssRow("rss-pin");
+
+        Assert.Equal("yt-pin", youtube.PinId);
+        Assert.Equal("rss-pin", rss.PinId);
+    }
+
     private async Task<int> CountRowsByNaturalKeyAsync(string naturalKeyType, string naturalKeyValue)
     {
         await using var connection = await RelationalDatabaseConnection

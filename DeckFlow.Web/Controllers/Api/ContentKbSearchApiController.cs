@@ -1,4 +1,3 @@
-using System.Globalization;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Security;
@@ -52,7 +51,7 @@ public sealed class ContentKbSearchApiController : ControllerBase
             .Where(row => row.Title.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
             .Select(row => new
             {
-                id = row.YoutubeVideoId ?? row.RssGuid ?? row.Id.ToString(CultureInfo.InvariantCulture),
+                id = row.PinId,
                 title = row.Title,
             })
             .Take(10)
