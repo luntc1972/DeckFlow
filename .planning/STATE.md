@@ -7,10 +7,10 @@ last_updated: "2026-06-10"
 last_activity: 2026-06-10
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 25
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 67   # Phase 36 SKIPPED (gate MARGINAL) → effective phases = 34,35,37; 2 of 3 done
 ---
 
 # Project State
@@ -20,14 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** v1.6 — Phase 34 (KB Retrieval Fix) COMPLETE + verified; next is Phase 35 (Value Re-Validation Gate)
+**Current focus:** v1.6 — Phase 35 gate = MARGINAL; Phase 36 SKIPPED (KB retire pivot); only Phase 37 (SRP split) remains.
 
 ## Current Position
 
-Phase: 34 KB Retrieval Fix — COMPLETE (VERIFICATION: passed 2026-06-10)
-Plan: 34-01 + 34-02 done (Codex-implemented, Claude-reviewed APPROVE, WR-01 closed)
-Status: Phase 34 closed; Phase 35 (gate) ready to plan — re-run the Spike 001 A/B against the fixed retriever
-Last activity: 2026-06-10 — Phase 34 implemented, reviewed, verified (4/4 SC), committed (2daf1f1, 58e607f)
+Phase: 35 Value Re-Validation Gate — COMPLETE; outcome **MARGINAL** (gate NOT cleared)
+Plan: 35-01 (Codex) emitted 5-deck A/B; 35-02 (Claude) judged + verdict in 35-GATE-VERDICT.md
+Status: Phase 36 SKIPPED (gate failed); pivot = RETIRE the whole-channel clip-injection feature; KB stays dark. Next/last v1.6 phase = 37 (DeckController/CommandRunners SRP split), independent of the gate.
+Last activity: 2026-06-10 — Phase 35 gate judged MARGINAL across 5 bracket-spanning decks; user ratified retire pivot
+
+## Accumulated Context — Key Decisions (v1.6)
+
+- **D-v1.6-gate (2026-06-10):** Content KB clip-injection re-validation = **MARGINAL**. On the Phase-34-fixed retriever across 5 bracket-spanning decks, lift was cosmetic (soft dims only; 0/5 decks changed a cut/add; 3/5 mild noise). Binding constraint = the corpus (single-creator generic philosophy, `[00:00]` intro-only clips, no deck/card-specific content) — retrieval polish can't reach it. **Decision: skip Phase 36 (no philosophy-profile, no un-dark); RETIRE the whole-channel clip-injection feature; KB stays dark.** Evidence: `.planning/phases/35-value-re-validation-gate/35-GATE-VERDICT.md`.
+- **Retire = follow-up scope:** the actual code-removal/disable of the clip-injection path is NOT yet done (feature is already dark via `content.kb.enabled` OFF, so non-urgent). Track as a v1.6-closeout or backlog task; Phase 37 (SRP split) is the remaining planned phase.
 
 ## Performance Metrics
 

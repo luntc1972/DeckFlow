@@ -139,3 +139,10 @@ tag-overlap scoring + no diversity) unless retrieval is fixed first.
 
 Independent confirmation still worthwhile: paste `baseline.txt`, `with-context.txt`, and
 `with-context-real.txt` into real ChatGPT and compare blind.
+
+---
+
+**v1.6 re-validation gate (AFTER the Phase 34 fix):** the fixed retriever was re-judged across 5
+bracket-spanning decks — see `.planning/phases/35-value-re-validation-gate/35-GATE-VERDICT.md`.
+Outcome: **MARGINAL** (monopoly + injection fixed, but lift stayed cosmetic — soft dims only, 0/5
+decks changed any cut/add, 3/5 carried mild noise). This frozen Run-1/Run-2 evidence is the "before".
