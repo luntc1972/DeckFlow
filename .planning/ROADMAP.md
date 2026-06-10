@@ -158,7 +158,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   2. Baseline AI answers are scored against the rubric (specificity, creator-voice, novel signal, actionability) **before** the with-context answers are read — the blind protocol is explicitly documented in VERDICT.md
   3. VERDICT.md contains per-deck rubric scores for all 3+ decks and declares a single outcome: `VALIDATED` (≥3/4 dimensions score 3+ for the majority of decks, no quality loss vs. baseline) or `MARGINAL`
   4. The gate outcome routes the milestone explicitly: VALIDATED → Phase 36 proceeds; MARGINAL → Phase 36 is skipped, pivot decision (fix-again / per-deck retrieval pivot / retire) is recorded in VERDICT.md, and the milestone closes after Phase 37
-**Plans**: TBD
+**Plans**: 2 plans (2 waves; gate-locked sequential)
+- [ ] 35-01-PLAN.md — Extend Spike001KbValueAbHarness to 5 bracket-spanning decks; real fixed retriever over rebuilt corpus emits baseline + with-context prompts per deck (KBV-01) [Claude-executed; Codex unavailable]
+- [ ] 35-02-PLAN.md — Score AI answers on the 4-dim rubric (isolated passes), record binary VALIDATED/MARGINAL verdict in 35-GATE-VERDICT.md, route the milestone in STATE/ROADMAP (KBV-02/03/04)
 
 ### Phase 36: Creator Philosophy-Profile + KB Un-Dark
 **Goal**: Per-creator philosophy profiles ground deck-analysis prompts in a creator's distilled heuristics — each principle traced to a verified source passage; the Content KB is flipped ON in production and the expert-pin carry-forward is re-confirmed live
