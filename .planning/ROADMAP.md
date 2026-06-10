@@ -128,9 +128,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 ## v1.6 Content KB Retrieval Fix + Value Re-Validation
 
 - [x] **Phase 34: KB Retrieval Fix** — KBR-01, KBR-02, KBR-03, KBR-04 (VERIFICATION: passed 2026-06-10)
-- [ ] **Phase 35: Value Re-Validation Gate** — KBV-01, KBV-02, KBV-03, KBV-04
-- [ ] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** *(CONDITIONAL — runs only if Phase 35 gate = VALIDATED)* — PHIL-01, PHIL-02, PHIL-03, PHIL-04, KBD-01, KBD-02
-- [ ] **Phase 37: Controller SRP Split** — SRP-01, SRP-02, SRP-03
+- [x] **Phase 35: Value Re-Validation Gate** — KBV-01..04 — **MARGINAL** (gate NOT cleared; 2026-06-10). Pivot = **retire clip-injection**. See `35-GATE-VERDICT.md`.
+- [~] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** — **SKIPPED** (gate MARGINAL). PHIL-01..04 + KBD-01/02 not built; KB stays dark. Pivot recorded: retire the whole-channel clip-injection feature.
+- [ ] **Phase 37: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — independent of the gate)*
 
 ---
 
@@ -159,8 +159,8 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   3. VERDICT.md contains per-deck rubric scores for all 3+ decks and declares a single outcome: `VALIDATED` (≥3/4 dimensions score 3+ for the majority of decks, no quality loss vs. baseline) or `MARGINAL`
   4. The gate outcome routes the milestone explicitly: VALIDATED → Phase 36 proceeds; MARGINAL → Phase 36 is skipped, pivot decision (fix-again / per-deck retrieval pivot / retire) is recorded in VERDICT.md, and the milestone closes after Phase 37
 **Plans**: 2 plans (2 waves; gate-locked sequential)
-- [ ] 35-01-PLAN.md — Extend Spike001KbValueAbHarness to 5 bracket-spanning decks; real fixed retriever over rebuilt corpus emits baseline + with-context prompts per deck (KBV-01) [Claude-executed; Codex unavailable]
-- [ ] 35-02-PLAN.md — Score AI answers on the 4-dim rubric (isolated passes), record binary VALIDATED/MARGINAL verdict in 35-GATE-VERDICT.md, route the milestone in STATE/ROADMAP (KBV-02/03/04)
+- [x] 35-01-PLAN.md — Extended Spike001KbValueAbHarness to 5 bracket-spanning decks; real fixed retriever over rebuilt corpus emitted baseline + with-context prompts per deck (KBV-01) [Codex-executed]
+- [x] 35-02-PLAN.md — Scored AI answers on the 4-dim rubric (5 isolated-pass judgments), recorded MARGINAL verdict in 35-GATE-VERDICT.md, routed the milestone (KBV-02/03/04) [Claude-executed]
 
 ### Phase 36: Creator Philosophy-Profile + KB Un-Dark
 **Goal**: Per-creator philosophy profiles ground deck-analysis prompts in a creator's distilled heuristics — each principle traced to a verified source passage; the Content KB is flipped ON in production and the expert-pin carry-forward is re-confirmed live
