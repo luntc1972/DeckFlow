@@ -15,13 +15,16 @@ def secs_to_label(s):
 def y(s):
     return '"' + (s or "").replace("\\", "\\\\").replace('"', '\\"') + '"'
 
-c = sqlite3.connect(DB)
-c.row_factory = sqlite3.Row
-rows = c.execute("select * from content_site_index where is_visible=1").fetchall()
+index_db = sqlite3.connect(INDEX_DB)
+index_db.row_factory = sqlite3.Row
+content_db = sqlite3.connect(CONTENT_DB)
+content_db.row_factory = sqlite3.Row
+
+rows = index_db.execute("select * from content_site_index where is_visible=1").fetchall()
 print(f"visible index rows: {len(rows)}")
 
 # map youtube_video_id -> content_videos.id (for clips/summaries)
-vid_map = {r["youtube_video_id"]: r["id"] for r in c.execute("select id, youtube_video_id from content_videos")}
+vid_map = {r["youtube_video_id"]: r["id"] for r in content_db.execute("select id, youtube_video_id from content_videos")}
 
 out_rows = []
 written = 0
@@ -36,9 +39,9 @@ for r in rows:
     summary = ""
     clips = []
     if cv_id is not None:
-        sm = c.execute("select body from content_summaries where video_id=? order by id desc limit 1", (cv_id,)).fetchone()
+        sm = content_db.execute("select body from content_summaries where video_id=? order by id desc limit 1", (cv_id,)).fetchone()
         summary = sm["body"] if sm else ""
-        clips = c.execute("select timestamp_s, excerpt from content_clips where video_id=? order by sort_order", (cv_id,)).fetchall()
+        clips = content_db.execute("select timestamp_s, excerpt from content_clips where video_id=? order by sort_order", (cv_id,)).fetchall()
     arche = json.loads(r["archetype_tags"] or "[]")
     brk = json.loads(r["bracket_tags"] or "[]")
     cardcat = json.loads(r["card_category_tags"] or "[]")
@@ -99,6 +102,6 @@ for r in rows:
         f.write("\n".join(lines))
     written += 1
 
-with open("/tmp/rows.json", "w", encoding="utf-8") as f:
+with open(os.path.join(ART_ROOT, "spike-rows.json"), "w", encoding="utf-8") as f:
     json.dump(out_rows, f)
 print(f"wrote {written} artifacts | skipped {skipped_existing} existing | {no_clips} had no clips | rows.json={len(out_rows)}")
