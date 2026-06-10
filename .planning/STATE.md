@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
-status: in_progress
-last_updated: "2026-06-10"
-last_activity: 2026-06-10
+status: executing
+stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
+last_updated: "2026-06-10T21:39:41.133Z"
+last_activity: 2026-06-10 -- Phase 37 planning complete
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 2
-  total_plans: 4
+  total_plans: 6
   completed_plans: 4
-  percent: 67   # Phase 36 SKIPPED (gate MARGINAL) → effective phases = 34,35,37; 2 of 3 done
+  percent: 33
 ---
 
 # Project State
@@ -20,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** v1.6 — Phase 35 gate = MARGINAL; Phase 36 SKIPPED (KB retire pivot); only Phase 37 (SRP split) remains.
+**Current focus:** v1.6 — Phase 35 gate = MARGINAL; Phase 36 SKIPPED. Retire pivot scoped into 3 phases: **37** Retire Clip-Injection + Un-Dark KB → **37.5** Rebuild KB Corpus → **38** Controller SRP Split. Phase 37 PLANNED (2 plans), ready to execute.
 
 ## Current Position
 
-Phase: 35 Value Re-Validation Gate — COMPLETE; outcome **MARGINAL** (gate NOT cleared)
-Plan: 35-01 (Codex) emitted 5-deck A/B; 35-02 (Claude) judged + verdict in 35-GATE-VERDICT.md
-Status: Phase 36 SKIPPED. Retire pivot SCOPED into 3 phases: **37** Retire Clip-Injection + Un-Dark KB (A-only full removal; keep browse+harvest; un-dark; deck-analysis KB pointer) → **37.5** Rebuild KB Corpus (reset + re-harvest salubrious-snail under deck-advice/philosophy hybrid filter; fix the [00:00] clip defect) → **38** Controller SRP Split. CONTEXT.md ready for all three; no plans yet.
-Last activity: 2026-06-10 — Phase 35 MARGINAL ratified; scoped the retire pivot (KB kept browsable + un-darked + re-curated; injection removed)
+Phase: 37 Retire Clip-Injection + Un-Dark KB — **PLANNED** (2 plans, 2 waves; checker PASSED)
+Plan: 37-01 (Wave 1) atomic injection removal + Wave-0 RET-01/05 tests + test prune; 37-02 (Wave 2) un-dark flag + browse/admin selection-UI strip + RET-04 XSS test + RET-06 KB pointer/nav-copy
+Status: Ready to execute — `/gsd:execute-phase 37` (Codex executes per cross-AI; recommend Codex peer review of plans first)
+Reqs: RET-01..06 all covered (37-01: 01/02/05 · 37-02: 03/04/06). RESEARCH flagged 5 CONTEXT discrepancies — all folded in (both packet JSON fields; browse-page kb-selection strip; content-kb-admin.ts full delete; accordion 182–232; nav-copy rewrite).
+Next after 37: Phase 37.5 (rebuild corpus — CONTEXT ready), then Phase 38 (SRP split).
+Last activity: 2026-06-10 -- Phase 37 planning complete (research → plan → checker PASSED)
 
 ## Accumulated Context — Key Decisions (v1.6)
 
