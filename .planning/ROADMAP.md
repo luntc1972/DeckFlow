@@ -8,6 +8,7 @@
 - ✅ **v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene** — Phases 11-15 + 999.1-999.8 (shipped 2026-05-23) — see `.planning/milestones/v1.3-ROADMAP.md`
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
+- 🔵 **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-37 (active)
 
 ## Phases
 
@@ -122,21 +123,80 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 </details>
 
+---
+
+## v1.6 Content KB Retrieval Fix + Value Re-Validation
+
+- [ ] **Phase 34: KB Retrieval Fix** — KBR-01, KBR-02, KBR-03, KBR-04
+- [ ] **Phase 35: Value Re-Validation Gate** — KBV-01, KBV-02, KBV-03, KBV-04
+- [ ] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** *(CONDITIONAL — runs only if Phase 35 gate = VALIDATED)* — PHIL-01, PHIL-02, PHIL-03, PHIL-04, KBD-01, KBD-02
+- [ ] **Phase 37: Controller SRP Split** — SRP-01, SRP-02, SRP-03
+
+---
+
+## Phase Details
+
+### Phase 34: KB Retrieval Fix
+**Goal**: The Content KB retriever selects diverse, topically relevant clips with injection-safe text — no single video monopolizes results, off-topic content is penalized, and transcript-derived text cannot act as instructions
+**Depends on**: Nothing (first phase, unconditional)
+**Requirements**: KBR-01, KBR-02, KBR-03, KBR-04
+**Success Criteria** (what must be TRUE):
+  1. Running retrieval against an Atraxa deck yields clips from at least 2 distinct video sources; the Kaalia/Animar tangential video from Spike 001 Run 2 is excluded or capped to at most 1 clip
+  2. A video with broad tags (e.g. "Glass Cannon Commanders") does not outscore a video whose content directly addresses the deck's archetype when the two compete for the same slot
+  3. The injected `## Expert Context` block in the rendered prompt is wrapped in a structural boundary and all clip text has passed the prompt-injection regex sanitizer before reaching the LLM
+  4. A regression test reproducing the Spike 001 Run-2 Atraxa scenario passes: asserts per-video cap, asserts topical exclusion of the commander-leakage video, and is part of the standard test run
+**Plans**: TBD
+
+### Phase 35: Value Re-Validation Gate
+**Goal**: A blind, multi-deck A/B verdict is recorded against the fixed retriever — the gate either clears (VALIDATED → proceed to Phase 36) or fails (MARGINAL → KB stays dark, pivot decision recorded, milestone proceeds to Phase 37 only)
+**Depends on**: Phase 34 (gate tests the fixed retriever; running it on the broken retriever would reproduce the NEGATIVE Spike 001 Run 2 result)
+**Requirements**: KBV-01, KBV-02, KBV-03, KBV-04
+**Success Criteria** (what must be TRUE):
+  1. The `Spike001KbValueAbHarness` runs against at least 3 representative decks with distinct commanders and archetypes (not just Atraxa), emitting a `baseline.txt` and `with-context.txt` per deck
+  2. Baseline AI answers are scored against the rubric (specificity, creator-voice, novel signal, actionability) **before** the with-context answers are read — the blind protocol is explicitly documented in VERDICT.md
+  3. VERDICT.md contains per-deck rubric scores for all 3+ decks and declares a single outcome: `VALIDATED` (≥3/4 dimensions score 3+ for the majority of decks, no quality loss vs. baseline) or `MARGINAL`
+  4. The gate outcome routes the milestone explicitly: VALIDATED → Phase 36 proceeds; MARGINAL → Phase 36 is skipped, pivot decision (fix-again / per-deck retrieval pivot / retire) is recorded in VERDICT.md, and the milestone closes after Phase 37
+**Plans**: TBD
+
+### Phase 36: Creator Philosophy-Profile + KB Un-Dark
+**Goal**: Per-creator philosophy profiles ground deck-analysis prompts in a creator's distilled heuristics — each principle traced to a verified source passage; the Content KB is flipped ON in production and the expert-pin carry-forward is re-confirmed live
+**Depends on**: Phase 35 gate = VALIDATED (this phase is CONDITIONAL and is SKIPPED if the gate verdict is MARGINAL)
+**Requirements**: PHIL-01, PHIL-02, PHIL-03, PHIL-04, KBD-01, KBD-02
+**Success Criteria** (what must be TRUE):
+  1. Running the `synthesize-philosophy` CLI command for a creator with ≥10 substantive harvested videos produces a style-card where every principle carries a non-nullable `source_video_id` + `source_timestamp_s` — a principle with no citable passage is not stored
+  2. A deck-analysis prompt generated with a creator's profile active contains a `## Creator Heuristics` sub-section with attributed principles; a contradictory pair of opinions from different videos appears as two separate entries (not merged)
+  3. A principle whose only supporting passage is from a video published more than 18 months ago is deprioritized at injection time; the `content.kb.profiles.enabled` flag controls the entire sub-section and is null-graceful when absent
+  4. `content.kb.enabled` is ON in production, and a pinned video from the SEL-02 expert-pin scenario appears in the Expert Context block of a live deck-analysis run
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 37: Controller SRP Split
+**Goal**: `DeckController` and `CommandRunners` are decomposed into focused, single-responsibility units — all existing URLs and CLI commands preserved unchanged, no user-visible behavior altered
+**Depends on**: Nothing (unconditional, independent of all KB phases; runs regardless of gate outcome)
+**Requirements**: SRP-01, SRP-02, SRP-03
+**Success Criteria** (what must be TRUE):
+  1. Every URL that existed before the split returns the same response after the split — a pre-split URL list compared against a post-split URL list shows zero removals or changes
+  2. All existing controller tests pass against the split controllers with only logger-generic type references updated; no new test failures introduced, no new compiler warnings
+  3. `DeckFlow.CLI` `CommandRunners.cs` is split at the content-KB boundary: deck-domain runners and KB runners live in separate classes; all commands still registered and invocable
+**Plans**: TBD
+
+---
+
+## Progress
+
+**Execution Order (v1.6):**
+Phase 34 → Phase 35 (sequential, gate-locked). Phase 36 runs only if Phase 35 = VALIDATED. Phase 37 is independent and runs last regardless of gate outcome. If the gate fails, Phase 36 is skipped: the milestone closes after Phase 37.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 34. KB Retrieval Fix | 0/TBD | Not started | - |
+| 35. Value Re-Validation Gate | 0/TBD | Not started | - |
+| 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | 0/TBD | Not started | - |
+| 37. Controller SRP Split | 0/TBD | Not started | - |
+
+---
+
 ## Backlog
-
-### Creator Philosophy-Profile / Content KB v2 (★ NEXT-MILESTONE CANDIDATE — user-flagged 2026-06-10)
-
-**Goal:** Make the Content KB earn its keep — replace/layer the per-video "clips + tags" distillation with a per-creator **philosophy profile** (distilled style-card + RAG grounding) that conditions analysis in the creator's voice. The actual reason the KB exists (creator-as-lens).
-
-**GATE (finish first):** validate that KB expert-context actually lifts the ChatGPT answer — run **Spike 001 kb-value-ab** to completion: manual A/B of `with-context.txt` vs `baseline.txt` against the rubric (`.planning/spikes/001-kb-value-ab/README.md`), record verdict. Tracked by todo `validate-kb-value.md`. Marginal lift → reconsider the whole KB instead of building the profile.
-
-**Detail:** full shape in seed `.planning/seeds/creator-philosophy-profile.md` (style-card synthesizer + RAG; provenance per principle; contradictions-preserved; temporal drift / recency weight; hallucination gate tracing every principle to a verified passage; incremental refresh; video-level curation). Reuses existing transcripts/clips/harvest+refresh; new work = profile synthesizer + persona injection into DeckAnalysis + provenance/contradiction model.
-
-**Related KB follow-ups to fold in:** SEL-02 expert-pin live-pin re-confirm (when `content.kb.enabled` next ON); flip KB out of dark mode once value is proven.
-
-**Cleanup:** delete throwaway `DeckFlow.Web.Tests/Spike001KbValueAbHarness.cs` (untracked; writes files on run) once the spike verdict is recorded.
-
-**Requirements:** TBD (scope at `/gsd-new-milestone`). **Plans:** 0.
 
 ### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
 
@@ -175,93 +235,12 @@ Plans:
 
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
-### Deferred to v1.5 (per 2026-05-23 scope decision)
+### Deferred to v1.6+ (per v1.5 scope decision)
 
-- **Gemini paste-limit workaround** (cluster D dropped from v1.4; needs split-message vs direct-API path decision)
-- **Content KB deck-analysis integration** — prompt-injection + "What experts say" UI panel
-- **New-deck-building interactive guide** (wizard) leveraging Content KB tags
-- **Scheduled (cron) content harvest cadence**
-- IN-01 `_AiSelector` vs view-level Normalize Gemini-flag fallback divergence
-- v1.1 phase-dir archive move (06, 07, 07.1, 08 → `.planning/milestones/v1.1-phases/`)
-- CSS-class / data-attribute / TS-constant `chatgpt-*` cleanup
-- v13-harvest-worker-stalled debug follow-up
-- audit-open scanner vocabulary alignment
-
-### Phase 26: Category Cache Schema Normalization (fresh-start)
-
-**Goal:** Re-harvested category data lands in a normalized, integer-keyed schema that fits the 256 MB Postgres working set and serves card/commander lookups from compact indexes — replacing the wide TEXT-keyed `card_category_observations` / `card_deck_totals` design. Built fresh (DB wiped + re-harvested), so no in-place migration of existing rows.
-**Requirements**: DBO-01
-**Depends on:** Nothing (off critical path; fresh-start rebuild — full DB reset authorized 2026-05-24)
-**Spec**: `.planning/research/db-storage-query-optimization.md`, `docs/ops/db-full-reset.md`
-**Success Criteria** (what must be TRUE):
-
-  1. New schema interns deck identity and card names into integer-keyed dimension tables; fact tables reference them by `int` (no repeated `source` / `card_name` / `normalized_card_name` TEXT per row)
-  2. **[AMENDED 2026-05-25 — see note]** After a full wipe + re-harvest, the grain index drops the wide TEXT keys: `ux_obs_grain` interns `source`/`card_name` to `int`, cutting grain-key width ~38% (old composite-TEXT PK ≈89 B/row → measured `ux_obs_grain` 55.5 B/row). The original ≥50% *total* index-footprint target is **NOT MET and unreachable with this design**: `category`+`board` stay TEXT in the grain key, and the 4 secondary integer indexes required for SC3's sargable joins raise total index count vs the old single composite PK (even trimming unused indexes lands ~34%). Hitting ≥50% would require interning `category`/`board` too — a separate redesign. The phase's real footprint win is heap dedup (no repeated `source`/`normalized_card_name` TEXT per row), and the headline win is SC3 latency. *(Old baseline was destroyed in the reset before measurement; the ≈89 B/row old figure is reconstructed from current TEXT column lengths + btree overhead, not directly measured.)*
-  3. `GetCategoriesAsync` and `GetCategoryRowsForCommanderAsync` are index-backed (EXPLAIN: index scans) and return the same categories as the old design for a fixed sample (Sol Ring + a commander)
-  4. `EnsureSchemaAsync` creates the new schema idempotently on a clean DB; old tables dropped via the full-reset runbook (no data carried over)
-  5. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
-
-**Risk:** Medium — coordinated deploy + wipe + re-harvest (empty-cache window acceptable since data is reset); new write path must reproduce identical lookup results. Own plan + Codex review.
-**Plans:** 2 plans
-
-Plans:
-
-- [x] 26-01-PLAN.md — Schema + dialect foundation: IRelationalDialect.SurrogateIdColumnType + normalized integer-keyed star schema (sources + cards dims, slim integer-keyed facts, compact indexes incl. LOWER(commander) expr index, reserved content_hash) + RED parity + SQLite-AUTOINCREMENT harness (DBO-01)
-- [x] 26-02-PLAN.md — Port write+read paths to integer keys (intern-on-write RETURNING id, batch resolve per deck, integer commander join replacing string-concat), parity GREEN, PG coverage + full-reset runbook update (DBO-01)
-
-**Verification status (2026-05-25):** Code complete + Codex peer-reviewed (RED iter-1 → YELLOW iter-2, both HIGH resolved → RED→GREEN). Build clean; Core 81/81; Web 463 pass / 13 pre-existing CSS fails / 5 PG-integration skipped. **Prod full-reset done 2026-05-25** (`DROP SCHEMA public CASCADE` + restart rebuilt integer-keyed schema; verified via `information_schema` + `pg_indexes`). Re-harvest stopped intentionally at a partial corpus (≈231 decks processed / 655 queued; obs 20.4k, totals 19.3k, cards 8.1k, sources 230).
-
-  - **SC3 — ✅ PASS (measured):** both hot paths index-only, no seq scans. `GetCategoriesAsync` → `ux_cards_normalized` + `ix_obs_card` nested loop (0.3 ms). `GetCategoryRowsForCommanderAsync` → `ix_deck_queue_processed_commander_lower` + `ix_sources_deck_queue` + `ix_obs_source` (0.66 ms; was the 69 s timeout query pre-normalization).
-  - **SC2 — ❌ NOT MET as originally written; criterion amended above.** Grain-key width cut ~38%; total index footprint flat-to-worse (5 indexes vs old PK+normalized index). Unreachable without interning `category`/`board`. Real wins booked under SC3 + heap dedup.
-  - **Index-usage audit (partial-corpus, write-path-dominated):** grain uniques + `ix_obs_card` + `ix_obs_source` + `ix_totals_card` + dim uniques are exercised. `ix_obs_card_board` / `ix_totals_card_board` have **no production caller** (board filter param unwired — only `CategorySuggestionService:118` calls, with no board) → safe drop candidates. Fact surrogate `*_pkey` (`id`) never read (no RETURNING on fact inserts; only `cards`/`sources` dims use `RETURNING id`) → drop candidate **but defer**: Phase 27 (content-hash dedup) may need a stable fact row id (`reserved content_hash` in 26-01).
-
-  Phase considered **functionally closed** (SC1/SC3/SC4/SC5 met; SC2 amended to achieved scope). Optional follow-up: index trims (~2 MB/M rows) + Phase 27 decision on fact surrogate `id`.
-
-### Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh
-
-**Goal:** The harvest skips rewriting a deck's cached rows when its cards/categories are unchanged (content hash per deck source), and re-checks a deck only after 5 days — cutting write amplification on the category cache while keeping data fresh.
-**Requirements**: CAT-02
-**Depends on:** Phase 26 (layers on the normalized schema)
-**Spec**: `.planning/specs/deck-cache-content-hash-refresh.md`
-**Success Criteria** (what must be TRUE):
-
-  1. Re-harvesting a deck whose cards/categories are unchanged performs NO delete/insert on the fact tables (only `last_checked_utc` updates) — proven by a write-counting test
-  2. Re-harvesting a deck whose cards/categories changed DOES rewrite its rows (replace semantics preserved) and updates the stored hash
-  3. Content hash is stable and order-independent for the same logical deck content
-  4. A processed deck is not re-fetched until 5 days after its last check (`last_checked_utc`-based)
-  5. Hash stored idempotently (additive schema); existing NULL-hash rows recompute once without error
-  6. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
-
-**Risk:** Low-medium — additive schema; main care is the requeue predicate using `last_checked_utc` and the hash covering exactly the written shape so a real change is never missed.
-**Plans:** 1/1 plans complete
-
-Plans:
-
-- [x] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
-
-## Progress
-
-**Execution Order (v1.5):**
-Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends on Phase 28 (KB artifact state clean before flag flip). Phase 31 depends on Phase 29 (Core doc-clean before new Core services added) and on the PRM-01 spike completing inside Phase 31.
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
-| 29. Core XML-Doc Backfill + Gate Widen | 5/5 | Complete    | 2026-06-05 |
-| 30. Content KB Integration | 1/4 | In Progress|  |
-| 31. Deck Primer Generator | 0/TBD | Not started | - |
-
-### Phase 33: Admin Content KB Curation UX (runs after Phase 32, before Phase 31 — higher priority than 31)
-
-**Goal:** An admin can quickly locate a specific KB entry to publish/unpublish in a list that has grown long — by filtering/searching on tags, title/name, and creator/source — and scan the entries list comfortably (readability improvements). Targets `AdminContentKbController.Index` + `Views/AdminContentKb/Index.cshtml`.
-**Requirements**: KBUX-01 (filter/search entries by title/name, source/creator, tags), KBUX-02 (readability improvements for long entry lists)
-**Depends on:** Phase 32 (expert-context curation surface) and Phase 30 (admin KB view); no dependency on Phase 31
-**Plans:** 2 plans
-
-Plans:
-- [x] 33-01-PLAN.md — Client-side instant filter/search box (title, source, tags) over the entries list with live count + empty state
-- [x] 33-02-PLAN.md — Readability: zebra rows, sticky header, hover/focus row highlight, clean tag wrapping (mobile-safe)
+- **Gemini paste-limit workaround** (`DECKFLOW_GEMINI_ENABLED` stays flag-gated; needs split-message vs direct-API path decision)
+- **SpellbookCombo ranking fields** (PRM-08 — parser drops `manaValueNeeded`/`popularity`/`uses`; priority ranking degraded)
+- **Embedding/vector retrieval** (pgvector / ONNX sentence-transformers) — deferred until corpus >~500 videos; RAM-cap risk at current size
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 active*

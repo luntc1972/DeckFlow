@@ -2,7 +2,7 @@
 
 **Milestone goal:** Make the Content KB earn its keep — fix the retrieval defects Spike 001 exposed, prove lift through a blind A/B gate, then *conditionally* build the Creator Philosophy-Profile; close with the long-deferred DeckController/CommandRunners SRP split.
 
-**Driver:** Spike 001 verdict = MARGINAL → leaning NEGATIVE (`.planning/spikes/001-kb-value-ab/VERDICT.md`). Two confirmed defects: (1) `SelectTopClips` has no per-video diversity; (2) tag-overlap scoring rewards tag breadth over topical fit. KB ships dark today.
+**Driver:** Spike 001 verdict = MARGINAL → leaning NEGATIVE (`.planning/spikes/001-kb-value-ab/VERDICT.md`). Two confirmed defects: (1) `SelectTopClips` has no per-video diversity cap; (2) tag-overlap scoring rewards tag breadth over topical fit. KB ships dark today.
 
 **Gate semantics:** The re-validation gate (KBV) is **unconditional, binary, and blind**. PHIL-* and KBD-* requirements are **CONDITIONAL** — they activate only if the gate shows clear lift. If the gate stays marginal, the milestone closes after SRP with the KB still dark (or retired), per the pivot decision recorded in KBV-04.
 
@@ -59,8 +59,22 @@
 
 ## Traceability
 
-<!-- Filled by the roadmapper: REQ-ID → Phase. -->
-
-| REQ-ID | Phase |
-|--------|-------|
-| (pending roadmap) | |
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| KBR-01 | Phase 34 | Pending |
+| KBR-02 | Phase 34 | Pending |
+| KBR-03 | Phase 34 | Pending |
+| KBR-04 | Phase 34 | Pending |
+| KBV-01 | Phase 35 | Pending |
+| KBV-02 | Phase 35 | Pending |
+| KBV-03 | Phase 35 | Pending |
+| KBV-04 | Phase 35 | Pending |
+| PHIL-01 | Phase 36 (CONDITIONAL) | Pending |
+| PHIL-02 | Phase 36 (CONDITIONAL) | Pending |
+| PHIL-03 | Phase 36 (CONDITIONAL) | Pending |
+| PHIL-04 | Phase 36 (CONDITIONAL) | Pending |
+| KBD-01 | Phase 36 (CONDITIONAL) | Pending |
+| KBD-02 | Phase 36 (CONDITIONAL) | Pending |
+| SRP-01 | Phase 37 | Pending |
+| SRP-02 | Phase 37 | Pending |
+| SRP-03 | Phase 37 | Pending |
