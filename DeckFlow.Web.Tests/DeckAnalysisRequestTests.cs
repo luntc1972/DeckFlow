@@ -6,15 +6,13 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckAnalysisRequestTests
 {
     [Fact]
-    public void Selection_list_setters_treat_null_as_empty_lists()
+    public void TargetAiPlatform_setter_normalizes_unknown_values_to_default()
     {
         var request = new DeckAnalysisRequest
         {
-            PinnedVideoIds = null!,
-            FollowedCreators = null!
+            TargetAiPlatform = "Unknown"
         };
 
-        Assert.Empty(request.PinnedVideoIds);
-        Assert.Empty(request.FollowedCreators);
+        Assert.Equal("ChatGPT", request.TargetAiPlatform);
     }
 }
