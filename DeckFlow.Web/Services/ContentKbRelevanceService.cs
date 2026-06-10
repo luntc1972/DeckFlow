@@ -228,7 +228,7 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
         var normalizedBracket = NormalizeBracket(bracket);
         var effectiveArchetypes = await ResolveDeckArchetypesAsync(deckArchetypes, commanderName, ct).ConfigureAwait(false);
         var rows = await _store.GetPublishedRowsAsync(ct).ConfigureAwait(false);
-        var parsedRows = await ParseRowsAsync(rows, normalizedCommander, normalizedBracket, effectiveArchetypes, includeFailedRowsAsZeroScore: false, ct).ConfigureAwait(false);
+        var parsedRows = await ParseRowsAsync(rows, normalizedCommander, normalizedBracket, effectiveArchetypes, includeFailedRowsAsZeroScore: true, ct).ConfigureAwait(false);
         var consumedRowIds = new HashSet<long>();
         var followedCreators = new HashSet<string>(selection.FollowedCreators, StringComparer.OrdinalIgnoreCase);
         var pinIds = selection.PinnedVideoIds.Distinct(StringComparer.Ordinal).Take(3).ToList();
@@ -520,6 +520,27 @@ public sealed class ContentKbRelevanceService : IContentKbRelevanceService
 
         foreach (var artifact in artifacts)
         {
+            if (artifact.ScoreInput.Clips.Count == 0 && !string.Equals(clipOrigin, "auto", StringComparison.Ordinal))
+            {
+                if (selected.Count >= maxClips)
+                {
+                    return selected;
+                }
+
+                selected.Add(new ContentKbExcerpt
+                {
+                    Source = artifact.Row.Source,
+                    Title = artifact.Row.Title,
+                    VideoUrl = artifact.ScoreInput.SourceUrl,
+                    TimestampLabel = string.Empty,
+                    Excerpt = string.Empty,
+                    HarvestDate = artifact.ScoreInput.HarvestDate,
+                    Score = artifact.Score,
+                    ClipOrigin = clipOrigin
+                });
+                continue;
+            }
+
             foreach (var clip in artifact.ScoreInput.Clips)
             {
                 if (selected.Count >= maxClips)

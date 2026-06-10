@@ -218,9 +218,74 @@ public sealed class ContentKbMergedClipsTests
         Assert.Equal(new[] { "Artifact 1", "Artifact 2", "Artifact 3" }, result.Select(clip => clip.Title));
     }
 
+    [Fact]
+    public async Task GetMergedClipsAsync_PinnedRowWithUnparseableArtifact_StillEmitsPinnedClip()
+    {
+        var pinned = CreateRow(1, "broken-pin.md", "Pinned Cast", ["lands"], [], videoId: "VID1");
+        var sut = CreateService(
+            [pinned],
+            artifacts: new Dictionary<string, string>(),
+            throwOnArtifactPaths: new HashSet<string>([pinned.ArtifactPath], StringComparer.Ordinal));
+
+        var result = await sut.GetMergedClipsAsync(
+            new ExpertSelection(["VID1"], new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
+            commanderName: null,
+            bracket: null,
+            deckArchetypes: new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+        var clip = Assert.Single(result!);
+        Assert.Equal("pinned", clip.ClipOrigin);
+        Assert.Equal(pinned.Title, clip.Title);
+        Assert.Equal(pinned.Source, clip.Source);
+        Assert.Equal(pinned.VideoUrl, clip.VideoUrl);
+    }
+
+    [Fact]
+    public async Task GetMergedClipsAsync_UnparseableUnpinnedRow_NotInAutoTier()
+    {
+        var broken = CreateRow(1, "broken-auto.md", "Auto Cast", ["combo"], ["cEDH"], videoId: "VID1");
+        var sut = CreateService(
+            [broken],
+            artifacts: new Dictionary<string, string>(),
+            throwOnArtifactPaths: new HashSet<string>([broken.ArtifactPath], StringComparer.Ordinal));
+
+        var result = await sut.GetMergedClipsAsync(
+            new ExpertSelection([], new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
+            "Tymna the Weaver",
+            "cEDH",
+            new HashSet<string>(["combo"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetMergedClipsAsync_ParseableCliplessRow_NotEmittedAsAutoClip()
+    {
+        var clipless = CreateRow(1, "clipless-auto.md", "Auto Cast", ["combo"], ["cEDH"], videoId: "VID1");
+        var sut = CreateService(
+            [clipless],
+            new Dictionary<string, string>
+            {
+                [clipless.ArtifactPath] = BuildArtifact(
+                    clipless.VideoUrl,
+                    "2026-06-05T12:34:56Z",
+                    "Tag-only score path.",
+                    Array.Empty<(string Timestamp, string Excerpt)>())
+            });
+
+        var result = await sut.GetMergedClipsAsync(
+            new ExpertSelection([], new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
+            commanderName: null,
+            bracket: "cEDH",
+            deckArchetypes: new HashSet<string>(["combo"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Null(result);
+    }
+
     private static ContentKbRelevanceService CreateService(
         IReadOnlyList<ContentSiteIndexRow> rows,
-        IReadOnlyDictionary<string, string> artifacts)
+        IReadOnlyDictionary<string, string> artifacts,
+        IReadOnlySet<string>? throwOnArtifactPaths = null)
     {
         var store = new FakeContentSiteIndexStore();
         foreach (var row in rows)
@@ -236,6 +301,11 @@ public sealed class ContentKbMergedClipsTests
             logger: null,
             readArtifactAsync: (artifactPath, cancellationToken) =>
             {
+                if (throwOnArtifactPaths?.Contains(artifactPath) == true)
+                {
+                    throw new InvalidDataException("forced parse failure");
+                }
+
                 if (!artifacts.TryGetValue(artifactPath, out var text))
                 {
                     throw new FileNotFoundException("missing test artifact", artifactPath);
