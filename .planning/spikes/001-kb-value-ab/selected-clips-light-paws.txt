@@ -1,0 +1,18 @@
+Real ContentKbRelevanceService selection — Light-Paws, Emperor's Voice / Optimized — 5 clips
+(corpus: 82 visible rows; deck archetypes: aggro, voltron)
+
+- score=5.65 | Salubrious Snail — Aggro Ideology: A Guide to Spee-DH [00:00]
+  What about in commander though? That 120 health format we all know and love. A mere 39 lightning bolts are needed, presuming each player gutshots themself with a land. Or 39 swings with a Delver of Secrets. The answer is that it doesn't work. The fact that EDH is a 40 life format is a pain point for our hypothetical red-deck-winner.
+
+- score=5.20 | Salubrious Snail — The Things EDH Players Get Wrong about Interaction [00:00]
+  The best way to think about interaction is as a network of overlapping solutions to a number of specific gamestates. In EDH problems are often more complicated than one single problem permanent that needs to be removed.
+
+- score=4.30 | Salubrious Snail — I Spent Two Years Playing EDH With a Pool of $25 Decks [00:00]
+  In 2019 a group of friends, none playing much Magic on a broke college budget, used a guild die from a D&D dice set to spawn an idea: rather than build one or two new decks each, build a low-cost deck for each guild and roll randomly to pick which deck to play in a given game. Thus began the $25 deck pool.
+
+- score=4.30 | Salubrious Snail — The Problem with Board Wipes (in EDH) [00:00]
+  In the context of commander, boardwipes are a type of effect that I would call 'asymmetric'. This is confusing on the surface, since they're generally literally symmetrical effectsΓÇöthey destroy everything. But what I mean here is that they impact different players massively differently.
+
+- score=4.30 | Salubrious Snail — The Sluggish Era of Tall Commander [00:00]
+  Commander's 40 starting health itself serves as a built-in do-the-thing enablerΓÇöno extra effort needed from players. The higher life total was intentionalΓÇöit works to make space for decks that would otherwise struggle. There are a lot of potential creative strategies that simply can't hold up in a 20 health formatΓÇöattacking people with creatures early is just a bit too good.
+
