@@ -1,301 +1,191 @@
-# Project Research Summary
+# Research Summary — DeckFlow v1.6
 
-**Project:** DeckFlow v1.5 — Deck Primer Generator + Content KB Integration + Housekeeping
-**Domain:** MTG Commander / cEDH paste-ready AI prompt workflow (brownfield ASP.NET 10 app)
-**Researched:** 2026-06-03
-**Confidence:** HIGH
+**Project:** DeckFlow v1.6 — Content KB Retrieval Fix + Value Re-Validation
+**Domain:** RAG-style expert-lens injection for LLM deck analysis; code quality (SRP)
+**Researched:** 2026-06-10
+**Confidence:** HIGH (retrieval fix, SRP split, gate mechanics); MEDIUM (philosophy-profile — conditional; outcome depends on gate clearing and ~82-video corpus quality)
+
+---
 
 ## Executive Summary
 
-DeckFlow v1.5 is a brownfield milestone with three tracks of work on top of a fully operational
-ASP.NET 10 / RestSharp / Polly / Razor MVC system. Track A (Deck Primer Generator) adds a
-fourth packet workflow — a peer of DeckAnalysis / DeckComparison / CedhMetaGap — that generates
-a complete Moxfield-formatted primer prompt in one round-trip from decklist + bracket selection.
-Track B (Content KB Integration) wires the v1.4 Knowledge Base into deck-analysis prompts as
-expert-grounded context ("What Experts Say" RAG-style injection). Track C (Housekeeping) closes
-carry-forward debt: 186 undocumented Core sites, the deferred KB-12 Codex distill backend, and
-VERIFICATION.md hygiene. The defining characteristic of this milestone is that no new
-dependencies are required — every building block (data sources, HTTP infrastructure, prompt
-variants, artifact storage, session caching, feature flags) is already registered in DI and
-proven in production. The work is composition, not acquisition.
+Spike 001 Run 2 (2026-06-10) proved that the live `ContentKbRelevanceService` is actively harmful: the real scorer selected 5 clips from a single tangential video — 3 of 5 named unrelated commanders — producing rubric scores worse than hand-picked generic maxims (Specificity 1, Novel signal 1, Actionability 0–1, net quality: NEGATIVE). Two structural defects were identified: (1) `SelectTopClips` has no per-video diversity cap, so the highest-scoring video monopolizes all slots; (2) tag-overlap scoring rewards tag breadth over topical fit, letting a broad-tag video ("Glass Cannon Commanders") outscore directly relevant narrow-topic videos. The entire v1.6 milestone is structured around fixing these two defects, re-running the gold A/B gate blind, and only then deciding whether to proceed with the Creator Philosophy-Profile build.
 
-The recommended build order is: KB-12 Codex backend (fast win, pure Core, no web surface) ->
-Core XML-doc backfill -> Core doc gate widen -> Content KB integration (smaller web surface,
-validates the prod flag-flip path) -> Deck Primer Generator (largest, most visible, no upstream
-blockers from the other tracks). Tracks A and B are independent of each other; either can ship
-first, but Track A is the milestone headline and should be the majority focus. The combo-data
-spike (spike-combo-data-to-primer-grounding) must run before the primer service is implemented
-to confirm Spellbook field richness and prompt-size characteristics — it is the only sequencing
-hard dependency within Track A.
+The recommended approach is zero new dependencies throughout. Both retrieval defects are pure algorithmic fixes inside `ContentKbRelevanceService.cs` — a per-video diversity cap in `SelectTopClips` and a topical-relevance scoring reweight in `ScoreArtifact`. The re-validation is an in-process test execution using the existing `Spike001KbValueAbHarness`. If the gate clears, the Creator Philosophy-Profile follows existing patterns (`IRelationalDialect` for storage, the pluggable LLM-CLI backend for synthesis, optional DI injection into `DeckAnalysisPacketService`). If the gate fails, only the SRP split phase proceeds. The `OpenAI 2.10.0` SDK already present in `DeckFlow.Core.csproj` handles any LLM synthesis calls; no new packages are needed for any path.
 
-The three most consequential risks are: (1) primer prompts blowing the Gemini paste cap due to
-31-section combinatorics — measure prompt size during the spike and gate Gemini on the primer
-the same way it is gated on analysis; (2) AI hallucinating combo lines because the grounded and
-speculative sections are not structurally fenced in the emitted prompt — model these as two
-distinct code blocks with explicit null-state handling; and (3) KB injection injecting irrelevant
-content due to tag-vocabulary mismatch between the Tagger's functional categories and KB content
-authors' strategic tags — enforce AND-based two-dimension tag matching with a minimum threshold,
-and audit the live tag distribution before writing any matching code.
+The three key risks are: (1) the A/B gate is a binary, unconditional, BLIND decision point that gates ALL philosophy-profile work — building the profile on a broken or unvalidated foundation is explicitly prohibited; (2) provenance and prompt-injection mitigations are mandatory prerequisites before `content.kb.enabled` is flipped ON in production; (3) the ~82-video corpus is snail-heavy and cold-starts for commanders outside that coverage area — the gate itself must be validated across at least 3 distinct archetypes, not just Atraxa. The SRP split (DeckController 1,840 lines + CommandRunners 1,902 lines) is fully independent of KB state and can proceed regardless of the gate outcome.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-Zero new dependencies. All v1.5 capabilities are fully deliverable by composing existing
-installed services. The primer generator follows the DeckAnalysisPacketService packet/zip
-pattern exactly: IDeckPrimerPacketService + sealed implementation + result record + three
-IPrimerPromptVariant implementations (ChatGPT, Claude, Gemini) + PrimerPromptVariantRegistry
-dispatching on AiPlatform. KB injection follows a read-path RAG pattern:
-IContentSiteIndexStore.GetPublishedRowsAsync() -> in-memory tag-overlap scoring ->
-ContentKbArtifactPathResolver disk reads -> ContentArtifactParser.SplitHeader for front-matter
-stripping -> appended to prompt text via a new IContentKbRelevanceService.
+All v1.6 work is deliverable within the existing package set. STACK.md confirms `OpenAI 2.10.0` is already in `DeckFlow.Core.csproj`, the `IRelationalDialect` / `ILlmDistillationService` / `ContentKbArtifactPathResolver` patterns already handle every new component's storage and synthesis requirements, and the internal-ctor test seam pattern in `ContentKbRelevanceService` already isolates scoring logic without new abstractions. Three alternative approaches were explicitly ruled out: BM25/Lucene.NET (IDF adds no signal at 80–200 docs), dense embeddings via ONNX Runtime (90–400MB model blows the 512MB Render Starter RAM cap), and pgvector/Qdrant (schema migration or sidecar for a corpus that fits in a `List<T>`).
 
-**Core existing technologies consumed by v1.5 (unchanged, no version changes):**
-- ICommanderSpellbookService — combo ground truth for primer sections 10, 11, 20
-- IEdhTop16Client — named cEDH archetypes for bracket-5 matchup sections 22, 23, 25
-- ICategoryKnowledgeStore — engine / mulligan / tutor category buckets for primer sections 8, 9, 14, 17, 29
-- IContentSiteIndexStore + ContentKbArtifactPathResolver + ContentArtifactParser — KB retrieval pipeline
-- PacketArtifactStore + PacketSessionCache — artifact zip + preview-to-download short-circuit
-- AiPlatform value object + IFeatureFlagCache — AI dispatch and content.kb.enabled flag gate
-- LlmDistillationProviderFactory — KB-12 codex backend plugs into the existing "codex" stub
+**Core technologies (unchanged from existing stack):**
+- `ContentKbRelevanceService.cs` (in-process): retrieval fix target — two surgical changes only, no new abstractions
+- `IRelationalDialect` (SQLite/Postgres): storage for new `creator_philosophy_profiles` table if gate clears
+- `OpenAI 2.10.0` / LLM-CLI backend: style-card synthesis if gate clears — already present, no new package
+- `Spike001KbValueAbHarness` (xUnit): the re-validation gate harness — already built, extended not replaced
+- ASP.NET Core MVC route attributes: mandatory for DeckController SRP split to preserve all URLs
 
-**What NOT to add:**
-- No templating engine (Scriban, Fluid, etc.) — StringBuilder + raw-string literals is the established pattern
-- No Microsoft.Extensions.Http.Resilience standard handler — prohibited by project constraints
-- No Microsoft.SemanticKernel or vector DB — prompt artifacts are pre-built for user paste; no server-side LLM calls
-- No EDHREC integration — explicitly out of scope; EdhTop16 + 5 generic strategy buckets fully covers brackets 1-5
+**Zero new dependencies across all three work areas.** Any dependency addition is a scope violation.
 
 ### Expected Features
 
-**Must have — Deck Primer Generator (Track A):**
-- Decklist input (URL or paste) using existing import flow — users expect consistency with all other workflows
-- Bracket selector (1-5) with preset section defaults: cEDH preset + Casual/Upgraded preset
-- 31-section catalog organized into 5 collapsible groups (Identity, Combos, Gameplay, Matchups, Maintenance)
-- Per-section on/off toggles within groups — power users exclude irrelevant sections
-- Combo lines section grounded by Commander Spellbook (pieces + steps + result) with speculative-fence separator
-- Matchup section bracket-routed: bracket 5 -> EdhTop16 named archetypes; brackets 1-4 -> 5 generic strategy buckets
-- Category-derived mulligan heuristics (ramp/draw/payoff counts injected as numeric context)
-- Paste-ready artifact per AI (ChatGPT / Claude / Gemini), stored via PacketArtifactStore
-- Zip round-trip: download + re-upload with section selections restored
+The feature landscape splits cleanly into gate-unconditional and gate-conditional work. The distinction is non-negotiable: FEATURES.md documents that irrelevant context causes measurable LLM degradation (GPT-4 flipped correct answers in 15% of cases from a small number of distracting passages), and Spike 001 Run 2 independently confirmed this on the live system. Building the philosophy-profile on an unfixed retriever is explicitly modeled as the highest-risk anti-feature.
 
-**Must have — Content KB Integration (Track B):**
-- content.kb.enabled prod flag flipped ON (prerequisite step, first action of Track B)
-- Clip retrieval by tag overlap (archetype + bracket, AND-based, minimum threshold)
-- ## Expert Context block injected into deck-analysis prompt artifacts with attribution block-quotes
-- "What Experts Say" UI panel on DeckAnalysis result page (source, title, timestamp deep-link, harvest date)
-- Graceful empty-state: panel hidden when no matching clips; prompt continues unchanged
-- Content freshness disclosure in prompt header; staleness warning in Admin Flags UI next to the toggle
+**Must have — gate-unconditional (build regardless of gate outcome):**
+- Per-video diversity cap in `SelectTopClips` — defect #1 fix; without it, one video monopolizes all retrieval slots
+- Topical relevance scoring: commander-name exclusion + content-based signal — defect #2 fix; tag breadth must not outrank topical fit
+- Re-run `Spike001KbValueAbHarness` against fixed retriever, BLIND, across at least 3 test decks — the gate itself
+- DeckController / CommandRunners SRP split — long-deferred code quality; fully independent of KB state
+- Prompt-injection structural wrapper + regex sanitizer in the injected KB block — mandatory before `content.kb.enabled` ON
+- Harvest-date annotation on injected clips — already on `ContentKbExcerpt`; verify it appears in the prompt block
 
-**Must have — Housekeeping (Track C):**
-- 186 DeckFlow.Core undocumented XML-doc sites backfilled (dependency order: Models -> Parsing -> Diffing -> Exporting -> Filtering -> Normalization -> Knowledge -> Storage -> Content -> Integration -> Loading -> Reporting)
-- .editorconfig gate widened to [DeckFlow.Core/**.cs] in final commit only (after all 186 sites are clean)
-- KB-12: CodexCliLlmDistillationService replaces the NotSupportedException stub in LlmDistillationProviderFactory; uses CliEnvelopeKind.Raw (not ClaudeJson)
-- VERIFICATION.md hygiene: 7 v1.4 phases missing VERIFICATION files + stale UAT labels
+**Should have — gate-conditional (only if gate clears):**
+- Creator Philosophy-Profile distillation pipeline (`ContentKbPhilosophyDistiller`, `creator_profiles` table, `synthesize-philosophy` CLI command)
+- Provenance per principle (`source_video_id` + `source_timestamp_s` as non-nullable schema fields) — prerequisite for all profile work; without it the profile is a hallucination vector
+- Persona block injection into deck-analysis prompt (`## Creator Heuristics` sub-section under `## Expert Context`)
+- Contradiction preservation (structured `contradictions` array with dual provenance, not narrative smoothing)
+- Recency weighting and `principle_era` date annotation on every injected principle
+- Video-level curation admin toggle (`content_videos.excluded`) — low cost, improves gate corpus quality
+- `content.kb.enabled` ON in production + SEL-02 expert-pin live re-confirm (carried from v1.5)
 
-**Differentiators (should have, v1.5):**
-- Spellbook speculative-combo fence in prompt — clearly labeled, separate code blocks
-- Category-derived mulligan heuristics (ramp/draw/interaction/tutor distribution as numeric grounding)
-- Section count badges on collapsed group headers
-- DeckPageTab.DeckPrimer entry (tab int = 12) in the nav step strip
-- Admin is_kept flag respected in clip selection (curated-only injection)
-- KB source diversity indicator in the "What Experts Say" panel
-
-**Defer to v1.6+:**
-- Minimal primer preset (4-section quick primer) — low demand signal, adds form complexity
-- Embedding-based semantic clip retrieval (add when KB corpus exceeds ~1000 clips)
-- Expert panel on DeckComparison / CedhMetaGap / DeckPrimer result views (start with DeckAnalysis only)
-- Scheduled KB harvest (cron) — explicitly deferred in v1.4
-- localStorage section-selection persistence across sessions
+**Defer to v1.7+:**
+- User-supplied creator sources (on-demand harvest + distill) — HIGH complexity, unproven value, latency risk
+- Embedding-based semantic similarity scorer — premature at current corpus size; revisit at 500+ videos
+- Multi-creator profile merge in a single analysis prompt — token budget risk; validate single-creator first
 
 ### Architecture Approach
 
-All three v1.5 tracks plug into existing seams without structural surgery. Track A follows the
-established packet service pattern (DeckAnalysisPacketService is the template): interface +
-sealed implementation + result record + prompt variant registry + per-AI variant classes. The
-primer intentionally omits Scryfall card hydration (not needed for the 31 sections) — this makes
-it cheaper and faster than DeckAnalysis. Track B is a pure read-path addition to the web tier:
-ContentKbRelevanceService runs after deck load, before prompt composition, and injects a
-contentKbBlock string that each IAnalysisPromptVariant.Build appends independently (variants
-remain intentionally decoupled — prose is never shared). Track C housekeeping is fully orthogonal
-to both A and B.
+The retrieval fix is entirely in-process: two surgical changes to `ContentKbRelevanceService.cs` with no interface changes, no new service registrations, and no change to the `GetMergedClipsAsync` 4-tier merge structure. The philosophy-profile (if gate clears) follows a strict additive pattern: a new optional `ICreatorPhilosophyProfileService?` dependency on `DeckAnalysisPacketService` mirrors the existing `IContentKbRelevanceService?` optional injection; offline synthesis goes through a new `ContentKbCommandRunners` class that splits from `CommandRunners.cs` in Phase 4 anyway. The SRP split is mechanical extraction: action methods move verbatim, route attributes are added explicitly, no logic changes.
 
-**New components:**
+**Major components — new or modified:**
 
-Track A:
-1. IDeckPrimerPacketService / DeckPrimerPacketService — orchestrates deck load, combo fetch, category query, EdhTop16 fetch (bracket 5 only), prompt composition
-2. IPrimerPromptVariant + ChatGptPrimerPromptVariant, ClaudePrimerPromptVariant, GeminiPrimerPromptVariant — per-AI prompt strategy (intentionally decoupled)
-3. PrimerPromptVariantRegistry — dispatches by AiPlatform, falls back to Default
-4. DeckPrimerRequest / DeckPrimerViewModel / DeckPrimerPacketResult — model layer
-5. PrimerSectionCatalog static class — 31-section definitions, group assignments, preset defaults
-6. PacketArtifactStore.BuildPrimerZip / LoadPrimerFromZip + PrimerAllowedNames — zip round-trip
-7. DeckPrimer.cshtml — collapsible-group section selector, bracket dropdown, generate/download/upload
-
-Track B:
-1. IContentKbRelevanceService / ContentKbRelevanceService — loads index, scores by tag overlap, reads .md artifacts, returns IReadOnlyList<ContentKbExcerpt> (cap 3-5)
-2. ContentKbExcerpt record — slim: source, title, url, body (~200 words)
-3. _ContentKbPanel.cshtml — "What Experts Say" collapsible panel partial
-
-Track C:
-1. CodexCliLlmDistillationService — new sealed class using CliEnvelopeKind.Raw; plugs into existing LlmDistillationProviderFactory codex branch
-
-**Modified existing files (Track B only):**
-DeckAnalysisPacketService, IAnalysisPromptVariant (+ 3 variants), DeckAnalysisViewModel, DeckAnalysis.cshtml, Program.cs
+1. `ContentKbRelevanceService` (modified) — per-video cap in `SelectTopClips`; topical-fit scorer reweight in `ScoreArtifact`; regex prompt-injection sanitizer added inline
+2. `Spike001KbValueAbHarness` (extended) — add 2 additional test deck facts beyond Atraxa before the re-run gate
+3. `ICreatorPhilosophyProfileStore` + `CreatorPhilosophyProfileStore` (new, Core) — `creator_philosophy_profiles` table via `IRelationalDialect`; only built if gate clears
+4. `ICreatorPhilosophyProfileService` (new, Web) — scores and returns relevant principles; optional DI, flag-gated; only built if gate clears
+5. `DeckToolsController` + `DeckPacketController` + `DeckPrimerController` (new, Web) — mechanical extraction from `DeckController`; all original URLs preserved via explicit `[Route]` attributes
+6. `ContentKbCommandRunners` (new, CLI) — all content KB runners extracted from `CommandRunners.cs`; includes `RunSynthesizePhilosophyAsync` if gate clears
 
 ### Critical Pitfalls
 
-1. **Primer paste-cap blowout (Gemini)** — 20+ section primer with Spellbook + EdhTop16 data routinely hits 60-100KB; Gemini web UI caps at 30-60KB; ground truth is silently truncated. Prevention: measure prompt size during the spike; add PromptSizeWarning field to DeckPrimerPacketResult; gate Gemini on the primer the same way analysis does it. Address during spike phase, not verification.
+1. **Tag-breadth beats topical fit — one video monopolizes all slots** — fix `SelectTopClips` with a soft per-video cap (recommend 2, not hard-1) plus a relevance floor so forced diversity does not inject noise when only one relevant video exists. Confirm clips span at least 2 distinct video sources with zero commander-name noise for the Atraxa deck after the fix. (PITFALLS P1 + P2)
 
-2. **Hallucinated combo lines — grounded/speculative fence failure** — if FindCombosAsync returns null and the speculative ask is still emitted without a null-state disclosure, AI invents all combo lines from card names alone. Prevention: model combo section as two structurally distinct code blocks (KnownCombosBlock present only when non-null; SpeculativeComboAsk always present but explicitly labeled "speculative"). Unit test: BuildPrimerPrompt_NullComboResult_EmitsSpeculativeDisclosure.
+2. **A/B gate cleared non-blind or on a single deck** — score `baseline.txt` FIRST, record rubric scores before reading `with-context-real.txt`. Run against at least 3 test decks (not just Atraxa). Record blind protocol explicitly in VERDICT.md before unblinding. Any gate clearance based only on "prompt looks correct" (not AI answer quality) is invalid. (PITFALLS P10 + P11 + P12)
 
-3. **KB injection injects irrelevant content (tag-mismatch)** — KB archetype tags (voltron/aristocrats/stax) don't map to Tagger functional categories (ramp/draw/removal). Result: reanimator deck gets stax content. Prevention: audit live KB tag distribution before writing matching code; enforce AND-based two-dimension matching (bracket + archetype); set a minimum overlap threshold; never emit an empty "## What Experts Say" section header.
+3. **Philosophy-profile hallucination — principles without provenance** — every emitted principle must carry `source_video_id` as a non-nullable FK; no principle stored without a specific excerpt anchor. Add unit test `StyleCardSynthesizer_NoCitableEvidence_EmitsNoPrinciples`. This is a first-class schema requirement, not a post-ship hardening. (PITFALL P4)
 
-4. **PrimerAllowedNames omitted — silent zip data loss** — PacketArtifactStore.ReadEntries silently drops any artifact name not in the active allowlist; reusing PacketAllowedNames drops all primer-specific artifacts without throwing. Prevention: add PrimerAllowedNames as the FIRST task in the primer artifact store implementation; include round-trip unit test.
+4. **Prompt injection via untrusted transcript text** — add regex sanitizer for common injection patterns + structural context-boundary wrapper in the injected `## Expert Context` block BEFORE `content.kb.enabled` is flipped ON. The mitigation cost is low; the risk is present every time transcript-derived text reaches the LLM prompt. (PITFALL P7)
 
-5. **get; init; -> get; regression on new records** — Codex or IDE formatting can silently drop init;, causing System.Text.Json to skip properties during serialization. This has already broken EdhTop16Client deserialization. Prevention: include the constraint verbatim in every phase CONTEXT.md; add serialization round-trip tests for every new request/result record used in zip artifacts.
+5. **DeckController split silently breaks URLs** — every action method moved to a new controller must carry an explicit `[Route]` attribute preserving the original path. Conventional routing derives URLs from controller class names; without explicit routes, every moved action silently changes its URL. Audit the Bridge extension (`background.js`) for hard-coded paths before splitting. (PITFALL P13)
+
+---
 
 ## Implications for Roadmap
 
-Based on combined research, the recommended phase structure is four numbered phases. Tracks A and
-B are independent; the ordering below places Track C housekeeping items as the first two phases
-because they are lowest-risk, have no web surface, and produce a clean build baseline before the
-larger feature tracks land.
+Based on research, suggested phase structure:
 
-### Phase 1: KB-12 Codex Distill Backend + VERIFICATION.md Hygiene
+### Phase 1: Retrieval Fix
+**Rationale:** Prerequisite for everything else. The live retriever is worse than nothing (Run 2: NEGATIVE quality). No downstream KB work has any value until the two mechanism defects are corrected. This is also where prompt-injection mitigations must land — before `content.kb.enabled` goes ON.
+**Delivers:** Fixed `SelectTopClips` (per-video soft cap + relevance floor); reweighted `ScoreArtifact` (topical-fit signal, commander-name exclusion penalty); regex sanitizer + structural context-boundary wrapper in the injected block; updated `ContentKbRelevanceServiceTests` calibration suite.
+**Addresses:** Per-video diversity (table stakes), topical relevance (table stakes), prompt-injection mitigation (mandatory security prerequisite), harvest-date annotation verification.
+**Avoids:** P1 (video monopoly), P2 (forced-diversity noise), P7 (prompt injection). Sets up clean inputs for the gate run.
 
-**Rationale:** Pure Core change, no web surface, zero blast radius on existing features. The
-"codex" factory slot is already stubbed — this is a bounded replace-one-throw-with-a-return task.
-Ships fast, closes a v1.4 deferred item, and proves the Codex CLI envelope shape (Raw, not
-ClaudeJson) is understood before the larger phases begin. VERIFICATION.md hygiene is pure
-documentation (no code) and can bundle into the same phase.
+### Phase 2: Re-Validation Gate (BLIND)
+**Rationale:** The gate is an unconditional, binary branch point. It must be evaluated before any philosophy-profile work begins and before `content.kb.enabled` is flipped ON. The gate is not a formality — Spike 001 Run 2 confirmed that a reasonable-looking retriever can produce NEGATIVE quality. The gate must be run BLIND (score baseline first, record scores, then score with-context) and must cover at least 3 test decks.
+**Delivers:** Updated `Spike001KbValueAbHarness` with 2 additional test deck facts (aggro/voltron + cEDH/combo); VERDICT.md addendum with blind rubric scores across all 3 decks; branch decision: PASS (proceed to Phase 3) or FAIL (proceed only to Phase 4; KB scope reduction deferred to v1.7).
+**Addresses:** Value re-validation A/B gate (table stakes), KB un-dark conditional on gate pass.
+**Avoids:** P10 (non-blind scoring), P11 (judging prompt not answer), P12 (single-deck overfit), P3 (corpus cold-start rate measured across 3 archetypes).
+**Gate-PASS exit criteria:** at least 3 of 4 rubric dimensions score 3+; no quality loss vs. baseline; at least one dimension 4+; at least 2 distinct video sources for the Atraxa deck; confirmed blind.
+**Gate-FAIL pivot:** Phase 3 is skipped entirely. SRP split (Phase 4) runs regardless. KB scope reduction or retirement planning deferred to v1.7.
 
-**Delivers:** Working DECKFLOW_LLM_PROVIDER=codex distillation path; NotSupportedException stub
-removed; LlmDistillationProviderFactoryTests gains Codex_ReturnsCliBackend test; 7 missing
-VERIFICATION files + stale UAT labels resolved.
+### Phase 3: Creator Philosophy-Profile [CONDITIONAL — gate must pass]
+**Rationale:** Only built if Phase 2 confirms the fixed retriever delivers net-positive value. Building the profile on a broken or unvalidated retriever is explicitly the highest-risk failure mode. If built, follows strict additive architecture: new optional service, new table, new CLI command — all following existing patterns. Provenance schema and hallucination gate are non-negotiable first steps within this phase.
+**Delivers:** `ICreatorPhilosophyProfileStore` + `CreatorPhilosophyProfileStore` (Core); `ICreatorPhilosophyProfileService` (Web, optional DI); `CreatorPhilosophyContext` + `PhilosophyPrinciple` sealed records; `ContentKbCommandRunners.RunSynthesizePhilosophyAsync`; `synthesize-philosophy` CLI command; `## Creator Heuristics` prompt sub-section across all 3 AI variants; `content.kb.enabled` ON in production; SEL-02 expert-pin re-confirm; combined KB block cap enforced at 6,000 characters.
+**Addresses:** Philosophy profile distillation (gated), provenance per principle (gated), persona block injection (gated), contradiction preservation (gated), recency weighting (gated), video-level curation toggle (gated, low cost, build early in this phase), prompt budget cap enforcement.
+**Avoids:** P4 (hallucinated principles — provenance schema is the first deliverable in this phase), P5 (stale/contradictory opinions — contradiction array + `principle_era`), P6 (recency drift — 18-month demotion filter at injection), P8 (prompt-size blowup — 6,000-char combined cap), P9 (attribution errors — single-creator-per-prompt constraint in v1.6).
+**Research flags:** Topical-scoring algorithm for principle relevance at query time (keyword overlap vs. LLM re-ranking) is an open question; recommend starting with Option 1 (in-process keyword match) and treating Option 2 (LLM re-ranking) as a follow-on if Option 1 proves insufficient. Corpus feasibility for per-creator profile synthesis from ~82 snail-heavy videos is MEDIUM confidence — the profile may be thinly evidenced for creators with fewer than 10 substantive harvested videos. Ops prerequisite: confirm at least one creator has 10+ substantive non-rating-series videos before the distillation run.
 
-**Addresses:** Housekeeping Track C (KB-12 + VERIFICATION items)
-
-**Avoids:** Pitfall 9 (stringly-typed extension / wrong envelope kind — bounded diff makes review trivial)
-
-### Phase 2: Core XML-Doc Backfill + Gate Widen
-
-**Rationale:** 186 undocumented Core sites must be documented before the gate is widened —
-widening first breaks the build immediately. Must be complete before any other phase touches
-DeckFlow.Core files for risk management. Backfill is mechanical (Codex is ideal) but must be
-split by namespace to keep diffs reviewable. The editorconfig gate widen is the final commit.
-
-**Delivers:** All 186 Core sites documented across 6-8 namespace-scoped plans; [DeckFlow.Core/**.cs]
-CS1591 gate added to .editorconfig in the final commit; dotnet build -warnaserror:CS1591 clean
-from a fresh obj/.
-
-**Addresses:** Housekeeping Track C (doc backfill item)
-
-**Avoids:** Pitfall 8 (gate widened before backfill complete — build breaks and blocks CI for
-all parallel work)
-
-### Phase 3: Content KB -> Deck-Analysis Integration
-
-**Rationale:** Smaller web surface than the Primer Generator; validates the prod
-content.kb.enabled flag-flip path in production before the Primer takes any downstream
-dependency on KB context. Tag-distribution audit runs before any matching code is written.
-KB injection is additive behind a flag guard — no change to existing prompt output when flag
-is off.
-
-**Delivers:** ContentKbRelevanceService with tag-overlap matching; ## Expert Context block
-injected into deck-analysis prompts; _ContentKbPanel.cshtml on DeckAnalysis result page;
-content.kb.enabled flipped ON in prod (with fresh harvest run first); freshness disclosure
-in prompt header and staleness warning in Admin Flags UI.
-
-**Addresses:** Content KB Integration (Track B), all Track B must-haves
-
-**Avoids:** Pitfall 3 (irrelevant content injection — audit tag distribution first), Pitfall 4
-(prompt budget competition — measure size before injection and enforce budget hierarchy), Pitfall
-7 (stale content — fresh harvest is a prerequisite UAT step)
-
-### Phase 4: Deck Primer Generator
-
-**Rationale:** Largest feature, milestone headline, no upstream blockers once Phases 1-3 are
-complete. The combo-data spike runs as the first execution unit to confirm Spellbook field
-richness and prompt-size characteristics before the service is implemented. Split into four
-sub-phases to limit blast radius.
-
-**Delivers:**
-- 4a: DeckPrimerRequest, DeckPrimerViewModel, DeckPrimerPacketResult, DeckPageTab.DeckPrimer, routing stubs, PacketArtifactStore.BuildPrimerZip, PrimerAllowedNames
-- 4b: DeckPrimerPacketService.BuildAsync — deck load, Spellbook combo fetch (with null handling), category queries, bracket routing, EdhTop16 for bracket-5, structural KnownCombos/SpeculativeCombos blocks
-- 4c: All three IPrimerPromptVariant implementations + PrimerPromptVariantRegistry + Program.cs DI registration; DeckPrimer.cshtml with collapsible groups and bracket selector
-- 4d: Download/upload round-trip, PacketSessionCache key, JS section-preset logic, PromptSizeWarning field wired to UI, Gemini gating
-
-**Addresses:** Deck Primer Generator (Track A), all Track A must-haves
-
-**Avoids:** Pitfall 1 (paste-cap — spike measures size; Gemini gated; PromptSizeWarning in result), Pitfall 2 (hallucinated combos — two-block structural separation with null-state disclosure), Pitfall 5 (PrimerAllowedNames as first task in 4a), Pitfall 6 (get; init; in CONTEXT.md for all sub-phases), Pitfall 10 (section-combinatorics under-testing — PrimerSectionRenderTests written alongside conditional logic)
+### Phase 4: SRP Split
+**Rationale:** Independent of all KB phases. Long-deferred code quality work. Runs last to minimize blast radius during KB work — the DeckController extraction is high-touch and the routing risk (P13) is best contained in its own phase. CommandRunners split follows the same phase for logical cohesion.
+**Delivers:** `DeckToolsController`, `DeckPacketController`, `DeckPrimerController` extracted from `DeckController.cs` (1,840 lines split into 4 focused controllers); `ContentKbCommandRunners` extracted from `CommandRunners.cs` (1,902 lines split into ~800-line deck-domain class + ~600-line KB class); explicit `[Route]` attributes on all moved actions; pre/post URL diff verification; updated controller test class references.
+**Addresses:** DeckController/CommandRunners SRP split (unconditional).
+**Avoids:** P13 (URL regression — explicit routes mandatory, pre-split URL list required), P14 (`_DeckToolTabs` controller-name coupling — pre-split audit of `_Layout.cshtml` and all shared partials), P15 (shared helper duplication — two-commit discipline: `CommandRunnerHelpers` extraction first, class split second; build + test green after each commit).
+**Research flags:** Standard mechanical refactor; no deeper research needed. Pre-split checklist: grep `RouteData.Values["controller"]` in all shared partials; audit `background.js` for hard-coded `/deck` paths; generate pre-split URL list for post-split diff.
 
 ### Phase Ordering Rationale
 
-- KB-12 first: Zero blast radius, closes backlog debt, reveals Codex CLI envelope behavior before it matters
-- Doc backfill before Primer/KB integration: All phases touch DeckFlow.Core indirectly; a clean build signal is a prerequisite. Gate widened only after all sites are documented.
-- KB integration before Primer: Smaller surface validates the prod flag-flip path; Primer may benefit from KB context in a future phase
-- Primer last: Largest scope, most sub-phases, zero upstream blockers; benefits from the cleaner build environment established by Phase 2
-- Tracks A and B are independent: The roadmapper may reorder Phases 3 and 4 if the user's priority ranking changes — neither depends on the other
+- Phase 1 must precede Phase 2: the gate tests the fixed retriever; running it on the broken retriever would produce the same NEGATIVE result as Spike 001 Run 2.
+- Phase 2 must precede Phase 3: the gate outcome is a binary branch; building the profile before the gate is explicitly prohibited by the milestone scope and the seed document.
+- Phase 3 is conditional: if the gate fails, the milestone closes after Phase 4 with KB dark and scope reduction deferred to v1.7.
+- Phase 4 is fully independent: isolates the high-touch DeckController extraction from the KB work; any regression in the SRP split cannot contaminate the gate run or KB deployment.
+- Within Phase 3: `ICreatorPhilosophyProfileStore` (Core) must be built before `ICreatorPhilosophyProfileService` (Web); `CreatorPhilosophyContext` record must exist before `DeckAnalysisPacketService` changes compile; provenance schema must precede the synthesizer implementation.
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 3 (KB integration), pre-implementation step:** Run a live tag-distribution audit on the prod KB (clips + content_tags tables) to understand actual tag vocabulary density before writing the relevance matching code. One-time query, not a full research phase, but must happen before ContentKbRelevanceService is specced.
-- **Phase 4 (Primer), spike at start of 4b:** spike-combo-data-to-primer-grounding — inspect a real Spellbook API response for a known 2-card combo to confirm Instructions field richness for step-by-step narration in section 11. Low effort (one API call + read), high-gating value. Must complete before 4b is planned.
+Phases needing deeper research or judgment calls during planning:
+- **Phase 2 (Re-Validation Gate):** The topical-scoring reweight in `ScoreArtifact` needs design validation — specifically, whether the commander-name exclusion penalty should be a hard gate or a score multiplier, and whether the relevance floor threshold needs calibration against the live corpus. The planner should specify these as named constants with rationale rather than leaving them to implementer judgment.
+- **Phase 3 (Philosophy-Profile, if triggered):** Three open questions require planning-time resolution before execution: (a) topical-scoring algorithm for principle relevance at query time (keyword overlap Option 1 vs. LLM re-ranking Option 2); (b) corpus feasibility — confirm at least one creator has 10+ substantive non-rating-series videos before committing to synthesis; (c) gate-fail-within-Phase-3 pivot definition — what the plan looks like if the gate clears but the profile synthesizer produces thin output on the available corpus.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (KB-12):** Pattern is fully documented in codebase; diff is bounded (replace one throw)
-- **Phase 2 (doc backfill):** Mechanical pattern; namespace dependency order documented in ARCHITECTURE.md; no API research needed
-- **Phase 4, sub-phases 4a/4c/4d:** Follow established DeckAnalysisPacketService / AnalysisPromptVariantRegistry patterns exactly; no research needed beyond reading the template files
+Phases with standard patterns (minimal research needed):
+- **Phase 1 (Retrieval Fix):** Pure in-process algorithmic change to a well-understood class. The existing internal-ctor test seam already supports deterministic testing. No new patterns needed.
+- **Phase 4 (SRP Split):** Mechanical extraction. All patterns are established in the codebase. The primary risk is procedural (two-commit discipline, pre-split audit checklist), not technical.
+
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Direct codebase inspection; every referenced service and interface verified to exist in production; no external library research required because no new libraries are added |
-| Features | HIGH | Primer section catalog grounded in 4 real Moxfield primers + community guides (BlazeHero, Eisenherz, The Mana Base); RAG/KB injection pattern grounded in IBM/AWS/PromptingGuide sources; codebase reuse map verified |
-| Architecture | HIGH | All source files inspected directly; patterns are extensions of verified production code; component boundaries well-defined; no speculative architecture |
-| Pitfalls | HIGH (most) / MEDIUM (AI output quality) | Pitfalls 1, 4, 5, 6, 8, 9 grounded in direct codebase inspection and prior milestone post-mortems (HIGH); Pitfalls 2, 3, 7, 10 grounded in LLM behavior patterns + project retrospective lessons (MEDIUM) |
+| Stack (zero-new-dependencies verdict) | HIGH | Both retrieval defects are pure algorithmic changes; `OpenAI 2.10.0` confirmed in `DeckFlow.Core.csproj`; all three work areas verified against installed package set |
+| Features (gate-unconditional) | HIGH | Defects confirmed by Spike 001 Run 2 direct codebase execution; table-stakes features are verifiable algorithmic properties |
+| Features (gate-conditional, philosophy-profile) | MEDIUM | Profile value hypothesis is explicitly what the gate tests; confidence is in the approach, not the outcome |
+| Architecture (retrieval fix) | HIGH | `SelectTopClips` and `ScoreArtifact` are `internal static`, directly tested, well-understood; change is surgical |
+| Architecture (philosophy-profile) | MEDIUM | Pattern follows existing `ContentKbRelevanceService` and `ContentSiteIndexStore` exactly; profile synthesis output quality depends on LLM + corpus, neither of which is under code control |
+| Architecture (SRP split) | HIGH | Mechanical extraction with well-understood routing risk; the risk is procedural and has explicit mitigations |
+| Pitfalls (retrieval + gate) | HIGH | All primary pitfalls grounded in Spike 001 Run 2 direct evidence |
+| Pitfalls (philosophy-profile) | MEDIUM | No prior build to inspect; pitfalls derived from RAG literature, seed document requirements, and extrapolation from the retrieval defects |
 
-**Overall confidence:** HIGH
+**Overall confidence:** HIGH for retrieval fix and SRP split phases. MEDIUM for the philosophy-profile path, contingent on gate outcome and corpus composition.
 
 ### Gaps to Address
 
-- **Spellbook Instructions field richness (MEDIUM confidence):** SpellbookCombo.Instructions is confirmed to exist and is used in the existing DeckAnalysis prompt, but whether it is detailed enough for step-by-step primer narration in section 11 is a prompt-design question. The spike resolves this. Fallback: AI narrates from card names — no stack change either way.
-- **EdhTop16 archetype label quality for primer matchup section (MEDIUM confidence):** IEdhTop16Client returns raw tournament metadata, not pre-labeled archetype strings. The primer passes raw entry data to the AI to derive labels — same approach MetaGapService uses successfully, but primer framing differs. Spike UAT should include a bracket-5 deck.
-- **Live KB tag-distribution density:** Unknown until a query runs against prod. The relevance-matching design is correct in principle; matching thresholds and dimension weights must be calibrated against actual data. Handle during Phase 3 planning.
-- **content.kb.enabled prod flip timing:** Flag has been OFF since v1.4. Before Phase 3 UAT, a fresh harvest must be triggered. Ops prerequisite, not a code gap — must appear explicitly in Phase 3 execution checklist.
+- **Topical-scoring algorithm constants:** STACK.md recommends a commander-name bonus multiplier + content-text overlap as the scorer reweight, but threshold constants (penalty multiplier magnitude, relevance floor percentage) need calibration against the live corpus. The planner should specify these as named constants with rationale rather than leaving them to implementer judgment.
+- **Gate-fail pivot definition:** The research documents Options 2 (reconsider KB scope) and 3 (retire clip injection) as post-fail paths but does not specify which to pursue. The Phase 2 plan should include a written gate-fail decision protocol so the gate outcome immediately routes to a defined next step.
+- **Corpus feasibility check:** The ~82-video corpus is snail-heavy. Before Phase 3 planning, confirm via a `content_videos` query how many substantive (non-rating-series, non-excluded) videos exist per creator. If no creator meets the 10-video threshold for profile synthesis, the philosophy-profile deliverable scope must be revised.
+- **RAG grounding algorithm for Phase 3:** STACK.md recommends Option 1 (in-process keyword similarity) as the v1.6 baseline with Option 2 (LLM re-ranking) as a follow-on. The Phase 3 plan should make this explicit so Codex does not default to the more expensive option.
+
+---
 
 ## Sources
 
-### Primary (HIGH confidence — direct codebase inspection)
+### Primary (HIGH confidence)
+- `.planning/spikes/001-kb-value-ab/VERDICT.md` — Spike 001 Run 1 + Run 2 results; root cause analysis of both retrieval defects; gate NOT cleared
+- `.planning/research/STACK.md` (2026-06-10) — zero-new-dependency verdict across all three work areas; alternatives ruled out with RAM/IDF rationale
+- `.planning/research/FEATURES.md` (2026-06-10) — table stakes vs. gated feature split; anti-features catalog; dependency graph
+- `.planning/research/ARCHITECTURE.md` (2026-06-10) — component map, data flow diagrams, dependency-ordered build sequence
+- `.planning/research/PITFALLS.md` (2026-06-10) — 15 pitfalls ordered by likelihood x impact; pitfall-to-phase mapping table
+- `DeckFlow.Web/Services/ContentKbRelevanceService.cs` — live scorer; `SelectTopClips` defect confirmed by direct inspection
+- `DeckFlow.Web/Controllers/DeckController.cs` — 1,840 lines confirmed; action method groupings confirmed
+- `DeckFlow.CLI/CommandRunners.cs` — 1,902 lines confirmed; shared helper methods confirmed
+- `DeckFlow.Core/DeckFlow.Core.csproj` — `OpenAI 2.10.0` confirmed present
 
-- DeckFlow.Web/Services/DeckAnalysisPacketService.cs — packet service template, combo null-handling at lines 562-564
-- DeckFlow.Web/Services/PacketArtifactStore.cs — allowlist pattern (three HashSet<string> sets), zip manifest conventions
-- DeckFlow.Web/Services/PromptBuilders/Analysis/ — variant interface signature, registry pattern, intentional prose duplication
-- DeckFlow.Web/Services/CommanderSpellbookService.cs — FindCombosAsync null-on-failure confirmed
-- DeckFlow.Core/Content/IContentSiteIndexStore.cs + ContentSiteIndexStore.cs — no tag filter in SQL (in-memory only)
-- DeckFlow.Core/Knowledge/ContentArtifactSpec.cs — ContentSiteIndexRow tag fields, DeserializeTags
-- DeckFlow.Web/Services/ContentKbArtifactPathResolver.cs — artifact path resolution
-- DeckFlow.Web/Services/ContentArtifactParser.cs — SplitHeader front-matter parsing
-- DeckFlow.Core/Integration/LlmDistillationProviderFactory.cs — "codex" stub at lines 49-53
-- DeckFlow.Core/Integration/CliCommandSpec.cs — CliEnvelopeKind.Raw vs ClaudeJson
-- DeckFlow.Web/Models/DeckPageTab.cs — existing tab enum values 0-11; new entry = 12
-- .editorconfig lines 93-115 — CS1591 gate scope: none globally, warning in [DeckFlow.Web/**.cs] only
-- .planning/seeds/deck-primer-generator.md — feature shape and pre-made decisions
-- .planning/notes/deck-primer-prompt-design.md — 31-section catalog, bracket routing, combo handling
-- .planning/RETROSPECTIVE.md v1.0/v1.2/v1.3 — paste-cap lesson, get; init; regression history
-- .planning/v1.4-MILESTONE-AUDIT.md — 186-site Core doc debt, KB-12 deferral, content.kb.enabled still OFF
+### Secondary (MEDIUM confidence)
+- `.planning/seeds/creator-philosophy-profile.md` — style-card shape, hallucination gate requirement, contradiction-preservation mandate
+- arxiv 2505.18761 — distracting passages caused GPT-4 to flip correct answers in 15% of cases
+- arxiv 2410.05983 — "lost in the middle" context flooding effect
+- arxiv 2502.11228 — RAG diversity / MMR / Vendi-RAG patterns
+- UBOS attribution survey — AIS attribution / sentence-level traceability requirement
 
-### Secondary (MEDIUM confidence — community research)
-
-- BlazeHero's Guide to Writing Primers (Moxfield) — primer section taxonomy, community pain points
-- Eisenherz' cEDH Primer Template (Moxfield) — cEDH-specific sections validation
-- The Metaworker — Primers: A Primer (The Mana Base) — section importance ranking
-- IBM — What is RAG — RAG pattern validation
-- AWS — What is RAG — RAG pattern corroboration
-- Commander Spellbook GitHub Backend — steps/results fields confirmed present in backend model
-- PromptingGuide.ai — RAG — attribution / provenance UI patterns
+### Tertiary (LOW confidence — informational only)
+- arxiv 2504.08745 — per-author RAG personalization; directional evidence for philosophy-profile approach
+- arxiv 2509.19376 — temporal recency in RAG; recency-weighting rationale
 
 ---
-*Research completed: 2026-06-03*
+
+*Research completed: 2026-06-10*
 *Ready for roadmap: yes*
