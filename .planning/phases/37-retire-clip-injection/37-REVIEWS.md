@@ -4,8 +4,21 @@ reviewers: [codex]
 reviewer_models: { codex: "gpt-5.5 (reasoning: medium)" }
 reviewed_at: 2026-06-10T22:05:23Z
 plans_reviewed: [37-01-PLAN.md, 37-02-PLAN.md]
-verdict: BLOCK
-overall_risk: HIGH
+rounds: 2
+verdict: APPROVE WITH CHANGES   # round 1 = BLOCK (build-green); round 2 = APPROVE WITH CHANGES, changes APPLIED → converged (no HIGH remains)
+round1_verdict: BLOCK
+round2_verdict: APPROVE WITH CHANGES
+overall_risk: MEDIUM-LOW
+converged: true
+---
+
+## Convergence Summary (2 rounds)
+
+- **Round 1 (BLOCK):** Codex found a HIGH build-green failure — `IContentKbRelevanceService` deleted in 37-01 (Wave 1) while admin consumers + admin tests were fenced to 37-02 (Wave 2) → CS0246/CS0535 at the Wave-1 boundary. Plus 2 MEDIUM (kb-selection delete-ordering; narrow packet-field grep) + 2 LOW (dead CSS; Task1/2 atomicity).
+- **Replan (`ae1d520`):** 37-01 became the COMPLETE removal wave (admin score-preview + browse-page strip + dead CSS pulled forward; Tasks 1-3 one atomic commit). 37-02 reduced to pure un-dark (flag flip, RET-04 XSS test, RET-06 add-only pointer, nav copy).
+- **Round 2 (APPROVE WITH CHANGES):** Codex confirmed the BLOCKER cleared and no new HIGH (build-green / XSS / completeness) introduced. Remaining: 1 MEDIUM (stale "build after each task" wording in 37-01 vs the intended single atomic boundary) + 1 LOW (stale `content-kb-admin.js` comment in the KEEP file `kb-entry-filter.ts:3`).
+- **Changes APPLIED (orchestrator, plan-doc edits):** (1) 37-01 build-gate header + Task 2 `<verify>`/acceptance reworded — build runs ONCE after Task 3; a build after Task 1/2 is expected-to-fail, not a regression. (2) Fence note documents the `kb-entry-filter.ts:3` comment as a harmless dangling comment excluded from the removal grep (KEEP file untouched). → **Converged; no HIGH remains. Cleared for execution.**
+
 ---
 
 # Cross-AI Plan Review — Phase 37
@@ -58,12 +71,30 @@ Reviewer: **Codex (gpt-5.5, medium)** — independent peer review of the plans, 
 
 ---
 
-## Disposition
+---
 
-Per project workflow, a HIGH/BLOCK cross-AI finding blocks execution. Route to replan:
+## Round 2 — Codex Re-Review (post-replan `ae1d520`)
+
+**Summary** — The prior HIGH/BLOCKER is cleared. 37-01 now owns the admin `IContentKbRelevanceService` consumers and admin tests in the same wave that deletes the interface (`37-01-PLAN.md` fence + Tasks 2/3). Live source confirmed those were real consumers (`AdminContentKbController.cs:26/:39`, `AdminContentKbControllerTests.cs:369`) — no longer deferred to 37-02. 37-02 is now pure un-dark/copy/XSS-test; its only re-touch of `DeckAnalysis.cshtml` is the add-only RET-06 note after 37-01 removes the widget.
+
+**Strengths** — 37-01 fence now includes the pulled-forward admin controller/view/VM/admin-TS/admin-tests + browse `Index.cshtml`; kb-selection callers removed with the deleted TS/API; both packet JSON fields covered; RET-04 `.DisableHtml()` intact + regression test in 37-02; no destructive `is_evergreen` migration; RET-06 reuses existing copy affordance; solution-wide final grep present.
+
+**Concerns**
+- **MEDIUM — stale build-gate wording vs intended atomic boundary.** `37-01` said "Build gate (run after each task)" while Task 3 correctly requires Task 2+3 to land atomically with a single build after Task 3. End-state build-green; executor instructions were internally inconsistent. → **APPLIED FIX:** header + Task 2 verify/acceptance reworded to "build once, after Task 3; a build after Task 1/2 is expected-to-fail."
+- **LOW — stale kept-file comment.** `kb-entry-filter.ts:3` mentions `content-kb-admin.js`; both plans forbid touching `kb-entry-filter.ts`. Not a build/runtime consumer. → **APPLIED FIX:** fence note documents it as a harmless dangling comment excluded from the removal grep.
+
+**Risk Assessment** — **MEDIUM-LOW**. Original cross-wave build breaker fixed; no new HIGH build-green / XSS / completeness issue. Remaining risk was execution-ambiguity wording, now resolved.
+
+`VERDICT: APPROVE WITH CHANGES` → changes applied → **converged.**
+
+---
+
+## Disposition — CLEARED FOR EXECUTION
+
+Round 1 BLOCK resolved by replan `ae1d520`; round 2 APPROVE-WITH-CHANGES items applied as plan-doc edits. No HIGH remains. Cleared to execute:
 
 ```
-/gsd:plan-phase 37 --reviews
+/gsd:execute-phase 37
 ```
 
 **Replan must address:**
