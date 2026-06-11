@@ -166,9 +166,10 @@ public sealed class BlockedVideoStoreTests : IDisposable
     [Fact]
     public async Task RunBlockVideoAsync_BlocksFirst_ThenDeletesContent_ThenDeletesSiteIndex()
     {
-        var blockedStore = new SpyBlockedVideoStore();
-        var videoStore = new SpyContentVideoStore { DeleteResult = 1 };
-        var siteIndexStore = new SpyContentSiteIndexStore
+        var operations = new List<string>();
+        var blockedStore = new SpyBlockedVideoStore(operations);
+        var videoStore = new SpyContentVideoStore(operations) { DeleteResult = 1 };
+        var siteIndexStore = new SpyContentSiteIndexStore(operations)
         {
             Row = CreateYoutubeRow("video-1") with { Id = 42 }
         };
@@ -185,18 +186,16 @@ public sealed class BlockedVideoStoreTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Equal(
             ["block:video-1:spam", "delete-video:video-1", "get-index:youtube_channel:video-1", "delete-index:42"],
-            blockedStore.Operations
-                .Concat(videoStore.Operations)
-                .Concat(siteIndexStore.Operations)
-                .ToArray());
+            operations);
     }
 
     [Fact]
     public async Task RunBlockVideoAsync_UnknownVideoStillWritesBlock_AndReturnsZero()
     {
-        var blockedStore = new SpyBlockedVideoStore();
-        var videoStore = new SpyContentVideoStore { DeleteResult = 0 };
-        var siteIndexStore = new SpyContentSiteIndexStore();
+        var operations = new List<string>();
+        var blockedStore = new SpyBlockedVideoStore(operations);
+        var videoStore = new SpyContentVideoStore(operations) { DeleteResult = 0 };
+        var siteIndexStore = new SpyContentSiteIndexStore(operations);
 
         var exitCode = await CommandRunners.RunBlockVideoAsync(
             "video-missing",
@@ -208,8 +207,9 @@ public sealed class BlockedVideoStoreTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(["block:video-missing:", "delete-video:video-missing"], blockedStore.Operations.Concat(videoStore.Operations).ToArray());
-        Assert.Equal(["get-index:youtube_channel:video-missing"], siteIndexStore.Operations);
+        Assert.Equal(
+            ["block:video-missing:", "delete-video:video-missing", "get-index:youtube_channel:video-missing"],
+            operations);
     }
 
     [Theory]
@@ -221,9 +221,9 @@ public sealed class BlockedVideoStoreTests : IDisposable
         await Assert.ThrowsAsync<ArgumentException>(() => CommandRunners.RunBlockVideoAsync(
             youtubeVideoId!,
             "spam",
-            new SpyBlockedVideoStore(),
-            new SpyContentVideoStore(),
-            new SpyContentSiteIndexStore(),
+            new SpyBlockedVideoStore([]),
+            new SpyContentVideoStore([]),
+            new SpyContentSiteIndexStore([]),
             new LoggerConfiguration().CreateLogger(),
             CancellationToken.None));
     }
@@ -231,7 +231,8 @@ public sealed class BlockedVideoStoreTests : IDisposable
     [Fact]
     public async Task RunUnblockVideoAsync_RemovesBlockOnly()
     {
-        var blockedStore = new SpyBlockedVideoStore { RemoveResult = true };
+        var operations = new List<string>();
+        var blockedStore = new SpyBlockedVideoStore(operations) { RemoveResult = true };
 
         var exitCode = await CommandRunners.RunUnblockVideoAsync(
             "video-1",
@@ -240,13 +241,14 @@ public sealed class BlockedVideoStoreTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(["unblock:video-1"], blockedStore.Operations);
+        Assert.Equal(["unblock:video-1"], operations);
     }
 
     [Fact]
     public async Task RunUnblockVideoAsync_NeverBlockedId_IsCleanNoOp()
     {
-        var blockedStore = new SpyBlockedVideoStore { RemoveResult = false };
+        var operations = new List<string>();
+        var blockedStore = new SpyBlockedVideoStore(operations) { RemoveResult = false };
 
         var exitCode = await CommandRunners.RunUnblockVideoAsync(
             "never-blocked",
@@ -255,13 +257,13 @@ public sealed class BlockedVideoStoreTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(["unblock:never-blocked"], blockedStore.Operations);
+        Assert.Equal(["unblock:never-blocked"], operations);
     }
 
     [Fact]
     public async Task RunListBlockedAsync_WritesRowsToWriter()
     {
-        var blockedStore = new SpyBlockedVideoStore
+        var blockedStore = new SpyBlockedVideoStore([])
         {
             ListedRows =
             [
@@ -304,7 +306,12 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
     private sealed class SpyBlockedVideoStore : IBlockedVideoStore
     {
-        public List<string> Operations { get; } = [];
+        private readonly List<string> _operations;
+
+        public SpyBlockedVideoStore(List<string> operations)
+        {
+            _operations = operations;
+        }
 
         public bool RemoveResult { get; init; }
 
@@ -315,13 +322,13 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
         public Task AddBlockAsync(string youtubeVideoId, string? reason, CancellationToken cancellationToken = default)
         {
-            Operations.Add($"block:{youtubeVideoId}:{reason}");
+            _operations.Add($"block:{youtubeVideoId}:{reason}");
             return Task.CompletedTask;
         }
 
         public Task<bool> RemoveBlockAsync(string youtubeVideoId, CancellationToken cancellationToken = default)
         {
-            Operations.Add($"unblock:{youtubeVideoId}");
+            _operations.Add($"unblock:{youtubeVideoId}");
             return Task.FromResult(RemoveResult);
         }
 
@@ -334,7 +341,12 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
     private sealed class SpyContentVideoStore : IContentVideoStore
     {
-        public List<string> Operations { get; } = [];
+        private readonly List<string> _operations;
+
+        public SpyContentVideoStore(List<string> operations)
+        {
+            _operations = operations;
+        }
 
         public int DeleteResult { get; init; }
 
@@ -367,7 +379,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
         public Task<int> DeleteVideoByYoutubeIdAsync(string youtubeVideoId, CancellationToken cancellationToken = default)
         {
-            Operations.Add($"delete-video:{youtubeVideoId}");
+            _operations.Add($"delete-video:{youtubeVideoId}");
             return Task.FromResult(DeleteResult);
         }
 
@@ -386,7 +398,12 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
     private sealed class SpyContentSiteIndexStore : IContentSiteIndexStore
     {
-        public List<string> Operations { get; } = [];
+        private readonly List<string> _operations;
+
+        public SpyContentSiteIndexStore(List<string> operations)
+        {
+            _operations = operations;
+        }
 
         public ContentSiteIndexRow? Row { get; init; }
 
@@ -401,7 +418,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
         public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(string naturalKeyType, string naturalKeyValue, CancellationToken cancellationToken = default)
         {
-            Operations.Add($"get-index:{naturalKeyType}:{naturalKeyValue}");
+            _operations.Add($"get-index:{naturalKeyType}:{naturalKeyValue}");
             return Task.FromResult(Row);
         }
 
@@ -419,7 +436,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
         public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
         {
-            Operations.Add($"delete-index:{id}");
+            _operations.Add($"delete-index:{id}");
             return Task.FromResult(1);
         }
 
