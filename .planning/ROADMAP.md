@@ -131,7 +131,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 35: Value Re-Validation Gate** — KBV-01..04 — **MARGINAL** (gate NOT cleared; 2026-06-10). Pivot = **retire clip-injection**. See `35-GATE-VERDICT.md`.
 - [~] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** — **SKIPPED** (gate MARGINAL). PHIL-01..04 + KBD-01/02 not built; KB stays dark. Pivot recorded: retire the whole-channel clip-injection feature.
 - [x] **Phase 37: Retire Clip-Injection + Un-Dark KB** — RET-01..06 *(remove the gate-condemned injection, un-dark the `/content-kb` browse, add a deck-analysis pointer to the KB's copyable prompts)* (completed 2026-06-10)
-- [ ] **Phase 37.5: Rebuild KB Corpus** — REBUILD-01..05 *(reset corpus + re-harvest salubrious-snail under a deck-advice/philosophy LLM+manual quality filter; fix the `[00:00]` clip-extraction defect)*
+- [x] **Phase 37.5: Rebuild KB Corpus** — REBUILD-01..05 *(reset corpus + re-harvest salubrious-snail under a deck-advice/philosophy LLM+manual quality filter; fix the `[00:00]` clip-extraction defect)* (completed 2026-06-11; live pilot PASS local+prod; 3 UAT defects fixed)
 - [x] **Phase 37.6: Harvest Video Block + Hard-Delete** — VBLK-01..04 *(admin blocks a YouTube video by id so the harvester never re-ingests it, and hard-deletes its rows)* (INSERTED) (completed 2026-06-11)
 - [ ] **Phase 38: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — runs after the KB work so it splits slimmed controllers)*
 
@@ -201,9 +201,9 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   2. Published entries' clips have real, distinct, non-zero timestamps at the advice moment (spot-check vs the video); an all-timestamp-0 distill is rejected
   3. `/content-kb` lists the rebuilt entries; Detail renders summary/clips HTML-encoded with a working "Copy artifact"
 **Plans**: 3 plans
-- [ ] 37.5-01-PLAN.md — corpus-reset CLI command + 3-site clip-timestamp fix (fetcher [mm:ss] + clips prompt + all-zero rejection) + store purge methods (REBUILD-01, REBUILD-03)
-- [ ] 37.5-02-PLAN.md — LLM quality classifier gate in distill flow + 'filtered' distill status w/ idempotent CHECK migration (REBUILD-02)
-- [ ] 37.5-03-PLAN.md — live pilot: reset (local+prod) → re-harvest snail → distill → operator publish → browse/copy verify (REBUILD-01..05, manual checkpoints)
+- [x] 37.5-01-PLAN.md — corpus-reset CLI command + 3-site clip-timestamp fix (fetcher [mm:ss] + clips prompt + all-zero rejection) + store purge methods (REBUILD-01, REBUILD-03)
+- [x] 37.5-02-PLAN.md — LLM quality classifier gate in distill flow + 'filtered' distill status w/ idempotent CHECK migration (REBUILD-02)
+- [x] 37.5-03-PLAN.md — live pilot: reset (local+prod) → re-harvest snail → distill → operator publish → browse/copy verify (REBUILD-01..05, manual checkpoints)
 
 ### Phase 37.6: Harvest Video Block + Hard-Delete (INSERTED)
 **Goal**: An admin can permanently suppress a harvested YouTube video — its rows are hard-deleted AND its video id is recorded so a later harvest never re-ingests it; benign videos are unaffected
