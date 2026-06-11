@@ -4,29 +4,28 @@ title: "I Lost My Mind Learning cEDH"
 url: "https://www.youtube.com/watch?v=Fez-1BVRvYo\u0026list=UU98mf08y3Dv_4chuyX1VIkw"
 video_id: "Fez-1BVRvYo"
 tags:
-  archetype: ["lands","combo","ramp","control","value-engine"]
-  bracket: ["cEDH","Upgraded","Optimized"]
-  card_category: ["ramp","draw","win-cons","counter","protection","tutor","recursion","utility","removal"]
-generated_utc: "2026-06-08T22:42:24Z"
+  archetype: ["lands","combo","value-engine","ramp"]
+  bracket: ["cEDH"]
+  card_category: ["ramp","draw","counter","removal","tutor","recursion","win-cons","protection"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-A bracket-focused Commander player documents learning cEDH to prepare for a 120-player, six-to-eight round tournament. He explains cEDH deckbuilding fundamentals: fast mana (Chrome Mox, Mox Diamond, Sol Ring, Ancient Tomb) to skip the early game, rituals, and the heavy weight placed on commanders that are cheap and low on colored pips (Rograkh being ideal as a free 0/1). Decks are collections of individually powerful, non-synergistic cards (Sol Ring ramps, Mystic Remora draws, Thassa's Oracle wins), so good opening hands need advantage, mana, and interaction; mulligans and seat order (seed 4 wins as low as 7-20%) dominate outcomes. He builds a mono-green Six deck over a Lumra turbo list, valuing Six's attack trigger for card advantage, recursion, and non-all-in flexibility, while accepting mono-green's weakness to turbo. At the tournament he goes drawless across four rounds, blaming glacial paceΓÇöroughly 60 minutes per round lost to mulligans and hostile politics, collusion, and stallingΓÇörather than his deck. He criticizes the going-last disadvantage, weak slow-play enforcement, and free multiplayer mulligans, and argues Rhystic Study and Mystic Remora should be banned. Despite the miserable event, he still enjoys cEDH casually online.
+The creator prepares for a 120-player cEDH tournament by learning competitive Commander deckbuilding. Core cEDH principles: decks are collections of individually powerful, narrow cards (fast mana like Chrome Mox, Mox Diamond, Sol Ring, Ancient Tomb; card advantage like Mystic Remora and Rhystic Study; targeted interaction) rather than synergy engines. Commanders should be cheap and light on colored pips — Ragavan is ideal because he's free and generates mana; two-pip commanders like Vaarsuvius are weaker. Opening hands need a mix of advantage, mana, and interaction, making mulligans crucial, especially from disadvantaged later seats. The creator rejects all-in turbo decks (Lumra, Tivit/Etali) as roughly 30% coin-flips and instead builds monogreen Six, a lands deck. Six attacks to mill and recur permanents via retrace, generating constant card advantage, playing through counters, and enabling combos (Lumra loops, Grinding Station/Lion's Eye Diamond, Thassa's Oracle-free creature combos) while permanents double as interaction. Six is favored because he's easy to cast, draws cards, fuels many combos, and avoids going all-in. Turbo dominates tournaments because ~60 minutes per round is lost to mulligans and politics, so only fast decks reliably execute. The creator concludes cEDH is most fun played casually rather than in tournaments.
 
 ## Key Clips
 
-- The first inclusion in any CEDH deck is fast mana cards that let us circumvent the one land per turn limitation. Chrome Mox, Mox Diamond, Sol Ring, Ancient Tomb, Gaea's Cradle. These cards let us skip what would usually be the early game and either establish repeatable mana sources that don't require land drops or provide more mana than a land usually would.
-- The best commanders are light on pips and low on mana cost. There's a very reasonable argument to be made that the best commander in CEDH is Rograkh, a zero mana 0/1 with no relevant abilities. Rograkh is the ultimate commander because he's free. That not only means we don't need mana to cast him, but more often than not, he generates mana.
-- Think of CEDH decks as a collection of advantage, mana, and interaction. For our opening hand, we want a little bit of all of those. If you're missing any category, that'll make the game much more difficult. And unlike social commander, we're not going to be given an opportunity to draw into the stuff we are lacking.
-- The exact win percent of seed 4 in CEDH remains up to debate, but I've heard reports starting at 20% going all the way down to 7%. Both these numbers are terrible and make the most impactful part of a CEDH game the dice roll that determines seed order.
-- Six is a green three mana 2/4 with reach. Whenever we attack, we mill three cards and may then take a land from among the milled cards and put it into our hand. He also gives all non-land permanents in our graveyard retrace during our turn. He turns our graveyard into a repeatable toolbox while also filling it and providing card advantage. He also plays great through counter spells because a countered spell goes into the graveyard and then we just cast it again.
-- Speed is generally essential because approximately 60 minutes of the round are spent on mulligans and talking rather than playing. Turbo decks are the only type of deck that are guaranteed to have enough time to execute their game plan.
-- Both Rhystic Study and Mystic Remora should be banned for power level and play pattern reasons. They're just so far beyond anything else available that they are severely limiting the environment by essentially acting as a crutch.
-- CEDH tournaments need to be much stricter on enforcing slow play. And talking, while it's not your turn, should count towards that. Maybe talking should be bound to priority. If talking is such a significant portion of the game, then it needs to be handled like a game element and be given rules and regulations.
+- **[05:18]** The first inclusion in any CEDH deck is fast mana cards that let us circumvent the one land per turn limitation. Chromox, Mox Diamond, Soul Ring, Ancient Tomb, Gaia's Cradle let us skip what would usually be the early game.
+- **[06:45]** Colors are a surprisingly big consideration in CEDH. The best commanders are light on pips and low on mana cost — Vaniong needing two blue pips is a significant downside, while Archist of Agma is weaker but sees more play because he's much easier to cast.
+- **[10:30]** In social Commander, decks are built for synergies. But for CEDH that isn't possible because the strongest cards only do that singular thing — Soul Ring only ramps, Mystic Remora only draws, Thassa's Oracle only wins the game. CEDH decks are collections of individually powerful cards.
+- **[11:36]** Think of CEDH decks as a collection of advantage, mana, and interaction. For our opening hand, we want a little bit of all of those. If you're missing any category, that'll make the game much more difficult — and unlike social Commander, we're not going to draw into the stuff we're lacking.
+- **[12:24]** Finding a good mulligan is crucial. If you're going last, you absolutely cannot keep a bad hand. So you mulligan until you find something good, and if you never do, then you lose.
+- **[18:26]** He fits three very important criteria. He's easy to cast, provides card advantage, and is part of many powerful combos. Six also makes opening hands with only mana playable because he effectively draws us three cards a turn.
+- **[18:46]** We can dump our hand, attack with six on turn two, and find things to do. Turn three win attempts are reasonable, turn four almost guaranteed — assuming no interaction. Longer matches work out in our favor because at the end of the day we are a lands deck.
 
 ## Tags
 
-**Archetypes/Strategy:** lands, combo, ramp, control, value-engine
-**Format/Bracket:** cEDH, Upgraded, Optimized
-**Card Categories:** ramp, draw, win-cons, counter, protection, tutor, recursion, utility, removal
+**Archetypes/Strategy:** lands, combo, value-engine, ramp
+**Format/Bracket:** cEDH
+**Card Categories:** ramp, draw, counter, removal, tutor, recursion, win-cons, protection

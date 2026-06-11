@@ -4,29 +4,29 @@ title: "Talking through category disagreements with Commander Baumi"
 url: "https://www.youtube.com/watch?v=rwLUoAQzR3c\u0026list=UUx46SGlFHhmBGUVbeudoatA"
 video_id: "rwLUoAQzR3c"
 tags:
-  archetype: ["voltron","control","tribal","ramp","blink","tokens","lands","value-engine","aggro","combo"]
-  bracket: ["Core","Optimized","cEDH"]
-  card_category: ["ramp","removal","draw","counter","recursion","finishers","win-cons","protection"]
-generated_utc: "2026-06-08T21:56:13Z"
+  archetype: ["voltron","blink","tokens","control","aggro","ramp","midrange","value-engine","combo","lands"]
+  bracket: ["Core","cEDH"]
+  card_category: ["ramp","removal","draw","counter","recursion","board-wipe","finishers","win-cons"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-Two MTG content creators debate how to use deck categories in Commander. One argues against over-categorization: giving weak cards a flattering category (e.g. a four-card self-mill bucket in a Skullbriar deck) makes useless cards look useful. He rejects the common 'plan cards' templateΓÇöevery card should serve the deck's planΓÇöand prefers few large categories like 'card advantage,' being generous about what counts, while building streamlined single-plan decks (plan B is just getting back to plan A) and cutting cards that only fit the theme without ramping, drawing, interacting, or finishing. The other builder favors many small synergy subcategories to track setup-and-payoff packages (e.g. cast-from-exile or impulse-draw payoffs), keeping setup and payoff in separate buckets to watch their parity; the goal is making players 'feel unease' when a key synergy count is low. He notes parasitic packages (narrow payoffs) need more cards than broad ones. Both prioritize letting players actually participateΓÇörunning ~40 lands and heavy card draw over winning. They agree categorization advice suits experienced builders, not newcomers who don't yet know what their deck needs, and that defining your fun and goals matters most. Side topics: soft-banning Sol Ring, control decks, Valduk.
+Two Commander content creators compare how they use deck-building categories. Baumi argues against "plan-only" cards—cards that only fit a theme (e.g., a vanilla bird) without contributing ramp, card draw, interaction, or a win condition—and warns that over-categorizing (giving a card a "nice hat") falsely justifies dead cards. He prefers a few large categories like "card advantage," running ~30 generous pieces (counting scry, self-mill as graveyard fuel) rather than 10 precise ones, and builds streamlined single-plan decks where plan B is getting back to plan A. Snail favors many small setup/payoff micro-packages and keeping interlocking categories (e.g., impulse/cast-from-exile cards versus their payoffs) separate—using Archidekt secondary categories—to spot when a parasitic synergy package is too thin (mid-to-low single digits needs watching). Both prioritize letting players participate: Baumi runs 40 lands and heavy card draw so you always hit drops and do something. They note specific numbers help newer players, while "feel it out" suits experienced builders. Other points: house-ruling Sol Ring as a second Command Tower, control decks benefiting from unknown threat profiles, and Bane of Progress against mana-rock decks.
 
 ## Key Clips
 
-- I had built a Skullbrier deck and included a self-mill category, and that was a bit silly because there's no self-milling going on in that deck. There were four cards in that category. By overcategorizing, I put four cards in that aren't doing anything the deck needs, but then made them look useful by categorizing them. That's generally to be avoided.
-- You will see a lot in deck building templates something often called 'plan cards' ΓÇö the cards in your deck that are your primary game plan. I think that is nonsense. Every card in your deck should be your primary game plan. Why are you playing cards that aren't your primary game plan?
-- The way I like to treat categories is, instead of having lots of small categories, I like to have very few very big ones and fit everything into them. I have a category I just call card advantage, and if a card scrys, that's card advantage, we count that. Getting too specific with categories makes it really difficult to then find cards that don't actually do things.
-- On the matter of Sol Ring, I asked my 25 regulars if they wanted a house rule soft-banning it ΓÇö not removing it from decks, just treating it as a second Command Tower, exactly like a land. All of the regulars agreed unanimously. They said Sol Ring ruins more games than it improves, but if I don't play it and everybody else does, I never get that burst ΓÇö so a rule where nobody has it is better for the overall experience.
-- I want to give people the tools to feel unease looking at their deck. I'd love it if people categorize their deck and then realize, 'Wow, I really don't have as many cards that exile and let me play from the top of my library as I thought.' That's more helpful than giving people a number and having them tune their deck to fit it exactly.
-- My priority when building a deck is that the player can participate in the match ΓÇö not that you win. That's why I play 40 lands in every deck and include a lot of card draw: as long as you're hitting land drops and drawing cards, you'll be able to do something. The most miserable experience in Commander is not getting to participate.
-- The way I build is I have plan A, and plan B is just how I get back to plan A. My decks are very streamlined on a single idea, and I'm willing to play worse cards because of that. But because of that I need to pay close attention that I don't accidentally put in something that literally does nothing.
-- I keep setup and payoff in two separate subcategories ΓÇö like impulse draw and cast-from-exile payoffs ΓÇö so I can keep an eye on both and make sure they're in parity with each other. If a synergy package is some key thing and you're talking mid-to-low single digits, you need to keep an eye on it, especially when it's parasitic and doesn't overlap much with the rest of the deck.
+- **[00:54]** By overcategorizing cards — taking four cards in a self-mill category that aren't doing anything the deck needs — I made them look useful just by categorizing them. That's generally to be avoided; you're giving a card a nice hat to justify it hanging around.
+- **[03:27]** Deck-building templates talk about 'plan cards,' the cards that are your primary game plan. That's nonsense. Every card in your deck should be your primary game plan — why are you playing cards that aren't?
+- **[06:44]** Even when choosing terrible birds, choose them based on what they contribute. A theme-only card is one that's literally only a bird. Prioritize birds that interact with the opponent's board, draw cards, or ramp; the ones that fit no major category have to go.
+- **[09:43]** Instead of lots of small categories, I like very few very big ones and try to fit everything in the deck into them. I have a category I just call card advantage — if a card scries, that counts. That's good enough for me.
+- **[11:46]** Templates say play 10 pieces of card draw, but I run about 30 pieces of card advantage. I'm generous with it and make up for quality with quantity — if you scry two 30 times, honestly that's pretty good.
+- **[21:24]** The other reason for categories is fine-tuning synergies — making sure a package is supported. You can put in a bunch of blink cards, but you need to make sure you have enough ETBs. Categorize both halves so you can see how large those numbers are.
+- **[30:08]** My ideal: people throw cards into categories and then have a realization — 'Wow, I really don't have as many cards that exile and let me play from the top of my library as I thought.' Give people the tools to feel unease looking at their deck and know what to keep an eye on.
+- **[33:00]** My priority when building isn't that you win — it's that you get to participate. That's why I play 40 lands in every deck and a lot of card draw: as long as you hit land drops and draw cards, you'll be able to do something in the match.
 
 ## Tags
 
-**Archetypes/Strategy:** voltron, control, tribal, ramp, blink, tokens, lands, value-engine, aggro, combo
-**Format/Bracket:** Core, Optimized, cEDH
-**Card Categories:** ramp, removal, draw, counter, recursion, finishers, win-cons, protection
+**Archetypes/Strategy:** voltron, blink, tokens, control, aggro, ramp, midrange, value-engine, combo, lands
+**Format/Bracket:** Core, cEDH
+**Card Categories:** ramp, removal, draw, counter, recursion, board-wipe, finishers, win-cons

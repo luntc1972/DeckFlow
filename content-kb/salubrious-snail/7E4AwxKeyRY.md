@@ -1,32 +1,32 @@
 ---
 source: "Salubrious Snail"
 title: "The Two Rules for Making a Successful \u0022Hidden Commander\u0022 Deck"
-url: "https://www.youtube.com/watch?v=7E4AwxKeyRY"
+url: "https://www.youtube.com/watch?v=7E4AwxKeyRY\u0026list=UUOYkwObFKjxko7oj56gVDag"
 video_id: "7E4AwxKeyRY"
 tags:
-  archetype: ["aristocrats","control","tokens","value-engine","ramp","reanimator"]
-  bracket: ["Upgraded","Core"]
-  card_category: ["ramp","removal","draw","board-wipe","recursion","tutor","protection","utility"]
-generated_utc: "2026-06-08T17:06:04Z"
+  archetype: ["aristocrats","control","ramp","value-engine","reanimator","tokens"]
+  bracket: ["Upgraded"]
+  card_category: ["ramp","removal","draw","recursion","tutor","board-wipe","protection"]
+generated_utc: "2026-06-11T21:21:45Z"
 ---
 
 ## Summary
 
-This video uses The Sibsig Ceremony as a case study for building decks around a card in your 99 (a "hidden commander"). Two principles guide it: (1) run analoguesΓÇöcards that replicate the central card's effectsΓÇösince you won't always draw or keep it; and (2) minimize the footprint of synergy cards by choosing flexible, multi-purpose includes that stand alone. Ceremony reduces creature spells by 2 but destroys cast creatures (making a 2/2 zombie). The host pairs it with Athreos, Shroud-Veiled as a low-footprint, indestructible commander, plus other indestructible creatures (Erebos, Yahenni, Myojins, Breathkeeper Seraph), forming a big-mana, controlling aristocrats deck. Analogue ramp (Heartless Summoning, ETB ramp like Solemn Simulacrum) covers Ceremony's mana. The destroy clause becomes upside with on-death payoffs (Junji, Ao, Dark Prophecy) and sacrifice analogues (Season of Loss, Fanatical Devotion) for when Ceremony is absent. 19 ETB creatures, recursion, and Mirror of Life Trapping (an underused synergy piece) add flexibility. Tutors (four) matter leastΓÇöfocus first on how the deck plays without the card. Both principles also apply to ordinary command-zone commanders, especially minimizing synergy-card footprint for fluid, flexible decks.
+The creator builds a Commander deck around The Sibsig Ceremony as a hidden commander (a card in the 99 built around more than the actual commander). Sibsig Ceremony reduces creature spells by 2 mana but destroys cast creatures on entry, giving a 2/2 zombie. Two deckbuilding principles emerge: (1) run analogues that replicate the card's effects, since you won't always draw or keep it; and (2) minimize the footprint of synergy cards by choosing flexible, multi-purpose inclusions. The deck uses Athreos, Shroud-Veiled as a low-effort commander plus indestructible creatures (Myojins, Erebos, Yahenni) that ignore Sibsig's downside while exploiting its ramp. It adds alternate ramp (Heartless Summoning, ETB ramp creatures, mana rocks), on-death payoffs (Junji, Ao, Dark Prophecy), sacrifice outlets and recursion for an aristocrats plan, plus 19 ETB creatures with high floors. Mirror of Life Trapping and Fanatical Devotion exemplify low-footprint cards that work with or without Sibsig. Tutors are downplayed; focus first on functioning without the central card. Both principles also apply to ordinary command-zone commanders: run cheaper analogues and flexible synergy pieces so the deck stays fluid when the commander is removed or unavailable.
 
 ## Key Clips
 
-- Hidden commanders are decks where one card in the 99 is built around more heavily than the commander itself. Two principles guide building around such a card: (1) find analogues for your central card, and (2) minimize the footprint of cards that synergize with it ΓÇö both stemming from the fact that you won't always have access to your hidden commander.
-- Sunforger is a great build-around because the cards it works with span a wide range of roles and don't even need to be in hand to synergize, so the challenge of guaranteeing setup and payoff line up is basically nonexistent ΓÇö it doesn't eat much deck space.
-- The Sibsig Ceremony makes creature spells cost 2 less (100% upside), but its second line destroys cast creatures when they enter and makes a 2/2 zombie. This downside makes it one of the trickier hidden commanders since neither principle comes for free.
-- The deck landed on Athreos, Shroud-Veiled as commander: indestructible via devotion, works with ETBs and on-death effects, and even alone acts like a Worn Powerstone by throwing coins on opposing creatures off a turn-3 Ceremony into turn-4 Athreos.
-- To work without the Sibsig Ceremony's mana, add analog ramp: Heartless Summoning as a similar 2-mana discount-plus-downside effect, plus ETB ramp creatures like Solemn Simulacrum, Scampering Surveyor, and Kor Cartographer that ladder 4-to-6 mana and give coin destinations.
-- The 'destroy' downside isn't a downside on creatures you want to die ΓÇö Junji, Ao, plus draw engines like Erebos Bleak-Hearted and Dark Prophecy. But to function without Ceremony in play, the deck also runs sac outlets (Season of Loss, Fanatical Devotion, and five others) as analogs for its destroy effect.
-- Mirror of Life Trapping pairs beautifully with the Sibsig Ceremony: order triggers so creatures get sucked into the mirror instead of destroyed, then return when the next cast creature enters. It's run in under 2% of Ceremony decks while Panharmonicon sees 8% ΓÇö surprising given the deck's 19 ETB creatures make it solid regardless.
-- Both principles also apply to ordinary command-zone commanders. Minimizing the footprint of synergy cards is the broadly applicable one: if cards only synergize with your commander, you're forced to keep replaying it; cards that do multiple useful things give you freedom in how to play the game.
+- **[03:05]** These principles are (1) find analogues for your central card, and (2) minimize the footprint of cards that synergize with your central card, with both principles stemming from the essential fact that you simply won't always have access to your hidden commander card.
+- **[04:13]** For purposes of adhering to principle 1—having analogues—Astral Slide makes my job easy because it has a functionally identical card as well as a similar enchantment in another color, effectively giving me three copies of my key card.
+- **[07:41]** The Sibsig Ceremony provides us a lot of mana, so the first order of business in making sure the deck works without it is adding a lot of other ramp—finding analogs.
+- **[10:18]** You want the best possible spread of situational usefulness on a card, not just the one that's best paired with a hidden commander.
+- **[13:31]** None of these three tasks would be good enough on their own to justify giving them deck space, and even doing two of the three might not be enough, but put them all together and you've got a card that slots into the deck nicely.
+- **[14:45]** In truth tutors shouldn't be the focus of your attention if you're trying to decide if building around a card in your 99 is feasible. Focusing first on how the deck works without the card is going to be your easiest road to having a deck that is fun and flexible.
+- **[16:12]** If you're adding cards to your deck that specifically play well with your commander, it's good if those cards are as flexible and multi-purpose as possible.
+- **[17:12]** The easiest way to go with this is having cards that both have a card type you want and also ramp, draw, or remove something, but you can get a lot more intricate with how you make cards feel useful if you try.
 
 ## Tags
 
-**Archetypes/Strategy:** aristocrats, control, tokens, value-engine, ramp, reanimator
-**Format/Bracket:** Upgraded, Core
-**Card Categories:** ramp, removal, draw, board-wipe, recursion, tutor, protection, utility
+**Archetypes/Strategy:** aristocrats, control, ramp, value-engine, reanimator, tokens
+**Format/Bracket:** Upgraded
+**Card Categories:** ramp, removal, draw, recursion, tutor, board-wipe, protection
