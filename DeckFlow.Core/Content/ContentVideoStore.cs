@@ -498,7 +498,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         }
 
         var constraintName = await GetPostgresDistillStatusConstraintNameAsync(connection, cancellationToken).ConfigureAwait(false);
-        if (constraintName is null)
+        if (string.IsNullOrWhiteSpace(constraintName))
         {
             return;
         }
@@ -547,9 +547,10 @@ public sealed class ContentVideoStore : IContentVideoStore
               INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
              WHERE rel.relname = 'content_distill_status'
                AND con.contype = 'c'
-               AND pg_get_constraintdef(con.oid) LIKE '%status IN%';
+               AND pg_get_constraintdef(con.oid) LIKE '%distilled%';
             """;
-        return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+        var name = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+        return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 
     private static async Task<string> GetPostgresConstraintDefinitionAsync(
