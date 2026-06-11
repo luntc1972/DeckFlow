@@ -590,6 +590,17 @@ public sealed class RunDistillAsyncTests : IDisposable
         public Task DeleteVideoAsync(long videoId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<int> DeleteVideoByYoutubeIdAsync(string youtubeVideoId, CancellationToken cancellationToken = default)
+        {
+            var removed = 0;
+            foreach (var pair in _pendingBySource)
+            {
+                removed += pair.Value.RemoveAll(video => string.Equals(video.YoutubeVideoId, youtubeVideoId, StringComparison.Ordinal));
+            }
+
+            return Task.FromResult(removed);
+        }
+
         public Task ClearDistillOutputAsync(long videoId, CancellationToken cancellationToken = default)
         {
             ClearCalls.Add(videoId);
@@ -683,6 +694,12 @@ public sealed class RunDistillAsyncTests : IDisposable
             }
 
             return Task.FromResult(count);
+        }
+
+        public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
+        {
+            var removed = Rows.RemoveAll(row => row.Id == id);
+            return Task.FromResult(removed);
         }
 
         public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default)

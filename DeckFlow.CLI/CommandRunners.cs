@@ -770,6 +770,7 @@ internal static class CommandRunners
             using var whisperHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var sourceStore = new ContentSourceStore(dbPath);
             var videoStore = new ContentVideoStore(dbPath);
+            var blockedVideoStore = new BlockedVideoStore(dbPath);
             var ledger = new WhisperSpendLedger(dbPath);
             var chunker = new FfmpegAudioChunker();
             var transcriptFetcher = TranscriptProviderFactory.Resolve(
@@ -785,6 +786,7 @@ internal static class CommandRunners
             return await RunHarvestAsync(
                 sourceStore,
                 videoStore,
+                blockedVideoStore,
                 ledger,
                 new YouTubeChannelVideoLister(youtubeHttpClient),
                 transcriptSource,
@@ -807,6 +809,7 @@ internal static class CommandRunners
     internal static async Task<int> RunHarvestAsync(
         IContentSourceStore sourceStore,
         IContentVideoStore videoStore,
+        IBlockedVideoStore blockedVideoStore,
         IWhisperSpendLedger ledger,
         IYouTubeChannelVideoLister lister,
         ITranscriptSource transcriptSource,
@@ -828,6 +831,7 @@ internal static class CommandRunners
                 videoIds,
                 sourceId,
                 videoStore,
+                blockedVideoStore,
                 ledger,
                 lister,
                 transcriptSource,
@@ -844,6 +848,7 @@ internal static class CommandRunners
                 var sourceCounts = await HarvestSourceAsync(
                     source,
                     videoStore,
+                    blockedVideoStore,
                     ledger,
                     lister,
                     transcriptSource,
@@ -872,6 +877,7 @@ internal static class CommandRunners
         IReadOnlyList<string> videoIds,
         long? sourceId,
         IContentVideoStore videoStore,
+        IBlockedVideoStore blockedVideoStore,
         IWhisperSpendLedger ledger,
         IYouTubeChannelVideoLister lister,
         ITranscriptSource transcriptSource,
@@ -916,7 +922,7 @@ internal static class CommandRunners
         var counts = new HarvestCounts();
         foreach (var video in videos)
         {
-            await HarvestVideoAsync(target, video, videoStore, ledger, transcriptSource, counts, logger, utcNow, ct);
+            await HarvestVideoAsync(target, video, videoStore, blockedVideoStore, ledger, transcriptSource, counts, logger, utcNow, ct);
         }
 
         LogFallbackRatio(logger, target.SourceSlug, counts);
@@ -926,6 +932,7 @@ internal static class CommandRunners
     private static async Task<HarvestCounts> HarvestSourceAsync(
         ContentSource source,
         IContentVideoStore videoStore,
+        IBlockedVideoStore blockedVideoStore,
         IWhisperSpendLedger ledger,
         IYouTubeChannelVideoLister lister,
         ITranscriptSource transcriptSource,
@@ -938,7 +945,7 @@ internal static class CommandRunners
         var videos = await lister.ListRecentAsync(source.SourceUrl, limit, ct);
         foreach (var video in videos)
         {
-            await HarvestVideoAsync(source, video, videoStore, ledger, transcriptSource, counts, logger, utcNow, ct);
+            await HarvestVideoAsync(source, video, videoStore, blockedVideoStore, ledger, transcriptSource, counts, logger, utcNow, ct);
         }
 
         LogFallbackRatio(logger, source.SourceSlug, counts);
@@ -949,6 +956,7 @@ internal static class CommandRunners
         ContentSource source,
         YouTubeChannelVideo video,
         IContentVideoStore videoStore,
+        IBlockedVideoStore blockedVideoStore,
         IWhisperSpendLedger ledger,
         ITranscriptSource transcriptSource,
         HarvestCounts counts,
@@ -959,6 +967,12 @@ internal static class CommandRunners
         if (video.Duration is { } duration && duration <= ShortVideoMaxDuration)
         {
             logger.Information("skipped short {VideoId} duration_s={DurationSeconds}", video.VideoId, (int)duration.TotalSeconds);
+            return;
+        }
+
+        if (await blockedVideoStore.IsBlockedAsync(video.VideoId, ct))
+        {
+            logger.Information("skipped blocked {VideoId}", video.VideoId);
             return;
         }
 

@@ -300,6 +300,23 @@ public sealed class ContentVideoStore : IContentVideoStore
     }
 
     /// <inheritdoc />
+    public async Task<int> DeleteVideoByYoutubeIdAsync(string youtubeVideoId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(youtubeVideoId);
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM content_videos
+             WHERE youtube_video_id = @youtubeVideoId;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task ClearDistillOutputAsync(long videoId, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
