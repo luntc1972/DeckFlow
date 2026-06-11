@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
-status: verifying
+status: executing
 stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-last_updated: "2026-06-11T05:17:08.379Z"
-last_activity: 2026-06-10 -- Phase 37 execution started
+last_updated: "2026-06-11T16:32:22.596Z"
+last_activity: 2026-06-11 -- Phase 37.6 execution started
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 6
+  total_plans: 7
   completed_plans: 6
   percent: 43
 ---
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 37 — retire-clip-injection
+**Current focus:** Phase 37.6 — harvest-video-block-and-hard-delete
 
 ## Current Position
 
-Phase: 37 (retire-clip-injection) — EXECUTING
-Plan: 1 of 2
-Status: Phase 37 complete + verified (6/6 RET); tests Core 282/282 Web 600/600+5skip; build 0/0
+Phase: 37.6 (harvest-video-block-and-hard-delete) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 37.6
 Reqs: RET-01..06 all covered (37-01: 01/02/05 · 37-02: 03/04/06). RESEARCH flagged 5 CONTEXT discrepancies — all folded in (both packet JSON fields; browse-page kb-selection strip; content-kb-admin.ts full delete; accordion 182–232; nav-copy rewrite).
 Next after 37: Phase 37.5 (rebuild corpus — CONTEXT ready), then Phase 38 (SRP split).
-Last activity: 2026-06-10 -- Phase 37 execution started
+Last activity: 2026-06-11 -- Phase 37.6 execution started
 
 ## Accumulated Context — Key Decisions (v1.6)
 
