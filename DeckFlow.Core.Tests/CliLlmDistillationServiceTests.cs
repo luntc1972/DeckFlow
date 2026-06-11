@@ -116,6 +116,34 @@ public sealed class CliLlmDistillationServiceTests
     }
 
     [Fact]
+    public async Task ClassifyAsync_KeepVerdict_ReturnsKeep()
+    {
+        var stdout = new Queue<string>([ClaudeEnvelope("""{"verdict":"keep","reason":"deckbuilding philosophy"}""")]);
+        var service = CreateService(stdout);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.ClassifyAsync("transcript"));
+
+        Assert.Equal("keep", result.Verdict);
+        Assert.Equal("deckbuilding philosophy", result.Reason);
+    }
+
+    [Fact]
+    public async Task ClassifyAsync_DropVerdict_ReturnsDrop()
+    {
+        var stdout = new Queue<string>([ClaudeEnvelope("""{"verdict":"drop","reason":"trivia"}""")]);
+        var service = CreateService(stdout);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.ClassifyAsync("transcript"));
+
+        Assert.Equal("drop", result.Verdict);
+        Assert.Equal("trivia", result.Reason);
+    }
+
+    [Fact]
     public async Task Summarize_ClaudeIsError_ThrowsSanitizedNoResultBody()
     {
         const string sentinel = "SECRET_TRANSCRIPT_SENTINEL";
