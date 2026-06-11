@@ -517,6 +517,166 @@ internal static class CommandRunners
     }
 
     /// <summary>
+    /// Blocks a harvested YouTube video id and hard-deletes existing local KB rows for it.
+    /// </summary>
+    /// <param name="db">Optional path to the content KB database.</param>
+    /// <param name="youtubeVideoId">YouTube video identifier to block.</param>
+    /// <param name="reason">Optional operator-supplied reason.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Process exit code.</returns>
+    public static async Task<int> RunBlockVideoAsync(
+        FileInfo? db,
+        string youtubeVideoId,
+        string? reason,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            var dbPath = ResolveContentKbDatabasePath(db);
+            var blockedStore = new BlockedVideoStore(dbPath);
+            var videoStore = new ContentVideoStore(dbPath);
+            var siteIndexStore = new ContentSiteIndexStore(ResolveContentKbDatabasePath(db));
+
+            return await RunBlockVideoAsync(youtubeVideoId, reason, blockedStore, videoStore, siteIndexStore, logger, ct).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Block video failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Unblocks a harvested YouTube video id so later harvest runs may re-ingest it.
+    /// </summary>
+    /// <param name="db">Optional path to the content KB database.</param>
+    /// <param name="youtubeVideoId">YouTube video identifier to unblock.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Process exit code.</returns>
+    public static async Task<int> RunUnblockVideoAsync(
+        FileInfo? db,
+        string youtubeVideoId,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            var blockedStore = new BlockedVideoStore(ResolveContentKbDatabasePath(db));
+            return await RunUnblockVideoAsync(youtubeVideoId, blockedStore, logger, ct).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Unblock video failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Lists blocked harvested YouTube video ids.
+    /// </summary>
+    /// <param name="db">Optional path to the content KB database.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Process exit code.</returns>
+    public static async Task<int> RunListBlockedAsync(
+        FileInfo? db,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            var blockedStore = new BlockedVideoStore(ResolveContentKbDatabasePath(db));
+            return await RunListBlockedAsync(blockedStore, Console.Out, ct).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "List blocked videos failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    internal static async Task<int> RunBlockVideoAsync(
+        string youtubeVideoId,
+        string? reason,
+        IBlockedVideoStore blockedStore,
+        IContentVideoStore videoStore,
+        IContentSiteIndexStore siteIndexStore,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(youtubeVideoId);
+        ArgumentNullException.ThrowIfNull(blockedStore);
+        ArgumentNullException.ThrowIfNull(videoStore);
+        ArgumentNullException.ThrowIfNull(siteIndexStore);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        // Why: writing the block row first ensures a partial failure cannot leave the
+        // video deleted-but-reharvestable across the separate content/site-index stores.
+        await blockedStore.AddBlockAsync(youtubeVideoId, reason, ct).ConfigureAwait(false);
+        var deletedRows = await videoStore.DeleteVideoByYoutubeIdAsync(youtubeVideoId, ct).ConfigureAwait(false);
+        var row = await siteIndexStore.GetByNaturalKeyAsync(ContentSourceType.Youtube, youtubeVideoId, ct).ConfigureAwait(false);
+        var deletedSiteIndexRows = 0;
+        if (row is not null)
+        {
+            deletedSiteIndexRows = await siteIndexStore.DeleteByIdAsync(row.Id, ct).ConfigureAwait(false);
+        }
+
+        logger.Information(
+            "blocked video {VideoId} content_rows_deleted={DeletedRows} site_index_rows_deleted={SiteIndexDeletedRows}",
+            youtubeVideoId,
+            deletedRows,
+            deletedSiteIndexRows);
+        return 0;
+    }
+
+    internal static async Task<int> RunUnblockVideoAsync(
+        string youtubeVideoId,
+        IBlockedVideoStore blockedStore,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(youtubeVideoId);
+        ArgumentNullException.ThrowIfNull(blockedStore);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        var removed = await blockedStore.RemoveBlockAsync(youtubeVideoId, ct).ConfigureAwait(false);
+        if (!removed)
+        {
+            logger.Information("unblocked video {VideoId}; no row removed", youtubeVideoId);
+            return 0;
+        }
+
+        logger.Information("unblocked video {VideoId}", youtubeVideoId);
+        return 0;
+    }
+
+    internal static async Task<int> RunListBlockedAsync(
+        IBlockedVideoStore blockedStore,
+        TextWriter writer,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(blockedStore);
+        ArgumentNullException.ThrowIfNull(writer);
+
+        var blocked = await blockedStore.ListBlockedAsync(ct).ConfigureAwait(false);
+        foreach (var row in blocked)
+        {
+            await writer.WriteLineAsync($"{row.YoutubeVideoId}\t{row.BlockedUtc:O}\t{row.Reason ?? string.Empty}").ConfigureAwait(false);
+        }
+
+        return 0;
+    }
+
+    /// <summary>
     /// Exports the local Content KB site index to a JSON seed file.
     /// </summary>
     /// <param name="db">Optional path to the content KB database.</param>
