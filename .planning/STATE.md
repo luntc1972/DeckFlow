@@ -4,14 +4,14 @@ milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
 status: verifying
 stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-last_updated: "2026-06-10T22:56:06.489Z"
+last_updated: "2026-06-11T03:41:16.549Z"
 last_activity: 2026-06-10 -- Phase 37 execution started
 progress:
-  total_phases: 6
-  completed_phases: 2
+  total_phases: 7
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 4
-  percent: 33
+  completed_plans: 6
+  percent: 43
 ---
 
 # Project State
@@ -72,6 +72,7 @@ Last activity: 2026-06-10 -- Phase 37 execution started
 
 - v1.6 roadmap created 2026-06-10 (4 phases, 18/18 REQ-IDs mapped, gate-driven branching at Phase 35).
 - Phase 36 merges PHIL-* and KBD-* into one conditional phase — cleaner than two adjacent conditional phases; both have the same gate dependency.
+- Phase 37.6 inserted after Phase 37.5: Harvest Video Block + Hard-Delete (VBLK-01..04): admin block-by-id + hard-delete; harvester skip-check prevents re-ingest
 
 ### Pending Todos
 
