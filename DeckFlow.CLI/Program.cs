@@ -71,6 +71,15 @@ var harvestLimitOption = new Option<int>("--limit", () => 5) { Description = "Re
 var harvestEnableWhisperOption = new Option<bool>("--enable-whisper", () => false) { Description = "Enable Whisper audio-transcription fallback when captions are unavailable (off by default; captions-only)." };
 var harvestVideoIdsOption = new Option<string?>("--video-ids") { Description = "Comma-separated YouTube video ids to harvest instead of the most-recent walk; --limit is ignored. Ids must belong to the target source's channel." };
 var harvestSourceIdOption = new Option<long?>("--source-id") { Description = "Content source id the --video-ids belong to. Required when more than one YouTube source is enabled." };
+var blockVideoCommand = new Command("block-video", "Block a YouTube video id and hard-delete existing local Content KB rows.");
+var blockVideoIdArgument = new Argument<string>("youtube-id");
+var blockVideoReasonOption = new Option<string?>("--reason") { Description = "Optional operator-supplied reason for the block." };
+var blockVideoDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var unblockVideoCommand = new Command("unblock-video", "Remove a YouTube video id from the harvest block list.");
+var unblockVideoIdArgument = new Argument<string>("youtube-id");
+var unblockVideoDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var listBlockedCommand = new Command("list-blocked", "List blocked YouTube video ids.");
+var listBlockedDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var distillCommand = new Command("distill", "Distill harvested transcripts into Content KB artifacts.");
 var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
@@ -121,6 +130,12 @@ harvestCommand.AddOption(harvestLimitOption);
 harvestCommand.AddOption(harvestEnableWhisperOption);
 harvestCommand.AddOption(harvestVideoIdsOption);
 harvestCommand.AddOption(harvestSourceIdOption);
+blockVideoCommand.AddArgument(blockVideoIdArgument);
+blockVideoCommand.AddOption(blockVideoReasonOption);
+blockVideoCommand.AddOption(blockVideoDbOption);
+unblockVideoCommand.AddArgument(unblockVideoIdArgument);
+unblockVideoCommand.AddOption(unblockVideoDbOption);
+listBlockedCommand.AddOption(listBlockedDbOption);
 distillCommand.AddOption(distillDbOption);
 distillCommand.AddOption(distillLimitOption);
 distillCommand.AddOption(distillDryRunOption);
@@ -176,6 +191,9 @@ rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
 rootCommand.AddCommand(contentSourceSetEnabledCommand);
 rootCommand.AddCommand(harvestCommand);
+rootCommand.AddCommand(blockVideoCommand);
+rootCommand.AddCommand(unblockVideoCommand);
+rootCommand.AddCommand(listBlockedCommand);
 rootCommand.AddCommand(distillCommand);
 rootCommand.AddCommand(contentIndexExportCommand);
 
@@ -239,6 +257,21 @@ harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper, string? 
 {
     Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None, CommandRunners.ParseVideoIds(videoIds), sourceId).GetAwaiter().GetResult();
 }, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption, harvestVideoIdsOption, harvestSourceIdOption);
+
+blockVideoCommand.SetHandler((string youtubeVideoId, string? reason, FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunBlockVideoAsync(db, youtubeVideoId, reason, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, blockVideoIdArgument, blockVideoReasonOption, blockVideoDbOption);
+
+unblockVideoCommand.SetHandler((string youtubeVideoId, FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunUnblockVideoAsync(db, youtubeVideoId, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, unblockVideoIdArgument, unblockVideoDbOption);
+
+listBlockedCommand.SetHandler((FileInfo? db) =>
+{
+    Environment.ExitCode = CommandRunners.RunListBlockedAsync(db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, listBlockedDbOption);
 
 distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun, string? videoIds) =>
 {
