@@ -71,6 +71,14 @@ public interface IContentSiteIndexStore
     Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes a single site-index row.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sets evergreen flag for a single site-index row.
     /// </summary>
     /// <param name="id">Site-index row identifier.</param>

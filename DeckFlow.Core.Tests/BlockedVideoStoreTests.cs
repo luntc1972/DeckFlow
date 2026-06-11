@@ -1,5 +1,6 @@
 using System.IO;
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Knowledge;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
@@ -114,4 +115,66 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
         Assert.Equal(1L, (long)result!);
     }
+
+    [Fact]
+    public async Task DeleteVideoByYoutubeIdAsync_DeletesDisabledSourceVideo_AndReturnsZeroForUnknownId()
+    {
+        var sourceStore = new ContentSourceStore(_dbPath);
+        var videoStore = new ContentVideoStore(_dbPath);
+        var sourceId = await sourceStore.InsertSourceAsync(
+            "disabled-source",
+            "Disabled Source",
+            ContentSourceType.Youtube,
+            "https://www.youtube.com/@disabled-source");
+        await sourceStore.SetEnabledAsync(sourceId, isEnabled: false);
+        await videoStore.InsertVideoAsync(
+            sourceId,
+            "disabled-video",
+            rssGuid: null,
+            "Disabled Video",
+            "https://www.youtube.com/watch?v=disabled-video",
+            DateTimeOffset.Parse("2026-06-10T12:00:00Z"),
+            TranscriptStatus.Pending);
+
+        var deleted = await videoStore.DeleteVideoByYoutubeIdAsync("disabled-video");
+        var missingDeleted = await videoStore.DeleteVideoByYoutubeIdAsync("missing-video");
+        var video = await videoStore.GetVideoByYoutubeIdAsync(sourceId, "disabled-video");
+
+        Assert.Equal(1, deleted);
+        Assert.Equal(0, missingDeleted);
+        Assert.Null(video);
+    }
+
+    [Fact]
+    public async Task DeleteByIdAsync_RemovesSiteIndexRow_AndReturnsZeroForMissingId()
+    {
+        var siteIndexStore = new ContentSiteIndexStore(_dbPath);
+        await siteIndexStore.UpsertRowAsync(CreateYoutubeRow("yt-delete"));
+        var row = await siteIndexStore.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-delete");
+
+        var deleted = await siteIndexStore.DeleteByIdAsync(row!.Id);
+        var missingDeleted = await siteIndexStore.DeleteByIdAsync(987_654);
+        var deletedRow = await siteIndexStore.GetByIdAsync(row.Id);
+
+        Assert.Equal(1, deleted);
+        Assert.Equal(0, missingDeleted);
+        Assert.Null(deletedRow);
+    }
+
+    private static ContentSiteIndexRow CreateYoutubeRow(string youtubeVideoId)
+        => new()
+        {
+            Id = 0,
+            Source = "The Command Zone",
+            Title = $"Video {youtubeVideoId}",
+            VideoUrl = $"https://www.youtube.com/watch?v={youtubeVideoId}",
+            ArtifactPath = $"content-kb/command-zone/{youtubeVideoId}.md",
+            PublishedUtc = DateTimeOffset.Parse("2026-05-26T12:00:00Z"),
+            IndexedUtc = DateTimeOffset.Parse("2026-05-26T13:00:00Z"),
+            ArchetypeTags = new[] { "combo", "control" },
+            BracketTags = new[] { "cEDH", "Optimized" },
+            CardCategoryTags = new[] { "win-cons", "counter" },
+            YoutubeVideoId = youtubeVideoId,
+            RssGuid = null
+        };
 }

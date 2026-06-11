@@ -306,6 +306,22 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM content_site_index
+             WHERE id = @id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Sets evergreen flag for a single site-index row.
     /// </summary>

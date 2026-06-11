@@ -71,6 +71,12 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         return Task.FromResult(count);
     }
 
+    public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        var removed = Rows.RemoveAll(row => row.Id == id);
+        return Task.FromResult(removed);
+    }
+
     /// <summary>Sets evergreen flag for a single site-index row.</summary>
     public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default)
     {
