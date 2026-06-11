@@ -204,15 +204,17 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 ### Phase 37.6: Harvest Video Block + Hard-Delete (INSERTED)
 **Goal**: An admin can permanently suppress a harvested YouTube video — its rows are hard-deleted AND its video id is recorded so a later harvest never re-ingests it; benign videos are unaffected
-**Depends on**: Phase 37 (KB un-darked, browse-only). Independent of Phase 37.5 (corpus rebuild) and Phase 38 (SRP split); ordered before 38 so the split covers the new admin action.
-**Requirements**: VBLK-01, VBLK-02, VBLK-03, VBLK-04
-**Scope:** new `blocked_videos` table (YouTube video id PK + reason + blocked_at), keyed on the same id space the harvester ingests; harvester/ingest skip-check that drops a video whose id is in `blocked_videos` BEFORE it is persisted; an admin "Block & delete" action (on the harvest or KB-curation admin view) that hard-deletes the video's rows via the existing orphan `IContentVideoStore.DeleteVideoAsync` AND inserts the block row in one unit; same-origin + antiforgery guard on the mutating POST (matches existing admin mutations). KEEP all other harvest/curation behavior.
+**Depends on**: Phase 37 (KB un-darked, browse-only). Independent of Phase 37.5 (corpus rebuild) and Phase 38 (SRP split).
+**Requirements**: VBLK-01, VBLK-02, VBLK-03, VBLK-04 — see `phases/37.6-harvest-video-block-and-hard-delete/37.6-CONTEXT.md`
+**Architecture (LOCAL-FIRST via CLI):** RESEARCH proved full content + harvester live in local-only `content-kb.db` (never on Render); prod web has only the slim site-index. So the feature is a `DeckFlow.CLI` operation run where harvest runs, NOT a prod-admin action.
+**Scope:** new `blocked_videos` table in local `content-kb.db` (YouTube id STRING key + reason + blocked_at; reset-proof name, carved out of the 37.5 `content_*` purge); ingest skip-check in `CommandRunners` harvest path (before `InsertVideoAsync`); CLI `block-video`/`unblock-video` (+ optional `list-blocked`) that insert the block row FIRST then hard-delete via `IContentVideoStore.DeleteVideoAsync` + a NEW `IContentSiteIndexStore.DeleteByIdAsync` (site-index is a separate DB DeleteVideoAsync can't reach). NO Web/prod-admin changes.
 **Success Criteria** (what must be TRUE):
-  1. Admin invokes "Block & delete" on a harvested video → its `content_videos` (+ dependent transcript/summary/clip/site-index) rows are gone AND a `blocked_videos` row exists for its id
-  2. A subsequent harvest that re-encounters that video id does NOT re-insert it (skip-check fires before persist); a non-blocked video in the same run is still ingested
-  3. The block list survives a corpus reset (blocked_videos is not purged by the Phase 37.5 `content_*` reset, or is explicitly preserved) so re-harvest stays clean
-  4. The mutating endpoint is admin-only (BasicAuth) and rejects cross-origin / missing-antiforgery POSTs
-**Plans**: TBD (run `/gsd-plan-phase 37.6`)
+  1. CLI `block-video <youtube-id>` → its `content_videos` (+ FK-cascaded transcript/summary/clip rows) AND its `content_site_index` entry are gone, AND a `blocked_videos` row exists for the YouTube id
+  2. A subsequent harvest re-encountering that YouTube id does NOT re-insert it (skip-check before `InsertVideoAsync`); a non-blocked video in the same run still ingests
+  3. The block list survives a corpus reset (lives in `content-kb.db` but is named/contracted outside the 37.5 `content_*` reset so re-harvest stays clean)
+  4. `unblock-video <youtube-id>` removes the block row so a later harvest re-ingests it (does not resurrect deleted rows)
+**Plans**: 1 plan, 1 wave
+- [ ] 37.6-01-PLAN.md — blocked_videos store + site-index DeleteByIdAsync + harvest skip-check + block/unblock/list-blocked CLI
 
 ### Phase 38: Controller SRP Split
 **Goal**: `DeckController` and `CommandRunners` are decomposed into focused, single-responsibility units — all existing URLs and CLI commands preserved unchanged, no user-visible behavior altered
@@ -238,7 +240,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | — | ⊘ SKIPPED (gate MARGINAL) | - |
 | 37. Retire Clip-Injection + Un-Dark KB | 2/2 | Complete   | 2026-06-10 |
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
-| 37.6. Harvest Video Block + Hard-Delete | 0/TBD | Not started (INSERTED) | - |
+| 37.6. Harvest Video Block + Hard-Delete | 0/1 | Planned (1 plan, 1 wave) | - |
 | 38. Controller SRP Split | 0/TBD | Not started | - |
 
 ---
