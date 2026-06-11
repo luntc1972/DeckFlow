@@ -15,6 +15,17 @@ public static class DistillationSchemas
         """;
 
     /// <summary>
+    /// Strict schema for transcript classification.
+    /// </summary>
+    public const string ClassificationSchema = """
+        {"type":"object","additionalProperties":false,
+         "properties":{
+            "verdict":{"type":"string","enum":["keep","drop"]},
+            "reason":{"type":"string"}},
+         "required":["verdict","reason"]}
+        """;
+
+    /// <summary>
     /// Strict schema for key clip extraction.
     /// </summary>
     public const string ClipsSchema = """
@@ -45,6 +56,15 @@ public static class DistillationSchemas
         You extract grounded strategy summaries from Magic: The Gathering video transcripts.
         Output only JSON matching the supplied schema.
         Keep the summary 200 words or fewer, plain prose, and grounded only in the transcript.
+        """;
+
+    /// <summary>System prompt for transcript classification.</summary>
+    public static string ClassificationSystemPrompt { get; } = """
+        You classify Magic: The Gathering video transcripts for the Content KB.
+        Output only JSON matching the supplied schema.
+        KEEP transcripts about deckbuilding decisions: card selection, synergy, slot philosophy, cuts, and deckbuilding philosophy with principles or heuristics applied to a deck context.
+        DROP transcripts that are mostly trivia or quiz content, news or set commentary with no deckbuilding application, meta or format philosophy with no actionable deckbuilding advice, intro or announcement or promotional material, or budget-pool reveals without deckbuilding guidance.
+        When in doubt, keep.
         """;
 
     /// <summary>System prompt for key clip extraction.</summary>

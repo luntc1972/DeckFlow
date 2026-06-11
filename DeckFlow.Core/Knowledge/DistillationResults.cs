@@ -11,6 +11,11 @@ public sealed record TokenUsage(int InputTokens, int OutputTokens);
 public sealed record SummaryResult(string Summary, TokenUsage Usage);
 
 /// <summary>
+/// Transcript classification result with a keep/drop verdict and reason.
+/// </summary>
+public sealed record ClassificationResult(string Verdict, string Reason);
+
+/// <summary>
 /// Key clip extracted from a transcript.
 /// </summary>
 public sealed record ClipItem(int? TimestampSeconds, string Excerpt);
