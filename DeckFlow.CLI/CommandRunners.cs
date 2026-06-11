@@ -1573,6 +1573,11 @@ internal static class CommandRunners
         {
             throw new InvalidOperationException("Clip timestamps cannot be negative.");
         }
+
+        if (clips.All(clip => (clip.TimestampSeconds ?? 0) == 0))
+        {
+            throw new InvalidOperationException("Clip extraction cannot return every clip with timestamp 0.");
+        }
     }
 
     private static int CountWords(string text)
