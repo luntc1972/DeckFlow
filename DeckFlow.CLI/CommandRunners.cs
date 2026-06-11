@@ -12,6 +12,7 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Core.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
@@ -551,6 +552,50 @@ internal static class CommandRunners
     }
 
     /// <summary>
+    /// Deletes all content video and site-index rows while preserving source config and blocked videos.
+    /// </summary>
+    /// <param name="db">Optional SQLite path to the content KB database.</param>
+    /// <param name="connectionString">Optional Postgres connection string for a non-SQLite reset target.</param>
+    /// <param name="dryRun">When true, report without deleting.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Process exit code.</returns>
+    public static async Task<int> RunCorpusResetAsync(
+        FileInfo? db,
+        string? connectionString,
+        bool dryRun,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        try
+        {
+            IContentVideoStore videoStore;
+            IContentSiteIndexStore siteIndexStore;
+            if (!string.IsNullOrWhiteSpace(connectionString))
+            {
+                var connection = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString);
+                videoStore = new ContentVideoStore(connection);
+                siteIndexStore = new ContentSiteIndexStore(connection);
+            }
+            else
+            {
+                var dbPath = ResolveContentKbDatabasePath(db);
+                videoStore = new ContentVideoStore(dbPath);
+                siteIndexStore = new ContentSiteIndexStore(dbPath);
+            }
+
+            return await RunCorpusResetAsync(videoStore, siteIndexStore, dryRun, logger, ct).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Corpus reset failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>
     /// Unblocks a harvested YouTube video id so later harvest runs may re-ingest it.
     /// </summary>
     /// <param name="db">Optional path to the content KB database.</param>
@@ -656,6 +701,32 @@ internal static class CommandRunners
         }
 
         logger.Information("unblocked video {VideoId}", youtubeVideoId);
+        return 0;
+    }
+
+    internal static async Task<int> RunCorpusResetAsync(
+        IContentVideoStore videoStore,
+        IContentSiteIndexStore siteIndexStore,
+        bool dryRun,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(videoStore);
+        ArgumentNullException.ThrowIfNull(siteIndexStore);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        if (dryRun)
+        {
+            logger.Information("corpus reset dry-run preserving blocked_videos and content_sources");
+            return 0;
+        }
+
+        var deletedVideos = await videoStore.DeleteAllVideosAsync(ct).ConfigureAwait(false);
+        var deletedSiteIndexRows = await siteIndexStore.DeleteAllRowsAsync(ct).ConfigureAwait(false);
+        logger.Information(
+            "corpus reset deleted_videos={DeletedVideos} deleted_site_index_rows={DeletedSiteIndexRows}",
+            deletedVideos,
+            deletedSiteIndexRows);
         return 0;
     }
 
