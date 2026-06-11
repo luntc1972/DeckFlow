@@ -574,7 +574,9 @@ internal static class CommandRunners
             IContentSiteIndexStore siteIndexStore;
             if (!string.IsNullOrWhiteSpace(connectionString))
             {
-                var connection = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString);
+                var connection = new RelationalDatabaseConnection(
+                    RelationalDatabaseProvider.Postgres,
+                    PostgresConnectionStringNormalizer.Normalize(connectionString));
                 videoStore = new ContentVideoStore(connection);
                 siteIndexStore = new ContentSiteIndexStore(connection);
             }
