@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.IO;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Storage;
 using DeckFlow.CLI;
 using Serilog;
 using Serilog.Events;
@@ -80,6 +81,10 @@ var unblockVideoIdArgument = new Argument<string>("youtube-id");
 var unblockVideoDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var listBlockedCommand = new Command("list-blocked", "List blocked YouTube video ids.");
 var listBlockedDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var corpusResetCommand = new Command("corpus-reset", "Delete all Content KB corpus rows while preserving blocked_videos and content_sources.");
+var corpusResetDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var corpusResetConnectionStringOption = new Option<string?>("--connection-string") { Description = "Explicit Postgres connection string for resetting a non-SQLite Content KB database." };
+var corpusResetDryRunOption = new Option<bool>("--dry-run", () => false) { Description = "Report the reset target without deleting anything." };
 var distillCommand = new Command("distill", "Distill harvested transcripts into Content KB artifacts.");
 var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
@@ -136,6 +141,9 @@ blockVideoCommand.AddOption(blockVideoDbOption);
 unblockVideoCommand.AddArgument(unblockVideoIdArgument);
 unblockVideoCommand.AddOption(unblockVideoDbOption);
 listBlockedCommand.AddOption(listBlockedDbOption);
+corpusResetCommand.AddOption(corpusResetDbOption);
+corpusResetCommand.AddOption(corpusResetConnectionStringOption);
+corpusResetCommand.AddOption(corpusResetDryRunOption);
 distillCommand.AddOption(distillDbOption);
 distillCommand.AddOption(distillLimitOption);
 distillCommand.AddOption(distillDryRunOption);
@@ -194,6 +202,7 @@ rootCommand.AddCommand(harvestCommand);
 rootCommand.AddCommand(blockVideoCommand);
 rootCommand.AddCommand(unblockVideoCommand);
 rootCommand.AddCommand(listBlockedCommand);
+rootCommand.AddCommand(corpusResetCommand);
 rootCommand.AddCommand(distillCommand);
 rootCommand.AddCommand(contentIndexExportCommand);
 
@@ -272,6 +281,21 @@ listBlockedCommand.SetHandler((FileInfo? db) =>
 {
     Environment.ExitCode = CommandRunners.RunListBlockedAsync(db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, listBlockedDbOption);
+
+corpusResetCommand.SetHandler((FileInfo? db, string? connectionString, bool dryRun) =>
+{
+    if (db is not null && !string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new ArgumentException("Specify either --db or --connection-string, not both.");
+    }
+
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        _ = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString);
+    }
+
+    Environment.ExitCode = CommandRunners.RunCorpusResetAsync(db, connectionString, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, corpusResetDbOption, corpusResetConnectionStringOption, corpusResetDryRunOption);
 
 distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun, string? videoIds) =>
 {
