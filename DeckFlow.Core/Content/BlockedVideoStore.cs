@@ -152,7 +152,10 @@ public sealed class BlockedVideoStore : IBlockedVideoStore
         {
             DateTimeOffset dto => dto.ToUniversalTime(),
             DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
+            string text => DateTimeOffset.Parse(
+                text,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
             _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
         };
     }
