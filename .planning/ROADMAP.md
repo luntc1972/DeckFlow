@@ -132,6 +132,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [~] **Phase 36: Creator Philosophy-Profile + KB Un-Dark** — **SKIPPED** (gate MARGINAL). PHIL-01..04 + KBD-01/02 not built; KB stays dark. Pivot recorded: retire the whole-channel clip-injection feature.
 - [x] **Phase 37: Retire Clip-Injection + Un-Dark KB** — RET-01..06 *(remove the gate-condemned injection, un-dark the `/content-kb` browse, add a deck-analysis pointer to the KB's copyable prompts)* (completed 2026-06-10)
 - [ ] **Phase 37.5: Rebuild KB Corpus** — REBUILD-01..05 *(reset corpus + re-harvest salubrious-snail under a deck-advice/philosophy LLM+manual quality filter; fix the `[00:00]` clip-extraction defect)*
+- [ ] **Phase 37.6: Harvest Video Block + Hard-Delete** — VBLK-01..04 *(admin blocks a YouTube video by id so the harvester never re-ingests it, and hard-deletes its rows)* (INSERTED)
 - [ ] **Phase 38: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — runs after the KB work so it splits slimmed controllers)*
 
 ---
@@ -201,6 +202,18 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   3. `/content-kb` lists the rebuilt entries; Detail renders summary/clips HTML-encoded with a working "Copy artifact"
 **Plans**: TBD
 
+### Phase 37.6: Harvest Video Block + Hard-Delete (INSERTED)
+**Goal**: An admin can permanently suppress a harvested YouTube video — its rows are hard-deleted AND its video id is recorded so a later harvest never re-ingests it; benign videos are unaffected
+**Depends on**: Phase 37 (KB un-darked, browse-only). Independent of Phase 37.5 (corpus rebuild) and Phase 38 (SRP split); ordered before 38 so the split covers the new admin action.
+**Requirements**: VBLK-01, VBLK-02, VBLK-03, VBLK-04
+**Scope:** new `blocked_videos` table (YouTube video id PK + reason + blocked_at), keyed on the same id space the harvester ingests; harvester/ingest skip-check that drops a video whose id is in `blocked_videos` BEFORE it is persisted; an admin "Block & delete" action (on the harvest or KB-curation admin view) that hard-deletes the video's rows via the existing orphan `IContentVideoStore.DeleteVideoAsync` AND inserts the block row in one unit; same-origin + antiforgery guard on the mutating POST (matches existing admin mutations). KEEP all other harvest/curation behavior.
+**Success Criteria** (what must be TRUE):
+  1. Admin invokes "Block & delete" on a harvested video → its `content_videos` (+ dependent transcript/summary/clip/site-index) rows are gone AND a `blocked_videos` row exists for its id
+  2. A subsequent harvest that re-encounters that video id does NOT re-insert it (skip-check fires before persist); a non-blocked video in the same run is still ingested
+  3. The block list survives a corpus reset (blocked_videos is not purged by the Phase 37.5 `content_*` reset, or is explicitly preserved) so re-harvest stays clean
+  4. The mutating endpoint is admin-only (BasicAuth) and rejects cross-origin / missing-antiforgery POSTs
+**Plans**: TBD (run `/gsd-plan-phase 37.6`)
+
 ### Phase 38: Controller SRP Split
 **Goal**: `DeckController` and `CommandRunners` are decomposed into focused, single-responsibility units — all existing URLs and CLI commands preserved unchanged, no user-visible behavior altered
 **Depends on**: Phase 37 (split operates on the post-retire, slimmed controllers; otherwise independent of all KB phases)
@@ -216,7 +229,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 ## Progress
 
 **Execution Order (v1.6):**
-Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 38 (SRP split). Milestone closes after Phase 38.
+Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 37.5 (rebuild corpus) → Phase 37.6 (harvest block + hard-delete) → Phase 38 (SRP split). Milestone closes after Phase 38.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -225,8 +238,8 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 36. Creator Philosophy-Profile + KB Un-Dark *(CONDITIONAL)* | — | ⊘ SKIPPED (gate MARGINAL) | - |
 | 37. Retire Clip-Injection + Un-Dark KB | 2/2 | Complete   | 2026-06-10 |
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
+| 37.6. Harvest Video Block + Hard-Delete | 0/TBD | Not started (INSERTED) | - |
 | 38. Controller SRP Split | 0/TBD | Not started | - |
-| 37. Controller SRP Split | 0/TBD | Not started | - |
 
 ---
 
