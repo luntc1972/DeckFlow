@@ -809,6 +809,14 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(utcNow);
 
+        if (!dryRun && !isSubscriptionProvider)
+        {
+            const string message = "classifier requires the subscription LLM CLI (set DECKFLOW_LLM_PROVIDER to a subscription provider); refusing to run an unmetered classifier on a metered provider.";
+            logger.Error(message);
+            Console.Error.WriteLine(message);
+            return 1;
+        }
+
         // Why: explicit --video-ids means "exactly these", so the recent-N clip is bypassed.
         var requestedKeys = videoIds is { Count: > 0 }
             ? new HashSet<string>(videoIds, StringComparer.Ordinal)
@@ -955,9 +963,10 @@ internal static class CommandRunners
         }
 
         logger.Information(
-            "distill complete sources={SourcesProcessed} videos_distilled={VideosDistilled} llm_calls={LlmCalls} spend_usd={SpendUsd:F6} distill_failed={DistillFailed} failed_video_ids={FailedVideoIds}",
+            "distill complete sources={SourcesProcessed} videos_distilled={VideosDistilled} videos_filtered={VideosFiltered} llm_calls={LlmCalls} spend_usd={SpendUsd:F6} distill_failed={DistillFailed} failed_video_ids={FailedVideoIds}",
             counts.SourcesProcessed,
             counts.VideosDistilled,
+            counts.VideosFiltered,
             counts.LlmCalls,
             counts.LlmSpendUsd,
             counts.DistillFailed,
@@ -1383,18 +1392,23 @@ internal static class CommandRunners
                 ?? throw new InvalidOperationException($"Transcript missing for {naturalKey}.");
             ValidateTranscriptLength(transcript.Body);
 
-            var projectedVideoCost = isSubscriptionProvider ? 0m : ComputeProjectedVideoCostUsd(transcript.Body);
-            if (!isSubscriptionProvider && await ledger.WouldExceedCapAsync(projectedVideoCost, monthKey, ct).ConfigureAwait(false))
+            var classification = await distiller.ClassifyAsync(transcript.Body, ct).ConfigureAwait(false);
+            if (string.Equals(classification.Verdict, "drop", StringComparison.OrdinalIgnoreCase))
             {
-                return await MarkSkippedOverCapAsync(
-                    videoStore,
-                    video.Id,
-                    naturalKey,
-                    "llm monthly cap would be exceeded before distilling " + naturalKey,
-                    llmCalls,
-                    llmSpend,
-                    logger,
-                    ct).ConfigureAwait(false);
+                var (naturalKeyType, naturalKeyValue) = GetContentNaturalKeyInfo(video);
+                await videoStore.SetDistillStatusAsync(video.Id, DistillStatusFiltered, ct).ConfigureAwait(false);
+                await videoStore.ClearDistillOutputAsync(video.Id, ct).ConfigureAwait(false);
+
+                var existingIndexRow = await indexStore
+                    .GetByNaturalKeyAsync(naturalKeyType, naturalKeyValue, ct)
+                    .ConfigureAwait(false);
+                if (existingIndexRow is not null)
+                {
+                    await indexStore.DeleteByIdAsync(existingIndexRow.Id, ct).ConfigureAwait(false);
+                }
+
+                logger.Information("filtered {VideoId} reason={Reason}", naturalKey, classification.Reason);
+                return DistillVideoOutcome.Filtered();
             }
 
             await videoStore.ClearDistillOutputAsync(video.Id, ct).ConfigureAwait(false);
@@ -1606,6 +1620,9 @@ internal static class CommandRunners
     }
 
     private static string GetContentNaturalKey(ContentVideo video)
+        => GetContentNaturalKeyInfo(video).NaturalKeyValue;
+
+    private static (string NaturalKeyType, string NaturalKeyValue) GetContentNaturalKeyInfo(ContentVideo video)
     {
         var hasYoutubeVideoId = !string.IsNullOrWhiteSpace(video.YoutubeVideoId);
         var hasRssGuid = !string.IsNullOrWhiteSpace(video.RssGuid);
@@ -1614,7 +1631,9 @@ internal static class CommandRunners
             throw new InvalidOperationException("Exactly one content natural key is required for distillation.");
         }
 
-        return hasYoutubeVideoId ? video.YoutubeVideoId! : video.RssGuid!;
+        return hasYoutubeVideoId
+            ? (ContentSourceType.Youtube, video.YoutubeVideoId!)
+            : (ContentSourceType.Podcast, video.RssGuid!);
     }
 
     private static void ValidateTranscriptLength(string transcript)
@@ -2015,12 +2034,15 @@ internal static class CommandRunners
     private const string DistillStatusDistilled = "distilled";
     private const string DistillStatusSkippedOverCap = "skipped_over_cap";
     private const string DistillStatusFailed = "failed";
+    private const string DistillStatusFiltered = "filtered";
 
     private sealed class DistillCounts
     {
         public int SourcesProcessed { get; set; }
 
         public int VideosDistilled { get; private set; }
+
+        public int VideosFiltered { get; private set; }
 
         public int DistillFailed { get; private set; }
 
@@ -2043,6 +2065,11 @@ internal static class CommandRunners
                 VideosDistilled++;
             }
 
+            if (outcome.IsFiltered)
+            {
+                VideosFiltered++;
+            }
+
             if (outcome.FailedVideoId is not null)
             {
                 DistillFailed++;
@@ -2053,19 +2080,23 @@ internal static class CommandRunners
 
     private sealed record DistillVideoOutcome(
         bool IsDistilled,
+        bool IsFiltered,
         int LlmCalls,
         decimal LlmSpendUsd,
         string? FailedVideoId,
         string? AbortedReason)
     {
         public static DistillVideoOutcome Distilled(int llmCalls, decimal llmSpendUsd)
-            => new(true, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: null);
+            => new(true, false, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: null);
 
         public static DistillVideoOutcome Failed(int llmCalls, decimal llmSpendUsd, string failedVideoId)
-            => new(false, llmCalls, llmSpendUsd, failedVideoId, AbortedReason: null);
+            => new(false, false, llmCalls, llmSpendUsd, failedVideoId, AbortedReason: null);
+
+        public static DistillVideoOutcome Filtered()
+            => new(false, true, 0, 0m, FailedVideoId: null, AbortedReason: null);
 
         public static DistillVideoOutcome SkippedOverCap(int llmCalls, decimal llmSpendUsd, string abortedReason)
-            => new(false, llmCalls, llmSpendUsd, FailedVideoId: null, abortedReason);
+            => new(false, false, llmCalls, llmSpendUsd, FailedVideoId: null, abortedReason);
     }
 
     private sealed class HarvestCounts

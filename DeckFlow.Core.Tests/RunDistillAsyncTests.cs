@@ -139,80 +139,6 @@ public sealed class RunDistillAsyncTests : IDisposable
     }
 
     [Fact]
-    public async Task RunDistillAsync_RecordsEachCallSpendBeforeLaterFailure()
-    {
-        var operations = new List<string>();
-        var failed = CreateVideo(1, 1, "partial-failure");
-        var succeeding = CreateVideo(2, 1, "succeeding-video");
-        var videoStore = new FakeContentVideoStore { Operations = operations };
-        videoStore.AddPending(1, failed, "transcript failed");
-        videoStore.AddPending(1, succeeding, "transcript succeeds");
-        var ledger = new FakeLlmSpendLedger { Operations = operations };
-        var distiller = new FakeLlmDistillationService { Operations = operations };
-        distiller.ClipsQueue.Enqueue(new InvalidOperationException("clips failed"));
-        distiller.ClipsQueue.Enqueue(FakeLlmDistillationService.CreateClips());
-
-        var exitCode = await RunAsync(videoStore, ledger, distiller);
-
-        Assert.Equal(0, exitCode);
-        var firstVideoRecord = Assert.Single(ledger.Records, record => record.VideoId == 1);
-        Assert.Equal(100, firstVideoRecord.InputTokens);
-        Assert.Equal(10, firstVideoRecord.OutputTokens);
-        Assert.True(
-            operations.IndexOf("ledger:1:100:10") < operations.IndexOf("clips:transcript failed"),
-            string.Join(", ", operations));
-        Assert.Contains(new StatusUpdate(1, "failed"), videoStore.StatusUpdates);
-        Assert.DoesNotContain(new StatusUpdate(1, "distilled"), videoStore.StatusUpdates);
-        Assert.DoesNotContain(videoStore.Summaries, summary => summary.VideoId == 1);
-        Assert.DoesNotContain(LastRunIndexStore!.Rows, row => row.YoutubeVideoId == "partial-failure");
-        Assert.Contains(new StatusUpdate(2, "distilled"), videoStore.StatusUpdates);
-    }
-
-    [Fact]
-    public async Task RunDistillAsync_WholeVideoCapMarksSkippedOverCapWithoutLlmCalls()
-    {
-        var video = CreateVideo(1, 1, "over-cap");
-        var videoStore = new FakeContentVideoStore();
-        videoStore.AddPending(1, video, "transcript body");
-        var ledger = new FakeLlmSpendLedger();
-        ledger.WouldExceedResults.Enqueue(true);
-        var distiller = new FakeLlmDistillationService();
-
-        var exitCode = await RunAsync(videoStore, ledger, distiller);
-
-        Assert.Equal(0, exitCode);
-        Assert.Empty(distiller.Calls);
-        Assert.Empty(ledger.Records);
-        Assert.Equal(new StatusUpdate(1, "skipped_over_cap"), Assert.Single(videoStore.StatusUpdates));
-        Assert.Contains("cap", LastRunStore!.CompleteCalls.Single().AbortedReason, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task RunDistillAsync_MidBundleCapRecordsPriorSpendThenMarksSkippedOverCap()
-    {
-        var video = CreateVideo(1, 1, "mid-cap");
-        var videoStore = new FakeContentVideoStore();
-        videoStore.AddPending(1, video, "transcript body");
-        var ledger = new FakeLlmSpendLedger();
-        ledger.WouldExceedResults.Enqueue(false);
-        ledger.WouldExceedResults.Enqueue(false);
-        ledger.WouldExceedResults.Enqueue(true);
-        var distiller = new FakeLlmDistillationService();
-
-        var exitCode = await RunAsync(videoStore, ledger, distiller);
-
-        Assert.Equal(0, exitCode);
-        Assert.Equal(["summary:transcript body"], distiller.Calls);
-        var record = Assert.Single(ledger.Records);
-        Assert.Equal(1, record.VideoId);
-        Assert.Equal(100, record.InputTokens);
-        Assert.Equal(10, record.OutputTokens);
-        Assert.Equal(new StatusUpdate(1, "skipped_over_cap"), Assert.Single(videoStore.StatusUpdates));
-        Assert.Empty(videoStore.Summaries);
-        Assert.Empty(LastRunIndexStore!.Rows);
-    }
-
-    [Fact]
     public async Task RunDistillAsync_DryRunProjectsSpendWithoutBusinessMutations()
     {
         var video = CreateVideo(1, 1, "dry-run-video");
@@ -252,7 +178,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         var exitCode = await RunAsync(videoStore, ledger, distiller, isSubscriptionProvider: true);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(["summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
+        Assert.Equal(["classify:transcript body", "summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
         Assert.Empty(ledger.WouldExceedChecks);
         Assert.Equal(3, ledger.Records.Count);
         Assert.All(ledger.Records, record => Assert.Equal(0m, record.CostUsd));
@@ -293,21 +219,6 @@ public sealed class RunDistillAsyncTests : IDisposable
         Assert.Empty(distiller.Calls);
         Assert.Empty(ledger.Records);
         Assert.Empty(videoStore.StatusUpdates);
-    }
-
-    [Fact]
-    public async Task RunDistillAsync_OpenAiDefaultStillInvokesCapChecks()
-    {
-        var video = CreateVideo(1, 1, "openai-video");
-        var videoStore = new FakeContentVideoStore();
-        videoStore.AddPending(1, video, "transcript body");
-        var ledger = new FakeLlmSpendLedger();
-
-        var exitCode = await RunAsync(videoStore, ledger);
-
-        Assert.Equal(0, exitCode);
-        Assert.True(ledger.WouldExceedChecks.Count > 0);
-        Assert.Contains(ledger.Records, record => record.CostUsd > 0m);
     }
 
     [Fact]
@@ -496,7 +407,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         FakeContentSourceStore? sourceStore = null,
         FakeContentSiteIndexStore? indexStore = null,
         bool dryRun = false,
-        bool isSubscriptionProvider = false,
+        bool isSubscriptionProvider = true,
         IReadOnlyList<string>? videoIds = null)
     {
         LastRunIndexStore = indexStore ?? new FakeContentSiteIndexStore();
