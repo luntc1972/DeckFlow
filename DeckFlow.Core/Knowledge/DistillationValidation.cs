@@ -65,6 +65,19 @@ internal static class DistillationValidation
             SanitizeTagDimension(payload.CardCategory, ContentTagVocabulary.CardCategories));
     }
 
+    internal static ClassificationPayload SanitizeClassification(ClassificationPayload payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        var verdict = payload.Verdict?.Trim().ToLowerInvariant();
+        if (verdict is not "keep" and not "drop")
+        {
+            throw new InvalidOperationException($"Classification verdict '{payload.Verdict}' is invalid.");
+        }
+
+        return new ClassificationPayload(verdict, payload.Reason);
+    }
+
     internal static int CountWords(string text)
         => GetWords(text).Length;
 
@@ -135,6 +148,9 @@ internal sealed record SummaryPayload(string Summary);
 
 /// <summary>JSON payload shape for the clip extraction call.</summary>
 internal sealed record ClipsPayload(IReadOnlyList<ClipItem> Clips);
+
+/// <summary>JSON payload shape for the classification call.</summary>
+internal sealed record ClassificationPayload(string Verdict, string? Reason);
 
 /// <summary>JSON payload shape for the tag extraction call.</summary>
 internal sealed record TagsPayload(
