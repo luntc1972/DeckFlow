@@ -200,7 +200,10 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   1. Corpus reset to empty, then re-harvested: only quality-filtered Salubrious Snail deck-advice/philosophy videos indexed; a sampled junk video (trivia/news/intro) is demonstrably dropped
   2. Published entries' clips have real, distinct, non-zero timestamps at the advice moment (spot-check vs the video); an all-timestamp-0 distill is rejected
   3. `/content-kb` lists the rebuilt entries; Detail renders summary/clips HTML-encoded with a working "Copy artifact"
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 37.5-01-PLAN.md — corpus-reset CLI command + 3-site clip-timestamp fix (fetcher [mm:ss] + clips prompt + all-zero rejection) + store purge methods (REBUILD-01, REBUILD-03)
+- [ ] 37.5-02-PLAN.md — LLM quality classifier gate in distill flow + 'filtered' distill status w/ idempotent CHECK migration (REBUILD-02)
+- [ ] 37.5-03-PLAN.md — live pilot: reset (local+prod) → re-harvest snail → distill → operator publish → browse/copy verify (REBUILD-01..05, manual checkpoints)
 
 ### Phase 37.6: Harvest Video Block + Hard-Delete (INSERTED)
 **Goal**: An admin can permanently suppress a harvested YouTube video — its rows are hard-deleted AND its video id is recorded so a later harvest never re-ingests it; benign videos are unaffected
