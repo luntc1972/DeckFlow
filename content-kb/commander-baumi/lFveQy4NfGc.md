@@ -4,29 +4,29 @@ title: "This Commander Turns Magic Upside Down"
 url: "https://www.youtube.com/watch?v=lFveQy4NfGc\u0026list=UU98mf08y3Dv_4chuyX1VIkw"
 video_id: "lFveQy4NfGc"
 tags:
-  archetype: ["combo","value-engine","control","ramp"]
-  bracket: ["Exhibition","Core","Upgraded"]
-  card_category: ["ramp","draw","counter","protection","recursion","utility","finishers"]
-generated_utc: "2026-06-08T22:42:24Z"
+  archetype: ["value-engine","control","combo"]
+  bracket: ["Core","Upgraded"]
+  card_category: ["ramp","draw","counter","protection","win-cons","recursion"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-Princess Uae is a blue 0/2 commander that scrys two each turn and, when she dies, returns as a colorless land called Moon. The deck exploits unconditional, legend-rule-obeying clones (Clone, Phantasmal Image, Phyrexian Metamorph, Clever Impersonator). Cloning Uae forces a legend-rule sacrifice; the dying clone-Uae returns as Moon while still mid-clone, letting you imprint an opponent's creature onto an indestructible-ish land. This makes value engines resilient to sweepers and land-light removal, doubles as ramp, and fixes cloning's tempo problem. Best Moon targets have tap/untap triggers: Scare Tiller (ramp), Fellow Sage (draw), Arbiter of the Ideal, plus draw engines like Seedborn synergy, River Kelpie, and Scrolling Crawler as a damage wincon. Glen Elendra Archmage as a Moon recurs persist to lock noncreature spells. Copy-land effects rebuild the creature version, enabling Mirrorform/Vesuva tricks. The build runs 18 clones for consistency. Two lists: a 50-euro bracket-two precon-friendly version with harmless tokens, and a nastier bracket-three version with Abhorrent Oculus, Grappling Kraken, Royal Elemental, and Hullbreaker Horror. Uae rarely gets removed since she seems unthreatening, and free scry-two each turn smooths the clunky strategy.
+Princess Uae is a free blue 2-mana commander that scries two each turn and, when she dies, returns tapped as a colorless land called Moon. Using unconditional, non-token clones that obey the legend rule (Clone, Phantasmal Image, Phyrexian Metamorph, etc.), you clone Uae herself; the legend rule forces sacrificing the clone, it dies, touches the graveyard to reset, and returns as Moon — at which point the clone re-enters and copies any creature, imprinting that creature's abilities onto a resilient, mana-producing land. This makes value engines hard to remove and doubles as ramp. Best targets are tap/untap-triggered or card-draw creatures (Scare Tiller, Fellow Sage, Arbiter of the Ideal, River Kelpie, Scroll-Crawler, Glen Elendra Archmage for a soft counter-lock). The deck runs ~18 clones plus self-targets and leans on Uae's free scry-two for consistency. Two builds: a budget bracket-two precon-friendly list with harmless threats, and a nastier bracket-three list (Abhorrent Oculus, Grappling Kraken, Royal Elemental, Hullbreaker Horror). Win condition often a free Scroll-Crawler Moon draining opponents. Uae rarely gets removed since she's no immediate threat, and lands evade most removal.
 
 ## Key Clips
 
-- Princess Uae is a blue free mana free two. She can tap to let us scry two. And when she dies, she returns to the battlefield tapped as a land called Moon. This land taps for colorless mana and has no other abilities.
-- Princess Uae's quirks revolve around clone cards. They have to be an actual permanent card, not a token. They need to not circumvent the legend rule, let us clone our own creatures, and be unconditional. Clone, just basic clone, is our ideal.
-- We cast clone choosing Princess Uae, are forced to sacrifice the duplicate legend, the clone Uae dies and returns as a land called Moon. It's still Clone entering, so we choose the Unagi of Kyoshi Island ΓÇö imprinting the Unagi's abilities onto a land.
-- Lands are resilient. Most decks only play very limited land removal. If we imprint something good onto a land, we can be almost certain it'll stick around. This fixes cloning decks' biggest weakness: recovering from sweepers and empty board states.
-- The Unagi Moon is still just a land. We can tap it for mana and cast spells, which opens up a lot of deck space because we don't really need ramp.
-- Rulings: the imprinted moon retains the supertypes of the target, so it can be legendary, but is always called Moon ΓÇö capping you at one legendary Moon. And copy-land effects like Vesuva or Copy Land recreate the non-land original, letting you store creatures in lands and re-summon them, e.g. with Mirrorform.
-- Both decks play 18 clones ΓÇö enough that we always have one available but not so many that we get flooded. Best clones are cheaper ones like Phantasmal Image and Phyrexian Metamorph, or upside clones like Clever Impersonator and Stunt Double.
-- Best mooning targets have tap/untap triggers: Scare Tiller ramps a land when tapped, Fellow Sage draws a card when tapped, Arbiter of the Ideal cheats permanents into play when untapped. Glen Elendra Archmage made a Moon can effectively lock opponents out of non-creature spells via persist plus re-imprinting.
+- **[02:51]** Lands are resilient. Most decks only play very limited land removal. So, if we imprint something good onto a land, we can be almost certain it'll stick around for the rest of the game.
+- **[03:33]** Cloning decks struggle at recovering from empty board states in the mid to late game. Princess Uae fixes this by ensuring the value engines we copy stick around regardless of interaction.
+- **[04:55]** If you use a card like Vesuva or Copy Land to create a copy of a moon, it enters as a copy of the non-land version. This means we can store creatures in lands, and then later use those lands to re-summon those creatures.
+- **[08:02]** Both decks play 18 clones. I found that to be enough that we always have one available, but not so many that we get flooded.
+- **[08:29]** Alongside our clones, we want to play a handful of our own cloning targets, so we just have something on the board worth cloning. Otherwise we might end up with a bunch of clones in hand but nothing we want to copy.
+- **[09:21]** Painting card draw onto our moons is a great way to build reliable advantage. River Kelpie turns all of our clones into a guaranteed draw because they always touch the graveyard before becoming Moons.
+- **[12:33]** Make a moon copy of Glen Elendra Archmage; sacrifice it to counter, persist returns it, then re-enter as Princess Uae and re-imprint so it returns without minus-one counters. A Glen Elendra moon can effectively lock opponents out of casting non-creature spells.
+- **[13:22]** Princess Uae lets us scry two every turn at no cost. It drastically increases the quality of our draws and lets us pursue a weird, clunky strategy with a high level of efficiency.
 
 ## Tags
 
-**Archetypes/Strategy:** combo, value-engine, control, ramp
-**Format/Bracket:** Exhibition, Core, Upgraded
-**Card Categories:** ramp, draw, counter, protection, recursion, utility, finishers
+**Archetypes/Strategy:** value-engine, control, combo
+**Format/Bracket:** Core, Upgraded
+**Card Categories:** ramp, draw, counter, protection, win-cons, recursion

@@ -4,29 +4,29 @@ title: "Breaking Down My Supporters\u0027 Most Perplexing Brews  |  Autumn 2025 
 url: "https://www.youtube.com/watch?v=KUzfPOn6IIk\u0026list=UUx46SGlFHhmBGUVbeudoatA"
 video_id: "KUzfPOn6IIk"
 tags:
-  archetype: ["voltron","aristocrats","stax","combo","control","tokens","spellslinger","reanimator","blink","tribal","lands","ramp","midrange","value-engine"]
-  bracket: ["Core","Optimized"]
+  archetype: ["voltron","aristocrats","stax","combo","control","tokens","spellslinger","reanimator","lands","ramp","midrange","value-engine"]
+  bracket: ["Exhibition","Core","Upgraded","Optimized","cEDH"]
   card_category: ["ramp","removal","draw","finishers","win-cons","counter","protection","board-wipe","tutor","recursion","utility"]
-generated_utc: "2026-06-08T21:56:13Z"
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-A deck-review video critiquing viewer-submitted Commander decks. Recurring advice: audit support cards so they genuinely mesh with the gameplan rather than stapling incidental lifegain or running inefficient 1-for-1 removal. For Bilbo lifegain, push one synergy hard (many small lifegain triggers) and add low-mana-value subthemes for recursion and board-wipe recovery. For Saruman control, prioritize card-efficient interaction (incomplete wipes like Tragic Arrogance that keep him alive), run ~20-21 interaction pieces, add flash enablers and bigger mana rocks, and use large reanimation spells as wincons. Darien midrange wants tutors, subgame cards (Monarch/Initiative), and light stax. Mardu landfall feels disjointedΓÇölean into incremental land recursion or a tokens direction rather than the mass-land-sac/Second Sunrise combo. Smeagol aristocrats lacks closers; add drain, landfall, or Syr Konrad. For Muldrotha/Grim Captain, consider swapping the commander (Glarb, Yarok, or Felix Five-Boots). Budget Aphemia should add mill and drain payoffs instead of weak auras. Garland political deck can add tutors, equipment, and goad. Wort/Hostility combo needs more lands/ramp and a token-making secondary plan. Gilgamesh voltron wants more haste enablers, equip-cost cheating, and interaction.
+A deck-review video critiquing nine viewer-submitted Commander decks with recurring deckbuilding advice. For Alex's Bilbo lifegain deck, the reviewer urges auditing lifegain cards so they actually support the gameplan rather than incidentally gaining life, and suggests a low-mana-value subtheme for recursion against board wipes. For GLG Misclick's Saruman control deck, he advises swapping cheap one-for-one removal for card-efficient mass removal (around 20-21 pieces), since slow reactive decks favor card efficiency over mana efficiency. Ace's Darien token deck needs tutors and proactive threats so opponents have reason to attack. CannyAcumen's Mardu landfall burn feels like two decks merged; he recommends committing to incremental land recursion or a tokens direction and cutting the Second Sunrise/mass-sac package. Nicolas's Smeagol aristocrats lacks wincons and draw; add drain, landfall, or beefier draw. Fishfood's Muldrotha/Grim Captain deck is well-built; he proposes alternative Sultai commanders (Glarb, Yarok, Felix Five-Boots). Josh's Aphemia deck over-prioritizes enchantment count; map the gameplan and add mill plus payoffs. Recurring themes: prioritize synergy over compression, match removal efficiency to deck speed, run focused tutors, and ensure each deck can actually close games.
 
 ## Key Clips
 
-- It's worth doing an audit of this deck's lifegain cards and asking if they actually mesh with the deck's gameplan, because it's better to have your support cards be better tuned to the deck's play patterns than to have something out of place that also gains a little life.
-- My best theory about the drain cards is that there's intended to be just enough of them to one-shot all opponents with a Bilbo activation, and this deck has plenty of lifegain to push toward that magic 111 number. Still, I'd love to see this deck pick a synergy element and push harder into it, preferably one that does things with lots of small lifegain triggers since that's what Bilbo's triggered ability rewards.
-- In my experience, it's best to prioritize mana efficient removal in fast proactive decks, and to prioritize card efficient removal in slower, more reactive decks. 1 for 1s just aren't that good in the long term of a game, and this is absolutely a deck that will experience the long term of a game, so I'd try to push the interaction in a more card efficient direction.
-- Darien wants to be a deterrent to attacks, and he wants to put opponents into a pickle of what to do about him plus a soul sister, but he can't do that too well unless opponents actually have a reason to attack in. For this reason, I think this deck really wants some tutors, more so than the vast majority of decks.
-- The current list feels a bit disjointed, almost like two different decks smushed together. The issue is that without a source of mass land sac, second sunrise effects just aren't all that great, and those sac sources themselves aren't very desirable without the accompanying mass recur spell.
-- The biggest issue is a lack of ways to close out the game. There aren't any drain payoffs like you might find in other aristocrat decks, and even more surprisingly there's a complete lack of landfall in the deck. Outside of the cards to recur big opposing threats, the creatures in this deck just don't hit very hard.
-- Aphemia's effect isn't particularly high-powered, and it simply doesn't scale well on its own. These triggers alone won't win you games, and putting too much focus on this single aspect of the deck seems like it's taking away space from cards that could support your gameplan in other ways. I would start by constructing a road map of what the deck is doing.
-- One of the biggest parts of building this sort of soft combo deck in EDH will be balancing how effective the central cards are in the combo, vs how much they blend into the rest of the deck. The lower-costed damage options seem likely better in a combo scenario, while the higher-costed ones are a bit clunkier, but nice for Wort-copying outside of comboing.
+- **[02:07]** It's worth doing an audit of this deck's lifegain cards and asking if they actually mesh with the deck's gameplan, because it's better to have your support cards be better tuned to the deck's play patterns than to have something out of place that also gains a little life.
+- **[02:55]** I'd love to see this deck pick a synergy element and push harder into it, preferably one that does things with lots of small lifegain triggers since that's what Bilbo's triggered ability rewards.
+- **[05:10]** In my experience, it's best to prioritize mana efficient removal in fast proactive decks, and to prioritize card efficient removal in slower, more reactive decks. 1 for 1s just aren't that good in the long term of a game.
+- **[08:49]** This deck can assemble scary token boards, but it could just as easily draw into a portion of the deck that doesn't do a whole lot. For this reason, I think this deck really wants some tutors, more so than the vast majority of decks.
+- **[11:47]** Despite its cool factor the current list feels a bit disjointed, like two different decks smushed together. Without a source of mass land sac, second sunrise effects just aren't all that great, and those sac sources aren't very desirable without the accompanying mass recur spell.
+- **[16:36]** This is a fast-ramping deck with a middle-of-the-road mana curve—all these 1 and 2 cost cards to trigger Smeagol are pretty ephemeral as topdecks go. One solution could be pumping up the average mana value by cutting lower-costed cards for higher-costed cards.
+- **[23:57]** I would start by constructing a road map of what the deck is doing, then grab cards that accomplish these different tasks, and importantly, ask what else these cards might be able to do.
+- **[28:27]** There's a dramatic difference between a deck with 3 tutors and a deck with 8 or 10. Running tutors for your key cards lets the deck do what it wants to be doing rather than being a more generic deck a larger amount of the time.
 
 ## Tags
 
-**Archetypes/Strategy:** voltron, aristocrats, stax, combo, control, tokens, spellslinger, reanimator, blink, tribal, lands, ramp, midrange, value-engine
-**Format/Bracket:** Core, Optimized
+**Archetypes/Strategy:** voltron, aristocrats, stax, combo, control, tokens, spellslinger, reanimator, lands, ramp, midrange, value-engine
+**Format/Bracket:** Exhibition, Core, Upgraded, Optimized, cEDH
 **Card Categories:** ramp, removal, draw, finishers, win-cons, counter, protection, board-wipe, tutor, recursion, utility
