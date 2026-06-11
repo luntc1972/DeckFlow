@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 ## Current Position
 
-Phase: 37.6 (harvest-video-block-and-hard-delete) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 37.6
-Reqs: RET-01..06 all covered (37-01: 01/02/05 · 37-02: 03/04/06). RESEARCH flagged 5 CONTEXT discrepancies — all folded in (both packet JSON fields; browse-page kb-selection strip; content-kb-admin.ts full delete; accordion 182–232; nav-copy rewrite).
-Next after 37: Phase 37.5 (rebuild corpus — CONTEXT ready), then Phase 38 (SRP split).
-Last activity: 2026-06-11 -- Phase 37.6 execution started
+Phase: 37.5 (rebuild-kb-corpus) — COMPLETE (live pilot PASS local+prod)
+Plan: 3 of 3 (all complete)
+Status: Phase 37.5 done; REBUILD-01..05 validated end-to-end
+Reqs: REBUILD-01..05 all live-validated. 3 waves: 01 corpus-reset + clip-timestamp fix (Codex/review), 02 classifier gate + 'filtered' status (Codex/review), 03 operator live pilot (local uat-content-kb.db + prod Render Postgres). Distill 7 kept / 5 filtered / $0. Clips real mid-video [mm:ss]. 3 UAT defects fixed (Deck Primer Build-group tile 14353aa; corpus-reset postgres:// URL normalize d2ee743; Postgres filtered-status migration empty-constraint guard d28ef10).
+Next: Phase 38 (Controller SRP Split — milestone closer). FOLLOW-ON (operator, not a blocker): prod go-live = commit new content-kb/ artifacts + index-seed.json → deploy → prod /Admin publish 7 survivors.
+Last activity: 2026-06-11 -- Phase 37.5 complete (live pilot PASS)
 
 ## Accumulated Context — Key Decisions (v1.6)
 
