@@ -1,0 +1,59 @@
+using DeckFlow.Core.Storage;
+using Npgsql;
+using Xunit;
+
+namespace DeckFlow.Core.Tests;
+
+public sealed class PostgresConnectionStringNormalizerTests
+{
+    [Fact]
+    public void Normalize_PostgresUrl_ConvertsToKeyValueWithHostPortDatabase()
+    {
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host:5433/dbname");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.Equal("host", builder.Host);
+        Assert.Equal(5433, builder.Port);
+        Assert.Equal("dbname", builder.Database);
+        Assert.Equal("u", builder.Username);
+        Assert.Equal("p", builder.Password);
+    }
+
+    [Fact]
+    public void Normalize_UrlWithoutPort_Defaults5432()
+    {
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host/dbname");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.Equal(5432, builder.Port);
+    }
+
+    [Fact]
+    public void Normalize_UrlEncodedUserInfo_Unescapes()
+    {
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p%40ss@host:5433/dbname");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.Equal("u", builder.Username);
+        Assert.Equal("p@ss", builder.Password);
+    }
+
+    [Fact]
+    public void Normalize_SslmodeQuery_MapsToSslMode()
+    {
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host:5433/dbname?sslmode=require");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.Equal(SslMode.Require, builder.SslMode);
+    }
+
+    [Fact]
+    public void Normalize_AlreadyKeyValue_ReturnedUnchanged()
+    {
+        const string input = "Host=h;Username=u;Password=p";
+
+        var result = PostgresConnectionStringNormalizer.Normalize(input);
+
+        Assert.Equal(input, result);
+    }
+}
