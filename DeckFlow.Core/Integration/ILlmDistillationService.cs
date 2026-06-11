@@ -16,6 +16,16 @@ public interface ILlmDistillationService
     Task<SummaryResult> SummarizeAsync(string transcript, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Classifies a transcript as keep or drop for the Content KB.
+    /// </summary>
+    /// <param name="transcript">Transcript text to classify.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A classification result with a keep/drop verdict and reason.</returns>
+    Task<ClassificationResult> ClassifyAsync(string transcript, CancellationToken cancellationToken = default)
+        => Task.FromException<ClassificationResult>(
+            new NotSupportedException("Classifier requires the subscription LLM CLI provider."));
+
+    /// <summary>
     /// Extracts key clips from a transcript.
     /// </summary>
     /// <param name="transcript">Transcript text to scan for key clips.</param>
