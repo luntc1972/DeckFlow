@@ -57,6 +57,7 @@ public sealed class ContentVideoStore : IContentVideoStore
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await EnsureFilteredDistillStatusConstraintAsync(connection, cancellationToken).ConfigureAwait(false);
 
             _schemaReady = true;
         }
@@ -415,7 +416,8 @@ public sealed class ContentVideoStore : IContentVideoStore
     private static bool IsValidDistillStatus(string status)
         => status is DistillStatusDistilled
             or DistillStatusSkippedOverCap
-            or DistillStatusFailed;
+            or DistillStatusFailed
+            or DistillStatusFiltered;
 
     private static ContentVideo ReadVideo(DbDataReader reader)
         => new()
@@ -469,6 +471,103 @@ public sealed class ContentVideoStore : IContentVideoStore
         return _connectionInfo.IsPostgres
             ? value.Value.UtcDateTime
             : value.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+    }
+
+    private async Task EnsureFilteredDistillStatusConstraintAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        if (_connectionInfo.IsSqlite)
+        {
+            if (await SqliteDistillStatusAllowsFilteredAsync(connection, cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            await using var rebuild = connection.CreateCommand();
+            rebuild.CommandText = """
+                DROP TABLE content_distill_status;
+                CREATE TABLE content_distill_status (
+                  video_id    INTEGER PRIMARY KEY REFERENCES content_videos(id) ON DELETE CASCADE,
+                  status      TEXT NOT NULL CHECK (status IN ('distilled','skipped_over_cap','failed','filtered')),
+                  updated_utc TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                """;
+            await rebuild.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var constraintName = await GetPostgresDistillStatusConstraintNameAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (constraintName is null)
+        {
+            return;
+        }
+
+        var definition = await GetPostgresConstraintDefinitionAsync(connection, constraintName, cancellationToken).ConfigureAwait(false);
+        if (definition.Contains("'filtered'", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = $"""
+            ALTER TABLE content_distill_status
+            DROP CONSTRAINT "{constraintName}";
+            ALTER TABLE content_distill_status
+            ADD CONSTRAINT "{constraintName}"
+            CHECK (status IN ('distilled','skipped_over_cap','failed','filtered'));
+            """;
+        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> SqliteDistillStatusAllowsFilteredAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT sql
+              FROM sqlite_master
+             WHERE type = 'table'
+               AND name = 'content_distill_status';
+            """;
+        var sql = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+        return sql?.Contains("'filtered'", StringComparison.Ordinal) == true;
+    }
+
+    private static async Task<string?> GetPostgresDistillStatusConstraintNameAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT con.conname
+              FROM pg_constraint con
+              INNER JOIN pg_class rel ON rel.oid = con.conrelid
+              INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+             WHERE rel.relname = 'content_distill_status'
+               AND con.contype = 'c'
+               AND pg_get_constraintdef(con.oid) LIKE '%status IN%';
+            """;
+        return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<string> GetPostgresConstraintDefinitionAsync(
+        DbConnection connection,
+        string constraintName,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT pg_get_constraintdef(con.oid)
+              FROM pg_constraint con
+              INNER JOIN pg_class rel ON rel.oid = con.conrelid
+              INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+             WHERE rel.relname = 'content_distill_status'
+               AND con.conname = @constraintName;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@constraintName", constraintName);
+        return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
     private const string GetVideoByYoutubeIdSql = """
@@ -623,6 +722,7 @@ public sealed class ContentVideoStore : IContentVideoStore
     private const string DistillStatusDistilled = "distilled";
     private const string DistillStatusSkippedOverCap = "skipped_over_cap";
     private const string DistillStatusFailed = "failed";
+    private const string DistillStatusFiltered = "filtered";
 
     // Why: content_distill_status supersedes derived artifact/index idempotency
     // (review HIGH-3), and a new IF-NOT-EXISTS table is schema-safe for UAT dbs.
@@ -643,7 +743,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         );
         CREATE TABLE IF NOT EXISTS content_distill_status (
           video_id    BIGINT PRIMARY KEY REFERENCES content_videos(id) ON DELETE CASCADE,
-          status      TEXT NOT NULL CHECK (status IN ('distilled','skipped_over_cap','failed')),
+          status      TEXT NOT NULL CHECK (status IN ('distilled','skipped_over_cap','failed','filtered')),
           updated_utc TIMESTAMPTZ NOT NULL DEFAULT now()
         );
         CREATE TABLE IF NOT EXISTS content_transcripts (
@@ -697,7 +797,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         );
         CREATE TABLE IF NOT EXISTS content_distill_status (
           video_id    INTEGER PRIMARY KEY REFERENCES content_videos(id) ON DELETE CASCADE,
-          status      TEXT NOT NULL CHECK (status IN ('distilled','skipped_over_cap','failed')),
+          status      TEXT NOT NULL CHECK (status IN ('distilled','skipped_over_cap','failed','filtered')),
           updated_utc TEXT NOT NULL DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS content_transcripts (
