@@ -47,6 +47,32 @@ public sealed class AdminContentKbControllerTests
     }
 
     [Fact]
+    public async Task DeleteEntry_CrossOrigin_Returns403_AndDoesNotMutate()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var controller = Build(store, out _, crossOrigin: true);
+
+        var result = await controller.DeleteEntry(1, default);
+
+        AssertForbidden(result);
+        Assert.Empty(store.DeletedIds);
+    }
+
+    [Fact]
+    public async Task DeleteEntry_SameOrigin_DeletesRow_AndRedirects()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.DeleteEntry(1, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Contains(1, store.DeletedIds);
+    }
+
+    [Fact]
     public async Task BulkSetVisibility_CrossOrigin_Returns403()
     {
         var store = new FakeContentSiteIndexStore();
