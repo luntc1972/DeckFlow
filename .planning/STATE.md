@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 ## Current Position
 
-Phase: 38 (controller-srp-split) — NOT STARTED (no CONTEXT.md, no phase dir)
+Phase: 38 (controller-srp-split) — CONTEXT CAPTURED (2026-06-12, a3710fe), ready to plan
 Plan: 0 of TBD
-Status: Phases 34-37.6 complete (36 skipped on MARGINAL gate). Phase 38 is the only remaining planned phase; milestone closes after it. `/gsd-plan-phase 38` stopped on missing CONTEXT — needs `/gsd-discuss-phase 38` first (decomposition decisions: which feature controllers, route-attribute strategy, CLI split boundary).
+Status: Phases 34-37.6 complete (36 skipped on MARGINAL gate). Phase 38 = only remaining planned phase; milestone closes after it. Discuss-phase done: 5 decisions locked (D-01..05) — split DeckController by tool family (~5-6 controllers + DeckToolControllerBase + ShellController), CommandRunners → DeckCommandRunners + ContentKbCommandRunners (helpers-first two-commit), mirror tests. See `.planning/phases/38-controller-srp-split/38-CONTEXT.md`.
 Reqs: SRP-01/02/03 pending.
-Next: `/gsd-discuss-phase 38` → `/gsd-plan-phase 38` (Codex-reviewed) → execute (Codex impl / Claude review).
+Next: `/gsd-plan-phase 38` (Codex-reviewed) → execute (Codex impl / Claude review).
 
 FOLLOW-ONS (operator, not dev blockers):
 - Prod KB go-live: deploy new content-kb/ artifacts + index-seed.json → prod /Admin publish 7 survivors (from Phase 37.5).
