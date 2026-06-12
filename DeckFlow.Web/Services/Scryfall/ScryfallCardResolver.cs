@@ -21,6 +21,11 @@ public interface IScryfallCardResolver
     /// Performs the shared exact-name fallback search used when collection lookup misses a card.
     /// </summary>
     Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Performs the analysis-specific printed-name fallback search used when collection lookup misses a card.
+    /// </summary>
+    Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -30,6 +35,7 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
 {
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
 
     /// <summary>
     /// Creates a resolver using the DI-managed Scryfall client factory and resilience pipeline.
@@ -42,6 +48,7 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
             pipelineProvider,
             null,
             null,
+            null,
             null)
     {
     }
@@ -51,7 +58,8 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
         ResiliencePipelineProvider<string> pipelineProvider,
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
@@ -67,6 +75,12 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
             ScryfallThrottle.ExecuteAsync(
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
+                    token).AsTask(),
+                cancellationToken));
+        _executeNamedAsync = executeNamedAsyncOverride ?? ((request, cancellationToken) =>
+            ScryfallThrottle.ExecuteAsync(
+                token => pipeline.ExecuteAsync(
+                    async pollyCt => await client.ExecuteAsync<ScryfallCard>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
     }
@@ -108,4 +122,77 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
             null,
             response.StatusCode);
     }
+
+    /// <inheritdoc/>
+    public async Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(cardName))
+        {
+            return null;
+        }
+
+        var normalizedCardName = NormalizeLookupName(cardName);
+        foreach (var query in new[]
+        {
+            $"(printed:\"{NormalizeForScryfall(cardName)}\" OR name:\"{NormalizeForScryfall(cardName)}\")",
+            NormalizeForScryfall(cardName)
+        })
+        {
+            var request = new RestRequest("cards/search", Method.Get);
+            request.AddQueryParameter("q", query);
+            request.AddQueryParameter("unique", "prints");
+            request.AddQueryParameter("include_multilingual", "true");
+
+            var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
+            ScryfallThrottle.ThrowIfUpstreamUnavailable(response.StatusCode);
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+            {
+                continue;
+            }
+
+            var match = response.Data.Data
+                .FirstOrDefault(card => NormalizeLookupName(card.Name) == normalizedCardName)
+                ?? response.Data.Data.FirstOrDefault();
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        var namedRequest = new RestRequest("cards/named", Method.Get);
+        namedRequest.AddQueryParameter("fuzzy", NormalizeForScryfall(cardName));
+        var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
+        ScryfallThrottle.ThrowIfUpstreamUnavailable(namedResponse.StatusCode);
+        if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
+        {
+            return namedResponse.Data;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Normalizes a card name for equality comparisons across quote, apostrophe, and dash variants.
+    /// </summary>
+    public static string NormalizeLookupName(string cardName)
+        => cardName
+            .Trim()
+            .Replace('\u2019', '\'')
+            .Replace('\u2018', '\'')
+            .Replace('\u02BC', '\'')
+            .Replace('\u201C', '"')
+            .Replace('\u201D', '"')
+            .Replace('\u2013', '-')
+            .Replace('\u2014', '-')
+            .ToLowerInvariant();
+
+    /// <summary>
+    /// Normalizes a card name for use in Scryfall API payloads.
+    /// Converts the single-slash DFC separator used by Archidekt exports (" / ")
+    /// to the double-slash form Scryfall expects (" // ") so DFC cards resolve on
+    /// the first /cards/collection attempt instead of cascading into per-card fallbacks.
+    /// DeckEntry.Name is NOT modified — normalization happens only at the call site.
+    /// </summary>
+    public static string NormalizeForScryfall(string cardName)
+        => cardName.Replace(" / ", " // ");
 }
