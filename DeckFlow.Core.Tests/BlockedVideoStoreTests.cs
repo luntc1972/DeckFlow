@@ -95,7 +95,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
     [InlineData("   ")]
     public async Task AddBlockAsync_BlankId_ThrowsArgumentException(string? youtubeVideoId)
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddBlockAsync(youtubeVideoId!, "spam"));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => _store.AddBlockAsync(youtubeVideoId!, "spam"));
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
     [InlineData("   ")]
     public async Task RunBlockVideoAsync_BlankId_ThrowsArgumentException(string? youtubeVideoId)
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => ContentKbCommandRunners.RunBlockVideoAsync(
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => ContentKbCommandRunners.RunBlockVideoAsync(
             youtubeVideoId!,
             "spam",
             new SpyBlockedVideoStore([]),
