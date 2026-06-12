@@ -325,8 +325,7 @@ public partial class Program
                     sp.GetService<ILogger<DeckAnalysisPacketService>>()));
             builder.Services.AddScoped<IDeckComparisonService>(sp =>
                 new DeckComparisonService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
                     sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
@@ -335,8 +334,7 @@ public partial class Program
                     sp.GetService<ILogger<DeckComparisonService>>()));
             builder.Services.AddScoped<IMetaGapService>(sp =>
                 new MetaGapService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
                     sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
