@@ -4,7 +4,7 @@ using System.Threading;
 namespace DeckFlow.Web.Controllers;
 
 /// <summary>
-/// Provides shared timeout helpers for deck tool controllers extracted from <see cref="DeckController" />.
+/// Provides shared timeout helpers for the deck tool controllers.
 /// </summary>
 public abstract class DeckToolControllerBase : Controller
 {

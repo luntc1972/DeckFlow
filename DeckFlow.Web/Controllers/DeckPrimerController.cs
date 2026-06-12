@@ -1,12 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
-using System.Text.Json;
 using System.Threading.Tasks;
-using DeckFlow.Core.Diffing;
-using DeckFlow.Core.Exporting;
-using DeckFlow.Core.Integration;
-using DeckFlow.Core.Models;
-using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
@@ -14,23 +8,27 @@ using DeckFlow.Web.Services;
 namespace DeckFlow.Web.Controllers;
 
 /// <summary>
-/// Serves the MVC pages for deck compare, category suggestion, lookup, and ChatGPT-assisted workflows.
+/// Serves the deck-primer MVC workflow pages.
 /// </summary>
-public sealed class DeckController : DeckToolControllerBase
+public sealed class DeckPrimerController : DeckToolControllerBase
 {
     private const string CorruptedZipMessage = "The uploaded zip contains an incomplete response payload. Re-export from the originating session or paste a fresh response.";
     private readonly IDeckPrimerPacketService _deckPrimerPacketService;
     private readonly PacketSessionCache _packetCache;
-    private readonly ILogger<DeckController> _logger;
+    private readonly ILogger<DeckPrimerController> _logger;
 
     /// <summary>
-    /// Creates the main deck-tools controller.
+    /// Creates the deck-primer controller.
     /// </summary>
-    public DeckController(
+    public DeckPrimerController(
         IDeckPrimerPacketService deckPrimerPacketService,
         PacketSessionCache packetCache,
-        ILogger<DeckController> logger)
+        ILogger<DeckPrimerController> logger)
     {
+        ArgumentNullException.ThrowIfNull(deckPrimerPacketService);
+        ArgumentNullException.ThrowIfNull(packetCache);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _deckPrimerPacketService = deckPrimerPacketService;
         _packetCache = packetCache;
         _logger = logger;
@@ -52,7 +50,6 @@ public sealed class DeckController : DeckToolControllerBase
             },
         });
     }
-
 
     /// <summary>
     /// Processes a deck-primer workflow postback and regenerates the selected AI prompt.
@@ -281,6 +278,4 @@ public sealed class DeckController : DeckToolControllerBase
             });
         }
     }
-
-
 }
