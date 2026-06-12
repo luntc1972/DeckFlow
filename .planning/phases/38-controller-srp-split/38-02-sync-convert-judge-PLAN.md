@@ -82,7 +82,7 @@ DeckConvertController owns:
 
 JudgeQuestionsController owns:
 - HttpGet "/judge-questions" -> IActionResult JudgeQuestions(string? card)  // ~L148-156
-- No injected services (pure view render). Per D-01 discretion this stays its own thin controller (NOT folded into Lookup) to keep the URL + DeckPageTab.JudgeQuestions tab obvious.
+- NO injected services AND NO logger. The live JudgeQuestions action body (DeckController.cs ~L149-156) references ONLY View(...), JudgeQuestionViewModel, DeckPageTab.JudgeQuestions, and the `card` param — it touches no `_logger`, no service field. So the controller is PARAMETERLESS (no ctor injection). Adding an ILogger<JudgeQuestionsController> field "for symmetry" would be an assigned-but-unused field => a new compiler warning => SRP-03 violation. Per D-01 discretion this stays its own thin controller (NOT folded into Lookup) to keep the URL + DeckPageTab.JudgeQuestions tab obvious.
 
 All three controllers: ActiveTab values are set inside the action bodies (DeckPageTab.Sync / .Convert is set via the DeckConvertViewModel default / .JudgeQuestions) — moving the body carries the tab automatically (D-02).
 </interfaces>
@@ -107,12 +107,12 @@ All three controllers: ActiveTab values are set inside the action bodies (DeckPa
     - DeckSyncController.cs declares public sealed class DeckSyncController : DeckToolControllerBase, ctor guarded.
     - grep -nE "RenderDiffAsync|BuildUserFacingErrorMessage|IsMoxfieldForbidden|HasMoxfieldInput|HasArchidektInput|_deckSyncService|\"/resolve\"" DeckFlow.Web/Controllers/DeckController.cs returns NOTHING.
     - DeckSyncController retains the exact attribute strings HttpGet "/sync", HttpPost "/sync", HttpPost "/resolve".
-    - Web csproj builds: 0 errors, 0 new warnings (.Tests builds later in Plan 05).
+    - Web csproj builds: 0 errors, 0 new warnings (.Tests builds later in Plan 05). Confirm zero new warnings by comparing the warning count to the baseline recorded in 38-01-SUMMARY.md (grep `: warning ` in the build output; the count must not exceed the baseline).
   </acceptance_criteria>
   <verify>
-    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj 2>&1 | grep -E "error|Build succeeded" | tail -5; grep -cE "RenderDiffAsync|_deckSyncService|/resolve" DeckFlow.Web/Controllers/DeckController.cs</automated>
+    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj 2>&1 | tee /tmp/38-02-build.log | grep -E "error|Build succeeded" | tail -5; echo "new-warning-count:"; grep -c ': warning ' /tmp/38-02-build.log; grep -cE "RenderDiffAsync|_deckSyncService|/resolve" DeckFlow.Web/Controllers/DeckController.cs</automated>
   </verify>
-  <done>DeckSyncController owns /sync (GET+POST), /resolve, and all sync helpers; DeckController no longer references IDeckSyncService; Web build clean.</done>
+  <done>DeckSyncController owns /sync (GET+POST), /resolve, and all sync helpers; DeckController no longer references IDeckSyncService; Web build clean (warning count <= baseline).</done>
 </task>
 
 <task type="auto">
@@ -131,21 +131,22 @@ All three controllers: ActiveTab values are set inside the action bodies (DeckPa
     - grep -nE "\"/convert\"|ConvertCommanderSearch|_deckConvertService" DeckFlow.Web/Controllers/DeckController.cs returns NOTHING.
     - _cardSearchService STILL present in DeckController.cs (grep finds it — used by CardSearch, moved in Plan 03).
     - Retains attribute strings HttpGet "/convert", HttpPost "/convert", HttpGet "/convert/commander-search".
-    - Web csproj builds: 0 errors, 0 new warnings.
+    - Web csproj builds: 0 errors, 0 new warnings (warning count from `grep -c ': warning '` must not exceed the 38-01-SUMMARY.md baseline).
   </acceptance_criteria>
   <verify>
-    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj 2>&1 | grep -E "error|Build succeeded" | tail -5; grep -cE "_deckConvertService|ConvertCommanderSearch" DeckFlow.Web/Controllers/DeckController.cs; grep -c "_cardSearchService" DeckFlow.Web/Controllers/DeckController.cs</automated>
+    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj 2>&1 | tee /tmp/38-02-build.log | grep -E "error|Build succeeded" | tail -5; echo "new-warning-count:"; grep -c ': warning ' /tmp/38-02-build.log; grep -cE "_deckConvertService|ConvertCommanderSearch" DeckFlow.Web/Controllers/DeckController.cs; grep -c "_cardSearchService" DeckFlow.Web/Controllers/DeckController.cs</automated>
   </verify>
-  <done>DeckConvertController owns the convert family; DeckController no longer references IDeckConvertService but retains _cardSearchService for Plan 03; Web build clean.</done>
+  <done>DeckConvertController owns the convert family; DeckController no longer references IDeckConvertService but retains _cardSearchService for Plan 03; Web build clean (warning count <= baseline).</done>
 </task>
 
 <task type="auto">
   <name>Task 3: Create JudgeQuestionsController (standalone judge-questions GET)</name>
   <read_first>
-    - DeckFlow.Web/Controllers/DeckController.cs (L142-156 — JudgeQuestions action)
+    - DeckFlow.Web/Controllers/DeckController.cs (L148-156 — JudgeQuestions action; confirm the body references no `_logger` and no service field before deciding the ctor shape)
   </read_first>
   <action>
-    Create DeckFlow.Web/Controllers/JudgeQuestionsController.cs (CRLF — new file). Declare public sealed class JudgeQuestionsController : DeckToolControllerBase. No injected services — but per project convention add an ILogger<JudgeQuestionsController> logger ctor param with ThrowIfNull guard for symmetry/future logging (matches the thin-controller pattern; DI provides it). XML doc.
+    Create DeckFlow.Web/Controllers/JudgeQuestionsController.cs (CRLF — new file). Declare public sealed class JudgeQuestionsController : DeckToolControllerBase.
+    PARAMETERLESS controller — do NOT declare a constructor, do NOT inject ILogger<JudgeQuestionsController>, do NOT add any private field. Rationale: the live JudgeQuestions action body (DeckController.cs ~L149-156) references ONLY View(...), JudgeQuestionViewModel, DeckPageTab.JudgeQuestions, and the `card` param — it consumes no logger and no service. An injected-but-unused `_logger` (or any unused field) emits a new compiler warning, which violates SRP-03 (no new warnings). The base DeckToolControllerBase supplies the default Controller ctor; no JudgeQuestionsController ctor is needed. Confirm by reading the action body first: if (and only if) the live body actually references an injected member, route that member in — but the source shows it does not.
     MOVE verbatim: JudgeQuestions(string? card) (HttpGet "/judge-questions"), carrying its XML doc + attribute + body byte-for-byte (sets ActiveTab=DeckPageTab.JudgeQuestions and trims the optional card pre-fill).
     DELETE that action from DeckController.cs.
     Add usings: Microsoft.AspNetCore.Mvc, DeckFlow.Web.Models. Verify by build.
@@ -153,14 +154,15 @@ All three controllers: ActiveTab values are set inside the action bodies (DeckPa
   </action>
   <acceptance_criteria>
     - JudgeQuestionsController.cs declares public sealed class JudgeQuestionsController : DeckToolControllerBase.
+    - The controller is PARAMETERLESS: grep finds NO constructor, NO `ILogger`, NO private field in JudgeQuestionsController.cs (grep -cE "ILogger|private readonly|public JudgeQuestionsController\\(" == 0).
     - Retains attribute string HttpGet "/judge-questions" and sets ActiveTab=DeckPageTab.JudgeQuestions.
     - grep -n "JudgeQuestions" DeckFlow.Web/Controllers/DeckController.cs returns NOTHING.
-    - Web csproj builds: 0 errors, 0 new warnings.
+    - Web csproj builds: 0 errors, 0 new warnings (warning count from `grep -c ': warning '` must not exceed the 38-01-SUMMARY.md baseline — proves the dropped logger introduced no unused-field warning).
   </acceptance_criteria>
   <verify>
-    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj 2>&1 | grep -E "error|Build succeeded" | tail -5; grep -c "JudgeQuestions" DeckFlow.Web/Controllers/DeckController.cs</automated>
+    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web/DeckFlow.Web.csproj 2>&1 | tee /tmp/38-02-build.log | grep -E "error|Build succeeded" | tail -5; echo "new-warning-count:"; grep -c ': warning ' /tmp/38-02-build.log; echo "judge-ctor/logger count (must be 0):"; grep -cE "ILogger|private readonly|public JudgeQuestionsController\(" DeckFlow.Web/Controllers/JudgeQuestionsController.cs; echo "judge in DeckController (must be 0):"; grep -c "JudgeQuestions" DeckFlow.Web/Controllers/DeckController.cs</automated>
   </verify>
-  <done>JudgeQuestionsController owns /judge-questions; DeckController no longer contains it; Web build clean.</done>
+  <done>JudgeQuestionsController owns /judge-questions as a parameterless controller (no unused logger); DeckController no longer contains it; Web build clean with no new warnings.</done>
 </task>
 
 </tasks>
@@ -182,18 +184,19 @@ No package installs; no new inputs; no auth changes. No HIGH-severity threats.
 </threat_model>
 
 <verification>
-- Web project builds clean after all three tasks.
+- Web project builds clean after all three tasks (0 errors; warning count <= 38-01-SUMMARY.md baseline — SRP-03 no-new-warnings).
 - DeckController no longer references IDeckSyncService or IDeckConvertService and no longer contains the sync/convert/judge actions or sync helpers.
+- JudgeQuestionsController is parameterless (no unused logger/field) — proves the dropped-logger fix.
 - _cardSearchService remains in DeckController (consumed by Plan 03's CardSearch).
 - Moved actions retain exact [HttpGet]/[HttpPost] attribute strings (URL set unchanged for SC1).
 </verification>
 
 <success_criteria>
-- Three new sealed controllers inheriting DeckToolControllerBase, each injecting only its own services.
+- Three new sealed controllers inheriting DeckToolControllerBase; DeckSync/DeckConvert inject only their own services, JudgeQuestions is parameterless.
 - All sync/convert/judge URLs + tabs preserved.
 - DeckController slimmed accordingly with no collateral edits.
 </success_criteria>
 
 <output>
-Create `.planning/phases/38-controller-srp-split/38-02-SUMMARY.md` when done. Record moved members per controller, which DeckController dependencies were removed vs retained (note _cardSearchService retained for Plan 03), and Web build status.
+Create `.planning/phases/38-controller-srp-split/38-02-SUMMARY.md` when done. Record moved members per controller, that JudgeQuestionsController is parameterless (no logger), which DeckController dependencies were removed vs retained (note _cardSearchService retained for Plan 03), and Web build status (warning count vs baseline).
 </output>
