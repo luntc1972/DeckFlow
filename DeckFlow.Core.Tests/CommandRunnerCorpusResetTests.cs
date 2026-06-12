@@ -14,7 +14,7 @@ public sealed class CommandRunnerCorpusResetTests
         var videoStore = new FakeContentVideoStore();
         var siteIndexStore = new FakeContentSiteIndexStore();
 
-        var exitCode = await CommandRunners.RunCorpusResetAsync(
+        var exitCode = await ContentKbCommandRunners.RunCorpusResetAsync(
             videoStore,
             siteIndexStore,
             dryRun: false,
@@ -35,7 +35,7 @@ public sealed class CommandRunnerCorpusResetTests
         var videoStore = new FakeContentVideoStore();
         var siteIndexStore = new FakeContentSiteIndexStore();
 
-        var exitCode = await CommandRunners.RunCorpusResetAsync(
+        var exitCode = await ContentKbCommandRunners.RunCorpusResetAsync(
             videoStore,
             siteIndexStore,
             dryRun: true,

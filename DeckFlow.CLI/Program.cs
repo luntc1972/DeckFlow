@@ -154,7 +154,7 @@ contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
 compareCommand.SetHandler(context =>
 {
     var parseResult = context.ParseResult;
-    Environment.ExitCode = CommandRunners.RunCompareAsync(
+    Environment.ExitCode = DeckCommandRunners.RunCompareAsync(
         parseResult.GetValueForOption(moxfieldOption),
         parseResult.GetValueForOption(moxfieldUrlOption),
         parseResult.GetValueForOption(archidektOption),
@@ -182,8 +182,8 @@ rootCommand.SetHandler(async (bool runCache, int minutes, int seconds) =>
         return;
     }
 
-    var totalSeconds = CommandRunners.GetCacheDurationSeconds(minutes, seconds);
-    Environment.ExitCode = await CommandRunners.RunArchidektCacheAsync(totalSeconds, Log.Logger);
+    var totalSeconds = DeckCommandRunners.GetCacheDurationSeconds(minutes, seconds);
+    Environment.ExitCode = await DeckCommandRunners.RunArchidektCacheAsync(totalSeconds, Log.Logger);
 }, cacheFlagOption, cacheMinutesOption, cacheSecondsOption);
 
 rootCommand.AddCommand(compareCommand);
@@ -208,78 +208,78 @@ rootCommand.AddCommand(contentIndexExportCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
-    Environment.ExitCode = CommandRunners.RunProbeAsync(url, output).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunProbeAsync(url, output).GetAwaiter().GetResult();
 }, probeUrlOption, probeOutOption);
 
 exportMoxfieldCommand.SetHandler((string url, FileInfo output) =>
 {
-    Environment.ExitCode = CommandRunners.RunExportMoxfieldAsync(url, output).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunExportMoxfieldAsync(url, output).GetAwaiter().GetResult();
 }, exportMoxfieldUrlOption, exportMoxfieldOutOption);
 
 archidektCategoriesCommand.SetHandler((string url, FileInfo? output) =>
 {
-    Environment.ExitCode = CommandRunners.RunArchidektCategoriesAsync(url, output).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunArchidektCategoriesAsync(url, output).GetAwaiter().GetResult();
 }, archidektCategoriesUrlOption, archidektCategoriesOutOption);
 
 archidektCategoryCardsCommand.SetHandler((string url, string category, FileInfo? output) =>
 {
-    Environment.ExitCode = CommandRunners.RunArchidektCategoryCardsAsync(url, category, output).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunArchidektCategoryCardsAsync(url, category, output).GetAwaiter().GetResult();
 }, archidektCategoryCardsUrlOption, archidektCategoryCardsCategoryOption, archidektCategoryCardsOutOption);
 
 archidektHarvestRecentCommand.SetHandler((int count, FileInfo output) =>
 {
-    Environment.ExitCode = CommandRunners.RunArchidektHarvestRecentAsync(count, output).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunArchidektHarvestRecentAsync(count, output).GetAwaiter().GetResult();
 }, archidektHarvestRecentCountOption, archidektHarvestRecentOutOption);
 
 archidektCacheCommand.SetHandler((int seconds, int minutes) =>
 {
-    var totalSeconds = CommandRunners.GetCacheDurationSeconds(minutes, seconds);
-    Environment.ExitCode = CommandRunners.RunArchidektCacheAsync(totalSeconds, Log.Logger).GetAwaiter().GetResult();
+    var totalSeconds = DeckCommandRunners.GetCacheDurationSeconds(minutes, seconds);
+    Environment.ExitCode = DeckCommandRunners.RunArchidektCacheAsync(totalSeconds, Log.Logger).GetAwaiter().GetResult();
 }, archidektCacheSecondsOption, archidektCacheMinutesOption);
 
 categoryFindCommand.SetHandler((string cardName, int runSeconds, int timeoutSeconds) =>
 {
-    Environment.ExitCode = CommandRunners.RunCategoryFindAsync(cardName, runSeconds, timeoutSeconds).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunCategoryFindAsync(cardName, runSeconds, timeoutSeconds).GetAwaiter().GetResult();
 }, categoryFindCardOption, categoryFindSecondsOption, categoryFindTimeoutOption);
 
 cardLookupCommand.SetHandler((string cardName) =>
 {
-    Environment.ExitCode = CommandRunners.RunCardLookupAsync(cardName).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunCardLookupAsync(cardName).GetAwaiter().GetResult();
 }, cardLookupNameOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
-    Environment.ExitCode = CommandRunners.RunScryfallProbeAsync(endpoint, cardName, repeat).GetAwaiter().GetResult();
+    Environment.ExitCode = DeckCommandRunners.RunScryfallProbeAsync(endpoint, cardName, repeat).GetAwaiter().GetResult();
 }, scryfallProbeEndpointOption, scryfallProbeNameOption, scryfallProbeRepeatOption);
 
 contentSourceAddCommand.SetHandler((string url, string name, string type, FileInfo? db) =>
 {
-    Environment.ExitCode = CommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunContentSourceAddAsync(url, name, type, db).GetAwaiter().GetResult();
 }, contentSourceAddUrlOption, contentSourceAddNameOption, contentSourceAddTypeOption, contentSourceAddDbOption);
 
 contentSourceSetEnabledCommand.SetHandler((long id, bool enabled, FileInfo? db) =>
 {
-    Environment.ExitCode = CommandRunners.RunContentSourceSetEnabledAsync(id, enabled, db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunContentSourceSetEnabledAsync(id, enabled, db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, contentSourceSetEnabledIdOption, contentSourceSetEnabledEnabledOption, contentSourceSetEnabledDbOption);
 
 harvestCommand.SetHandler((FileInfo? db, int limit, bool enableWhisper, string? videoIds, long? sourceId) =>
 {
-    Environment.ExitCode = CommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None, CommandRunners.ParseVideoIds(videoIds), sourceId).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunHarvestAsync(db, limit, enableWhisper, Log.Logger, CancellationToken.None, ContentKbCommandRunners.ParseVideoIds(videoIds), sourceId).GetAwaiter().GetResult();
 }, harvestDbOption, harvestLimitOption, harvestEnableWhisperOption, harvestVideoIdsOption, harvestSourceIdOption);
 
 blockVideoCommand.SetHandler((string youtubeVideoId, string? reason, FileInfo? db) =>
 {
-    Environment.ExitCode = CommandRunners.RunBlockVideoAsync(db, youtubeVideoId, reason, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunBlockVideoAsync(db, youtubeVideoId, reason, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, blockVideoIdArgument, blockVideoReasonOption, blockVideoDbOption);
 
 unblockVideoCommand.SetHandler((string youtubeVideoId, FileInfo? db) =>
 {
-    Environment.ExitCode = CommandRunners.RunUnblockVideoAsync(db, youtubeVideoId, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunUnblockVideoAsync(db, youtubeVideoId, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, unblockVideoIdArgument, unblockVideoDbOption);
 
 listBlockedCommand.SetHandler((FileInfo? db) =>
 {
-    Environment.ExitCode = CommandRunners.RunListBlockedAsync(db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunListBlockedAsync(db, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, listBlockedDbOption);
 
 corpusResetCommand.SetHandler((FileInfo? db, string? connectionString, bool dryRun) =>
@@ -294,17 +294,17 @@ corpusResetCommand.SetHandler((FileInfo? db, string? connectionString, bool dryR
         _ = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString);
     }
 
-    Environment.ExitCode = CommandRunners.RunCorpusResetAsync(db, connectionString, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunCorpusResetAsync(db, connectionString, dryRun, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
 }, corpusResetDbOption, corpusResetConnectionStringOption, corpusResetDryRunOption);
 
 distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun, string? videoIds) =>
 {
-    Environment.ExitCode = CommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None, CommandRunners.ParseVideoIds(videoIds)).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None, ContentKbCommandRunners.ParseVideoIds(videoIds)).GetAwaiter().GetResult();
 }, distillDbOption, distillLimitOption, distillDryRunOption, distillVideoIdsOption);
 
 contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
 {
-    Environment.ExitCode = CommandRunners.RunContentIndexExportAsync(db, output).GetAwaiter().GetResult();
+    Environment.ExitCode = ContentKbCommandRunners.RunContentIndexExportAsync(db, output).GetAwaiter().GetResult();
 }, contentIndexExportDbOption, contentIndexExportOutputOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);

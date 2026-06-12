@@ -362,7 +362,7 @@ public sealed class RunDistillAsyncTests : IDisposable
                 ContentSourceType.Youtube,
                 "https://www.youtube.com/@toggle");
 
-            var disableExitCode = await CommandRunners.RunContentSourceSetEnabledAsync(
+            var disableExitCode = await ContentKbCommandRunners.RunContentSourceSetEnabledAsync(
                 sourceId,
                 enabled: false,
                 new FileInfo(dbPath),
@@ -373,7 +373,7 @@ public sealed class RunDistillAsyncTests : IDisposable
             Assert.False((await store.GetSourceAsync(sourceId))!.IsEnabled);
             Assert.DoesNotContain(await store.ListEnabledSourcesAsync(), source => source.Id == sourceId);
 
-            var enableExitCode = await CommandRunners.RunContentSourceSetEnabledAsync(
+            var enableExitCode = await ContentKbCommandRunners.RunContentSourceSetEnabledAsync(
                 sourceId,
                 enabled: true,
                 new FileInfo(dbPath),
@@ -412,7 +412,7 @@ public sealed class RunDistillAsyncTests : IDisposable
     {
         LastRunIndexStore = indexStore ?? new FakeContentSiteIndexStore();
         LastRunStore = new FakeContentHarvestRunStore();
-        return await CommandRunners.RunDistillAsync(
+        return await ContentKbCommandRunners.RunDistillAsync(
             sourceStore ?? new FakeContentSourceStore([CreateSource(1, "source-one", isEnabled: true)]),
             videoStore,
             LastRunIndexStore,
