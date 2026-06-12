@@ -227,7 +227,13 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
   1. Every URL that existed before the split returns the same response after the split — a pre-split URL list compared against a post-split URL list shows zero removals or changes
   2. All existing controller tests pass against the split controllers with only logger-generic type references updated; no new test failures introduced, no new compiler warnings
   3. `DeckFlow.CLI` `CommandRunners.cs` is split at the content-KB boundary: deck-domain runners and KB runners live in separate classes; all commands still registered and invocable
-**Plans**: TBD
+**Plans**: 6 plans
+- [ ] 38-01-controller-base-shell-PLAN.md — DeckToolControllerBase + ShellController scaffold (D-03); move Home/Error/set-options out of DeckController
+- [ ] 38-02-sync-convert-judge-PLAN.md — extract DeckSyncController, DeckConvertController, JudgeQuestionsController
+- [ ] 38-03-lookup-categories-PLAN.md — extract DeckLookupController + DeckCategoriesController (adopts base timeout helper)
+- [ ] 38-04-packet-primer-PLAN.md — extract DeckPacketController + DeckPrimerController; delete emptied DeckController
+- [ ] 38-05-commandrunners-split-PLAN.md — CLI two-commit split: ContentKbCliPaths, then DeckCommandRunners + ContentKbCommandRunners (SRP-02)
+- [ ] 38-06-tests-route-parity-PLAN.md — mirror-split DeckControllerTests (SRP-03) + SC1 pre/post route-parity gate
 
 ---
 
