@@ -312,8 +312,7 @@ public partial class Program
 
             builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
                 new DeckAnalysisPacketService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
                     sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<IMechanicLookupService>(),
                     sp.GetRequiredService<ICommanderBanListService>(),

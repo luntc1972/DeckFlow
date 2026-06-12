@@ -116,8 +116,7 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
         => new(
-            CreateScryfallRestClientFactory(),
-            new FakeResiliencePipelineProvider(),
+            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync, executeNamedAsync),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             mechanicLookupService,
             commanderBanListService,
@@ -126,11 +125,7 @@ internal static class TestServiceFactory
             BuildAnalysisPromptRegistry(),
             BuildSetUpgradePromptRegistry(),
             new PacketSessionCache(),
-            logger,
-            null,
-            executeCollectionAsync,
-            executeSearchAsync,
-            executeNamedAsync);
+            logger);
 
     public static DeckComparisonService CreateDeckComparisonService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
@@ -215,13 +210,15 @@ internal static class TestServiceFactory
 
     private static ScryfallCardResolver CreateScryfallCardResolver(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
             null,
             executeCollectionAsync,
-            executeSearchAsync);
+            executeSearchAsync,
+            executeNamedAsync);
 
     private static DeckEntryLoader CreateDeckEntryLoader(
         IMoxfieldDeckImporter moxfieldDeckImporter,
