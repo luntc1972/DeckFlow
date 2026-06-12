@@ -19,7 +19,7 @@ must_haves:
     - "Shared test fakes are accessible to all new per-controller test files"
   artifacts:
     - path: "DeckFlow.Web.Tests/DeckControllerTestFakes.cs"
-      provides: "Relocated shared Fake/Stub/Throwing service doubles, internal so all new test files can use them"
+      provides: "All 22 relocated shared Fake/Stub/Throwing service doubles, internal so all new test files can use them"
       contains: "class FakeDeckSyncService"
     - path: "DeckFlow.Web.Tests/DeckLookupControllerTests.cs"
       provides: "card+mechanic lookup tests targeting DeckLookupController"
@@ -78,7 +78,8 @@ Current DeckControllerTests.cs constructs DeckController with the 12-arg ctor in
    CedhMetaGap_Get_ReturnsExpectedViewModel, CedhMetaGap_Post_AdvancesToStep2WhenReferenceDecksAreFetched, CedhMetaGap_Post_ReturnsRateLimitMessage,
    DeckAnalysis_* (4 tests), DeckComparison_Get_RendersPage, DeckComparison_Post_ReturnsExpectedResultModel, DeckComparison_Post_ReturnsViewWithError_WhenModelStateInvalid
 
-Shared fakes currently nested private in DeckControllerTests.cs (L811-1110): FakeDeckSyncService, FakeDeckConvertService, StubDeckAnalysisPacketService, StubDeckPrimerPacketService, FakeDeckComparisonService, StubMetaGapService, FakeMetaGapService, ThrowingMetaGapService, ThrowingDeckAnalysisPacketService, FakeDeckAnalysisPacketService, FakeScryfallSetService, ThrowingCardSearchService, FakeCardLookupService, ThrowingCardLookupService, StubSuccessfulCardLookupService, StubSuccessfulSingleCardLookupService, FakeCategorySuggestionService, FakeMechanicLookupService, StubSuccessfulMechanicLookupService.
+Shared fakes currently nested private in DeckControllerTests.cs (L811-1110) — 22 doubles total (codex review finding #3: the prior draft listed 19 and missed three, all of which back real existing tests): FakeDeckSyncService (L811), FakeDeckConvertService (L817), StubDeckAnalysisPacketService (L827), StubDeckPrimerPacketService (L836), FakeDeckComparisonService (L845), StubMetaGapService (L881), FakeMetaGapService (L909), ThrowingMetaGapService (L925), ThrowingDeckAnalysisPacketService (L941), FakeDeckAnalysisPacketService (L961), FakeScryfallSetService (L985), ThrowingCardSearchService (L994), FakeCardLookupService (L1010), ThrowingCardLookupService (L1019), StubSuccessfulCardLookupService (L1039), StubSuccessfulSingleCardLookupService (L1052), AlternateNameSingleCardLookupService (L1061), MultiMechanicSingleCardLookupService (L1070), FakeCategorySuggestionService (L1079), FakeMechanicLookupService (L1085), StubSuccessfulMechanicLookupService (L1095), PartiallyFailingMechanicLookupService (L1110).
+The three previously-missed doubles ARE used by live tests: AlternateNameSingleCardLookupService at DeckControllerTests.cs L399, MultiMechanicSingleCardLookupService + PartiallyFailingMechanicLookupService at L431-432. All three are Lookup-family doubles (ICardLookupService / IMechanicLookupService) — they move with the rest of the shared fakes and the tests that consume them land in DeckLookupControllerTests (Task 2).
 NOTE: DeckSyncApiControllerTests.cs defines its OWN FakeDeckSyncService (different file, private) — leave it; do NOT touch DeckSyncApiControllerTests.cs. The relocated fakes here are INTERNAL (not private nested) so multiple test files share them; name-collision with DeckSyncApiControllerTests' private FakeDeckSyncService is fine (private wins inside that file).
 </interfaces>
 </context>
@@ -88,20 +89,20 @@ NOTE: DeckSyncApiControllerTests.cs defines its OWN FakeDeckSyncService (differe
 <task type="auto">
   <name>Task 1: Relocate shared test fakes to DeckControllerTestFakes.cs</name>
   <read_first>
-    - DeckFlow.Web.Tests/DeckControllerTests.cs (L811-1110 — all 19 Fake/Stub/Throwing nested classes + their using set L1-14)
+    - DeckFlow.Web.Tests/DeckControllerTests.cs (L811-1110 — all 22 Fake/Stub/Throwing nested classes + their using set L1-14)
   </read_first>
   <action>
-    Create DeckFlow.Web.Tests/DeckControllerTestFakes.cs (CRLF — new file) in namespace DeckFlow.Web.Tests. Move all 19 service-double classes (FakeDeckSyncService ... StubSuccessfulMechanicLookupService, full list in interfaces) verbatim out of DeckControllerTests.cs into this file, changing each from `private sealed class` to `internal sealed class` so the new per-controller test files can reference them. Carry their XML docs + bodies byte-for-byte. Add the usings these doubles need (System, System.Collections.Generic, System.Net, System.Threading, System.Threading.Tasks, DeckFlow.Core.Integration, DeckFlow.Core.Reporting, DeckFlow.Web.Services, DeckFlow.Web.Models — verify by build).
-    Do NOT yet delete DeckControllerTests.cs — Task 2-4 carve its test cases out; this task only relocates the fakes (remove the 19 nested classes from DeckControllerTests.cs, leaving the test methods temporarily referencing the now-internal fakes in the same namespace — they still resolve).
+    Create DeckFlow.Web.Tests/DeckControllerTestFakes.cs (CRLF — new file) in namespace DeckFlow.Web.Tests. Move ALL 22 service-double classes (full list in interfaces — including the three the prior draft missed: AlternateNameSingleCardLookupService, MultiMechanicSingleCardLookupService, PartiallyFailingMechanicLookupService) verbatim out of DeckControllerTests.cs into this file, changing each from `private sealed class` to `internal sealed class` so the new per-controller test files can reference them. Carry their XML docs + bodies byte-for-byte. Add the usings these doubles need (System, System.Collections.Generic, System.Net, System.Threading, System.Threading.Tasks, DeckFlow.Core.Integration, DeckFlow.Core.Reporting, DeckFlow.Web.Services, DeckFlow.Web.Models — verify by build).
+    Do NOT yet delete DeckControllerTests.cs — Task 2 carves its test cases out; this task only relocates the fakes (remove all 22 nested classes from DeckControllerTests.cs, leaving the test methods temporarily referencing the now-internal fakes in the same namespace — they still resolve).
     After this task DeckControllerTests.cs still compiles (its tests reference the relocated internal fakes by simple name, same namespace). Build .Tests to confirm.
   </action>
   <acceptance_criteria>
-    - DeckControllerTestFakes.cs contains all 19 doubles as `internal sealed class`.
-    - grep -cE "private sealed class (Fake|Stub|Throwing)" DeckFlow.Web.Tests/DeckControllerTests.cs == 0 (all moved out).
-    - DeckFlow.Web.Tests builds clean: 0 errors, 0 new warnings. (DeckControllerTests.cs still present + green at this step.)
+    - DeckControllerTestFakes.cs contains all 22 doubles as `internal sealed class` (verify: grep -cE "internal sealed class (Fake|Stub|Throwing|Alternate|Multi|Partially)" DeckFlow.Web.Tests/DeckControllerTestFakes.cs == 22).
+    - grep -cE "private sealed class (Fake|Stub|Throwing|Alternate|Multi|Partially)" DeckFlow.Web.Tests/DeckControllerTests.cs == 0 (all moved out).
+    - DeckFlow.Web.Tests builds clean: 0 errors; warning count (grep -c ': warning ') does not exceed the 38-01-SUMMARY baseline. (DeckControllerTests.cs still present + green at this step.)
   </acceptance_criteria>
   <verify>
-    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj 2>&1 | grep -E "error|Build succeeded" | tail -5; grep -cE "private sealed class (Fake|Stub|Throwing)" DeckFlow.Web.Tests/DeckControllerTests.cs</automated>
+    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj 2>&1 | tee /tmp/38-06-build.log | grep -E "error|Build succeeded" | tail -5; echo "warning-count:"; grep -c ': warning ' /tmp/38-06-build.log; echo "relocated doubles (must be 22):"; grep -cE "internal sealed class (Fake|Stub|Throwing|Alternate|Multi|Partially)" DeckFlow.Web.Tests/DeckControllerTestFakes.cs; echo "remaining private doubles in DeckControllerTests (must be 0):"; grep -cE "private sealed class (Fake|Stub|Throwing|Alternate|Multi|Partially)" DeckFlow.Web.Tests/DeckControllerTests.cs</automated>
   </verify>
   <done>Shared fakes live in DeckControllerTestFakes.cs as internal classes; .Tests builds clean.</done>
 </task>
@@ -126,10 +127,10 @@ NOTE: DeckSyncApiControllerTests.cs defines its OWN FakeDeckSyncService (differe
     - DeckControllerTests.cs is deleted (git status shows removal); no file references `new DeckController(` or `NullLogger<DeckController>` anywhere in DeckFlow.Web.Tests.
     - The three new files together contain the SAME number of [Fact]/[Theory] methods as the original DeckControllerTests.cs (24). grep -c "[Fact]" summed across the 3 new files == original count.
     - Each test constructs its new controller via the narrowed ctor with NullLogger<NewController>.Instance; grep finds new DeckLookupController(, new DeckPacketController(, new DeckCategoriesController( and zero new DeckController(.
-    - Full solution builds clean: 0 errors, 0 new warnings (DeckFlow.Web.Tests + DeckFlow.Core.Tests + DeckFlow.Web + DeckFlow.CLI).
+    - Full solution builds clean: 0 errors; solution warning count (grep -c ': warning ') does not exceed the 38-01-SUMMARY baseline (DeckFlow.Web.Tests + DeckFlow.Core.Tests + DeckFlow.Web + DeckFlow.CLI).
   </acceptance_criteria>
   <verify>
-    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.sln 2>&1 | grep -E "error|Build succeeded|Warning" | tail -8; grep -rc "new DeckController(" DeckFlow.Web.Tests 2>/dev/null | grep -v ':0'; test -f DeckFlow.Web.Tests/DeckControllerTests.cs && echo "STILL-EXISTS-FAIL" || echo "deleted-ok"</automated>
+    <automated>"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.sln 2>&1 | tee /tmp/38-06-sln.log | grep -E "error|Build succeeded" | tail -8; echo "solution-warning-count (must be <= 38-01 baseline):"; grep -c ': warning ' /tmp/38-06-sln.log; grep -rc "new DeckController(" DeckFlow.Web.Tests 2>/dev/null | grep -v ':0'; test -f DeckFlow.Web.Tests/DeckControllerTests.cs && echo "STILL-EXISTS-FAIL" || echo "deleted-ok"</automated>
   </verify>
   <done>Tests mirror-split into 3 per-controller files; DeckControllerTests.cs deleted; only logger-generic refs changed; full solution builds clean with no new warnings.</done>
 </task>
@@ -142,26 +143,32 @@ NOTE: DeckSyncApiControllerTests.cs defines its OWN FakeDeckSyncService (differe
     - .planning/phases/38-controller-srp-split/38-CONTEXT.md (D-02 + the SC1 capture-method requirement)
   </read_first>
   <action>
-    Mechanically prove route parity (SC1). Capture the POST/GET attribute-route set BEFORE and AFTER the split and diff them:
-    (a) PRE list: read the pre-split baseline git SHA recorded in 38-01-SUMMARY.md (Plan 01 captured `git rev-parse HEAD` BEFORE any split edits; expected value ~c315a94, but use whatever SHA the SUMMARY records). Do NOT derive HEAD~N by counting commits — it is error-prone across this multi-commit refactor and a wrong N silently invalidates the SC1 proof. Extract the original DeckController's route attribute strings from that exact commit: git show <baseline-sha>:DeckFlow.Web/Controllers/DeckController.cs piped through grep -oE 'Http(Get|Post)\("[^"]+"\)' | sort -u. Save to a temp file pre-routes.txt. If 38-01-SUMMARY.md is missing the baseline SHA, STOP and report it (do NOT fall back to HEAD~N guessing).
-    ALSO handle the Error action (no route attr): the original DeckController.Error() was conventional /Deck/Error; after the split Error() lives on ShellController and resolves conventionally as /Shell/Error, and Plan 01 re-pointed app.UseExceptionHandler("/Deck/Error") -> app.UseExceptionHandler("/Shell/Error") to match. So the conventional error route changed controller NAME only (Deck -> Shell), with the handler re-pointed accordingly — user-visible error behavior is unchanged, but the route string is NOT "unchanged". Record this Deck->Shell conventional-error-route move explicitly in the SUMMARY; do NOT claim "/Deck/Error survives".
-    (b) POST list: grep -rhoE 'Http(Get|Post)\("[^"]+"\)' across ALL DeckFlow.Web/Controllers/*.cs (the 8 new controllers) | sort -u. Save to post-routes.txt.
-    (c) diff pre-routes.txt post-routes.txt — MUST be empty (zero adds/removes/changes) for the attribute-routed set. The attribute strings are the URLs (attribute routing per D-02), so identical attribute-string sets == identical URL set.
-    Record both lists + the empty diff + the baseline SHA used + the Deck->Shell conventional-error-route note verbatim in the SUMMARY as the SC1 proof artifact. If the diff is non-empty, STOP and report the discrepancy (a route was dropped or altered during a move — a defect to fix before phase close, not to accept).
+    Mechanically prove route parity (SC1). Capture the route set BEFORE and AFTER the split and diff them. NOTE (codex review finding #5): the split adopts the PREFERRED parity fix — Error() moves to ShellController but keeps the /Deck/Error URL via an explicit [Route("Deck/Error")] attribute, and UseExceptionHandler("/Deck/Error") is LEFT UNCHANGED. So /Deck/Error is present in BOTH the pre and post URL sets — pre==post literally, no accepted exception needed.
+
+    (a) PRE list: read the pre-split baseline git SHA recorded in 38-01-SUMMARY.md (Plan 01 captured `git rev-parse HEAD` BEFORE any split edits; use whatever SHA the SUMMARY records). Do NOT derive HEAD~N by counting commits — it is error-prone across this multi-commit refactor and a wrong N silently invalidates the SC1 proof. If 38-01-SUMMARY.md is missing the baseline SHA, STOP and report it (do NOT fall back to HEAD~N guessing).
+    From that exact commit, extract the original DeckController's ATTRIBUTE route strings:
+      git show <baseline-sha>:DeckFlow.Web/Controllers/DeckController.cs | grep -oE 'Http(Get|Post)\("[^"]+"\)' | sort -u  >  /tmp/pre-routes.txt
+    Then ADD the one CONVENTIONAL route that has no Http* attribute in the baseline — the Error() action, reachable as /Deck/Error. Because the post-split set captures Error() via its [Route("Deck/Error")] attribute (see step b), the pre list must include the symmetric entry so pre==post. Append the literal normalized token `Route("Deck/Error")` to /tmp/pre-routes.txt and re-sort -u. (Rationale: pre-split the URL /Deck/Error existed via convention; post-split the SAME URL exists via the Route attribute. Representing both as the normalized token `Route("Deck/Error")` makes the diff capture the URL identity, not the attribute mechanism. Document this normalization in the SUMMARY: "/Deck/Error: conventional pre-split -> [Route] attribute post-split, SAME URL, controller Deck->Shell; UseExceptionHandler unchanged.")
+    (b) POST list: capture BOTH Http* and Route attributes across ALL new controllers (the [Route("Deck/Error")] on ShellController.Error is a Route, not Http*, so the grep MUST include Route):
+      grep -rhoE '(Http(Get|Post)|Route)\("[^"]+"\)' DeckFlow.Web/Controllers/*.cs | sort -u  >  /tmp/post-routes.txt
+      (If any OTHER [Route(...)] attributes exist on the new controllers beyond /Deck/Error, they are pre-existing route surface and must already appear on the pre side too — investigate any that do not, as that would be a genuine route change. The only NEW Route attribute introduced by this phase is Error's /Deck/Error, which is matched on the pre side by the normalization in step a.)
+    (c) diff /tmp/pre-routes.txt /tmp/post-routes.txt — MUST be empty (zero adds/removes/changes). Identical normalized route-token sets == identical URL set.
+    Record both lists + the empty diff + the baseline SHA + the /Deck/Error conventional->attribute normalization note verbatim in the SUMMARY as the SC1 proof artifact. If the diff is non-empty, STOP and report the discrepancy (a route was dropped or altered during a move — a defect to fix before phase close, not to accept).
     Do NOT modify any production code in this task — it is verification only. If a parity gap is found, surface it; the fix belongs in whichever feature plan dropped the route.
     Why no EndpointDataSource runtime dump: the app cannot be reliably booted headless in WSL (project Constraints: push-and-watch CI / manual harness). The attribute-string set IS the authoritative URL source for attribute-routed actions, so the static grep-diff is a sound, deterministic SC1 proof.
   </action>
   <acceptance_criteria>
-    - A pre-routes.txt (from the baseline-SHA DeckController.cs, SHA read from 38-01-SUMMARY.md) and post-routes.txt (from all new controllers) are captured.
-    - diff of the two sorted unique attribute-route lists is EMPTY.
-    - The conventional error route is recorded as moving /Deck/Error -> /Shell/Error (controller-name change only; UseExceptionHandler re-pointed in Plan 01), NOT claimed as "unchanged".
-    - The route count matches the known inventory: GET /, /api/set-options, /sync, /convert, /convert/commander-search, /card-lookup (+/download,/download-json,/single), /mechanic-lookup, /suggest-categories (+/card-search), /judge-questions, /deck-analysis (+/download,/upload), /deck-comparison (+/download,/upload), /cedh-meta-gap (+/download,/upload), /deck-primer (+/download,/upload), /resolve. (POST /sync and POST /resolve etc. are distinct verb+path entries.)
-    - SUMMARY contains the verbatim pre/post lists + empty diff + baseline SHA + Deck->Shell error-route note.
+    - A /tmp/pre-routes.txt (from the baseline-SHA DeckController.cs Http* attrs PLUS the appended normalized Route("Deck/Error") token, SHA read from 38-01-SUMMARY.md) and /tmp/post-routes.txt (Http* AND Route attrs from all new controllers) are captured.
+    - diff of the two sorted unique route-token lists is EMPTY.
+    - /Deck/Error appears in BOTH the pre and post sets (preserved URL); it is recorded as "conventional pre-split -> [Route(\"Deck/Error\")] post-split, SAME URL, controller Deck->Shell, UseExceptionHandler UNCHANGED" — NOT as a /Shell/Error change and NOT as an accepted exception.
+    - The post grep includes Route attributes (not just Http*), so the new [Route("Deck/Error")] is captured symmetrically.
+    - The route count matches the known inventory: GET /, /api/set-options, /sync, /convert, /convert/commander-search, /card-lookup (+/download,/download-json,/single), /mechanic-lookup, /suggest-categories (+/card-search), /judge-questions, /deck-analysis (+/download,/upload), /deck-comparison (+/download,/upload), /cedh-meta-gap (+/download,/upload), /deck-primer (+/download,/upload), /resolve, plus Route("Deck/Error"). (POST /sync and POST /resolve etc. are distinct verb+path entries.)
+    - SUMMARY contains the verbatim pre/post lists + empty diff + baseline SHA + the /Deck/Error conventional->attribute normalization note.
   </acceptance_criteria>
   <verify>
-    <automated>grep -rhoE 'Http(Get|Post)\("[^"]+"\)' DeckFlow.Web/Controllers/*.cs | sort -u > /tmp/post-routes.txt; wc -l /tmp/post-routes.txt; echo "--- post route set ---"; cat /tmp/post-routes.txt</automated>
+    <automated>grep -rhoE '(Http(Get|Post)|Route)\("[^"]+"\)' DeckFlow.Web/Controllers/*.cs | sort -u > /tmp/post-routes.txt; wc -l /tmp/post-routes.txt; echo "--- post route set (Http* + Route) ---"; cat /tmp/post-routes.txt; echo "--- /Deck/Error present in post (must be 1) ---"; grep -c 'Route("Deck/Error")' /tmp/post-routes.txt</automated>
   </verify>
-  <done>SC1 proven: pre and post attribute-route sets are identical (empty diff); baseline SHA sourced from 38-01-SUMMARY.md; Deck->Shell conventional error-route move recorded; proof in SUMMARY.</done>
+  <done>SC1 proven: pre and post route-token sets are identical (empty diff), with /Deck/Error preserved (conventional->[Route], URL unchanged, handler unchanged); baseline SHA sourced from 38-01-SUMMARY.md; normalization note recorded; proof in SUMMARY.</done>
 </task>
 
 </tasks>
@@ -186,7 +193,7 @@ No package installs; no new inputs. No HIGH-severity threats.
 - Full solution (DeckFlow.sln) builds clean: 0 errors, 0 new warnings (SRP-03).
 - Every original DeckControllerTests case is preserved in a per-controller file with only the logger-generic + ctor-arity change (SRP-03).
 - Pre==post attribute-route set with empty diff (SC1), using the baseline SHA from 38-01-SUMMARY.md.
-- The /Deck/Error -> /Shell/Error conventional error-route move is documented (not mis-recorded as unchanged).
+- /Deck/Error is preserved (conventional pre-split -> [Route("Deck/Error")] post-split, SAME URL, UseExceptionHandler unchanged) — documented as preserved, NOT as a /Shell/Error change.
 - Shared fakes relocated to internal classes; DeckControllerTests.cs deleted.
 </verification>
 
@@ -197,5 +204,5 @@ No package installs; no new inputs. No HIGH-severity threats.
 </success_criteria>
 
 <output>
-Create `.planning/phases/38-controller-srp-split/38-06-SUMMARY.md` when done. Record: the test-to-controller distribution, the preserved test count, confirmation only logger-generics + ctor changed, the relocated-fakes file, DeckControllerTests.cs deletion, the baseline SHA read from 38-01-SUMMARY.md, the verbatim SC1 pre/post route lists + empty diff, and the /Deck/Error -> /Shell/Error conventional error-route note. Confirm full-solution build clean.
+Create `.planning/phases/38-controller-srp-split/38-06-SUMMARY.md` when done. Record: the test-to-controller distribution, the preserved test count, confirmation only logger-generics + ctor changed, the relocated-fakes file, DeckControllerTests.cs deletion, the baseline SHA read from 38-01-SUMMARY.md, the verbatim SC1 pre/post route lists + empty diff, and the /Deck/Error preserved-via-[Route] normalization note. Confirm full-solution build clean (warning count <= 38-01 baseline).
 </output>
