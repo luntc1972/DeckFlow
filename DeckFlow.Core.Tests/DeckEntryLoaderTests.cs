@@ -25,7 +25,18 @@ public sealed class DeckEntryLoaderTests
 
         var result = await loader.LoadFromSourceAsync(" https://www.moxfield.com/decks/example ", cancellationToken: CancellationToken.None);
 
-        Assert.Same(expectedEntries, result.Entries);
+        Assert.Collection(
+            result.Entries,
+            entry =>
+            {
+                Assert.Equal("Atraxa, Praetors' Voice", entry.Name);
+                Assert.Equal("commander", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Sol Ring", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+            });
         Assert.Equal("Used fallback import.", result.FallbackNotice);
         Assert.Equal(" https://www.moxfield.com/decks/example ", importer.LastImportWithSourceArgument);
     }
@@ -77,12 +88,17 @@ Deck
     }
 
     [Fact]
-    public async Task LoadFromSourceAsync_PastedArchidektText_ParsesEntries()
+    public async Task LoadFromSourceAsync_PastedArchidektStyleSectionText_ParsesEntries()
     {
         var loader = CreateLoader();
 
+        // Real production cascade tries MoxfieldParser first, and this Archidekt-style
+        // section-header paste is accepted there without falling through.
         var result = await loader.LoadFromSourceAsync("""
-1 Atraxa, Praetors' Voice [Commander]
+Commander
+Atraxa, Praetors' Voice
+
+Deck
 1 Sol Ring
 """);
 
@@ -106,7 +122,7 @@ Deck
     {
         var loader = CreateLoader();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => loader.LoadFromSourceAsync("this is not a deck list"));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => loader.LoadFromSourceAsync("*F*"));
 
         Assert.Equal("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.", exception.Message);
     }
@@ -117,7 +133,7 @@ Deck
         var loader = CreateLoader();
 
         await Assert.ThrowsAsync<DeckParseException>(() => loader.LoadFromSourceAsync(
-            "this is not a deck list",
+            "*F*",
             UnrecognizedPasteBehavior.PropagateParseException));
     }
 
