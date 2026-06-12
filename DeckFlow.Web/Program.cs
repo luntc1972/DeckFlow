@@ -26,6 +26,7 @@ using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web;
@@ -259,6 +260,10 @@ public partial class Program
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<CardLookupCache>()));
+            builder.Services.AddSingleton<IScryfallCardResolver>(sp =>
+                new ScryfallCardResolver(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>()));
             builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
             builder.Services.AddSingleton<ICommanderBanListService>(sp =>
                 new CommanderBanListService(
