@@ -17,10 +17,9 @@ namespace DeckFlow.Web.Controllers;
 /// <summary>
 /// Serves the MVC pages for deck compare, category suggestion, lookup, and ChatGPT-assisted workflows.
 /// </summary>
-public sealed class DeckController : Controller
+public sealed class DeckController : DeckToolControllerBase
 {
     private const string CorruptedZipMessage = "The uploaded zip contains an incomplete response payload. Re-export from the originating session or paste a fresh response.";
-    private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromSeconds(20);
     private readonly IDeckSyncService _deckSyncService;
     private readonly IDeckConvertService _deckConvertService;
     private readonly ICardSearchService _cardSearchService;
@@ -32,7 +31,6 @@ public sealed class DeckController : Controller
     private readonly IDeckComparisonService _deckComparisonService;
     private readonly IMetaGapService _metaGapService;
     private readonly PacketSessionCache _packetCache;
-    private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
     /// <summary>
@@ -50,7 +48,6 @@ public sealed class DeckController : Controller
         IDeckComparisonService deckComparisonService,
         IMetaGapService metaGapService,
         PacketSessionCache packetCache,
-        IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
@@ -64,25 +61,7 @@ public sealed class DeckController : Controller
         _deckComparisonService = deckComparisonService;
         _metaGapService = metaGapService;
         _packetCache = packetCache;
-        _scryfallSetService = scryfallSetService;
         _logger = logger;
-    }
-
-    /// <summary>
-    /// Renders the landing hub listing every tool in the app.
-    /// </summary>
-    [HttpGet("/")]
-    public IActionResult Home()
-    {
-        return View("Home", DeckPageTab.Home);
-    }
-
-    /// <summary>Gets the branded error page shown when an unhandled exception occurs.</summary>
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    [IgnoreAntiforgeryToken]
-    public IActionResult Error()
-    {
-        return View("Error");
     }
 
     /// <summary>
@@ -209,16 +188,6 @@ public sealed class DeckController : Controller
                 TargetCommanderBracket = defaultBracket,
             },
         });
-    }
-
-    /// <summary>
-    /// Returns the Scryfall set catalog as JSON for client-side async loading.
-    /// </summary>
-    [HttpGet("/api/set-options")]
-    public async Task<IActionResult> GetSetOptions()
-    {
-        var sets = await TryGetSetOptionsAsync();
-        return Json(sets.Select(s => new { s.Code, s.DisplayLabel, s.SetType }));
     }
 
     /// <summary>
@@ -1455,22 +1424,6 @@ public sealed class DeckController : Controller
                 Request = new MetaGapRequest(),
                 ErrorMessage = "The uploaded file is not a valid .zip archive."
             });
-        }
-    }
-
-    /// <summary>
-    /// Attempts to load set options without surfacing catalog failures as page-breaking errors.
-    /// </summary>
-    private async Task<IReadOnlyList<ScryfallSetOption>> TryGetSetOptionsAsync()
-    {
-        try
-        {
-            return await _scryfallSetService.GetSetsAsync(HttpContext.RequestAborted);
-        }
-        catch (HttpRequestException exception)
-        {
-            _logger.LogWarning(exception, "Set catalog lookup failed.");
-            return Array.Empty<ScryfallSetOption>();
         }
     }
 
