@@ -246,7 +246,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Plans**: ARCH-02 = 3 plans / 3 waves (Finding A, pure behavior-preserving refactor)
 - [x] 39-01-deck-loader-extraction-PLAN.md — extend IDeckEntryLoader (source-autodetect + fallback notice); route all 4 packet services through it; delete 4 private LoadDeckEntriesAsync
 - [x] 39-02-scryfall-resolver-comparison-metagap-PLAN.md — extract IScryfallCardResolver (collection batch + shared fuzzy fallback); migrate Comparison + Meta-Gap; move their Scryfall Func seams onto the resolver
-- [ ] 39-03-scryfall-resolver-analysis-PLAN.md — add Analysis 3-stage fallback + named seam to the resolver; migrate Deck Analysis; delete its 3 Func seams + private SearchFallbackCardAsync
+- [x] 39-03-scryfall-resolver-analysis-PLAN.md — add Analysis 3-stage fallback + named seam to the resolver; migrate Deck Analysis; delete its 3 Func seams + private SearchFallbackCardAsync
 
 ---
 
@@ -264,7 +264,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
 | 38. Controller SRP Split | 6/6 | Complete   | 2026-06-12 |
-| 39. Architecture Review + Top-Finding Refactor | 2/3 | In Progress|  |
+| 39. Architecture Review + Top-Finding Refactor | 3/3 | Complete   | 2026-06-12 |
 
 ---
 
