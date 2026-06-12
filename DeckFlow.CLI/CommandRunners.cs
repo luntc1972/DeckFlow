@@ -423,7 +423,7 @@ internal static class CommandRunners
             return 2;
         }
 
-        var dbPath = ResolveContentKbDatabasePath(db);
+        var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
         var slug = SlugifySourceName.Slugify(name);
         var store = new ContentSourceStore(dbPath);
         Console.WriteLine($"Computed slug: {slug}");
@@ -455,7 +455,7 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         try
         {
-            var dbPath = ResolveContentKbDatabasePath(db);
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var store = new ContentSourceStore(dbPath);
             await store.SetEnabledAsync(id, enabled, ct).ConfigureAwait(false);
             Console.WriteLine($"Source {id} enabled={enabled}.");
@@ -480,8 +480,8 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         try
         {
-            var dbPath = ResolveContentKbDatabasePath(db);
-            var artifactRoot = ResolveContentKbArtifactRoot(db);
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
+            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
             using var llmHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var sourceStore = new ContentSourceStore(dbPath);
             var videoStore = new ContentVideoStore(dbPath);
@@ -536,10 +536,10 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         try
         {
-            var dbPath = ResolveContentKbDatabasePath(db);
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var blockedStore = new BlockedVideoStore(dbPath);
             var videoStore = new ContentVideoStore(dbPath);
-            var siteIndexStore = new ContentSiteIndexStore(ResolveContentKbDatabasePath(db));
+            var siteIndexStore = new ContentSiteIndexStore(ContentKbCliPaths.ResolveDatabasePath(db));
 
             return await RunBlockVideoAsync(youtubeVideoId, reason, blockedStore, videoStore, siteIndexStore, logger, ct).ConfigureAwait(false);
         }
@@ -582,7 +582,7 @@ internal static class CommandRunners
             }
             else
             {
-                var dbPath = ResolveContentKbDatabasePath(db);
+                var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
                 videoStore = new ContentVideoStore(dbPath);
                 siteIndexStore = new ContentSiteIndexStore(dbPath);
             }
@@ -614,7 +614,7 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         try
         {
-            var blockedStore = new BlockedVideoStore(ResolveContentKbDatabasePath(db));
+            var blockedStore = new BlockedVideoStore(ContentKbCliPaths.ResolveDatabasePath(db));
             return await RunUnblockVideoAsync(youtubeVideoId, blockedStore, logger, ct).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -640,7 +640,7 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         try
         {
-            var blockedStore = new BlockedVideoStore(ResolveContentKbDatabasePath(db));
+            var blockedStore = new BlockedVideoStore(ContentKbCliPaths.ResolveDatabasePath(db));
             return await RunListBlockedAsync(blockedStore, Console.Out, ct).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -759,7 +759,7 @@ internal static class CommandRunners
     {
         try
         {
-            var dbPath = ResolveContentKbDatabasePath(db);
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var indexStore = new ContentSiteIndexStore(dbPath);
             await indexStore.EnsureSchemaAsync().ConfigureAwait(false);
             var rows = await indexStore.GetAllRowsAsync().ConfigureAwait(false);
@@ -1007,7 +1007,7 @@ internal static class CommandRunners
         ArgumentNullException.ThrowIfNull(logger);
         try
         {
-            var dbPath = ResolveContentKbDatabasePath(db);
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             using var youtubeHttpClient = new HttpClient();
             using var whisperHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var sourceStore = new ContentSourceStore(dbPath);
@@ -1925,21 +1925,6 @@ internal static class CommandRunners
 
         Console.Error.WriteLine(exception.Message);
         return 1;
-    }
-
-    private static string ResolveContentKbDatabasePath(FileInfo? db)
-        => db?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts", "content-kb.db");
-
-    private static string ResolveContentKbArtifactRoot(FileInfo? db)
-    {
-        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
-        if (!string.IsNullOrWhiteSpace(dataDir))
-        {
-            return Path.GetFullPath(Path.Combine(dataDir, "content-kb"));
-        }
-
-        // Why: D-11 / HSK-04 collapses the dual artifact tree to the repo-root content-kb so drift is impossible.
-        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
     }
 
     private sealed record ContentIndexExportRow
