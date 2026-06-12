@@ -4,6 +4,7 @@
   interface DeckFlowNamespace {
     attachPrimerCopyButtons?: () => void;
     initPrimerSelection?: () => void;
+    scrollToPrimerResult?: () => void;
   }
 
   type DeckFlowWindow = Window & {
@@ -266,8 +267,25 @@
     });
   };
 
+  const scrollToPrimerResult = (): void => {
+    const output = document.getElementById('primer-output');
+    if (!(output instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    if (output.value.trim().length === 0) {
+      return;
+    }
+
+    const target = output.closest<HTMLElement>('.result-panel') ?? output;
+    window.setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
   const initPrimerSelection = (): void => {
     attachPrimerCopyButtons();
+    scrollToPrimerResult();
 
     const form = document.querySelector<HTMLFormElement>('[data-primer-form]');
     const bracketSelect = document.querySelector<HTMLSelectElement>('[data-primer-bracket]');
@@ -321,5 +339,6 @@
   win.DeckFlow = win.DeckFlow ?? {};
   win.DeckFlow.attachPrimerCopyButtons = attachPrimerCopyButtons;
   win.DeckFlow.initPrimerSelection = initPrimerSelection;
+  win.DeckFlow.scrollToPrimerResult = scrollToPrimerResult;
   document.addEventListener('DOMContentLoaded', initPrimerSelection);
 })();
