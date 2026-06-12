@@ -34,6 +34,17 @@
             ? parsed.UtcDateTime.ToString("u", CultureInfo.InvariantCulture)
             : lastProcessedUtc;
     }
+
+    static string GetRunStateBadgeClass(HarvestRunState state) => state switch
+    {
+        HarvestRunState.Succeeded => "badge text-bg-success",
+        HarvestRunState.Failed => "badge text-bg-danger",
+        HarvestRunState.Interrupted => "badge text-bg-secondary",
+        HarvestRunState.Cancelled => "badge text-bg-warning",
+        HarvestRunState.Running => "badge text-bg-primary",
+        HarvestRunState.Stopping => "badge text-bg-warning",
+        _ => "badge text-bg-light text-dark"
+    };
 }
 
 <noscript>
@@ -157,7 +168,7 @@
                         <tr>
                             <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
                             <td>@(run.CompletedUtc?.ToString("u") ?? "—")</td>
-                            <td>@run.State</td>
+                            <td><span class="@GetRunStateBadgeClass(run.State)">@run.State</span></td>
                             <td>@run.DecksProcessed</td>
                         </tr>
                     }

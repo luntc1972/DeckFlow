@@ -27,7 +27,7 @@
         Steps: new[]
         {
             new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
-            new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Primer", !string.IsNullOrWhiteSpace(Model.Request.TargetCommanderBracket)),
+            new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Primer", !string.IsNullOrWhiteSpace(Model.PrimerPromptText)),
             new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Results", false)
         });
 }

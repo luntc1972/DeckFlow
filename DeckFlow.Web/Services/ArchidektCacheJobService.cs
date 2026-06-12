@@ -71,6 +71,9 @@ public enum ArchidektCacheJobState
     /// <summary>Run completed normally.</summary>
     Succeeded,
 
+    /// <summary>Run cut short by a host restart/redeploy mid-run — not a failure.</summary>
+    Interrupted,
+
     /// <summary>Run aborted on exception, redeploy reaper, or upstream failure.</summary>
     Failed,
 
@@ -299,18 +302,18 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                 // state — the row stayed Running until the next process start,
                 // when the reaper labelled it "interrupted by redeploy". That
                 // conflated host-shutdown / OOM-kill / SIGTERM with actual
-                // redeploys and made the Run Log misleading. Now we write Failed
+                // redeploys and made the Run Log misleading. Now we write Interrupted
                 // with a precise reason BEFORE rethrowing so the reaper only
                 // ever sees rows orphaned by SIGKILL (no graceful shutdown).
                 _logger.LogInformation(
                     "Harvest.Run.StateChange jobId={JobId} state={State} reason={Reason}",
-                    signal.JobId, HarvestRunState.Failed, "interrupted by host shutdown");
+                    signal.JobId, HarvestRunState.Interrupted, "interrupted by host shutdown");
 
                 try
                 {
                     await _runStore.UpdateStateAsync(
                         signal.JobId,
-                        HarvestRunState.Failed,
+                        HarvestRunState.Interrupted,
                         startedUtc: null,
                         completedUtc: DateTimeOffset.UtcNow,
                         decksProcessed: 0,
@@ -401,7 +404,17 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// <returns>Public-shape status the controller serializes.</returns>
     private static ArchidektCacheJobStatus MapToStatus(HarvestRunRow row)
     {
-        var state = Enum.Parse<ArchidektCacheJobState>(row.State.ToString(), ignoreCase: false);
+        var state = row.State switch
+        {
+            HarvestRunState.Queued => ArchidektCacheJobState.Queued,
+            HarvestRunState.Running => ArchidektCacheJobState.Running,
+            HarvestRunState.Stopping => ArchidektCacheJobState.Stopping,
+            HarvestRunState.Succeeded => ArchidektCacheJobState.Succeeded,
+            HarvestRunState.Interrupted => ArchidektCacheJobState.Interrupted,
+            HarvestRunState.Failed => ArchidektCacheJobState.Failed,
+            HarvestRunState.Cancelled => ArchidektCacheJobState.Cancelled,
+            _ => throw new InvalidOperationException($"Unknown harvest run state '{row.State}'.")
+        };
         return new ArchidektCacheJobStatus(
             row.Id,
             state,
