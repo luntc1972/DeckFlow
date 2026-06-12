@@ -165,6 +165,25 @@ public sealed class AdminContentKbController : Controller
     }
 
     /// <summary>
+    /// Permanently removes a single site-index row by surrogate id. Double-CSRF-guarded.
+    /// </summary>
+    /// <param name="entryId">Surrogate row id.</param>
+    /// <param name="cancellationToken">Request-aborted token.</param>
+    [HttpPost("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteEntry(long entryId, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
+        var deleted = await _store.DeleteByIdAsync(entryId, cancellationToken).ConfigureAwait(false);
+        TempData[BannerKey] = deleted > 0 ? "Entry deleted." : "Entry not found.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
     /// Publishes or hides every entry for a given source. Double-CSRF-guarded.
     /// </summary>
     /// <param name="source">Source key.</param>

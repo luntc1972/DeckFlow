@@ -170,6 +170,11 @@ else
                                         <button type="submit" aria-label="Mark '@entry.Title' as evergreen">Evergreen: Off</button>
                                     }
                                 </form>
+                                <form method="post" asp-action="DeleteEntry" class="admin-action-form" data-admin-confirm-twoclick>
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="entryId" value="@entry.Id" />
+                                    <button type="submit" class="danger" data-confirm-label="Confirm delete" aria-label="Delete '@entry.Title' permanently">Delete</button>
+                                </form>
                             </td>
                         </tr>
                     }
@@ -188,4 +193,5 @@ else
 {
     <script src="~/js/admin-modal.js" asp-append-version="true"></script>
     <script src="~/js/kb-entry-filter.js" asp-append-version="true"></script>
+    <script src="~/js/content-kb-admin.js" asp-append-version="true"></script>
 }

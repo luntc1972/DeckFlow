@@ -23,6 +23,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     /// <summary>Rows passed to <see cref="UpsertRowAsync"/> (should stay empty for the seed path).</summary>
     public List<ContentSiteIndexRow> PlainUpserts { get; } = new();
 
+    /// <summary>Ids passed to <see cref="DeleteByIdAsync"/>.</summary>
+    public List<long> DeletedIds { get; } = new();
+
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
@@ -73,6 +76,7 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 
     public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
     {
+        DeletedIds.Add(id);
         var removed = Rows.RemoveAll(row => row.Id == id);
         return Task.FromResult(removed);
     }
