@@ -81,6 +81,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
                 await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            await EnsureStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
+
             await using (var reaper = connection.CreateCommand())
             {
                 reaper.CommandText = _connectionInfo.IsPostgres ? PostgresReaperSql : SqliteReaperSql;
@@ -432,12 +434,194 @@ public sealed class HarvestRunStore : IHarvestRunStore
         return connection;
     }
 
+    private async Task EnsureStateConstraintAllowsInterruptedAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        if (_connectionInfo.IsSqlite)
+        {
+            await EnsureSqliteStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await EnsurePostgresStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsureSqliteStateConstraintAllowsInterruptedAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        if (await SqliteStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        var existingIndexSql = await GetSqliteHarvestRunIndexSqlAsync(connection, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        await using (var create = connection.CreateCommand())
+        {
+            create.Transaction = transaction;
+            create.CommandText = SqliteCreateMigratedHarvestRunsTableSql;
+            await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await using (var copy = connection.CreateCommand())
+        {
+            copy.Transaction = transaction;
+            copy.CommandText = """
+                INSERT INTO harvest_runs_new (
+                    id, kind, state, requested_utc, started_utc, completed_utc,
+                    duration_seconds, decks_processed, additional_decks_found, error_message, url)
+                SELECT
+                    id, kind, state, requested_utc, started_utc, completed_utc,
+                    duration_seconds, decks_processed, additional_decks_found, error_message, url
+                  FROM harvest_runs;
+                """;
+            await copy.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await using (var drop = connection.CreateCommand())
+        {
+            drop.Transaction = transaction;
+            drop.CommandText = "DROP TABLE harvest_runs;";
+            await drop.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await using (var rename = connection.CreateCommand())
+        {
+            rename.Transaction = transaction;
+            rename.CommandText = "ALTER TABLE harvest_runs_new RENAME TO harvest_runs;";
+            await rename.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var indexSql in existingIndexSql)
+        {
+            await using var recreateIndex = connection.CreateCommand();
+            recreateIndex.Transaction = transaction;
+            recreateIndex.CommandText = indexSql;
+            await recreateIndex.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsurePostgresStateConstraintAllowsInterruptedAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var constraintName = await GetPostgresHarvestRunStateConstraintNameAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(constraintName))
+        {
+            return;
+        }
+
+        var definition = await GetPostgresConstraintDefinitionAsync(connection, constraintName, cancellationToken).ConfigureAwait(false);
+        if (constraintName == PostgresHarvestRunStateConstraintName &&
+            definition.Contains("'Interrupted'", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = $"""
+            ALTER TABLE harvest_runs
+            DROP CONSTRAINT IF EXISTS "{PostgresHarvestRunStateConstraintName}";
+            {BuildOptionalPostgresConstraintDropSql(constraintName)}
+            ALTER TABLE harvest_runs
+            ADD CONSTRAINT "{PostgresHarvestRunStateConstraintName}"
+            CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'));
+            """;
+        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string BuildOptionalPostgresConstraintDropSql(string constraintName)
+        => constraintName == PostgresHarvestRunStateConstraintName
+            ? string.Empty
+            : $"ALTER TABLE harvest_runs DROP CONSTRAINT IF EXISTS \"{constraintName}\";";
+
+    private static async Task<bool> SqliteStateConstraintAllowsInterruptedAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT sql
+              FROM sqlite_master
+             WHERE type = 'table'
+               AND name = 'harvest_runs';
+            """;
+        var sql = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+        return sql?.Contains("'Interrupted'", StringComparison.Ordinal) == true;
+    }
+
+    private static async Task<List<string>> GetSqliteHarvestRunIndexSqlAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var indexes = new List<string>();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT sql
+              FROM sqlite_master
+             WHERE type = 'index'
+               AND tbl_name = 'harvest_runs'
+               AND sql IS NOT NULL
+             ORDER BY name;
+            """;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            indexes.Add(reader.GetString(0));
+        }
+
+        return indexes;
+    }
+
+    private static async Task<string?> GetPostgresHarvestRunStateConstraintNameAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT con.conname
+              FROM pg_constraint con
+              INNER JOIN pg_class rel ON rel.oid = con.conrelid
+              INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+             WHERE rel.relname = 'harvest_runs'
+               AND con.contype = 'c'
+               AND pg_get_constraintdef(con.oid) LIKE '%Queued%'
+               AND pg_get_constraintdef(con.oid) LIKE '%Cancelled%';
+            """;
+        var name = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+        return string.IsNullOrWhiteSpace(name) ? null : name;
+    }
+
+    private static async Task<string> GetPostgresConstraintDefinitionAsync(
+        DbConnection connection,
+        string constraintName,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT pg_get_constraintdef(con.oid)
+              FROM pg_constraint con
+              INNER JOIN pg_class rel ON rel.oid = con.conrelid
+              INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+             WHERE rel.relname = 'harvest_runs'
+               AND con.conname = @constraintName;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@constraintName", constraintName);
+        return Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture) ?? string.Empty;
+    }
+
     // D-03 schema. Postgres uses UUID + TIMESTAMPTZ + BOOLEAN-style CHECKs.
     private const string PostgresCreateTableSql = """
         CREATE TABLE IF NOT EXISTS harvest_runs (
           id                       UUID PRIMARY KEY,
           kind                     TEXT NOT NULL CHECK (kind IN ('bulk','url')),
-          state                    TEXT NOT NULL CHECK (state IN ('Queued','Running','Stopping','Succeeded','Failed','Cancelled')),
+          state                    TEXT NOT NULL,
           requested_utc            TIMESTAMPTZ NOT NULL DEFAULT now(),
           started_utc              TIMESTAMPTZ NULL,
           completed_utc            TIMESTAMPTZ NULL,
@@ -445,7 +629,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
           decks_processed          INT NOT NULL DEFAULT 0,
           additional_decks_found   INT NOT NULL DEFAULT 0,
           error_message            TEXT NULL,
-          url                      TEXT NULL
+          url                      TEXT NULL,
+          CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
         );
         CREATE INDEX IF NOT EXISTS ix_harvest_runs_state         ON harvest_runs(state);
         CREATE INDEX IF NOT EXISTS ix_harvest_runs_started_utc   ON harvest_runs(started_utc DESC);
@@ -456,7 +641,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         CREATE TABLE IF NOT EXISTS harvest_runs (
           id                       TEXT PRIMARY KEY,
           kind                     TEXT NOT NULL CHECK (kind IN ('bulk','url')),
-          state                    TEXT NOT NULL CHECK (state IN ('Queued','Running','Stopping','Succeeded','Failed','Cancelled')),
+          state                    TEXT NOT NULL,
           requested_utc            TEXT NOT NULL DEFAULT (datetime('now')),
           started_utc              TEXT NULL,
           completed_utc            TEXT NULL,
@@ -464,11 +649,31 @@ public sealed class HarvestRunStore : IHarvestRunStore
           decks_processed          INTEGER NOT NULL DEFAULT 0,
           additional_decks_found   INTEGER NOT NULL DEFAULT 0,
           error_message            TEXT NULL,
-          url                      TEXT NULL
+          url                      TEXT NULL,
+          CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
         );
         CREATE INDEX IF NOT EXISTS ix_harvest_runs_state         ON harvest_runs(state);
         CREATE INDEX IF NOT EXISTS ix_harvest_runs_started_utc   ON harvest_runs(started_utc DESC);
         """;
+
+    private const string SqliteCreateMigratedHarvestRunsTableSql = """
+        CREATE TABLE harvest_runs_new (
+          id                       TEXT PRIMARY KEY,
+          kind                     TEXT NOT NULL CHECK (kind IN ('bulk','url')),
+          state                    TEXT NOT NULL,
+          requested_utc            TEXT NOT NULL DEFAULT (datetime('now')),
+          started_utc              TEXT NULL,
+          completed_utc            TEXT NULL,
+          duration_seconds         INTEGER NOT NULL,
+          decks_processed          INTEGER NOT NULL DEFAULT 0,
+          additional_decks_found   INTEGER NOT NULL DEFAULT 0,
+          error_message            TEXT NULL,
+          url                      TEXT NULL,
+          CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
+        );
+        """;
+
+    private const string PostgresHarvestRunStateConstraintName = "ck_harvest_runs_state";
 
     // D-02: any non-terminal row at startup is by definition orphaned (single-instance
     // Render). Reaper UPDATE is idempotent — zero rows on fresh DB or already-terminal state.

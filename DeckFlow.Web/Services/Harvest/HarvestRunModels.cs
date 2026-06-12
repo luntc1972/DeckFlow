@@ -17,10 +17,10 @@ public enum HarvestRunKind
 
 /// <summary>
 /// State machine for harvest_runs.state. Non-terminal: <c>Queued</c>, <c>Running</c>,
-/// <c>Stopping</c>. Terminal: <c>Succeeded</c>, <c>Failed</c>, <c>Cancelled</c>.
-/// The startup reaper (D-02) flips every non-terminal row to <c>Failed</c> with
-/// error_message <c>"interrupted by redeploy"</c> on first call to
-/// <see cref="IHarvestRunStore.EnsureSchemaAsync"/>.
+/// <c>Stopping</c>. Terminal: <c>Succeeded</c>, <c>Interrupted</c>, <c>Failed</c>,
+/// <c>Cancelled</c>. The startup reaper (D-02) flips every non-terminal row to
+/// <c>Failed</c> with error_message <c>"interrupted by redeploy"</c> on first call
+/// to <see cref="IHarvestRunStore.EnsureSchemaAsync"/>.
 /// </summary>
 public enum HarvestRunState
 {
@@ -35,6 +35,9 @@ public enum HarvestRunState
 
     /// <summary>Run completed normally.</summary>
     Succeeded,
+
+    /// <summary>Run cut short by a host restart/redeploy mid-run — not a failure.</summary>
+    Interrupted,
 
     /// <summary>Run aborted on an exception, redeploy-orphan reap, or upstream error.</summary>
     Failed,
