@@ -2,6 +2,7 @@
   'use strict';
 
   interface DeckFlowNamespace {
+    attachPrimerCopyButtons?: () => void;
     initPrimerSelection?: () => void;
   }
 
@@ -202,7 +203,72 @@
     });
   };
 
+  const copyElementValue = async (targetId: string): Promise<void> => {
+    const target = document.getElementById(targetId);
+    if (!target) {
+      return;
+    }
+
+    const text = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
+      ? target.value
+      : target.textContent ?? '';
+
+    if (!text) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(text);
+  };
+
+  const announceToScreenReader = (message: string): void => {
+    const announcer = document.querySelector<HTMLElement>('[data-copy-announcer]');
+    if (!announcer) {
+      return;
+    }
+
+    announcer.textContent = '';
+    window.setTimeout(() => {
+      announcer.textContent = message;
+    }, 50);
+  };
+
+  const setTemporaryButtonText = (button: HTMLElement, text: string, durationMs = 1800): void => {
+    const originalText = button.dataset.copyOriginalText ?? button.textContent?.trim() ?? 'Copy';
+    button.dataset.copyOriginalText = originalText;
+    button.textContent = text;
+    const state = text === 'Copied' ? 'is-copied' : text === 'Copy failed' ? 'is-copy-failed' : null;
+    if (state) {
+      button.classList.add(state);
+      announceToScreenReader(text);
+    }
+
+    window.setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('is-copied', 'is-copy-failed');
+    }, durationMs);
+  };
+
+  const attachPrimerCopyButtons = (): void => {
+    document.querySelectorAll<HTMLElement>('[data-copy-target]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const targetId = button.dataset.copyTarget;
+        if (!targetId) {
+          return;
+        }
+
+        try {
+          await copyElementValue(targetId);
+          setTemporaryButtonText(button, 'Copied');
+        } catch {
+          setTemporaryButtonText(button, 'Copy failed');
+        }
+      });
+    });
+  };
+
   const initPrimerSelection = (): void => {
+    attachPrimerCopyButtons();
+
     const form = document.querySelector<HTMLFormElement>('[data-primer-form]');
     const bracketSelect = document.querySelector<HTMLSelectElement>('[data-primer-bracket]');
     if (!form || !bracketSelect) {
@@ -253,6 +319,7 @@
   };
 
   win.DeckFlow = win.DeckFlow ?? {};
+  win.DeckFlow.attachPrimerCopyButtons = attachPrimerCopyButtons;
   win.DeckFlow.initPrimerSelection = initPrimerSelection;
   document.addEventListener('DOMContentLoaded', initPrimerSelection);
 })();
