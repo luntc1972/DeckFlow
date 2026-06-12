@@ -235,12 +235,22 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] 38-05-commandrunners-split-PLAN.md — CLI two-commit split: ContentKbCliPaths, then DeckCommandRunners + ContentKbCommandRunners (SRP-02)
 - [x] 38-06-tests-route-parity-PLAN.md — mirror-split DeckControllerTests (SRP-03) + SC1 pre/post route-parity gate
 
+### Phase 39: Architecture Review + Top-Finding Refactor
+**Goal**: A whole-solution architecture audit produces a ranked refactor backlog (read-only findings + ADR stubs), then the single highest-priority finding is refactored and verified — leaving the codebase measurably more cohesive without altering user-visible behavior
+**Depends on**: Phase 38 (audit reads the post-SRP-split structure; the controller/CLI decomposition is the new baseline)
+**Requirements**: ARCH-01 (audit + ranked backlog), ARCH-02 (execute top finding)
+**Success Criteria** (what must be TRUE):
+  1. A whole-solution audit (all 5 projects) is captured as refreshed `.planning/codebase/` docs + a ranked refactor backlog scoring SRP/cohesion/coupling per area, with the top finding explicitly justified
+  2. The top finding is refactored: build clean (0 new warnings), all existing tests pass, and any public surface it touches is provably behavior-preserving (route/CLI/contract parity as applicable)
+  3. The remaining ranked findings are recorded as backlog (ADR stubs / `/gsd:review-backlog` entries) for a future milestone — not silently dropped
+**Plans**: TBD (audit first, then plan the top refactor)
+
 ---
 
 ## Progress
 
 **Execution Order (v1.6):**
-Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 37.5 (rebuild corpus) → Phase 37.6 (harvest block + hard-delete) → Phase 38 (SRP split). Milestone closes after Phase 38.
+Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 37.5 (rebuild corpus) → Phase 37.6 (harvest block + hard-delete) → Phase 38 (SRP split) → Phase 39 (architecture review + top-finding refactor). Milestone closes after Phase 39.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -251,6 +261,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
 | 38. Controller SRP Split | 6/6 | Complete   | 2026-06-12 |
+| 39. Architecture Review + Top-Finding Refactor | 0/TBD | Audit in progress | - |
 
 ---
 
@@ -292,6 +303,16 @@ Pre-existing — predates Phase 13 (MetaGapService logic unchanged by rename). I
 Plans:
 
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 39 architecture findings — deferred (ARCH-02 executes Finding A; rest below per SC3)
+
+See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` (two independent audits).
+- **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M.
+- **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M.
+- **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L.
+- **E — Relocate misplaced domain logic to `DeckFlow.Core`** (deck-stat classifiers in DeckComparisonService; distill cost/validation in ContentKbCommandRunners). Effort M / Risk L.
+- **F — Strengthen dual-dialect abstraction** (33 `IsPostgres`/`IsSqlite` branches across 7 stores → dialect render methods; remove Web `Feedback*` SQL from Core `IRelationalDialect`). ⚠ Postgres path has no automated test. Effort M / Risk M.
+- **ADR-note tier:** G packet cache-key `IPacketCacheKeyStrategy` · H `IScryfallThrottle` seam · I `IMemoryCache` SizeLimit doc · J `System.CommandLine` beta4 deliberate-pin ADR · K residual test gaps (middleware-ordering integration test; Polly policy-shape assertion).
 
 ### Deferred to v1.6+ (per v1.5 scope decision)
 
