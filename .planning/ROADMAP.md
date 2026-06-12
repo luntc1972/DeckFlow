@@ -275,7 +275,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
 | 38. Controller SRP Split | 6/6 | Complete   | 2026-06-12 |
 | 39. Architecture Review + Top-Finding Refactor | 3/3 | Complete   | 2026-06-12 |
-| 40. Core.Tests Health (ship gate) | 0/TBD | Investigating (debugger on ValidateClips) | - |
+| 40. Core.Tests Health (ship gate) | done | Complete — Core 320/0 (parallel+seq), all 3 failures were test-side (e205e27) | 2026-06-12 |
 
 ---
 
