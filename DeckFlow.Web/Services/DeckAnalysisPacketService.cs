@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,6 +15,7 @@ using RestSharp;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using DeckFlow.Web.Services.Scryfall;
 
 namespace DeckFlow.Web.Services;
 
@@ -53,9 +55,7 @@ public sealed record DeckAnalysisPacketResult(
     SetUpgradeResponse? SetUpgradeResponse = null,
     string? ImportWarning = null,
     string? ResolvedCommanderName = null,
-    string? DecklistText = null,
-    IReadOnlyList<ContentKbExcerpt>? ExpertContextClips = null,
-    IReadOnlyDictionary<string, string>? ResolvedPinTitles = null);
+    string? DecklistText = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompt packets by hydrating decks via Scryfall, banlist, and Commander Spellbook lookups, then composing the JSON-bound prompt artifacts saved to the session zip.
@@ -68,30 +68,20 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     {
         WriteIndented = true
     };
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
-    private readonly IContentKbRelevanceService? _contentKbRelevanceService;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
+    private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly ILogger<DeckAnalysisPacketService> _logger;
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
     private readonly PacketSessionCache _packetCache;
 
     internal DeckAnalysisPacketService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IScryfallCardResolver scryfallCardResolver,
+        IDeckEntryLoader deckEntryLoader,
         IMechanicLookupService mechanicLookupService,
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
@@ -99,61 +89,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         AnalysisPromptVariantRegistry analysisPromptRegistry,
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
-        ILogger<DeckAnalysisPacketService>? logger = null,
-        RestClient? restClientOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
-        : this(
-            scryfallRestClientFactory,
-            pipelineProvider,
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
-            mechanicLookupService,
-            commanderBanListService,
-            scryfallSetService,
-            commanderSpellbookService,
-            analysisPromptRegistry,
-            setUpgradePromptRegistry,
-            packetCache,
-            contentKbRelevanceService: null,
-            logger,
-            restClientOverride,
-            executeCollectionAsyncOverride,
-            executeSearchAsyncOverride,
-            executeNamedAsyncOverride)
+        ILogger<DeckAnalysisPacketService>? logger = null)
     {
-    }
-
-    internal DeckAnalysisPacketService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
-        IMechanicLookupService mechanicLookupService,
-        ICommanderBanListService commanderBanListService,
-        IScryfallSetService scryfallSetService,
-        ICommanderSpellbookService commanderSpellbookService,
-        AnalysisPromptVariantRegistry analysisPromptRegistry,
-        SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
-        PacketSessionCache packetCache,
-        IContentKbRelevanceService? contentKbRelevanceService,
-        ILogger<DeckAnalysisPacketService>? logger = null,
-        RestClient? restClientOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
-    {
-        ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
-        ArgumentNullException.ThrowIfNull(archidektDeckImporter);
-        ArgumentNullException.ThrowIfNull(moxfieldParser);
-        ArgumentNullException.ThrowIfNull(archidektParser);
+        ArgumentNullException.ThrowIfNull(scryfallCardResolver);
+        ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(mechanicLookupService);
         ArgumentNullException.ThrowIfNull(commanderBanListService);
         ArgumentNullException.ThrowIfNull(scryfallSetService);
@@ -161,33 +100,16 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(analysisPromptRegistry);
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
-        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _scryfallCardResolver = scryfallCardResolver;
+        _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
         _scryfallSetService = scryfallSetService;
         _commanderSpellbookService = commanderSpellbookService;
-        _contentKbRelevanceService = contentKbRelevanceService;
         _analysisPromptRegistry = analysisPromptRegistry;
         _setUpgradePromptRegistry = setUpgradePromptRegistry;
         _packetCache = packetCache;
         _logger = logger ?? NullLogger<DeckAnalysisPacketService>.Instance;
-        var client = restClientOverride ?? scryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsyncOverride
-            ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
-                async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
-                token).AsTask(), cancellationToken));
-        _executeSearchAsync = executeSearchAsyncOverride
-            ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
-                async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
-                token).AsTask(), cancellationToken));
-        _executeNamedAsync = executeNamedAsyncOverride
-            ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
-                async pollyCt => await client.ExecuteAsync<ScryfallCard>(request, pollyCt).ConfigureAwait(false),
-                token).AsTask(), cancellationToken));
     }
 
     /// <summary>
@@ -291,18 +213,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             TargetAiPlatformKey: request.TargetAiPlatform,
             SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? new List<string>())
                 .OrderBy(static id => id, StringComparer.Ordinal)
-                .ToArray(),
-            NormalizedPinnedVideoIds: (request.PinnedVideoIds ?? new List<string>())
-                .Select(static value => value.Trim())
-                .Where(static value => value.Length > 0)
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static value => value, StringComparer.Ordinal)
-                .ToArray(),
-            NormalizedFollowedCreators: (request.FollowedCreators ?? new List<string>())
-                .Select(static value => value.Trim().ToLowerInvariant())
-                .Where(static value => value.Length > 0)
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static value => value, StringComparer.Ordinal)
                 .ToArray());
     }
 
@@ -333,7 +243,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
     /// <summary>
     /// Composes the D-01 cache-input field bag and returns the canonical PacketSessionCache key
-    /// for this request. Re-runs the same private <see cref="LoadDeckEntriesAsync"/> path
+    /// for this request. Re-runs the same shared deck-loader path
     /// <see cref="BuildAsync"/> uses, then calls <see cref="ResolvePreScryfallCommanderState"/>
     /// (the SAME helper BuildAsync calls in its pre-Scryfall stage) to apply the inferred-commander
     /// reflag mutation, then calls <see cref="BuildDeckAnalysisCacheInputs"/> (the SAME helper
@@ -356,7 +266,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         List<DeckEntry> entries;
         try
         {
-            entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+            var loaded = await _deckEntryLoader.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+            _lastImportNotice = loaded.FallbackNotice;
+            entries = loaded.Entries;
         }
         catch (Exception ex) when (ex is InvalidOperationException or DeckParseException or HttpRequestException)
         {
@@ -456,7 +368,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         var loadDeckStopwatch = Stopwatch.StartNew();
-        var entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        var loaded = await _deckEntryLoader.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+        _lastImportNotice = loaded.FallbackNotice;
+        var entries = loaded.Entries;
         timings.Add(("Deck load", loadDeckStopwatch.ElapsedMilliseconds, null));
         _logger.LogInformation("Deck Analysis packet deck load completed in {ElapsedMs}ms.", loadDeckStopwatch.ElapsedMilliseconds);
         var deckEntries = entries
@@ -540,47 +454,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         string? referenceText = null;
         string? analysisPromptText = null;
         string? setUpgradePromptText = null;
-        IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null;
-        IReadOnlyDictionary<string, string> resolvedPinTitles = new Dictionary<string, string>(StringComparer.Ordinal);
         DeckAnalysisResponse? analysisResponse = null;
         SetUpgradeResponse? setUpgradeResponse = null;
-
-        var replayedExpertContextJson = string.IsNullOrWhiteSpace(request.ExpertContextJson)
-            ? null
-            : request.ExpertContextJson;
-        if (replayedExpertContextJson is not null)
-        {
-            try
-            {
-                kbExcerpts = JsonSerializer.Deserialize<IReadOnlyList<ContentKbExcerpt>>(replayedExpertContextJson);
-            }
-            catch (JsonException)
-            {
-                kbExcerpts = null;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.ExpertSelectionJson))
-        {
-            try
-            {
-                var restoredSelection = JsonSerializer.Deserialize<ExpertSelectionState>(
-                    request.ExpertSelectionJson,
-                    PacketArtifactStore.ExpertSelectionJsonOptions);
-                if (restoredSelection?.PinnedVideoIds?.Count > 0)
-                {
-                    request.PinnedVideoIds = [.. restoredSelection.PinnedVideoIds];
-                }
-
-                if (restoredSelection?.FollowedCreators?.Count > 0)
-                {
-                    request.FollowedCreators = [.. restoredSelection.FollowedCreators];
-                }
-            }
-            catch (JsonException)
-            {
-            }
-        }
 
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
@@ -696,25 +571,11 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     commanderName = oracleCommanderName;
                 }
 
-                if (replayedExpertContextJson is null && _contentKbRelevanceService is not null)
-                {
-                    kbExcerpts = await _contentKbRelevanceService
-                        .GetMergedClipsAsync(
-                            new ExpertSelection(
-                                request.PinnedVideoIds,
-                                new HashSet<string>(request.FollowedCreators, StringComparer.OrdinalIgnoreCase)),
-                            commanderName,
-                            request.TargetCommanderBracket,
-                            deckArchetypes: null,
-                            ct: cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
                 var includeCardVersions = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestions) && request.IncludeCardVersions;
                 var analysisDecklistText = includeCardVersions
                     ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
                     : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions, kbExcerpts);
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -725,22 +586,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             {
                 setUpgradePromptText = BuildSetUpgradePrompt(request, decklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
             }
-        }
-
-        if (request.PinnedVideoIds.Count > 0 || request.FollowedCreators.Count > 0)
-        {
-            request.ExpertSelectionJson = JsonSerializer.Serialize(
-                new ExpertSelectionState
-                {
-                    PinnedVideoIds = [.. request.PinnedVideoIds],
-                    FollowedCreators = [.. request.FollowedCreators]
-                },
-                PacketArtifactStore.ExpertSelectionJsonOptions);
-        }
-
-        if (_contentKbRelevanceService is not null && request.PinnedVideoIds.Count > 0)
-        {
-            resolvedPinTitles = await _contentKbRelevanceService.ResolvePinTitlesAsync(request.PinnedVideoIds, cancellationToken).ConfigureAwait(false);
         }
 
         _logger.LogInformation(
@@ -766,9 +611,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             setUpgradeResponse,
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
-            DecklistText: decklistText,
-            ExpertContextClips: kbExcerpts,
-            ResolvedPinTitles: resolvedPinTitles);
+            DecklistText: decklistText);
 
         // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
         // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
@@ -786,52 +629,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
     /// <summary>
     /// Warning surfaced to the UI when the Moxfield fallback (Commander Spellbook) was used.
-    /// Set during LoadDeckEntriesAsync, read during BuildAsync, cleared per call.
+    /// Set from the shared deck loader result, read during BuildAsync, cleared per call.
     /// </summary>
     private string? _lastImportNotice;
-
-    /// <summary>
-    /// Loads deck entries from a public URL or pasted export text.
-    /// </summary>
-    /// <param name="deckSource">Deck URL or pasted export text.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The parsed deck entries.</returns>
-    private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        _lastImportNotice = null;
-        if (Uri.TryCreate(deckSource.Trim(), UriKind.Absolute, out var uri))
-        {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = await _moxfieldDeckImporter.ImportWithSourceAsync(deckSource, cancellationToken).ConfigureAwait(false);
-                _lastImportNotice = result.FallbackNotice;
-                return result.Entries;
-            }
-
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _archidektDeckImporter.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        try
-        {
-            return _moxfieldParser.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        try
-        {
-            return _archidektParser.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
-    }
 
     /// <summary>
     /// Builds the short deck summary shown above the generated ChatGPT packets.
@@ -1158,13 +958,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, IReadOnlyList<ContentKbExcerpt>? kbExcerpts = null)
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
     {
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
             commanderName, selectedQuestionIds, bannedCards,
-            comboResult, includeCardVersions, kbExcerpts);
+            comboResult, includeCardVersions);
     }
 
 
@@ -1209,7 +1009,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// </summary>
     private async Task<IReadOnlyList<string>> LookupCommanderColorIdentityAsync(string deckSource, CancellationToken cancellationToken)
     {
-        var entries = await LoadDeckEntriesAsync(deckSource, cancellationToken).ConfigureAwait(false);
+        var loaded = await _deckEntryLoader.LoadFromSourceAsync(deckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+        _lastImportNotice = loaded.FallbackNotice;
+        var entries = loaded.Entries;
         var commanderName = entries
             .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             ?.Name;
@@ -1226,7 +1028,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     new { name = commanderName.Trim() }
                 }
             });
-        var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+        var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
         var card = response.Data?.Data?.FirstOrDefault();
         if (card?.ColorIdentity is null)
         {
@@ -1312,10 +1114,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new
             {
-                identifiers = chunk.Select(card => new { name = NormalizeForScryfall(card.Name) }).ToArray()
+                identifiers = chunk.Select(card => new { name = ScryfallCardResolver.NormalizeForScryfall(card.Name) }).ToArray()
             });
 
-            var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new HttpRequestException(
@@ -1349,14 +1151,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
             foreach (var unresolvedRequest in chunk.Where(card => !resolvedCards.ContainsKey(card.Name)))
             {
-                var fallbackCard = await SearchFallbackCardAsync(unresolvedRequest.Name, cancellationToken).ConfigureAwait(false);
+                var fallbackCard = await _scryfallCardResolver.SearchPrintingFallbackCardAsync(unresolvedRequest.Name, cancellationToken).ConfigureAwait(false);
                 if (fallbackCard is null)
                 {
                     continue;
                 }
 
                 oracleNameMap[unresolvedRequest.Name] = fallbackCard.Name;
-                var displayName = NormalizeLookupName(unresolvedRequest.Name) == NormalizeLookupName(fallbackCard.Name)
+                var displayName = ScryfallCardResolver.NormalizeLookupName(unresolvedRequest.Name) == ScryfallCardResolver.NormalizeLookupName(fallbackCard.Name)
                     ? fallbackCard.Name
                     : $"submitted_name: {unresolvedRequest.Name} | resolved_card: {fallbackCard.Name}";
 
@@ -1386,75 +1188,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             oracleNameMap);
     }
 
-    private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(cardName))
-        {
-            return null;
-        }
-
-        var normalizedCardName = NormalizeLookupName(cardName);
-        foreach (var query in new[]
-        {
-            $"(printed:\"{NormalizeForScryfall(cardName)}\" OR name:\"{NormalizeForScryfall(cardName)}\")",
-            NormalizeForScryfall(cardName)
-        })
-        {
-            var request = new RestRequest("cards/search", Method.Get);
-            request.AddQueryParameter("q", query);
-            request.AddQueryParameter("unique", "prints");
-            request.AddQueryParameter("include_multilingual", "true");
-
-            var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
-            ScryfallThrottle.ThrowIfUpstreamUnavailable(response.StatusCode);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
-            {
-                continue;
-            }
-
-            var match = response.Data.Data
-                .FirstOrDefault(card => NormalizeLookupName(card.Name) == normalizedCardName)
-                ?? response.Data.Data.FirstOrDefault();
-            if (match is not null)
-            {
-                return match;
-            }
-        }
-
-        var namedRequest = new RestRequest("cards/named", Method.Get);
-        namedRequest.AddQueryParameter("fuzzy", NormalizeForScryfall(cardName));
-        var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
-        ScryfallThrottle.ThrowIfUpstreamUnavailable(namedResponse.StatusCode);
-        if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
-        {
-            return namedResponse.Data;
-        }
-
-        return null;
-    }
-
-    private static string NormalizeLookupName(string cardName)
-        => cardName
-            .Trim()
-            .Replace('\u2019', '\'')
-            .Replace('\u2018', '\'')
-            .Replace('\u02BC', '\'')
-            .Replace('\u201C', '"')
-            .Replace('\u201D', '"')
-            .Replace('\u2013', '-')
-            .Replace('\u2014', '-')
-            .ToLowerInvariant();
-
-    /// <summary>
-    /// Normalizes a card name for use in Scryfall API payloads.
-    /// Converts the single-slash DFC separator used by Archidekt exports (" / ")
-    /// to the double-slash form Scryfall expects (" // ") so DFC cards resolve on
-    /// the first /cards/collection attempt instead of cascading into per-card fallbacks.
-    /// DeckEntry.Name is NOT modified \u2014 normalization happens only at the call site.
-    /// </summary>
-    private static string NormalizeForScryfall(string cardName)
-        => cardName.Replace(" / ", " // ");
-
     private async Task<string> ValidateCommanderAsync(IReadOnlyList<DeckEntry> entries, string? commanderName, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(commanderName))
@@ -1468,7 +1201,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             throw new InvalidOperationException("The commander isn't in the deck text. Add a legal commander line before generating the analysis packet.");
         }
 
-        var commanderCard = await SearchFallbackCardAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        var commanderCard = await _scryfallCardResolver.SearchPrintingFallbackCardAsync(commanderName, cancellationToken).ConfigureAwait(false);
         if (commanderCard is null || !IsCommanderEligible(commanderCard))
         {
             throw new InvalidOperationException($"The commander isn't in the deck text. \"{commanderName}\" is not a legal commander by this workflow's rules.");

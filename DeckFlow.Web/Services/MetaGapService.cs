@@ -1,12 +1,14 @@
 using System.Text;
 using System.Text.Json;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
+using DeckFlow.Web.Services.Scryfall;
 using Polly;
 using Polly.Registry;
 using RestSharp;
@@ -60,64 +62,33 @@ public sealed class MetaGapService : IMetaGapService
     };
     private static readonly string MetaGapSchemaJson = BuildSchemaJson();
 
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IEdhTop16Client _edhTop16Client;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
+    private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly MetaGapPromptVariantRegistry _metaGapPromptRegistry;
     private readonly PacketSessionCache _packetCache;
 
     internal MetaGapService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IScryfallCardResolver scryfallCardResolver,
+        IDeckEntryLoader deckEntryLoader,
         IEdhTop16Client edhTop16Client,
         ICommanderSpellbookService commanderSpellbookService,
         MetaGapPromptVariantRegistry metaGapPromptRegistry,
-        PacketSessionCache packetCache,
-        RestClient? restClientOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null)
+        PacketSessionCache packetCache)
     {
-        ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
-        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
-        ArgumentNullException.ThrowIfNull(archidektDeckImporter);
-        ArgumentNullException.ThrowIfNull(moxfieldParser);
-        ArgumentNullException.ThrowIfNull(archidektParser);
+        ArgumentNullException.ThrowIfNull(scryfallCardResolver);
+        ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(edhTop16Client);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(metaGapPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
-        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _scryfallCardResolver = scryfallCardResolver;
+        _deckEntryLoader = deckEntryLoader;
         _edhTop16Client = edhTop16Client;
         _commanderSpellbookService = commanderSpellbookService;
         _metaGapPromptRegistry = metaGapPromptRegistry;
         _packetCache = packetCache;
-        var client = restClientOverride ?? scryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
-            ScryfallThrottle.ExecuteAsync(
-                token => pipeline.ExecuteAsync(
-                    async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
-                    token).AsTask(),
-                cancellationToken));
-        _executeSearchAsync = executeSearchAsyncOverride ?? ((request, cancellationToken) =>
-            ScryfallThrottle.ExecuteAsync(
-                token => pipeline.ExecuteAsync(
-                    async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
-                    token).AsTask(),
-                cancellationToken));
     }
 
     /// <summary>
@@ -439,7 +410,11 @@ public sealed class MetaGapService : IMetaGapService
         List<DeckEntry> entries;
         try
         {
-            entries = await LoadDeckEntriesAsync(deckSource, cancellationToken).ConfigureAwait(false);
+            var loaded = await _deckEntryLoader.LoadFromSourceAsync(
+                deckSource,
+                UnrecognizedPasteBehavior.PropagateParseException,
+                cancellationToken).ConfigureAwait(false);
+            entries = loaded.Entries;
         }
         catch (Exception exception) when (exception is InvalidOperationException or DeckParseException or HttpRequestException)
         {
@@ -499,32 +474,6 @@ public sealed class MetaGapService : IMetaGapService
             }
         }
         return result;
-    }
-
-    private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        var normalizedDeckSource = deckSource.Trim();
-        if (Uri.TryCreate(normalizedDeckSource, UriKind.Absolute, out var uri))
-        {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _moxfieldDeckImporter.ImportAsync(normalizedDeckSource, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _archidektDeckImporter.ImportAsync(normalizedDeckSource, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        try
-        {
-            return _moxfieldParser.ParseText(normalizedDeckSource);
-        }
-        catch (DeckParseException)
-        {
-            return _archidektParser.ParseText(normalizedDeckSource);
-        }
     }
 
     // Why: the displayed reference order must honor the user's "Sort by" choice.
@@ -627,7 +576,7 @@ public sealed class MetaGapService : IMetaGapService
                     identifiers = chunk.Select(name => new { name }).ToArray()
                 });
 
-            var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new HttpRequestException(
@@ -650,7 +599,7 @@ public sealed class MetaGapService : IMetaGapService
 
             foreach (var unresolvedName in unresolvedNames)
             {
-                var fallbackCard = await SearchFallbackCardAsync(unresolvedName, cancellationToken).ConfigureAwait(false);
+                var fallbackCard = await _scryfallCardResolver.SearchFallbackCardAsync(unresolvedName, cancellationToken).ConfigureAwait(false);
                 if (fallbackCard is null)
                 {
                     continue;
@@ -661,36 +610,6 @@ public sealed class MetaGapService : IMetaGapService
         }
 
         return oracleNameMap;
-    }
-
-    private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-    {
-        var normalizedName = cardName.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedName))
-        {
-            return null;
-        }
-
-        var request = new RestRequest("cards/search", Method.Get);
-        request.AddQueryParameter("q", $"!\"{normalizedName}\"");
-        request.AddQueryParameter("unique", "cards");
-        request.AddQueryParameter("order", "name");
-
-        var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
-        if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 300)
-        {
-            return response.Data?.Data.FirstOrDefault();
-        }
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        throw new HttpRequestException(
-            $"Scryfall fallback lookup failed while resolving {cardName} with HTTP {(int)response.StatusCode}.",
-            null,
-            response.StatusCode);
     }
 
     private static IReadOnlyList<DeckEntry> NormalizeDeckEntriesForPromptAndCombos(

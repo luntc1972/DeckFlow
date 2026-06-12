@@ -8,6 +8,7 @@ using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using RestSharp;
@@ -115,12 +116,8 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
         => new(
-            CreateScryfallRestClientFactory(),
-            new FakeResiliencePipelineProvider(),
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
+            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync, executeNamedAsync),
+            CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             mechanicLookupService,
             commanderBanListService,
             scryfallSetService,
@@ -128,11 +125,7 @@ internal static class TestServiceFactory
             BuildAnalysisPromptRegistry(),
             BuildSetUpgradePromptRegistry(),
             new PacketSessionCache(),
-            logger,
-            null,
-            executeCollectionAsync,
-            executeSearchAsync,
-            executeNamedAsync);
+            logger);
 
     public static DeckComparisonService CreateDeckComparisonService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
@@ -144,20 +137,13 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
         => new(
-            CreateScryfallRestClientFactory(),
-            new FakeResiliencePipelineProvider(),
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
+            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync),
+            CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             commanderSpellbookService,
             BuildComparisonPromptRegistry(),
             BuildFollowUpPromptRegistry(),
             new PacketSessionCache(),
-            logger,
-            null,
-            executeCollectionAsync,
-            executeSearchAsync);
+            logger);
 
     public static MetaGapService CreateMetaGapService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
@@ -169,19 +155,12 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
         => new(
-            CreateScryfallRestClientFactory(),
-            new FakeResiliencePipelineProvider(),
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
+            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync),
+            CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             edhTop16Client,
             commanderSpellbookService,
             BuildMetaGapPromptRegistry(),
-            new PacketSessionCache(),
-            null,
-            executeCollectionAsync,
-            executeSearchAsync);
+            new PacketSessionCache());
 
     private static AnalysisPromptVariantRegistry BuildAnalysisPromptRegistry()
         => new(new IAnalysisPromptVariant[]
@@ -228,6 +207,29 @@ internal static class TestServiceFactory
         {
             BaseAddress = new Uri("https://api.scryfall.com/")
         });
+
+    private static ScryfallCardResolver CreateScryfallCardResolver(
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
+        => new(
+            CreateScryfallRestClientFactory(),
+            new FakeResiliencePipelineProvider(),
+            null,
+            executeCollectionAsync,
+            executeSearchAsync,
+            executeNamedAsync);
+
+    private static DeckEntryLoader CreateDeckEntryLoader(
+        IMoxfieldDeckImporter moxfieldDeckImporter,
+        IArchidektDeckImporter archidektDeckImporter,
+        MoxfieldParser moxfieldParser,
+        ArchidektParser archidektParser)
+        => new(
+            moxfieldDeckImporter,
+            archidektDeckImporter,
+            moxfieldParser,
+            archidektParser);
 
     private static FakeHttpClientFactory CreateHttpClientFactory(string clientName)
         => new(new Dictionary<string, HttpMessageHandler>

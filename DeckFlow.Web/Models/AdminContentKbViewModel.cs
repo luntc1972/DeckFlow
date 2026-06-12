@@ -16,20 +16,8 @@ public sealed class AdminContentKbViewModel
     /// <summary>All index entries (published + hidden) for the per-entry grid.</summary>
     public IReadOnlyList<KbEntryRow> Entries { get; init; } = Array.Empty<KbEntryRow>();
 
-    /// <summary>Current commander preview input used for the live relevance preview, or <see langword="null"/>.</summary>
-    public string? PreviewCommander { get; init; }
-
-    /// <summary>Current bracket preview input used for the live relevance preview, or <see langword="null"/>.</summary>
-    public string? PreviewBracket { get; init; }
-
-    /// <summary>Allowlisted bracket values for the read-only preview form.</summary>
-    public IReadOnlyList<string> BracketOptions { get; init; } = Array.Empty<string>();
-
     /// <summary>Normalized entry visibility filter applied to the entries table.</summary>
     public string VisibilityFilter { get; init; } = "all";
-
-    /// <summary>Normalized sort mode applied to the entries table.</summary>
-    public string? SortBy { get; init; }
 
     /// <summary>Success banner text from TempData after a mutating action, or <see langword="null"/>.</summary>
     public string? SuccessBanner { get; init; }
@@ -86,7 +74,4 @@ public sealed record KbEntryRow
 
     /// <summary>Whether this entry is currently marked as evergreen.</summary>
     public bool IsEvergreen { get; init; }
-
-    /// <summary>Optional live preview relevance score for this artifact row.</summary>
-    public double? RelevanceScore { get; init; }
 }

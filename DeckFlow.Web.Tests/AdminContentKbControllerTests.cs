@@ -30,7 +30,7 @@ public sealed class AdminContentKbControllerTests
         var result = await controller.SetVisibility(1, visible: true, default);
 
         AssertForbidden(result);
-        Assert.False(store.Rows[0].IsVisible); // unchanged
+        Assert.False(store.Rows[0].IsVisible);
     }
 
     [Fact]
@@ -44,6 +44,32 @@ public sealed class AdminContentKbControllerTests
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.True(store.Rows[0].IsVisible);
+    }
+
+    [Fact]
+    public async Task DeleteEntry_CrossOrigin_Returns403_AndDoesNotMutate()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var controller = Build(store, out _, crossOrigin: true);
+
+        var result = await controller.DeleteEntry(1, default);
+
+        AssertForbidden(result);
+        Assert.Empty(store.DeletedIds);
+    }
+
+    [Fact]
+    public async Task DeleteEntry_SameOrigin_DeletesRow_AndRedirects()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.DeleteEntry(1, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Contains(1, store.DeletedIds);
     }
 
     [Fact]
@@ -93,7 +119,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(2, visible: false, indexed: new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero)));
         var controller = Build(store, out _, crossOrigin: false);
 
-        var result = await controller.Index(default);
+        var result = await controller.Index(cancellationToken: default);
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
@@ -108,104 +134,12 @@ public sealed class AdminContentKbControllerTests
         var store = new FakeContentSiteIndexStore();
         var controller = Build(store, out _, crossOrigin: false);
 
-        var result = await controller.Index(default);
+        var result = await controller.Index(cancellationToken: default);
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
         Assert.Null(model.Status.IndexGeneratedUtc);
         Assert.Equal(0, model.Status.TotalCount);
-    }
-
-    [Fact]
-    public async Task Index_WithPreviewParams_CallsScoreAllAsync_AndPopulatesScores()
-    {
-        var store = new FakeContentSiteIndexStore();
-        var firstRow = Row(1, visible: true);
-        var secondRow = Row(2, visible: false);
-        store.Rows.Add(firstRow);
-        store.Rows.Add(secondRow);
-        var relevanceService = new FakeContentKbRelevanceService
-        {
-            ScoreResults =
-            [
-                (firstRow, 2.75d),
-                (secondRow, 0.50d),
-            ],
-        };
-        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
-
-        var result = await controller.Index(previewCommander: "Tymna", previewBracket: "cEDH", cancellationToken: default);
-
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal(1, relevanceService.ScoreAllCallCount);
-        Assert.Equal("Tymna", relevanceService.LastCommanderName);
-        Assert.Equal("cEDH", relevanceService.LastBracket);
-        Assert.Equal("Tymna", model.PreviewCommander);
-        Assert.Equal("cEDH", model.PreviewBracket);
-        Assert.Contains("cEDH", model.BracketOptions);
-        Assert.Equal(2.75d, Assert.Single(model.Entries, entry => entry.Id == 1).RelevanceScore);
-        Assert.Equal(0.50d, Assert.Single(model.Entries, entry => entry.Id == 2).RelevanceScore);
-    }
-
-    [Fact]
-    public async Task Index_WithNoPreviewParams_DoesNotCallScoreAllAsync_AndLeavesScoresNull()
-    {
-        var store = new FakeContentSiteIndexStore();
-        store.Rows.Add(Row(1, visible: true));
-        var relevanceService = new FakeContentKbRelevanceService();
-        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
-
-        var result = await controller.Index(previewCommander: null, previewBracket: null, cancellationToken: default);
-
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal(0, relevanceService.ScoreAllCallCount);
-        Assert.All(model.Entries, entry => Assert.Null(entry.RelevanceScore));
-    }
-
-    [Fact]
-    public async Task Index_WithInvalidPreviewBracket_TreatsBracketAsNull()
-    {
-        var store = new FakeContentSiteIndexStore();
-        store.Rows.Add(Row(1, visible: true));
-        var relevanceService = new FakeContentKbRelevanceService
-        {
-            ScoreResults =
-            [
-                (store.Rows[0], 1.25d),
-            ],
-        };
-        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
-
-        var result = await controller.Index(previewCommander: "Kinnan", previewBracket: "Invalid", cancellationToken: default);
-
-        var view = Assert.IsType<ViewResult>(result);
-        Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal(1, relevanceService.ScoreAllCallCount);
-        Assert.Equal("Kinnan", relevanceService.LastCommanderName);
-        Assert.Null(relevanceService.LastBracket);
-    }
-
-    [Fact]
-    public async Task Index_NormalizesPreviewCommander_BeforeScoring()
-    {
-        var store = new FakeContentSiteIndexStore();
-        store.Rows.Add(Row(1, visible: true));
-        var relevanceService = new FakeContentKbRelevanceService
-        {
-            ScoreResults =
-            [
-                (store.Rows[0], 3.00d),
-            ],
-        };
-        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
-
-        var result = await controller.Index(previewCommander: "  Tymna\nThrasios  ", previewBracket: "cEDH", cancellationToken: default);
-
-        var view = Assert.IsType<ViewResult>(result);
-        Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal("Tymna Thrasios", relevanceService.LastCommanderName);
     }
 
     [Fact]
@@ -241,64 +175,6 @@ public sealed class AdminContentKbControllerTests
         Assert.Equal(2, model.Entries.Count);
     }
 
-    [Fact]
-    public async Task Index_WithSortByScoreAndPreviewActive_OrdersEntriesByScoreDescendingWithNullsLast()
-    {
-        var store = new FakeContentSiteIndexStore();
-        var firstRow = Row(1, visible: true);
-        var secondRow = Row(2, visible: false);
-        var thirdRow = Row(3, visible: true);
-        store.Rows.Add(firstRow);
-        store.Rows.Add(secondRow);
-        store.Rows.Add(thirdRow);
-        var relevanceService = new FakeContentKbRelevanceService
-        {
-            ScoreResults =
-            [
-                (secondRow, 3.50d),
-                (firstRow, 1.25d),
-            ],
-        };
-        var controller = Build(store, out _, crossOrigin: false, relevanceService: relevanceService);
-
-        var result = await controller.Index(
-            previewCommander: "Tymna",
-            previewBracket: "cEDH",
-            visibilityFilter: "all",
-            sortBy: "score",
-            cancellationToken: default);
-
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal("score", model.SortBy);
-        Assert.Collection(
-            model.Entries,
-            entry => Assert.Equal(2, entry.Id),
-            entry => Assert.Equal(1, entry.Id),
-            entry => Assert.Equal(3, entry.Id));
-    }
-
-    [Fact]
-    public async Task Index_WithSortByScoreAndNoPreview_KeepsOriginalOrder()
-    {
-        var store = new FakeContentSiteIndexStore();
-        store.Rows.Add(Row(1, visible: true));
-        store.Rows.Add(Row(2, visible: false));
-        store.Rows.Add(Row(3, visible: true));
-        var controller = Build(store, out _, crossOrigin: false);
-
-        var result = await controller.Index(sortBy: "score", cancellationToken: default);
-
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal("score", model.SortBy);
-        Assert.Collection(
-            model.Entries,
-            entry => Assert.Equal(1, entry.Id),
-            entry => Assert.Equal(2, entry.Id),
-            entry => Assert.Equal(3, entry.Id));
-    }
-
     private static void AssertForbidden(IActionResult result)
     {
         var obj = Assert.IsType<ObjectResult>(result);
@@ -308,19 +184,17 @@ public sealed class AdminContentKbControllerTests
     private static AdminContentKbController Build(
         FakeContentSiteIndexStore store,
         out FakeContentKbSeedLoader loader,
-        bool crossOrigin,
-        FakeContentKbRelevanceService? relevanceService = null)
+        bool crossOrigin)
     {
         loader = new FakeContentKbSeedLoader();
-        return Build(store, loader, out _, crossOrigin, relevanceService);
+        return Build(store, loader, out _, crossOrigin);
     }
 
     private static AdminContentKbController Build(
         FakeContentSiteIndexStore store,
         FakeContentKbSeedLoader loader,
         out FakeContentKbSeedLoader loaderOut,
-        bool crossOrigin,
-        FakeContentKbRelevanceService? relevanceService = null)
+        bool crossOrigin)
     {
         loaderOut = loader;
         var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool> { ["content.kb.enabled"] = false });
@@ -328,7 +202,6 @@ public sealed class AdminContentKbControllerTests
             store,
             loader,
             flagCache,
-            relevanceService ?? new FakeContentKbRelevanceService(),
             NullLogger<AdminContentKbController>.Instance);
 
         var httpContext = new DefaultHttpContext();
@@ -364,54 +237,5 @@ public sealed class AdminContentKbControllerTests
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
         }
-    }
-
-    private sealed class FakeContentKbRelevanceService : IContentKbRelevanceService
-    {
-        public int ScoreAllCallCount { get; private set; }
-
-        public string? LastCommanderName { get; private set; }
-
-        public string? LastBracket { get; private set; }
-
-        public IReadOnlyList<(ContentSiteIndexRow Row, double Score)> ScoreResults { get; init; }
-            = Array.Empty<(ContentSiteIndexRow Row, double Score)>();
-
-        public Task<IReadOnlyList<ContentKbExcerpt>?> GetRelevantClipsAsync(
-            string? commanderName,
-            string? bracket,
-            IReadOnlySet<string>? deckArchetypes = null,
-            int maxRenderedChars = 4500,
-            CancellationToken ct = default)
-        {
-            return Task.FromResult<IReadOnlyList<ContentKbExcerpt>?>(null);
-        }
-
-        public Task<IReadOnlyList<ContentKbExcerpt>?> GetMergedClipsAsync(
-            ExpertSelection selection,
-            string? commanderName,
-            string? bracket,
-            IReadOnlySet<string>? deckArchetypes = null,
-            int maxRenderedChars = 4500,
-            CancellationToken ct = default)
-        {
-            return Task.FromResult<IReadOnlyList<ContentKbExcerpt>?>(null);
-        }
-
-        public Task<IReadOnlyList<(ContentSiteIndexRow Row, double Score)>> ScoreAllAsync(
-            string? commanderName,
-            string? bracket,
-            CancellationToken ct = default)
-        {
-            ScoreAllCallCount++;
-            LastCommanderName = commanderName;
-            LastBracket = bracket;
-            return Task.FromResult(ScoreResults);
-        }
-
-        public Task<IReadOnlyDictionary<string, string>> ResolvePinTitlesAsync(
-            IReadOnlyList<string> videoIds,
-            CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string>(StringComparer.Ordinal));
     }
 }

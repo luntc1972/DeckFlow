@@ -1,203 +1,259 @@
-# Technology Stack — v1.5 Deck Primer Generator + Content KB Integration
+# Stack Research — v1.6 Content KB Retrieval Fix + Value Re-Validation
 
-**Project:** DeckFlow v1.5
-**Researched:** 2026-06-03
-**Confidence:** HIGH (all conclusions drawn from direct codebase inspection; no external library
-research required because the answer is "reuse everything")
-**Scope:** NEW capabilities only. The full installed stack (ASP.NET 10, RestSharp 114,
-Polly 8.x, Npgsql 10, Microsoft.Data.Sqlite 10, Serilog 9, Markdig 0.38, IMemoryCache,
-IHttpClientFactory, ResiliencePipelineProvider<string>, OpenAI 2.10, YoutubeExplode 6.6,
-System.ServiceModel.Syndication 10.0.2, xUnit 2.9.3, all v1.0–v1.4 services) is
-unchanged and untouched.
+**Project:** DeckFlow v1.6
+**Researched:** 2026-06-10
+**Confidence:** HIGH (retrieval fix, SRP split); MEDIUM (RAG/philosophy-profile — conditional on gate clearing; quality of in-process keyword grounding depends on synthesized principle specificity)
+**Scope:** Three v1.6 work areas: (A) retrieval relevance + diversity fix, (B) conditional Creator
+Philosophy-Profile (style-card synthesis + RAG grounding), (C) DeckController / CommandRunners SRP
+split.
 
 ---
 
 ## Verdict: Zero New Dependencies
 
-Both v1.5 features are fully deliverable by composing existing installed services. Every
-building block — data source, HTTP client, prompt infrastructure, artifact storage, session
-caching, feature-flag gating — is already registered in DI and proven in production.
-The work is composition, not acquisition.
+All three areas are deliverable with the packages already installed. The retrieval defects are pure
+algorithm problems inside `ContentKbRelevanceService.cs`. The philosophy-profile distillation
+reuses the existing `OpenAI 2.10.0` SDK (already in `DeckFlow.Core.csproj`) or the claude CLI
+backend. The SRP split is a C# reorganization with no new types beyond the controllers themselves.
 
-No new NuGet packages. No new npm packages. No new external services.
-
----
-
-## Reuse Map: Deck Primer Generator
-
-The primer generator is a fourth packet workflow, a sibling of DeckAnalysis /
-DeckComparison / CedhMetaGap. The pattern is: decklist load → data hydration → prompt
-build → zip artifact → download. Every piece of that pipeline exists.
-
-### Data Sources (all DI-registered, all production-proven)
-
-| Primer need | Existing service | Interface / method | File |
-|-------------|----------------|--------------------|------|
-| Deck load from URL or paste | `IMoxfieldDeckImporter`, `IArchidektDeckImporter`, `MoxfieldParser`, `ArchidektParser` | `ImportAsync(url)` / `Parse(text)` | `DeckFlow.Core/Integration/`, `DeckFlow.Core/Parsing/` |
-| Combo grounding — ground-truth lines (sections 10, 11, 20) | `ICommanderSpellbookService` | `FindCombosAsync(entries)` → `CommanderSpellbookResult` with `IncludedCombos[].Instructions + Results + CardNames` and `AlmostIncludedCombos` | `DeckFlow.Web/Services/CommanderSpellbookService.cs` |
-| Bracket-5 matchup archetypes (sections 22, 23, 25) | `IEdhTop16Client` | `SearchCommanderEntriesAsync(commanderName, ...)` → `IReadOnlyList<EdhTop16Entry>` | `DeckFlow.Web/Services/EdhTop16Client.cs` |
-| Category/engine-role grounding — mulligan buckets, tutor priority, engine breakdown (sections 8, 9, 14, 17, 29) | `ICategoryKnowledgeStore` | `GetCategoryRowsAsync(cardName)` / `GetCategoryRowsForCommanderAsync(commanderName)` | `DeckFlow.Web/Services/CategoryKnowledgeStore.cs` |
-| Commander oracle text + card resolution | Scryfall named-card endpoint via `IScryfallRestClientFactory` + `ResiliencePipeline<RestResponse>("scryfall")` | `_executeNamedAsync` pattern | `DeckFlow.Web/Services/ScryfallRestClientFactory.cs` |
-| Bracket presets + labels | `CommanderBracketCatalog` (static) | `Options` list + `Find(string?)` | `DeckFlow.Web/Models/CommanderBracketCatalog.cs` |
-| Brackets 1–4 matchup archetypes | Hardcoded 5 generic strategy buckets (Aggro / Control / Midrange / Combo / Stax-Hate) | Inline strings in new `PrimerSectionCatalog` | New static class — no external call |
-
-### Prompt Infrastructure (all existing, all proven)
-
-| Primer need | Existing mechanism | Notes |
-|-------------|-------------------|-------|
-| AI-platform dispatch (ChatGPT / Claude / Gemini) | `AiPlatform` value object + `Normalize(string?)` | `DeckFlow.Web/Models/AiPlatform.cs`; same three-way fan-out used by all workflows |
-| Per-AI variant strategy pattern | `I*PromptVariant` interface + `*PromptVariantRegistry` | See `PromptBuilders/Analysis/`, `Comparison/`, etc.; new `IPrimerPromptVariant` + `PrimerPromptVariantRegistry` follow the identical pattern |
-| Prompt text assembly | `System.Text.StringBuilder` (BCL) | All 15 existing prompt variants use raw `StringBuilder`; no templating library needed or wanted |
-| Session zip artifact storage | `PacketArtifactStore` (static class) | `DeckFlow.Web/Services/PacketArtifactStore.cs`; needs one new `PrimerAllowedNames` set + `BuildPrimerZip(...)` overload — pure C# extension, zero new deps |
-| Preview/download session caching (preview → download reuse, no Scryfall replay) | `PacketSessionCache` (dedicated 10 MB `MemoryCache`, 5-min TTL) | `DeckFlow.Web/Services/PacketSessionCache.cs`; already shared across all three existing packet services; primer result type goes through the same generic `Get<T>` / `Set<T>` |
-| Packet cache key computation | `PacketSessionCache.ComputeKey(object fieldBag)` (SHA-256) | Service implements `TryComputeCacheKeyAsync` on the same model as `DeckAnalysisPacketService` |
-
-### New Code Required (no new packages)
-
-All new files follow an existing pattern exactly. No architectural invention.
-
-| Artifact | Follows this existing pattern | Path |
-|----------|------------------------------|------|
-| `IDeckPrimerPacketService` + `DeckPrimerPacketService` | `IDeckAnalysisPacketService` / `DeckAnalysisPacketService` | `DeckFlow.Web/Services/DeckPrimerPacketService.cs` |
-| `IPrimerPromptVariant` | `IAnalysisPromptVariant` | `DeckFlow.Web/Services/PromptBuilders/Primer/IPrimerPromptVariant.cs` |
-| `ChatGptPrimerPromptVariant`, `ClaudePrimerPromptVariant` | `ChatGptAnalysisPromptVariant`, `ClaudeAnalysisPromptVariant` | `DeckFlow.Web/Services/PromptBuilders/Primer/` |
-| `PrimerPromptVariantRegistry` | `AnalysisPromptVariantRegistry` | Same folder |
-| `DeckPrimerRequest` | `DeckAnalysisRequest` — adds `SelectedBracket` (string) + `SelectedSectionIds` (string[]) | `DeckFlow.Web/Models/DeckPrimerRequest.cs` |
-| `DeckPrimerResult` record | `DeckAnalysisPacketResult` | Co-located with service |
-| `PrimerSectionCatalog` static class | `CommanderBracketCatalog` / `AnalysisQuestionCatalog` static classes | `DeckFlow.Web/Models/PrimerSectionCatalog.cs` — holds 31-section definitions, group assignments (5 collapsible groups), preset defaults (cEDH / Casual) |
-| `PacketArtifactStore` primer overloads | Existing `BuildZip` / `BuildComparisonZip` overloads | Extend `DeckFlow.Web/Services/PacketArtifactStore.cs` |
-| `DeckPrimer.cshtml` view | `DeckAnalysis.cshtml` — adds collapsible 5-group section selector | `DeckFlow.Web/Views/Deck/DeckPrimer.cshtml` |
-| DeckController primer routes | Existing workflow route triplets (GET index, POST generate, POST download, POST upload) | Extend `DeckFlow.Web/Controllers/DeckController.cs` |
-
-### DI Registration (additions to `Program.cs`)
-
-```csharp
-// Deck Primer Generator
-services.AddScoped<IDeckPrimerPacketService, DeckPrimerPacketService>();
-services.AddSingleton<PrimerPromptVariantRegistry>();
-// ChatGptPrimerPromptVariant / ClaudePrimerPromptVariant registered inside registry ctor,
-// same pattern as AnalysisPromptVariantRegistry
-```
-
-`PacketSessionCache` is already registered as a singleton; the primer result type uses it
-without any registration change.
+**No new NuGet packages. No new npm packages. No new external services.**
 
 ---
 
-## Reuse Map: Content KB → Deck-Analysis Integration
+## Area A — Retrieval Relevance + Diversity Fix
 
-Injecting KB excerpts into existing deck-analysis prompts and rendering a "What experts say"
-panel. All four components needed already exist.
+### What the current scorer does and why it fails
 
-### Data Sources
+`ScoreArtifact` produces a weighted sum across three dimensions (bracket, archetype tag overlap,
+commander name in free text) behind a "dimensionsHit >= 2" AND gate. `SelectTopClips` iterates
+artifacts ordered by descending score and grabs clips sequentially — filling all 5 slots from the
+first artifact before moving to the next.
 
-| KB integration need | Existing service / class | Method | File |
-|--------------------|------------------------|--------|------|
-| Published KB index, filtered by bracket/archetype | `IContentSiteIndexStore` | `GetPublishedRowsAsync()` → `IReadOnlyList<ContentSiteIndexRow>` (has `ArchetypeTags`, `BracketTags`, `CardCategoryTags`, `ArtifactPath`) | `DeckFlow.Core/Content/ContentSiteIndexStore.cs` |
-| Artifact markdown body text | `ContentKbArtifactPathResolver` + `File.ReadAllTextAsync` | `ResolveArtifactFullPath(row.ArtifactPath)` — returns absolute filesystem path to `.md` file | `DeckFlow.Web/Services/ContentKbArtifactPathResolver.cs` |
-| Front-matter strip, body extraction | `ContentArtifactParser.SplitHeader(raw)` (static) | Returns `(IReadOnlyDictionary<string,string> Header, string Body)` — body is the paste-ready summary + Key Clips markdown | `DeckFlow.Web/Services/ContentArtifactParser.cs` |
-| Feature-flag gate | `IFeatureFlagCache` | `IsEnabled("content.kb.enabled")` | `DeckFlow.Web/Services/FeatureFlags/IFeatureFlagCache.cs` |
+Two mechanism defects confirmed by Spike 001 VERDICT.md Run 2 (real scorer, real corpus):
 
-### Injection Strategy into Existing Prompts
+1. **Single-video monopoly.** `SelectTopClips` has no per-video cap. The highest-scoring artifact
+   fills every slot. On the Atraxa deck all 5 clips came from one video ("Glass Cannon Commanders")
+   — 3 of 5 were about unrelated commanders.
 
-Two options were evaluated for how KB excerpts reach the analysis prompt text:
+2. **Tag-breadth beats topical fit.** "Glass Cannon Commanders" has broad tags
+   (midrange/combo/value-engine/ramp/aggro + Upgraded/Optimized/cEDH) that overlap with nearly any
+   deck profile. Its score reflects tag coverage, not whether its content is relevant to the queried
+   commander. Directly on-topic videos ("Too Much Ramp", "5 Most Common Mistakes") scored lower
+   because they have narrower tags.
 
-**Option A — Extend `IAnalysisPromptVariant.Build(...)` signature**
-- Add `IReadOnlyList<ContentKbExcerpt>? kbExcerpts` parameter
-- Each variant formats the "What experts say" section in its own prose style
-- Requires updating 3 existing implementations + the interface
+### Fix: zero new dependencies
 
-**Option B — Post-build append in `DeckAnalysisPacketService`**
-- `ContentKbInjectionService` runs after all three variant `Build()` calls
-- Appends a markdown block to the assembled prompt text
-- Zero interface churn; KB body is already markdown prose that pastes cleanly across all three AI platforms
+**Defect 1 — per-video diversity cap:**
 
-**Recommendation: Option B for v1.5.** The KB artifact body is plain markdown already
-formatted for paste. A post-build append is lower-risk, requires no variant signature
-changes, and is reversible. Promote to Option A in a future phase if per-AI KB formatting
-becomes needed.
+Add a `MaxClipsPerVideo` constant (recommend 1) to `SelectTopClips`. Iterate passing once across
+all qualifying artifacts taking at most `MaxClipsPerVideo` clips each before looping for a second
+pass. This ensures up to 5 distinct videos fill the 5 slots. Pure algorithmic change — existing
+LINQ, existing `ContentKbExcerpt` construction, no new types.
 
-### New Code Required (no new packages)
+**Defect 2 — commander-noise penalty:**
 
-| Artifact | What it does |
-|----------|-------------|
-| `IContentKbInjectionService` + `ContentKbInjectionService` | Queries `IContentSiteIndexStore.GetPublishedRowsAsync()`, filters rows by `BracketTags` matching the request's commander bracket and/or `ArchetypeTags`; reads up to N artifact bodies via `ContentKbArtifactPathResolver`; parses front matter via `ContentArtifactParser.SplitHeader`; returns `IReadOnlyList<ContentKbExcerpt>`. Returns empty list when `IFeatureFlagCache.IsEnabled("content.kb.enabled")` is false. |
-| `ContentKbExcerpt` record | `(string Title, string Source, string VideoUrl, string Body)` — minimal shape for prompt injection and UI panel render |
-| `DeckAnalysisPacketService` post-build wiring | Inject `IContentKbInjectionService`; call after prompt text assembly; append "What experts say" markdown block when `kbExcerpts.Count > 0` |
-| `DeckAnalysis.cshtml` "What experts say" panel | Renders `IReadOnlyList<ContentKbExcerpt>` below the prompt output; visible only when flag on and excerpts exist |
-| Cache key discipline | KB excerpts are display-only, not included in the `PacketSessionCache` key. The cache key is computed before KB injection and remains based solely on deck content + request parameters — prevents KB index changes from invalidating user sessions |
+After computing the raw score, apply a penalty multiplier when artifact clip excerpts contain
+commander names that do not match the queried commander. Implementation:
 
-### DI Registration (additions to `Program.cs`)
+- Add a private `ApplyCommanderNoisePenalty(ScoreInput, NormalizedCommander?) → double` helper in
+  `ContentKbRelevanceService`.
+- Use the existing `ContainsCommanderName` helper (already present) to check each clip excerpt.
+- If more than half the clips mention a specific commander that is NOT the queried commander, apply
+  a penalty multiplier (e.g. 0.2). A video genuinely about "Glass Cannon Commanders" as a class
+  will not trigger this if its clips don't name specific unrelated commanders.
+- The penalty is applied after `ScoreArtifact` returns, before the `MinSelectionScore` gate.
 
-```csharp
-// Content KB injection
-services.AddScoped<IContentKbInjectionService, ContentKbInjectionService>();
-```
+Both fixes are isolated to `ContentKbRelevanceService.cs` and its unit tests in
+`DeckFlow.Web.Tests`. No interface changes. No new service registrations.
 
-`IContentSiteIndexStore` and `ContentKbArtifactPathResolver` are already registered.
+### Why not BM25, dense embeddings, or a vector store
+
+**BM25 (e.g. Lucene.NET):** BM25 ranks documents by term frequency weighted by inverse document
+frequency across the corpus. At ~80–200 distilled-markdown rows, the IDF component adds negligible
+signal — there are too few documents for IDF to differentiate between "ramp" appearing in 5 videos
+vs. 50. The existing tag-overlap + free-text matching pattern is BM25-equivalent at this corpus
+size. Adding Lucene.NET would contribute ~5MB to the binary with no measurable retrieval quality
+gain. Not worth it.
+
+**Dense embeddings in-process (e.g. all-MiniLM-L6-v2 via ONNX Runtime + ML.NET):** The smallest
+useful sentence transformer model is ~90MB. ONNX Runtime adds another ~40–80MB. On a 512MB Render
+Starter web tier, loading a 90–170MB model at startup consumes 18–34% of the RAM budget before
+handling a single request — a hard blocker. Ruled out.
+
+**Vector store (pgvector, Qdrant, Chroma):** Requires either a schema migration + Npgsql extension
+(pgvector) or a separate sidecar service (Qdrant, Chroma). Render Starter has no sidecar support.
+pgvector would require a new migration plus per-row embedding generation at harvest time — a
+significant pipeline change for a corpus that fits comfortably in a single in-memory
+`List<ParsedArtifactRow>`. Ruled out.
+
+### Implementation summary
+
+| Change | File | New dependency |
+|--------|------|---------------|
+| `MaxClipsPerVideo = 1` cap + diversity-pass loop in `SelectTopClips` | `ContentKbRelevanceService.cs` | None |
+| `ApplyCommanderNoisePenalty` helper using existing `ContainsCommanderName` | `ContentKbRelevanceService.cs` | None |
+| Unit tests for both fixes, including regression for Run 2 scenario | `DeckFlow.Web.Tests` | None |
 
 ---
 
-## Existing Stack (unchanged — documented for integration reference)
+## Area B — Creator Philosophy-Profile (CONDITIONAL on gate clearing)
 
-These are the services and technologies the new code will call. No version changes.
+This area is only built if the fixed retriever clears the re-run of the Spike 001 gold A/B gate.
+Do not build on current evidence.
 
-| Technology / Service | Version | Role in v1.5 |
-|---------------------|---------|-------------|
-| `ICommanderSpellbookService` | — | Combo ground truth for primer sections 10, 11, 20 |
-| `IEdhTop16Client` | — | Named archetypes for cEDH matchup sections 22, 23, 25 |
-| `ICategoryKnowledgeStore` | — | Engine/mulligan/tutor category buckets for primer sections 8, 9, 14, 17, 29 |
-| `IContentSiteIndexStore` | — | KB index query for "What experts say" injection |
-| `ContentKbArtifactPathResolver` | — | Resolves artifact paths to filesystem for KB body reads |
-| `ContentArtifactParser` | — | Strips YAML front matter from KB markdown files |
-| `IFeatureFlagCache` | — | Gates KB injection on `content.kb.enabled` flag |
-| `PacketArtifactStore` | — | Zip artifact storage for primer download |
-| `PacketSessionCache` | — | Preview → download reuse for primer |
-| `AiPlatform` value object | — | Three-way AI fan-out for primer prompt variants |
-| `CommanderBracketCatalog` | — | Bracket option lookup + preset routing |
-| `IMoxfieldDeckImporter` / `IArchidektDeckImporter` | — | Deck load from URL |
-| `MoxfieldParser` / `ArchidektParser` | — | Deck load from pasted text |
-| RestSharp 114.0.0 | 114.0.0 | HTTP client wrapper (no change) |
-| Polly 8.x | 8.x | Named resilience pipelines (no change; no new pipelines needed) |
-| ASP.NET Core MVC 10.0 | 10.0 | Controller + Razor view framework |
-| Npgsql 10.0.0 / Microsoft.Data.Sqlite 10.0.0 | 10.0.0 | DB providers for `IContentSiteIndexStore` |
-| IMemoryCache (built-in) | — | Used inside `PacketSessionCache` (already wired) |
-| xUnit 2.9.3 | 2.9.3 | Test framework; new service tests follow existing patterns |
+### Shape
+
+From `creator-philosophy-profile.md` seed: a per-creator **style-card** (synthesized persona of
+deckbuilding principles/heuristics/biases, distilled across the whole channel) plus **RAG
+grounding** (retrieve evidential transcript/clip passages at query time). Each principle carries
+source video id + date. Contradictions preserved, not averaged. Recency-weighted. No fine-tuning.
+
+### Style-card synthesis
+
+**Already present:** `OpenAI 2.10.0` in `DeckFlow.Core.csproj` — used today for Whisper and the
+openai distill CLI backend. The pluggable LLM-CLI dispatch pattern (claude vs openai, shelling out
+to a CLI) handles all per-video distillation today. Style-card synthesis is a new prompt type
+against the same backend — no new package required.
+
+New class: `ContentKbPhilosophyDistiller` in `DeckFlow.Core/Content/`. It reads all existing
+artifact markdown for a creator via `IContentSiteIndexStore`, submits them in batches to the LLM
+backend using the existing `ILlmBackend` / CLI dispatch pattern, and produces a
+`creator-profile.md` artifact with YAML frontmatter (`creator_slug`, `generated_utc`,
+`source_video_ids`) plus a `## Principles` section (bullet list: principle text + provenance marker
+`[source: video_id @ mm:ss]`).
+
+The profile is stored in a new `creator_profiles` table (one row per creator) using the existing
+`IRelationalDialect` pattern (SQLite + Postgres). The table schema is minimal: `id`, `creator_slug`,
+`artifact_path`, `generated_utc`.
+
+**Hallucination gate:** The synthesis prompt must instruct the LLM to emit provenance markers for
+every principle. `ContentKbPhilosophyDistiller` validates after parsing that each cited `video_id`
+exists in the live corpus before persisting the profile. Principles without verifiable provenance
+are rejected. This is prompt engineering + post-parse validation, zero new deps.
+
+### RAG grounding
+
+Two options, both zero-dependency:
+
+**Option 1 — In-process keyword similarity (recommended v1.6 baseline):**
+
+Extend `ScoreArtifact` or add a post-score step that matches style-card principle keywords against
+artifact clip excerpts using the existing `ContainsCommanderName`-style substring matching extended
+to principle keywords. Score clips against the profile principles at query time. No LLM call, zero
+latency, zero cost. Accuracy is lower than re-ranking but acceptable if synthesized principles are
+specific enough (e.g. "prioritize removal over ramp in midrange builds" gives concrete keywords).
+
+**Option 2 — LLM re-ranking via existing OpenAI SDK:**
+
+A second LLM call per analysis request: given the injected style-card + deck context, ask the LLM
+to select the most evidentially relevant clips from the corpus. ~100–300ms added latency,
+~$0.001–0.005 cost at gpt-4o-mini / claude-haiku rates. No new dependency — `OpenAI 2.10.0` is
+already present. Gate behind a new `content.kb.rag.enabled` sub-flag.
+
+**Option 3 — Dense embedding retrieval:** Ruled out (same 512MB RAM blocker as Area A).
+
+Recommendation: start with Option 1 as the v1.6 baseline. The style-card synthesis is the
+higher-value part; RAG grounding is incremental. If Option 1 produces weak grounding (principle
+keywords too generic), upgrade to Option 2 in a follow-on phase.
+
+### Prompt injection
+
+The style-card injects into the deck-analysis prompt as a `## Creator Lens` block (analogous to
+the existing `## Expert Context` block). Same post-build append pattern used today by
+`ContentKbInjectionService` — no variant interface signature changes in v1.6. Per-AI formatting
+differences (if needed) are a follow-on concern.
+
+### Implementation summary
+
+| Artifact | Follows existing pattern | New dependency |
+|----------|--------------------------|---------------|
+| `ContentKbPhilosophyDistiller` in `DeckFlow.Core/Content/` | Existing LLM-CLI dispatch (`ILlmBackend` / CLI shelling) | None |
+| `creator_profiles` table via `IRelationalDialect` | Existing `CategoryKnowledgeStore` table pattern | None |
+| CLI command `RunPhilosophyDistillAsync` in `CommandRunners.cs` | Existing `RunDistillAsync` | None |
+| Style-card prompt injection (`## Creator Lens` block) | Existing `ContentKbInjectionService` post-build append | None |
+| In-process principle-keyword grounding | Extension of existing `ScoreArtifact` keyword matching | None |
+| LLM re-ranking (Option 2, if needed) | Existing `OpenAI 2.10.0` SDK already in Core | None (already present) |
+
+---
+
+## Area C — DeckController / CommandRunners SRP Split
+
+### Current state
+
+- `DeckController.cs`: 1,840 lines, ~35 action methods across 6 distinct workflows.
+- `CommandRunners.cs`: 1,902 lines, ~15 static `Run*Async` methods across harvest, distill,
+  compare, probe, export, archidekt, content-source, card-lookup, and scryfall-probe commands.
+
+### DeckController split
+
+Natural split by workflow. Each new controller is a direct extraction — route attributes stay the
+same, DI constructor changes minimally.
+
+| New Controller | Actions Extracted | Shared DI deps to carry |
+|---------------|-------------------|------------------------|
+| `DeckSyncController` | `Index` (GET+POST), `Resolve`, `RenderDiffAsync` | `IDeckSyncService`, `ICommanderBanListService` |
+| `DeckConvertController` | `Convert` (GET+POST), `ConvertCommanderSearch` | `IDeckConvertService`, `IScryfallCardLookupService` |
+| `CardLookupController` | `CardLookup`, `SingleCardLookup`, `DownloadCardLookup`, `DownloadCardLookupJson`, `MechanicLookup`, `CardSearch`, `GetSetOptions` | `IScryfallCardLookupService`, `ICardSearchService` |
+| `DeckAnalysisController` | `DeckAnalysis` (GET+POST), `DeckAnalysisDownload`, `DeckAnalysisUpload` | `IDeckAnalysisPacketService`, `IContentKbRelevanceService` |
+| `DeckComparisonController` | `DeckComparison` (GET+POST), `DeckComparisonDownload`, `DeckComparisonUpload` | `IDeckComparisonPacketService` |
+| `CedhMetaGapController` | `CedhMetaGap` (GET+POST), `CedhMetaGapDownload`, `CedhMetaGapUpload` | `IMetaGapPacketService`, `IEdhTop16Client` |
+| `DeckPrimerController` | `DeckPrimer` (GET+POST), `DeckPrimerDownload`, `DeckPrimerUpload` | `IDeckPrimerPacketService` |
+| `DeckController` (shell) | `Home`, `Error`, `SuggestCategories` (GET+POST), `JudgeQuestions` | Minimal shared deps |
+
+**Cross-cutting risk:** `_WorkflowStepTabs.cshtml` uses `ViewContext.RouteData.Values["controller"]`
+for active-tab detection. Controller renames require a corresponding update to the tab partial's
+comparison strings. This is not a dependency issue — it is a tracked change requirement in the
+execution plan.
+
+### CommandRunners split
+
+Extract static method groups into separate static classes, keeping the `public static async Task<int>`
+signature contract unchanged. `DeckFlow.CLI/Program.cs` calls are updated to point to the new class.
+
+| New Class | Methods Extracted |
+|-----------|------------------|
+| `ContentCommandRunners` | `RunContentSourceAddAsync`, `RunContentSourceSetEnabledAsync`, `RunDistillAsync`, `RunContentIndexExportAsync`, `RunHarvestAsync` |
+| `ArchidektCommandRunners` | `RunArchidektCategoriesAsync`, `RunArchidektCategoryCardsAsync`, `RunArchidektHarvestRecentAsync`, `RunArchidektCacheAsync` |
+| `ScryfallCommandRunners` | `RunScryfallProbeAsync`, `RunCardLookupAsync` |
+| `DeckCommandRunners` | `RunCompareAsync`, `RunProbeAsync`, `RunExportMoxfieldAsync`, `LoadMoxfieldEntriesAsync`, `LoadArchidektEntriesAsync` |
+
+`CommandRunners.cs` either becomes a thin re-export shim or is deleted, depending on whether any
+tests reference it directly.
+
+### Implementation summary
+
+| Change | New dependency |
+|--------|---------------|
+| Extract 7 feature controllers from `DeckController.cs` | None |
+| Update `_WorkflowStepTabs.cshtml` controller name strings | None |
+| Extract 4 static runner classes from `CommandRunners.cs` | None |
+| Update `DeckFlow.CLI/Program.cs` call sites | None |
+
+---
+
+## Alternatives Considered
+
+| Area | Recommended | Alternative | Why Not |
+|------|-------------|-------------|---------|
+| Retrieval fix | In-process diversity cap + commander-noise penalty | Lucene.NET BM25 | IDF adds no signal at 80–200 docs; ~5MB binary overhead; same quality achievable in-process |
+| Retrieval fix | In-process (zero new deps) | Dense embeddings (ONNX + ML.NET) | 90–400MB model RAM blows 512MB Render Starter cap |
+| Retrieval fix | In-process (zero new deps) | pgvector / Qdrant | Schema migration or sidecar; corpus fits in a List; not worth the operational complexity |
+| RAG grounding | In-process keyword match (v1.6 baseline) | LLM re-ranking (Option 2) | Adds ~200ms + ~$0.003/request to every analysis; defer until keyword baseline proven insufficient |
+| Style-card distillation | Existing LLM-CLI backend + OpenAI 2.10.0 | Semantic Kernel | SK 2.x pulls ~15 transitive deps; no leverage over direct SDK calls at this scale |
+| SRP split | Static classes grouped by domain (CommandRunners) | Interface-extract + DI injection | CLI is a command-runner, not a DI container; static cohesion is appropriate here |
 
 ---
 
 ## What NOT to Add
 
-| Avoid | Why |
-|-------|-----|
-| Any templating engine (Scriban, Fluid, Handlebars.NET) | `StringBuilder` + C# raw-string literals is already the pattern across 15 prompt variants; a templating engine adds a dependency with zero leverage for this domain |
-| `Microsoft.Extensions.Http.Resilience` standard handler | Explicitly prohibited by project constraints — the existing `RestSharp + direct Polly v8` pattern is the only approved HTTP resilience path |
-| `Microsoft.SemanticKernel` or any LLM orchestration SDK | No server-side LLM calls in either v1.5 feature; prompt artifact is built and handed to the user for manual paste |
-| EDHREC API / HTTP client | Explicitly out of v1.5 scope; bracket 1–4 matchup archetypes use 5 generic strategy buckets inline in the prompt, no external call |
-| Any new test framework or mocking library | Project rule: match existing xUnit + no-mocking-lib-without-asking; primer and KB injection services get the standard `Func<...>` delegate seam pattern |
-| Any CSS framework (Bootstrap, Tailwind) | The 5-group collapsible section selector for the primer is `<details><summary>` semantic HTML + existing `site-common.css` utility classes; no framework needed |
-
----
-
-## Open Risk: Combo Data Richness for Primer Narration
-
-The seed note flags `spike-combo-data-to-primer-grounding` as a pre-phase spike. The
-concern: `CommanderSpellbookResult.IncludedCombos[].Instructions` may be too terse to
-ground step-by-step narration for primer section 11 (Core Combo Lines).
-
-**Current state (verified from codebase):** `SpellbookCombo` carries `CardNames` (list),
-`Results` (list of outcome strings), and `Instructions` (single string). The `Instructions`
-field is used today in the DeckAnalysis prompt (section 30-reference.txt) and is passed
-verbatim to the AI.
-
-**Assessment:** The `Instructions` text is sufficient for an AI to narrate a combo line —
-it is the same ground-truth text Spellbook itself shows users. The spike should validate
-whether the text is detailed enough for the specific primer framing (step-by-step, labeled
-"piece A + piece B → result") vs a summary mention. This is a prompt-design question, not
-a stack question. No new data source is needed regardless of the spike outcome; the prompt
-framing around the existing `Instructions` field is what gets tuned.
-
-**Confidence:** MEDIUM (stack is fine; prompt quality is the open variable).
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `Lucene.NET` | ~5MB binary, IDF meaningless at 80–200 docs | In-process tag + free-text scoring (existing pattern) |
+| `Microsoft.ML` / ONNX Runtime | 90–400MB model RAM at startup — exceeds 512MB Render Starter cap | LLM-CLI re-ranking via existing `OpenAI 2.10.0` if keyword match proves insufficient |
+| pgvector extension | Schema migration + Npgsql plugin for a corpus that already fits in memory | Existing `IRelationalDialect` + in-process scoring |
+| `Microsoft.SemanticKernel` | ~15 transitive deps, no leverage over direct SDK calls | Direct `OpenAI 2.10.0` calls for style-card synthesis |
+| Any new npm package | All retrieval is server-side; browser has no role in KB scoring | No change to Vitest toolchain |
+| `Microsoft.Extensions.Http.Resilience` standard handler | Prohibited by project constraints | Existing `RestSharp + direct Polly v8` pattern |
 
 ---
 
@@ -205,38 +261,40 @@ framing around the existing `Instructions` field is what gets tuned.
 
 | Area | Confidence | Basis |
 |------|------------|-------|
-| Zero-new-dependencies verdict | HIGH | Direct inspection of all referenced services; every interface and pattern exists in production |
-| Primer packet service pattern | HIGH | `DeckAnalysisPacketService` is a complete, proven template; shape is identical |
-| KB injection via post-build append | HIGH | `ContentArtifactParser.SplitHeader` + `ContentKbArtifactPathResolver.ResolveArtifactFullPath` already used in `ContentKbController`; pattern is production-proven |
-| EdhTop16 archetype label quality for primer matchup section | MEDIUM | `IEdhTop16Client` returns `maindeck{name type}` and tournament metadata but not pre-labelled archetype strings; the primer will likely pass raw entry data to the AI to derive labels — same approach `MetaGapService` uses successfully today |
-| Combo data richness for step-by-step narration | MEDIUM | See Open Risk section above; stack is not in doubt, prompt framing is |
-| `PacketSessionCache` cache-key discipline for KB excerpts | HIGH | Existing precedent in `DeckAnalysisPacketService.TryComputeCacheKeyAsync` — cache key is computed before any display-only data is appended; KB injection follows the same rule |
+| Zero-new-dependencies verdict (retrieval fix) | HIGH | Both defects are pure algorithmic changes to existing code; no new capabilities needed |
+| Zero-new-dependencies verdict (SRP split) | HIGH | Pure C# reorganization; all types already exist |
+| Zero-new-dependencies verdict (philosophy-profile) | HIGH | `OpenAI 2.10.0` confirmed present in `DeckFlow.Core.csproj`; distillation follows existing CLI pattern |
+| Diversity cap fix quality | HIGH | Defect is structural (loop order); fix is mechanical; correctness is directly testable |
+| Commander-noise penalty quality | MEDIUM | Penalty heuristic is empirically derived; clip-level commander-name detection may miss implicit references (e.g. "proliferate commander" without naming Atraxa); requires gold-set testing in the A/B re-run |
+| RAG grounding Option 1 quality | MEDIUM | Depends on how specific the synthesized principles are; generic principles produce generic keyword matches, defeating the purpose |
+| Style-card hallucination gate | MEDIUM | Provenance validation via video_id lookup is sound; the LLM may still conflate creator opinions across videos; provenance at `mm:ss` level is aspirational and depends on clip quality |
+| `_WorkflowStepTabs.cshtml` controller-name dependency | HIGH (risk flagged) | Confirmed as a real cross-cutting dependency; must be updated in the SRP plan |
 
 ---
 
 ## Sources
 
-All findings are from direct codebase inspection. No external library research performed
-because no new libraries are being added.
+All findings from direct codebase inspection plus Spike 001 VERDICT.md. No external library
+research performed because no new libraries are being added.
 
-- `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` — packet service template
-- `DeckFlow.Web/Services/PacketArtifactStore.cs` — zip artifact pattern
-- `DeckFlow.Web/Services/PacketSessionCache.cs` — session cache pattern
-- `DeckFlow.Web/Services/PromptBuilders/Analysis/` — prompt variant pattern
-- `DeckFlow.Web/Services/CommanderSpellbookService.cs` — combo data shape
-- `DeckFlow.Web/Services/EdhTop16Client.cs` — metagame data shape
-- `DeckFlow.Web/Services/ICategoryKnowledgeStore.cs` — category data shape
-- `DeckFlow.Core/Content/IContentSiteIndexStore.cs` + `ContentSiteIndexStore.cs` — KB index store
-- `DeckFlow.Core/Knowledge/ContentArtifactSpec.cs` — `ContentSiteIndexRow` fields
-- `DeckFlow.Web/Services/ContentKbArtifactPathResolver.cs` — artifact path resolution
-- `DeckFlow.Web/Services/ContentArtifactParser.cs` — front-matter parsing
-- `DeckFlow.Web/Services/FeatureFlags/IFeatureFlagCache.cs` — flag gate pattern
-- `DeckFlow.Web/Models/CommanderBracketCatalog.cs` — bracket catalog shape
-- `DeckFlow.Web/Models/AiPlatform.cs` — AI platform value object
-- `.planning/seeds/deck-primer-generator.md` — feature design decisions
-- `.planning/notes/deck-primer-prompt-design.md` — 31-section catalog + preset decisions
-- `.planning/PROJECT.md` — milestone scope, stack constraints, "no new packages without approval" rule
+- `DeckFlow.Web/Services/ContentKbRelevanceService.cs` — current scorer, `SelectTopClips`,
+  `ScoreArtifact`, `ContainsCommanderName`, `ComposeSearchText` — all reviewed directly
+- `DeckFlow.Web/Services/ContentKbClipParser.cs` — clip parsing and excerpt structure confirmed
+- `.planning/spikes/001-kb-value-ab/VERDICT.md` — Run 2 defects documented; tag-breadth and
+  single-video monopoly confirmed as root causes
+- `.planning/seeds/creator-philosophy-profile.md` — style-card shape, must-handle list,
+  hallucination gate requirement
+- `DeckFlow.Core/DeckFlow.Core.csproj` — `OpenAI 2.10.0` confirmed present; no new SDK needed
+- `DeckFlow.Web/DeckFlow.Web.csproj` — full installed dependency set confirmed; no gaps
+- `DeckFlow.Web/Controllers/DeckController.cs` — 1,840 lines, 35 action methods; split points
+  confirmed by workflow grouping (grep of `public.*IActionResult` + `public.*async Task`)
+- `DeckFlow.CLI/CommandRunners.cs` — 1,902 lines, 15 static methods; domain grouping confirmed
+- `.planning/PROJECT.md` — milestone scope, 512MB RAM constraint, "no new packages without
+  approval" rule
+- Render Starter plan RAM cap of 512MB — rules out ONNX in-process; documented in PROJECT.md
+  and CLAUDE.md constraints
 
 ---
-*Stack research for: DeckFlow v1.5 — Deck Primer Generator + Content KB Integration*
-*Researched: 2026-06-03*
+
+*Stack research for: DeckFlow v1.6 — Content KB Retrieval Fix + Creator Philosophy-Profile (conditional) + SRP Split*
+*Researched: 2026-06-10*

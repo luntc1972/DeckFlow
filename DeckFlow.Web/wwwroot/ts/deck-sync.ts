@@ -749,6 +749,10 @@ const registerBusyIndicator = (): void => {
       );
     });
   });
+
+  window.addEventListener('pageshow', () => {
+    hideBusyIndicator();
+  });
 };
 
 // ChatGPT session-zip download handler.

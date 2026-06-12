@@ -8,6 +8,7 @@
 - ✅ **v1.3 Frontend Hardening + AI-Agnostic Rename + Code Hygiene** — Phases 11-15 + 999.1-999.8 (shipped 2026-05-23) — see `.planning/milestones/v1.3-ROADMAP.md`
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
+- ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
 
 ## Phases
 
@@ -122,21 +123,10 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 </details>
 
+---
+
+
 ## Backlog
-
-### Creator Philosophy-Profile / Content KB v2 (★ NEXT-MILESTONE CANDIDATE — user-flagged 2026-06-10)
-
-**Goal:** Make the Content KB earn its keep — replace/layer the per-video "clips + tags" distillation with a per-creator **philosophy profile** (distilled style-card + RAG grounding) that conditions analysis in the creator's voice. The actual reason the KB exists (creator-as-lens).
-
-**GATE (finish first):** validate that KB expert-context actually lifts the ChatGPT answer — run **Spike 001 kb-value-ab** to completion: manual A/B of `with-context.txt` vs `baseline.txt` against the rubric (`.planning/spikes/001-kb-value-ab/README.md`), record verdict. Tracked by todo `validate-kb-value.md`. Marginal lift → reconsider the whole KB instead of building the profile.
-
-**Detail:** full shape in seed `.planning/seeds/creator-philosophy-profile.md` (style-card synthesizer + RAG; provenance per principle; contradictions-preserved; temporal drift / recency weight; hallucination gate tracing every principle to a verified passage; incremental refresh; video-level curation). Reuses existing transcripts/clips/harvest+refresh; new work = profile synthesizer + persona injection into DeckAnalysis + provenance/contradiction model.
-
-**Related KB follow-ups to fold in:** SEL-02 expert-pin live-pin re-confirm (when `content.kb.enabled` next ON); flip KB out of dark mode once value is proven.
-
-**Cleanup:** delete throwaway `DeckFlow.Web.Tests/Spike001KbValueAbHarness.cs` (untracked; writes files on run) once the spike verdict is recorded.
-
-**Requirements:** TBD (scope at `/gsd-new-milestone`). **Plans:** 0.
 
 ### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
 
@@ -175,93 +165,22 @@ Plans:
 
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
-### Deferred to v1.5 (per 2026-05-23 scope decision)
+### Phase 39 architecture findings — deferred (ARCH-02 executes Finding A; rest below per SC3)
 
-- **Gemini paste-limit workaround** (cluster D dropped from v1.4; needs split-message vs direct-API path decision)
-- **Content KB deck-analysis integration** — prompt-injection + "What experts say" UI panel
-- **New-deck-building interactive guide** (wizard) leveraging Content KB tags
-- **Scheduled (cron) content harvest cadence**
-- IN-01 `_AiSelector` vs view-level Normalize Gemini-flag fallback divergence
-- v1.1 phase-dir archive move (06, 07, 07.1, 08 → `.planning/milestones/v1.1-phases/`)
-- CSS-class / data-attribute / TS-constant `chatgpt-*` cleanup
-- v13-harvest-worker-stalled debug follow-up
-- audit-open scanner vocabulary alignment
+See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` (two independent audits).
+- **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M.
+- **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M.
+- **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L.
+- **E — Relocate misplaced domain logic to `DeckFlow.Core`** (deck-stat classifiers in DeckComparisonService; distill cost/validation in ContentKbCommandRunners). Effort M / Risk L.
+- **F — Strengthen dual-dialect abstraction** (33 `IsPostgres`/`IsSqlite` branches across 7 stores → dialect render methods; remove Web `Feedback*` SQL from Core `IRelationalDialect`). ⚠ Postgres path has no automated test. Effort M / Risk M.
+- **ADR-note tier:** G packet cache-key `IPacketCacheKeyStrategy` · H `IScryfallThrottle` seam · I `IMemoryCache` SizeLimit doc · J `System.CommandLine` beta4 deliberate-pin ADR · K residual test gaps (middleware-ordering integration test; Polly policy-shape assertion).
 
-### Phase 26: Category Cache Schema Normalization (fresh-start)
+### Deferred to v1.6+ (per v1.5 scope decision)
 
-**Goal:** Re-harvested category data lands in a normalized, integer-keyed schema that fits the 256 MB Postgres working set and serves card/commander lookups from compact indexes — replacing the wide TEXT-keyed `card_category_observations` / `card_deck_totals` design. Built fresh (DB wiped + re-harvested), so no in-place migration of existing rows.
-**Requirements**: DBO-01
-**Depends on:** Nothing (off critical path; fresh-start rebuild — full DB reset authorized 2026-05-24)
-**Spec**: `.planning/research/db-storage-query-optimization.md`, `docs/ops/db-full-reset.md`
-**Success Criteria** (what must be TRUE):
-
-  1. New schema interns deck identity and card names into integer-keyed dimension tables; fact tables reference them by `int` (no repeated `source` / `card_name` / `normalized_card_name` TEXT per row)
-  2. **[AMENDED 2026-05-25 — see note]** After a full wipe + re-harvest, the grain index drops the wide TEXT keys: `ux_obs_grain` interns `source`/`card_name` to `int`, cutting grain-key width ~38% (old composite-TEXT PK ≈89 B/row → measured `ux_obs_grain` 55.5 B/row). The original ≥50% *total* index-footprint target is **NOT MET and unreachable with this design**: `category`+`board` stay TEXT in the grain key, and the 4 secondary integer indexes required for SC3's sargable joins raise total index count vs the old single composite PK (even trimming unused indexes lands ~34%). Hitting ≥50% would require interning `category`/`board` too — a separate redesign. The phase's real footprint win is heap dedup (no repeated `source`/`normalized_card_name` TEXT per row), and the headline win is SC3 latency. *(Old baseline was destroyed in the reset before measurement; the ≈89 B/row old figure is reconstructed from current TEXT column lengths + btree overhead, not directly measured.)*
-  3. `GetCategoriesAsync` and `GetCategoryRowsForCommanderAsync` are index-backed (EXPLAIN: index scans) and return the same categories as the old design for a fixed sample (Sol Ring + a commander)
-  4. `EnsureSchemaAsync` creates the new schema idempotently on a clean DB; old tables dropped via the full-reset runbook (no data carried over)
-  5. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
-
-**Risk:** Medium — coordinated deploy + wipe + re-harvest (empty-cache window acceptable since data is reset); new write path must reproduce identical lookup results. Own plan + Codex review.
-**Plans:** 2 plans
-
-Plans:
-
-- [x] 26-01-PLAN.md — Schema + dialect foundation: IRelationalDialect.SurrogateIdColumnType + normalized integer-keyed star schema (sources + cards dims, slim integer-keyed facts, compact indexes incl. LOWER(commander) expr index, reserved content_hash) + RED parity + SQLite-AUTOINCREMENT harness (DBO-01)
-- [x] 26-02-PLAN.md — Port write+read paths to integer keys (intern-on-write RETURNING id, batch resolve per deck, integer commander join replacing string-concat), parity GREEN, PG coverage + full-reset runbook update (DBO-01)
-
-**Verification status (2026-05-25):** Code complete + Codex peer-reviewed (RED iter-1 → YELLOW iter-2, both HIGH resolved → RED→GREEN). Build clean; Core 81/81; Web 463 pass / 13 pre-existing CSS fails / 5 PG-integration skipped. **Prod full-reset done 2026-05-25** (`DROP SCHEMA public CASCADE` + restart rebuilt integer-keyed schema; verified via `information_schema` + `pg_indexes`). Re-harvest stopped intentionally at a partial corpus (≈231 decks processed / 655 queued; obs 20.4k, totals 19.3k, cards 8.1k, sources 230).
-
-  - **SC3 — ✅ PASS (measured):** both hot paths index-only, no seq scans. `GetCategoriesAsync` → `ux_cards_normalized` + `ix_obs_card` nested loop (0.3 ms). `GetCategoryRowsForCommanderAsync` → `ix_deck_queue_processed_commander_lower` + `ix_sources_deck_queue` + `ix_obs_source` (0.66 ms; was the 69 s timeout query pre-normalization).
-  - **SC2 — ❌ NOT MET as originally written; criterion amended above.** Grain-key width cut ~38%; total index footprint flat-to-worse (5 indexes vs old PK+normalized index). Unreachable without interning `category`/`board`. Real wins booked under SC3 + heap dedup.
-  - **Index-usage audit (partial-corpus, write-path-dominated):** grain uniques + `ix_obs_card` + `ix_obs_source` + `ix_totals_card` + dim uniques are exercised. `ix_obs_card_board` / `ix_totals_card_board` have **no production caller** (board filter param unwired — only `CategorySuggestionService:118` calls, with no board) → safe drop candidates. Fact surrogate `*_pkey` (`id`) never read (no RETURNING on fact inserts; only `cards`/`sources` dims use `RETURNING id`) → drop candidate **but defer**: Phase 27 (content-hash dedup) may need a stable fact row id (`reserved content_hash` in 26-01).
-
-  Phase considered **functionally closed** (SC1/SC3/SC4/SC5 met; SC2 amended to achieved scope). Optional follow-up: index trims (~2 MB/M rows) + Phase 27 decision on fact surrogate `id`.
-
-### Phase 27: Deck-Cache Content-Hash Dedup + 5-Day Refresh
-
-**Goal:** The harvest skips rewriting a deck's cached rows when its cards/categories are unchanged (content hash per deck source), and re-checks a deck only after 5 days — cutting write amplification on the category cache while keeping data fresh.
-**Requirements**: CAT-02
-**Depends on:** Phase 26 (layers on the normalized schema)
-**Spec**: `.planning/specs/deck-cache-content-hash-refresh.md`
-**Success Criteria** (what must be TRUE):
-
-  1. Re-harvesting a deck whose cards/categories are unchanged performs NO delete/insert on the fact tables (only `last_checked_utc` updates) — proven by a write-counting test
-  2. Re-harvesting a deck whose cards/categories changed DOES rewrite its rows (replace semantics preserved) and updates the stored hash
-  3. Content hash is stable and order-independent for the same logical deck content
-  4. A processed deck is not re-fetched until 5 days after its last check (`last_checked_utc`-based)
-  5. Hash stored idempotently (additive schema); existing NULL-hash rows recompute once without error
-  6. Build clean; Core + Web tests pass (except known AdminCssPhase1Tests debt)
-
-**Risk:** Low-medium — additive schema; main care is the requeue predicate using `last_checked_utc` and the hash covering exactly the written shape so a real change is never missed.
-**Plans:** 1/1 plans complete
-
-Plans:
-
-- [x] 27-01-PLAN.md — Content-hash dedup write gate (SHA-256 over written shape) + repository hash get/set + 5-day DeckRefreshCooldown + Unchanged telemetry bucket + Core write-counting/stability tests (CAT-02)
-
-## Progress
-
-**Execution Order (v1.5):**
-Phase 28 and Phase 29 can run in parallel (independent tracks). Phase 30 depends on Phase 28 (KB artifact state clean before flag flip). Phase 31 depends on Phase 29 (Core doc-clean before new Core services added) and on the PRM-01 spike completing inside Phase 31.
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 28. Housekeeping Bundle | 4/4 | Complete    | 2026-06-04 |
-| 29. Core XML-Doc Backfill + Gate Widen | 5/5 | Complete    | 2026-06-05 |
-| 30. Content KB Integration | 1/4 | In Progress|  |
-| 31. Deck Primer Generator | 0/TBD | Not started | - |
-
-### Phase 33: Admin Content KB Curation UX (runs after Phase 32, before Phase 31 — higher priority than 31)
-
-**Goal:** An admin can quickly locate a specific KB entry to publish/unpublish in a list that has grown long — by filtering/searching on tags, title/name, and creator/source — and scan the entries list comfortably (readability improvements). Targets `AdminContentKbController.Index` + `Views/AdminContentKb/Index.cshtml`.
-**Requirements**: KBUX-01 (filter/search entries by title/name, source/creator, tags), KBUX-02 (readability improvements for long entry lists)
-**Depends on:** Phase 32 (expert-context curation surface) and Phase 30 (admin KB view); no dependency on Phase 31
-**Plans:** 2 plans
-
-Plans:
-- [x] 33-01-PLAN.md — Client-side instant filter/search box (title, source, tags) over the entries list with live count + empty state
-- [x] 33-02-PLAN.md — Readability: zebra rows, sticky header, hover/focus row highlight, clean tag wrapping (mobile-safe)
+- **Gemini paste-limit workaround** (`DECKFLOW_GEMINI_ENABLED` stays flag-gated; needs split-message vs direct-API path decision)
+- **SpellbookCombo ranking fields** (PRM-08 — parser drops `manaValueNeeded`/`popularity`/`uses`; priority ranking degraded)
+- **Embedding/vector retrieval** (pgvector / ONNX sentence-transformers) — deferred until corpus >~500 videos; RAM-cap risk at current size
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12*

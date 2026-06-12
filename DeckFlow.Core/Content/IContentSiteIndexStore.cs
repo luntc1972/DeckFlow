@@ -71,6 +71,22 @@ public interface IContentSiteIndexStore
     Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes a single site-index row.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all site-index rows.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows deleted.</returns>
+    Task<int> DeleteAllRowsAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support deleting all rows.");
+
+    /// <summary>
     /// Sets evergreen flag for a single site-index row.
     /// </summary>
     /// <param name="id">Site-index row identifier.</param>

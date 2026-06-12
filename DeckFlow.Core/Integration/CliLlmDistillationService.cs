@@ -66,6 +66,22 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
     }
 
     /// <inheritdoc />
+    public async Task<ClassificationResult> ClassifyAsync(
+        string transcript,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(transcript);
+
+        var payload = await ExtractWithRetryAsync<ClassificationPayload>(
+            BuildInstruction(DistillationSchemas.ClassificationSystemPrompt, DistillationSchemas.ClassificationSchema),
+            transcript,
+            cancellationToken).ConfigureAwait(false);
+        var sanitized = DistillationValidation.SanitizeClassification(payload);
+
+        return new ClassificationResult(sanitized.Verdict, sanitized.Reason ?? string.Empty);
+    }
+
+    /// <inheritdoc />
     public async Task<ClipsResult> ExtractClipsAsync(
         string transcript,
         CancellationToken cancellationToken = default)

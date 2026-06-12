@@ -10,9 +10,13 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ## Current State
 
-**Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 6 phases (28-33), 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7 days. 30/30 requirements satisfied (HSK-02 descoped to backlog). Deck Primer Generator live as the fourth paste-ready workflow (`/deck-primer`); Content KB knowledge wired into all three analysis prompt variants ("What Experts Say" panel + pin/follow/evergreen expert selection); DeckFlow.Core fully XML-documented with the doc-gate widened. Quality infra added at close: Vitest+jsdom browser test runner + first GitHub Actions CI (build + xUnit + Vitest). Milestone audit: **passed**. Tests Core 282/282, Web 657 pass / 5 PG-skips. NOTE: prod flag `content.kb.enabled` intentionally OFF — Content KB ships **dark** in v1.5 (proven live at Phase 30 UAT 2026-06-07; operator re-enables when ready).
+**Shipped:** v1.6 Content KB Retrieval Fix + Value Re-Validation (2026-06-12) — 8 phases (34, 35, 37, 37.5, 37.6, 38, 39, 40; 36 SKIPPED — gate marginal), ~122 commits, 2026-06-10→06-12. Gate-driven: the KB value A/B gate (Phase 35) returned **MARGINAL**, triggering the recorded retire-pivot — whole-channel clip-injection into prompts was removed (Phase 37), the KB kept browse-only and its corpus rebuilt high-signal (37.5) with admin block/hard-delete (37.6). Closed with the long-deferred SRP split: DeckController → 8 focused controllers + CommandRunners → 3 classes (38, route-parity proven + live smoke), an architecture-review refactor extracting `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` from the 4 packet services (39, Finding A), and a Core.Tests health pass (40). Milestone audit: **passed**. Tests green + deterministic: Core 320/0, Web 593/0/5-skip; build 0/0. Content KB remains **dark in prod** (browse-only; injection retired).
 
-**Next:** planning next milestone (`/gsd-new-milestone`). Open follow-ups: SEL-02 expert-pin fix shipped + TDD-covered (`a106c6a`) but live-pin re-confirm pending next KB-enable; Gemini paste-limit deferred to v1.6; SpellbookCombo ranking fields (PRM-08) deferred.
+**Next:** v1.7 TBD (set via `/gsd:new-milestone`). Candidate backlog: architecture-review findings B–K (CategoryKnowledgeRepository + ContentKbCommandRunners god-class splits, `Services/` foldering, dual-dialect cleanup) from `.planning/milestones/v1.6-ROADMAP.md` + `39-AUDIT`; prod KB-seed go-live (deploy-stage); Gemini paste-limit + SpellbookCombo ranking (PRM-08) still deferred.
+
+## Shipped Milestone: v1.6 Content KB Retrieval Fix + Value Re-Validation (SHIPPED 2026-06-12 — archived, see `.planning/milestones/v1.6-ROADMAP.md`)
+
+Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired prompt clip-injection, kept the KB browse-only + rebuilt its corpus, then shipped the DeckController/CommandRunners SRP split (38) + a packet-service dedup refactor (39, Finding A) + a Core.Tests health pass (40). Audit **passed**; requirement outcomes in `.planning/milestones/v1.6-REQUIREMENTS.md`.
 
 ## Shipped Milestone: v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (SHIPPED 2026-06-10 — archived, see `.planning/milestones/v1.5-ROADMAP.md`)
 
@@ -120,7 +124,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 <!-- Planning next milestone — fresh REQUIREMENTS.md created via /gsd-new-milestone. -->
 
-- (none — v1.5 shipped 2026-06-10; next milestone not yet scoped)
+- v1.6 Content KB Retrieval Fix + Value Re-Validation — scoped in `.planning/REQUIREMENTS.md` (gate-driven; see Current Milestone above)
 
 ### Out of Scope
 
@@ -259,4 +263,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-06-10 — v1.5 milestone shipped and archived*
+*Last updated: 2026-06-10 — v1.6 milestone started (Content KB Retrieval Fix + Value Re-Validation)*
