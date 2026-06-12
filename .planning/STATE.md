@@ -4,14 +4,14 @@ milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
 status: executing
 stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-last_updated: "2026-06-12T16:23:17.134Z"
+last_updated: "2026-06-12T18:29:49.607Z"
 last_activity: 2026-06-12
 progress:
-  total_phases: 7
-  completed_phases: 5
-  total_plans: 16
-  completed_plans: 10
-  percent: 63
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 19
+  completed_plans: 16
+  percent: 75
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 38 — controller-srp-split
+**Current focus:** Phase 39 — architecture-review
 
 ## Current Position
 
-Phase: 38 (controller-srp-split) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 38
+Phase: 39 (architecture-review) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 39
 Reqs: SRP-01/02/03 pending.
 Next: `/gsd-plan-phase 38` (Codex-reviewed) → execute (Codex impl / Claude review).
 
