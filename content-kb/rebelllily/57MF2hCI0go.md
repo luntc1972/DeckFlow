@@ -5,28 +5,28 @@ url: "https://www.youtube.com/watch?v=57MF2hCI0go\u0026list=UUX8LtC40Hs-QKd7kDpU
 video_id: "57MF2hCI0go"
 tags:
   archetype: ["control","value-engine"]
-  bracket: []
+  bracket: ["Core","Upgraded"]
   card_category: ["draw","removal","counter","board-wipe","protection"]
-generated_utc: "2026-06-09T01:10:55Z"
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-This deck tech builds a control-oriented Spider-Man Commander deck led by Sensational Spider-Man, chosen because he webs up attackers and draws cards on attack to refill resources. The strategy controls the battlefield using web and stun-counter effects (Trap the Trespassers, Lost in the Maze) that lock down opponents and generate card draw, while punishment cards (Come Up in Faints, Misleading Signpost, Misdirection) let attackers overcommit and then redirect or punish their swings. Its core resource is extra turns and time manipulationΓÇötaking time from opponents and granting it to yourself to stay several steps ahead. The deck leans heavily on cantrips and card flow to dig for removal, counterspells, or board wipes before the clock runs out. A support sub-theme buffs Peter Parker directly: allies like Aunt May, Captain Stacy, Penny Parker, Spider-Man 2099, and Layla add +1/+1 counters, card draw, and damage, while Spider-Woman taps down creatures and artifacts. An optional Peter upgrade adds strength and draw. The builder notes the deck can falterΓÇöwebs run out, alliances fail, time expiresΓÇöbut its support network keeps it competitive. Full decklist is hosted on the creator's site commandertemplate.com.
+This deck tech builds a Commander deck around Sensational Spider-Man, the Spider-Man who webs up enemies on attack and draws cards to reload. The strategy is to control the battlefield with webs, stun counters, and tricks. Cards like Trap the Trespassers and Lost in the Maze lock the table down and spread stun counters that fuel card draw, while Peter can wield Mjolnir. A punish layer lets opponents overcommit, then exploits them: Come Up and Feigns Weakness punishes greedy attackers, Misleading Signpost and Misdirection redirect threats, and webbing silences a problem player. The deck's core resource is time and extra turns/opportunity effects, entering a flow state where opponents freeze. To support this, it leans heavily on cantrips and card flow to dig for removal, counterspells, or board wipes and stay ahead via 'spider-sense.' A support sub-theme uses allies—Aunt May, Captain Stacy, Penny Parker, Spider-Man 2099, Layla, Spider-Woman—who grant +1/+1 counters, card draw, damage, and tap-down effects to empower Peter. The thematic angle mirrors Peter Parker's struggle with limited time and responsibility. The full decklist is hosted on the creator's site, commandertemplate.com.
 
 ## Key Clips
 
-- The Spider-Man of choice is Sensational Spider-Man, the only one who directly webs up his enemies on attack and can also draw cards to reload your web shooters. The deck is designed to control the battlefield with webs, tricks, and quips.
-- Trap the Trespassers locks the table down and spreads stun counters all over for you to draw cards from. Lost in the Maze also applies stun counters and covers Spider-Man when he's exposed.
-- The deck punishes overcommitment: Come Up in Faints punishes a greedy attacker, Misleading Signpost takes an unstoppable force and points it somewhere else, and Misdirection swings danger to another foe.
-- The core resource the deck runs on is time ΓÇö entering flow state like a miracle, freezing opponents so only you can move, and taking the opportune moment from everyone else to go again. Spider-Man thrives on making time.
-- The deck emphasizes card flow and cantrips to spend every last bit of resource and dig deeper for the next tool ΓÇö removal, counterspell, or board wipe ΓÇö to stay three steps ahead.
-- Peter's strength comes from his support network: Aunt May and police captain Stacy take the fall for Peter, while Penny Parker and the Spiderbot grant strength through +1/+1 counters.
-- Penny and Spider-Man 2099 provide card draw and damage, Laya Holographic Assistant converts card draw into power on Peter, and Spider-Woman keeps creatures and artifacts tapped down.
-- The full deck list is on the creator's deck building website commandertemplate.com, organized by theme and function, with tools to recommend themes and auto-build the basic land base around the commander's mana value.
+- **[00:28]** To capture Spider-Man's power, we need to design a deck that can control the battlefield the way Spider-Man can with his webs, his tricks, and his quips.
+- **[01:47]** Spider-Man doesn't fight fair. He lets you overcommit, then he punishes you for it. Come Up and Feigns Weakness and punishes a greedy attacker.
+- **[00:55]** Instead of being good at a few things, I wasn't good at anything. So I scaled back. Balance is a process, not a destination.
+- **[04:05]** That's why this deck is designed with extra emphasis on card flow and cantrips. Our cantrips serve as a way to spend every last bit of resource we have to frantically dig deeper for the next tool to smooth out our draws before the clock runs out.
+- **[04:13]** So that we can have that removal, that counter spell, or that board wipe ready because we're already three steps ahead thanks to our spider sense.
+- **[04:55]** With cards like Aunt May or the selfless police captain Stacy, people who are willing to take the fall for Peter.
+- **[05:33]** Layla, holographic assistant, converts card draw to even more power on Peter.
+- **[07:07]** Commander Template also guides your deck building through helpful recommendations based around your commander's mana value, and includes tools like recommending themes or auto-building your basic land base.
 
 ## Tags
 
 **Archetypes/Strategy:** control, value-engine
-**Format/Bracket:** 
+**Format/Bracket:** Core, Upgraded
 **Card Categories:** draw, removal, counter, board-wipe, protection

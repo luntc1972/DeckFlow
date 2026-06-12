@@ -1,32 +1,32 @@
 ---
 source: "Salubrious Snail"
 title: "The New Lorehold Precon Has a Bit of an Issue"
-url: "https://www.youtube.com/watch?v=nG-oQA_6RUU"
+url: "https://www.youtube.com/watch?v=nG-oQA_6RUU\u0026list=UUOYkwObFKjxko7oj56gVDag"
 video_id: "nG-oQA_6RUU"
 tags:
-  archetype: ["tokens","tribal","value-engine","reanimator"]
+  archetype: ["tokens","value-engine","reanimator","midrange"]
   bracket: ["Core"]
-  card_category: ["ramp","removal","draw","board-wipe","recursion","finishers"]
-generated_utc: "2026-06-08T17:07:05Z"
+  card_category: ["recursion","draw","ramp","removal","board-wipe","finishers","win-cons"]
+generated_utc: "2026-06-11T21:21:45Z"
 ---
 
 ## Summary
 
-This video reviews the Strixhaven Lorehold precon led by Quintorius, History Chaser, a 4-mana planeswalker whose passive makes 3/2 Spirit tokens when cards leave the graveyard, +1 draws/mills, and -4 grants Spirits double strike and vigilance. The deck pairs nineteen graveyard-recursion/exile cards with leaving-graveyard payoffs, discard payoffs, and a Spirit token subtheme to outgrind opponents. The reviewer calls it one of the weaker precons reviewed, citing three core problems: overreliance on the fragile planeswalker commander for graveyard-filling and value (only ~five real enablers in the 99, value engines too costly/conditional), vulnerability to graveyard hate, and insufficient interaction. The manabase is the worst since Blame GameΓÇöonly 37 lands with little filtering, causing missed land drops and awkward tapped-dual symbol counts. Proposed fix: ten budget swaps ($3 or less). Cuts filler two/three-drop Spirits and underutilized creatures; adds MDFCs (Witch Enchanter, Makindi Stampede) plus filtering/draw (Ark of Hunger, Pursue the Past, Fear of Missing Out, Tersa Lightshatter, Brass's Tunnel Grinder, Plargg) and fun pieces (On Wings of Gold, Mila and Lukka). Core lesson: precons need adequate lands and filtering to grant player agency.
+This video reviews the Strixhaven Lorehold precon led by Quintorius, History Chaser, a 4-mana planeswalker whose passive makes 3/2 Spirit tokens whenever cards leave the graveyard, with a +1 for card filtering and a -4 granting Spirits double strike and vigilance. The deck pairs leaving-graveyard payoffs, recursion effects, discard synergies, and a Spirit token theme to outgrind opponents and swing wide. The reviewer rates it weak. Core problems: overreliance on the planeswalker commander, who must survive on board to fill the graveyard and generate value, yet is easily attacked in multiplayer EDH; only about five real non-commander graveyard enablers; value engines that come online too late; a disappointing 37-land manabase causing missed land drops; vulnerability to graveyard hate; and thin interaction. Suggested upgrade: 10 cuts (filler Spirits, niche cards like Naktamun Lorespinner, Drumbellower, Karmic Guide, Fateful Tempest) and 10 cheap additions emphasizing filtering and land consistency—MDFCs (Witch Enchanter, Makindi Stampede), draw/filter pieces (Pursue the Past, Tersa Lightshatter, Brass's Tunnel Grinder, Plargg), plus On Wings of Gold and Mila and Lukka. Core lesson: precons need more lands, less commander reliance, and especially more filtering.
 
 ## Key Clips
 
-- The face commander is Quintorius, History Chaser. This is a 4 mana planeswalker with the passive ability 'Whenever one or more cards leave your graveyard, create a 3/2 red and white Spirit creature token.' His +1 ability reads 'you may discard a card. If you do, draw two cards, then mill a card.' His -4 ability reads 'Spirits you control gain double strike and vigilance until end of turn.'
-- There are nineteen cards that recur, exile, or otherwise remove things from the graveyard, along with five cards beyond the commander that are payoffs for cards leaving the graveyard. To pair with these, there are twelve cards outside the commander that help get cards into the graveyard, though seven of these are pretty insubstantial, so there are five cards that are proper graveyard enablers.
-- The biggest issue is that it puts a lot of pressure on its planeswalker commander to stick around on board. In commander, the massive life totals mean that attacking opponents often feels barely useful in the earlier stages of the game, but attacking a planeswalker can mean eliminating an opposing threat without needing to spend a card.
-- This feature of the deck is worsened by its manabase. Five of my 20 test games with this deck saw a missed early land drop, and part of the issue here is the raw count of 37. This can be a perfectly fine number of lands to run if you've got a decent amount of early draw, filtering, or landcycling that can dig you to more, but this deck doesn't really have any of these things.
-- A vulnerability to graveyard hate. What makes it a potential issue here is the lack of non-commander ways to get stuff into the yard. If somebody exiles your graveyard you're right back to square one. Graveyard hate will also increase in frequency over the game as opponents are able to access more of their libraries.
-- The final issue I see here is with interaction. I've categorized 11 cards here as interaction, but that's probably a bit generous given that three of the cards included in that group are Kami of Ancient Law, White Orchid Phantom, and Remorseful Cleric, filler spirits with somewhat mediocre attached interactive tools.
-- For the additions, ten cards that each cost $3 or less. Witch Enchanter is a no-brainer for a deck that doesn't have a whole ton of noncreature permanent removal, and Makindi Stampede feels nice as a way to replace the spirit-buffing of Balefire Liege. I'm pulling Ark of Hunger and Pursue the Past, both of which help fill our graveyard and generate card advantage.
-- What I mean by filtering is cards that prioritize letting you see more of your library over value or increasing your total card pool. Seeing more of your deck is good! It's especially important for precons. Imbuing players with a sense of agency should be the #1 goal there, and that's what friends like Plargg are here for.
+- **[01:30]** Quintorius is a planeswalker that opponents can attack to remove for free, so you'd want blockers to keep opposing creatures at bay; in most cases wait an extra turn or two to set up synergy pieces before casting him rather than slamming him down on curve.
+- **[05:10]** Planeswalkers are much better in 20-health 1v1 formats; in commander the massive life totals mean attacking a planeswalker lets opponents eliminate a threat without spending a card, and a removal spell on your blocker becomes a 2-for-1 that thwacks your planeswalker too.
+- **[05:14]** Wait to play Quintorius until you have tools to keep him around, or at least until you can get a couple spirits off him the same turn to block with.
+- **[05:58]** Five of 20 test games saw a missed early land drop; 37 lands is too few without early draw, filtering, or landcycling. Run 39+ lands in an era with ample quality MDFCs and utility lands rather than dooming newer players to manascrew games.
+- **[06:43]** This deck is vulnerable to graveyard hate because of its lack of non-commander ways to fill the yard; if somebody exiles your graveyard you're right back to square one, and graveyard hate increases in frequency as the game goes on.
+- **[10:44]** Add a couple MDFCs like Witch Enchanter and Makindi Stampede to make sure you're hitting land drops, since they double as spells and lands.
+- **[10:57]** Add more draw and filtering: cards like Ark of Hunger, Pursue the Past, Fear of Missing Out, Tersa Lightshatter, Brass's Tunnel Grinder, and Plargg each fill the graveyard, offer a short-term blocker, and become a value engine later.
+- **[13:08]** Steer decks away from the issues that make them stall: not enough lands, overreliance on the commander, and especially not enough filtering — cards that prioritize letting you see more of your library over raw value, which gives players agency and is especially important in precons.
 
 ## Tags
 
-**Archetypes/Strategy:** tokens, tribal, value-engine, reanimator
+**Archetypes/Strategy:** tokens, value-engine, reanimator, midrange
 **Format/Bracket:** Core
-**Card Categories:** ramp, removal, draw, board-wipe, recursion, finishers
+**Card Categories:** recursion, draw, ramp, removal, board-wipe, finishers, win-cons

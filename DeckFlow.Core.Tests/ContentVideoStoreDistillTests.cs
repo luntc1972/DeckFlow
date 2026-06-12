@@ -78,6 +78,18 @@ public sealed class ContentVideoStoreDistillTests : IDisposable
     }
 
     [Fact]
+    public async Task DistillStatusAsync_FilteredStatus_IsAccepted()
+    {
+        var sourceId = await InsertSourceAsync("filtered-status-source");
+        var videoId = await InsertVideoWithTranscriptAsync(sourceId, "filtered-status-video", TranscriptStatus.Captions);
+
+        await _videoStore.SetDistillStatusAsync(videoId, "filtered");
+
+        Assert.Equal("filtered", await _videoStore.GetDistillStatusAsync(videoId));
+        Assert.Equal(1, await CountDistillStatusRowsAsync(videoId));
+    }
+
+    [Fact]
     public async Task GetLatestTranscriptAsync_ReturnsMostRecentTranscriptBody()
     {
         var sourceId = await InsertSourceAsync("latest-transcript-source");

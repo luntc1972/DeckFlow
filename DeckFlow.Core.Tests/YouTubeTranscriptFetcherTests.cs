@@ -9,6 +9,17 @@ namespace DeckFlow.Core.Tests;
 public sealed class YouTubeTranscriptFetcherTests
 {
     [Fact]
+    public void FormatTimestampedCaption_UsesTotalMinutesAndZeroPaddedSeconds()
+    {
+        Assert.Equal(
+            "[01:05] hello",
+            YouTubeTranscriptFetcher.FormatTimestampedCaption("hello", TimeSpan.FromSeconds(65)));
+        Assert.Equal(
+            "[65:07] long video",
+            YouTubeTranscriptFetcher.FormatTimestampedCaption("long video", TimeSpan.FromHours(1) + TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(7)));
+    }
+
+    [Fact]
     public async Task FetchCaptionsAsync_ReturnsJoinedCaptionBody()
     {
         var fetcher = new YouTubeTranscriptFetcher((videoId, ct) =>

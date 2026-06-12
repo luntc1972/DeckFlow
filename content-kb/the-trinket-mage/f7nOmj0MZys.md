@@ -4,29 +4,28 @@ title: "I\u2019m Obsessed With This Card"
 url: "https://www.youtube.com/watch?v=f7nOmj0MZys\u0026list=UUizpFyPoDNfbqJ1hBHnng-g"
 video_id: "f7nOmj0MZys"
 tags:
-  archetype: ["aristocrats","combo","value-engine","control","midrange","tokens"]
+  archetype: ["combo","aristocrats","value-engine","control","midrange","tokens","reanimator"]
   bracket: []
-  card_category: ["draw","removal","recursion","tutor","ramp","utility","finishers"]
-generated_utc: "2026-06-08T21:56:13Z"
+  card_category: ["draw","removal","recursion","ramp","utility","finishers"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-The creator explains how they build many different Commander decks around one card, Salvaging Station, treating it as a flexible engine and a hidden commander. The core works because the deck must function without the station, so it leans on cheap colorless artifacts ("bobbles")ΓÇömostly spell bombs and welding jarΓÇöthat replace themselves. The station untaps whenever a creature dies (not once per turn), so it scales with combat, board wipes, and sacrifice, turning into both a card-draw and removal engine; it's really a graveyard deck first, artifact deck second. Spell bombs are ranked: Aether and Welding Jar S-tier, Executioner's Capsule and Pyrite/Pyrite-style A-tier, others niche. Value is extended with Unwinding Clock, Clock of Omens, and clones. Win conditions vary by colors: Reckless Fireweaver burn, animating artifacts, Rampage the Clans tokens, aristocrats, or standalone artifact threats. They list dozens of commanders tried across color combos. The broader lesson: find a card giving repeatable value, surround it with synergy pieces and mana-cheating support, then slot the engine into different commanders and colors. Other examples include Wild Research, Nexus of Becoming, and The Locust God-style draw archetypes. Engines reframe deckbuilding around a card set rather than the commander.
+The creator builds Commander decks around Salvaging Station as a "hidden commander" — a six-mana artifact that untaps whenever a creature dies and sacrifices an artifact to return a cheaper one from the graveyard. Because it can be removed or exiled, the deck must function without it, so it leans on cheap colorless "bobble" artifacts that cantrip. Welding Jar and Aether Spellbomb rate S-tier (Welding Jar protects and re-buys the Station; Aether Spellbomb gives repeatable bounce); Executioner's Capsule and Pyrite Spellbomb are A-tier removal loops; Implement of Improvement B-tier; Necrogen Spellbomb, green spellbomb, and Triangle of War are niche C-tier. Since the Station's untap isn't once-per-turn, board wipes and combat let it draw a card per creature death, mimicking Decree of Pain. Value extends via Unwinding Clock, Clock of Omens, and artifact clones. Win conditions include Reckless Fireweaver, animating bobbles, Rampage of the Clans, aristocrats, or copying big artifacts like Wurmcoil Engine. He has piloted it under many commanders across color combos. The broader lesson: find a card with repeatable value, surround it with synergistic support and mana-cheating pieces, then slot that core engine into different commanders and colors.
 
 ## Key Clips
 
-- Salvaging Station is part of a four-card cycle of artifacts whose art lines up and which go infinite together when all are in play. The narrator has built many decks around it and considers it his favorite of the stations by far.
-- The key to a hidden commander deck is making the deck function without the commander. Since it's not your real commander, if it's exiled or destroyed you likely lose access, so the deck must be able to operate on its own.
-- The station untaps whenever a creature dies and doesn't say 'once per turn,' making it closer to Morbid Opportunist but better. In tandem with a board wipe you can draw a card for each creature that dies, turning a one-mana board wipe into something like Decree of Pain.
-- The core engine uses cheap colorless 'bobbles' (cantrip artifacts) plus colored spell bombs. Aether Spell Bomb is an S-tier option for repeatable unsummoning; Executioner's Capsule gives near-infinite Doom Blades if you have the mana; Welding Jar is S-tier because it has no color identity and lets you regenerate and recur the station.
-- The secret to these station decks is that they are graveyard decks first and artifact decks second. With each bobble in your graveyard you can pick and choose the right removal or card-draw effect at the right time.
-- To extend value, untap the station with Unwinding Clock or Clock of Omens, or clone the station with artifact copy effects. Clock of Omens works well with spell bombs since they don't need to tap to use their effect.
-- To win, pair the engine with payoffs: Reckless Fireweaver plus cheap artifacts for damage, animating bobbles to swing and recur them when they die, Rampage the Clans in green, aristocrats shells, or cloning standalone artifact threats like Wurmcoil Engine or Cityscape Leveler.
-- General deckbuilding advice: find a card that generates repeatable value, surround it with value pieces and support cards that cheat on mana cost, build an engine, then plug-and-play that engine into different commanders and color combinations to find what you like best.
+- **[02:05]** In general, though, if you want to make a hidden commander deck work, the key is to have the deck function without the commander. Yes, you can use tutors and card draw to find your commander, and you probably should, but remember, it's not your real commander. So, if it's exiled or destroyed, you probably just don't have access to it.
+- **[03:42]** It can untap whenever a creature dies. This makes it a lot closer to a morbid opportunist, which is a very good card, except the station can be better. It doesn't say once per turn. So, if one player attacks another one and they block, causing both creatures to die, that means you get two untapped triggers on the station.
+- **[04:10]** Or in tandem with a board wipe, you can draw a card for each creature that dies, turning your one mana blast act into a decree of pain, which is really powerful.
+- **[07:01]** The secret to a lot of these station decks is that they're actually graveyard decks first and artifact decks second. If you have each bobble in your graveyard, you can pick and choose what effect you want at the right time.
+- **[07:27]** Now, one station can be decent value, but ultimately it is pretty slow. So, we need to extend the value here. By doing that, we can play other cards that untap the station. The best being unwinding clock or clock of omens.
+- **[14:43]** Find a card that gets repeatable value. This cheats out big instance of sorceries every turn. Surround it with value pieces. Play a few support cards that do similar effects and help you cheat on mana cost to allow you to synergize, and boom, you have an engine. Then, plug and play this engine with different commanders in different color combinations to find what you like best.
+- **[16:09]** One of the problems with landfall is if you don't have card draw with it, you just have a lot of mana and nothing to do. Eight and a half tales lets you spend mana all the time, allowing him to block a ton or attack in excess mana. So, I think that this would be my landfall commander in non green just because it's a really powerful mana sync.
 
 ## Tags
 
-**Archetypes/Strategy:** aristocrats, combo, value-engine, control, midrange, tokens
+**Archetypes/Strategy:** combo, aristocrats, value-engine, control, midrange, tokens, reanimator
 **Format/Bracket:** 
-**Card Categories:** draw, removal, recursion, tutor, ramp, utility, finishers
+**Card Categories:** draw, removal, recursion, ramp, utility, finishers

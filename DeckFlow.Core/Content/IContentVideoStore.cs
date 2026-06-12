@@ -139,6 +139,22 @@ public interface IContentVideoStore
     Task DeleteVideoAsync(long videoId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes a video row by its globally unique YouTube identifier.
+    /// </summary>
+    /// <param name="youtubeVideoId">YouTube video identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of deleted video rows.</returns>
+    Task<int> DeleteVideoByYoutubeIdAsync(string youtubeVideoId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all content video rows so FK-cascaded transcript, summary, clip, tag, and ledger children are purged too.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of deleted video rows.</returns>
+    Task<int> DeleteAllVideosAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support deleting all video rows.");
+
+    /// <summary>
     /// Deletes generated summary, clip, and tag rows for a video before a clean re-distill.
     /// </summary>
     /// <param name="videoId">Video identifier.</param>

@@ -1,0 +1,18 @@
+Real ContentKbRelevanceService selection — Talrand, Sky Summoner / Upgraded — 5 clips
+(corpus: 82 visible rows; deck archetypes: control, stax)
+
+- score=5.53 | Salubrious Snail — The Things EDH Players Get Wrong about Interaction [00:00]
+  The best way to think about interaction is as a network of overlapping solutions to a number of specific gamestates. In EDH problems are often more complicated than one single problem permanent that needs to be removed.
+
+- score=5.53 | Salubrious Snail — How to Play More Removal (and be happy about it) [00:00]
+  In conventional EDH deckbuilding, ways to interact with your opponents often ends up in the category of vegetablesΓÇöit's a type of card that's not flashy or exciting, but that you need to include regardless. The two big reasons to run more interaction: it leaves you with a better rounded deck, and it leads to more dynamic and interesting games rather than luck-based, one-sided stomps.
+
+- score=5.38 | Salubrious Snail — The Sluggish Era of Tall Commander [00:00]
+  Commander's 40 starting health itself serves as a built-in do-the-thing enablerΓÇöno extra effort needed from players. The higher life total was intentionalΓÇöit works to make space for decks that would otherwise struggle. There are a lot of potential creative strategies that simply can't hold up in a 20 health formatΓÇöattacking people with creatures early is just a bit too good.
+
+- score=5.08 | Salubrious Snail — Snail's Guide to Winning an EDH Game [00:00]
+  You shouldn't ask the question "what cards in my deck are the ones that win the game," because the important question is "what cards in my deck are the ones that don't win the game?" If you're building a deck with the intent of winning, that goal should be present in some form throughout each and every one of your card choices.
+
+- score=4.62 | Salubrious Snail — Does Power Level Matter? [00:00]
+  Power level differences within a table can be a tricky thing to navigate... But, do you wanna know a secret? In most cases like this, the relative power levels of the decks aren't even the main issue. Decks with varied power levels can work fine in the same pod, and games can avoid this "blowout" issue, but this requires a couple things to be true, and the first one of these things is very simple: decks should run interaction.
+

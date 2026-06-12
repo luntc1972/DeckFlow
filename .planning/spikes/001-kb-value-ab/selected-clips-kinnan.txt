@@ -1,0 +1,18 @@
+Real ContentKbRelevanceService selection — Kinnan, Bonder Prodigy / cEDH — 5 clips
+(corpus: 82 visible rows; deck archetypes: combo, control)
+
+- score=6.42 | Salubrious Snail — How to Play More Removal (and be happy about it) [00:00]
+  In conventional EDH deckbuilding, ways to interact with your opponents often ends up in the category of vegetablesΓÇöit's a type of card that's not flashy or exciting, but that you need to include regardless. The two big reasons to run more interaction: it leaves you with a better rounded deck, and it leads to more dynamic and interesting games rather than luck-based, one-sided stomps.
+
+- score=6.28 | Salubrious Snail — The Things EDH Players Get Wrong about Interaction [00:00]
+  The best way to think about interaction is as a network of overlapping solutions to a number of specific gamestates. In EDH problems are often more complicated than one single problem permanent that needs to be removed.
+
+- score=6.28 | Salubrious Snail — EDH’s Combo Conundrum [00:00]
+  The basic gist of what combo is is exactly what it sounds likeΓÇöa combination of cards that together do something much stronger, but that can take a lot of forms. The spooky scary version is a two or three card combo that wins on the spot, such as Splinter Twin Pestermite, but there also exist infinite life and infinite mana combos that need additional cards to win, as well as less game-ending combos that only kill situationally, or even just create a lot of value.
+
+- score=6.28 | Salubrious Snail — Snail's Guide to Winning an EDH Game [00:00]
+  You shouldn't ask the question "what cards in my deck are the ones that win the game," because the important question is "what cards in my deck are the ones that don't win the game?" If you're building a deck with the intent of winning, that goal should be present in some form throughout each and every one of your card choices.
+
+- score=5.53 | Salubrious Snail — The Problem with Board Wipes (in EDH) [00:00]
+  In the context of commander, boardwipes are a type of effect that I would call 'asymmetric'. This is confusing on the surface, since they're generally literally symmetrical effectsΓÇöthey destroy everything. But what I mean here is that they impact different players massively differently.
+

@@ -5,7 +5,7 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, distills MTG content videos into a browsable knowledge base, and exposes CLI/web tools for diffs, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and AI deck-analysis, cEDH meta-gap, and deck-comparison prompts.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks and generates paste-ready AI prompts (analysis, deck primer, comparison, cEDH meta-gap), with deck diffs, card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG content-creator knowledge base. Live at deckflow.gg.
 
 ## User Feedback
 
@@ -129,7 +129,7 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 ## Highlights
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
-- `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
+- `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, deck-primer generation, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
 - `DeckFlow.CLI` exposes deck comparison, category harvesting, cache querying, and the local Content KB pipeline (source management, transcript harvest, LLM distillation, site-index export) in a console tool.
 
 ### What's new in v1.3
@@ -147,14 +147,19 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - **Doc-warning gate (Phases 17/23):** every public type and member in `DeckFlow.Web` carries XML doc-comments; the `NoWarn 1591;1573;1587` suppression was removed and the warning gate is live, scoped to `DeckFlow.Web/**`.
 - **Removed:** the user-triggered "Run 5-Minute Archidekt Harvest" button on Category Suggestions — harvesting is driven by the background hosted service.
 
-### What's new in v1.5 (in progress)
-- **CLI `--video-ids`:** `harvest` and `distill` accept a comma-separated list of YouTube video ids (plus `--source-id` to disambiguate the target source) to process exactly those videos instead of the most-recent walk.
-- **Admin YouTube Export:** `/Admin/YoutubeExport` downloads a channel's upload list (title, view count, upload date, URL) as a text file or CSV, walking the full uploads playlist up to 500 videos.
-- The Deck Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
-- The cEDH Meta Gap page compares a submitted deck against 1 to 3 EDH Top 16 reference lists for the same commander, resolves canonical card names through Scryfall, injects Commander Spellbook combo references, generates a structured `meta_gap` AI prompt, and renders the returned JSON as a readable upgrade path.
-- The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
-- The DeckFlow Bridge browser extension lets DeckFlow fetch Moxfield decks from your logged-in browser session when the server path is blocked.
-- DeckFlow can optionally prompt users to install the included DeckFlow Bridge extension when a Moxfield URL import would otherwise be blocked from the server.
+### What's new in v1.5 (shipped 2026-06-10)
+- **Deck Primer Generator (Phase 31):** a fourth paste-ready workflow at `/deck-primer` — paste/import a deck and DeckFlow builds a structured "explain this deck" prompt artifact (game plan, key interactions, mulligan/sequencing guidance) with the same download/upload artifact flow as the other generators.
+- **Content KB integration (Phases 30/32/33):** distilled creator knowledge could be wired into the deck-analysis prompt (expert pin/follow/evergreen selection + a "What Experts Say" panel), shipped **dark** behind `content.kb.enabled`. *(Note: this prompt-injection path was retired in v1.6 — see below; the KB is now a browse-only reference.)*
+- **CLI `--video-ids`:** `harvest` and `distill` accept a comma-separated list of YouTube video ids (plus `--source-id` to disambiguate) to process exactly those videos instead of the most-recent walk.
+- **Admin YouTube Export:** `/Admin/YoutubeExport` downloads a channel's upload list (title, view count, upload date, URL) as text or CSV, walking the uploads playlist up to 500 videos.
+- **JS test runner + CI:** Vitest + jsdom for the browser TypeScript modules, plus the first GitHub Actions CI (build + xUnit + Vitest).
+
+### What's new in v1.6 (shipped 2026-06-12)
+- **Content KB retrieval fix + value re-validation gate (Phases 34/35):** fixed the retriever (per-video clip-diversity cap, topical-fit scoring over tag breadth, prompt-injection sanitizer + Spike-001 regression test), then ran a **blind, multi-deck A/B value gate** on the AI answers. Verdict: **MARGINAL** — the KB clip-injection did not earn its place in the prompt.
+- **Retire clip-injection; KB becomes browse-only (Phase 37):** per the recorded gate pivot, whole-channel clip-injection into deck-analysis prompts (the `## Expert Context` block, expert-selection widget, "What Experts Say" panel, retriever services) was **removed**. The Content KB is kept as an un-darked **browse-only reference** at `/content-kb`, and the deck-analysis page points users there for copyable prompts.
+- **Rebuild KB corpus + admin block/hard-delete (Phases 37.5/37.6):** corpus reset + high-signal re-harvest under a quality-classifier filter (and a fix so clips carry real mid-video timestamps, not `[00:00]`); admins can block a YouTube video by id so the harvester never re-ingests it and hard-delete its rows.
+- **Controller / CLI SRP split (Phase 38):** the `DeckController` god-class was decomposed into 8 focused feature controllers and `DeckFlow.CLI/CommandRunners` into deck-domain vs content-KB runners — **all routes and CLI commands preserved unchanged** (mechanically proven route-parity + a live render smoke).
+- **Architecture-review refactor (Phase 39):** duplicated deck-loading + Scryfall card-resolution were extracted out of the four prompt-packet services into a shared `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` — behavior byte-identical, guarded by the existing packet-service test suites.
 
 ## Getting Started
 1. Restore/build: `dotnet build DeckFlow.sln`

@@ -16,7 +16,8 @@ public sealed class DistillationPromptRegressionTests
         const string expectedClipsPrompt = """
             You extract 3 to 8 useful key clips from Magic: The Gathering video transcripts.
             Output only JSON matching the supplied schema.
-            Use timestamp_seconds only when the transcript provides a defensible time; otherwise use null.
+            Every clip must include a non-zero integer timestamp_seconds citing the [mm:ss] marker nearest the advice moment.
+            Select substantive mid-video advice moments, not opening housekeeping, and return only clips with a defensible non-zero timestamp grounded in the transcript.
             Excerpts must be grounded only in the transcript.
             """;
         var expectedTagsPrompt =

@@ -4,29 +4,29 @@ title: "3 More Strongest 50\u20AC Budget Commander Decks"
 url: "https://www.youtube.com/watch?v=A_CEM6pjFvs\u0026list=UU98mf08y3Dv_4chuyX1VIkw"
 video_id: "A_CEM6pjFvs"
 tags:
-  archetype: ["control","value-engine","combo","spellslinger","voltron","aggro","ramp"]
-  bracket: ["cEDH","Optimized"]
-  card_category: ["ramp","removal","draw","counter","protection","board-wipe","finishers","win-cons","recursion","utility"]
-generated_utc: "2026-06-08T22:42:24Z"
+  archetype: ["control","combo","voltron","spellslinger","aggro","value-engine","ramp"]
+  bracket: ["Optimized","cEDH"]
+  card_category: ["ramp","removal","draw","counter","protection","board-wipe","recursion","finishers","win-cons"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-A creator of recurring Γé¼50-budget Commander tournaments breaks down three recent winning decks. Aluren (Alrund/the fish), a mono-blue control deck, ramps out a four-mana commander by turn three, accumulates flood counters that reduce instant/sorcery costs (including colored pips), then grinds inevitable card advantage, protects itself with cheap counters, and wins via fish beatdown or infinite extra-turn loops (Narset's Reversal with prowess, or Archaeomancer plus Riptide Laboratory/Capsize). Sami, Wildcat Captain, a Boros storm deck, gives spells affinity for artifacts; it stalls with sweepers and removal, then casts Sami and storms off in one turn using mana rituals, X-cost draw, Reiterate plus a ritual for infinite mana, looping Lightning Bolt/Kaervek's Fury. Silence effects force the win through interaction. Edric, Spymaster of Trest, a Simic creature beatdown deck, floods the board with 20 one-mana evasive creatures, draws cards off combat damage (a Coastal Piracy effect), ramps, and overruns with Beastmaster Ascension, Biomass Mutation, or extra turns. The host stresses that experience and testing matter more than raw deck power, and shares all lists and rules at budgetcommander.de. He rates these decks roughly bracket four.
+This channel runs quarterly 50-euro budget Commander tournaments and profiles three recent winners. Alurin/"El Huge," the Shoreless Sea is a mono-blue control deck that drops the commander early via two-mana ramp, builds flood counters through attacks, and uses Al Lucius's cost reduction (including colored pips) to cast cheap counters, removal, and card draw on every player's turn; extra-turn loops via Kitesail/Narset's Reversal or Archaeomancer finish by attacking. Sami, Wildcard Captain is an explosive Boros artifact storm deck giving spells affinity for artifacts—load mana rocks and eggs, hold off opponents to roughly turn six, then cast Sami and storm through rituals, X-cost draw, Mana Geyser, and Reiterate for infinite mana to bolt everyone. Silence effects force the kill turn through. Edric, Spymaster of Trest is Simic creature beatdown running 20 one-mana evasive creatures for relentless card draw, with creature-based interaction (Foil, Unified Will), green ramp, then overrun finishers (Beastmaster Ascension) plus chained extra turns. The host stresses experience over raw power, calls these bracket-four decks unfit for casual play, and promotes budgetcommander.de, which shares lists, a tier list, rules, and tournament tools.
 
 ## Key Clips
 
-- Every 3 months, I host a Γé¼50 budget commander tournament. Over 2 years of tournaments, our 12th event is coming up, so we have a lot of practice tuning commander decks to be the strongest they can be within a strict Γé¼50 restriction.
-- Alurix, the Shoreless Sea won our ninth tournament. It's mono blue, costs four mana, and has power/toughness equal to the islands we control. Whenever it enters or attacks, we put a flood counter on a target land, and it reduces the cost of the first instant or sorcery each turn by one blue mana per land with a flood counter ΓÇö including the colored pips.
-- The fish deck is a control deck. The goal is to get the commander into play quickly, ideally turn three using two-mana ramp like Arcane Signet and Sapphire Medallion, then attack every turn since attacks give flood counters and flood counters win the game. We are not here to win quickly, but inevitably.
-- Sammy, Wildcat Captain is a six-mana Boros 4/4 with double strike and vigilance that gives all our spells affinity for artifacts ΓÇö one less to cast per artifact we control. This is a storm deck with one goal: play Sammy and win the game that same turn. Rather than a gradual value engine, Sammy is a kill button.
-- With Sammy we storm through the deck in a single turn, find Reiterate and any ritual to make infinite mana, then infinitely Reiterate Lightning Bolt or Kaervek's Fury to kill our opponents. The giant flaw is we need Sammy in play, and opponents know they can't let that happen.
-- Silence, Revel in Silence, and Mandate of Peace are what makes the Sammy deck work. Instead of just casting Sammy and hoping it resolves, we first force our opponent's hand with a Silence ΓÇö removal is meaningless against it. The deck won four out of five rounds, the best performance ever at one of our tournaments.
-- Edric, Spymaster of Trest won the 11th tournament. It's a free-mana Simic 2/2 whose Coastal Piracy effect draws cards on combat damage. This creature beatdown list plays a staggering 20 one-mana creatures plus 11 two-mana creatures ΓÇö tiny flyers and unblockable stinkers ΓÇö to come in quickly and wide so Edric draws free cards as early as turn three.
-- By intent, the budget tournament decks are cEDH ΓÇö optimized with no social consideration for a tournament environment ΓÇö but without free spells or fast mana they're really bracket four. If you bring these to a regular Commander night you will stomp and it won't be fun. Budget Commander is best enjoyed against others playing the same.
+- **[01:17]** This is a control deck. Its goal is to get Al Lucius into play quickly, ideally on turn three, using two mana ramp like Arcane Signet, Sapphire Medallion.
+- **[02:42]** Once the fish is on the board, we always want to attack with it. Attacks give flood counters, and flood counters win the game.
+- **[03:21]** We want to cast an instant on every player's turn to maximize the benefits we get from our cost reduction. At first, this will require us to be careful. We don't want to overextend our resources and end up caught without interaction.
+- **[07:08]** Winning one of our tournaments requires experience. Taking the time to test, to learn, to encounter strange situations. That's much more important than just having the strongest deck.
+- **[11:40]** Board wipes have a real role and purpose within the format. Resetting our opponent's development is almost certain to buy a turn or two. Similarly, well-aimed targeted removal goes a long way.
+- **[14:47]** Instead of just casting Sammy and hoping that they resolve, we first force our opponent's hand with a Silence. Removal is meaningless against Silence, and if they counter it, then we can always reevaluate.
+- **[17:53]** To utilize Edric's Coastal Piracy draw engine to the fullest, this deck plays a staggering 20 one-mana creatures. We just need attackers on the board, so we also play 11 two-mana creatures.
+- **[19:45]** This deck operates in stages. Stage one is to flood the board with tiny evasive creatures. Stage two prioritizes survival and ramping. Stage three is actually winning the game, usually starting with an extra turn.
 
 ## Tags
 
-**Archetypes/Strategy:** control, value-engine, combo, spellslinger, voltron, aggro, ramp
-**Format/Bracket:** cEDH, Optimized
-**Card Categories:** ramp, removal, draw, counter, protection, board-wipe, finishers, win-cons, recursion, utility
+**Archetypes/Strategy:** control, combo, voltron, spellslinger, aggro, value-engine, ramp
+**Format/Bracket:** Optimized, cEDH
+**Card Categories:** ramp, removal, draw, counter, protection, board-wipe, recursion, finishers, win-cons

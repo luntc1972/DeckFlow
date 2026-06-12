@@ -4,29 +4,29 @@ title: "Deck Reviews For Patrons!"
 url: "https://www.youtube.com/watch?v=tzOVGDzbs5s\u0026list=UUizpFyPoDNfbqJ1hBHnng-g"
 video_id: "tzOVGDzbs5s"
 tags:
-  archetype: ["control","ramp","blink","tokens","midrange","value-engine"]
-  bracket: ["Upgraded"]
-  card_category: ["ramp","removal","counter","draw","tutor","protection","recursion","win-cons","utility"]
-generated_utc: "2026-06-08T21:56:13Z"
+  archetype: ["control","ramp","value-engine","midrange","blink","tokens","stax"]
+  bracket: ["Core","Upgraded"]
+  card_category: ["ramp","counter","removal","draw","recursion","protection","tutor","finishers","utility","board-wipe","win-cons"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-Stream reviews three Commander decks. (1) A Quandrix, the Proof theft/control deck: the host argues counterspells clash with cascade and the deck plays more like a ramp pile than control. Fixes: swap hard counters for modal interaction that works off cascade (Mystic Confluence, Cryptic Command, Substantiate), cut big green creatures not tied to theft (Ashaya, Uvenwald Hydra), and lean harder into stealing opponents' win conditions. (2) A mono-white Ang/blink deck: equipment anti-synergizes with flicker, and Sword of Hearth and Home's protection-from-white blocks blinking your own commander, so cut it. Add Stonehorn Dignitary and Darksteel Splicer against being run over, and build a fetchland + Scroll Rack + Land Tax card-advantage engine; add token generators so doublers matter. (3) A Bant Counterbalance control deck: add Soothsaying and Sensei's Divining Top for top-deck setup, since sorcery-speed scry-then-draw spells don't help Counterbalance. The host explores a cycling/Library of Leng package but realizes Library's discard is a cost, breaking the cycling loop. Cut weak cards (Tamiyo's Epiphany, Eldritch Evolution) for more card draw (Disciple of Freyalise, Into the Story); a Grixis or Jeskai recolor was floated.
+A Commander deck-review stream covering three viewer decks. First, a Quandrix (Simic) Aang/theft list built around a commander granting cascade: the reviewer notes counterspells anti-synergize with cascade and pushes modal interaction (Mystic Confluence, Cryptic Command) and bounce-based counters (Substantiate) you can cascade into, cutting fat green creatures (Ashaya, Uvenwald Hydra) that don't support the theft plan; lean either harder into theft win-cons or into ramp. Second, a mono-white Aang blink/experience-counter deck: equipment (Sword of Hearth and Home, Mirror Entity Crown) anti-synergizes with blinking since you must re-equip, and protection-from-white blocks blinking your own commander. Suggested cuts and adds—more token generation to enable doublers, Stonehorn Dignitary and fogs against aggro, Darksteel Splicer and God-Eternal Oketra as resilient finishers, white fetchlands plus Scroll Rack and Land Tax for card advantage, Scavenger Grounds and Raven Charm for graveyard hate. Third, a Bant Counterbalance control deck using cycling, Library of Leng, Soothsaying, and Escape Protocol/Felidar blinks to reuse Mystic Sanctuary; reviewer notes Library doesn't loop with cycling (discard is a cost), recommends top-deck engines over one-shot Brainstorm, and floats a Jeskai Counterbalance-plus-Power-Balance build.
 
 ## Key Clips
 
-- Counter spells don't really work with cascade. When you cascade into a counter spell like Aether Snatch, you're forced to counter the spell you were already trying to cast. Play modal counter spells instead ΓÇö Substantiate, Mystic Confluence, Cryptic Command ΓÇö so when you cascade into them you can just bounce or draw rather than being stuck countering your own spell.
-- Equipment has anti-synergy with blinking: when you flicker an equipped creature you have to re-equip it, a whole mana investment. Sword of Hearth and Home is especially bad here because its protection from white blocks you from targeting your own commander with white blink spells like Cloudshift, so you lose the ability to blink your commander.
-- Scroll Rack plus white fetch lands plus Land Tax is an insane card-advantage engine. Scroll Rack puts cards from hand on top and draws that many; with a fetch land you can then shuffle away the cards you didn't want instead of being locked into drawing them later. Land Tax shuffles too and refills your hand, making the Scroll Rack plan even stronger.
-- If you're getting run over in combat, Stonehorn Dignitary is a great add ΓÇö it's not just a fog, it skips the combat phase entirely. Darksteel Splicer is also good defensively because it makes three indestructible 3/3 blockers as a top-end finisher.
-- Counterbalance counters an opponent's spell if you flip a card of the same mana value off the top of your library, so you want top-of-deck manipulation. Soothsaying lets you pay mana to scry X and shuffle, and Sensei's Divining Top / Scroll Rack set up the top. Riddle of the Mixture and Plea for Guidance can tutor up Counterbalance directly.
-- Library of Leng plus cycling looks like a top-deck combo but doesn't work: cycling's discard is part of the cost ("discard a card:"), so that happens before the draw ΓÇö meaning you draw the card you just put on top immediately rather than setting it up for Counterbalance. Library only helps the top-deck plan if you're discarding through other means.
-- Silence doesn't require a control deck ΓÇö you can cast it on an opponent's upkeep to skip their big turn right as they untap with their commander. It's pretty strong used proactively rather than reactively.
-- In a theft-themed deck, lean into the theme rather than padding with generic big green creatures ΓÇö you should be able to find win conditions in opponents' decks, since someone will have a creature that can attack. Move interaction into value pieces you can cascade into instead of running weak dedicated counterspells like Aether Snatch and Spelljack.
+- **[04:52]** I get you said it was a control deck, but counter spells don't really work with cascade.
+- **[06:15]** I would maybe move some of your interaction into like value pieces to cascade into... playing stuff like this is a good way because then when you cascade into it, you don't have to counter the spell. You just bounce the thing. Obviously modal counter spells work like this as well.
+- **[06:56]** I'm really surprised you didn't have Mystic Confluence in here, because when you cascade into it, you can just triple draw. More modal counter spells let your control plan work better with the commander.
+- **[09:16]** If you want to lean heavier on the theft, you should be able to find win cons in someone's deck. Someone should have a creature that can attack.
+- **[18:22]** I'm immediately suspect of the equipment cuz equipment already has anti-synergy with blinking because when you flicker a thing equipped, you have to re-equip it, which is like a whole mana investment.
+- **[24:50]** With a fetch land, you can shuffle away those cards, so you're not locked to drawing the cards you didn't want. Land Tax does the same thing because it shuffles, but it also fills your hand, so it makes the Scroll Rack plan even stronger.
+- **[28:57]** Here's the thing about Silence: you could just cast it on a player's upkeep. You don't have to be a control deck. This person played their commander, they're untapping, they're going to do a big turn. I'm just going to silence them on their upkeep and skip their turn.
+- **[29:28]** If you're being run over, this is a great card to add if you're struggling with getting attacked in combat. Not only is it a fog, Stonehorn Dignitary just skips the combat phase, which is crazy.
 
 ## Tags
 
-**Archetypes/Strategy:** control, ramp, blink, tokens, midrange, value-engine
-**Format/Bracket:** Upgraded
-**Card Categories:** ramp, removal, counter, draw, tutor, protection, recursion, win-cons, utility
+**Archetypes/Strategy:** control, ramp, value-engine, midrange, blink, tokens, stax
+**Format/Bracket:** Core, Upgraded
+**Card Categories:** ramp, counter, removal, draw, recursion, protection, tutor, finishers, utility, board-wipe, win-cons

@@ -1,6 +1,16 @@
-// Admin Content KB curation page behaviors (Phase 22, Surface 3).
-// CSP is `script-src 'self'` — no inline scripts — so the reload-confirm modal and the
-// two-click "Hide All" confirm live in this compiled module, mirroring admin-feedback.ts.
+interface Window {
+  DeckFlowAdminModal?: {
+    showConfirm?: (opts: ConfirmOptions) => Promise<boolean>;
+  };
+}
+
+interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}
 
 declare const DeckFlowKbFilter: {
   rowMatches(searchText: string, query: string): boolean;
@@ -11,48 +21,32 @@ declare const DeckFlowKbFilter: {
 ((): void => {
   'use strict';
 
-  const SCROLL_KEY = 'deckflowAdminKbScrollY';
+  const scrollKey = 'deckflowAdminKbScrollY';
 
-  type DeckFlowNamespace = {
-    attachTypeahead?: (
-      input: HTMLInputElement,
-      panel: HTMLDivElement,
-      minChars: number,
-      onPick: (name: string) => void,
-      options?: {
-        endpoint?: string;
-        debounceMs?: number;
-        onError?: (message?: string) => void;
-      }
-    ) => void;
-    createTypeaheadPanel?: (anchor: HTMLElement) => HTMLDivElement;
-  };
-
-  type TypeaheadWindow = Window & {
-    DeckFlow?: DeckFlowNamespace;
-  };
-
-  // Reload-from-seed: intercept submit, confirm via the shared admin modal, then submit.
   const wireReloadConfirm = (): void => {
-    const forms = document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-reload]');
+    const forms = document.querySelectorAll<HTMLFormElement>('form[data-admin-confirm-reload]');
     forms.forEach((form) => {
-      form.addEventListener('submit', async (event: SubmitEvent) => {
+      form.addEventListener('submit', async (event) => {
         if (form.dataset.confirmed === 'true') {
           return;
         }
+
         event.preventDefault();
+
         const showConfirm = window.DeckFlowAdminModal?.showConfirm;
         if (showConfirm === undefined) {
           form.dataset.confirmed = 'true';
           form.submit();
           return;
         }
+
         const confirmed = await showConfirm({
           title: 'Reload index from seed?',
           message: 'This will upsert all rows from the committed seed file. Visibility settings for previously-curated entries are preserved.',
           confirmLabel: 'Reload',
           cancelLabel: 'Cancel',
         });
+
         if (confirmed) {
           form.dataset.confirmed = 'true';
           form.requestSubmit();
@@ -61,30 +55,32 @@ declare const DeckFlowKbFilter: {
     });
   };
 
-  // Bulk "Hide All": first click arms the button (label → data-confirm-label), second click submits.
   const wireTwoClickConfirm = (): void => {
-    const forms = document.querySelectorAll<HTMLFormElement>('[data-admin-confirm-twoclick]');
+    const forms = document.querySelectorAll<HTMLFormElement>('form[data-admin-confirm-twoclick]');
     forms.forEach((form) => {
       const button = form.querySelector<HTMLButtonElement>('button[data-confirm-label]');
       if (button === null) {
         return;
       }
-      const original = button.textContent ?? '';
-      const armed = button.dataset.confirmLabel ?? 'Confirm';
+
+      const originalLabel = button.textContent ?? '';
+      const confirmLabel = button.dataset.confirmLabel ?? 'Confirm';
       let resetTimer = 0;
 
-      form.addEventListener('submit', (event: SubmitEvent) => {
+      form.addEventListener('submit', (event) => {
         if (form.dataset.armed === 'true') {
           return;
         }
+
         event.preventDefault();
         form.dataset.armed = 'true';
-        button.textContent = armed;
+        button.textContent = confirmLabel;
         button.classList.add('is-armed');
+
         window.clearTimeout(resetTimer);
         resetTimer = window.setTimeout(() => {
           form.dataset.armed = 'false';
-          button.textContent = original;
+          button.textContent = originalLabel;
           button.classList.remove('is-armed');
         }, 4000);
       });
@@ -92,23 +88,24 @@ declare const DeckFlowKbFilter: {
   };
 
   const wireScrollRestore = (): void => {
-    const scrollY = window.sessionStorage.getItem(SCROLL_KEY);
-    if (scrollY !== null) {
-      const parsedScrollY = Number(scrollY);
+    const savedScrollY = window.sessionStorage.getItem(scrollKey);
+    if (savedScrollY !== null) {
+      const parsedScrollY = Number(savedScrollY);
       if (Number.isFinite(parsedScrollY)) {
         window.scrollTo(0, parsedScrollY);
       }
-      window.sessionStorage.removeItem(SCROLL_KEY);
+
+      window.sessionStorage.removeItem(scrollKey);
     }
 
     const forms = document.querySelectorAll<HTMLFormElement>('form.admin-action-form');
     forms.forEach((form) => {
-      form.addEventListener('submit', (event: SubmitEvent) => {
+      form.addEventListener('submit', (event) => {
         if (event.defaultPrevented) {
           return;
         }
 
-        window.sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+        window.sessionStorage.setItem(scrollKey, String(window.scrollY));
       });
     });
   };
@@ -128,64 +125,14 @@ declare const DeckFlowKbFilter: {
     }, 4000);
   };
 
-  const setCommanderSearchError = (message?: string): void => {
-    const panel = document.querySelector<HTMLElement>('[data-api-panel="commander-search-error"]');
-    const text = document.querySelector<HTMLElement>('[data-api-field="commander-search-error-text"]');
-    if (!panel || !text) {
-      return;
-    }
-
-    text.textContent = message ?? '';
-    panel.classList.toggle('hidden', !message);
-  };
-
-  const ensureAutocompleteAnchor = (input: HTMLInputElement): HTMLDivElement => {
-    const parent = input.parentElement;
-    if (!parent) {
-      throw new Error('Admin Content KB preview commander input is missing a parent element.');
-    }
-
-    if (parent.classList.contains('autocomplete-anchor')) {
-      return parent as HTMLDivElement;
-    }
-
-    const anchor = document.createElement('div');
-    anchor.className = 'autocomplete-anchor';
-    input.insertAdjacentElement('beforebegin', anchor);
-    anchor.appendChild(input);
-    return anchor;
-  };
-
-  const wireCommanderPreviewTypeahead = (): void => {
-    const input = document.getElementById('kb-preview-commander-input') as HTMLInputElement | null;
-    if (!input) {
-      return;
-    }
-
-    const anchor = ensureAutocompleteAnchor(input);
-    const deckFlowWindow = window as TypeaheadWindow;
-    const panel = deckFlowWindow.DeckFlow?.createTypeaheadPanel?.(anchor);
-    if (!panel) {
-      return;
-    }
-
-    deckFlowWindow.DeckFlow?.attachTypeahead?.(input, panel, 2, () => {
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, {
-      endpoint: '/commander-categories/search',
-      debounceMs: 350,
-      onError: setCommanderSearchError,
-    });
-  };
-
   const wireEntryFilter = (): void => {
-    const input = document.getElementById('kb-filter-search') as HTMLInputElement | null;
+    const input = document.querySelector<HTMLInputElement>('#kb-filter-search');
     if (input === null) {
       return;
     }
 
     const count = document.getElementById('kb-filter-count');
-    const emptyRow = document.getElementById('kb-filter-empty') as HTMLTableRowElement | null;
+    const emptyRow = document.getElementById('kb-filter-empty');
     const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('#kb-entries-table tbody tr'))
       .filter((row) => row.id !== 'kb-filter-empty');
     const total = rows.length;
@@ -198,6 +145,7 @@ declare const DeckFlowKbFilter: {
         const searchText = row.dataset.kbSearch ?? '';
         const isMatch = DeckFlowKbFilter.rowMatches(searchText, query);
         row.hidden = !isMatch;
+
         if (isMatch) {
           matched += 1;
         }
@@ -221,7 +169,6 @@ declare const DeckFlowKbFilter: {
     wireTwoClickConfirm();
     wireScrollRestore();
     wireToast();
-    wireCommanderPreviewTypeahead();
     wireEntryFilter();
   });
 })();

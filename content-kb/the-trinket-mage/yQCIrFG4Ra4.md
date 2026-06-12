@@ -4,29 +4,29 @@ title: "Brewing a bad deck?"
 url: "https://www.youtube.com/watch?v=yQCIrFG4Ra4\u0026list=UUizpFyPoDNfbqJ1hBHnng-g"
 video_id: "yQCIrFG4Ra4"
 tags:
-  archetype: ["stax","tokens"]
-  bracket: ["Upgraded","Optimized","cEDH"]
-  card_category: ["ramp","removal","draw","board-wipe","tutor","recursion","protection","counter"]
-generated_utc: "2026-06-08T21:56:13Z"
+  archetype: ["stax","tokens","aristocrats","midrange"]
+  bracket: ["Optimized","cEDH"]
+  card_category: ["tutor","draw","ramp","removal","board-wipe","recursion","protection"]
+generated_utc: "2026-06-11T23:00:55Z"
 ---
 
 ## Summary
 
-This stream is a Marvel set spoiler reaction followed by a Commander deck brew. The creator reviews Marvel cards: Thanos (rated midΓÇöa 4/4 deathtouch/lifelink that board-wipes by even/odd mana value but never hits itself), Killmonger, Voltron-style Thor, and Hit-Monkey (vigilance, deathtouch, hexproof, hasteΓÇöa strong, hard-to-remove Voltron commander, since the best commanders resist removal rather than deal damage). The Fantastic Four cards form a draw-trigger infinite combo echoing Station cards. Iron Man copies artifact spells nonlegendary, enabling double Aetherworks Marvel. Praise for reprinting mechanically-unique Secret Lair cards (Lithoform Engine). Bonus-sheet reprints judged mostly weak. He criticizes card renames (Beast Within) and notes Fairy Mastermind is a cEDH staple. The brew centers on Zahor, building a low-to-the-ground Orzhov stax deck: gravepact effects (Sulthera, Dictate of Erebos) double up with Zahor's death-trigger zombies; land destruction (Armageddon, Ravages, Cataclysm, Pox) favors mana rocks over cost-reducers; hatebears (Thalia, Drannith Magistrate), token-makers (Bitter Blossom), and draw (Necropotence, Timna). Concludes the deck has potential legs.
+This is a Marvel Super Heroes set spoiler-reaction stream that pivots into a Commander deckbuilding session, so most deckbuilding value comes from the second half. The builder picks Zahor, Glory's Past as a Mardu (actually Orzhov/black-white) stax commander whose max-speed ability makes a tapped 2/2 zombie whenever a non-token creature dies, which doubles up with gravepact-style effects (Sulthera, Grave Pact, Dictate of Erebos). The plan: a low-to-the-ground stax/hatebears build using mass land destruction (Pox, Smallpox, Armageddon, Ravages of War, Cataclysm, Catastrophe), prison enchantments (Winter Orb, The Abyss, Tainted Aether, Contamination, Nether Void), and hatebears (Thalia x2, Drannith Magistrate, Hushbringer). Token engines (Bitter Blossom, Dread Horde Invasion, March of the Canonized, Ocelot Pride) feed the death-trigger payoffs. Key insight: avoid cost-reducers and excess ramp because you're blowing up your own lands—run mana rocks instead so you can still cast spells. Card draw (Necropotence, Night's Whisper, Deadly Dispute, Esper Sentinel, Timna, Starfield Shepherd) is flagged as the build's weak point. Silver Quill rejected because copying Armageddon/Cataclysm does nothing.
 
 ## Key Clips
 
-- Thanos is a 4/4 with deathtouch and lifelink for three, an Eternal Villain. You can pay a bunch of mana, put two counters on him, then choose even or odd, and it destroys each creature with that mana value. He never blows himself up. It costs less if you cast him this turn, so you can play him and then go colorless board wipe.
-- The Fantastic Four scene cards call back to the stations. Mr. Fantastic: whenever you create a token, you draw a card. Human Torch: whenever you draw a card, deal damage to an opponent. Heroes dealing damage put +1/+1 counters; putting counters on heroes makes a 0/4 wall with defender. The wall triggers a draw, which triggers damage ΓÇö so it goes infinite, like the stations.
-- T'Challa: flash, whenever a player draws their second card each turn, you draw a card. It's an Orzhov-with-flash effect ΓÇö good against Aristocrat's study / Esper Sentinel-style draw triggers. Possibly cEDH playable, though Azorius is a fringe color pair without white-staple access and no red/black.
-- Iron Man, Bleeding Edge: 3/5 flying, whenever you cast an artifact spell you may copy it, except the copy isn't legendary, once each turn. Lets you make nonlegendary copies ΓÇö double Aetherworks Marvel, double Alhammarret's Archive, double Lithoform Engine. That's a dark ritual on artifacts.
-- Hit Monkey: this spell can't be countered, reach, vigilance, deathtouch, hexproof, haste. A real Voltron commander ΓÇö with hexproof and haste it's hard to remove, just protect from board wipes. The best commanders aren't the ones that do damage, they're the ones that are hard to remove. New slippery-bogle Voltron commander if you give it indestructible.
-- Zahor: a start-your-engines card. Speed starts at one, increases each turn an opponent loses life. At max speed, whenever a non-token creature you control dies, make a tapped 2/2 zombie. With Grave Pact effects you double up: creatures all die, make zombies, stack the zombie, then it triggers again. Good shell for a bracket-four Stax list.
-- Building Orzhov Stax: pair Zahor with Pox, Smallpox, Pox Plague, Winter Orb, Grave Pact, Dictate of Erebos, plus mass land destruction (Armageddon, Ravages of War, Cataclysm/Catastrophe). Run mana rocks instead of cost reducers, because with no lands you want things that actually tap for mana ΓÇö cost reducers do nothing when you can't cast your commander.
-- On Stax deckbuilding: planeswalkers are very good in Stax decks. Curses are weak in multiplayer because they only slow one player ΓÇö you need symmetric effects that slow everyone. Keep the curve low to double-spell, hate-bears like Thalia, Drannith Magistrate, Hushbringer support the plan, and bounce lands plus indestructible artifact lands survive your own land destruction.
+- **[28:14]** A lot of people forget that the best commanders are not the ones that do damage, it's the ones that are hard to remove. With Hit Monkey, if you give it indestructible it's really obnoxious because it has vigilance and deathtouch — it attacks, you can't do anything about it, and you can't swing back because they just block and kill your dude.
+- **[44:13]** On finding a specific piece like sneak attack consistently without tutoring for it: if you want consistency, tutors are the thing to do. If you want to randomly draw into it, that's all you got. And if you draw more cards, you'll find more.
+- **[45:55]** With grave-pact effects you can double up on Zahor — your creatures all die and make zombies, you stack the zombie, and then it also does that again. That's the engine for building a stax/aristocrats list around him.
+- **[57:38]** Picking a deck direction off an open-ended commander: you could go zombies, warriors, cats, whatever. It's casual commander — ultimately the only thing that matters is that you're picking the theme that you like.
+- **[67:17]** You don't want cost reducers when you have no lands. In a land-destruction deck running winter orb and Armageddon effects, you want mana rocks that actually tap for mana to rebuild — cost reducers don't help when you can't even cast your commander.
+- **[68:16]** Another thing that's very good in stax decks is planeswalkers — they keep generating value while your opponents are locked out, so prioritize good planeswalkers in your colors.
+- **[73:50]** The problem with curses is you just slow one player down and then the other players can still win. You need them to be effects that affect everyone so it slows everybody down.
+- **[76:58]** No rule-of-law effects in this one, because with a really low curve I'm going to be double-spelling a lot — locking yourself to one spell per turn fights against a low mana-value deck.
 
 ## Tags
 
-**Archetypes/Strategy:** stax, tokens
-**Format/Bracket:** Upgraded, Optimized, cEDH
-**Card Categories:** ramp, removal, draw, board-wipe, tutor, recursion, protection, counter
+**Archetypes/Strategy:** stax, tokens, aristocrats, midrange
+**Format/Bracket:** Optimized, cEDH
+**Card Categories:** tutor, draw, ramp, removal, board-wipe, recursion, protection

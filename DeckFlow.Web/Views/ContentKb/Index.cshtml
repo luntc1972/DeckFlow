@@ -59,18 +59,6 @@
         </label>
     </fieldset>
 
-    <div class="kb-selection-tray" aria-live="polite" aria-label="Current expert context selection" hidden>
-        <div class="kb-selection-tray__section">
-            <span class="kb-selection-tray__label">Pinned (<span data-tray-pin-count>0</span>/3)</span>
-            <ul class="kb-selection-tray__list" data-tray-pins aria-label="Pinned videos"></ul>
-        </div>
-        <div class="kb-selection-tray__section">
-            <span class="kb-selection-tray__label">Following</span>
-            <ul class="kb-selection-tray__list" data-tray-follows aria-label="Followed creators"></ul>
-        </div>
-        <a href="/deck-analysis" class="kb-selection-tray__cta">Run analysis with this selection →</a>
-    </div>
-
     <div class="hub-grid" data-kb-grid>
         @foreach (var entry in Model.Entries)
         {
@@ -100,25 +88,6 @@
                         <span class="kb-tag" data-card-category="@category">@category</span>
                     }
                 </div>
-                <div class="kb-card-actions">
-                    <button type="button"
-                            class="kb-pin-btn"
-                            aria-label="Pin '@entry.Title' for next analysis"
-                            aria-pressed="false"
-                            data-kb-pin
-                            data-video-id="@entry.VideoId"
-                            data-video-title="@entry.Title">
-                        📌 Pin
-                    </button>
-                    <button type="button"
-                            class="kb-follow-btn"
-                            aria-label="Follow @entry.Source"
-                            aria-pressed="false"
-                            data-kb-follow
-                            data-creator="@entry.Source">
-                        ★ Follow
-                    </button>
-                </div>
             </article>
         }
     </div>
@@ -142,7 +111,6 @@
 
 @section Scripts {
     <script src="~/js/content-kb.js" asp-append-version="true"></script>
-    <script src="~/js/kb-selection.js" asp-append-version="true"></script>
 }
 
 @functions {

@@ -139,80 +139,6 @@ public sealed class RunDistillAsyncTests : IDisposable
     }
 
     [Fact]
-    public async Task RunDistillAsync_RecordsEachCallSpendBeforeLaterFailure()
-    {
-        var operations = new List<string>();
-        var failed = CreateVideo(1, 1, "partial-failure");
-        var succeeding = CreateVideo(2, 1, "succeeding-video");
-        var videoStore = new FakeContentVideoStore { Operations = operations };
-        videoStore.AddPending(1, failed, "transcript failed");
-        videoStore.AddPending(1, succeeding, "transcript succeeds");
-        var ledger = new FakeLlmSpendLedger { Operations = operations };
-        var distiller = new FakeLlmDistillationService { Operations = operations };
-        distiller.ClipsQueue.Enqueue(new InvalidOperationException("clips failed"));
-        distiller.ClipsQueue.Enqueue(FakeLlmDistillationService.CreateClips());
-
-        var exitCode = await RunAsync(videoStore, ledger, distiller);
-
-        Assert.Equal(0, exitCode);
-        var firstVideoRecord = Assert.Single(ledger.Records, record => record.VideoId == 1);
-        Assert.Equal(100, firstVideoRecord.InputTokens);
-        Assert.Equal(10, firstVideoRecord.OutputTokens);
-        Assert.True(
-            operations.IndexOf("ledger:1:100:10") < operations.IndexOf("clips:transcript failed"),
-            string.Join(", ", operations));
-        Assert.Contains(new StatusUpdate(1, "failed"), videoStore.StatusUpdates);
-        Assert.DoesNotContain(new StatusUpdate(1, "distilled"), videoStore.StatusUpdates);
-        Assert.DoesNotContain(videoStore.Summaries, summary => summary.VideoId == 1);
-        Assert.DoesNotContain(LastRunIndexStore!.Rows, row => row.YoutubeVideoId == "partial-failure");
-        Assert.Contains(new StatusUpdate(2, "distilled"), videoStore.StatusUpdates);
-    }
-
-    [Fact]
-    public async Task RunDistillAsync_WholeVideoCapMarksSkippedOverCapWithoutLlmCalls()
-    {
-        var video = CreateVideo(1, 1, "over-cap");
-        var videoStore = new FakeContentVideoStore();
-        videoStore.AddPending(1, video, "transcript body");
-        var ledger = new FakeLlmSpendLedger();
-        ledger.WouldExceedResults.Enqueue(true);
-        var distiller = new FakeLlmDistillationService();
-
-        var exitCode = await RunAsync(videoStore, ledger, distiller);
-
-        Assert.Equal(0, exitCode);
-        Assert.Empty(distiller.Calls);
-        Assert.Empty(ledger.Records);
-        Assert.Equal(new StatusUpdate(1, "skipped_over_cap"), Assert.Single(videoStore.StatusUpdates));
-        Assert.Contains("cap", LastRunStore!.CompleteCalls.Single().AbortedReason, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task RunDistillAsync_MidBundleCapRecordsPriorSpendThenMarksSkippedOverCap()
-    {
-        var video = CreateVideo(1, 1, "mid-cap");
-        var videoStore = new FakeContentVideoStore();
-        videoStore.AddPending(1, video, "transcript body");
-        var ledger = new FakeLlmSpendLedger();
-        ledger.WouldExceedResults.Enqueue(false);
-        ledger.WouldExceedResults.Enqueue(false);
-        ledger.WouldExceedResults.Enqueue(true);
-        var distiller = new FakeLlmDistillationService();
-
-        var exitCode = await RunAsync(videoStore, ledger, distiller);
-
-        Assert.Equal(0, exitCode);
-        Assert.Equal(["summary:transcript body"], distiller.Calls);
-        var record = Assert.Single(ledger.Records);
-        Assert.Equal(1, record.VideoId);
-        Assert.Equal(100, record.InputTokens);
-        Assert.Equal(10, record.OutputTokens);
-        Assert.Equal(new StatusUpdate(1, "skipped_over_cap"), Assert.Single(videoStore.StatusUpdates));
-        Assert.Empty(videoStore.Summaries);
-        Assert.Empty(LastRunIndexStore!.Rows);
-    }
-
-    [Fact]
     public async Task RunDistillAsync_DryRunProjectsSpendWithoutBusinessMutations()
     {
         var video = CreateVideo(1, 1, "dry-run-video");
@@ -252,7 +178,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         var exitCode = await RunAsync(videoStore, ledger, distiller, isSubscriptionProvider: true);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(["summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
+        Assert.Equal(["classify:transcript body", "summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
         Assert.Empty(ledger.WouldExceedChecks);
         Assert.Equal(3, ledger.Records.Count);
         Assert.All(ledger.Records, record => Assert.Equal(0m, record.CostUsd));
@@ -296,21 +222,6 @@ public sealed class RunDistillAsyncTests : IDisposable
     }
 
     [Fact]
-    public async Task RunDistillAsync_OpenAiDefaultStillInvokesCapChecks()
-    {
-        var video = CreateVideo(1, 1, "openai-video");
-        var videoStore = new FakeContentVideoStore();
-        videoStore.AddPending(1, video, "transcript body");
-        var ledger = new FakeLlmSpendLedger();
-
-        var exitCode = await RunAsync(videoStore, ledger);
-
-        Assert.Equal(0, exitCode);
-        Assert.True(ledger.WouldExceedChecks.Count > 0);
-        Assert.Contains(ledger.Records, record => record.CostUsd > 0m);
-    }
-
-    [Fact]
     public async Task RunDistillAsync_UsesEachEnabledSourceSlugAndNeverQueriesDisabledSources()
     {
         var sourceStore = new FakeContentSourceStore(
@@ -339,6 +250,106 @@ public sealed class RunDistillAsyncTests : IDisposable
     }
 
     [Fact]
+    public async Task RunDistillAsync_ClassifierDropsVideo_VideoNotIndexed()
+    {
+        var video = CreateVideo(1, 1, "drop-video");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var distiller = new FakeLlmDistillationService();
+        distiller.ClassifyQueue.Enqueue(new ClassificationResult("drop", "trivia"));
+
+        var exitCode = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: true);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains(new StatusUpdate(1, "filtered"), videoStore.StatusUpdates);
+        Assert.Contains(1, videoStore.ClearCalls);
+        Assert.Equal(1, distiller.ClassifyCallCount);
+        Assert.Equal(0, distiller.SummaryCalls);
+        Assert.Empty(videoStore.Summaries);
+        Assert.Empty(videoStore.Clips);
+        Assert.Empty(videoStore.Tags);
+        Assert.Null(await LastRunIndexStore!.GetByNaturalKeyAsync(ContentSourceType.Youtube, "drop-video"));
+    }
+
+    [Fact]
+    public async Task RunDistillAsync_ClassifierDropsPreviouslyIndexedVideo_RemovesStaleIndexRow()
+    {
+        var video = CreateVideo(1, 1, "stale-video");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var distiller = new FakeLlmDistillationService();
+        distiller.ClassifyQueue.Enqueue(new ClassificationResult("drop", "intro-only"));
+        var staleRow = new ContentSiteIndexRow
+        {
+            Id = 99,
+            Source = "source-one",
+            Title = "Video stale-video",
+            VideoUrl = "https://www.youtube.com/watch?v=stale-video",
+            ArtifactPath = "content-kb/source-one/stale-video.md",
+            PublishedUtc = DateTimeOffset.Parse("2026-05-26T00:00:00Z"),
+            IndexedUtc = DateTimeOffset.Parse("2026-05-27T12:34:56Z"),
+            ArchetypeTags = ["combo"],
+            BracketTags = ["cEDH"],
+            CardCategoryTags = ["win-cons"],
+            YoutubeVideoId = "stale-video",
+            RssGuid = null,
+        };
+
+        LastRunIndexStore = new FakeContentSiteIndexStore();
+        LastRunIndexStore.Rows.Add(staleRow);
+
+        var exitCode = await RunAsync(
+            videoStore,
+            distiller: distiller,
+            isSubscriptionProvider: true,
+            indexStore: LastRunIndexStore);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains(new StatusUpdate(1, "filtered"), videoStore.StatusUpdates);
+        Assert.Contains(1, videoStore.ClearCalls);
+        Assert.Contains(99, LastRunIndexStore.DeleteCalls);
+        Assert.Null(await LastRunIndexStore.GetByNaturalKeyAsync(ContentSourceType.Youtube, "stale-video"));
+    }
+
+    [Fact]
+    public async Task RunDistillAsync_ClassifierKeepsVideo_VideoDistilledNormally()
+    {
+        var video = CreateVideo(1, 1, "keep-video");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var distiller = new FakeLlmDistillationService();
+        distiller.ClassifyQueue.Enqueue(new ClassificationResult("keep", "advice"));
+
+        var exitCode = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: true);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(1, distiller.ClassifyCallCount);
+        Assert.Equal(1, distiller.SummaryCalls);
+        Assert.Contains(new StatusUpdate(1, "distilled"), videoStore.StatusUpdates);
+        var row = Assert.Single(LastRunIndexStore!.Rows);
+        Assert.Equal("keep-video", row.YoutubeVideoId);
+    }
+
+    [Fact]
+    public async Task RunDistillAsync_MeteredProvider_FailsClosedWithoutClassifying()
+    {
+        var video = CreateVideo(1, 1, "metered-video");
+        var videoStore = new FakeContentVideoStore();
+        videoStore.AddPending(1, video, "transcript body");
+        var distiller = new FakeLlmDistillationService();
+
+        var exitCode = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: false);
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Equal(0, distiller.ClassifyCallCount);
+        Assert.Equal(0, distiller.SummaryCalls);
+        Assert.Empty(videoStore.StatusUpdates);
+        Assert.Empty(videoStore.ClearCalls);
+        Assert.Empty(LastRunIndexStore!.Rows);
+        Assert.Equal(0, LastRunStore!.StartCalls);
+    }
+
+    [Fact]
     public async Task RunDistillAsync_ContentSourceSetEnabledAsyncTogglesSource()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"deckflow-source-toggle-{Guid.NewGuid():N}.db");
@@ -351,7 +362,7 @@ public sealed class RunDistillAsyncTests : IDisposable
                 ContentSourceType.Youtube,
                 "https://www.youtube.com/@toggle");
 
-            var disableExitCode = await CommandRunners.RunContentSourceSetEnabledAsync(
+            var disableExitCode = await ContentKbCommandRunners.RunContentSourceSetEnabledAsync(
                 sourceId,
                 enabled: false,
                 new FileInfo(dbPath),
@@ -362,7 +373,7 @@ public sealed class RunDistillAsyncTests : IDisposable
             Assert.False((await store.GetSourceAsync(sourceId))!.IsEnabled);
             Assert.DoesNotContain(await store.ListEnabledSourcesAsync(), source => source.Id == sourceId);
 
-            var enableExitCode = await CommandRunners.RunContentSourceSetEnabledAsync(
+            var enableExitCode = await ContentKbCommandRunners.RunContentSourceSetEnabledAsync(
                 sourceId,
                 enabled: true,
                 new FileInfo(dbPath),
@@ -394,13 +405,14 @@ public sealed class RunDistillAsyncTests : IDisposable
         FakeLlmSpendLedger? ledger = null,
         FakeLlmDistillationService? distiller = null,
         FakeContentSourceStore? sourceStore = null,
+        FakeContentSiteIndexStore? indexStore = null,
         bool dryRun = false,
-        bool isSubscriptionProvider = false,
+        bool isSubscriptionProvider = true,
         IReadOnlyList<string>? videoIds = null)
     {
-        LastRunIndexStore = new FakeContentSiteIndexStore();
+        LastRunIndexStore = indexStore ?? new FakeContentSiteIndexStore();
         LastRunStore = new FakeContentHarvestRunStore();
-        return await CommandRunners.RunDistillAsync(
+        return await ContentKbCommandRunners.RunDistillAsync(
             sourceStore ?? new FakeContentSourceStore([CreateSource(1, "source-one", isEnabled: true)]),
             videoStore,
             LastRunIndexStore,
@@ -590,6 +602,17 @@ public sealed class RunDistillAsyncTests : IDisposable
         public Task DeleteVideoAsync(long videoId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<int> DeleteVideoByYoutubeIdAsync(string youtubeVideoId, CancellationToken cancellationToken = default)
+        {
+            var removed = 0;
+            foreach (var pair in _pendingBySource)
+            {
+                removed += pair.Value.RemoveAll(video => string.Equals(video.YoutubeVideoId, youtubeVideoId, StringComparison.Ordinal));
+            }
+
+            return Task.FromResult(removed);
+        }
+
         public Task ClearDistillOutputAsync(long videoId, CancellationToken cancellationToken = default)
         {
             ClearCalls.Add(videoId);
@@ -626,6 +649,8 @@ public sealed class RunDistillAsyncTests : IDisposable
     private sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     {
         public List<ContentSiteIndexRow> Rows { get; } = [];
+
+        public List<long> DeleteCalls { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
@@ -683,6 +708,13 @@ public sealed class RunDistillAsyncTests : IDisposable
             }
 
             return Task.FromResult(count);
+        }
+
+        public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
+        {
+            DeleteCalls.Add(id);
+            var removed = Rows.RemoveAll(row => row.Id == id);
+            return Task.FromResult(removed);
         }
 
         public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default)
@@ -821,13 +853,19 @@ public sealed class RunDistillAsyncTests : IDisposable
 
         public List<string> Calls { get; } = [];
 
+        public int ClassifyCallCount { get; private set; }
+
         public int SummaryCalls { get; private set; }
+
+        public ClassificationResult DefaultClassification { get; init; } = new("keep", "default");
 
         public SummaryResult DefaultSummary { get; init; } = CreateSummary();
 
         public ClipsResult DefaultClips { get; init; } = CreateClips();
 
         public TagsResult DefaultTags { get; init; } = CreateTags();
+
+        public Queue<object> ClassifyQueue { get; } = [];
 
         public Queue<object> SummaryQueue { get; } = [];
 
@@ -853,6 +891,14 @@ public sealed class RunDistillAsyncTests : IDisposable
                 ["cEDH"],
                 ["win-cons"],
                 new TokenUsage(30, 3));
+
+        public Task<ClassificationResult> ClassifyAsync(string transcript, CancellationToken cancellationToken = default)
+        {
+            ClassifyCallCount++;
+            Calls.Add("classify:" + transcript);
+            Operations.Add("classify:" + transcript);
+            return Task.FromResult(Next(ClassifyQueue, DefaultClassification));
+        }
 
         public Task<SummaryResult> SummarizeAsync(string transcript, CancellationToken cancellationToken = default)
         {

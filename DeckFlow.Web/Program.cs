@@ -26,6 +26,7 @@ using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web;
@@ -68,6 +69,7 @@ public partial class Program
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
+            builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
             builder.Services.AddMemoryCache();
 
             // AI platform toggles. Gemini is hidden in the UI by default because the full
@@ -179,15 +181,6 @@ public partial class Program
                 new DeckFlow.Core.Content.ContentSiteIndexStore(
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
-            builder.Services.AddSingleton(sp => new ContentKbArchetypeDeriver(
-                sp.GetRequiredService<ICategoryKnowledgeStore>(),
-                sp.GetRequiredService<ILogger<ContentKbArchetypeDeriver>>()));
-            builder.Services.AddSingleton<IContentKbRelevanceService>(sp => new ContentKbRelevanceService(
-                sp.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>(),
-                sp.GetRequiredService<ContentKbArtifactPathResolver>(),
-                sp.GetRequiredService<DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache>(),
-                sp.GetRequiredService<ContentKbArchetypeDeriver>(),
-                sp.GetRequiredService<ILogger<ContentKbRelevanceService>>()));
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
             // Admin YouTube export: transient lister so each request gets a factory-managed
             // HttpClient (handler rotation) for the per-video YoutubeExplode metadata calls.
@@ -267,6 +260,10 @@ public partial class Program
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<CardLookupCache>()));
+            builder.Services.AddSingleton<IScryfallCardResolver>(sp =>
+                new ScryfallCardResolver(
+                    sp.GetRequiredService<IScryfallRestClientFactory>(),
+                    sp.GetRequiredService<ResiliencePipelineProvider<string>>()));
             builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
             builder.Services.AddSingleton<ICommanderBanListService>(sp =>
                 new CommanderBanListService(
@@ -315,12 +312,8 @@ public partial class Program
 
             builder.Services.AddScoped<IDeckAnalysisPacketService>(sp =>
                 new DeckAnalysisPacketService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<IMechanicLookupService>(),
                     sp.GetRequiredService<ICommanderBanListService>(),
                     sp.GetRequiredService<IScryfallSetService>(),
@@ -328,16 +321,11 @@ public partial class Program
                     sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                     sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>(),
-                    sp.GetRequiredService<IContentKbRelevanceService>(),
                     sp.GetService<ILogger<DeckAnalysisPacketService>>()));
             builder.Services.AddScoped<IDeckComparisonService>(sp =>
                 new DeckComparisonService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
                     sp.GetRequiredService<FollowUpPromptVariantRegistry>(),
@@ -345,22 +333,15 @@ public partial class Program
                     sp.GetService<ILogger<DeckComparisonService>>()));
             builder.Services.AddScoped<IMetaGapService>(sp =>
                 new MetaGapService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>()));
             builder.Services.AddScoped<IDeckPrimerPacketService>(sp =>
                 new DeckPrimerPacketService(
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
                     sp.GetRequiredService<ICategoryKnowledgeStore>(),
