@@ -20,7 +20,6 @@ namespace DeckFlow.Web.Controllers;
 public sealed class DeckController : DeckToolControllerBase
 {
     private const string CorruptedZipMessage = "The uploaded zip contains an incomplete response payload. Re-export from the originating session or paste a fresh response.";
-    private readonly IDeckConvertService _deckConvertService;
     private readonly ICardSearchService _cardSearchService;
     private readonly ICardLookupService _cardLookupService;
     private readonly IMechanicLookupService _mechanicLookupService;
@@ -36,7 +35,6 @@ public sealed class DeckController : DeckToolControllerBase
     /// Creates the main deck-tools controller.
     /// </summary>
     public DeckController(
-        IDeckConvertService deckConvertService,
         ICardSearchService cardSearchService,
         ICardLookupService cardLookupService,
         IMechanicLookupService mechanicLookupService,
@@ -48,7 +46,6 @@ public sealed class DeckController : DeckToolControllerBase
         PacketSessionCache packetCache,
         ILogger<DeckController> logger)
     {
-        _deckConvertService = deckConvertService;
         _cardSearchService = cardSearchService;
         _cardLookupService = cardLookupService;
         _mechanicLookupService = mechanicLookupService;
@@ -173,79 +170,6 @@ public sealed class DeckController : DeckToolControllerBase
                 TargetCommanderBracket = defaultBracket,
             },
         });
-    }
-
-    /// <summary>
-    /// Renders the deck format conversion page.
-    /// </summary>
-    [HttpGet("/convert")]
-    public IActionResult Convert()
-    {
-        return View("DeckConvert", new DeckConvertViewModel());
-    }
-
-    /// <summary>
-    /// Converts a single deck from one platform format to another.
-    /// </summary>
-    /// <param name="request">Deck convert request.</param>
-    [HttpPost("/convert")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Convert(DeckConvertRequest request)
-    {
-        request ??= new DeckConvertRequest();
-        var hasInput = request.InputSource == DeckInputSource.PublicUrl
-            ? !string.IsNullOrWhiteSpace(request.DeckUrl)
-            : !string.IsNullOrWhiteSpace(request.DeckText);
-
-        if (!hasInput)
-        {
-            return View("DeckConvert", new DeckConvertViewModel
-            {
-                Request = request,
-                ErrorMessage = "Paste a deck export or enter a public URL before converting.",
-            });
-        }
-
-        try
-        {
-            var result = await _deckConvertService.ConvertAsync(request, HttpContext.RequestAborted);
-            return View("DeckConvert", new DeckConvertViewModel
-            {
-                Request = request,
-                ConvertedText = result.ConvertedText,
-                MissingCommander = result.CommanderMissing,
-            });
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
-        {
-            _logger.LogInformation(exception, "Deck conversion failed.");
-            return View("DeckConvert", new DeckConvertViewModel
-            {
-                Request = request,
-                ErrorMessage = exception.Message,
-            });
-        }
-    }
-    /// <summary>
-    /// Returns commander-eligible card name suggestions for the deck convert form typeahead.
-    /// </summary>
-    /// <param name="q">Partial commander name.</param>
-    [HttpGet("/convert/commander-search")]
-    public async Task<IActionResult> ConvertCommanderSearch(string q)
-    {
-        try
-        {
-            var names = await _cardSearchService.SearchCommandersAsync(q ?? string.Empty, HttpContext.RequestAborted);
-            return Json(names);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
-        {
-            _logger.LogWarning(exception, "Commander search autocomplete failed for query {Query}.", q);
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                Message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)
-            });
-        }
     }
 
     /// <summary>
