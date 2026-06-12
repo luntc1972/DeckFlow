@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
@@ -63,10 +64,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
 {
     private const int ScryfallBatchSize = 75;
 
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
@@ -78,10 +76,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
     internal DeckComparisonService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IDeckEntryLoader deckEntryLoader,
         ICommanderSpellbookService commanderSpellbookService,
         ComparisonPromptVariantRegistry comparisonPromptRegistry,
         FollowUpPromptVariantRegistry followUpPromptRegistry,
@@ -93,19 +88,13 @@ public sealed class DeckComparisonService : IDeckComparisonService
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
-        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
-        ArgumentNullException.ThrowIfNull(archidektDeckImporter);
-        ArgumentNullException.ThrowIfNull(moxfieldParser);
-        ArgumentNullException.ThrowIfNull(archidektParser);
+        ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(comparisonPromptRegistry);
         ArgumentNullException.ThrowIfNull(followUpPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _deckEntryLoader = deckEntryLoader;
         _commanderSpellbookService = commanderSpellbookService;
         _comparisonPromptRegistry = comparisonPromptRegistry;
         _followUpPromptRegistry = followUpPromptRegistry;
@@ -332,7 +321,8 @@ public sealed class DeckComparisonService : IDeckComparisonService
         List<DeckEntry> entries;
         try
         {
-            entries = await LoadDeckEntriesAsync(deckSource, cancellationToken).ConfigureAwait(false);
+            var loaded = await _deckEntryLoader.LoadFromSourceAsync(deckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+            entries = loaded.Entries;
         }
         catch (Exception exception) when (exception is InvalidOperationException or DeckParseException or HttpRequestException)
         {
@@ -407,40 +397,6 @@ public sealed class DeckComparisonService : IDeckComparisonService
             }
         }
         return result;
-    }
-
-    private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        if (Uri.TryCreate(deckSource.Trim(), UriKind.Absolute, out var uri))
-        {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _moxfieldDeckImporter.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _archidektDeckImporter.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        try
-        {
-            return _moxfieldParser.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        try
-        {
-            return _archidektParser.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
     }
 
     private async Task<CardLookupResult> LookupCardDetailsAsync(string deckLabel, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)

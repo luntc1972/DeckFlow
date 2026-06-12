@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -66,10 +67,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     {
         WriteIndented = true
     };
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
@@ -85,10 +83,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     internal DeckAnalysisPacketService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IDeckEntryLoader deckEntryLoader,
         IMechanicLookupService mechanicLookupService,
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
@@ -104,10 +99,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
-        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
-        ArgumentNullException.ThrowIfNull(archidektDeckImporter);
-        ArgumentNullException.ThrowIfNull(moxfieldParser);
-        ArgumentNullException.ThrowIfNull(archidektParser);
+        ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(mechanicLookupService);
         ArgumentNullException.ThrowIfNull(commanderBanListService);
         ArgumentNullException.ThrowIfNull(scryfallSetService);
@@ -116,10 +108,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
         _scryfallSetService = scryfallSetService;
@@ -274,7 +263,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
     /// <summary>
     /// Composes the D-01 cache-input field bag and returns the canonical PacketSessionCache key
-    /// for this request. Re-runs the same private <see cref="LoadDeckEntriesAsync"/> path
+    /// for this request. Re-runs the same shared deck-loader path
     /// <see cref="BuildAsync"/> uses, then calls <see cref="ResolvePreScryfallCommanderState"/>
     /// (the SAME helper BuildAsync calls in its pre-Scryfall stage) to apply the inferred-commander
     /// reflag mutation, then calls <see cref="BuildDeckAnalysisCacheInputs"/> (the SAME helper
@@ -297,7 +286,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         List<DeckEntry> entries;
         try
         {
-            entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+            var loaded = await _deckEntryLoader.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+            _lastImportNotice = loaded.FallbackNotice;
+            entries = loaded.Entries;
         }
         catch (Exception ex) when (ex is InvalidOperationException or DeckParseException or HttpRequestException)
         {
@@ -397,7 +388,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         var loadDeckStopwatch = Stopwatch.StartNew();
-        var entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        var loaded = await _deckEntryLoader.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+        _lastImportNotice = loaded.FallbackNotice;
+        var entries = loaded.Entries;
         timings.Add(("Deck load", loadDeckStopwatch.ElapsedMilliseconds, null));
         _logger.LogInformation("Deck Analysis packet deck load completed in {ElapsedMs}ms.", loadDeckStopwatch.ElapsedMilliseconds);
         var deckEntries = entries
@@ -656,52 +649,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
     /// <summary>
     /// Warning surfaced to the UI when the Moxfield fallback (Commander Spellbook) was used.
-    /// Set during LoadDeckEntriesAsync, read during BuildAsync, cleared per call.
+    /// Set from the shared deck loader result, read during BuildAsync, cleared per call.
     /// </summary>
     private string? _lastImportNotice;
-
-    /// <summary>
-    /// Loads deck entries from a public URL or pasted export text.
-    /// </summary>
-    /// <param name="deckSource">Deck URL or pasted export text.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The parsed deck entries.</returns>
-    private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        _lastImportNotice = null;
-        if (Uri.TryCreate(deckSource.Trim(), UriKind.Absolute, out var uri))
-        {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = await _moxfieldDeckImporter.ImportWithSourceAsync(deckSource, cancellationToken).ConfigureAwait(false);
-                _lastImportNotice = result.FallbackNotice;
-                return result.Entries;
-            }
-
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _archidektDeckImporter.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        try
-        {
-            return _moxfieldParser.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        try
-        {
-            return _archidektParser.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
-    }
 
     /// <summary>
     /// Builds the short deck summary shown above the generated ChatGPT packets.
@@ -1079,7 +1029,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// </summary>
     private async Task<IReadOnlyList<string>> LookupCommanderColorIdentityAsync(string deckSource, CancellationToken cancellationToken)
     {
-        var entries = await LoadDeckEntriesAsync(deckSource, cancellationToken).ConfigureAwait(false);
+        var loaded = await _deckEntryLoader.LoadFromSourceAsync(deckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+        _lastImportNotice = loaded.FallbackNotice;
+        var entries = loaded.Entries;
         var commanderName = entries
             .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             ?.Name;

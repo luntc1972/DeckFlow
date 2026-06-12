@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
@@ -68,10 +69,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     private const int CedhArchetypeCount = 8;
     private const int MaxNearCombos = 15;
 
-    private readonly IMoxfieldDeckImporter? _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter? _archidektDeckImporter;
-    private readonly MoxfieldParser? _moxfieldParser;
-    private readonly ArchidektParser? _archidektParser;
+    private readonly IDeckEntryLoader? _deckEntryLoader;
     private readonly ICommanderSpellbookService? _commanderSpellbookService;
     private readonly IEdhTop16Client? _edhTop16Client;
     private readonly ICategoryKnowledgeStore? _knowledgeStore;
@@ -87,10 +85,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     /// <summary>
     /// Initializes the production deck-primer packet service.
     /// </summary>
-    /// <param name="moxfieldDeckImporter">Moxfield importer used for public deck URLs.</param>
-    /// <param name="archidektDeckImporter">Archidekt importer used for public deck URLs.</param>
-    /// <param name="moxfieldParser">Moxfield text parser used for pasted exports.</param>
-    /// <param name="archidektParser">Archidekt text parser used for pasted exports.</param>
+    /// <param name="deckEntryLoader">Shared deck loader used for public deck URLs and pasted exports.</param>
     /// <param name="commanderSpellbookService">Commander Spellbook lookup service.</param>
     /// <param name="edhTop16Client">EDH Top 16 client.</param>
     /// <param name="knowledgeStore">Category knowledge store.</param>
@@ -99,10 +94,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     /// <param name="aiPlatformOptions">AI-platform options controlling Gemini enablement.</param>
     /// <param name="logger">Optional logger.</param>
     internal DeckPrimerPacketService(
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IDeckEntryLoader deckEntryLoader,
         ICommanderSpellbookService commanderSpellbookService,
         IEdhTop16Client edhTop16Client,
         ICategoryKnowledgeStore knowledgeStore,
@@ -111,10 +103,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         IOptions<AiPlatformOptions> aiPlatformOptions,
         ILogger<DeckPrimerPacketService>? logger = null)
     {
-        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
-        ArgumentNullException.ThrowIfNull(archidektDeckImporter);
-        ArgumentNullException.ThrowIfNull(moxfieldParser);
-        ArgumentNullException.ThrowIfNull(archidektParser);
+        ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(edhTop16Client);
         ArgumentNullException.ThrowIfNull(knowledgeStore);
@@ -122,10 +111,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         ArgumentNullException.ThrowIfNull(packetCache);
         ArgumentNullException.ThrowIfNull(aiPlatformOptions);
 
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _deckEntryLoader = deckEntryLoader;
         _commanderSpellbookService = commanderSpellbookService;
         _edhTop16Client = edhTop16Client;
         _knowledgeStore = knowledgeStore;
@@ -171,7 +157,17 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         List<DeckEntry> entries;
         try
         {
-            entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+            if (_loadDeckEntriesAsyncOverride is not null)
+            {
+                _lastImportNotice = null;
+                entries = await _loadDeckEntriesAsyncOverride(request.DeckSource, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                var loaded = await _deckEntryLoader!.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+                _lastImportNotice = loaded.FallbackNotice;
+                entries = loaded.Entries;
+            }
         }
         catch (Exception ex) when (ex is InvalidOperationException or DeckParseException or HttpRequestException)
         {
@@ -250,7 +246,18 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             .ToList();
 
         var loadStopwatch = Stopwatch.StartNew();
-        var entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        List<DeckEntry> entries;
+        if (_loadDeckEntriesAsyncOverride is not null)
+        {
+            _lastImportNotice = null;
+            entries = await _loadDeckEntriesAsyncOverride(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            var loaded = await _deckEntryLoader!.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
+            _lastImportNotice = loaded.FallbackNotice;
+            entries = loaded.Entries;
+        }
         timings.Add(("Deck load", loadStopwatch.ElapsedMilliseconds, null));
         var playableEntries = entries
             .Where(entry =>
@@ -350,7 +357,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
 
     /// <summary>
     /// Warning surfaced to the UI when the Moxfield fallback was used.
-    /// Set during LoadDeckEntriesAsync, read during BuildAsync, cleared per call.
+    /// Set from the shared deck loader result, read during BuildAsync, cleared per call.
     /// </summary>
     private string? _lastImportNotice;
 
@@ -388,54 +395,6 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         return await _knowledgeStore!
             .GetCategoryRowsForCommanderAsync(commanderName, cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Loads deck entries from a public URL or pasted export text.
-    /// </summary>
-    /// <param name="deckSource">Deck URL or pasted export text.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The parsed deck entries.</returns>
-    private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        if (_loadDeckEntriesAsyncOverride is not null)
-        {
-            return await _loadDeckEntriesAsyncOverride(deckSource, cancellationToken).ConfigureAwait(false);
-        }
-
-        _lastImportNotice = null;
-        if (Uri.TryCreate(deckSource.Trim(), UriKind.Absolute, out var uri))
-        {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = await _moxfieldDeckImporter!.ImportWithSourceAsync(deckSource, cancellationToken).ConfigureAwait(false);
-                _lastImportNotice = result.FallbackNotice;
-                return result.Entries;
-            }
-
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _archidektDeckImporter!.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        try
-        {
-            return _moxfieldParser!.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        try
-        {
-            return _archidektParser!.ParseText(deckSource);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
     }
 
     internal static string BuildComboReferenceText(CommanderSpellbookResult? combos, string spikeVerdict)

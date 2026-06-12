@@ -309,10 +309,7 @@ public partial class Program
                 new DeckAnalysisPacketService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<IMechanicLookupService>(),
                     sp.GetRequiredService<ICommanderBanListService>(),
                     sp.GetRequiredService<IScryfallSetService>(),
@@ -325,10 +322,7 @@ public partial class Program
                 new DeckComparisonService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
                     sp.GetRequiredService<FollowUpPromptVariantRegistry>(),
@@ -338,20 +332,14 @@ public partial class Program
                 new MetaGapService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
                     sp.GetRequiredService<PacketSessionCache>()));
             builder.Services.AddScoped<IDeckPrimerPacketService>(sp =>
                 new DeckPrimerPacketService(
-                    sp.GetRequiredService<IMoxfieldDeckImporter>(),
-                    sp.GetRequiredService<IArchidektDeckImporter>(),
-                    sp.GetRequiredService<MoxfieldParser>(),
-                    sp.GetRequiredService<ArchidektParser>(),
+                    sp.GetRequiredService<IDeckEntryLoader>(),
                     sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetRequiredService<IEdhTop16Client>(),
                     sp.GetRequiredService<ICategoryKnowledgeStore>(),
