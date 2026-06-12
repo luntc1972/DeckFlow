@@ -30,7 +30,7 @@ Plan: 3 of 3 (all complete)
 Status: Phase 37.5 done; REBUILD-01..05 validated end-to-end
 Reqs: REBUILD-01..05 all live-validated. 3 waves: 01 corpus-reset + clip-timestamp fix (Codex/review), 02 classifier gate + 'filtered' status (Codex/review), 03 operator live pilot (local uat-content-kb.db + prod Render Postgres). Distill 7 kept / 5 filtered / $0. Clips real mid-video [mm:ss]. 3 UAT defects fixed (Deck Primer Build-group tile 14353aa; corpus-reset postgres:// URL normalize d2ee743; Postgres filtered-status migration empty-constraint guard d28ef10).
 Next: Phase 38 (Controller SRP Split — milestone closer). FOLLOW-ON (operator, not a blocker): prod go-live = commit new content-kb/ artifacts + index-seed.json → deploy → prod /Admin publish 7 survivors.
-Last activity: 2026-06-11 -- Phase 37.5 complete (live pilot PASS)
+Last activity: 2026-06-12 -- Quick task 260611-p9x: fix Primer copy buttons
 
 ## Accumulated Context — Key Decisions (v1.6)
 
@@ -84,6 +84,12 @@ Last activity: 2026-06-11 -- Phase 37.5 complete (live pilot PASS)
 - None at roadmap creation.
 - Phase 35 pre-run: corpus feasibility check needed before Phase 36 planning — confirm via `content_videos` query how many substantive (non-rating-series, non-excluded) videos exist per creator. If no creator meets the ~10-video threshold, philosophy-profile scope must be revised at plan time.
 - Phase 36 RAG algorithm: research recommends keyword overlap (Option 1) as the v1.6 baseline for principle relevance scoring at query time; LLM re-ranking (Option 2) is a follow-on. Planner must make this explicit in the Phase 36 plan so Codex does not default to the more expensive path.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260611-p9x | Fix Primer copy buttons (port data-copy-target wiring into primer-selection.ts + Vitest test) | 2026-06-12 | 29cf22e | [260611-p9x-fix-primer-copy-buttons-port-data-copy-t](./quick/260611-p9x-fix-primer-copy-buttons-port-data-copy-t/) |
 
 ## Deferred Items
 
