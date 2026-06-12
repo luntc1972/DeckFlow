@@ -15,6 +15,7 @@ using RestSharp;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using DeckFlow.Web.Services.Scryfall;
 
 namespace DeckFlow.Web.Services;
 
@@ -72,17 +73,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
+    private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly ILogger<DeckAnalysisPacketService> _logger;
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
     private readonly PacketSessionCache _packetCache;
 
     internal DeckAnalysisPacketService(
-        IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider,
+        IScryfallCardResolver scryfallCardResolver,
         IDeckEntryLoader deckEntryLoader,
         IMechanicLookupService mechanicLookupService,
         ICommanderBanListService commanderBanListService,
@@ -91,14 +89,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         AnalysisPromptVariantRegistry analysisPromptRegistry,
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
-        ILogger<DeckAnalysisPacketService>? logger = null,
-        RestClient? restClientOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
+        ILogger<DeckAnalysisPacketService>? logger = null)
     {
-        ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
-        ArgumentNullException.ThrowIfNull(pipelineProvider);
+        ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(mechanicLookupService);
         ArgumentNullException.ThrowIfNull(commanderBanListService);
@@ -107,7 +100,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(analysisPromptRegistry);
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
-        var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
+        _scryfallCardResolver = scryfallCardResolver;
         _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
@@ -117,19 +110,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _setUpgradePromptRegistry = setUpgradePromptRegistry;
         _packetCache = packetCache;
         _logger = logger ?? NullLogger<DeckAnalysisPacketService>.Instance;
-        var client = restClientOverride ?? scryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsyncOverride
-            ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
-                async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
-                token).AsTask(), cancellationToken));
-        _executeSearchAsync = executeSearchAsyncOverride
-            ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
-                async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
-                token).AsTask(), cancellationToken));
-        _executeNamedAsync = executeNamedAsyncOverride
-            ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => pipeline.ExecuteAsync(
-                async pollyCt => await client.ExecuteAsync<ScryfallCard>(request, pollyCt).ConfigureAwait(false),
-                token).AsTask(), cancellationToken));
     }
 
     /// <summary>
@@ -1048,7 +1028,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     new { name = commanderName.Trim() }
                 }
             });
-        var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+        var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
         var card = response.Data?.Data?.FirstOrDefault();
         if (card?.ColorIdentity is null)
         {
@@ -1134,10 +1114,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new
             {
-                identifiers = chunk.Select(card => new { name = NormalizeForScryfall(card.Name) }).ToArray()
+                identifiers = chunk.Select(card => new { name = ScryfallCardResolver.NormalizeForScryfall(card.Name) }).ToArray()
             });
 
-            var response = await _executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new HttpRequestException(
@@ -1171,14 +1151,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
             foreach (var unresolvedRequest in chunk.Where(card => !resolvedCards.ContainsKey(card.Name)))
             {
-                var fallbackCard = await SearchFallbackCardAsync(unresolvedRequest.Name, cancellationToken).ConfigureAwait(false);
+                var fallbackCard = await _scryfallCardResolver.SearchPrintingFallbackCardAsync(unresolvedRequest.Name, cancellationToken).ConfigureAwait(false);
                 if (fallbackCard is null)
                 {
                     continue;
                 }
 
                 oracleNameMap[unresolvedRequest.Name] = fallbackCard.Name;
-                var displayName = NormalizeLookupName(unresolvedRequest.Name) == NormalizeLookupName(fallbackCard.Name)
+                var displayName = ScryfallCardResolver.NormalizeLookupName(unresolvedRequest.Name) == ScryfallCardResolver.NormalizeLookupName(fallbackCard.Name)
                     ? fallbackCard.Name
                     : $"submitted_name: {unresolvedRequest.Name} | resolved_card: {fallbackCard.Name}";
 
@@ -1208,75 +1188,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             oracleNameMap);
     }
 
-    private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(cardName))
-        {
-            return null;
-        }
-
-        var normalizedCardName = NormalizeLookupName(cardName);
-        foreach (var query in new[]
-        {
-            $"(printed:\"{NormalizeForScryfall(cardName)}\" OR name:\"{NormalizeForScryfall(cardName)}\")",
-            NormalizeForScryfall(cardName)
-        })
-        {
-            var request = new RestRequest("cards/search", Method.Get);
-            request.AddQueryParameter("q", query);
-            request.AddQueryParameter("unique", "prints");
-            request.AddQueryParameter("include_multilingual", "true");
-
-            var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
-            ScryfallThrottle.ThrowIfUpstreamUnavailable(response.StatusCode);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
-            {
-                continue;
-            }
-
-            var match = response.Data.Data
-                .FirstOrDefault(card => NormalizeLookupName(card.Name) == normalizedCardName)
-                ?? response.Data.Data.FirstOrDefault();
-            if (match is not null)
-            {
-                return match;
-            }
-        }
-
-        var namedRequest = new RestRequest("cards/named", Method.Get);
-        namedRequest.AddQueryParameter("fuzzy", NormalizeForScryfall(cardName));
-        var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
-        ScryfallThrottle.ThrowIfUpstreamUnavailable(namedResponse.StatusCode);
-        if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
-        {
-            return namedResponse.Data;
-        }
-
-        return null;
-    }
-
-    private static string NormalizeLookupName(string cardName)
-        => cardName
-            .Trim()
-            .Replace('\u2019', '\'')
-            .Replace('\u2018', '\'')
-            .Replace('\u02BC', '\'')
-            .Replace('\u201C', '"')
-            .Replace('\u201D', '"')
-            .Replace('\u2013', '-')
-            .Replace('\u2014', '-')
-            .ToLowerInvariant();
-
-    /// <summary>
-    /// Normalizes a card name for use in Scryfall API payloads.
-    /// Converts the single-slash DFC separator used by Archidekt exports (" / ")
-    /// to the double-slash form Scryfall expects (" // ") so DFC cards resolve on
-    /// the first /cards/collection attempt instead of cascading into per-card fallbacks.
-    /// DeckEntry.Name is NOT modified \u2014 normalization happens only at the call site.
-    /// </summary>
-    private static string NormalizeForScryfall(string cardName)
-        => cardName.Replace(" / ", " // ");
-
     private async Task<string> ValidateCommanderAsync(IReadOnlyList<DeckEntry> entries, string? commanderName, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(commanderName))
@@ -1290,7 +1201,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             throw new InvalidOperationException("The commander isn't in the deck text. Add a legal commander line before generating the analysis packet.");
         }
 
-        var commanderCard = await SearchFallbackCardAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        var commanderCard = await _scryfallCardResolver.SearchPrintingFallbackCardAsync(commanderName, cancellationToken).ConfigureAwait(false);
         if (commanderCard is null || !IsCommanderEligible(commanderCard))
         {
             throw new InvalidOperationException($"The commander isn't in the deck text. \"{commanderName}\" is not a legal commander by this workflow's rules.");
