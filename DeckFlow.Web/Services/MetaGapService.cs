@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
@@ -60,10 +61,7 @@ public sealed class MetaGapService : IMetaGapService
     };
     private static readonly string MetaGapSchemaJson = BuildSchemaJson();
 
-    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
-    private readonly IArchidektDeckImporter _archidektDeckImporter;
-    private readonly MoxfieldParser _moxfieldParser;
-    private readonly ArchidektParser _archidektParser;
+    private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IEdhTop16Client _edhTop16Client;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
@@ -74,10 +72,7 @@ public sealed class MetaGapService : IMetaGapService
     internal MetaGapService(
         IScryfallRestClientFactory scryfallRestClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        IArchidektDeckImporter archidektDeckImporter,
-        MoxfieldParser moxfieldParser,
-        ArchidektParser archidektParser,
+        IDeckEntryLoader deckEntryLoader,
         IEdhTop16Client edhTop16Client,
         ICommanderSpellbookService commanderSpellbookService,
         MetaGapPromptVariantRegistry metaGapPromptRegistry,
@@ -88,19 +83,13 @@ public sealed class MetaGapService : IMetaGapService
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
-        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
-        ArgumentNullException.ThrowIfNull(archidektDeckImporter);
-        ArgumentNullException.ThrowIfNull(moxfieldParser);
-        ArgumentNullException.ThrowIfNull(archidektParser);
+        ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(edhTop16Client);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(metaGapPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
-        _moxfieldDeckImporter = moxfieldDeckImporter;
-        _archidektDeckImporter = archidektDeckImporter;
-        _moxfieldParser = moxfieldParser;
-        _archidektParser = archidektParser;
+        _deckEntryLoader = deckEntryLoader;
         _edhTop16Client = edhTop16Client;
         _commanderSpellbookService = commanderSpellbookService;
         _metaGapPromptRegistry = metaGapPromptRegistry;
@@ -439,7 +428,11 @@ public sealed class MetaGapService : IMetaGapService
         List<DeckEntry> entries;
         try
         {
-            entries = await LoadDeckEntriesAsync(deckSource, cancellationToken).ConfigureAwait(false);
+            var loaded = await _deckEntryLoader.LoadFromSourceAsync(
+                deckSource,
+                UnrecognizedPasteBehavior.PropagateParseException,
+                cancellationToken).ConfigureAwait(false);
+            entries = loaded.Entries;
         }
         catch (Exception exception) when (exception is InvalidOperationException or DeckParseException or HttpRequestException)
         {
@@ -499,32 +492,6 @@ public sealed class MetaGapService : IMetaGapService
             }
         }
         return result;
-    }
-
-    private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        var normalizedDeckSource = deckSource.Trim();
-        if (Uri.TryCreate(normalizedDeckSource, UriKind.Absolute, out var uri))
-        {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _moxfieldDeckImporter.ImportAsync(normalizedDeckSource, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return await _archidektDeckImporter.ImportAsync(normalizedDeckSource, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        try
-        {
-            return _moxfieldParser.ParseText(normalizedDeckSource);
-        }
-        catch (DeckParseException)
-        {
-            return _archidektParser.ParseText(normalizedDeckSource);
-        }
     }
 
     // Why: the displayed reference order must honor the user's "Sort by" choice.

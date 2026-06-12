@@ -117,10 +117,7 @@ internal static class TestServiceFactory
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
+            CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             mechanicLookupService,
             commanderBanListService,
             scryfallSetService,
@@ -146,10 +143,7 @@ internal static class TestServiceFactory
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
+            CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             commanderSpellbookService,
             BuildComparisonPromptRegistry(),
             BuildFollowUpPromptRegistry(),
@@ -171,10 +165,7 @@ internal static class TestServiceFactory
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
-            moxfieldDeckImporter,
-            archidektDeckImporter,
-            moxfieldParser,
-            archidektParser,
+            CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             edhTop16Client,
             commanderSpellbookService,
             BuildMetaGapPromptRegistry(),
@@ -228,6 +219,17 @@ internal static class TestServiceFactory
         {
             BaseAddress = new Uri("https://api.scryfall.com/")
         });
+
+    private static DeckEntryLoader CreateDeckEntryLoader(
+        IMoxfieldDeckImporter moxfieldDeckImporter,
+        IArchidektDeckImporter archidektDeckImporter,
+        MoxfieldParser moxfieldParser,
+        ArchidektParser archidektParser)
+        => new(
+            moxfieldDeckImporter,
+            archidektDeckImporter,
+            moxfieldParser,
+            archidektParser);
 
     private static FakeHttpClientFactory CreateHttpClientFactory(string clientName)
         => new(new Dictionary<string, HttpMessageHandler>
