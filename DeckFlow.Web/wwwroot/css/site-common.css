@@ -1101,6 +1101,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 .about-page__meta dd {
     margin: 0;
+    overflow-wrap: anywhere;
 }
 .about-page__credits {
     padding-left: 1.25rem;
