@@ -5,7 +5,7 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, distills MTG content videos into a browsable knowledge base, and exposes CLI/web tools for diffs, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and AI deck-analysis, deck-primer, cEDH meta-gap, and deck-comparison prompts.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks and generates paste-ready AI prompts (analysis, deck primer, comparison, cEDH meta-gap), with deck diffs, card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG content-creator knowledge base. Live at deckflow.gg.
 
 ## User Feedback
 
