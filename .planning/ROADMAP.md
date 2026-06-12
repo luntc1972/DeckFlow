@@ -230,7 +230,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 **Plans**: 6 plans
 - [x] 38-01-controller-base-shell-PLAN.md — DeckToolControllerBase + ShellController scaffold (D-03); move Home/Error/set-options out of DeckController
 - [x] 38-02-sync-convert-judge-PLAN.md — extract DeckSyncController, DeckConvertController, JudgeQuestionsController
-- [ ] 38-03-lookup-categories-PLAN.md — extract DeckLookupController + DeckCategoriesController (adopts base timeout helper)
+- [x] 38-03-lookup-categories-PLAN.md — extract DeckLookupController + DeckCategoriesController (adopts base timeout helper)
 - [ ] 38-04-packet-primer-PLAN.md — extract DeckPacketController + DeckPrimerController; delete emptied DeckController
 - [x] 38-05-commandrunners-split-PLAN.md — CLI two-commit split: ContentKbCliPaths, then DeckCommandRunners + ContentKbCommandRunners (SRP-02)
 - [ ] 38-06-tests-route-parity-PLAN.md — mirror-split DeckControllerTests (SRP-03) + SC1 pre/post route-parity gate
@@ -250,7 +250,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37. Retire Clip-Injection + Un-Dark KB | 2/2 | Complete   | 2026-06-10 |
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
-| 38. Controller SRP Split | 3/6 | In Progress|  |
+| 38. Controller SRP Split | 4/6 | In Progress|  |
 
 ---
 
