@@ -248,12 +248,22 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] 39-02-scryfall-resolver-comparison-metagap-PLAN.md — extract IScryfallCardResolver (collection batch + shared fuzzy fallback); migrate Comparison + Meta-Gap; move their Scryfall Func seams onto the resolver
 - [x] 39-03-scryfall-resolver-analysis-PLAN.md — add Analysis 3-stage fallback + named seam to the resolver; migrate Deck Analysis; delete its 3 Func seams + private SearchFallbackCardAsync
 
+### Phase 40: Core.Tests Health (ship gate)
+**Goal**: `DeckFlow.Core.Tests` runs green and deterministically (parallel AND sequential) so the v1.6 ship gate (no failing tests) is met — surfaced 2026-06-12 when VSTest ran reliably in WSL for the first time and revealed pre-existing failures masked by build/grep-only verification
+**Depends on**: none (independent test-health fixes; pre-dates Phase 39 — spans Phases 26/37.5/37.6/38)
+**Requirements**: TEST-01 (fix stable test bugs), TEST-02 (eliminate parallel-isolation flakiness)
+**Success Criteria** (what must be TRUE):
+  1. `dotnet test DeckFlow.Core.Tests` passes 0-failed in BOTH default (parallel) and sequential runs, repeatably
+  2. The 3 stable failures are fixed: `BlockedVideoStoreTests.AddBlockAsync_BlankId(null)` + `RunBlockVideoAsync_BlankId(null)` (Assert exact-type vs `ArgumentNullException`), and `CommandRunnerValidateClipsTests.AllZeroClipTimestamps` (exit-code contract — regression-vs-stale-test resolved with evidence)
+  3. The flaky SQLite-integration store tests (ContentSiteIndex / ContentVideoStore / LlmSpendLedger rotating set) no longer fail under parallel collections — serialized via collection/parallelization config; root cause documented
+**Plans**: TBD (investigation in progress — gsd-debugger on the ValidateClips exit-code contract)
+
 ---
 
 ## Progress
 
 **Execution Order (v1.6):**
-Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 37.5 (rebuild corpus) → Phase 37.6 (harvest block + hard-delete) → Phase 38 (SRP split) → Phase 39 (architecture review + top-finding refactor). Milestone closes after Phase 39.
+Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Phase 37 (retire injection + rehabilitate KB) → Phase 37.5 (rebuild corpus) → Phase 37.6 (harvest block + hard-delete) → Phase 38 (SRP split) → Phase 39 (architecture review + top-finding refactor) → Phase 40 (Core.Tests health, ship gate). Milestone closes after Phase 40.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -265,6 +275,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
 | 38. Controller SRP Split | 6/6 | Complete   | 2026-06-12 |
 | 39. Architecture Review + Top-Finding Refactor | 3/3 | Complete   | 2026-06-12 |
+| 40. Core.Tests Health (ship gate) | 0/TBD | Investigating (debugger on ValidateClips) | - |
 
 ---
 
