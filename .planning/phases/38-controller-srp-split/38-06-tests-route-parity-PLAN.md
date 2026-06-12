@@ -138,27 +138,30 @@ NOTE: DeckSyncApiControllerTests.cs defines its OWN FakeDeckSyncService (differe
   <name>Task 3: SC1 route-parity gate — prove pre==post URL set</name>
   <read_first>
     - DeckFlow.Web/Controllers/ (all new controllers: Shell, DeckSync, DeckConvert, DeckLookup, DeckCategories, DeckPacket, DeckPrimer, JudgeQuestions)
+    - .planning/phases/38-controller-srp-split/38-01-SUMMARY.md (the recorded pre-split baseline git SHA — see step (a) below)
     - .planning/phases/38-controller-srp-split/38-CONTEXT.md (D-02 + the SC1 capture-method requirement)
   </read_first>
   <action>
     Mechanically prove route parity (SC1). Capture the POST/GET attribute-route set BEFORE and AFTER the split and diff them:
-    (a) PRE list: from git, extract the route attribute strings of the original DeckController. Run: git show HEAD~N:DeckFlow.Web/Controllers/DeckController.cs (where HEAD~N is the commit just before Plan 01 started — identify it from git log) piped through grep -oE 'Http(Get|Post)\("[^"]+"\)' | sort -u. Save to a temp file pre-routes.txt. ALSO include the Error action (no route attr — note it separately: it is conventional /Deck/Error, unchanged because the view + conventional route survive).
+    (a) PRE list: read the pre-split baseline git SHA recorded in 38-01-SUMMARY.md (Plan 01 captured `git rev-parse HEAD` BEFORE any split edits; expected value ~c315a94, but use whatever SHA the SUMMARY records). Do NOT derive HEAD~N by counting commits — it is error-prone across this multi-commit refactor and a wrong N silently invalidates the SC1 proof. Extract the original DeckController's route attribute strings from that exact commit: git show <baseline-sha>:DeckFlow.Web/Controllers/DeckController.cs piped through grep -oE 'Http(Get|Post)\("[^"]+"\)' | sort -u. Save to a temp file pre-routes.txt. If 38-01-SUMMARY.md is missing the baseline SHA, STOP and report it (do NOT fall back to HEAD~N guessing).
+    ALSO handle the Error action (no route attr): the original DeckController.Error() was conventional /Deck/Error; after the split Error() lives on ShellController and resolves conventionally as /Shell/Error, and Plan 01 re-pointed app.UseExceptionHandler("/Deck/Error") -> app.UseExceptionHandler("/Shell/Error") to match. So the conventional error route changed controller NAME only (Deck -> Shell), with the handler re-pointed accordingly — user-visible error behavior is unchanged, but the route string is NOT "unchanged". Record this Deck->Shell conventional-error-route move explicitly in the SUMMARY; do NOT claim "/Deck/Error survives".
     (b) POST list: grep -rhoE 'Http(Get|Post)\("[^"]+"\)' across ALL DeckFlow.Web/Controllers/*.cs (the 8 new controllers) | sort -u. Save to post-routes.txt.
-    (c) diff pre-routes.txt post-routes.txt — MUST be empty (zero adds/removes/changes). The attribute strings are the URLs (attribute routing per D-02), so identical attribute-string sets == identical URL set.
-    Record both lists + the empty diff verbatim in the SUMMARY as the SC1 proof artifact. If the diff is non-empty, STOP and report the discrepancy (a route was dropped or altered during a move — a defect to fix before phase close, not to accept).
+    (c) diff pre-routes.txt post-routes.txt — MUST be empty (zero adds/removes/changes) for the attribute-routed set. The attribute strings are the URLs (attribute routing per D-02), so identical attribute-string sets == identical URL set.
+    Record both lists + the empty diff + the baseline SHA used + the Deck->Shell conventional-error-route note verbatim in the SUMMARY as the SC1 proof artifact. If the diff is non-empty, STOP and report the discrepancy (a route was dropped or altered during a move — a defect to fix before phase close, not to accept).
     Do NOT modify any production code in this task — it is verification only. If a parity gap is found, surface it; the fix belongs in whichever feature plan dropped the route.
     Why no EndpointDataSource runtime dump: the app cannot be reliably booted headless in WSL (project Constraints: push-and-watch CI / manual harness). The attribute-string set IS the authoritative URL source for attribute-routed actions, so the static grep-diff is a sound, deterministic SC1 proof.
   </action>
   <acceptance_criteria>
-    - A pre-routes.txt (from the pre-Plan-01 DeckController.cs) and post-routes.txt (from all new controllers) are captured.
+    - A pre-routes.txt (from the baseline-SHA DeckController.cs, SHA read from 38-01-SUMMARY.md) and post-routes.txt (from all new controllers) are captured.
     - diff of the two sorted unique attribute-route lists is EMPTY.
+    - The conventional error route is recorded as moving /Deck/Error -> /Shell/Error (controller-name change only; UseExceptionHandler re-pointed in Plan 01), NOT claimed as "unchanged".
     - The route count matches the known inventory: GET /, /api/set-options, /sync, /convert, /convert/commander-search, /card-lookup (+/download,/download-json,/single), /mechanic-lookup, /suggest-categories (+/card-search), /judge-questions, /deck-analysis (+/download,/upload), /deck-comparison (+/download,/upload), /cedh-meta-gap (+/download,/upload), /deck-primer (+/download,/upload), /resolve. (POST /sync and POST /resolve etc. are distinct verb+path entries.)
-    - SUMMARY contains the verbatim pre/post lists + empty diff.
+    - SUMMARY contains the verbatim pre/post lists + empty diff + baseline SHA + Deck->Shell error-route note.
   </acceptance_criteria>
   <verify>
     <automated>grep -rhoE 'Http(Get|Post)\("[^"]+"\)' DeckFlow.Web/Controllers/*.cs | sort -u > /tmp/post-routes.txt; wc -l /tmp/post-routes.txt; echo "--- post route set ---"; cat /tmp/post-routes.txt</automated>
   </verify>
-  <done>SC1 proven: pre and post attribute-route sets are identical (empty diff); proof recorded in SUMMARY.</done>
+  <done>SC1 proven: pre and post attribute-route sets are identical (empty diff); baseline SHA sourced from 38-01-SUMMARY.md; Deck->Shell conventional error-route move recorded; proof in SUMMARY.</done>
 </task>
 
 </tasks>
@@ -182,16 +185,17 @@ No package installs; no new inputs. No HIGH-severity threats.
 <verification>
 - Full solution (DeckFlow.sln) builds clean: 0 errors, 0 new warnings (SRP-03).
 - Every original DeckControllerTests case is preserved in a per-controller file with only the logger-generic + ctor-arity change (SRP-03).
-- Pre==post attribute-route set with empty diff (SC1).
+- Pre==post attribute-route set with empty diff (SC1), using the baseline SHA from 38-01-SUMMARY.md.
+- The /Deck/Error -> /Shell/Error conventional error-route move is documented (not mis-recorded as unchanged).
 - Shared fakes relocated to internal classes; DeckControllerTests.cs deleted.
 </verification>
 
 <success_criteria>
 - Tests mirror-split per D-05; .Tests + full solution build clean with no new warnings.
-- SC1 route parity mechanically proven (empty pre/post diff).
+- SC1 route parity mechanically proven (empty pre/post diff) against the recorded baseline SHA.
 - No test case silently dropped (count preserved).
 </success_criteria>
 
 <output>
-Create `.planning/phases/38-controller-srp-split/38-06-SUMMARY.md` when done. Record: the test-to-controller distribution, the preserved test count, confirmation only logger-generics + ctor changed, the relocated-fakes file, DeckControllerTests.cs deletion, and the verbatim SC1 pre/post route lists + empty diff. Confirm full-solution build clean.
+Create `.planning/phases/38-controller-srp-split/38-06-SUMMARY.md` when done. Record: the test-to-controller distribution, the preserved test count, confirmation only logger-generics + ctor changed, the relocated-fakes file, DeckControllerTests.cs deletion, the baseline SHA read from 38-01-SUMMARY.md, the verbatim SC1 pre/post route lists + empty diff, and the /Deck/Error -> /Shell/Error conventional error-route note. Confirm full-solution build clean.
 </output>
