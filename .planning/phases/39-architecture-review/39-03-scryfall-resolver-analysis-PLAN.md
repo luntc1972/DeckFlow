@@ -14,7 +14,7 @@ requirements: [ARCH-02]
 
 must_haves:
   truths:
-    - "Deck Analysis packets resolve Scryfall card references, the 3-stage fuzzy fallback, the cards/named fuzzy stage, and the commander-eligibility lookup byte-identically to before."
+    - "Deck Analysis packets resolve Scryfall card references (BOTH collection call sites: LookupCardReferencesAsync AND LookupCommanderColorIdentityAsync), the 3-stage fuzzy fallback, the cards/named fuzzy stage, and the commander-eligibility lookup byte-identically to before."
     - "Deck Analysis no longer owns a private SearchFallbackCardAsync or Scryfall Func seams; it routes through the injected IScryfallCardResolver."
     - "Scryfall traffic still routes through ScryfallThrottle (incl. ThrowIfUpstreamUnavailable) and the named scryfall pipeline unchanged."
     - "All existing analysis + round-trip + contract tests pass unchanged."
@@ -64,6 +64,8 @@ Output: `ScryfallCardResolver` extended with the Analysis fallback + named-execu
 `NormalizeLookupName` (curly→straight quotes/apostrophes, en/em-dash→hyphen, ToLowerInvariant) and `NormalizeForScryfall` (" / " → " // ") are used by this fallback AND elsewhere in Analysis (NormalizeForScryfall is used in `LookupCardReferencesAsync` to build the collection-request identifiers, and in `ValidateCommanderAsync`). So these two normalizers must be available to BOTH the resolver and the remaining Analysis code.
 
 **Three Func seams to move** (DeckAnalysisPacketService.cs ~77-79): `_executeCollectionAsync`, `_executeSearchAsync`, `_executeNamedAsync` (the named one is unique to Analysis). The resolver already owns collection + search execute (Plan 02). Add a third `_executeNamedAsync` (`Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>`) to the resolver.
+
+**Analysis has TWO `_executeCollectionAsync` call sites** that BOTH must migrate: (1) `LookupCardReferencesAsync` (the card-reference hydration loop) and (2) `LookupCommanderColorIdentityAsync` (~DeckAnalysisPacketService.cs:1080 — set-packet commander color-identity lookup, a single `cards/collection` POST). Plan-03 migrates BOTH; the field-count==0 grep gate enforces it.
 
 **Analysis collection loop** (`LookupCardReferencesAsync`) builds identifiers with `NormalizeForScryfall(card.Name)` and has its OWN error message ("...returned HTTP {n} while building the analysis packet."). Keep that loop + message + the `resolvedCards` dictionary + `CardReference` mapping IN Analysis; route only the HTTP execute + the fallback + (optionally) the normalizers through the resolver.
 
@@ -124,6 +126,7 @@ Program.cs registration is unchanged (the resolver is already registered in Plan
 **DeckAnalysisPacketService:**
   - Inject `IScryfallCardResolver`. Remove the three Func fields (`_executeCollectionAsync`, `_executeSearchAsync`, `_executeNamedAsync`), their three override ctor params, `restClientOverride`, and the delegate-construction block. Remove the `IScryfallRestClientFactory` + `ResiliencePipelineProvider<string>` ctor params IF grep confirms they are now unused in this service (they exist only to build the three delegates → remove both).
   - `LookupCardReferencesAsync`: keep the chunk loop, the analysis-specific error message, the `resolvedCards`/`CardReference` mapping, the `ExtractMechanicNames` calls — UNCHANGED. Replace `await _executeCollectionAsync(request, ct)` with `await _scryfallCardResolver.ExecuteCollectionAsync(request, ct)`. For identifier building, replace local `NormalizeForScryfall(card.Name)` with `ScryfallCardResolver.NormalizeForScryfall(card.Name)` (or the resolver instance method) so behavior is identical. Replace `await SearchFallbackCardAsync(unresolvedRequest.Name, ct)` with `await _scryfallCardResolver.SearchPrintingFallbackCardAsync(unresolvedRequest.Name, ct)`. The `displayName` logic uses `NormalizeLookupName(...)` — repoint to the resolver's `NormalizeLookupName` so the same normalization decides the display string.
+  - `LookupCommanderColorIdentityAsync` (~DeckAnalysisPacketService.cs:1080 — the SET-PACKET commander color-identity lookup; this is the SECOND `_executeCollectionAsync` call site in Analysis, distinct from `LookupCardReferencesAsync`): replace `await _executeCollectionAsync(request, ct)` with `await _scryfallCardResolver.ExecuteCollectionAsync(request, ct)`. Keep the `cards/collection` request body construction, the `card?.ColorIdentity is null` null/status handling, and the `ColorIdentity` projection UNCHANGED — only the execute delegate is repointed. If this method also builds identifiers via local `NormalizeForScryfall`, repoint it to the resolver's `NormalizeForScryfall` too.
   - `ValidateCommanderAsync`: replace `await SearchFallbackCardAsync(commanderName, ct)` with `await _scryfallCardResolver.SearchPrintingFallbackCardAsync(commanderName, ct)`.
   - DELETE the private `SearchFallbackCardAsync` and the private static `NormalizeLookupName` + `NormalizeForScryfall` (now on the resolver). If any OTHER Analysis code referenced these privates, repoint those references to the resolver's versions too — grep `NormalizeForScryfall\|NormalizeLookupName` in the file and repoint EVERY call site before deleting.
 
@@ -136,7 +139,8 @@ Do NOT touch cache-key helpers / `ResolvePreScryfallCommanderState` / `BuildDeck
   <acceptance_criteria>
     - `grep -c "private async Task<ScryfallCard?> SearchFallbackCardAsync" DeckFlow.Web/Services/DeckAnalysisPacketService.cs` → `:0`.
     - No `_executeCollectionAsync` / `_executeSearchAsync` / `_executeNamedAsync` fields remain in Analysis.
-    - Analysis references `_scryfallCardResolver.ExecuteCollectionAsync` and `_scryfallCardResolver.SearchPrintingFallbackCardAsync`.
+    - Analysis references `_scryfallCardResolver.ExecuteCollectionAsync` (at BOTH `LookupCardReferencesAsync` AND `LookupCommanderColorIdentityAsync`) and `_scryfallCardResolver.SearchPrintingFallbackCardAsync`.
+    - The private `_executeCollectionAsync` / `_executeSearchAsync` / `_executeNamedAsync` count in `DeckAnalysisPacketService.cs` is 0 — covering ALL Scryfall delegate call sites (both collection sites + search + named), not just the card-references one.
     - All four packet services now have ZERO private `SearchFallbackCardAsync` and ZERO private `LoadDeckEntriesAsync` (combined with Plans 01/02).
     - `DeckAnalysisPacketServiceTests.cs` source unchanged.
   </acceptance_criteria>
