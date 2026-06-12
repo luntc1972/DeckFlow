@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
 status: executing
-stopped_at: Phases 34-37.6 complete (36 skipped). Phase 38 (Controller SRP Split, milestone closer) not yet discussed/planned — no CONTEXT.md, no phase dir.
-last_updated: "2026-06-12T13:30:00.000Z"
-last_activity: 2026-06-12 -- Phase 38 pending; session shipped 7 UI quick-fixes + Playwright E2E suite
+stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
+last_updated: "2026-06-12T16:23:17.134Z"
+last_activity: 2026-06-12
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 10
+  total_plans: 16
   completed_plans: 10
-  percent: 71
+  percent: 63
 ---
 
 # Project State
@@ -21,23 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 38 — Controller SRP Split (milestone closer)
+**Current focus:** Phase 38 — controller-srp-split
 
 ## Current Position
 
-Phase: 38 (controller-srp-split) — CONTEXT CAPTURED (2026-06-12, a3710fe), ready to plan
-Plan: 0 of TBD
-Status: Phases 34-37.6 complete (36 skipped on MARGINAL gate). Phase 38 = only remaining planned phase; milestone closes after it. Discuss-phase done: 5 decisions locked (D-01..05) — split DeckController by tool family (~5-6 controllers + DeckToolControllerBase + ShellController), CommandRunners → DeckCommandRunners + ContentKbCommandRunners (helpers-first two-commit), mirror tests. See `.planning/phases/38-controller-srp-split/38-CONTEXT.md`.
+Phase: 38 (controller-srp-split) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 38
 Reqs: SRP-01/02/03 pending.
 Next: `/gsd-plan-phase 38` (Codex-reviewed) → execute (Codex impl / Claude review).
 
 FOLLOW-ONS (operator, not dev blockers):
+
 - Prod KB go-live: deploy new content-kb/ artifacts + index-seed.json → prod /Admin publish 7 survivors (from Phase 37.5).
 - Phase 37.5 prod seed + publish still OPEN.
 
 ## Session 2026-06-12 — UI quick-fixes + E2E (all shipped to origin/v1.6)
+
 Codex-impl / Claude-review across the board: primer copy buttons (29cf22e), primer result-scroll (50b3b16), mobile busy-overlay bfcache lockup (0993da0), /about mobile overflow (0d99f2d), admin nav toggle names section (9e771ad), admin KB per-entry delete + Phase-37 confirm/filter regression restore (e3b6ea4), Playwright E2E smoke suite 68/68 + CI (6e8ddff). See `.planning/quick/260611-p9x`, `260612-kb1`, `260612-e2e`.
-Last activity: 2026-06-12 -- Quick task 260612-e2e: Playwright E2E smoke suite + CI stage
+Last activity: 2026-06-12
 
 ## Accumulated Context — Key Decisions (v1.6)
 
