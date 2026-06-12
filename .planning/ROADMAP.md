@@ -264,7 +264,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
 | 38. Controller SRP Split | 6/6 | Complete   | 2026-06-12 |
-| 39. Architecture Review + Top-Finding Refactor | 0/TBD | Audit in progress | - |
+| 39. Architecture Review + Top-Finding Refactor | 0/3 | Planned — audit done, ARCH-02 plans reviewed (Codex+checker, converged) | - |
 
 ---
 
