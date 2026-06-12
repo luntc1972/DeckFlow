@@ -133,7 +133,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] **Phase 37: Retire Clip-Injection + Un-Dark KB** — RET-01..06 *(remove the gate-condemned injection, un-dark the `/content-kb` browse, add a deck-analysis pointer to the KB's copyable prompts)* (completed 2026-06-10)
 - [x] **Phase 37.5: Rebuild KB Corpus** — REBUILD-01..05 *(reset corpus + re-harvest salubrious-snail under a deck-advice/philosophy LLM+manual quality filter; fix the `[00:00]` clip-extraction defect)* (completed 2026-06-11; live pilot PASS local+prod; 3 UAT defects fixed)
 - [x] **Phase 37.6: Harvest Video Block + Hard-Delete** — VBLK-01..04 *(admin blocks a YouTube video by id so the harvester never re-ingests it, and hard-deletes its rows)* (INSERTED) (completed 2026-06-11)
-- [ ] **Phase 38: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — runs after the KB work so it splits slimmed controllers)*
+- [x] **Phase 38: Controller SRP Split** — SRP-01, SRP-02, SRP-03 *(milestone closer — runs after the KB work so it splits slimmed controllers)* (completed 2026-06-12)
 
 ---
 
@@ -233,7 +233,7 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 - [x] 38-03-lookup-categories-PLAN.md — extract DeckLookupController + DeckCategoriesController (adopts base timeout helper)
 - [x] 38-04-packet-primer-PLAN.md — extract DeckPacketController + DeckPrimerController; delete emptied DeckController
 - [x] 38-05-commandrunners-split-PLAN.md — CLI two-commit split: ContentKbCliPaths, then DeckCommandRunners + ContentKbCommandRunners (SRP-02)
-- [ ] 38-06-tests-route-parity-PLAN.md — mirror-split DeckControllerTests (SRP-03) + SC1 pre/post route-parity gate
+- [x] 38-06-tests-route-parity-PLAN.md — mirror-split DeckControllerTests (SRP-03) + SC1 pre/post route-parity gate
 
 ---
 
@@ -250,7 +250,7 @@ Phase 34 → Phase 35 (gate). Gate = MARGINAL → Phase 36 SKIPPED. Pivot → Ph
 | 37. Retire Clip-Injection + Un-Dark KB | 2/2 | Complete   | 2026-06-10 |
 | 37.5. Rebuild KB Corpus (re-harvest snail) | 0/TBD | Scoped (CONTEXT ready) | - |
 | 37.6. Harvest Video Block + Hard-Delete | 1/1 | Complete   | 2026-06-11 |
-| 38. Controller SRP Split | 5/6 | In Progress|  |
+| 38. Controller SRP Split | 6/6 | Complete   | 2026-06-12 |
 
 ---
 
