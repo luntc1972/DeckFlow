@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Content KB Retrieval Fix + Value Re-Validation
 status: executing
-stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-last_updated: "2026-06-11T16:32:22.596Z"
-last_activity: 2026-06-11 -- Phase 37.6 execution started
+stopped_at: Phases 34-37.6 complete (36 skipped). Phase 38 (Controller SRP Split, milestone closer) not yet discussed/planned — no CONTEXT.md, no phase dir.
+last_updated: "2026-06-12T13:30:00.000Z"
+last_activity: 2026-06-12 -- Phase 38 pending; session shipped 7 UI quick-fixes + Playwright E2E suite
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 6
-  percent: 43
+  completed_phases: 5
+  total_plans: 10
+  completed_plans: 10
+  percent: 71
 ---
 
 # Project State
@@ -21,21 +21,28 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 37.6 — harvest-video-block-and-hard-delete
+**Current focus:** Phase 38 — Controller SRP Split (milestone closer)
 
 ## Current Position
 
-Phase: 37.5 (rebuild-kb-corpus) — COMPLETE (live pilot PASS local+prod)
-Plan: 3 of 3 (all complete)
-Status: Phase 37.5 done; REBUILD-01..05 validated end-to-end
-Reqs: REBUILD-01..05 all live-validated. 3 waves: 01 corpus-reset + clip-timestamp fix (Codex/review), 02 classifier gate + 'filtered' status (Codex/review), 03 operator live pilot (local uat-content-kb.db + prod Render Postgres). Distill 7 kept / 5 filtered / $0. Clips real mid-video [mm:ss]. 3 UAT defects fixed (Deck Primer Build-group tile 14353aa; corpus-reset postgres:// URL normalize d2ee743; Postgres filtered-status migration empty-constraint guard d28ef10).
-Next: Phase 38 (Controller SRP Split — milestone closer). FOLLOW-ON (operator, not a blocker): prod go-live = commit new content-kb/ artifacts + index-seed.json → deploy → prod /Admin publish 7 survivors.
+Phase: 38 (controller-srp-split) — NOT STARTED (no CONTEXT.md, no phase dir)
+Plan: 0 of TBD
+Status: Phases 34-37.6 complete (36 skipped on MARGINAL gate). Phase 38 is the only remaining planned phase; milestone closes after it. `/gsd-plan-phase 38` stopped on missing CONTEXT — needs `/gsd-discuss-phase 38` first (decomposition decisions: which feature controllers, route-attribute strategy, CLI split boundary).
+Reqs: SRP-01/02/03 pending.
+Next: `/gsd-discuss-phase 38` → `/gsd-plan-phase 38` (Codex-reviewed) → execute (Codex impl / Claude review).
+
+FOLLOW-ONS (operator, not dev blockers):
+- Prod KB go-live: deploy new content-kb/ artifacts + index-seed.json → prod /Admin publish 7 survivors (from Phase 37.5).
+- Phase 37.5 prod seed + publish still OPEN.
+
+## Session 2026-06-12 — UI quick-fixes + E2E (all shipped to origin/v1.6)
+Codex-impl / Claude-review across the board: primer copy buttons (29cf22e), primer result-scroll (50b3b16), mobile busy-overlay bfcache lockup (0993da0), /about mobile overflow (0d99f2d), admin nav toggle names section (9e771ad), admin KB per-entry delete + Phase-37 confirm/filter regression restore (e3b6ea4), Playwright E2E smoke suite 68/68 + CI (6e8ddff). See `.planning/quick/260611-p9x`, `260612-kb1`, `260612-e2e`.
 Last activity: 2026-06-12 -- Quick task 260612-e2e: Playwright E2E smoke suite + CI stage
 
 ## Accumulated Context — Key Decisions (v1.6)
 
 - **D-v1.6-gate (2026-06-10):** Content KB clip-injection re-validation = **MARGINAL**. On the Phase-34-fixed retriever across 5 bracket-spanning decks, lift was cosmetic (soft dims only; 0/5 decks changed a cut/add; 3/5 mild noise). Binding constraint = the corpus (single-creator generic philosophy, `[00:00]` intro-only clips, no deck/card-specific content) — retrieval polish can't reach it. **Decision: skip Phase 36 (no philosophy-profile, no un-dark); RETIRE the whole-channel clip-injection feature; KB stays dark.** Evidence: `.planning/phases/35-value-re-validation-gate/35-GATE-VERDICT.md`.
-- **Retire = follow-up scope:** the actual code-removal/disable of the clip-injection path is NOT yet done (feature is already dark via `content.kb.enabled` OFF, so non-urgent). Track as a v1.6-closeout or backlog task; Phase 37 (SRP split) is the remaining planned phase.
+- **Retire = DONE in Phase 37** (2026-06-10, RET-01/02/05, verified). Clip-injection + expert-selection paths removed. KB rehabilitated to browse-only + un-darked. (This note previously read "not yet done / Phase 37 = SRP" — stale; corrected 2026-06-12.) The remaining planned phase is **Phase 38 (Controller SRP Split)**.
 
 ## Performance Metrics
 
