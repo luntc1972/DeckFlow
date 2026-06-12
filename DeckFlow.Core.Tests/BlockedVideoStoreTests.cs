@@ -174,7 +174,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
             Row = CreateYoutubeRow("video-1") with { Id = 42 }
         };
 
-        var exitCode = await CommandRunners.RunBlockVideoAsync(
+        var exitCode = await ContentKbCommandRunners.RunBlockVideoAsync(
             "video-1",
             "spam",
             blockedStore,
@@ -197,7 +197,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
         var videoStore = new SpyContentVideoStore(operations) { DeleteResult = 0 };
         var siteIndexStore = new SpyContentSiteIndexStore(operations);
 
-        var exitCode = await CommandRunners.RunBlockVideoAsync(
+        var exitCode = await ContentKbCommandRunners.RunBlockVideoAsync(
             "video-missing",
             null,
             blockedStore,
@@ -218,7 +218,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
     [InlineData("   ")]
     public async Task RunBlockVideoAsync_BlankId_ThrowsArgumentException(string? youtubeVideoId)
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => CommandRunners.RunBlockVideoAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => ContentKbCommandRunners.RunBlockVideoAsync(
             youtubeVideoId!,
             "spam",
             new SpyBlockedVideoStore([]),
@@ -234,7 +234,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
         var operations = new List<string>();
         var blockedStore = new SpyBlockedVideoStore(operations) { RemoveResult = true };
 
-        var exitCode = await CommandRunners.RunUnblockVideoAsync(
+        var exitCode = await ContentKbCommandRunners.RunUnblockVideoAsync(
             "video-1",
             blockedStore,
             new LoggerConfiguration().CreateLogger(),
@@ -250,7 +250,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
         var operations = new List<string>();
         var blockedStore = new SpyBlockedVideoStore(operations) { RemoveResult = false };
 
-        var exitCode = await CommandRunners.RunUnblockVideoAsync(
+        var exitCode = await ContentKbCommandRunners.RunUnblockVideoAsync(
             "never-blocked",
             blockedStore,
             new LoggerConfiguration().CreateLogger(),
@@ -277,7 +277,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
         };
         using var writer = new StringWriter();
 
-        var exitCode = await CommandRunners.RunListBlockedAsync(
+        var exitCode = await ContentKbCommandRunners.RunListBlockedAsync(
             blockedStore,
             writer,
             CancellationToken.None);

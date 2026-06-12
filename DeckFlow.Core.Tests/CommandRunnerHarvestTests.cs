@@ -192,7 +192,7 @@ public sealed class CommandRunnerHarvestTests
             },
         };
 
-        var exitCode = await CommandRunners.RunHarvestAsync(
+        var exitCode = await ContentKbCommandRunners.RunHarvestAsync(
             sourceStore,
             videoStore,
             new FakeBlockedVideoStore([]),
@@ -329,15 +329,15 @@ public sealed class CommandRunnerHarvestTests
     [Fact]
     public void ParseVideoIds_SplitsTrimsAndDeduplicates()
     {
-        Assert.Equal(["abc", "def"], CommandRunners.ParseVideoIds(" abc, def ,abc,, "));
+        Assert.Equal(["abc", "def"], ContentKbCommandRunners.ParseVideoIds(" abc, def ,abc,, "));
     }
 
     [Fact]
     public void ParseVideoIds_NullOrBlankYieldsNull()
     {
-        Assert.Null(CommandRunners.ParseVideoIds(null));
-        Assert.Null(CommandRunners.ParseVideoIds("   "));
-        Assert.Null(CommandRunners.ParseVideoIds(" , ,"));
+        Assert.Null(ContentKbCommandRunners.ParseVideoIds(null));
+        Assert.Null(ContentKbCommandRunners.ParseVideoIds("   "));
+        Assert.Null(ContentKbCommandRunners.ParseVideoIds(" , ,"));
     }
 
     private static Task<int> RunAsync(
@@ -350,7 +350,7 @@ public sealed class CommandRunnerHarvestTests
         long? sourceId = null,
         FakeContentSourceStore? sourceStore = null,
         IBlockedVideoStore? blockedVideoStore = null)
-        => CommandRunners.RunHarvestAsync(
+        => ContentKbCommandRunners.RunHarvestAsync(
             sourceStore ?? new FakeContentSourceStore(),
             videoStore,
             blockedVideoStore ?? new FakeBlockedVideoStore([]),

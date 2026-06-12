@@ -53,7 +53,7 @@ public sealed class CommandRunnerValidateClipsTests
             new TokenUsage(200, 20)),
         };
 
-        var exitCode = await CommandRunners.RunDistillAsync(
+        var exitCode = await ContentKbCommandRunners.RunDistillAsync(
             sourceStore,
             videoStore,
             indexStore,
