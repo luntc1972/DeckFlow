@@ -10,26 +10,13 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ## Current State
 
-**Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 6 phases (28-33), 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7 days. 30/30 requirements satisfied (HSK-02 descoped to backlog). Deck Primer Generator live as the fourth paste-ready workflow (`/deck-primer`); Content KB knowledge wired into all three analysis prompt variants ("What Experts Say" panel + pin/follow/evergreen expert selection); DeckFlow.Core fully XML-documented with the doc-gate widened. Quality infra added at close: Vitest+jsdom browser test runner + first GitHub Actions CI (build + xUnit + Vitest). Milestone audit: **passed**. Tests Core 282/282, Web 657 pass / 5 PG-skips. NOTE: prod flag `content.kb.enabled` intentionally OFF — Content KB ships **dark** in v1.5 (proven live at Phase 30 UAT 2026-06-07; operator re-enables when ready).
+**Shipped:** v1.6 Content KB Retrieval Fix + Value Re-Validation (2026-06-12) — 8 phases (34, 35, 37, 37.5, 37.6, 38, 39, 40; 36 SKIPPED — gate marginal), ~122 commits, 2026-06-10→06-12. Gate-driven: the KB value A/B gate (Phase 35) returned **MARGINAL**, triggering the recorded retire-pivot — whole-channel clip-injection into prompts was removed (Phase 37), the KB kept browse-only and its corpus rebuilt high-signal (37.5) with admin block/hard-delete (37.6). Closed with the long-deferred SRP split: DeckController → 8 focused controllers + CommandRunners → 3 classes (38, route-parity proven + live smoke), an architecture-review refactor extracting `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` from the 4 packet services (39, Finding A), and a Core.Tests health pass (40). Milestone audit: **passed**. Tests green + deterministic: Core 320/0, Web 593/0/5-skip; build 0/0. Content KB remains **dark in prod** (browse-only; injection retired).
 
-**Next:** v1.6 in planning — Content KB Retrieval Fix + Value Re-Validation (gate-driven by Spike 001). Carried in: SEL-02 expert-pin live-pin re-confirm (folded into v1.6 KB un-dark). Gemini paste-limit + SpellbookCombo ranking (PRM-08) stay deferred — out of v1.6 scope.
+**Next:** v1.7 TBD (set via `/gsd:new-milestone`). Candidate backlog: architecture-review findings B–K (CategoryKnowledgeRepository + ContentKbCommandRunners god-class splits, `Services/` foldering, dual-dialect cleanup) from `.planning/milestones/v1.6-ROADMAP.md` + `39-AUDIT`; prod KB-seed go-live (deploy-stage); Gemini paste-limit + SpellbookCombo ranking (PRM-08) still deferred.
 
-## Current Milestone: v1.6 Content KB Retrieval Fix + Value Re-Validation
+## Shipped Milestone: v1.6 Content KB Retrieval Fix + Value Re-Validation (SHIPPED 2026-06-12 — archived, see `.planning/milestones/v1.6-ROADMAP.md`)
 
-**Goal:** Make the Content KB earn its keep — fix the retrieval defects Spike 001 exposed, prove lift through the gold A/B gate, then conditionally build the Creator Philosophy-Profile; close with the long-deferred DeckController/CommandRunners SRP split.
-
-**Driver:** Spike 001 kb-value-ab verdict = MARGINAL → leaning NEGATIVE (`.planning/spikes/001-kb-value-ab/VERDICT.md`). On a real ~99-card deck the live `ContentKbRelevanceService` selected 5 clips from one tangential video (3 about unrelated commanders), worse than hand-picked. Two mechanism defects: (1) `SelectTopClips` has no per-video diversity; (2) tag-overlap scoring rewards tag breadth over topical fit. KB ships dark today; this milestone decides fix-vs-retire on evidence.
-
-**Target features:**
-
-1. **Retrieval diversity fix** — `SelectTopClips` spreads across videos (per-video cap; no single-video monopoly).
-2. **Topical relevance scoring** — replace tag-overlap scoring with topical fit that filters commander-specific noise and rewards on-topic videos.
-3. **Value re-validation gate** — re-run the Spike 001 gold A/B (`Spike001KbValueAbHarness`) against the fixed retriever; clear lift = proceed, still marginal = pivot/retire.
-4. **Creator Philosophy-Profile (CONDITIONAL on gate)** — per-creator style-card + RAG grounding (seed: `creator-philosophy-profile`), built only if the fixed retriever proves value.
-5. **KB un-dark + follow-ups** — flip `content.kb.enabled` ON once value is proven; SEL-02 expert-pin live-pin re-confirm in that window.
-6. **DeckController / CommandRunners SRP split** — final phase; long-deferred god-class refactor.
-
-**Explicitly excluded:** Gemini paste-limit unblock and SpellbookCombo ranking fields (PRM-08) — stay deferred; kept v1.6 KB-focused.
+Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired prompt clip-injection, kept the KB browse-only + rebuilt its corpus, then shipped the DeckController/CommandRunners SRP split (38) + a packet-service dedup refactor (39, Finding A) + a Core.Tests health pass (40). Audit **passed**; requirement outcomes in `.planning/milestones/v1.6-REQUIREMENTS.md`.
 
 ## Shipped Milestone: v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (SHIPPED 2026-06-10 — archived, see `.planning/milestones/v1.5-ROADMAP.md`)
 
