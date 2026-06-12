@@ -65,7 +65,8 @@ public sealed class CommandRunnerValidateClipsTests
             dryRun: false,
             new LoggerConfiguration().CreateLogger(),
             () => new DateTimeOffset(2026, 5, 27, 12, 34, 56, TimeSpan.Zero),
-            CancellationToken.None);
+            CancellationToken.None,
+            isSubscriptionProvider: true);
 
         Assert.Equal(0, exitCode);
         Assert.Equal([new StatusUpdate(10, "failed")], videoStore.StatusUpdates);
@@ -270,6 +271,9 @@ public sealed class CommandRunnerValidateClipsTests
 
         public Task<SummaryResult> SummarizeAsync(string transcript, CancellationToken cancellationToken = default)
             => Task.FromResult(new SummaryResult("summary", new TokenUsage(100, 10)));
+
+        public Task<ClassificationResult> ClassifyAsync(string transcript, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ClassificationResult("keep", "test"));
 
         public Task<ClipsResult> ExtractClipsAsync(string transcript, CancellationToken cancellationToken = default)
             => Task.FromResult(ClipsResult);
