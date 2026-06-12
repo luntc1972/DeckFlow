@@ -30,7 +30,7 @@ Plan: 3 of 3 (all complete)
 Status: Phase 37.5 done; REBUILD-01..05 validated end-to-end
 Reqs: REBUILD-01..05 all live-validated. 3 waves: 01 corpus-reset + clip-timestamp fix (Codex/review), 02 classifier gate + 'filtered' status (Codex/review), 03 operator live pilot (local uat-content-kb.db + prod Render Postgres). Distill 7 kept / 5 filtered / $0. Clips real mid-video [mm:ss]. 3 UAT defects fixed (Deck Primer Build-group tile 14353aa; corpus-reset postgres:// URL normalize d2ee743; Postgres filtered-status migration empty-constraint guard d28ef10).
 Next: Phase 38 (Controller SRP Split — milestone closer). FOLLOW-ON (operator, not a blocker): prod go-live = commit new content-kb/ artifacts + index-seed.json → deploy → prod /Admin publish 7 survivors.
-Last activity: 2026-06-12 -- Quick task 260612-kb1: admin KB per-entry delete + Phase 37 behavior-restore
+Last activity: 2026-06-12 -- Quick task 260612-e2e: Playwright E2E smoke suite + CI stage
 
 ## Accumulated Context — Key Decisions (v1.6)
 
@@ -91,6 +91,7 @@ Last activity: 2026-06-12 -- Quick task 260612-kb1: admin KB per-entry delete + 
 |---|-------------|------|--------|-----------|
 | 260611-p9x | Fix Primer copy buttons (port data-copy-target wiring into primer-selection.ts + Vitest test) | 2026-06-12 | 29cf22e | [260611-p9x-fix-primer-copy-buttons-port-data-copy-t](./quick/260611-p9x-fix-primer-copy-buttons-port-data-copy-t/) |
 | 260612-kb1 | Admin KB per-entry Delete + restore Phase-37-broken page behaviors (filter/confirms/toast) | 2026-06-12 | e3b6ea4 | [260612-kb1-admin-kb-delete-entry](./quick/260612-kb1-admin-kb-delete-entry/) |
+| 260612-e2e | Playwright E2E smoke suite (15 routes × desktop+mobile) + CI stage; 68/68 green | 2026-06-12 | 6e8ddff | [260612-e2e-playwright-smoke](./quick/260612-e2e-playwright-smoke/) |
 
 ## Deferred Items
 
