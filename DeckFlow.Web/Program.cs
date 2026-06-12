@@ -68,6 +68,7 @@ public partial class Program
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
+            builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
             builder.Services.AddMemoryCache();
 
             // AI platform toggles. Gemini is hidden in the UI by default because the full
