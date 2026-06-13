@@ -44,3 +44,79 @@
 .chatgpt-step-badge {
   color: var(--muted, inherit);
 }
+
+/* Why: site-common.css sets :root { color-scheme: light dark }, so browsers are
+   allowed to paint native checkbox/radio chrome to match the OS theme. With
+   appearance:auto, that makes unchecked controls render as OS-black boxes under
+   dark mode and ignore the active DeckFlow guild theme. Custom rendering here
+   keeps the empty box/radio chrome theme-controlled and OS-independent. */
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  box-sizing: border-box;
+  border: 2px solid var(--line, var(--muted));
+  background: var(--panel);
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  cursor: pointer;
+  flex: none;
+}
+
+input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+input[type="radio"] {
+  border-radius: 50%;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::before {
+  content: "";
+  position: absolute;
+  left: 0.31rem;
+  top: 0.1rem;
+  width: 0.22rem;
+  height: 0.46rem;
+  border-right: 2px solid var(--on-accent, #fff);
+  border-bottom: 2px solid var(--on-accent, #fff);
+  transform: rotate(45deg);
+}
+
+input[type="radio"]:checked {
+  border-color: var(--accent);
+}
+
+input[type="radio"]:checked::before {
+  content: "";
+  position: absolute;
+  inset: 0.22rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chatgpt-question-bucket input[type="checkbox"],
+.chatgpt-question-option input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+}
