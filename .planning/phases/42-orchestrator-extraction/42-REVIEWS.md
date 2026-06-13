@@ -79,3 +79,23 @@ Single reviewer (Codex). No cross-reviewer consensus to synthesize.
 ### Divergent Views
 
 None (single reviewer).
+
+---
+
+# Round 2 — Codex Re-Review (gpt-5.5 medium, 2026-06-13)
+
+Verdict: **NO-GO as written** · Risk: MEDIUM. 3 of 4 prior HIGH closed; HIGH-3 has a semantic bug.
+
+## Prior HIGH closure
+- **HIGH-1 CLOSED** — 42-03 registers concrete once + forwards facade + 5 sub-interfaces (acceptance: 6 forwards).
+- **HIGH-2 CLOSED** — 42-04 enumerates all 13 ctor deps, real local SQLite stores, named null-objects only.
+- **HIGH-3 NOT CLOSED** — 42-05 metered-distill test is WRONG. Refusal fires only when `!dryRun && !isSubscriptionProvider` (metered = NOT a subscription provider). The plan wrote `DistillAsync(dryRun:false, isSubscriptionProvider:true)` → that is the subscription/non-metered case and will NOT hit the exit-1 refusal path. Fix: the metered test must pass `isSubscriptionProvider:false` to pin Success==false / AbortedReason / exit 1.
+- **HIGH-4 CLOSED** — 42-05 golden fixture + ordinal `Assert.Equal` through the CLI serialize path.
+
+## New concerns
+- **MEDIUM (DI):** `AddContentKbOrchestrator()` registers `ContentKbOrchestrator` via plain `AddScoped<ContentKbOrchestrator>()`, but its ctor takes a raw `string artifactRoot`. Studio can only satisfy that by registering bare `string` globally — brittle. Prefer binding only this ctor param via a factory registration (`AddScoped<ContentKbOrchestrator>(sp => new ContentKbOrchestrator(... resolved stores ..., artifactRoot))`) or a small options record (e.g. `ContentKbOrchestratorOptions { string ArtifactRoot }`). Apply consistently in 42-01 (ctor shape), 42-03 (extension), 42-04 (Studio wiring).
+- **MEDIUM (test doubles):** 42-05 reuses `Fake*` stores that are currently PRIVATE nested types in `CommandRunnerValidateClipsTests`. Plan must explicitly lift them to shared internal test doubles (alongside the `Throwing*` doubles created in 42-03 Task 3) or allow local per-test fakes — don't assume they're already shareable.
+- **LOW:** `ContentIndexExportRow` placement — 42-01 says one public sealed record per result file, then allows the Row in the result file or a sibling. Make it a sibling file and list it explicitly.
+- **LOW:** Wave-4 `42-04 ∥ 42-05` parallelism confirmed acceptable (disjoint prod/test areas, both depend on 42-03 doubles).
+
+Path to GO: fix HIGH-3 flag (`isSubscriptionProvider:false`) + tighten artifactRoot DI binding → GO.
