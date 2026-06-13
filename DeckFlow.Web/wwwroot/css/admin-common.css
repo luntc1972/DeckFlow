@@ -611,8 +611,33 @@ a:hover { text-decoration: underline; }
   background: rgba(245, 158, 11, 0.10);
 }
 
+/* KB admin action cells use a fixed 2-column grid so confirm-label relabels do not
+   resize buttons or reshuffle neighboring actions mid-confirmation. The 8rem min
+   track keeps the widest labels ("Evergreen: Off", "Confirm delete") on one line
+   without clipping; the table's scroll container absorbs any overflow. */
+.admin-shell #kb-entries-table td[data-label="Action"],
+.admin-shell section[aria-labelledby="kb-bulk-heading"] td[data-label="Actions"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(8rem, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.admin-shell #kb-entries-table td[data-label="Action"] .admin-action-form,
+.admin-shell section[aria-labelledby="kb-bulk-heading"] td[data-label="Actions"] .admin-action-form {
+  display: block;
+  margin: 0;
+}
+
+.admin-shell #kb-entries-table td[data-label="Action"] .admin-action-form button,
+.admin-shell section[aria-labelledby="kb-bulk-heading"] td[data-label="Actions"] .admin-action-form button {
+  width: 100%;
+  white-space: nowrap;
+}
+
 .admin-shell .admin-action-form button.danger.is-armed {
-  filter: brightness(1.15);
+  box-shadow: 0 0 0 2px var(--panel, #fff), 0 0 0 4px var(--danger, #dc2626);
+  filter: brightness(1.1);
 }
 /* === END Phase 22 === */
 
