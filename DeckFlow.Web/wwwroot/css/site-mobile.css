@@ -306,6 +306,63 @@
   .primer-section__copy {
     overflow-wrap: anywhere;
   }
+
+  /* mobile UI phase 2: content kb */
+  .kb-filters {
+    display: block;
+    width: 100%;
+  }
+
+  .kb-filters__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 0.25rem 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .kb-filters__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .kb-filters__summary::after {
+    content: '';
+    flex: 0 0 auto;
+    width: 0;
+    height: 0;
+    border-left: 0.3rem solid transparent;
+    border-right: 0.3rem solid transparent;
+    border-top: 0.4rem solid currentColor;
+    opacity: 0.7;
+    transition: transform 0.2s ease;
+  }
+
+  .kb-filters[open] > .kb-filters__summary::after {
+    transform: rotate(180deg);
+  }
+
+  .kb-filters > label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .kb-tag-list {
+    max-height: 3.4rem;
+    overflow: hidden;
+  }
+
+  .hub-card__title > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 480px) {

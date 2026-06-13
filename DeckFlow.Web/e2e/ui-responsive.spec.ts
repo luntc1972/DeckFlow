@@ -97,6 +97,31 @@ test('deck primer section groups collapse on mobile', async ({ page }) => {
   expect(await secondGroup.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
 });
 
+test('content kb filters collapse on mobile', async ({ page }) => {
+  const isMobile = test.info().project.name.includes('mobile');
+  const response = await page.goto('/content-kb');
+
+  expect(response?.ok()).toBeTruthy();
+
+  const filters = page.locator('details.kb-filters');
+  const filterCount = await filters.count();
+
+  if (filterCount === 0) {
+    test.skip();
+  }
+
+  if (isMobile) {
+    expect(await filters.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(false);
+
+    await page.locator('.kb-filters__summary').click();
+
+    expect(await filters.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+    return;
+  }
+
+  expect(await filters.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+});
+
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {
   test(`no horizontal overflow on key pages: ${route}`, async ({ page }) => {
     const response = await page.goto(route);
