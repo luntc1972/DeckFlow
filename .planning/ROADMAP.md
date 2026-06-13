@@ -170,7 +170,8 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   2. `dotnet user-secrets list --project DeckFlow.Studio` is the only place the prod Postgres connection string can be stored; no appsettings file in the project tree contains it
   3. `git log --all -- "**/secrets.json"` returns no commits; `grep -r "postgres\|password\|Host=" DeckFlow.Studio/` returns nothing in tracked files
   4. `dotnet build DeckFlow.sln` succeeds with the Studio project present; `dotnet restore DeckFlow.Web/DeckFlow.Web.csproj` (Dockerfile path) is unchanged and does not pull in Studio
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 41-01-PLAN.md — Scaffold DeckFlow.Studio (net10.0 Blazor Server, Core ref), wire user-secrets, harden .gitignore, lock Dockerfile restore
 
 ---
 
@@ -277,7 +278,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 41. Studio Scaffold + Secrets Wiring | 0/TBD | Not started | - |
+| 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
 | 42. Orchestrator Extraction | 0/TBD | Not started | - |
 | 43. Approval Status + Safe Upsert | 0/TBD | Not started | - |
 | 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
