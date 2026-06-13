@@ -264,6 +264,32 @@
     optionalRef.removeAttribute('open');
   };
 
+  const attachContentKbCardNavigation = (): void => {
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest('a, button, input')) {
+        return;
+      }
+
+      const card = target.closest<HTMLElement>('[data-kb-entry]');
+      if (card === null) {
+        return;
+      }
+
+      const titleLink = card.querySelector<HTMLAnchorElement>('.hub-card__title a[href]');
+      const href = titleLink?.href;
+      if (!href) {
+        return;
+      }
+
+      window.location.assign(href);
+    });
+  };
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
@@ -271,6 +297,7 @@
   document.addEventListener('DOMContentLoaded', collapsePrimerGroupsOnMobile);
   document.addEventListener('DOMContentLoaded', collapseKbFiltersOnMobile);
   document.addEventListener('DOMContentLoaded', collapseJudgeOptionalRefOnMobile);
+  document.addEventListener('DOMContentLoaded', attachContentKbCardNavigation);
   if (document.readyState !== 'loading') {
     attachBackToTop();
     attachThemePicker();
@@ -278,5 +305,6 @@
     collapsePrimerGroupsOnMobile();
     collapseKbFiltersOnMobile();
     collapseJudgeOptionalRefOnMobile();
+    attachContentKbCardNavigation();
   }
 })();

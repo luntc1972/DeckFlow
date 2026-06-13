@@ -122,6 +122,27 @@ test('content kb filters collapse on mobile', async ({ page }) => {
   expect(await filters.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
 });
 
+test('content kb card is tappable', async ({ page }) => {
+  const response = await page.goto('/content-kb');
+
+  expect(response?.ok()).toBeTruthy();
+
+  const cards = page.locator('[data-kb-entry]');
+  if ((await cards.count()) === 0) {
+    test.skip();
+  }
+
+  const firstCard = cards.first();
+  const titleLink = firstCard.locator('.hub-card__title a');
+  const detailHref = await titleLink.getAttribute('href');
+
+  expect(detailHref).toBeTruthy();
+
+  await firstCard.locator('.hub-card__description').click();
+
+  expect(page.url()).toContain(detailHref ?? '/content-kb/');
+});
+
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {
   test(`no horizontal overflow on key pages: ${route}`, async ({ page }) => {
     const response = await page.goto(route);
