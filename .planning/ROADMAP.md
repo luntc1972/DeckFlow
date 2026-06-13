@@ -152,7 +152,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 - [x] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
 - [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
-- [ ] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths
+- [x] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths (completed 2026-06-13)
 - [ ] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source
 - [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
 - [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
@@ -204,7 +204,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   4. The distill pipeline sets newly-inserted `content_site_index` rows to `approval_status='pending'`; rows that existed before the migration are treated as pending (no data loss on migration)
 **Plans**: 2 plans (2 waves: store/model/orchestrator changes / integration tests)
 - [x] 43-01-PLAN.md — approval_status column + self-healing migration + grandfather backfill, UpsertContentColumnsOnlyAsync (preserves 4 admin fields), GetApprovedRowsAsync, orchestrator export+distill switches (Wave 1)
-- [ ] 43-02-PLAN.md — real-SQLite integration tests: migration/grandfather, safe-upsert preservation, new-row-pending, approved-only filter, DDL default (Wave 2)
+- [x] 43-02-PLAN.md — real-SQLite integration tests: migration/grandfather, safe-upsert preservation, new-row-pending, approved-only filter, DDL default (Wave 2)
 
 ---
 
@@ -287,7 +287,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 |-------|----------------|--------|-----------|
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
-| 43. Approval Status + Safe Upsert | 1/2 | In Progress|  |
+| 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
 | 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started | - |
