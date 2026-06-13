@@ -150,7 +150,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 ### Phase Checklist
 
-- [ ] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
+- [x] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
 - [ ] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item
 - [ ] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths
 - [ ] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source
