@@ -73,6 +73,31 @@ test('download-session button is not the primary run-button on mobile', async ({
   expect(downloadBackground).not.toBe(nextBackground);
 });
 
+test('mobile workflow stepper is compact (no hidden scroll, numbers shown)', async ({ page }) => {
+  const isMobile = test.info().project.name.includes('mobile');
+  const response = await page.goto('/deck-analysis');
+
+  expect(response?.ok()).toBeTruthy();
+
+  const nav = page.locator('.chatgpt-step-nav');
+  await expect(nav).toBeVisible();
+  expect(await nav.count()).toBeGreaterThan(0);
+
+  const firstTab = nav.locator('.chatgpt-step-tab').first();
+  const firstNumber = firstTab.locator('.chatgpt-step-tab__num');
+  const firstLabel = firstTab.locator('.chatgpt-step-tab__label');
+
+  if (isMobile) {
+    expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth + 2)).toBe(true);
+    await expect(firstNumber).toBeVisible();
+    await expect(firstLabel).toBeHidden();
+    return;
+  }
+
+  await expect(firstLabel).toBeVisible();
+  await expect(firstNumber).toBeHidden();
+});
+
 test('deck primer section groups collapse on mobile', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
   const response = await page.goto('/deck-primer');
