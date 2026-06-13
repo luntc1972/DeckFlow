@@ -1,5 +1,7 @@
 @inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FeatureFlagCache
 @{
+    const string defaultDescription = "DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.";
+    const string structuredDataJson = "{\"@context\":\"https://schema.org\",\"@type\":\"WebSite\",\"name\":\"DeckFlow\",\"url\":\"https://www.deckflow.gg\",\"description\":\"DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.\"}";
     var themeOptions = new (string FileName, string Label)[]
     {
         ("site.css", "Classic"),
@@ -35,6 +37,16 @@
             : defaultThemeFileName;
     var defaultThemeHref = Url.Content($"~/css/{defaultThemeFileName}");
     var selectedThemeHref = Url.Content($"~/css/{selectedThemeFileName}");
+    var pageDescription = Convert.ToString(ViewData["Description"]);
+    pageDescription = string.IsNullOrWhiteSpace(pageDescription) ? defaultDescription : pageDescription;
+    var pageTitle = Convert.ToString(ViewData["Title"]);
+    pageTitle = string.IsNullOrWhiteSpace(pageTitle) ? "DeckFlow" : $"{pageTitle} - DeckFlow";
+    var requestScheme = Context?.Request.Scheme ?? string.Empty;
+    var requestHost = Context?.Request.Host ?? default;
+    var requestPathBase = Context?.Request.PathBase ?? default;
+    var requestPath = Context?.Request.Path ?? default;
+    var canonicalUrl = $"{requestScheme}://{requestHost}{requestPathBase}{requestPath}";
+    var openGraphImageUrl = $"{requestScheme}://{requestHost}{Url.Content("~/og-image.png")}";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -43,7 +55,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     @* Classic theme --bg; the no-JS fallback. site.ts (attachThemePicker) updates this to the active theme's live --bg on load and on theme change. *@
     <meta name="theme-color" content="#eceef3" />
+    <meta name="description" content="@pageDescription" />
     <title>@ViewData["Title"] - DeckFlow</title>
+    <link rel="canonical" href="@canonicalUrl" />
+    <meta property="og:title" content="@pageTitle" />
+    <meta property="og:description" content="@pageDescription" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="@canonicalUrl" />
+    <meta property="og:site_name" content="DeckFlow" />
+    <meta property="og:image" content="@openGraphImageUrl" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@pageTitle" />
+    <meta name="twitter:description" content="@pageDescription" />
+    <meta name="twitter:image" content="@openGraphImageUrl" />
+    <script type="application/ld+json">@Html.Raw(structuredDataJson)</script>
     <link rel="stylesheet" href="~/css/site-common.css" asp-append-version="true" />
     <link id="theme-stylesheet" rel="stylesheet" href="@selectedThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" data-cookie-name="@themeCookieName" />
     <link rel="stylesheet" href="~/css/site-theme-overrides.css" asp-append-version="true" />
