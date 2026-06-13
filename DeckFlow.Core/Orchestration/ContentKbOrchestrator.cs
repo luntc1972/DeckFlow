@@ -607,7 +607,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         try
         {
             await _indexStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-            var rows = await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
+            var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
             var exportRows = rows.Select(ContentIndexExportRow.From).ToList();
             return new ContentIndexExportResult
             {
@@ -1049,7 +1049,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 summary.Summary,
                 clips.Clips.Select(clip => (clip.TimestampSeconds, clip.Excerpt)).ToArray());
             ContentArtifactWriter.WriteFile(_artifactRoot, source.SourceSlug, naturalKey, artifactText);
-            await _indexStore.UpsertRowAsync(
+            await _indexStore.UpsertContentColumnsOnlyAsync(
                 new ContentSiteIndexRow
                 {
                     Id = 0,

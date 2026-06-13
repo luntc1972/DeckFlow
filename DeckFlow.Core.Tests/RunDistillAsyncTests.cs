@@ -643,6 +643,8 @@ public sealed class RunDistillAsyncTests : IDisposable
     {
         public List<ContentSiteIndexRow> Rows { get; } = [];
 
+        public List<ContentSiteIndexRow> ContentColumnsOnlyUpserts { get; } = [];
+
         public List<long> DeleteCalls { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
@@ -672,6 +674,13 @@ public sealed class RunDistillAsyncTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+        {
+            ContentColumnsOnlyUpserts.Add(row);
+            Rows.Add(row);
+            return Task.CompletedTask;
+        }
+
         public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(
             string naturalKeyType,
             string naturalKeyValue,
@@ -680,6 +689,9 @@ public sealed class RunDistillAsyncTests : IDisposable
 
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(row => row.IsVisible).ToArray());
+
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(row => row.ApprovalStatus == "approved").ToArray());
 
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows);

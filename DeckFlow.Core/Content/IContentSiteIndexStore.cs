@@ -28,6 +28,15 @@ public interface IContentSiteIndexStore
     Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Inserts or updates content/nav columns only, never touching admin-set fields
+    /// (is_visible, is_hidden, is_evergreen, approval_status) on existing rows.
+    /// New rows are inserted with approval_status='pending'.
+    /// </summary>
+    /// <param name="row">Site-index row to insert or update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a slim site-index row by normalized natural key.
     /// </summary>
     /// <param name="naturalKeyType">Natural key type, such as <see cref="ContentSourceType.Youtube"/> or <see cref="ContentSourceType.Podcast"/>.</param>
@@ -45,6 +54,13 @@ public interface IContentSiteIndexStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Visible site-index rows.</returns>
     Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets site-index rows where approval_status='approved', ordered for deterministic export.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Approved site-index rows.</returns>
+    Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets all site-index rows ordered for deterministic curation surfaces.

@@ -81,6 +81,28 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addHidden.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("approval_status"))
+            {
+                await using var addApprovalStatus = connection.CreateCommand();
+                addApprovalStatus.CommandText =
+                    "ALTER TABLE content_site_index ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'pending';";
+                await addApprovalStatus.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // Why: grandfather the already-published seed to approved and re-run safely after
+            // an ALTER-then-crash; only still-pending visible rows are updated on later passes.
+            await using (var grandfatherApprovalStatus = connection.CreateCommand())
+            {
+                grandfatherApprovalStatus.CommandText = """
+                    UPDATE content_site_index
+                       SET approval_status = 'approved'
+                     WHERE approval_status = 'pending'
+                       AND is_visible = @visible;
+                    """;
+                RelationalDatabaseConnection.AddParameter(grandfatherApprovalStatus, "@visible", FormatVisibility(true));
+                await grandfatherApprovalStatus.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             _schemaReady = true;
         }
         finally
@@ -161,6 +183,39 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    public async Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
+        ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
+        ArgumentNullException.ThrowIfNull(row.BracketTags);
+        ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
+
+        var naturalKey = GetNaturalKey(row);
+        ValidateArtifactPath(row.ArtifactPath);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = UpsertContentColumnsOnlySql;
+        RelationalDatabaseConnection.AddParameter(command, "@source", row.Source);
+        RelationalDatabaseConnection.AddParameter(command, "@title", row.Title);
+        RelationalDatabaseConnection.AddParameter(command, "@videoUrl", row.VideoUrl);
+        RelationalDatabaseConnection.AddParameter(command, "@artifactPath", row.ArtifactPath);
+        RelationalDatabaseConnection.AddParameter(command, "@publishedUtc", FormatTimestamp(row.PublishedUtc));
+        RelationalDatabaseConnection.AddParameter(command, "@indexedUtc", FormatTimestamp(row.IndexedUtc));
+        RelationalDatabaseConnection.AddParameter(command, "@archetypeTags", ContentArtifactSpec.SerializeTags(row.ArchetypeTags));
+        RelationalDatabaseConnection.AddParameter(command, "@bracketTags", ContentArtifactSpec.SerializeTags(row.BracketTags));
+        RelationalDatabaseConnection.AddParameter(command, "@cardCategoryTags", ContentArtifactSpec.SerializeTags(row.CardCategoryTags));
+        RelationalDatabaseConnection.AddParameter(command, "@naturalKeyType", naturalKey.Type);
+        RelationalDatabaseConnection.AddParameter(command, "@naturalKeyValue", naturalKey.Value);
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(
         string naturalKeyType,
         string naturalKeyValue,
@@ -187,7 +242,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_value,
                    is_visible,
                    is_hidden,
-                   is_evergreen
+                   is_evergreen,
+                   approval_status
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
@@ -226,12 +282,45 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_value,
                    is_visible,
                    is_hidden,
-                   is_evergreen
+                   is_evergreen,
+                   approval_status
               FROM content_site_index
              WHERE is_visible = @visible
              ORDER BY source, title, id;
             """;
         RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(true));
+
+        return await ReadRowsAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id,
+                   source,
+                   title,
+                   video_url,
+                   artifact_path,
+                   published_utc,
+                   indexed_utc,
+                   archetype_tags,
+                   bracket_tags,
+                   card_category_tags,
+                   natural_key_type,
+                   natural_key_value,
+                   is_visible,
+                   is_hidden,
+                   is_evergreen,
+                   approval_status
+              FROM content_site_index
+             WHERE approval_status = 'approved'
+             ORDER BY source, title, id;
+            """;
 
         return await ReadRowsAsync(command, cancellationToken).ConfigureAwait(false);
     }
@@ -258,7 +347,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_value,
                    is_visible,
                    is_hidden,
-                   is_evergreen
+                   is_evergreen,
+                   approval_status
               FROM content_site_index
              ORDER BY source, title, id;
             """;
@@ -288,7 +378,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_value,
                    is_visible,
                    is_hidden,
-                   is_evergreen
+                   is_evergreen,
+                   approval_status
               FROM content_site_index
              WHERE id = @id;
             """;
@@ -582,7 +673,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             RssGuid = rssGuid,
             IsVisible = ReadVisibility(reader, 12),
             IsHidden = ReadVisibility(reader, 13),
-            IsEvergreen = ReadVisibility(reader, 14)
+            IsEvergreen = ReadVisibility(reader, 14),
+            ApprovalStatus = reader.GetString(15)
         };
     }
 
@@ -701,6 +793,46 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_evergreen       = content_site_index.is_evergreen;
         """;
 
+    private const string UpsertContentColumnsOnlySql = """
+        INSERT INTO content_site_index (
+          source,
+          title,
+          video_url,
+          artifact_path,
+          published_utc,
+          indexed_utc,
+          archetype_tags,
+          bracket_tags,
+          card_category_tags,
+          natural_key_type,
+          natural_key_value,
+          approval_status)
+        VALUES (
+          @source,
+          @title,
+          @videoUrl,
+          @artifactPath,
+          @publishedUtc,
+          @indexedUtc,
+          @archetypeTags,
+          @bracketTags,
+          @cardCategoryTags,
+          @naturalKeyType,
+          @naturalKeyValue,
+          'pending')
+        ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
+          source             = EXCLUDED.source,
+          title              = EXCLUDED.title,
+          video_url          = EXCLUDED.video_url,
+          artifact_path      = EXCLUDED.artifact_path,
+          published_utc      = EXCLUDED.published_utc,
+          indexed_utc        = EXCLUDED.indexed_utc,
+          archetype_tags     = EXCLUDED.archetype_tags,
+          bracket_tags       = EXCLUDED.bracket_tags,
+          card_category_tags = EXCLUDED.card_category_tags;
+        -- is_visible, is_hidden, is_evergreen, approval_status are intentionally absent here.
+        """;
+
     private const string PostgresCreateTableSql = """
         CREATE TABLE IF NOT EXISTS content_site_index (
           id                 BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -718,6 +850,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_visible         BOOLEAN NOT NULL DEFAULT FALSE,
           is_hidden          BOOLEAN NOT NULL DEFAULT FALSE,
           is_evergreen       BOOLEAN NOT NULL DEFAULT FALSE,
+          approval_status    TEXT NOT NULL DEFAULT 'pending',
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -739,6 +872,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_visible         INTEGER NOT NULL DEFAULT 0,
           is_hidden          INTEGER NOT NULL DEFAULT 0,
           is_evergreen       INTEGER NOT NULL DEFAULT 0,
+          approval_status    TEXT NOT NULL DEFAULT 'pending',
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;

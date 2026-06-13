@@ -111,11 +111,17 @@ internal sealed class ThrowingContentSiteIndexStore : IContentSiteIndexStore
     public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(UpsertRowPreservingVisibilityAsync)} must not be called by the current path");
 
+    public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(UpsertContentColumnsOnlyAsync)} must not be called by the current path");
+
     public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(string naturalKeyType, string naturalKeyValue, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(GetByNaturalKeyAsync)} must not be called by the current path");
 
     public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(GetPublishedRowsAsync)} must not be called by the current path");
+
+    public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(GetApprovedRowsAsync)} must not be called by the current path");
 
     public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(GetAllRowsAsync)} must not be called by the current path");
