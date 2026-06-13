@@ -155,6 +155,9 @@ public sealed class CommandRunnerCorpusResetTests
         public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
         {
             DeleteByIdCalls++;
@@ -171,6 +174,9 @@ public sealed class CommandRunnerCorpusResetTests
             => throw new NotImplementedException();
 
         public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 }

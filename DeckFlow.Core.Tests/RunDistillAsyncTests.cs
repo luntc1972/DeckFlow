@@ -666,14 +666,15 @@ public sealed class RunDistillAsyncTests : IDisposable
             var index = Rows.FindIndex(existing => MatchesNaturalKey(existing, row));
             if (index < 0)
             {
-                Rows.Add(row with { IsVisible = false });
+                Rows.Add(row with { IsVisible = false, IsHidden = false });
                 return Task.CompletedTask;
             }
 
             Rows[index] = row with
             {
                 Id = Rows[index].Id,
-                IsVisible = Rows[index].IsVisible
+                IsVisible = Rows[index].IsVisible,
+                IsHidden = Rows[index].IsHidden
             };
             return Task.CompletedTask;
         }
@@ -703,7 +704,28 @@ public sealed class RunDistillAsyncTests : IDisposable
                     continue;
                 }
 
-                Rows[i] = Rows[i] with { IsVisible = visible };
+                Rows[i] = Rows[i] with { IsVisible = visible, IsHidden = false };
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
+        public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default)
+        {
+            var count = 0;
+            for (var i = 0; i < Rows.Count; i++)
+            {
+                if (Rows[i].Id != id)
+                {
+                    continue;
+                }
+
+                Rows[i] = Rows[i] with
+                {
+                    IsHidden = hidden,
+                    IsVisible = hidden ? false : Rows[i].IsVisible
+                };
                 count++;
             }
 
@@ -744,7 +766,28 @@ public sealed class RunDistillAsyncTests : IDisposable
                     continue;
                 }
 
-                Rows[i] = Rows[i] with { IsVisible = visible };
+                Rows[i] = Rows[i] with { IsVisible = visible, IsHidden = false };
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
+        public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
+        {
+            var count = 0;
+            for (var i = 0; i < Rows.Count; i++)
+            {
+                if (!string.Equals(Rows[i].Source, source, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Rows[i] = Rows[i] with
+                {
+                    IsHidden = hidden,
+                    IsVisible = hidden ? false : Rows[i].IsVisible
+                };
                 count++;
             }
 

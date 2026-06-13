@@ -72,6 +72,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addEvergreen.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("is_hidden"))
+            {
+                await using var addHidden = connection.CreateCommand();
+                addHidden.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT FALSE;"
+                    : "ALTER TABLE content_site_index ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;";
+                await addHidden.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             _schemaReady = true;
         }
         finally
@@ -110,6 +119,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         RelationalDatabaseConnection.AddParameter(command, "@cardCategoryTags", ContentArtifactSpec.SerializeTags(row.CardCategoryTags));
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyType", naturalKey.Type);
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyValue", naturalKey.Value);
+        RelationalDatabaseConnection.AddParameter(command, "@isHidden", FormatVisibility(row.IsHidden));
         RelationalDatabaseConnection.AddParameter(command, "@isEvergreen", FormatVisibility(row.IsEvergreen));
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -145,6 +155,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyType", naturalKey.Type);
         RelationalDatabaseConnection.AddParameter(command, "@naturalKeyValue", naturalKey.Value);
         RelationalDatabaseConnection.AddParameter(command, "@isVisible", FormatVisibility(false));
+        RelationalDatabaseConnection.AddParameter(command, "@isHidden", FormatVisibility(false));
         RelationalDatabaseConnection.AddParameter(command, "@isEvergreen", FormatVisibility(false));
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -175,6 +186,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_type,
                    natural_key_value,
                    is_visible,
+                   is_hidden,
                    is_evergreen
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
@@ -213,6 +225,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_type,
                    natural_key_value,
                    is_visible,
+                   is_hidden,
                    is_evergreen
               FROM content_site_index
              WHERE is_visible = @visible
@@ -244,6 +257,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_type,
                    natural_key_value,
                    is_visible,
+                   is_hidden,
                    is_evergreen
               FROM content_site_index
              ORDER BY source, title, id;
@@ -273,6 +287,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    natural_key_type,
                    natural_key_value,
                    is_visible,
+                   is_hidden,
                    is_evergreen
               FROM content_site_index
              WHERE id = @id;
@@ -297,10 +312,30 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE content_site_index
-               SET is_visible = @visible
+               SET is_visible = @visible,
+                   is_hidden = FALSE
              WHERE id = @id;
             """;
         RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(visible));
+        RelationalDatabaseConnection.AddParameter(command, "@id", id);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE content_site_index
+               SET is_hidden = @hidden,
+                   is_visible = CASE WHEN @hidden THEN FALSE ELSE is_visible END
+             WHERE id = @id;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@hidden", FormatVisibility(hidden));
         RelationalDatabaseConnection.AddParameter(command, "@id", id);
 
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -370,10 +405,31 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE content_site_index
-               SET is_visible = @visible
+               SET is_visible = @visible,
+                   is_hidden = FALSE
              WHERE source = @source;
             """;
         RelationalDatabaseConnection.AddParameter(command, "@visible", FormatVisibility(visible));
+        RelationalDatabaseConnection.AddParameter(command, "@source", source);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE content_site_index
+               SET is_hidden = @hidden,
+                   is_visible = CASE WHEN @hidden THEN FALSE ELSE is_visible END
+             WHERE source = @source;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@hidden", FormatVisibility(hidden));
         RelationalDatabaseConnection.AddParameter(command, "@source", source);
 
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -525,7 +581,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             YoutubeVideoId = youtubeVideoId,
             RssGuid = rssGuid,
             IsVisible = ReadVisibility(reader, 12),
-            IsEvergreen = ReadVisibility(reader, 13)
+            IsHidden = ReadVisibility(reader, 13),
+            IsEvergreen = ReadVisibility(reader, 14)
         };
     }
 
@@ -568,6 +625,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags,
           natural_key_type,
           natural_key_value,
+          is_hidden,
           is_evergreen)
         VALUES (
           @source,
@@ -581,6 +639,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @cardCategoryTags,
           @naturalKeyType,
           @naturalKeyValue,
+          @isHidden,
           @isEvergreen)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
@@ -592,6 +651,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           archetype_tags     = EXCLUDED.archetype_tags,
           bracket_tags       = EXCLUDED.bracket_tags,
           card_category_tags = EXCLUDED.card_category_tags,
+          is_hidden          = EXCLUDED.is_hidden,
           is_evergreen       = EXCLUDED.is_evergreen;
         """;
 
@@ -609,6 +669,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type,
           natural_key_value,
           is_visible,
+          is_hidden,
           is_evergreen)
         VALUES (
           @source,
@@ -623,6 +684,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @naturalKeyType,
           @naturalKeyValue,
           @isVisible,
+          @isHidden,
           @isEvergreen)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
@@ -633,7 +695,10 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           indexed_utc        = EXCLUDED.indexed_utc,
           archetype_tags     = EXCLUDED.archetype_tags,
           bracket_tags       = EXCLUDED.bracket_tags,
-          card_category_tags = EXCLUDED.card_category_tags;
+          card_category_tags = EXCLUDED.card_category_tags,
+          is_visible         = content_site_index.is_visible,
+          is_hidden          = content_site_index.is_hidden,
+          is_evergreen       = content_site_index.is_evergreen;
         """;
 
     private const string PostgresCreateTableSql = """
@@ -651,6 +716,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type   TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')),
           natural_key_value  TEXT NOT NULL,
           is_visible         BOOLEAN NOT NULL DEFAULT FALSE,
+          is_hidden          BOOLEAN NOT NULL DEFAULT FALSE,
           is_evergreen       BOOLEAN NOT NULL DEFAULT FALSE,
           UNIQUE (natural_key_type, natural_key_value)
         );
@@ -671,6 +737,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type   TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')),
           natural_key_value  TEXT NOT NULL,
           is_visible         INTEGER NOT NULL DEFAULT 0,
+          is_hidden          INTEGER NOT NULL DEFAULT 0,
           is_evergreen       INTEGER NOT NULL DEFAULT 0,
           UNIQUE (natural_key_type, natural_key_value)
         );

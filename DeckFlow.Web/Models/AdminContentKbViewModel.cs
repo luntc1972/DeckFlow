@@ -3,7 +3,7 @@ namespace DeckFlow.Web.Models;
 /// <summary>
 /// View model for the /Admin/ContentKb curation page (Phase 22, KB-09). Carries the index
 /// status panel, the per-source bulk groups, and the per-entry curation rows over ALL index
-/// rows (published and hidden).
+/// rows (published, unpublished, and hidden).
 /// </summary>
 public sealed class AdminContentKbViewModel
 {
@@ -30,11 +30,17 @@ public sealed class AdminContentKbViewModel
 /// </summary>
 public sealed record KbIndexStatus
 {
-    /// <summary>Total index rows (published + hidden).</summary>
+    /// <summary>Total index rows (published + unpublished + hidden).</summary>
     public required int TotalCount { get; init; }
 
     /// <summary>Count of rows currently published (is_visible = true).</summary>
     public required int PublishedCount { get; init; }
+
+    /// <summary>Count of rows currently unpublished (is_visible = false AND is_hidden = false).</summary>
+    public required int UnpublishedCount { get; init; }
+
+    /// <summary>Count of rows currently hidden (is_hidden = true).</summary>
+    public required int HiddenCount { get; init; }
 
     /// <summary>Count of distinct sources represented in the index.</summary>
     public required int SourceCount { get; init; }
@@ -71,6 +77,9 @@ public sealed record KbEntryRow
 
     /// <summary>Whether this entry is currently published to the public surface.</summary>
     public required bool IsVisible { get; init; }
+
+    /// <summary>Whether this entry is currently hidden from normal curation views.</summary>
+    public bool IsHidden { get; init; }
 
     /// <summary>Whether this entry is currently marked as evergreen.</summary>
     public bool IsEvergreen { get; init; }
