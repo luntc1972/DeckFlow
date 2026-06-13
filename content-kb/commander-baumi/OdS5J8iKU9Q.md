@@ -4,29 +4,29 @@ title: "PleasantKenobi\u0027s Favorite Commander Deck Is Unoptimized and Terribl
 url: "https://www.youtube.com/watch?v=OdS5J8iKU9Q\u0026list=UU98mf08y3Dv_4chuyX1VIkw"
 video_id: "OdS5J8iKU9Q"
 tags:
-  archetype: ["aristocrats","tokens","value-engine","stax","control"]
+  archetype: ["aggro","blink","tokens","value-engine","stax"]
   bracket: ["Upgraded","Optimized"]
-  card_category: ["removal","recursion","protection","finishers","tutor","utility"]
-generated_utc: "2026-06-08T22:42:24Z"
+  card_category: ["ramp","removal","draw","finishers","tutor","recursion","board-wipe","protection","utility"]
+generated_utc: "2026-06-13T13:23:14Z"
 ---
 
 ## Summary
 
-Pleasant Kenobi's favorite current deck is a Red/White Arbaz Mir (two-mana human assassin) build focused on pinging: whenever a nontoken historic permanent enters, Arbaz deals 1 damage to each opponent and gains him 1 life. The strategy whittles every opponent's life total down simultaneously to push games to a faster conclusion rather than relying on a single kill. Key pieces: Norin the Wary as a secondary recurring damage source (flickers on any spell/attack, retriggering Arbaz, Impact Tremors, and Purphoros), plus a heavy flicker package (Flickerwisp, Restoration Angel, Ephemerate, Parallax Wave) to reuse ETB pingers, protect Arbaz, and disrupt opponents by exiling lands or resetting effects. Fall of the Thran (a historic saga) blows up all lands as a late-game closer when opponents are already low, alongside trimmed mass land destruction (Armageddon/Ravages) justified only as an aggro finisher. Devilish Valet provides a one-shot kill by doubling power as creatures enter, especially with Abdel Adrian token generation. The pilot deliberately leaves the deck suboptimal (bad manabase, few tutors), prioritizing unique, underrated white cards, flicker tricks, and varied play experiences over tight optimization. Power level sits high bracket 3 to low bracket 4.
+Pleasant Kenobi (Vince) discusses his current favorite Commander deck led by Arbaz Mir, a two-mana human assassin that pings each opponent for one and gains him one life whenever a non-token historic permanent (artifact, legendary, or saga) enters. The deck stacks incremental one-damage effects—Impact Tremors, Purphoros—and uses Norin the Wary as a near-second commander since he repeatedly flickers to retrigger pingers. Goal: end games faster by whittling all life totals down, gaining life to avoid becoming the target. A flicker package (Flickerwisp, Ephemerate, Restoration Angel, Parallax Wave) protects pieces, resets ETBs, and even temporarily steals opponents' lands or permanents for virtual card advantage; Abdel Adrian and Lumbering Battlements exile-and-return for big value bursts. Fall of the Thran (mass land destruction) and Armageddon serve as aggro closers when his board is insurmountable, not early stax. Devilish Valet is the lone one-shot finisher. He deliberately leaves the manabase and tutors unoptimized, valuing suboptimal, surprising 'pet' cards and constant tinkering over tournament-tight lists. Self-rates the deck high bracket three / low bracket four, including Ancient Tomb and Lotus Petal as fast mana.
 
 ## Key Clips
 
-- Arbazmir is a two mana human assassin (2/2). Whenever you put a historic permanent into play that's not a token, it deals one damage to each opponent and you gain one life. It is itself historic and enters in its own text, so it pings itself as well. It is a pinging engine card.
-- The deck's philosophy is to make commander games end faster: whittle everyone's life totals down with incremental pings, gaining life off Arbazmir to look less threatening and pad against attacks, so the game pushes toward a conclusion even if you don't win.
-- Norin the Wary is the secondary commander: a one mana 2/1 red legendary that flickers itself whenever anyone casts a spell or attacks. He pings with Arbazmir every turn, triggers Impact Tremors, and works with card draw engines and Purphoros as a recurring source of damage.
-- Fall of the Thran is a five/six mana enchantment saga and is historic. First chapter destroys all lands; chapters two and three each return two cards from each player's graveyard. Played as a late-game finisher when everyone is sub-10 life, not as a stall or lock piece.
-- Mass land destruction belongs in aggro decks, not control. Historically Armageddon and Ravages of War went in white weenie sideboards to blow up control players' lands then kill them. Cataclysm in Death and Taxes leaves each player one of each permanent type, then you win in two turns with an equipped creature still in play.
-- Flickerwisp flickers any permanent, including opponents' stuff, at end of turn. You can flicker an opponent's land in their upkeep or your end step to deny them a key land drop; it returns next end step. Used to disrupt mana and combos that nobody sees coming.
-- Parallax Wave has fading counters: remove one in upkeep, sacrifice when none remain. You can reset it with a flicker to re-exile permanents, exile your own creatures to reuse ETBs, or remove a threat. Pairs with Eternal Witness in green to get it back, and with Abdel Adrian to chain multiple flickers and ETBs.
-- Devilish Valet (three mana 1/3 devil, trample, haste) doubles its power each time another creature enters under your control. With Abdel Adrian making four tokens then flickering to make more, the power grows exponentially to 30-50, making it the one card in the deck that can one-shot a player.
+- **[41:51]** I want commander games to end. I hate three-hour games... If a game can finish an hour and a half, it's wonderful. So I've started to play commanders like this... as decks that I may not even win, but I'm going to whittle everyone's life totals down... to push the game towards a conclusion.
+- **[42:17]** There's other ways we can make games go quicker as well, like appropriate pregame conversations, smaller pods and getting off your phone.
+- **[47:00]** People should look at mass land destruction as a viable thing in decks that are aggro... people don't play ravages of war and Armageddon in control decks. People play those cards in decks that can aggro people out. You play it when you've got an insurmountable board state that they can't beat.
+- **[52:28]** I think optimization is like the thief of joy a little bit in Commander. And I also try not to play the same stuff all the time because I've got quite a big collection.
+- **[55:02]** You can't lower everyone else's life totals and stay high because people will worry that you'll win. So you have to be like, oh, if you need to hit me for a trigger, do it... and then you look less of the problem.
+- **[59:57]** I did a video about amberification. So you have a deck, you enjoy it to a certain point and then just freeze it and don't update it. Don't buy all the new power creep stuff. Just let it live and breathe.
+- **[70:33]** Flickerwisp doesn't just flicker creatures, it flickers any permanent and it doesn't just flicker your stuff, it flickers other people's stuff and it's an end of turn. If someone's threatened about getting to six mana... you can flicker your wisp and take one of their lands out and the land comes back at the next end step.
+- **[43:00]** People kind of taking their turn and then going wait, hold on, and taking three steps back and then taking it again. Just play your turn. If you make a mistake, okay, that's fine. Time is valuable. Play the games quickly.
 
 ## Tags
 
-**Archetypes/Strategy:** aristocrats, tokens, value-engine, stax, control
+**Archetypes/Strategy:** aggro, blink, tokens, value-engine, stax
 **Format/Bracket:** Upgraded, Optimized
-**Card Categories:** removal, recursion, protection, finishers, tutor, utility
+**Card Categories:** ramp, removal, draw, finishers, tutor, recursion, board-wipe, protection, utility

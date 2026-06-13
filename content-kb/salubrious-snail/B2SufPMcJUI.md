@@ -1,32 +1,32 @@
 ---
 source: "Salubrious Snail"
 title: "r/EDH and Communication"
-url: "https://www.youtube.com/watch?v=B2SufPMcJUI"
+url: "https://www.youtube.com/watch?v=B2SufPMcJUI\u0026list=UUOYkwObFKjxko7oj56gVDag"
 video_id: "B2SufPMcJUI"
 tags:
-  archetype: []
+  archetype: ["combo","control","stax"]
   bracket: []
-  card_category: []
-generated_utc: "2026-06-08T17:07:05Z"
+  card_category: ["win-cons","counter"]
+generated_utc: "2026-06-12T21:48:16Z"
 ---
 
 ## Summary
 
-This video responds to a Reddit post arguing that EDH players should give a brief 10-second pitch of their deck before games. The creator agrees with the communication idea but examines a faction of players who oppose it, treating Commander as a detective game where deducing opponents' decks is core fun, or as a performance whose ending shouldn't be spoiled. He argues this 'knowledge competition' substitutes for competitive skills absent in casual EDH. The problem: EDH is Magic's onboarding format with no metagame, but it carries enormous information densityΓÇö30,000 legal cards, 3x the opponents, ~10x the unique cards versus 1v1ΓÇöoverwhelming newer players. Pregame disclosure serves two purposes: rule-zero consent (especially for combo wins) and calibration so opponents can strategize. He offers a flowchart: disclose powerful wincons and core gameplans, but cool side synergies can stay hidden. Decks whose fun dies from a 10-second synopsis are gimmicks. He criticizes deception-based play exploiting opponents' ignorance as toxic. Counterarguments acknowledged: respecting newer players, avoiding fear-based rule-zero echo chambers; he prefers disclosing threats over banning them. Final takeaway: keep audience in mindΓÇöCommander is built on compromise and collaboration. Judge solutions by whether they solve more problems than they create.
+The video responds to a debate about whether Commander players should give a brief pregame pitch describing their deck. The creator argues against treating EDH as a detective game where reading opponents' hidden strategies is core gameplay. Because EDH has no metagame, three opponents, and roughly ten times the unique cards of 1v1 formats, its information density is overwhelming—especially for newer players. Some players substitute card-knowledge as a competitive skill, but expecting constant on-the-fly threat assessment makes the format fatiguing and luck-dependent. He recommends a short (10-second-or-less) disclosure covering two things: your most powerful wincon (for rule-zero consent) and your core gameplan (to calibrate opponents). Examples: announcing a turn-7 combo, or describing a deck as 'control built around Astral Slide.' Flashy one-trick combo or cascade decks are more fun to build than to play and shouldn't hide their plan. Deception-based strategies that exploit opponents' inexperience are toxic. He concedes counterarguments—respecting newer players, avoiding fear-based echo chambers—and stresses establishing expectations over hard bans. Core takeaway: keep your audience in mind; EDH is a social format built on compromise, so share enough information for opponents to engage.
 
 ## Key Clips
 
-- Brackets are a useful tool, but they have limitations. They do cover power level to some extent, but they don't address specific play pattern preferences aside from following general community preferences such as limitations on mana denial in lower brackets. A good solution to this problem is to have players come to the table with a basic 10 second pitch for what their deck is doing.
-- There seems to be a large online faction of commander players who treat commander as some sort of detective game where a large part of the gameplay is figuring out what's going on in opposing decks, or alternatively as some sort of show that you wouldn't want to spoil the ending of.
-- A certain subset of EDH players seem almost obsessed with knowing as many possible plays their opponents can do as possible. This is especially true for players playing at a level with sudden ways to win, where not being able to recognize a combo piece or central enabler for an opponent's deck can rapidly lead to a game loss.
-- EDH has 3x the opponents and often around 10x the number of unique cards in opposing decks as compared to 1v1 formats. There are 30,000 cards legal in the format now, and thousands of brand new cards entering the format every year. The information density of EDH is untouched by any other widely-played format.
-- This sort of deck ends up being more fun to build than to playΓÇöit's fun to build and tune a deck that does something wacky and unusual, but something being fun to think about, fun to theorize, and fun to hear described as a concept doesn't necessarily make it fun in an actual game. Because that's what EDH isΓÇöa game. It's not a museum of cool card interactions.
-- A start-of-game conversation serves two purposes. One, it's a rule zero conversationΓÇömentioning the bracket of your deck, how it plans to win, and its most powerful plays gives opponents the opportunity to decide if they want to play against that. The other purpose is getting players calibrated about what's to come, and I think of this as the more important purpose.
-- If giving somebody a synopsis of what your deck does ruins your experience playing it, it wasn't all that interesting a deck to begin with.
-- Players doing the more serious versions of thisΓÇödownplaying an obviously busted board to somebody who doesn't know any better, pretending that a powerful centerpiece card is some normal filler, and otherwise skating by on their opponents lack of experience, knowledge, or focusΓÇöthis behavior is toxic to any sort of casual format.
+- **[05:45]** Having an encyclopedic knowledge of commanders and what their typical decks look like can actually serve as somewhat of a replacement for rule 0. I don't even need to have a conversation with my opponent, all I need to do is see that Teysa pull up and I'm already squaring up for some Ashnod's Altar BS.
+- **[11:51]** This sort of deck ends up being more fun to build than to play—it's fun to build and tune a deck that does something wacky and unusual, but something being fun to think about, fun to theorize, and fun to hear described as a concept doesn't necessarily make it fun in an actual game.
+- **[13:50]** Even if you'd quite like to keep your cool combo a secret, when you're playing that sort of deck you really should be making it clear to your opponents. This could be as simple as saying 'I'm playing a deck with a combo win that frequently happens around turn 7,' which gives your opponents the tools they need to decide if they want to be in this game.
+- **[15:04]** With my most powerful deck, my Francisco Malcolm deck, I'll generally tell my opponents that my deck is fast, with frequent turn 5 wins, and that it usually wins with Time Sieve, and with these two things in their pocket my opponents will have a decent idea of what to watch out for.
+- **[17:07]** With my Sharuum deck I'll tell my opponents that my deck is a control deck built around Astral Slide. This is an exceptionally short description that leaves dozens of cool interactions unmentioned, but it communicates the two most important facts: that my deck will exert more leverage the longer it goes, and that flickering permanents is a central part of my gameplan.
+- **[17:11]** Is the part of your deck you're thinking about a powerful wincon for you? If yes, maybe consider disclosing that. If not, is it something you'd describe as your core gameplan in a way that'd be helpful to decisionmaking for somebody playing against your deck? If yes, consider disclosing that. If not, you're good!
+- **[22:02]** As general practices, your opponents should know about the most threatening parts of your deck because that's the part they might want to strategize against. Your opponents should know the strongest wincon in your deck not just so they can decide if they want to play against it, but also so they can decide how they should be playing against you once the game starts.
+- **[24:21]** Treat your opponents like people you're playing a game with, and give them the information they need to engage with your deck on a basic level. If you're worried that 10 seconds of talking about your deck is going to ruin its fun surprises, that's probably a good indicator that the surprises aren't actually fun.
 
 ## Tags
 
-**Archetypes/Strategy:** 
+**Archetypes/Strategy:** combo, control, stax
 **Format/Bracket:** 
-**Card Categories:** 
+**Card Categories:** win-cons, counter
