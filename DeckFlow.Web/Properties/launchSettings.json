@@ -17,6 +17,16 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
+    "http-no-browser": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5173",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DECKFLOW_DISABLE_AUTO_BROWSER": "true"
+      }
+    },
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,
