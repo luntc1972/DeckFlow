@@ -1,9 +1,8 @@
 using System.IO;
-using DeckFlow.CLI;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Orchestration;
 using Microsoft.Data.Sqlite;
-using Serilog;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -174,16 +173,10 @@ public sealed class BlockedVideoStoreTests : IDisposable
             Row = CreateYoutubeRow("video-1") with { Id = 42 }
         };
 
-        var exitCode = await ContentKbCommandRunners.RunBlockVideoAsync(
-            "video-1",
-            "spam",
-            blockedStore,
-            videoStore,
-            siteIndexStore,
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None);
+        var orchestrator = CreateOrchestrator(blockedStore, videoStore, siteIndexStore);
+        var result = await orchestrator.BlockVideoAsync("video-1", "spam", cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(
             ["block:video-1:spam", "delete-video:video-1", "get-index:youtube_channel:video-1", "delete-index:42"],
             operations);
@@ -197,16 +190,10 @@ public sealed class BlockedVideoStoreTests : IDisposable
         var videoStore = new SpyContentVideoStore(operations) { DeleteResult = 0 };
         var siteIndexStore = new SpyContentSiteIndexStore(operations);
 
-        var exitCode = await ContentKbCommandRunners.RunBlockVideoAsync(
-            "video-missing",
-            null,
-            blockedStore,
-            videoStore,
-            siteIndexStore,
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None);
+        var orchestrator = CreateOrchestrator(blockedStore, videoStore, siteIndexStore);
+        var result = await orchestrator.BlockVideoAsync("video-missing", null, cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(
             ["block:video-missing:", "delete-video:video-missing", "get-index:youtube_channel:video-missing"],
             operations);
@@ -218,14 +205,17 @@ public sealed class BlockedVideoStoreTests : IDisposable
     [InlineData("   ")]
     public async Task RunBlockVideoAsync_BlankId_ThrowsArgumentException(string? youtubeVideoId)
     {
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => ContentKbCommandRunners.RunBlockVideoAsync(
-            youtubeVideoId!,
-            "spam",
+        var result = await CreateOrchestrator(
             new SpyBlockedVideoStore([]),
             new SpyContentVideoStore([]),
-            new SpyContentSiteIndexStore([]),
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None));
+            new SpyContentSiteIndexStore([]))
+            .BlockVideoAsync(
+                youtubeVideoId!,
+                "spam",
+                cancellationToken: CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains("youtubeVideoId", result.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -234,13 +224,13 @@ public sealed class BlockedVideoStoreTests : IDisposable
         var operations = new List<string>();
         var blockedStore = new SpyBlockedVideoStore(operations) { RemoveResult = true };
 
-        var exitCode = await ContentKbCommandRunners.RunUnblockVideoAsync(
-            "video-1",
+        var result = await CreateOrchestrator(
             blockedStore,
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None);
+            new ThrowingContentVideoStore(),
+            new ThrowingContentSiteIndexStore())
+            .UnblockVideoAsync("video-1", cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(["unblock:video-1"], operations);
     }
 
@@ -250,13 +240,13 @@ public sealed class BlockedVideoStoreTests : IDisposable
         var operations = new List<string>();
         var blockedStore = new SpyBlockedVideoStore(operations) { RemoveResult = false };
 
-        var exitCode = await ContentKbCommandRunners.RunUnblockVideoAsync(
-            "never-blocked",
+        var result = await CreateOrchestrator(
             blockedStore,
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None);
+            new ThrowingContentVideoStore(),
+            new ThrowingContentSiteIndexStore())
+            .UnblockVideoAsync("never-blocked", cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(["unblock:never-blocked"], operations);
     }
 
@@ -275,17 +265,38 @@ public sealed class BlockedVideoStoreTests : IDisposable
                 }
             ]
         };
-        using var writer = new StringWriter();
-
-        var exitCode = await ContentKbCommandRunners.RunListBlockedAsync(
+        var result = await CreateOrchestrator(
             blockedStore,
-            writer,
-            CancellationToken.None);
+            new ThrowingContentVideoStore(),
+            new ThrowingContentSiteIndexStore())
+            .ListBlockedAsync(cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
-        Assert.Contains("video-1", writer.ToString(), StringComparison.Ordinal);
-        Assert.Contains("spam", writer.ToString(), StringComparison.Ordinal);
+        var row = Assert.Single(result.Items);
+        Assert.Equal("video-1", row.YoutubeVideoId);
+        Assert.Equal("spam", row.Reason);
     }
+
+    private static ContentKbOrchestrator CreateOrchestrator(
+        IBlockedVideoStore blockedStore,
+        IContentVideoStore videoStore,
+        IContentSiteIndexStore siteIndexStore)
+        => new(
+            new ThrowingContentSourceStore(),
+            videoStore,
+            siteIndexStore,
+            blockedStore,
+            new ThrowingContentHarvestRunStore(),
+            new ThrowingLlmSpendLedger(),
+            new ThrowingWhisperSpendLedger(),
+            new ThrowingLlmDistillationService(),
+            new ThrowingYouTubeChannelVideoLister(),
+            new ThrowingTranscriptSource(),
+            new ThrowingFfmpegAudioChunker(),
+            () => DateTimeOffset.UtcNow,
+            new ContentKbOrchestratorOptions
+            {
+                ArtifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-blocked-video-tests"),
+            });
 
     private static ContentSiteIndexRow CreateYoutubeRow(string youtubeVideoId)
         => new()
