@@ -36,6 +36,9 @@ type ThemeSnapshot = {
   checkboxWebkitAppearance: string | null;
   checkboxBackground: string | null;
   checkboxBorderColor: string | null;
+  checkboxRenderWidth: number | null;
+  checkboxRenderHeight: number | null;
+  checkboxPadding: string | null;
   textareaFound: boolean;
   textareaScrollbar: string;
   textareaScrollbarProperty: string;
@@ -69,6 +72,12 @@ async function readThemeSnapshot(page: Page, themeFile: string): Promise<ThemeSn
       checkboxWebkitAppearance: checkboxStyle ? checkboxStyle.getPropertyValue('-webkit-appearance').trim() : null,
       checkboxBackground: checkboxStyle?.backgroundColor ?? null,
       checkboxBorderColor: checkboxStyle?.borderColor ?? null,
+      // Computed width/height (not getBoundingClientRect — the first checkbox
+      // lives in a collapsed bucket, so its rect is 0 while its box size is
+      // still resolved correctly by the cascade).
+      checkboxRenderWidth: checkboxStyle ? parseFloat(checkboxStyle.width) : null,
+      checkboxRenderHeight: checkboxStyle ? parseFloat(checkboxStyle.height) : null,
+      checkboxPadding: checkboxStyle ? checkboxStyle.padding : null,
       textareaFound: textarea !== null,
       textareaScrollbar: textareaStyle?.scrollbarColor ?? '',
       textareaScrollbarProperty: textareaStyle?.getPropertyValue('scrollbar-color') ?? '',
@@ -123,6 +132,17 @@ test('checkboxes stay custom-rendered and themed across all themes in light and 
       expect(snapshot.checkboxWebkitAppearance, `${themeFile} should disable WebKit native checkbox rendering in ${colorScheme} mode`).toBe('none');
       expect(isRealColor(snapshot.checkboxBackground), `${themeFile} should theme the checkbox background in ${colorScheme} mode`).toBeTruthy();
       expect(isRealColor(snapshot.checkboxBorderColor), `${themeFile} should theme the checkbox border in ${colorScheme} mode`).toBeTruthy();
+
+      // Size guard (regression: the generic `input` padding inflated the
+      // appearance:none box to ~29x26 and offset the checkmark). The custom
+      // box must stay small (~1.05rem) and square, with no inherited padding.
+      const w = snapshot.checkboxRenderWidth ?? 0;
+      const h = snapshot.checkboxRenderHeight ?? 0;
+      expect(w, `${themeFile} checkbox width should stay compact (not inflated by inherited input padding) in ${colorScheme} mode`).toBeGreaterThan(10);
+      expect(w, `${themeFile} checkbox width should stay compact in ${colorScheme} mode`).toBeLessThanOrEqual(24);
+      expect(h, `${themeFile} checkbox height should stay compact in ${colorScheme} mode`).toBeLessThanOrEqual(24);
+      expect(Math.abs(w - h), `${themeFile} checkbox should render square in ${colorScheme} mode`).toBeLessThanOrEqual(2);
+      expect(snapshot.checkboxPadding, `${themeFile} checkbox should not inherit text-input padding in ${colorScheme} mode`).toBe('0px');
 
       borderColorsByTheme.set(themeFile, normalizeColor(snapshot.checkboxBorderColor));
     }
