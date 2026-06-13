@@ -10,8 +10,9 @@ public sealed class AboutController : Controller
     private const string Tagline =
         "DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. " +
         "It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, " +
-        "and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, " +
-        "and a cache-backed category suggestion engine.";
+        "head-to-head deck comparison, and deck-primer generation, plus Commander Spellbook combo lookup, " +
+        "Scryfall card and mechanic references, a cache-backed category suggestion engine, " +
+        "and a browsable Knowledge Base of deck insight distilled from community content.";
 
     private const string RepositoryUrl = "https://github.com/luntc1972/DeckFlow";
 
