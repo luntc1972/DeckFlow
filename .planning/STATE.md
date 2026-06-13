@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
-status: active
-last_updated: "2026-06-13"
-last_activity: 2026-06-13
+status: completed
+stopped_at: Phase 42 context gathered
+last_updated: "2026-06-13T19:05:52.179Z"
+last_activity: 2026-06-13 — Phase 41 executed
 progress:
   total_phases: 8
   completed_phases: 1
@@ -47,6 +48,7 @@ Progress: [#         ] 13% (1/8 phases)
 | 48 | UI Audit + Remediation | UIR-01, UIR-02, UIR-03 | Not started |
 
 **Phase ordering notes:**
+
 - 41 before everything: secrets have no safe home until .gitignore + user-secrets are wired
 - 42 before 45/46/47: CLI is an executable; orchestration must be in Core before Studio can call it
 - 43 before 46 (approval_status column + filtered export prerequisite) and before 47 (safe upsert prerequisite)
@@ -127,6 +129,7 @@ Progress: [#         ] 13% (1/8 phases)
 ## Deferred Items
 
 **Resolved in v1.6:**
+
 - ✅ DeckController + CommandRunners SRP split (Phase 38, SRP-01..03; route-parity + live smoke)
 - ✅ IDeckEntryLoader.LoadFromSourceAsync + IScryfallCardResolver extraction (Phase 39, Finding A)
 - ✅ Core.Tests deterministic: 320/0 (Phase 40)
@@ -148,6 +151,6 @@ Progress: [#         ] 13% (1/8 phases)
 
 ## Session Continuity
 
-Last session: 2026-06-13 — v1.7 roadmap created (gsd-roadmapper).
-Stopped at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
+Last session: 2026-06-13T19:05:52.151Z
+Stopped at: Phase 42 context gathered
 Resume: Start Phase 41 with `/gsd:plan-phase 41`.
