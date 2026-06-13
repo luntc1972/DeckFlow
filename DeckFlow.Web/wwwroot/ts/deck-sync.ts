@@ -1613,6 +1613,7 @@ const parseChatGptStep = (value: string | undefined | null): number => {
 type ChatGptUiMode = 'guided' | 'focused' | 'expert';
 
 const chatGptUiModeStorageKey = 'decksync-chatgpt-ui-mode';
+const mobileChatGptUiModeQuery = '(max-width: 600px)';
 
 const parseChatGptUiMode = (value: string | undefined | null): ChatGptUiMode => {
   if (value === 'focused' || value === 'expert') {
@@ -1620,6 +1621,10 @@ const parseChatGptUiMode = (value: string | undefined | null): ChatGptUiMode => 
   }
 
   return 'guided';
+};
+
+const getDefaultChatGptUiMode = (): ChatGptUiMode => {
+  return window.matchMedia(mobileChatGptUiModeQuery).matches ? 'focused' : 'guided';
 };
 
 const setChatGptValidationMessage = (message: string | null): void => {
@@ -1687,7 +1692,7 @@ const clearChatGptPacketsState = (form: HTMLFormElement): void => {
   clearPersistedFormState(form);
   storageAvailable?.removeItem(chatGptUiModeStorageKey);
   clearFormToFreshSlate(form);
-  applyChatGptUiMode(form, 'guided');
+  applyChatGptUiMode(form, getDefaultChatGptUiMode());
   showChatGptStep(form, 1);
   updateSyncInputModeUi();
   syncVersioningBracketOptions(form);
@@ -2092,7 +2097,10 @@ const attachChatGptPacketsWorkflow = (): void => {
   }
 
   const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
-  const initialUiMode = parseChatGptUiMode(storageAvailable?.getItem(chatGptUiModeStorageKey));
+  const persistedUiMode = storageAvailable?.getItem(chatGptUiModeStorageKey);
+  const initialUiMode = persistedUiMode
+    ? parseChatGptUiMode(persistedUiMode)
+    : getDefaultChatGptUiMode();
   attachQuestionBucketSelection(form);
   attachBucketToggles(form);
   attachCardPicker(form);
