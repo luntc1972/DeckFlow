@@ -21,6 +21,6 @@
                 aria-controls="@($"{Model.PanelIdPrefix}-{step.Step}")"
                 aria-selected="@(step.Step == currentStep ? "true" : "false")"
                 tabindex="@(step.Step == currentStep ? "0" : "-1")"
-                data-@(Model.DataShowStepAttribute)="@step.Step">@step.Label</button>
+                data-@(Model.DataShowStepAttribute)="@step.Step"><span class="chatgpt-step-tab__num" aria-hidden="true">@step.Step</span><span class="chatgpt-step-tab__label">@step.Label</span></button>
     }
 </div>
