@@ -1,13 +1,41 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// These guard the theme-aware checkbox accent + textarea scrollbar fixes.
+// These guard the theme-aware custom checkbox/radio + textarea scrollbar fixes.
 
 const baseUrl = 'http://localhost:5173';
-const themeFiles = ['site.css', 'site-rakdos.css', 'site-nyx.css'] as const;
+const themeFiles = [
+  'site.css',
+  'site-azorius.css',
+  'site-dimir.css',
+  'site-rakdos.css',
+  'site-gruul.css',
+  'site-selesnya.css',
+  'site-orzhov.css',
+  'site-izzet.css',
+  'site-golgari.css',
+  'site-boros.css',
+  'site-simic.css',
+  'site-bant.css',
+  'site-abzan.css',
+  'site-sultai.css',
+  'site-mardu.css',
+  'site-temur.css',
+  'site-esper.css',
+  'site-grixis.css',
+  'site-jund.css',
+  'site-naya.css',
+  'site-jeskai.css',
+  'site-nyx.css',
+  'site-planeswalker-dark.css',
+  'site-commander-table.css',
+] as const;
 
 type ThemeSnapshot = {
   rootAccent: string;
-  checkboxAccent: string | null;
+  checkboxAppearance: string | null;
+  checkboxWebkitAppearance: string | null;
+  checkboxBackground: string | null;
+  checkboxBorderColor: string | null;
   textareaFound: boolean;
   textareaScrollbar: string;
   textareaScrollbarProperty: string;
@@ -31,18 +59,33 @@ async function readThemeSnapshot(page: Page, themeFile: string): Promise<ThemeSn
   return page.evaluate(() => {
     const rootStyle = getComputedStyle(document.documentElement);
     const checkbox = document.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const checkboxStyle = checkbox ? getComputedStyle(checkbox) : null;
     const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
     const textareaStyle = textarea ? getComputedStyle(textarea) : null;
 
     return {
       rootAccent: rootStyle.getPropertyValue('--accent').trim(),
-      checkboxAccent: checkbox ? getComputedStyle(checkbox).accentColor : null,
+      checkboxAppearance: checkboxStyle ? checkboxStyle.getPropertyValue('appearance').trim() : null,
+      checkboxWebkitAppearance: checkboxStyle ? checkboxStyle.getPropertyValue('-webkit-appearance').trim() : null,
+      checkboxBackground: checkboxStyle?.backgroundColor ?? null,
+      checkboxBorderColor: checkboxStyle?.borderColor ?? null,
       textareaFound: textarea !== null,
       textareaScrollbar: textareaStyle?.scrollbarColor ?? '',
       textareaScrollbarProperty: textareaStyle?.getPropertyValue('scrollbar-color') ?? '',
       textareaScrollbarWidth: textareaStyle?.getPropertyValue('scrollbar-width').trim() ?? '',
     };
   });
+}
+
+async function setThemedViewport(page: Page): Promise<void> {
+  const isMobile = test.info().project.name.includes('mobile');
+
+  if (isMobile) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    return;
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
 }
 
 function normalizeColor(value: string | null): string {
@@ -59,42 +102,39 @@ function pickScrollbarValue(snapshot: ThemeSnapshot): string {
   return normalizeColor(snapshot.textareaScrollbar) || normalizeColor(snapshot.textareaScrollbarProperty);
 }
 
-test('checkbox accent-color tracks theme accent', async ({ page }) => {
-  const isMobile = test.info().project.name.includes('mobile');
-  const accentsByTheme = new Map<string, string>();
+test('checkboxes stay custom-rendered and themed across all themes in light and dark media', async ({ page }) => {
+  await setThemedViewport(page);
 
-  if (isMobile) {
-    await page.setViewportSize({ width: 390, height: 844 });
-  } else {
-    await page.setViewportSize({ width: 1280, height: 900 });
-  }
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
 
-  for (const themeFile of themeFiles) {
-    const snapshot = await readThemeSnapshot(page, themeFile);
+    const borderColorsByTheme = new Map<string, string>();
 
-    expect(snapshot.rootAccent, `${themeFile} should expose a theme accent`).not.toBe('');
+    for (const themeFile of themeFiles) {
+      const snapshot = await readThemeSnapshot(page, themeFile);
 
-    if (snapshot.checkboxAccent === null) {
-      test.skip(true, `No checkbox found on /deck-analysis for ${themeFile}.`);
+      expect(snapshot.rootAccent, `${themeFile} should expose a theme accent`).not.toBe('');
+
+      if (snapshot.checkboxAppearance === null) {
+        test.skip(true, `No checkbox found on /deck-analysis for ${themeFile}.`);
+      }
+
+      expect(snapshot.checkboxAppearance, `${themeFile} should disable native checkbox rendering in ${colorScheme} mode`).toBe('none');
+      expect(snapshot.checkboxWebkitAppearance, `${themeFile} should disable WebKit native checkbox rendering in ${colorScheme} mode`).toBe('none');
+      expect(isRealColor(snapshot.checkboxBackground), `${themeFile} should theme the checkbox background in ${colorScheme} mode`).toBeTruthy();
+      expect(isRealColor(snapshot.checkboxBorderColor), `${themeFile} should theme the checkbox border in ${colorScheme} mode`).toBeTruthy();
+
+      borderColorsByTheme.set(themeFile, normalizeColor(snapshot.checkboxBorderColor));
     }
 
-    expect(isRealColor(snapshot.checkboxAccent), `${themeFile} should compute a non-default checkbox accent`).toBeTruthy();
-    accentsByTheme.set(themeFile, normalizeColor(snapshot.checkboxAccent));
+    expect(new Set(borderColorsByTheme.values()).size, `${colorScheme} mode should preserve theme-specific checkbox border colors`).toBeGreaterThanOrEqual(2);
   }
-
-  expect(accentsByTheme.get('site.css')).not.toBe(accentsByTheme.get('site-rakdos.css'));
-  expect(new Set(accentsByTheme.values()).size).toBeGreaterThanOrEqual(2);
 });
 
 test('textarea scrollbar-color is themed (not OS default)', async ({ page }) => {
-  const isMobile = test.info().project.name.includes('mobile');
-  const snapshots = new Map<string, ThemeSnapshot>();
+  await setThemedViewport(page);
 
-  if (isMobile) {
-    await page.setViewportSize({ width: 390, height: 844 });
-  } else {
-    await page.setViewportSize({ width: 1280, height: 900 });
-  }
+  const snapshots = new Map<string, ThemeSnapshot>();
 
   for (const themeFile of themeFiles) {
     const snapshot = await readThemeSnapshot(page, themeFile);
