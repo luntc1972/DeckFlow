@@ -1780,6 +1780,11 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     margin-bottom: 16px;
 }
 
+/* Why: number shown only in the compact mobile stepper */
+.chatgpt-step-tab__num {
+    display: none;
+}
+
 .ai-selector__heading {
     font-size: var(--fs-lg);
     font-weight: 600;

@@ -302,9 +302,12 @@
     text-align: center;
   }
 
+  /* mobile UI phase 2: compact numbered stepper */
   .chatgpt-step-nav {
     display: flex;
     flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     margin: 0.75rem 0 1rem;
     padding: 0.15rem 0 0.35rem;
@@ -315,27 +318,72 @@
   }
 
   .chatgpt-step-tab {
+    display: inline-flex;
     flex: 0 0 auto;
-    min-width: min(11rem, calc(100vw - 2.5rem));
-    min-height: 40px;
-    padding: 0.55rem 0.8rem;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    line-height: 1.2;
-    text-align: left;
-    white-space: normal;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--panel);
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .chatgpt-step-tab__label {
+    display: none;
+  }
+
+  .chatgpt-step-tab__num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
   }
 
   .chatgpt-step-tab.is-active {
-    box-shadow: 0 0 0 1px var(--accent);
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-contrast, #fff);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
-  .chatgpt-step-tab:not(.is-active) {
-    opacity: 0.82;
+  .chatgpt-step-tab:not(.is-active):not(.is-complete) {
+    color: var(--ink);
+    opacity: 1;
   }
 
   .chatgpt-step-tab.is-complete {
-    opacity: 0.72;
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+    color: var(--accent-strong);
+    opacity: 1;
+  }
+
+  /* mobile UI phase 2: ai selector compact */
+  .ai-selector {
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .ai-selector__heading {
+    font-size: var(--fs-base);
+    margin-bottom: 6px;
+  }
+
+  .ai-selector__option-label {
+    padding: 8px 10px;
+    font-size: var(--fs-sm);
+    min-height: 40px;
   }
 
   /* mobile UI phase 2: deck primer rows */
