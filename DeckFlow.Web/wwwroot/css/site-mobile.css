@@ -225,6 +225,47 @@
     padding-right: 1rem;
   }
 
+  /* mobile UI phase 2: judge questions */
+  .judge-optional-ref {
+    margin: 0 0 0.5rem;
+  }
+
+  .judge-optional-ref__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+
+  .judge-optional-ref__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .judge-optional-ref__summary::after {
+    content: '';
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+  }
+
+  .judge-optional-ref[open] > .judge-optional-ref__summary::after {
+    transform: rotate(225deg);
+  }
+
+  .judge-optional-ref > .field {
+    margin-top: 0.65rem;
+  }
+
   /* mobile UI phase 1 (d2): mobile layout picker + distinct workflow stepper */
   .chatgpt-page-toolbar.desktop-only {
     display: flex !important;

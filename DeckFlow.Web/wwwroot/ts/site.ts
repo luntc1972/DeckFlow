@@ -251,17 +251,32 @@
     filters.removeAttribute('open');
   };
 
+  const collapseJudgeOptionalRefOnMobile = (): void => {
+    if (!window.matchMedia('(max-width: 600px)').matches) {
+      return;
+    }
+
+    const optionalRef = document.querySelector<HTMLDetailsElement>('details.judge-optional-ref');
+    if (optionalRef === null) {
+      return;
+    }
+
+    optionalRef.removeAttribute('open');
+  };
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
   document.addEventListener('DOMContentLoaded', attachToolNav);
   document.addEventListener('DOMContentLoaded', collapsePrimerGroupsOnMobile);
   document.addEventListener('DOMContentLoaded', collapseKbFiltersOnMobile);
+  document.addEventListener('DOMContentLoaded', collapseJudgeOptionalRefOnMobile);
   if (document.readyState !== 'loading') {
     attachBackToTop();
     attachThemePicker();
     attachToolNav();
     collapsePrimerGroupsOnMobile();
     collapseKbFiltersOnMobile();
+    collapseJudgeOptionalRefOnMobile();
   }
 })();
