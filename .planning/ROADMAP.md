@@ -151,7 +151,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 ### Phase Checklist
 
 - [x] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
-- [ ] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item
+- [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
 - [ ] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths
 - [ ] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source
 - [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
@@ -189,7 +189,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] 42-02-PLAN.md — Lift CLI domain bodies into ContentKbOrchestrator + consolidate validators/constants D-07 (Wave 2)
 - [x] 42-03-PLAN.md — CLI thin adapters + AddContentKbOrchestrator() DI ext (forwards all slices) + re-point test anchor + Throwing* doubles D-09 (Wave 3)
 - [x] 42-04-PLAN.md — Studio smoke service resolves IContentMaintenanceOrchestrator slice + full ctor wired with real local SQLite stores, no CLI ref D-08 (Wave 4)
-- [ ] 42-05-PLAN.md — CLI exit-code/output parity tests + byte-identical JSON-seed golden-fixture test (Wave 4)
+- [x] 42-05-PLAN.md — CLI exit-code/output parity tests + byte-identical JSON-seed golden-fixture test (Wave 4)
 
 ---
 
@@ -284,7 +284,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
-| 42. Orchestrator Extraction | 4/5 | In Progress|  |
+| 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 0/TBD | Not started | - |
 | 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
