@@ -1,32 +1,32 @@
 ---
 source: "Salubrious Snail"
 title: "A Tale of Two Commander Tax Evaders"
-url: "https://www.youtube.com/watch?v=rk3o-DWPVrI"
+url: "https://www.youtube.com/watch?v=rk3o-DWPVrI\u0026list=UUOYkwObFKjxko7oj56gVDag"
 video_id: "rk3o-DWPVrI"
 tags:
-  archetype: ["tribal","value-engine"]
+  archetype: ["tribal","aggro","value-engine"]
   bracket: ["cEDH"]
-  card_category: ["draw","ramp","removal","counter"]
-generated_utc: "2026-06-08T17:07:05Z"
+  card_category: ["draw","removal","counter"]
+generated_utc: "2026-06-12T21:48:16Z"
 ---
 
 ## Summary
 
-This video analyzes commander designs that evade or soften commander tax, using Yuriko, the Tiger's Shadow as the central case. Yuriko, the most popular Dimir commander and a rare creature-type-based cEDH pick, is cast via Commander Ninjutsu for a fixed 2 mana with no command taxΓÇöa design the creator calls a mistake. Two factors make her uniquely frustrating: vibes and power level. On vibes, Yuriko skips 'The Gesture'ΓÇöany acknowledgment that a commander costs more after dying. Squee, Hogaak, Liesa, and Partners all make the gesture (graveyard-cast cost, convoke/delve resources, paying life, separate taxes); Derevi and Yuriko do not. Cost magnitude also matters: repeated 2-mana casts are far more powerful than Derevi's 4 or Liesa's 5. On power level, Yuriko's text gives roughly a 3-4 mana commander's value plus damage for 2 mana, enabled by cheap evasive enablers like Ornithopter and changelings. Power amplifies salt (Gaea's Cradle, Necropotence). Design philosophy: commanders should make The Gesture, and easily-redeployed cards must be balanced for 100% uptime. Liesa works because she taxes a plentiful resource modestly. Conclusion: 'Be more like Liesa.'
+This video analyzes why Yuriko, the Tiger's Shadow is a frustrating Commander to play against, isolating two factors: vibes and power level. On vibes, Yuriko cheats commander tax entirely because Commander-ninjutsu was designed without tax, a noted design oversight. The video contrasts her with other tax evaders that feel acceptable because they make 'The Gesture'—some acknowledgment that a recast commander costs more. Graveyard-castable cards like Squee obey 60-card rules; Hogaak still expends resources (convoke/delve); Liesa pays 2 life per prior cast; Derevi pays a flat 4 mana. Yuriko makes no gesture and recasts for a fixed 2 mana, leaving boatloads of open mana. On power level, her text box draws a card and drains opponents for huge value, comparable to a strong 3-4 mana commander but castable repeatedly for 2 via cheap evasive 0-1 cost ninjas like Ornithopter and Changeling Outcast. The video argues fairness perception scales with power: small tweaks (e.g. a 5-drain Liesa) make fine designs hated, while nerfs defuse objectionable ones. Design takeaway: commanders should acknowledge command tax in some form, and easily-redeployed cards must be balanced assuming 100% uptime. 'Be more like Liesa.'
 
 ## Key Clips
 
-- Yuriko the Tiger's Shadow is the most popular Dimir commander by a country mile, and one of only two creature-type-based commanders that sees common cEDH play, the other being Magda. Yuriko almost always gets cast for a Commander Ninjutsu cost, which is forever pegged at 2 mana and does not increase with commander tax.
-- Commander-ninjutsu is a bespoke ability created with the one task of bringing ninjutsu into the command zone on a single card, and the fact that command tax wasn't part of that ability seems like an obvious oversight. Yuriko has been singled out as a design mistake, including by Gavin Verhey who worked on the original card.
-- Two things contribute to Yuriko having a uniquely frustrating play pattern: her vibes and her power level. By vibes, the way Yuriko cheats commander tax feels uniquely bad among commanders. A big part of what makes Yuriko frustrating is that it feels like the Yuriko player is exempted from a core rule of the formatΓÇöwhen other commanders get removed, they're harder to cast, but Yuriko simply isn't.
-- The line I draw is that commanders need to make The Gesture: they need to acknowledge, in some form, that they exist within a format where your commander costs more each time it's redeployed. Hogaak and Liesa both make the gesture even if their command tax feels insignificant. Derevi and especially Yuriko are commonly disliked because they don't make The GestureΓÇötheir design totally ignores the existence of command tax.
-- Yuriko's text does a large amount for 2 mana: whenever a ninja deals combat damage to a player, reveal the top card, put it into your hand, and each opponent loses life equal to that card's mana value. Simplified, that's draw a card and each opponent loses 2 life. Yuriko is along the lines of a powerful 3-mana commander or moderately-powered 4-mana commander, castable for 2 mana as many times as you like.
-- Liesa, Shroud of Dusk requires paying 2 life for each previous cast instead of 2 mana. In the 40-life format, 1 life for 1 mana makes it basically free. Liesa doesn't come to mind as a chronic tax evader because of The GestureΓÇöadjusting your life total acknowledges your commander has died and this isn't the first time casting her. Liesa commands a modest salt score of 0.8.
-- A weird quirk of the commander format: although power is modulated by social factors and rule 0 tools like the bracket system, power is still strongly felt in how upsetting a card design is. Many unobjectionable designs would become extremely objectionable with a single tweakΓÇöa la 5-life LiesaΓÇöand many objectionable designs would cease to be problems with a nerf to their power level.
-- Ornithopter and great evasive 1-mana creatures get Yuriko into play cheaply. Thousand-faced Shadow, Changeling Outcast, and Mothdust Changeling are also Ninjas; Faerie Seer, Siren Stormtamer, and Hope of Ghirapur have meaningful upside with Yuriko's gameplan. If Yuriko had a ninjutsu cost of 4, it would remain a decent ninjas commander but lose its status as an unstoppable freight train of damage and value.
+- **[01:51]** The line for not paying command tax is actually blurrier than it seems, and more sensitive to the specifics of a given card, with Yuriko's other features being equally important as her unique method of entry in creating her infamous status.
+- **[04:26]** Hogaak feels fine because its payment method still performs the gesture of paying command tax... when other commanders get removed, they're harder to cast, but Yuriko simply isn't.
+- **[03:42]** Graveyard-castable legends like Squee obey the rules of 60 card magic—their function in a 60 card format is identical to commander after the first cast, so they skip out on a large portion of the benefit of the command zone.
+- **[05:41]** Paying 2 mana for a commander repeatedly is inherently powerful: you hit the field early, and subsequent plays leave boatloads of open mana for follow-ups or counterspells. Paying 4 mana for Derevi or 5 for Liesa feels more meaningful as a cost.
+- **[10:36]** Yuriko's text box does a powerful-3-mana or moderate-4-mana commander's worth of work for 2 mana—draw a card and drain each opponent on combat damage—castable as many times as you can pay the ninjutsu cost.
+- **[07:42]** Ornithopter and a ton of great evasive 1-mana creatures—Thousand-faced Shadow, Changeling Outcast, Mothdust Changeling, Faerie Seer, Siren Stormtamer, Hope of Ghirapur—get Yuriko into play and provide the ninjutsu enablers for the deck.
+- **[10:28]** A lot of designs that are unobjectionable now would become extremely objectionable with a single tweak; power is strongly felt in how upsetting a card design is, reflected in EDHREC salt scores.
+- **[14:03]** Cards that are easier than normal to redeploy need to keep 100% uptime in mind—if a commander is disgustingly powerful, it feels especially unpleasant when it's difficult to keep off the board.
 
 ## Tags
 
-**Archetypes/Strategy:** tribal, value-engine
+**Archetypes/Strategy:** tribal, aggro, value-engine
 **Format/Bracket:** cEDH
-**Card Categories:** draw, ramp, removal, counter
+**Card Categories:** draw, removal, counter

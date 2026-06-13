@@ -4,29 +4,29 @@ title: "Patron Deck Reviews!"
 url: "https://www.youtube.com/watch?v=-33FoBSdKfU\u0026list=UUizpFyPoDNfbqJ1hBHnng-g"
 video_id: "-33FoBSdKfU"
 tags:
-  archetype: ["tribal","combo","aristocrats","control","midrange","value-engine"]
+  archetype: ["tribal","aristocrats","combo","control","midrange","value-engine","ramp"]
   bracket: ["Upgraded","Optimized"]
-  card_category: ["ramp","removal","draw","protection","counter","board-wipe","tutor","recursion","finishers","utility"]
-generated_utc: "2026-06-08T21:56:13Z"
+  card_category: ["ramp","removal","draw","finishers","win-cons","counter","protection","board-wipe","tutor","recursion","utility"]
+generated_utc: "2026-06-13T13:23:14Z"
 ---
 
 ## Summary
 
-Patron deck review stream covering four Commander decks. Marwyn, the Nurturer (Elf/Fairy theft): host advises picking one laneΓÇöeither lean tribal with Coat of Arms, Patchwork Banner, and Changelings, or cut tribal payoffs and add flicker/token makers like Ghostly Flicker and Oona; cut counterspells that give opponents card advantage (Arcane Denial) for Counterspell/Perplex; the Oko planeswalkers are weak pet cards. Hapatra-style -1/-1 counters deck: add Cauldron of Souls for protection and card draw, Vexing Shusher over Hexing Squelcher, Beast Within for catch-all removal; cut Maximum Carnage, Lasting Torment, Cinder Strike as low-impact; Moxite Refinery praised. Kymmi enchantress group-slug (Sultai, $150 budget): add mutate utility (Sea Dasher Octopus, Gem Razer) to turn the legendary token non-legendary and reuse ETBs, Pontiff of Blight for extort scaling, World at War K'rrik as budget Wound Reflection; Arcane Laboratory anti-synergizes with Whipsilk/Shimmering Wings. Clive devotion-to-red (bracket 3): prioritize land hits with cheap loot (Tormenting Voice), big ramp (Gilded Lotus, Caged Sun, Extraplanar Lens with snow-covered Mountains), Imperial Recruiter value chains; cut high-cost non-permanents since devotion needs board presence; fork effects weak without enough instants/sorceries.
+A streamer reviews patron Commander decks, giving deckbuilding advice. For a Marwyn Elf/Fairy theft deck, the core lesson is to commit to one game plan: either lean tribal (Coat of Arms, Changelings, Oona) or cut tribal payoffs and add flicker effects and counterspells that don't grant opponents card advantage (avoid Arcane Denial). For an Auntie -1/-1 counter deck, he suggests Cauldron of Souls for protection, notes the Hapatra/Blowfly combo needs a payoff to win, and cuts low-impact burn (Maximum Carnage, Cinder Strike) for protection like Wildwood Den and Beast Within. For a Kymmi enchantment toad deck wanting finishers, he recommends mutate utility creatures (Sea Dasher Octopus, Gemrazer), Extort (Pontiff of Blight, Thrull Parasite), and Wound Reflection / World at War effects to close games. For a Clive red devotion deck, advice centers on hitting land drops with cheap loot spells, big ramp (Gilded Lotus over Thran Dynamo since mono-red), Nykthos, snow-covered Mountains with Extraplanar Lens, value engines (Imperial Recruiter, Flame-Shadow Conjuring), damage doublers as enchantments for devotion, and Reliquary Tower.
 
 ## Key Clips
 
-- This is a classic problem with EDH deck building: you have a commander like this that can lean different ways, and you just need to pick one. What that means is we need to just trim the stuff that isn't the one that you want to pick.
-- On the Marwyn the Nurturer Elf/Fairy deck: you can play Coat of Arms and Changelings to lean into the tribal stuff so your Elf lords and Fairy lords work on the Changelings, or cut all that and go flickery ΓÇö Ghostly Flicker and token-makers like Oona, Queen of the Fae ΓÇö to retrigger the commander.
-- For the Hapatra/-1/-1 counter deck I want to add Cauldron of Souls. It gives your whole team persist, so your commander comes back with a -1/-1 counter and triggers its effect ΓÇö your Kolrath Knights come back and draw you a card. A good way to protect your most important pieces and draw a bunch of cards.
-- Tree of Perdition with Soul Immolation: you swap with the highest player's life total and then deal 40 damage to everybody. It's a late-game combo, but it's funny and not too bad.
-- I like Vexing Shusher more than Hexing Squelcher in casual EDH because with Vexing Shusher you can force your opponents' things through counterspells too ΓÇö target spell can't be countered ΓÇö so if a player is holding a counter and you don't have a board wipe, you play Shusher, then cast your board wipe and make sure it gets through.
-- On the Kymmi enchantment toad deck: Pontiff of Blight gives all your creatures extort. Our curve is low and we play a lot of cheap spells, so in the late game when you cast an enchantment, each creature drains a life, then you dump all your mana into extort to suck them for a ton of life and gain it back ΓÇö a budget Wound Reflection effect.
-- Mutate is good in the Kymmi deck ΓÇö Sea Dasher Octopus and Gem Razer. Because Kymmi is free, you put one Gem Razer on it, get the value, and make a second Kymmi for free; you turn the legendary token non-legendary, make another with a different name, and get extra value.
-- For the Clive mono-red devotion deck: it's mana-hungry, so I want big ramp like Thran Dynamo or Gilded Lotus, plus an Imperial Recruiter value angle ΓÇö Recruiter grabs Jaxis, Jaxis copies Recruiter to fetch Feldon, Anger, Torbran, or Squee to ditch for more value.
+- **[05:50]** This is a classic problem with EDH deck building. You have a commander like this that can lean different ways, and you just need to pick one. What that means is we need to just trim the stuff that isn't the one that you want to pick.
+- **[07:14]** You can play like Coat of Arms and you can play Changelings if you want to lean more into the tribal stuff, and then your Elf lords and your Fairy lords will work on the Changelings. So you just play things that are both types.
+- **[11:08]** Arcane Denial, I mean, come on. We can pick any other counter spell. You can do Perplex or Counterspell. Just stuff that doesn't give your opponents card advantage.
+- **[23:22]** Cauldron of Souls gives your whole team persist. If they don't have a minus one counter, your commander comes back with a counter and triggers its effect. Feels like a good way to protect your most important pieces and then draw a bunch of cards.
+- **[28:26]** I actually like Vexing Shusher more than Hexing Squelcher because with Vexing Shusher you can force your opponent's things through counter spells as well. Let's say a player is holding a counter spell and you don't have a board wipe, you can play Vexing Shusher and make sure your board wipe gets through.
+- **[54:14]** Our curve is low, we're playing a lot of cheap spells. Extort is a way that we can really crank up the damage in the late game. For each creature you have, when you cast your enchantment they lose a life, and then you dump all your mana into it and suck them for a ton of life. And this gains you life, so it makes you really hard to pressure down.
+- **[79:54]** You really want to hit your land drops because your commander is a six-drop. It's a fat mana cost, and he has a six-mana activated ability. Because this is such a mana-hungry deck, I think we want some of the big ramp pieces.
+- **[98:07]** Imperial Recruiter lets you grab Jaxis and then you can use Jaxis to make copies of Imperial Recruiter, which grabs you your Feldon, grabs Dragon Rage Channeler, a bunch of other things. It lets you tutor up Anger which you discard to Jaxis, then you get Torbran. There's a lot of value there.
 
 ## Tags
 
-**Archetypes/Strategy:** tribal, combo, aristocrats, control, midrange, value-engine
+**Archetypes/Strategy:** tribal, aristocrats, combo, control, midrange, value-engine, ramp
 **Format/Bracket:** Upgraded, Optimized
-**Card Categories:** ramp, removal, draw, protection, counter, board-wipe, tutor, recursion, finishers, utility
+**Card Categories:** ramp, removal, draw, finishers, win-cons, counter, protection, board-wipe, tutor, recursion, utility
