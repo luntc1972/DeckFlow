@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
-status: planning
-last_updated: "2026-06-13T14:27:53.074Z"
+status: active
+last_updated: "2026-06-13"
 last_activity: 2026-06-13
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,94 +17,122 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
+See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 39 — architecture-review
+**Current focus:** Phase 41 — Studio Scaffold + Secrets Wiring (first phase, unblocks all Studio work)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-06-13 — Milestone v1.7 started
+Phase: 41 — Studio Scaffold + Secrets Wiring
+Plan: — (not started)
+Status: Ready to plan
+Last activity: 2026-06-13 — v1.7 roadmap created
 
-## Session 2026-06-12 — UI quick-fixes + E2E (all shipped to origin/v1.6)
+```
+Progress: [          ] 0% (0/8 phases)
+```
 
-Codex-impl / Claude-review across the board: primer copy buttons (29cf22e), primer result-scroll (50b3b16), mobile busy-overlay bfcache lockup (0993da0), /about mobile overflow (0d99f2d), admin nav toggle names section (9e771ad), admin KB per-entry delete + Phase-37 confirm/filter regression restore (e3b6ea4), Playwright E2E smoke suite 68/68 + CI (6e8ddff). See `.planning/quick/260611-p9x`, `260612-kb1`, `260612-e2e`.
-Last activity: 2026-06-12
+## Roadmap Summary
 
-## Accumulated Context — Key Decisions (v1.6)
+| # | Phase | Requirements | Status |
+|---|-------|-------------|--------|
+| 41 | Studio Scaffold + Secrets Wiring | STU-01, STU-02, STU-03 | Not started |
+| 42 | Orchestrator Extraction | ORCH-01, ORCH-02 | Not started |
+| 43 | Approval Status + Safe Upsert | REVQ-01, PUB-01, PUB-02 | Not started |
+| 44 | Admin Grid Lazy Paging | GRID-01, GRID-02 | Not started |
+| 45 | Harvest + Distill UI | HARV-01..05 | Not started |
+| 46 | Review Queue + Commit-Publish Path | REVQ-02, REVQ-03, PUB-03 | Not started |
+| 47 | Direct Prod-DB + SCP Publish Path | PUB-04, PUB-05 | Not started |
+| 48 | UI Audit + Remediation | UIR-01, UIR-02, UIR-03 | Not started |
 
-- **D-v1.6-gate (2026-06-10):** Content KB clip-injection re-validation = **MARGINAL**. On the Phase-34-fixed retriever across 5 bracket-spanning decks, lift was cosmetic (soft dims only; 0/5 decks changed a cut/add; 3/5 mild noise). Binding constraint = the corpus (single-creator generic philosophy, `[00:00]` intro-only clips, no deck/card-specific content) — retrieval polish can't reach it. **Decision: skip Phase 36 (no philosophy-profile, no un-dark); RETIRE the whole-channel clip-injection feature; KB stays dark.** Evidence: `.planning/phases/35-value-re-validation-gate/35-GATE-VERDICT.md`.
-- **Retire = DONE in Phase 37** (2026-06-10, RET-01/02/05, verified). Clip-injection + expert-selection paths removed. KB rehabilitated to browse-only + un-darked. (This note previously read "not yet done / Phase 37 = SRP" — stale; corrected 2026-06-12.) The remaining planned phase is **Phase 38 (Controller SRP Split)**.
+**Phase ordering notes:**
+- 41 before everything: secrets have no safe home until .gitignore + user-secrets are wired
+- 42 before 45/46/47: CLI is an executable; orchestration must be in Core before Studio can call it
+- 43 before 46 (approval_status column + filtered export prerequisite) and before 47 (safe upsert prerequisite)
+- 45 before 46: review queue has nothing to show until harvest+distill pipeline runs
+- 46 before 47: direct push is secondary; commit path must be proven first
+- 44 and 48 are independent: no Studio dependency; can run in any order relative to other phases
 
 ## Performance Metrics
 
-**Velocity (v1.5 reference — most recent shipped):**
+**Velocity (v1.6 reference — most recent shipped):**
 
-- 25 plans across 6 phases (2026-06-03 → 2026-06-09, 7 days)
-- Cross-AI execution pattern sustained: Codex codes, Claude reviews
-- Final test gate: Core 282/282, Web 657 pass / 5 PG-skips
+- ~122 commits across 8 phases (2026-06-10 → 2026-06-12, 3 days)
+- Cross-AI execution pattern: Codex codes, Claude reviews
+- Final test gate: Core 320/0, Web 593/0/5-skip; build 0/0
 
-**v1.6 Phase Forecast:**
+**v1.7 Phase Forecast:**
 
-| Phase | Req-IDs | Gate | Notes |
-|-------|---------|------|-------|
-| 34 — KB Retrieval Fix | KBR-01..04 | Unconditional | Algorithmic fix to ContentKbRelevanceService; prompt-injection mitigation; regression tests |
-| 35 — Value Re-Validation Gate | KBV-01..04 | Unconditional | Blind A/B across 3+ decks; binary VALIDATED/MARGINAL verdict; routes Phase 36 |
-| 36 — Creator Philosophy-Profile + KB Un-Dark | PHIL-01..04, KBD-01..02 | **CONDITIONAL on Phase 35 = VALIDATED** | Skipped entirely if gate = MARGINAL |
-| 37 — Controller SRP Split | SRP-01..03 | Unconditional, independent | Runs regardless of gate outcome |
+| Phase | Req-IDs | Key Constraint |
+|-------|---------|---------------|
+| 41 — Studio Scaffold | STU-01..03 | Must be first; Pitfall 3 (secret leakage) is permanent risk if gitignore not wired first |
+| 42 — Orchestrator Extraction | ORCH-01..02 | Architectural blocker; CLI executable cannot be referenced by Studio |
+| 43 — Approval Status + Safe Upsert | REVQ-01, PUB-01..02 | Pitfall 1 (is_visible clobber) + Pitfall 4 (unapproved in seed) require this before publish |
+| 44 — Admin Grid Lazy Paging | GRID-01..02 | Independent quick-win; Pitfall (count aggregate on every page load) |
+| 45 — Harvest + Distill UI | HARV-01..05 | Blazor background-task pattern required (Pitfall 7: circuit blocking); SemaphoreSlim(1) on lister (Pitfall 6) |
+| 46 — Review Queue + Commit-Publish | REVQ-02..03, PUB-03 | Two-stage commit/push (Pitfall 8); LF normalization (Pitfall 10) |
+| 47 — Direct Prod-DB + SCP Publish | PUB-04..05 | File-first ordering: SCP before DB push (Pitfall 2); plan needs Render SSH key setup checklist |
+| 48 — UI Audit + Remediation | UIR-01..03 | Browser screenshots at ≥2 viewports required; grep-only insufficient |
 
 ## Accumulated Context
 
 ### Decisions
 
-- **Gate-driven milestone structure:** Phase 35 is a binary branch point, not a checklist item. VALIDATED → Phase 36 proceeds. MARGINAL → Phase 36 is skipped; pivot decision (fix-again / per-deck pivot / retire) is recorded in VERDICT.md; milestone closes after Phase 37.
-- **Phase 36 is conditional and must not begin before Phase 35 = VALIDATED.** Building the philosophy-profile on an unvalidated retriever is the highest-risk anti-feature identified by Spike 001 research.
-- **Phase 37 is fully independent.** It can run after any gate outcome. Sequenced last to isolate the high-touch DeckController extraction from KB gate work.
-- **Zero new dependencies.** All v1.6 work is deliverable within the existing package set. `OpenAI 2.10.0` already in `DeckFlow.Core.csproj`. Any dependency addition is a scope violation.
-- **Prompt-injection mitigation (KBR-03) must land in Phase 34** — before `content.kb.enabled` is flipped ON. KBD-01 explicitly requires injection mitigation to be live before un-dark.
-- **Blind protocol for Phase 35:** score baseline AI answers first, record scores, then score with-context. Gate-pass criteria: ≥3/4 rubric dimensions score 3+ for majority of decks; no quality loss vs. baseline; at least one dimension 4+; at least 2 distinct video sources for the Atraxa deck.
-- **Phase 36 provenance first:** `ICreatorPhilosophyProfileStore` with non-nullable `source_video_id` + `source_timestamp_s` schema is the first deliverable inside Phase 36. No synthesis before provenance schema is in place.
-- **SRP split discipline:** two-commit discipline on CommandRunners (shared helpers extracted first, then class split, build + test green after each commit). All moved DeckController actions must carry explicit `[Route]` attributes — conventional routing would silently reroute URLs.
-- **Topical-scoring algorithm constants:** threshold constants (commander-name penalty multiplier, relevance floor) should be named constants with rationale, not magic numbers — specified at plan time, not left to implementer judgment.
+- **v1.7 roadmap created 2026-06-13:** 8 phases (41-48), 23/23 requirements mapped.
+- **Granularity:** Config = coarse, but hard ordering constraints from research PITFALLS.md require 8 phases. Compressing below this would merge safety-critical boundaries (secret leakage, is_visible clobber, unapproved entries in seed).
+- **Phase 44 scheduled as independent quick-win:** GRID-01/02 have no Studio dependency and fix an existing live performance issue on /Admin/Harvest. Can be executed at any point.
+- **Phase 48 scheduled last and independent:** UIR-01/02/03 are fully independent of the Studio track and can run in parallel with or after any other phase.
+- **ORCH-01 (Phase 42) closes arch-review Finding C** from the v1.6 backlog (ContentKbCommandRunners god-class split) as a side-effect of v1.7 Studio work.
+- **approval_status column is LOCAL-ONLY:** The column lives only in the local SQLite DB. It is not propagated to prod Postgres by either publish path. Prod DB has no concept of it (confirmed: ARCHITECTURE.md).
+- **No new NuGet packages:** YoutubeExplode 6.6.0 and Npgsql 10.0.0 already in DeckFlow.Core. Git/SCP shell-out via ProcessOutput pattern. No LibGit2Sharp.
+- **Dockerfile stays project-scoped:** `dotnet restore DeckFlow.Web/DeckFlow.Web.csproj` is the restore command in the Dockerfile. Adding Studio to the solution does NOT change this. Adding Studio to .sln is correct; changing restore to solution-level is a constraint violation.
+- **Studio binds to localhost only:** `applicationUrl` in Studio launchSettings.json must be `http://localhost:{port}` only; no LAN exposure.
+- **Corpus-reset not exposed in Studio UI:** `RunCorpusResetAsync` is CLI-only. Emergency operation; exposing it in a UI without typing confirmation is a security mistake (PITFALLS.md).
 
-### Roadmap Evolution
+### Key Pitfalls to Watch (from research/PITFALLS.md)
 
-- v1.6 roadmap created 2026-06-10 (4 phases, 18/18 REQ-IDs mapped, gate-driven branching at Phase 35).
-- Phase 36 merges PHIL-* and KBD-* into one conditional phase — cleaner than two adjacent conditional phases; both have the same gate dependency.
-- Phase 37.6 inserted after Phase 37.5: Harvest Video Block + Hard-Delete (VBLK-01..04): admin block-by-id + hard-delete; harvester skip-check prevents re-ingest
+- **Pitfall 1 (Phase 47):** `UpsertRowAsync` overwrites `is_visible`/`is_evergreen`. Use only `UpsertContentColumnsOnlyAsync` for prod writes. Integration test: set is_visible=TRUE, call new overload, assert unchanged.
+- **Pitfall 2 (Phase 47):** SCP before DB push. Step 2 unreachable if Step 1 failed. File-first ordering enforced in code.
+- **Pitfall 3 (Phase 41):** Secret leakage via appsettings. Gitignore entries before any config file is created. Never log the connection string.
+- **Pitfall 4 (Phase 43/46):** Export-all includes unapproved entries. Filter at query level via GetApprovedRowsAsync.
+- **Pitfall 5 (Phase 45):** Re-distill LLM spend. Dry-run gate required before every distill. Re-distill of known-distilled video shows explicit warning + secondary confirm.
+- **Pitfall 6 (Phase 45):** AngleSharp concurrency. SemaphoreSlim(1) on all IYouTubeChannelVideoLister calls. No Task.WhenAll over lister.
+- **Pitfall 7 (Phase 45):** Blazor circuit blocking on long-running harvest/distill. Use `Task.Run` + `InvokeAsync(StateHasChanged)` + CTS tied to component IDisposable.
+- **Pitfall 8 (Phase 46):** Accidental git push before diff review. Two-stage commit/push with checkbox acknowledge.
+- **Pitfall 9 (Phase 43):** Schema drift local vs prod. EnsureSchemaAsync called at Studio startup on both connections before UI is enabled.
+- **Pitfall 10 (Phase 46):** CRLF in index-seed.json on Windows. Force LF in write step via JsonWriterOptions.NewLine or .Replace.
+
+### Open Research Questions (to resolve during planning)
+
+- **Phase 41:** `dotnet user-secrets` vs env var (`STUDIO_PROD_CONNECTION_STRING`) for prod connection string. Both safe for public repo. Decision needed before Phase 41 plan.
+- **Phase 47:** Render SSH key registration (one-time manual gate) + SCP tar-bundle strategy for >20 files. Plan should include ops checklist.
 
 ### Pending Todos
 
-- Spike001KbValueAbHarness.cs (untracked in repo root `DeckFlow.Web.Tests/`) — delete after Phase 35 verdict is recorded (Phase 35 extends and runs it; file becomes test artifact, not throwaway spike).
-- 15 pre-v1.5 open artifacts (stale 999.6/v13 debug sessions, May quick-task refs, empty todos) — acknowledged cross-milestone cruft; clean via `/gsd-cleanup` when convenient.
+- 15 pre-v1.5 open artifacts (stale 999.x/v13 debug sessions, May quick-task refs, empty todos) — acknowledged cruft; clean via `/gsd-cleanup` when convenient.
 
 ### Blockers/Concerns
 
 - None at roadmap creation.
-- Phase 35 pre-run: corpus feasibility check needed before Phase 36 planning — confirm via `content_videos` query how many substantive (non-rating-series, non-excluded) videos exist per creator. If no creator meets the ~10-video threshold, philosophy-profile scope must be revised at plan time.
-- Phase 36 RAG algorithm: research recommends keyword overlap (Option 1) as the v1.6 baseline for principle relevance scoring at query time; LLM re-ranking (Option 2) is a follow-on. Planner must make this explicit in the Phase 36 plan so Codex does not default to the more expensive path.
 
-### Quick Tasks Completed
+### Quick Tasks Completed (v1.6 era, carried for context)
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260611-p9x | Fix Primer copy buttons (port data-copy-target wiring into primer-selection.ts + Vitest test) | 2026-06-12 | 29cf22e | [260611-p9x-fix-primer-copy-buttons-port-data-copy-t](./quick/260611-p9x-fix-primer-copy-buttons-port-data-copy-t/) |
-| 260612-kb1 | Admin KB per-entry Delete + restore Phase-37-broken page behaviors (filter/confirms/toast) | 2026-06-12 | e3b6ea4 | [260612-kb1-admin-kb-delete-entry](./quick/260612-kb1-admin-kb-delete-entry/) |
-| 260612-e2e | Playwright E2E smoke suite (15 routes × desktop+mobile) + CI stage; 68/68 green | 2026-06-12 | 6e8ddff | [260612-e2e-playwright-smoke](./quick/260612-e2e-playwright-smoke/) |
+| 260611-p9x | Fix Primer copy buttons (port data-copy-target wiring into primer-selection.ts + Vitest test) | 2026-06-12 | 29cf22e | [260611-p9x](./quick/260611-p9x-fix-primer-copy-buttons-port-data-copy-t/) |
+| 260612-kb1 | Admin KB per-entry Delete + restore Phase-37-broken page behaviors (filter/confirms/toast) | 2026-06-12 | e3b6ea4 | [260612-kb1](./quick/260612-kb1-admin-kb-delete-entry/) |
+| 260612-e2e | Playwright E2E smoke suite (15 routes × desktop+mobile) + CI stage; 68/68 green | 2026-06-12 | 6e8ddff | [260612-e2e](./quick/260612-e2e-playwright-smoke/) |
 
 ## Deferred Items
 
-**Resolved in v1.5:**
-
-- ✅ 7 v1.4 VERIFICATION backfill + UAT labels (Phase 28 HSK-03)
-- ✅ P26/P24/dual-tree artifact hygiene (Phase 28 HSK-04)
-- ✅ Core XML-doc backfill + gate widen (Phase 29 HSK-01)
-- ✅ KB-12 codex backend (re-demoted to backlog, D-03)
-- ✅ `content.kb.enabled` proven live at Phase 30 UAT (now OFF by design — v1.6 KBD-01 flips it ON after gate)
-- ✅ Expert-pin injection bug fixed + TDD-covered (`a106c6a`); CI green
+**Resolved in v1.6:**
+- ✅ DeckController + CommandRunners SRP split (Phase 38, SRP-01..03; route-parity + live smoke)
+- ✅ IDeckEntryLoader.LoadFromSourceAsync + IScryfallCardResolver extraction (Phase 39, Finding A)
+- ✅ Core.Tests deterministic: 320/0 (Phase 40)
+- ✅ Retire KB clip-injection (Phase 37, RET-01..05)
+- ✅ KB corpus rebuild high-signal (Phase 37.5)
+- ✅ Harvest video block + hard-delete (Phase 37.6, VBLK-01..04)
 
 **Open / carried forward:**
 
@@ -112,12 +140,14 @@ Last activity: 2026-06-12
 |----------|------|--------|-------------|
 | tech_debt | Gemini paste-limit workaround | DEFERRED (flag-gated `DECKFLOW_GEMINI_ENABLED`) | v1.5 scoping |
 | tech_debt | SpellbookCombo ranking fields (PRM-08) | DEFERRED to v1.7+ | v1.5 Phase 31 |
-| ops | SEL-02 expert-pin live-pin re-confirm | IN SCOPE v1.6 as KBD-02 (conditional on gate pass) | v1.5 close |
-| ops | `content.kb.enabled` OFF — Content KB ships dark | IN SCOPE v1.6 as KBD-01 (conditional on gate pass) | v1.5 close |
+| arch | Finding B: Split CategoryKnowledgeRepository | DEFERRED (backlog) | v1.6 Phase 39 |
+| arch | Finding C: Split ContentKbCommandRunners | PARTIALLY ADDRESSED by v1.7 Phase 42 (ORCH-01) | v1.6 Phase 39 |
+| arch | Findings D-K | DEFERRED (backlog) | v1.6 Phase 39 |
 | housekeeping | 15 pre-v1.5 open artifacts | ACKNOWLEDGED — clean via `/gsd-cleanup` | v1.5 close 2026-06-10 |
+| ops | SEL-02 expert-pin live-pin re-confirm | PENDING — needs KB-enable window | v1.5 close |
 
 ## Session Continuity
 
-Last session: 2026-06-10 — v1.6 roadmap created (gsd-roadmapper).
+Last session: 2026-06-13 — v1.7 roadmap created (gsd-roadmapper).
 Stopped at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-Resume: Start Phase 34 with `/gsd:plan-phase 34`.
+Resume: Start Phase 41 with `/gsd:plan-phase 41`.

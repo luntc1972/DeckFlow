@@ -9,6 +9,7 @@
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
+- 🔵 **v1.7 Local Harvest & Publish Studio** — Phases 41-48 (in progress)
 
 ## Phases
 
@@ -123,8 +124,169 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 </details>
 
+<details>
+<summary>✅ v1.6 Content KB Retrieval Fix + Value Re-Validation (Phases 34-40) — SHIPPED 2026-06-12</summary>
+
+- [x] Phase 34: Content KB Retrieval Fix — KBR-01..04 — completed 2026-06-10
+- [x] Phase 35: Value Re-Validation Gate — KBV-01..04; gate = MARGINAL → Phase 36 skipped — completed 2026-06-10
+- [~] Phase 36: Creator Philosophy-Profile + KB Un-Dark — SKIPPED (gate = MARGINAL; see 35-GATE-VERDICT.md)
+- [x] Phase 37: Retire KB Clip-Injection — RET-01..05 — completed 2026-06-10
+- [x] Phase 37.5: Rebuild KB Corpus — corpus re-distilled high-signal — completed 2026-06-11
+- [x] Phase 37.6: Harvest Video Block + Hard-Delete — VBLK-01..04 — completed 2026-06-11
+- [x] Phase 38: DeckController + CommandRunners SRP Split — SRP-01..03; route-parity + live smoke — completed 2026-06-12
+- [x] Phase 39: Architecture Review Refactor (Finding A) — extract IDeckEntryLoader + IScryfallCardResolver — completed 2026-06-12
+- [x] Phase 40: Core.Tests Health Pass — 320/0 deterministic — completed 2026-06-12
+
+**Stats:** ~122 commits, 2026-06-10 → 2026-06-12. Gate-driven: MARGINAL → retire-pivot. Audit: passed.
+Full archive: `.planning/milestones/v1.6-ROADMAP.md`
+
+</details>
+
 ---
 
+## v1.7 Local Harvest & Publish Studio (Phases 41-48) — IN PROGRESS
+
+**Goal:** A standalone local Blazor Server tool to discover YouTube videos, harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push.
+
+### Phase Checklist
+
+- [ ] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
+- [ ] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item
+- [ ] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths
+- [ ] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source
+- [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
+- [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
+- [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
+- [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
+
+### Phase Details
+
+#### Phase 41: Studio Scaffold + Secrets Wiring
+**Goal**: Operator can run `dotnet run` in DeckFlow.Studio and reach a Blazor Server UI in the browser; secrets are routed through user-secrets and no connection string has a safe path into git
+**Depends on**: Nothing (first phase)
+**Requirements**: STU-01, STU-02, STU-03
+**Success Criteria** (what must be TRUE):
+  1. `dotnet run --project DeckFlow.Studio` starts a Blazor Server app reachable at http://localhost:{port} with a first page rendered
+  2. `dotnet user-secrets list --project DeckFlow.Studio` is the only place the prod Postgres connection string can be stored; no appsettings file in the project tree contains it
+  3. `git log --all -- "**/secrets.json"` returns no commits; `grep -r "postgres\|password\|Host=" DeckFlow.Studio/` returns nothing in tracked files
+  4. `dotnet build DeckFlow.sln` succeeds with the Studio project present; `dotnet restore DeckFlow.Web/DeckFlow.Web.csproj` (Dockerfile path) is unchanged and does not pull in Studio
+**Plans**: TBD
+
+---
+
+#### Phase 42: Orchestrator Extraction
+**Goal**: Harvest, distill, block/unblock, and export domain logic lives in DeckFlow.Core as IContentKbOrchestrator; CLI command behavior is unchanged; Studio can reference Core without referencing CLI
+**Depends on**: Phase 41
+**Requirements**: ORCH-01, ORCH-02
+**Success Criteria** (what must be TRUE):
+  1. DeckFlow.Core contains `IContentKbOrchestrator` and `ContentKbOrchestrator`; all existing CLI `internal static` domain methods have moved to Core
+  2. `ContentKbCommandRunners` public Run*Async methods are thin adapters (construct stores from paths, delegate to orchestrator, convert result to exit code); no domain logic remains in CLI
+  3. All existing CLI tests pass unchanged; `dotnet build DeckFlow.sln` produces 0 errors / 0 new warnings; Core.Tests green
+  4. DeckFlow.Studio can reference Core and call `IContentKbOrchestrator` from a Blazor service with no direct CLI project reference
+**Plans**: TBD
+
+---
+
+#### Phase 43: Approval Status + Safe Upsert
+**Goal**: The content_site_index has an approval_status column that drives the review queue; a safe content-only upsert overload exists that never clobbers is_visible or is_evergreen; the export path is filtered to approved rows only
+**Depends on**: Phase 42
+**Requirements**: REVQ-01, PUB-01, PUB-02
+**Success Criteria** (what must be TRUE):
+  1. `approval_status` column exists on `content_site_index` via the self-healing ALTER migration pattern; column is present after `EnsureSchemaAsync` runs on both a fresh SQLite and a fresh Postgres connection
+  2. `UpsertContentColumnsOnlyAsync` exists on `IContentSiteIndexStore`; an integration test sets `is_visible=TRUE`, calls the new overload, and asserts `is_visible` remains TRUE after the call
+  3. `GetApprovedRowsAsync` returns only rows where `approval_status='approved'`; the seed export calls this method (not `GetAllRowsAsync`), so rejected/pending rows never appear in `index-seed.json`
+  4. The distill pipeline sets newly-inserted `content_site_index` rows to `approval_status='pending'`; rows that existed before the migration are treated as pending (no data loss on migration)
+**Plans**: TBD
+
+---
+
+#### Phase 44: Admin Grid Lazy Paging
+**Goal**: Navigating to /Admin/Harvest no longer runs the slow count+aggregate query synchronously on initial page load; all commander grid pagination happens via AJAX partial requests; the underlying slow query is also fixed with an index
+**Depends on**: Nothing (independent of Studio track)
+**Requirements**: GRID-01, GRID-02
+**Success Criteria** (what must be TRUE):
+  1. Initial GET /Admin/Harvest returns the page skeleton (stats, recent runs, schedule sections) without executing `GetDistinctProcessedCommanderCountAsync` or `GetPagedProcessedCommandersAsync`; the commander grid section is an empty placeholder on first render
+  2. The commander grid populates automatically after page load via a `GET /Admin/Harvest/commanders?page=1` AJAX request; pagination clicks replace only the grid section without a full-page reload
+  3. A partial expression index on `LOWER(commander_name) WHERE processed=1` exists in `CategoryKnowledgeRepository`; the distinct-count query no longer full-scans the table
+  4. The new partial endpoint is guarded by `SameOriginRequestValidator`; direct browser navigation to `/Admin/Harvest/commanders` returns 403
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+#### Phase 45: Harvest + Distill UI
+**Goal**: Operator can discover videos (channel browse or URL/ID paste), see harvested/distilled status per video, and trigger harvest + distill from the Studio UI with live progress and a dry-run spend gate before any LLM cost is incurred
+**Depends on**: Phase 41, Phase 42, Phase 43
+**Requirements**: HARV-01, HARV-02, HARV-03, HARV-04, HARV-05
+**Success Criteria** (what must be TRUE):
+  1. Operator can paste a YouTube channel handle/URL and see a list of that channel's recent videos; each video shows a harvested/distilled status badge; already-harvested videos are visually distinguished before selection
+  2. Operator can paste individual YouTube video URLs or IDs to add specific videos to a queue; videos already in the local DB are flagged as duplicates before harvest runs
+  3. Operator can trigger harvest on selected videos and see live progress updates in the UI without the browser tab freezing; cancelling or closing the tab stops the in-flight operation (CancellationToken wired to component disposal)
+  4. Before distill runs, the operator sees an estimated LLM spend projection (dry-run output); already-distilled videos show a "Re-distill" warning with explicit secondary confirmation before re-queuing; the confirm step is required before `dryRun:false` executes
+  5. Actual spend is shown after distill completes; the monthly cap from the existing spend ledger is enforced; already-distilled videos are not silently re-distilled without the explicit Re-distill flow
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+#### Phase 46: Review Queue + Commit-Publish Path
+**Goal**: Operator can review distilled entries in a queue, approve or reject them, then publish approved entries to deckflow.gg via a git commit with a diff preview and a two-stage commit/push separation that prevents accidental Render auto-deploy
+**Depends on**: Phase 43 (approval_status column + filtered export), Phase 45 (harvest+distill produces entries)
+**Requirements**: REVQ-02, REVQ-03, PUB-03
+**Success Criteria** (what must be TRUE):
+  1. The review queue lists `approval_status='pending'` entries; each entry shows the video summary, timestamped clips, and tags; approving or rejecting an entry immediately updates its status in the queue
+  2. Operator can approve or reject individual entries and batch-approve/reject filtered sets; the queue supports filtering by status (pending/approved/rejected)
+  3. The publish page shows a diff of what will change in `index-seed.json` vs HEAD before any commit is initiated (added/updated/removed row counts from `git diff`)
+  4. Stage 1 (git commit) and Stage 2 (git push) are separate UI actions; Stage 2 requires a checkbox "I have reviewed the diff above" to be checked before the push button is enabled; push does not happen automatically after commit
+  5. The exported `index-seed.json` contains only `approval_status='approved'` rows and is LF-normalized (running `file index-seed.json` on Linux reports `ASCII text`, not `ASCII text, with CRLF line terminators`)
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+#### Phase 47: Direct Prod-DB + SCP Publish Path
+**Goal**: Operator can publish approved entries straight to prod Render Postgres + /data disk without waiting for a Render deploy cycle; the write is file-first (SCP before DB); partial failure surfaces clearly for manual reconcile
+**Depends on**: Phase 43 (UpsertContentColumnsOnlyAsync safe overload), Phase 46 (commit path proven)
+**Requirements**: PUB-04, PUB-05
+**Success Criteria** (what must be TRUE):
+  1. Before any write, the operator sees a diff of approved local rows vs prod Postgres (new/updated rows from querying prod via the user-secrets connection string); no write occurs until the operator explicitly confirms
+  2. Step 1 (SCP artifacts to Render /data) and Step 2 (Postgres upsert) are sequential and gated: the Step 2 button is unreachable unless Step 1 completed successfully; the UI shows each step's success/failure before advancing
+  3. Prod Postgres upsert uses `UpsertContentColumnsOnlyAsync` exclusively; after a direct push, `is_visible` and `is_evergreen` on pre-existing prod rows are unchanged (operator can verify by querying prod before and after)
+  4. If Step 1 or Step 2 fails, the UI displays which rows/files succeeded and which did not, with enough detail for manual reconcile without re-running the full set
+  5. The prod connection string never appears in any log line, UI text, or error message; Studio logs show "Prod connection: configured" / "not configured" only
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+#### Phase 48: UI Audit + Remediation
+**Goal**: The deployed deckflow.gg site reaches ≥20/24 on the 6-pillar visual audit; Color and Typography (the two weakest pillars since v1.0) are improved; all remediation is confirmed in the browser at mobile and desktop viewports before close
+**Depends on**: Nothing (independent of Studio track)
+**Requirements**: UIR-01, UIR-02, UIR-03
+**Success Criteria** (what must be TRUE):
+  1. An updated 6-pillar visual audit document exists with findings scored against the live deployed deckflow.gg site; the v1.0 baseline (16/24) is noted and prioritized findings are labeled HIGH/MEDIUM/LOW
+  2. All HIGH and MEDIUM findings from the audit are remediated; the total audit score reaches ≥20/24
+  3. Each remediated finding is verified with browser screenshots at ≥2 viewports (mobile ≤768px and desktop ≥1024px); no finding is closed on grep or static analysis alone
+  4. Layout CSS changes go into `site-common.css`; new or modified design tokens go into the `:root` block of each guild theme file; no layout rules are added to `site.css`
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+### Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 41. Studio Scaffold + Secrets Wiring | 0/TBD | Not started | - |
+| 42. Orchestrator Extraction | 0/TBD | Not started | - |
+| 43. Approval Status + Safe Upsert | 0/TBD | Not started | - |
+| 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
+| 45. Harvest + Distill UI | 0/TBD | Not started | - |
+| 46. Review Queue + Commit-Publish Path | 0/TBD | Not started | - |
+| 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started | - |
+| 48. UI Audit + Remediation | 0/TBD | Not started | - |
+
+---
 
 ## Backlog
 
@@ -169,13 +331,13 @@ Plans:
 
 See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` (two independent audits).
 - **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M.
-- **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M.
+- **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M. **NOTE: v1.7 Phase 42 (ORCH-01) addresses Finding C as a side-effect by extracting domain logic to Core.**
 - **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L.
 - **E — Relocate misplaced domain logic to `DeckFlow.Core`** (deck-stat classifiers in DeckComparisonService; distill cost/validation in ContentKbCommandRunners). Effort M / Risk L.
 - **F — Strengthen dual-dialect abstraction** (33 `IsPostgres`/`IsSqlite` branches across 7 stores → dialect render methods; remove Web `Feedback*` SQL from Core `IRelationalDialect`). ⚠ Postgres path has no automated test. Effort M / Risk M.
 - **ADR-note tier:** G packet cache-key `IPacketCacheKeyStrategy` · H `IScryfallThrottle` seam · I `IMemoryCache` SizeLimit doc · J `System.CommandLine` beta4 deliberate-pin ADR · K residual test gaps (middleware-ordering integration test; Polly policy-shape assertion).
 
-### Deferred to v1.6+ (per v1.5 scope decision)
+### Deferred to v1.7+ (per v1.5/v1.6 scope decisions)
 
 - **Gemini paste-limit workaround** (`DECKFLOW_GEMINI_ENABLED` stays flag-gated; needs split-message vs direct-API path decision)
 - **SpellbookCombo ranking fields** (PRM-08 — parser drops `manaValueNeeded`/`popularity`/`uses`; priority ranking degraded)
@@ -183,4 +345,4 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 in progress 2026-06-13*

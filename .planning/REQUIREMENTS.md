@@ -75,30 +75,28 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 
 ## Traceability
 
-Which phases cover which requirements. Filled during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STU-01 | TBD | Pending |
-| STU-02 | TBD | Pending |
-| STU-03 | TBD | Pending |
-| ORCH-01 | TBD | Pending |
-| ORCH-02 | TBD | Pending |
-| HARV-01 | TBD | Pending |
-| HARV-02 | TBD | Pending |
-| HARV-03 | TBD | Pending |
-| HARV-04 | TBD | Pending |
-| HARV-05 | TBD | Pending |
-| REVQ-01 | TBD | Pending |
-| REVQ-02 | TBD | Pending |
-| REVQ-03 | TBD | Pending |
-| PUB-01 | TBD | Pending |
-| PUB-02 | TBD | Pending |
-| PUB-03 | TBD | Pending |
-| PUB-04 | TBD | Pending |
-| PUB-05 | TBD | Pending |
-| GRID-01 | TBD | Pending |
-| GRID-02 | TBD | Pending |
-| UIR-01 | TBD | Pending |
-| UIR-02 | TBD | Pending |
-| UIR-03 | TBD | Pending |
+| STU-01 | Phase 41 | Pending |
+| STU-02 | Phase 41 | Pending |
+| STU-03 | Phase 41 | Pending |
+| ORCH-01 | Phase 42 | Pending |
+| ORCH-02 | Phase 42 | Pending |
+| REVQ-01 | Phase 43 | Pending |
+| PUB-01 | Phase 43 | Pending |
+| PUB-02 | Phase 43 | Pending |
+| GRID-01 | Phase 44 | Pending |
+| GRID-02 | Phase 44 | Pending |
+| HARV-01 | Phase 45 | Pending |
+| HARV-02 | Phase 45 | Pending |
+| HARV-03 | Phase 45 | Pending |
+| HARV-04 | Phase 45 | Pending |
+| HARV-05 | Phase 45 | Pending |
+| REVQ-02 | Phase 46 | Pending |
+| REVQ-03 | Phase 46 | Pending |
+| PUB-03 | Phase 46 | Pending |
+| PUB-04 | Phase 47 | Pending |
+| PUB-05 | Phase 47 | Pending |
+| UIR-01 | Phase 48 | Pending |
+| UIR-02 | Phase 48 | Pending |
+| UIR-03 | Phase 48 | Pending |
