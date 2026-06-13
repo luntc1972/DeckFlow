@@ -175,6 +175,12 @@
     const nav = document.querySelector<HTMLElement>('[data-tool-nav]');
     if (!nav) return;
 
+    const menuToggle = nav.querySelector<HTMLButtonElement>('[data-tool-nav-menu-toggle]');
+    menuToggle?.addEventListener('click', () => {
+      const isMenuOpen = nav.classList.toggle('is-menu-open');
+      menuToggle.setAttribute('aria-expanded', isMenuOpen ? 'true' : 'false');
+    });
+
     const closeAllGroups = (): void => {
       nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(group => {
         group.classList.remove('is-open');

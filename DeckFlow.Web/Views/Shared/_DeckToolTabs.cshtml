@@ -9,7 +9,8 @@
     var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
 }
 
-<nav class="tool-nav" aria-label="Deck tools" data-tool-nav>
+<nav id="deck-tool-nav" class="tool-nav" aria-label="Deck tools" data-tool-nav>
+    <button type="button" class="tool-nav__menu-toggle" data-tool-nav-menu-toggle aria-expanded="false" aria-controls="deck-tool-nav" hidden>Tools</button>
     <div class="tool-nav__group @(analyzeActive ? "is-active" : string.Empty)" data-tool-nav-group>
         <button type="button" class="tool-nav__trigger" aria-expanded="false" aria-haspopup="true" data-tool-nav-trigger>
             Analyze
