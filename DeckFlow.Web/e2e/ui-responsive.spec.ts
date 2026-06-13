@@ -73,6 +73,30 @@ test('download-session button is not the primary run-button on mobile', async ({
   expect(downloadBackground).not.toBe(nextBackground);
 });
 
+test('deck primer section groups collapse on mobile', async ({ page }) => {
+  const isMobile = test.info().project.name.includes('mobile');
+  const response = await page.goto('/deck-primer');
+
+  expect(response?.ok()).toBeTruthy();
+
+  const groups = page.locator('details.primer-group');
+  const groupCount = await groups.count();
+
+  expect(groupCount).toBeGreaterThan(1);
+
+  const firstGroup = groups.first();
+  const secondGroup = groups.nth(1);
+
+  if (isMobile) {
+    expect(await firstGroup.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+    expect(await secondGroup.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(false);
+    return;
+  }
+
+  expect(await firstGroup.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+  expect(await secondGroup.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+});
+
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {
   test(`no horizontal overflow on key pages: ${route}`, async ({ page }) => {
     const response = await page.goto(route);
