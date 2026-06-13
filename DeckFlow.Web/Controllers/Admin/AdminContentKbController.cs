@@ -46,11 +46,11 @@ public sealed class AdminContentKbController : Controller
     }
 
     /// <summary>
-    /// Renders the curation grid over ALL index rows (published + hidden) plus the status panel
+    /// Renders the curation grid over ALL index rows (published + unpublished + hidden) plus the status panel
     /// and per-source bulk groups. The status timestamp is max(indexed_utc) honestly labeled as
     /// the index-generation time (D-22D).
     /// </summary>
-    /// <param name="visibilityFilter">Optional entry visibility filter: all, published, or hidden.</param>
+    /// <param name="visibilityFilter">Optional entry visibility filter: all, published, unpublished, or hidden.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpGet("")]
     [HttpGet("Index")]
@@ -69,14 +69,16 @@ public sealed class AdminContentKbController : Controller
                 Source = r.Source,
                 Tags = r.ArchetypeTags.Concat(r.BracketTags).ToArray(),
                 IsVisible = r.IsVisible,
+                IsHidden = r.IsHidden,
                 IsEvergreen = r.IsEvergreen,
             });
 
         entries = normalizedVisibilityFilter switch
         {
             "published" => entries.Where(entry => entry.IsVisible),
-            "hidden" => entries.Where(entry => !entry.IsVisible),
-            _ => entries
+            "unpublished" => entries.Where(entry => !entry.IsVisible && !entry.IsHidden),
+            "hidden" => entries.Where(entry => entry.IsHidden),
+            _ => entries.Where(entry => !entry.IsHidden)
         };
 
         var entryList = entries.ToArray();
@@ -91,6 +93,8 @@ public sealed class AdminContentKbController : Controller
         {
             TotalCount = rows.Count,
             PublishedCount = rows.Count(r => r.IsVisible),
+            UnpublishedCount = rows.Count(r => !r.IsVisible && !r.IsHidden),
+            HiddenCount = rows.Count(r => r.IsHidden),
             SourceCount = sources.Length,
             // D-22D: max(indexed_utc) is the index-GENERATION time, not a reload time.
             IndexGeneratedUtc = rows.Count == 0 ? null : rows.Max(r => r.IndexedUtc),
@@ -121,6 +125,11 @@ public sealed class AdminContentKbController : Controller
             return "hidden";
         }
 
+        if (string.Equals(visibilityFilter, "unpublished", StringComparison.OrdinalIgnoreCase))
+        {
+            return "unpublished";
+        }
+
         return "all";
     }
 
@@ -140,6 +149,25 @@ public sealed class AdminContentKbController : Controller
         }
 
         await _store.SetVisibilityAsync(entryId, visible, cancellationToken).ConfigureAwait(false);
+        TempData[BannerKey] = "Visibility updated.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Hides a single entry by surrogate id. Double-CSRF-guarded.
+    /// </summary>
+    /// <param name="entryId">Surrogate row id.</param>
+    /// <param name="cancellationToken">Request-aborted token.</param>
+    [HttpPost("Hide")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Hide(long entryId, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
+        await _store.SetHiddenAsync(entryId, hidden: true, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = "Visibility updated.";
         return RedirectToAction(nameof(Index));
     }
@@ -204,6 +232,30 @@ public sealed class AdminContentKbController : Controller
         }
 
         await _store.SetVisibilityBySourceAsync(source, visible, cancellationToken).ConfigureAwait(false);
+        TempData[BannerKey] = $"Bulk visibility updated for {source}.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Hides every entry for a given source. Double-CSRF-guarded.
+    /// </summary>
+    /// <param name="source">Source key.</param>
+    /// <param name="cancellationToken">Request-aborted token.</param>
+    [HttpPost("BulkHide")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkHide(string source, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return BadRequest();
+        }
+
+        await _store.SetHiddenBySourceAsync(source, hidden: true, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = $"Bulk visibility updated for {source}.";
         return RedirectToAction(nameof(Index));
     }

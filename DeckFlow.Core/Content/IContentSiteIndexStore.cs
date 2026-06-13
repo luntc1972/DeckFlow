@@ -71,6 +71,15 @@ public interface IContentSiteIndexStore
     Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets hidden state for a single site-index row.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="hidden">Whether the row should be hidden.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated.</returns>
+    Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Deletes a single site-index row.
     /// </summary>
     /// <param name="id">Site-index row identifier.</param>
@@ -103,4 +112,13 @@ public interface IContentSiteIndexStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of rows updated.</returns>
     Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets hidden state for all site-index rows from a source.
+    /// </summary>
+    /// <param name="source">Source name or discriminator.</param>
+    /// <param name="hidden">Whether matching rows should be hidden.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated.</returns>
+    Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default);
 }

@@ -605,6 +605,12 @@ a:hover { text-decoration: underline; }
   background: transparent;
 }
 
+.admin-shell .kb-status--unpublished {
+  color: #b45309;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.10);
+}
+
 .admin-shell .admin-action-form button.danger.is-armed {
   filter: brightness(1.15);
 }

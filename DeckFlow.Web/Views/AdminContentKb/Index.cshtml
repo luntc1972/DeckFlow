@@ -9,6 +9,10 @@
     {
         visibilityFilter = "published"
     });
+    var unpublishedFilterUrl = Url.Action("Index", new
+    {
+        visibilityFilter = "unpublished"
+    });
     var hiddenFilterUrl = Url.Action("Index", new
     {
         visibilityFilter = "hidden"
@@ -22,7 +26,7 @@
 
 <section class="admin-harvest__panel" aria-labelledby="kb-status-heading">
     <h2 id="kb-status-heading">Index Status</h2>
-    <p>@Model.Status.TotalCount entries total (@Model.Status.PublishedCount published)</p>
+    <p>@Model.Status.TotalCount total - @Model.Status.PublishedCount published, @Model.Status.UnpublishedCount unpublished, @Model.Status.HiddenCount hidden</p>
     <p>@Model.Status.SourceCount sources</p>
     <p>
         Index generated:
@@ -76,10 +80,9 @@ else
                                 <input type="hidden" name="visible" value="true" />
                                 <button type="submit" aria-label="Publish all entries from @source.Source">Publish All</button>
                             </form>
-                            <form method="post" asp-action="BulkSetVisibility" class="admin-action-form" data-admin-confirm-twoclick>
+                            <form method="post" asp-action="BulkHide" class="admin-action-form" data-admin-confirm-twoclick>
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="source" value="@source.Source" />
-                                <input type="hidden" name="visible" value="false" />
                                 <button type="submit" class="danger" data-confirm-label="Confirm Hide All"
                                         aria-label="Hide all entries from @source.Source">Hide All</button>
                             </form>
@@ -98,6 +101,7 @@ else
             <div class="admin-kb-toggle" role="tablist" aria-label="Visibility filter">
                 <a class="@(Model.VisibilityFilter == "all" ? "is-active" : null)" href="@allFilterUrl">All</a>
                 <a class="@(Model.VisibilityFilter == "published" ? "is-active" : null)" href="@publishedFilterUrl">Published</a>
+                <a class="@(Model.VisibilityFilter == "unpublished" ? "is-active" : null)" href="@unpublishedFilterUrl">Unpublished</a>
                 <a class="@(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl">Hidden</a>
             </div>
         </div>
@@ -138,25 +142,59 @@ else
                                 {
                                     <span class="kb-status kb-status--published" aria-label="Published">Published</span>
                                 }
-                                else
+                                else if (entry.IsHidden)
                                 {
                                     <span class="kb-status kb-status--hidden" aria-label="Hidden">Hidden</span>
                                 }
+                                else
+                                {
+                                    <span class="kb-status kb-status--unpublished" aria-label="Unpublished">Unpublished</span>
+                                }
                             </td>
                             <td data-label="Action">
-                                <form method="post" asp-action="SetVisibility" class="admin-action-form">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="entryId" value="@entry.Id" />
-                                    <input type="hidden" name="visible" value="@((!entry.IsVisible).ToString().ToLowerInvariant())" />
-                                    @if (entry.IsVisible)
-                                    {
+                                @if (entry.IsVisible)
+                                {
+                                    <form method="post" asp-action="SetVisibility" class="admin-action-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="entryId" value="@entry.Id" />
+                                        <input type="hidden" name="visible" value="false" />
                                         <button type="submit" aria-label="Unpublish '@entry.Title'">Unpublish</button>
-                                    }
-                                    else
-                                    {
+                                    </form>
+                                    <form method="post" asp-action="Hide" class="admin-action-form" data-admin-confirm-twoclick>
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="entryId" value="@entry.Id" />
+                                        <button type="submit" class="danger" data-confirm-label="Confirm hide" aria-label="Hide '@entry.Title'">Hide</button>
+                                    </form>
+                                }
+                                else if (entry.IsHidden)
+                                {
+                                    <form method="post" asp-action="SetVisibility" class="admin-action-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="entryId" value="@entry.Id" />
+                                        <input type="hidden" name="visible" value="true" />
                                         <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
-                                    }
-                                </form>
+                                    </form>
+                                    <form method="post" asp-action="SetVisibility" class="admin-action-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="entryId" value="@entry.Id" />
+                                        <input type="hidden" name="visible" value="false" />
+                                        <button type="submit" aria-label="Unpublish '@entry.Title'">Unpublish</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-action="SetVisibility" class="admin-action-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="entryId" value="@entry.Id" />
+                                        <input type="hidden" name="visible" value="true" />
+                                        <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
+                                    </form>
+                                    <form method="post" asp-action="Hide" class="admin-action-form" data-admin-confirm-twoclick>
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="entryId" value="@entry.Id" />
+                                        <button type="submit" class="danger" data-confirm-label="Confirm hide" aria-label="Hide '@entry.Title'">Hide</button>
+                                    </form>
+                                }
                                 <form method="post" asp-action="SetEvergreen" class="admin-action-form">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="entryId" value="@entry.Id" />

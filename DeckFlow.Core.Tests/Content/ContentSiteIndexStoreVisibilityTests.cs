@@ -36,13 +36,14 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
     [Fact]
     public async Task UpsertRowPreservingVisibilityAsync_NewRowsAreHiddenAndAllRowsIncludesThem()
     {
-        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-hidden") with { IsVisible = true });
+        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-hidden") with { IsVisible = true, IsHidden = true });
 
         var allRows = await _store.GetAllRowsAsync();
         var publishedRows = await _store.GetPublishedRowsAsync();
 
         var row = Assert.Single(allRows);
         Assert.False(row.IsVisible);
+        Assert.False(row.IsHidden);
         Assert.Empty(publishedRows);
     }
 
@@ -66,6 +67,7 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
 
         Assert.NotNull(row);
         Assert.True(row!.IsVisible);
+        Assert.False(row.IsHidden);
         Assert.Equal("Updated title", row.Title);
         Assert.Equal("content-kb/command-zone/yt-preserve-v2.md", row.ArtifactPath);
         Assert.Equal(new[] { "stax" }, row.ArchetypeTags);
@@ -89,6 +91,7 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         Assert.Equal(2, allRows.Count);
         Assert.NotNull(byId);
         Assert.True(byId!.IsVisible);
+        Assert.False(byId.IsHidden);
     }
 
     [Fact]
@@ -113,19 +116,66 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         var row = Assert.Single(sourceBOnly);
         Assert.Equal("Source B", row.Source);
         Assert.True(row.IsVisible);
+        Assert.False(row.IsHidden);
     }
 
     [Fact]
-    public async Task EnsureSchemaAsync_AddsIsVisibleToLegacySchema_AndPreservesVisibilityOnReupsert()
+    public async Task SetHiddenAsync_AndSetVisibilityAsync_EnforceTriStateInvariant()
+    {
+        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-hidden-toggle"));
+        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-hidden-toggle");
+        Assert.NotNull(row);
+
+        Assert.Equal(1, await _store.SetVisibilityAsync(row!.Id, visible: true));
+        Assert.Equal(1, await _store.SetHiddenAsync(row.Id, hidden: true));
+
+        var hidden = await _store.GetByIdAsync(row.Id);
+        Assert.NotNull(hidden);
+        Assert.True(hidden!.IsHidden);
+        Assert.False(hidden.IsVisible);
+
+        Assert.Equal(1, await _store.SetVisibilityAsync(row.Id, visible: false));
+        var unpublished = await _store.GetByIdAsync(row.Id);
+        Assert.NotNull(unpublished);
+        Assert.False(unpublished!.IsVisible);
+        Assert.False(unpublished.IsHidden);
+    }
+
+    [Fact]
+    public async Task UpsertRowPreservingVisibilityAsync_PreservesIsHidden_OnExistingHiddenRow()
+    {
+        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-hidden-preserve"));
+        var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-hidden-preserve");
+        Assert.NotNull(inserted);
+        Assert.Equal(1, await _store.SetHiddenAsync(inserted!.Id, hidden: true));
+
+        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow(
+            "yt-hidden-preserve",
+            title: "Updated hidden title",
+            artifactPath: "content-kb/command-zone/yt-hidden-preserve-v2.md"));
+
+        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-hidden-preserve");
+
+        Assert.NotNull(row);
+        Assert.True(row!.IsHidden);
+        Assert.False(row.IsVisible);
+        Assert.Equal("Updated hidden title", row.Title);
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_AddsVisibilityColumnsToLegacySchema_AndPreservesVisibilityOnReupsert()
     {
         await CreateLegacySchemaAsync();
         Assert.False(await ColumnExistsAsync("is_visible"));
+        Assert.False(await ColumnExistsAsync("is_hidden"));
 
         await _store.EnsureSchemaAsync();
         Assert.True(await ColumnExistsAsync("is_visible"));
+        Assert.True(await ColumnExistsAsync("is_hidden"));
         var legacy = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-legacy");
         Assert.NotNull(legacy);
         Assert.False(legacy!.IsVisible);
+        Assert.False(legacy.IsHidden);
 
         await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow(
             "yt-migrated",
@@ -142,6 +192,7 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
 
         Assert.NotNull(row);
         Assert.True(row!.IsVisible);
+        Assert.False(row.IsHidden);
         Assert.Equal("Migrated updated", row.Title);
     }
 
@@ -152,7 +203,9 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         var sqlite = GetPrivateSql("SqliteCreateTableSql");
 
         Assert.Contains("is_visible         BOOLEAN NOT NULL DEFAULT FALSE", postgres, StringComparison.Ordinal);
+        Assert.Contains("is_hidden          BOOLEAN NOT NULL DEFAULT FALSE", postgres, StringComparison.Ordinal);
         Assert.Contains("is_visible         INTEGER NOT NULL DEFAULT 0", sqlite, StringComparison.Ordinal);
+        Assert.Contains("is_hidden          INTEGER NOT NULL DEFAULT 0", sqlite, StringComparison.Ordinal);
     }
 
     private async Task CreateLegacySchemaAsync()

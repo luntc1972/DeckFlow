@@ -434,6 +434,9 @@ public sealed class BlockedVideoStoreTests : IDisposable
         public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default)
         {
             _operations.Add($"delete-index:{id}");
@@ -444,6 +447,9 @@ public sealed class BlockedVideoStoreTests : IDisposable
             => throw new NotImplementedException();
 
         public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 }

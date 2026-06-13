@@ -31,14 +31,14 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
         PlainUpserts.Add(row);
-        Rows.Add(row);
+        Rows.Add(ApplyInvariant(row));
         return Task.CompletedTask;
     }
 
     public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
         PreservingUpserts.Add(row);
-        Rows.Add(row);
+        Rows.Add(ApplyInvariant(row));
         return Task.CompletedTask;
     }
 
@@ -66,7 +66,26 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         {
             if (Rows[i].Id == id)
             {
-                Rows[i] = Rows[i] with { IsVisible = visible };
+                Rows[i] = ApplyInvariant(Rows[i] with { IsVisible = visible, IsHidden = false });
+                count++;
+            }
+        }
+
+        return Task.FromResult(count);
+    }
+
+    public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default)
+    {
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            if (Rows[i].Id == id)
+            {
+                Rows[i] = ApplyInvariant(Rows[i] with
+                {
+                    IsHidden = hidden,
+                    IsVisible = hidden ? false : Rows[i].IsVisible
+                });
                 count++;
             }
         }
@@ -104,11 +123,33 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         {
             if (Rows[i].Source == source)
             {
-                Rows[i] = Rows[i] with { IsVisible = visible };
+                Rows[i] = ApplyInvariant(Rows[i] with { IsVisible = visible, IsHidden = false });
                 count++;
             }
         }
 
         return Task.FromResult(count);
     }
+
+    public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
+    {
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            if (Rows[i].Source == source)
+            {
+                Rows[i] = ApplyInvariant(Rows[i] with
+                {
+                    IsHidden = hidden,
+                    IsVisible = hidden ? false : Rows[i].IsVisible
+                });
+                count++;
+            }
+        }
+
+        return Task.FromResult(count);
+    }
+
+    private static ContentSiteIndexRow ApplyInvariant(ContentSiteIndexRow row)
+        => row.IsVisible ? row with { IsHidden = false } : row;
 }

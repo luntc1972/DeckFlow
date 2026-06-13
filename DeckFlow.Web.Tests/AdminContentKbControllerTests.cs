@@ -37,13 +37,28 @@ public sealed class AdminContentKbControllerTests
     public async Task SetVisibility_SameOrigin_FlipsRow_AndRedirects()
     {
         var store = new FakeContentSiteIndexStore();
-        store.Rows.Add(Row(1, visible: false));
+        store.Rows.Add(Row(1, visible: false, hidden: true));
         var controller = Build(store, out _, crossOrigin: false);
 
         var result = await controller.SetVisibility(1, visible: true, default);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.True(store.Rows[0].IsVisible);
+        Assert.False(store.Rows[0].IsHidden);
+    }
+
+    [Fact]
+    public async Task Hide_SameOrigin_SetsHidden_AndClearsVisible()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Hide(1, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.False(store.Rows[0].IsVisible);
+        Assert.True(store.Rows[0].IsHidden);
     }
 
     [Fact]
@@ -86,6 +101,20 @@ public sealed class AdminContentKbControllerTests
     }
 
     [Fact]
+    public async Task BulkHide_CrossOrigin_Returns403()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        var controller = Build(store, out _, crossOrigin: true);
+
+        var result = await controller.BulkHide("EDHRECast", default);
+
+        AssertForbidden(result);
+        Assert.True(store.Rows[0].IsVisible);
+        Assert.False(store.Rows[0].IsHidden);
+    }
+
+    [Fact]
     public async Task ReloadSeed_CrossOrigin_Returns403_AndDoesNotReload()
     {
         var store = new FakeContentSiteIndexStore();
@@ -117,14 +146,17 @@ public sealed class AdminContentKbControllerTests
         var store = new FakeContentSiteIndexStore();
         store.Rows.Add(Row(1, visible: true, indexed: new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero)));
         store.Rows.Add(Row(2, visible: false, indexed: new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero)));
+        store.Rows.Add(Row(3, visible: false, hidden: true, indexed: new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)));
         var controller = Build(store, out _, crossOrigin: false);
 
         var result = await controller.Index(cancellationToken: default);
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
-        Assert.Equal(2, model.Status.TotalCount);
+        Assert.Equal(3, model.Status.TotalCount);
         Assert.Equal(1, model.Status.PublishedCount);
+        Assert.Equal(1, model.Status.UnpublishedCount);
+        Assert.Equal(1, model.Status.HiddenCount);
         Assert.Equal(new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero), model.Status.IndexGeneratedUtc);
     }
 
@@ -160,11 +192,68 @@ public sealed class AdminContentKbControllerTests
     }
 
     [Fact]
+    public async Task Index_WithVisibilityFilterUnpublished_ReturnsOnlyUnpublishedEntries()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        store.Rows.Add(Row(2, visible: false));
+        store.Rows.Add(Row(3, visible: false, hidden: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(visibilityFilter: "unpublished", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("unpublished", model.VisibilityFilter);
+        var entry = Assert.Single(model.Entries);
+        Assert.False(entry.IsVisible);
+        Assert.False(entry.IsHidden);
+    }
+
+    [Fact]
+    public async Task Index_WithVisibilityFilterHidden_ReturnsOnlyHiddenEntries()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        store.Rows.Add(Row(2, visible: false));
+        store.Rows.Add(Row(3, visible: false, hidden: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(visibilityFilter: "hidden", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("hidden", model.VisibilityFilter);
+        var entry = Assert.Single(model.Entries);
+        Assert.True(entry.IsHidden);
+        Assert.False(entry.IsVisible);
+    }
+
+    [Fact]
+    public async Task Index_WithVisibilityFilterAll_ExcludesHiddenEntries()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true));
+        store.Rows.Add(Row(2, visible: false));
+        store.Rows.Add(Row(3, visible: false, hidden: true));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(visibilityFilter: "all", cancellationToken: default);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<AdminContentKbViewModel>(view.Model);
+        Assert.Equal("all", model.VisibilityFilter);
+        Assert.Equal(2, model.Entries.Count);
+        Assert.DoesNotContain(model.Entries, entry => entry.IsHidden);
+    }
+
+    [Fact]
     public async Task Index_WithInvalidVisibilityFilter_FallsBackToAllEntries()
     {
         var store = new FakeContentSiteIndexStore();
         store.Rows.Add(Row(1, visible: true));
         store.Rows.Add(Row(2, visible: false));
+        store.Rows.Add(Row(3, visible: false, hidden: true));
         var controller = Build(store, out _, crossOrigin: false);
 
         var result = await controller.Index(visibilityFilter: "garbage", cancellationToken: default);
@@ -214,7 +303,7 @@ public sealed class AdminContentKbControllerTests
         return controller;
     }
 
-    private static ContentSiteIndexRow Row(long id, bool visible, DateTimeOffset? indexed = null)
+    private static ContentSiteIndexRow Row(long id, bool visible, bool hidden = false, DateTimeOffset? indexed = null)
         => new()
         {
             Id = id,
@@ -228,6 +317,7 @@ public sealed class AdminContentKbControllerTests
             CardCategoryTags = Array.Empty<string>(),
             YoutubeVideoId = "x" + id,
             IsVisible = visible,
+            IsHidden = hidden,
         };
 
     private sealed class StubTempDataProvider : ITempDataProvider
