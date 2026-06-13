@@ -209,7 +209,12 @@ public partial class Program
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
                     | ForwardedHeaders.XForwardedProto
                     | ForwardedHeaders.XForwardedHost;
-                // Default loopback entries (127.0.0.1, ::1) preserved - do NOT call Clear().
+                // Why: Render/Cloudflare proxy hops are not loopback, so the default KnownIPNetworks/KnownProxies
+                // would cause ForwardedHeadersMiddleware to ignore X-Forwarded-Proto and leave Request.Scheme=http
+                // (breaks https canonical/OG URLs + HTTPS redirect + same-origin CSRF). The container is only
+                // reachable via Render's ingress, so trusting the forwarded headers here is safe.
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
             });
 
             builder.Services.AddRateLimiter(options =>
