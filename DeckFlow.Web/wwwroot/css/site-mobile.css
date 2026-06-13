@@ -428,6 +428,27 @@
     align-items: center;
     min-height: 44px;
   }
+
+  /* mobile UI phase 2: polish */
+  .help-index__list {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .help-index__item {
+    margin: 0;
+  }
+
+  .help-index__link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.7rem 0;
+  }
+
+  .feedback-panel {
+    margin-top: 0.5rem;
+  }
 }
 
 @media (max-width: 480px) {

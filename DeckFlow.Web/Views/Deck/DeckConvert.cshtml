@@ -47,7 +47,6 @@
                 <option value="PublicUrl" selected="@(inputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? "selected" : null)">Public deck URL</option>
             </select>
         </label>
-        <button type="submit" class="run-button">Convert</button>
         <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/convert")">Clear</button>
     </div>
 
@@ -79,6 +78,10 @@
                data-commander-search="@Url.Content("~/convert/commander-search")" />
         <datalist id="commander-suggestions"></datalist>
     </label>
+
+    <div class="toolbar">
+        <button type="submit" class="run-button">Convert</button>
+    </div>
 </form>
 
 @if (!string.IsNullOrWhiteSpace(Model.ConvertedText))
