@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Content KB Retrieval Fix + Value Re-Validation
-status: executing
-stopped_at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated.
-last_updated: "2026-06-12T18:29:49.607Z"
-last_activity: 2026-06-12
+milestone: v1.7
+milestone_name: Local Harvest & Publish Studio
+status: planning
+last_updated: "2026-06-13T14:27:53.074Z"
+last_activity: 2026-06-13
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 19
-  completed_plans: 16
-  percent: 75
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,16 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-10 after v1.5 milestone)
 
 ## Current Position
 
-Phase: 39 (architecture-review) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 39
-Reqs: SRP-01/02/03 pending.
-Next: `/gsd-plan-phase 38` (Codex-reviewed) → execute (Codex impl / Claude review).
-
-FOLLOW-ONS (operator, not dev blockers):
-
-- Prod KB go-live: deploy new content-kb/ artifacts + index-seed.json → prod /Admin publish 7 survivors (from Phase 37.5).
-- Phase 37.5 prod seed + publish still OPEN.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-13 — Milestone v1.7 started
 
 ## Session 2026-06-12 — UI quick-fixes + E2E (all shipped to origin/v1.6)
 

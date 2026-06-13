@@ -12,7 +12,23 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** v1.6 Content KB Retrieval Fix + Value Re-Validation (2026-06-12) — 8 phases (34, 35, 37, 37.5, 37.6, 38, 39, 40; 36 SKIPPED — gate marginal), ~122 commits, 2026-06-10→06-12. Gate-driven: the KB value A/B gate (Phase 35) returned **MARGINAL**, triggering the recorded retire-pivot — whole-channel clip-injection into prompts was removed (Phase 37), the KB kept browse-only and its corpus rebuilt high-signal (37.5) with admin block/hard-delete (37.6). Closed with the long-deferred SRP split: DeckController → 8 focused controllers + CommandRunners → 3 classes (38, route-parity proven + live smoke), an architecture-review refactor extracting `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` from the 4 packet services (39, Finding A), and a Core.Tests health pass (40). Milestone audit: **passed**. Tests green + deterministic: Core 320/0, Web 593/0/5-skip; build 0/0. Content KB remains **dark in prod** (browse-only; injection retired).
 
-**Next:** v1.7 TBD (set via `/gsd:new-milestone`). Candidate backlog: architecture-review findings B–K (CategoryKnowledgeRepository + ContentKbCommandRunners god-class splits, `Services/` foldering, dual-dialect cleanup) from `.planning/milestones/v1.6-ROADMAP.md` + `39-AUDIT`; prod KB-seed go-live (deploy-stage); Gemini paste-limit + SpellbookCombo ranking (PRM-08) still deferred.
+**Next:** v1.7 Local Harvest & Publish Studio — in planning (see Current Milestone below). Deferred backlog (not this milestone): architecture-review findings B–K (CategoryKnowledgeRepository + ContentKbCommandRunners god-class splits, `Services/` foldering, dual-dialect cleanup) from `.planning/milestones/v1.6-ROADMAP.md` + `39-AUDIT`; Gemini paste-limit + SpellbookCombo ranking (PRM-08) still deferred.
+
+## Current Milestone: v1.7 Local Harvest & Publish Studio
+
+**Goal:** A standalone local tool to discover YouTube videos (search/browse by creator + paste URLs/IDs), harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push (mechanism chosen after research).
+
+**Target features:**
+
+- Standalone local app, decoupled from the deployed site (host tech TBD by research)
+- YouTube discovery: in-app channel/video search+browse (Data API v3) **and** paste URLs/IDs
+- Harvest + distill pipeline reuse (DeckFlow.Core stores / CLI `ContentKbCommandRunners`)
+- Review/approve queue over distilled content before publish (preview clips/tags, approve/reject)
+- Dual publish paths: commit-then-deploy seed export **and** direct prod-DB write (research recommends primary)
+- Visibility/curation control carried into publish (is_visible / pin / evergreen)
+- Admin `/Admin/Harvest` commander-deck grid perf: on-demand (lazy/AJAX) page loads + fix slow initial load (grid already server-pages via `GetPagedProcessedCommandersAsync`; bottleneck is count/aggregate or render — root-cause in planning)
+
+**Key context:** Builds on the existing local-CLI KB pipeline (harvest→distill→seed export→commit→Render loader). This session manually did the seed re-export+commit (`7a0158f`); this milestone gives that a GUI + a direct-push option. Constraints: public repo (no secrets in commits), Render Postgres + `/data` disk, prod-DB direct write is a NEW authenticated path that does not exist today.
 
 ## Shipped Milestone: v1.6 Content KB Retrieval Fix + Value Re-Validation (SHIPPED 2026-06-12 — archived, see `.planning/milestones/v1.6-ROADMAP.md`)
 
@@ -124,7 +140,7 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 
 <!-- Planning next milestone — fresh REQUIREMENTS.md created via /gsd-new-milestone. -->
 
-- v1.6 Content KB Retrieval Fix + Value Re-Validation — scoped in `.planning/REQUIREMENTS.md` (gate-driven; see Current Milestone above)
+- v1.7 Local Harvest & Publish Studio — scoping in `.planning/REQUIREMENTS.md` (see Current Milestone above)
 
 ### Out of Scope
 
@@ -263,4 +279,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-06-10 — v1.6 milestone started (Content KB Retrieval Fix + Value Re-Validation)*
+*Last updated: 2026-06-13 — v1.7 milestone started (Local Harvest & Publish Studio)*
