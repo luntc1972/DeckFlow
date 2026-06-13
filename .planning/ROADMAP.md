@@ -184,11 +184,12 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   2. `ContentKbCommandRunners` public Run*Async methods are thin adapters (construct stores from paths, delegate to orchestrator, convert result to exit code); no domain logic remains in CLI
   3. All existing CLI tests pass unchanged; `dotnet build DeckFlow.sln` produces 0 errors / 0 new warnings; Core.Tests green
   4. DeckFlow.Studio can reference Core and call `IContentKbOrchestrator` from a Blazor service with no direct CLI project reference
-**Plans**: 4 plans (4 waves: contracts / impl / adapters / Studio smoke)
-- [ ] 42-01-PLAN.md — IContentKbOrchestrator facade + sub-interfaces + result records + progress sink (Wave 1)
+**Plans**: 5 plans (4 waves: contracts / impl / adapters + DI + anchor / Studio smoke + parity tests)
+- [ ] 42-01-PLAN.md — IContentKbOrchestrator facade + sub-interfaces + null-safe result records + synchronous progress sink (Wave 1)
 - [ ] 42-02-PLAN.md — Lift CLI domain bodies into ContentKbOrchestrator + consolidate validators/constants D-07 (Wave 2)
-- [ ] 42-03-PLAN.md — CLI thin adapters + AddContentKbOrchestrator() DI ext + re-point test anchor D-09 (Wave 3)
-- [ ] 42-04-PLAN.md — Studio smoke service resolves+calls orchestrator, no CLI ref D-08 (Wave 4)
+- [ ] 42-03-PLAN.md — CLI thin adapters + AddContentKbOrchestrator() DI ext (forwards all slices) + re-point test anchor + Throwing* doubles D-09 (Wave 3)
+- [ ] 42-04-PLAN.md — Studio smoke service resolves IContentMaintenanceOrchestrator slice + full ctor wired with real local SQLite stores, no CLI ref D-08 (Wave 4)
+- [ ] 42-05-PLAN.md — CLI exit-code/output parity tests + byte-identical JSON-seed golden-fixture test (Wave 4)
 
 ---
 
