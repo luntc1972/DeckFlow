@@ -46,20 +46,78 @@
     margin-right: 0;
   }
 
+  /* mobile UI phase 1: compact header, secondary download CTA, tighter form chrome */
+  .page-header {
+    align-items: center;
+  }
+
   .theme-picker {
-    flex: 1 1 100%;
+    order: 3;
+    flex: 0 1 auto;
+    width: auto;
     max-width: 100%;
+    min-height: 44px;
+    margin-left: 0;
   }
 
   .theme-picker__select,
   .theme-picker .df-select {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: none;
+    flex: 0 1 auto;
+    min-width: 8.75rem;
+    max-width: 9.5rem;
   }
 
   .theme-picker .df-select__trigger {
     width: 100%;
+    min-height: 44px;
+  }
+
+  .chatgpt-sticky-download {
+    position: static;
+    top: auto;
+    align-items: flex-start;
+    padding: 0.75rem 0.85rem;
+    box-shadow: none;
+  }
+
+  .chatgpt-sticky-download__button {
+    min-height: 44px;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent-strong, var(--accent));
+    box-shadow: none;
+  }
+
+  .chatgpt-sticky-download__button:hover,
+  .chatgpt-sticky-download__button:focus-visible {
+    border-color: var(--accent);
+    background: rgba(43, 108, 176, 0.08);
+    color: var(--accent);
+  }
+
+  textarea {
+    min-height: 6rem;
+    max-height: 10rem;
+    overflow: auto;
+  }
+
+  .result-panel textarea,
+  .field textarea,
+  .sync-column textarea {
+    min-height: 6rem;
+  }
+
+  .run-button,
+  .clear-cache-button,
+  select,
+  .df-select__trigger {
+    min-height: 44px;
+  }
+
+  .result-panel,
+  .chatgpt-step-panel {
+    padding: 0.85rem;
   }
 
   .tool-nav {
