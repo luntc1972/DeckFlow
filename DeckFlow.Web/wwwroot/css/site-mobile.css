@@ -197,6 +197,30 @@
     overflow-wrap: anywhere;
   }
 
+  /* mobile UI phase 2: home hub */
+  .hub-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .hub-card {
+    min-height: 8.75rem;
+  }
+
+  .hub-hero--primary {
+    border-color: var(--accent);
+    border-left-color: var(--accent-strong, var(--accent));
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--panel)) 0%, var(--panel) 100%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .hub-hero--primary:hover,
+  .hub-hero--primary:focus-visible {
+    border-color: var(--accent-strong, var(--accent));
+    box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08), 0 0 0 1px color-mix(in srgb, var(--accent-strong, var(--accent)) 28%, transparent);
+  }
+
   .page-footer {
     padding-right: 1rem;
   }
