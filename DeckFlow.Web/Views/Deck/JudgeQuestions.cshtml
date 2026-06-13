@@ -76,14 +76,17 @@
     </div>
 
     <div class="field-grid">
-        <div class="field">
-            <label for="judge-question-card">Reference card (optional)</label>
-            <div class="autocomplete-anchor">
-                <input id="judge-question-card" type="text" spellcheck="false" autocomplete="off"
-                       placeholder="Start typing 4+ characters" value="@prefilledName" data-judge-card-input />
+        <details class="judge-optional-ref" open>
+            <summary class="judge-optional-ref__summary">Reference card (optional)</summary>
+            <div class="field">
+                <label class="sr-only" for="judge-question-card">Reference card (optional)</label>
+                <div class="autocomplete-anchor">
+                    <input id="judge-question-card" type="text" spellcheck="false" autocomplete="off"
+                           placeholder="Start typing 4+ characters" value="@prefilledName" data-judge-card-input />
+                </div>
+                <small class="sync-column__hint">If filled, the card's Oracle text and rulings are fetched and embedded in the prompt.</small>
             </div>
-            <small class="sync-column__hint">If filled, the card's Oracle text and rulings are fetched and embedded in the prompt.</small>
-        </div>
+        </details>
         <label class="field">
             <span>Your question</span>
             <textarea autocomplete="off" id="judge-question-text" rows="4" spellcheck="false"
@@ -93,7 +96,7 @@
     </div>
 
     <div class="toolbar">
-        <button type="button" class="run-button" data-judge-generate>Generate Prompt</button>
+        <button type="button" class="clear-cache-button" data-judge-generate>Generate Prompt</button>
         <button type="button" class="clear-cache-button" data-judge-clear>Clear</button>
     </div>
 
