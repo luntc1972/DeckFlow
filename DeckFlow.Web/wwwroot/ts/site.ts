@@ -175,6 +175,12 @@
     const nav = document.querySelector<HTMLElement>('[data-tool-nav]');
     if (!nav) return;
 
+    const menuToggle = nav.querySelector<HTMLButtonElement>('[data-tool-nav-menu-toggle]');
+    menuToggle?.addEventListener('click', () => {
+      const isMenuOpen = nav.classList.toggle('is-menu-open');
+      menuToggle.setAttribute('aria-expanded', isMenuOpen ? 'true' : 'false');
+    });
+
     const closeAllGroups = (): void => {
       nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(group => {
         group.classList.remove('is-open');
@@ -212,13 +218,93 @@
     });
   };
 
+  const collapsePrimerGroupsOnMobile = (): void => {
+    if (!window.matchMedia('(max-width: 600px)').matches) {
+      return;
+    }
+
+    const groups = Array.from(document.querySelectorAll<HTMLDetailsElement>('details.primer-group'));
+    if (groups.length === 0) {
+      return;
+    }
+
+    groups.forEach((group, index) => {
+      if (index === 0) {
+        group.setAttribute('open', '');
+        return;
+      }
+
+      group.removeAttribute('open');
+    });
+  };
+
+  const collapseKbFiltersOnMobile = (): void => {
+    if (!window.matchMedia('(max-width: 600px)').matches) {
+      return;
+    }
+
+    const filters = document.querySelector<HTMLDetailsElement>('details.kb-filters');
+    if (filters === null) {
+      return;
+    }
+
+    filters.removeAttribute('open');
+  };
+
+  const collapseJudgeOptionalRefOnMobile = (): void => {
+    if (!window.matchMedia('(max-width: 600px)').matches) {
+      return;
+    }
+
+    const optionalRef = document.querySelector<HTMLDetailsElement>('details.judge-optional-ref');
+    if (optionalRef === null) {
+      return;
+    }
+
+    optionalRef.removeAttribute('open');
+  };
+
+  const attachContentKbCardNavigation = (): void => {
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest('a, button, input')) {
+        return;
+      }
+
+      const card = target.closest<HTMLElement>('[data-kb-entry]');
+      if (card === null) {
+        return;
+      }
+
+      const titleLink = card.querySelector<HTMLAnchorElement>('.hub-card__title a[href]');
+      const href = titleLink?.href;
+      if (!href) {
+        return;
+      }
+
+      window.location.assign(href);
+    });
+  };
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
   document.addEventListener('DOMContentLoaded', attachToolNav);
+  document.addEventListener('DOMContentLoaded', collapsePrimerGroupsOnMobile);
+  document.addEventListener('DOMContentLoaded', collapseKbFiltersOnMobile);
+  document.addEventListener('DOMContentLoaded', collapseJudgeOptionalRefOnMobile);
+  document.addEventListener('DOMContentLoaded', attachContentKbCardNavigation);
   if (document.readyState !== 'loading') {
     attachBackToTop();
     attachThemePicker();
     attachToolNav();
+    collapsePrimerGroupsOnMobile();
+    collapseKbFiltersOnMobile();
+    collapseJudgeOptionalRefOnMobile();
+    attachContentKbCardNavigation();
   }
 })();
