@@ -238,15 +238,30 @@
     });
   };
 
+  const collapseKbFiltersOnMobile = (): void => {
+    if (!window.matchMedia('(max-width: 600px)').matches) {
+      return;
+    }
+
+    const filters = document.querySelector<HTMLDetailsElement>('details.kb-filters');
+    if (filters === null) {
+      return;
+    }
+
+    filters.removeAttribute('open');
+  };
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
   document.addEventListener('DOMContentLoaded', attachToolNav);
   document.addEventListener('DOMContentLoaded', collapsePrimerGroupsOnMobile);
+  document.addEventListener('DOMContentLoaded', collapseKbFiltersOnMobile);
   if (document.readyState !== 'loading') {
     attachBackToTop();
     attachThemePicker();
     attachToolNav();
     collapsePrimerGroupsOnMobile();
+    collapseKbFiltersOnMobile();
   }
 })();

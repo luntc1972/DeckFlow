@@ -14,49 +14,53 @@
         <legend class="sr-only">Filter knowledge base entries</legend>
         <input type="search" placeholder="Search entries…" aria-label="Search entries" data-kb-search />
 
-        <label>
-            <span>Source</span>
-            <select data-df-select data-kb-filter="source">
-                <option value="">Any source</option>
-                @foreach (var source in Model.Sources)
-                {
-                    <option value="@source">@source</option>
-                }
-            </select>
-        </label>
+        <details class="kb-filters" open>
+            <summary class="kb-filters__summary">Filters</summary>
 
-        <label>
-            <span>Archetype</span>
-            <select data-df-select data-kb-filter="archetype">
-                <option value="">Any archetype</option>
-                @foreach (var archetype in Model.Archetypes)
-                {
-                    <option value="@archetype">@archetype</option>
-                }
-            </select>
-        </label>
+            <label>
+                <span>Source</span>
+                <select data-df-select data-kb-filter="source">
+                    <option value="">Any source</option>
+                    @foreach (var source in Model.Sources)
+                    {
+                        <option value="@source">@source</option>
+                    }
+                </select>
+            </label>
 
-        <label>
-            <span>Bracket</span>
-            <select data-df-select data-kb-filter="bracket">
-                <option value="">Any bracket</option>
-                @foreach (var bracket in Model.Brackets)
-                {
-                    <option value="@bracket">@bracket</option>
-                }
-            </select>
-        </label>
+            <label>
+                <span>Archetype</span>
+                <select data-df-select data-kb-filter="archetype">
+                    <option value="">Any archetype</option>
+                    @foreach (var archetype in Model.Archetypes)
+                    {
+                        <option value="@archetype">@archetype</option>
+                    }
+                </select>
+            </label>
 
-        <label>
-            <span>Card category</span>
-            <select data-df-select data-kb-filter="card-category">
-                <option value="">Any category</option>
-                @foreach (var category in Model.CardCategories)
-                {
-                    <option value="@category">@category</option>
-                }
-            </select>
-        </label>
+            <label>
+                <span>Bracket</span>
+                <select data-df-select data-kb-filter="bracket">
+                    <option value="">Any bracket</option>
+                    @foreach (var bracket in Model.Brackets)
+                    {
+                        <option value="@bracket">@bracket</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                <span>Card category</span>
+                <select data-df-select data-kb-filter="card-category">
+                    <option value="">Any category</option>
+                    @foreach (var category in Model.CardCategories)
+                    {
+                        <option value="@category">@category</option>
+                    }
+                </select>
+            </label>
+        </details>
     </fieldset>
 
     <div class="hub-grid" data-kb-grid>
@@ -73,7 +77,7 @@
                     <a href="@entry.DetailUrl">@entry.Title</a>
                 </h2>
                 <p class="hub-card__description">@CardDescription(entry)</p>
-                <div aria-hidden="true">
+                <div class="kb-tag-list" aria-hidden="true">
                     <span class="kb-tag" data-source="@entry.Source">@entry.Source</span>
                     @foreach (var bracket in entry.BracketTags)
                     {
