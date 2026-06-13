@@ -13,8 +13,12 @@ public sealed class ContentIndexExportJsonGoldenTests
         var goldenPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "index-seed.golden.json");
         var goldenText = await File.ReadAllTextAsync(goldenPath, CancellationToken.None);
 
-        Assert.Equal(goldenText, serialized);
+        // Why: WriteIndented uses platform newline style; JSON shape matters here, not CRLF vs LF.
+        Assert.Equal(NormalizeNewlines(goldenText), NormalizeNewlines(serialized));
     }
+
+    private static string NormalizeNewlines(string s)
+        => s.Replace("\r\n", "\n").Replace("\r", "\n");
 
     private static IReadOnlyList<ContentIndexExportRow> CreateRows()
         =>
