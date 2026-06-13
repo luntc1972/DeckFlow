@@ -57,6 +57,12 @@ input[type="radio"] {
   width: 1.05rem;
   height: 1.05rem;
   box-sizing: border-box;
+  /* Reset the generic `input` padding/margin (site.css gives all inputs
+     0.75rem 0.85rem padding for text fields). Native checkboxes ignored it,
+     but appearance:none boxes honor it, which (with border-box) inflates the
+     control past width/height and offsets the checkmark. */
+  padding: 0;
+  margin: 0;
   border: 2px solid var(--line, var(--muted));
   background: var(--panel);
   display: inline-block;
