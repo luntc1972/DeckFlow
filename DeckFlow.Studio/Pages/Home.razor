@@ -1,0 +1,19 @@
+@page "/"
+
+<PageTitle>DeckFlow Studio</PageTitle>
+
+<h1>DeckFlow Studio</h1>
+<p>Studio is running.</p>
+<p>Prod connection: <strong>@(_isProdConfigured ? "configured" : "not configured")</strong></p>
+
+@code {
+    [Inject]
+    private StudioConfig Config { get; set; } = default!;
+
+    private bool _isProdConfigured;
+
+    protected override void OnInitialized()
+    {
+        _isProdConfigured = Config.IsProdConfigured;
+    }
+}
