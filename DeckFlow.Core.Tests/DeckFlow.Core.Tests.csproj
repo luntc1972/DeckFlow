@@ -20,6 +20,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Orchestration/Fixtures/index-seed.golden.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Fixtures/index-seed.golden.json</TargetPath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DeckFlow.CLI\DeckFlow.CLI.csproj" />
     <ProjectReference Include="..\DeckFlow.Core\DeckFlow.Core.csproj" />
   </ItemGroup>
