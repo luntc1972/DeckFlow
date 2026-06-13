@@ -51,6 +51,33 @@ input[type="radio"] {
   accent-color: var(--accent);
 }
 
+/* Why: bind textarea scrollbar chrome to the active theme instead of the OS
+   palette negotiated by `color-scheme`. */
+textarea {
+  scrollbar-width: thin; /* Firefox + Chromium */
+  scrollbar-color: var(--accent) var(--panel); /* thumb, track — follows theme not OS */
+}
+
+/* WebKit/Chromium fallback for engines that honor the pseudo-elements over scrollbar-color */
+textarea::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: var(--panel);
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 6px;
+  border: 3px solid var(--panel); /* inset so the thumb reads as a rounded bar on the track */
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-strong, var(--accent));
+}
+
 /* Why: warnings must read as caution across all themes without touching the
    per-theme .warning-banner background fills; the higher-specificity selector
    beats class-only theme rules and adds a clear amber rail on every viewport. */
