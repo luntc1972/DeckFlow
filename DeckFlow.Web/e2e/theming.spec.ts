@@ -30,12 +30,23 @@ const themeFiles = [
   'site-commander-table.css',
 ] as const;
 
+// Mechanism (layout/size/appearance) is theme-INDEPENDENT — the custom control
+// rules live in site-theme-overrides.css and render identically regardless of
+// which guild theme's tokens are active. So structural assertions only need a
+// few representative themes (a light default + a dark fork), not all 24. The
+// full themeFiles list is reserved for the token-application tier, which is the
+// only thing that genuinely varies per theme.
+const representativeThemes = ['site.css', 'site-azorius.css', 'site-nyx.css'] as const;
+
 type ThemeSnapshot = {
   rootAccent: string;
   checkboxAppearance: string | null;
   checkboxWebkitAppearance: string | null;
   checkboxBackground: string | null;
   checkboxBorderColor: string | null;
+  checkboxRenderWidth: number | null;
+  checkboxRenderHeight: number | null;
+  checkboxPadding: string | null;
   textareaFound: boolean;
   textareaScrollbar: string;
   textareaScrollbarProperty: string;
@@ -69,6 +80,12 @@ async function readThemeSnapshot(page: Page, themeFile: string): Promise<ThemeSn
       checkboxWebkitAppearance: checkboxStyle ? checkboxStyle.getPropertyValue('-webkit-appearance').trim() : null,
       checkboxBackground: checkboxStyle?.backgroundColor ?? null,
       checkboxBorderColor: checkboxStyle?.borderColor ?? null,
+      // Computed width/height (not getBoundingClientRect — the first checkbox
+      // lives in a collapsed bucket, so its rect is 0 while its box size is
+      // still resolved correctly by the cascade).
+      checkboxRenderWidth: checkboxStyle ? parseFloat(checkboxStyle.width) : null,
+      checkboxRenderHeight: checkboxStyle ? parseFloat(checkboxStyle.height) : null,
+      checkboxPadding: checkboxStyle ? checkboxStyle.padding : null,
       textareaFound: textarea !== null,
       textareaScrollbar: textareaStyle?.scrollbarColor ?? '',
       textareaScrollbarProperty: textareaStyle?.getPropertyValue('scrollbar-color') ?? '',
@@ -102,41 +119,85 @@ function pickScrollbarValue(snapshot: ThemeSnapshot): string {
   return normalizeColor(snapshot.textareaScrollbar) || normalizeColor(snapshot.textareaScrollbarProperty);
 }
 
-test('checkboxes stay custom-rendered and themed across all themes in light and dark media', async ({ page }) => {
+// ── Tier 1: MECHANISM ──────────────────────────────────────────────────────
+// Structural render of the custom controls — theme-independent, so only a few
+// representative themes, but BOTH color schemes (the original bug was native
+// chrome going OS-black under dark `color-scheme`). Catches: native chrome not
+// disabled, box inflated by inherited input padding, non-square, offset.
+test('custom checkbox renders compact, square, and themed (representative themes, light + dark)', async ({ page }) => {
   await setThemedViewport(page);
 
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
 
-    const borderColorsByTheme = new Map<string, string>();
-
-    for (const themeFile of themeFiles) {
+    for (const themeFile of representativeThemes) {
       const snapshot = await readThemeSnapshot(page, themeFile);
-
-      expect(snapshot.rootAccent, `${themeFile} should expose a theme accent`).not.toBe('');
 
       if (snapshot.checkboxAppearance === null) {
         test.skip(true, `No checkbox found on /deck-analysis for ${themeFile}.`);
       }
 
+      // Native chrome disabled (else the empty box follows OS color-scheme).
       expect(snapshot.checkboxAppearance, `${themeFile} should disable native checkbox rendering in ${colorScheme} mode`).toBe('none');
       expect(snapshot.checkboxWebkitAppearance, `${themeFile} should disable WebKit native checkbox rendering in ${colorScheme} mode`).toBe('none');
+
+      // Themed surfaces (not OS default).
       expect(isRealColor(snapshot.checkboxBackground), `${themeFile} should theme the checkbox background in ${colorScheme} mode`).toBeTruthy();
       expect(isRealColor(snapshot.checkboxBorderColor), `${themeFile} should theme the checkbox border in ${colorScheme} mode`).toBeTruthy();
 
-      borderColorsByTheme.set(themeFile, normalizeColor(snapshot.checkboxBorderColor));
+      // Size guard (regression: the generic `input` padding inflated the
+      // appearance:none box to ~29x26 and offset the checkmark). Must stay
+      // small (~1.05rem), square, with no inherited padding.
+      const w = snapshot.checkboxRenderWidth ?? 0;
+      const h = snapshot.checkboxRenderHeight ?? 0;
+      expect(w, `${themeFile} checkbox width should stay compact (not inflated by inherited input padding) in ${colorScheme} mode`).toBeGreaterThan(10);
+      expect(w, `${themeFile} checkbox width should stay compact in ${colorScheme} mode`).toBeLessThanOrEqual(24);
+      expect(h, `${themeFile} checkbox height should stay compact in ${colorScheme} mode`).toBeLessThanOrEqual(24);
+      expect(Math.abs(w - h), `${themeFile} checkbox should render square in ${colorScheme} mode`).toBeLessThanOrEqual(2);
+      expect(snapshot.checkboxPadding, `${themeFile} checkbox should not inherit text-input padding in ${colorScheme} mode`).toBe('0px');
     }
-
-    expect(new Set(borderColorsByTheme.values()).size, `${colorScheme} mode should preserve theme-specific checkbox border colors`).toBeGreaterThanOrEqual(2);
   }
 });
 
+// ── Tier 2: TOKENS ─────────────────────────────────────────────────────────
+// The only thing that genuinely varies per theme: each of the 24 themes must
+// expose its tokens AND apply them to the control (so a theme missing --line or
+// --accent, or not applying it, fails). Cheap computed-style reads, one scheme.
+// The cross-theme "border colors differ" check proves tokens are actually
+// flowing through per theme, not hardcoded.
+test('every theme exposes tokens and applies them to the checkbox', async ({ page }) => {
+  await setThemedViewport(page);
+  await page.emulateMedia({ colorScheme: 'light' });
+
+  const borderColorsByTheme = new Map<string, string>();
+
+  for (const themeFile of themeFiles) {
+    const snapshot = await readThemeSnapshot(page, themeFile);
+
+    expect(snapshot.rootAccent, `${themeFile} should expose a theme accent`).not.toBe('');
+
+    if (snapshot.checkboxAppearance === null) {
+      test.skip(true, `No checkbox found on /deck-analysis for ${themeFile}.`);
+    }
+
+    expect(isRealColor(snapshot.checkboxBackground), `${themeFile} should apply a themed checkbox background`).toBeTruthy();
+    expect(isRealColor(snapshot.checkboxBorderColor), `${themeFile} should apply a themed checkbox border`).toBeTruthy();
+
+    borderColorsByTheme.set(themeFile, normalizeColor(snapshot.checkboxBorderColor));
+  }
+
+  // Distinct border colors across themes prove the tokens actually differ per
+  // theme (catches a regression that hardcodes the box to one color).
+  expect(new Set(borderColorsByTheme.values()).size, 'themes should resolve to distinct checkbox border colors').toBeGreaterThanOrEqual(2);
+});
+
+// ── Tier 1 (mechanism): textarea scrollbar follows theme, not OS ────────────
 test('textarea scrollbar-color is themed (not OS default)', async ({ page }) => {
   await setThemedViewport(page);
 
   const snapshots = new Map<string, ThemeSnapshot>();
 
-  for (const themeFile of themeFiles) {
+  for (const themeFile of representativeThemes) {
     const snapshot = await readThemeSnapshot(page, themeFile);
 
     expect(snapshot.rootAccent, `${themeFile} should expose a theme accent`).not.toBe('');
@@ -149,26 +210,26 @@ test('textarea scrollbar-color is themed (not OS default)', async ({ page }) => 
   }
 
   const classic = snapshots.get('site.css');
-  const rakdos = snapshots.get('site-rakdos.css');
+  const dark = snapshots.get('site-nyx.css');
 
   expect(classic).toBeTruthy();
-  expect(rakdos).toBeTruthy();
+  expect(dark).toBeTruthy();
 
   const classicScrollbar = pickScrollbarValue(classic!);
-  const rakdosScrollbar = pickScrollbarValue(rakdos!);
-  const scrollbarExposed = classicScrollbar !== '' && rakdosScrollbar !== '';
+  const darkScrollbar = pickScrollbarValue(dark!);
+  const scrollbarExposed = classicScrollbar !== '' && darkScrollbar !== '';
 
   if (scrollbarExposed) {
     expect(isRealColor(classicScrollbar), 'site.css should compute a non-default textarea scrollbar color').toBeTruthy();
-    expect(isRealColor(rakdosScrollbar), 'site-rakdos.css should compute a non-default textarea scrollbar color').toBeTruthy();
-    expect(classicScrollbar).not.toBe(rakdosScrollbar);
+    expect(isRealColor(darkScrollbar), 'site-nyx.css should compute a non-default textarea scrollbar color').toBeTruthy();
+    expect(classicScrollbar).not.toBe(darkScrollbar);
     return;
   }
 
   // Some engines do not expose computed scrollbar-color; in that case, assert
   // theme accents differ and scrollbar-width is still computed as thin so the
   // themed rule is at least being applied.
-  expect(normalizeColor(classic!.rootAccent)).not.toBe(normalizeColor(rakdos!.rootAccent));
+  expect(normalizeColor(classic!.rootAccent)).not.toBe(normalizeColor(dark!.rootAccent));
   expect(normalizeColor(classic!.textareaScrollbarWidth)).toBe('thin');
-  expect(normalizeColor(rakdos!.textareaScrollbarWidth)).toBe('thin');
+  expect(normalizeColor(dark!.textareaScrollbarWidth)).toBe('thin');
 });
