@@ -202,7 +202,9 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   2. `UpsertContentColumnsOnlyAsync` exists on `IContentSiteIndexStore`; an integration test sets `is_visible=TRUE`, calls the new overload, and asserts `is_visible` remains TRUE after the call
   3. `GetApprovedRowsAsync` returns only rows where `approval_status='approved'`; the seed export calls this method (not `GetAllRowsAsync`), so rejected/pending rows never appear in `index-seed.json`
   4. The distill pipeline sets newly-inserted `content_site_index` rows to `approval_status='pending'`; rows that existed before the migration are treated as pending (no data loss on migration)
-**Plans**: TBD
+**Plans**: 2 plans (2 waves: store/model/orchestrator changes / integration tests)
+- [ ] 43-01-PLAN.md — approval_status column + self-healing migration + grandfather backfill, UpsertContentColumnsOnlyAsync (preserves 4 admin fields), GetApprovedRowsAsync, orchestrator export+distill switches (Wave 1)
+- [ ] 43-02-PLAN.md — real-SQLite integration tests: migration/grandfather, safe-upsert preservation, new-row-pending, approved-only filter, DDL default (Wave 2)
 
 ---
 
