@@ -184,7 +184,11 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   2. `ContentKbCommandRunners` public Run*Async methods are thin adapters (construct stores from paths, delegate to orchestrator, convert result to exit code); no domain logic remains in CLI
   3. All existing CLI tests pass unchanged; `dotnet build DeckFlow.sln` produces 0 errors / 0 new warnings; Core.Tests green
   4. DeckFlow.Studio can reference Core and call `IContentKbOrchestrator` from a Blazor service with no direct CLI project reference
-**Plans**: TBD
+**Plans**: 4 plans (4 waves: contracts / impl / adapters / Studio smoke)
+- [ ] 42-01-PLAN.md — IContentKbOrchestrator facade + sub-interfaces + result records + progress sink (Wave 1)
+- [ ] 42-02-PLAN.md — Lift CLI domain bodies into ContentKbOrchestrator + consolidate validators/constants D-07 (Wave 2)
+- [ ] 42-03-PLAN.md — CLI thin adapters + AddContentKbOrchestrator() DI ext + re-point test anchor D-09 (Wave 3)
+- [ ] 42-04-PLAN.md — Studio smoke service resolves+calls orchestrator, no CLI ref D-08 (Wave 4)
 
 ---
 
@@ -279,7 +283,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
-| 42. Orchestrator Extraction | 0/TBD | Not started | - |
+| 42. Orchestrator Extraction | 0/4 | Not started | - |
 | 43. Approval Status + Safe Upsert | 0/TBD | Not started | - |
 | 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
