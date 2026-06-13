@@ -207,6 +207,14 @@
     min-height: 8.75rem;
   }
 
+  .hub-card[data-kb-entry] {
+    cursor: pointer;
+  }
+
+  .hub-card[data-kb-entry]:active {
+    transform: translateY(1px);
+  }
+
   .hub-hero--primary {
     border-color: var(--accent);
     border-left-color: var(--accent-strong, var(--accent));

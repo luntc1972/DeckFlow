@@ -44,6 +44,14 @@ select {
   color: var(--ink);
 }
 
+/* Why: warnings must read as caution across all themes without touching the
+   per-theme .warning-banner background fills; the higher-specificity selector
+   beats class-only theme rules and adds a clear amber rail on every viewport. */
+div.warning-banner {
+  border-left: 4px solid #c8860b;
+  padding-left: 1rem;
+}
+
 /* Finding R: utility class for numeric columns (applied in later sweeps, e.g. WDG-06). */
 .tabular {
   font-variant-numeric: tabular-nums;
@@ -850,6 +858,11 @@ summary:focus-visible,
 .page-footer__link:hover,
 .page-footer__link:focus {
     text-decoration: underline;
+}
+.page-footer__link--current {
+    color: var(--muted);
+    text-decoration: none;
+    cursor: default;
 }
 .page-footer__link--cta {
     padding: 0.35rem 0.9rem;

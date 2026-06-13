@@ -45,6 +45,7 @@
     var requestHost = Context?.Request.Host ?? default;
     var requestPathBase = Context?.Request.PathBase ?? default;
     var requestPath = Context?.Request.Path ?? default;
+    var isFeedbackPage = string.Equals(requestPath.Value, "/feedback", StringComparison.OrdinalIgnoreCase);
     var canonicalUrl = $"{requestScheme}://{requestHost}{requestPathBase}{requestPath}";
     var openGraphImageUrl = $"{requestScheme}://{requestHost}{Url.Content("~/og-image.png")}";
 }
@@ -98,7 +99,14 @@
             </main>
             <footer class="page-footer">
                 <a class="page-footer__link" href="@Url.Content("~/about")">About</a>
-                <a class="page-footer__link page-footer__link--cta" href="@Url.Content("~/feedback")">Feedback</a>
+                @if (isFeedbackPage)
+                {
+                    <span class="page-footer__link page-footer__link--current" aria-current="page">Feedback</span>
+                }
+                else
+                {
+                    <a class="page-footer__link page-footer__link--cta" href="@Url.Content("~/feedback")">Feedback</a>
+                }
             </footer>
             <div class="sr-only" role="status" aria-live="polite" data-copy-announcer></div>
         </div>
