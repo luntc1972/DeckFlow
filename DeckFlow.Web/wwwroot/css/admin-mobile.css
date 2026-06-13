@@ -168,6 +168,21 @@
   .admin-shell #kb-entries-table tbody tr:focus-within {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
+
+  /* KB action cards collapse to one column on mobile so the action grid stays legible
+     after confirm-text relabels and does not fight the card-stack action layout. */
+  .admin-shell #kb-entries-table td[data-label="Action"],
+  .admin-shell section[aria-labelledby="kb-bulk-heading"] td[data-label="Actions"] {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .admin-shell #kb-entries-table td[data-label="Action"] .admin-action-form,
+  .admin-shell section[aria-labelledby="kb-bulk-heading"] td[data-label="Actions"] .admin-action-form {
+    display: block;
+  }
 }
 
 @media (min-width: 769px) {
