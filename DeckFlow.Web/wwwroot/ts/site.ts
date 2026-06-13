@@ -218,13 +218,35 @@
     });
   };
 
+  const collapsePrimerGroupsOnMobile = (): void => {
+    if (!window.matchMedia('(max-width: 600px)').matches) {
+      return;
+    }
+
+    const groups = Array.from(document.querySelectorAll<HTMLDetailsElement>('details.primer-group'));
+    if (groups.length === 0) {
+      return;
+    }
+
+    groups.forEach((group, index) => {
+      if (index === 0) {
+        group.setAttribute('open', '');
+        return;
+      }
+
+      group.removeAttribute('open');
+    });
+  };
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
   document.addEventListener('DOMContentLoaded', attachToolNav);
+  document.addEventListener('DOMContentLoaded', collapsePrimerGroupsOnMobile);
   if (document.readyState !== 'loading') {
     attachBackToTop();
     attachThemePicker();
     attachToolNav();
+    collapsePrimerGroupsOnMobile();
   }
 })();

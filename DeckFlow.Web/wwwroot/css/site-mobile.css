@@ -264,6 +264,48 @@
   .chatgpt-step-tab.is-complete {
     opacity: 0.72;
   }
+
+  /* mobile UI phase 2: deck primer rows */
+  .primer-group,
+  .primer-group__body,
+  .primer-section,
+  .primer-section__label,
+  .primer-section__copy {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .primer-group__summary {
+    min-height: 44px;
+    padding: 0.65rem 0;
+    cursor: pointer;
+  }
+
+  .primer-group__badge {
+    flex: 0 0 auto;
+    max-width: 100%;
+  }
+
+  .primer-section {
+    padding: 0.8rem 0.85rem;
+  }
+
+  .primer-section__label {
+    min-height: 44px;
+    padding: 0.3rem 0;
+    gap: 0.85rem;
+    align-items: center;
+  }
+
+  .primer-section__label > input[type='checkbox'] {
+    width: 1.2rem;
+    height: 1.2rem;
+    margin: 0;
+  }
+
+  .primer-section__copy {
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (max-width: 480px) {
