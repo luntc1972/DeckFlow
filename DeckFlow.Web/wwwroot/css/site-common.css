@@ -44,6 +44,13 @@ select {
   color: var(--ink);
 }
 
+/* Why: bind native checkbox/radio chrome to the active theme accent instead of
+   browser-default black/blue. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
 /* Why: warnings must read as caution across all themes without touching the
    per-theme .warning-banner background fills; the higher-specificity selector
    beats class-only theme rules and adds a clear amber rail on every viewport. */
