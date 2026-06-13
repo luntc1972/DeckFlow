@@ -203,7 +203,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   3. `GetApprovedRowsAsync` returns only rows where `approval_status='approved'`; the seed export calls this method (not `GetAllRowsAsync`), so rejected/pending rows never appear in `index-seed.json`
   4. The distill pipeline sets newly-inserted `content_site_index` rows to `approval_status='pending'`; rows that existed before the migration are treated as pending (no data loss on migration)
 **Plans**: 2 plans (2 waves: store/model/orchestrator changes / integration tests)
-- [ ] 43-01-PLAN.md — approval_status column + self-healing migration + grandfather backfill, UpsertContentColumnsOnlyAsync (preserves 4 admin fields), GetApprovedRowsAsync, orchestrator export+distill switches (Wave 1)
+- [x] 43-01-PLAN.md — approval_status column + self-healing migration + grandfather backfill, UpsertContentColumnsOnlyAsync (preserves 4 admin fields), GetApprovedRowsAsync, orchestrator export+distill switches (Wave 1)
 - [ ] 43-02-PLAN.md — real-SQLite integration tests: migration/grandfather, safe-upsert preservation, new-row-pending, approved-only filter, DDL default (Wave 2)
 
 ---
@@ -287,7 +287,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 |-------|----------------|--------|-----------|
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
-| 43. Approval Status + Safe Upsert | 0/TBD | Not started | - |
+| 43. Approval Status + Safe Upsert | 1/2 | In Progress|  |
 | 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started | - |
