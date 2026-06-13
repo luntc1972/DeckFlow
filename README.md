@@ -704,3 +704,9 @@ A persistent theme picker in the shared layout lets users switch between visual 
 - **Nyx** — enchantment-themed dark palette
 - **Planeswalker Dark** — dark-mode palette
 - **Commander Table** — warm tabletop-inspired palette
+
+---
+
+## License
+
+DeckFlow is licensed under the [Apache License 2.0](LICENSE). Copyright 2026 Chris Lunt.
