@@ -131,6 +131,7 @@ declare const DeckFlowKbFilter: {
       return;
     }
 
+    const select = document.querySelector<HTMLSelectElement>('#kb-creator-filter');
     const count = document.getElementById('kb-filter-count');
     const emptyRow = document.getElementById('kb-filter-empty');
     const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('#kb-entries-table tbody tr'))
@@ -139,11 +140,14 @@ declare const DeckFlowKbFilter: {
 
     const applyFilter = (): void => {
       const query = input.value.trim().toLowerCase();
+      const creator = select?.value ?? '';
       let matched = 0;
 
       rows.forEach((row) => {
         const searchText = row.dataset.kbSearch ?? '';
-        const isMatch = DeckFlowKbFilter.rowMatches(searchText, query);
+        const matchesText = DeckFlowKbFilter.rowMatches(searchText, query);
+        const matchesCreator = creator === '' || (row.dataset.kbSource ?? '') === creator;
+        const isMatch = matchesText && matchesCreator;
         row.hidden = !isMatch;
 
         if (isMatch) {
@@ -161,6 +165,7 @@ declare const DeckFlowKbFilter: {
     };
 
     input.addEventListener('input', applyFilter);
+    select?.addEventListener('change', applyFilter);
     applyFilter();
   };
 
