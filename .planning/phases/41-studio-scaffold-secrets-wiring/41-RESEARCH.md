@@ -363,9 +363,11 @@ dotnet run --project DeckFlow.Studio
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Port selection for Studio**
+> All three resolved with concrete recommendations, implemented by 41-01-PLAN.md (port 5271, console-only logging, single Home.razor status stub).
+
+1. **RESOLVED — Port selection for Studio**
    - What we know: DeckFlow.Web uses 5173 (http) and 7173 (https); `launchSettings.json` verified.
    - What's unclear: Whether any other local service on the developer's machine uses 5271.
    - Recommendation: Default to 5271; planner should note it is configurable and not a hard requirement.
