@@ -889,6 +889,9 @@ summary:focus-visible,
     text-decoration: none;
     padding: 0.35rem 0.25rem;
 }
+.page-footer__heart {
+    color: #e0506a;
+}
 .page-footer__link:hover,
 .page-footer__link:focus {
     text-decoration: underline;
