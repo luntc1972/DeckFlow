@@ -1,8 +1,8 @@
 ---
 phase: 44
 slug: admin-grid-lazy-paging
-status: draft
-nyquist_compliant: false
+status: ready
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-13
 ---

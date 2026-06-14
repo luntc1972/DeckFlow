@@ -291,17 +291,20 @@ CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue
 -- Postgres syntax: identical — both support partial indexes with WHERE and expression columns
 ```
 
-**Idempotency:** Both SQLite and Postgres support `DROP INDEX IF EXISTS <name>` to remove the old indexes before adding the new one. The Postgres form does not need the table name (`DROP INDEX IF EXISTS name` is valid in Postgres 8.2+; Npgsql 10.0.0 targets Postgres 12+).
+**Idempotency:** Both SQLite and Postgres support `DROP INDEX IF EXISTS <name>` to remove the old indexes (run AFTER the new index is created — see ORDER MANDATE below). The Postgres form does not need the table name (`DROP INDEX IF EXISTS name` is valid in Postgres 8.2+; Npgsql 10.0.0 targets Postgres 12+).
 
 **Dialect branching requirement:** The current `indexCommand` block (lines 106-123) does NOT branch by dialect — all 14 indexes run against both SQLite and Postgres with the same SQL text. This works because the `LOWER()` function and `CREATE INDEX IF NOT EXISTS` syntax are cross-dialect. **However, the `DROP INDEX` step IS dialect-sensitive:** SQLite requires `DROP INDEX IF EXISTS name` (no table qualifier); Postgres uses the same form (`DROP INDEX IF EXISTS name`). Both dialects match here — no branching needed for DROP either.
 
 **Full replacement block in EnsureSchemaAsync (within existing `try` block):**
+
+> **ORDER MANDATE (D-09 / 44-01-PLAN.md Task 2):** CREATE the new index FIRST, then DROP the old pair. The batch aborts on a failed CREATE before the DROPs run, so the old indexes survive — no silent regression to no-index when `EnsureSchemaAsync` swallows the exception. Do NOT reorder to drop-first.
+
 ```sql
+-- Add the single partial expression index that SC3 specifies (CREATE before DROP)
+CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue(LOWER(commander_name)) WHERE processed = 1;
 -- Drop the two redundant composite indexes that the partial expression replaces
 DROP INDEX IF EXISTS ix_deck_queue_processed_commander;
 DROP INDEX IF EXISTS ix_deck_queue_processed_commander_lower;
--- Add the single partial expression index that SC3 specifies
-CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue(LOWER(commander_name)) WHERE processed = 1;
 ```
 
 **EXPLAIN verification (D-09):** Both queries must be verified with EXPLAIN before the plan locks the DDL. The `GetPagedProcessedCommanderRowsAsync` query groups by `LOWER(commander_name) WHERE processed = 1 AND commander_name IS NOT NULL`. The `GetDistinctProcessedCommanderCountAsync` query is `COUNT(DISTINCT LOWER(commander_name)) FROM deck_queue WHERE processed = 1 AND commander_name IS NOT NULL`. Both filter on `processed = 1` and operate on `LOWER(commander_name)` — the partial expression index matches their access pattern exactly.
@@ -497,7 +500,7 @@ public sealed record CommandersGridViewModel
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the `commanders` action be named `Commanders` or keep the lowercase route name from D-03?**
    - What we know: D-03 specifies `GET /Admin/Harvest/commanders?page={n}`. The `[Route("Admin/Harvest")]` on the controller + `[HttpGet("commanders")]` on the action produces this URL. The action method name (C# method name) is independent of the route.
