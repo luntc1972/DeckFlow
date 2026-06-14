@@ -111,8 +111,10 @@ public sealed class CategoryKnowledgeRepository
             CREATE UNIQUE INDEX IF NOT EXISTS ux_deck_queue_deck_id ON deck_queue(deck_id);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed ON deck_queue(processed);
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_inserted_deck ON deck_queue(processed, inserted_utc, deck_id);
-            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_commander ON deck_queue(processed, commander_name);
-            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_commander_lower ON deck_queue(processed, LOWER(commander_name));
+            -- Why: this batched DDL runs inside a try/catch that swallows index-creation failures, so create the replacement first; if it fails, the batch aborts before the drops execute and the old indexes survive.
+            CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue(LOWER(commander_name)) WHERE processed = 1;
+            DROP INDEX IF EXISTS ix_deck_queue_processed_commander;
+            DROP INDEX IF EXISTS ix_deck_queue_processed_commander_lower;
             CREATE UNIQUE INDEX IF NOT EXISTS ux_obs_grain ON card_category_observations(source_id, card_id, category, board);
             CREATE INDEX IF NOT EXISTS ix_obs_card ON card_category_observations(card_id);
             CREATE INDEX IF NOT EXISTS ix_obs_card_board ON card_category_observations(card_id, board);
