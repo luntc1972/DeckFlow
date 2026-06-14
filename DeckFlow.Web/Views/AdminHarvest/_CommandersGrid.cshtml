@@ -1,0 +1,116 @@
+@model DeckFlow.Web.Models.Admin.CommandersGridViewModel
+@using System.Globalization
+@{
+    static string FormatLastProcessedUtc(string? lastProcessedUtc)
+    {
+        if (string.IsNullOrWhiteSpace(lastProcessedUtc))
+        {
+            return "—";
+        }
+
+        return DateTimeOffset.TryParse(
+            lastProcessedUtc,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsed)
+            ? parsed.UtcDateTime.ToString("u", CultureInfo.InvariantCulture)
+            : lastProcessedUtc;
+    }
+
+    var totalPages = Model.DeckTotalPages;
+    var currentPage = Model.DeckPage;
+    var pages = new SortedSet<int>();
+
+    if (totalPages <= 7)
+    {
+        for (var pageNumber = 1; pageNumber <= totalPages; pageNumber++)
+        {
+            pages.Add(pageNumber);
+        }
+    }
+    else
+    {
+        pages.Add(1);
+
+        for (var pageNumber = Math.Max(1, currentPage - 2); pageNumber <= Math.Min(totalPages, currentPage + 2); pageNumber++)
+        {
+            pages.Add(pageNumber);
+        }
+
+        pages.Add(totalPages);
+    }
+}
+<p class="admin-harvest__grid-meta">@Model.DeckTotalCount commanders — Page @Model.DeckPage of @Model.DeckTotalPages</p>
+
+@if (Model.HarvestedCommanders.Count == 0)
+{
+    <p class="admin-empty">No harvested commanders yet.</p>
+}
+else
+{
+    <div class="admin-table-scroll" role="region" aria-label="Harvested commanders - scroll horizontally to see all columns" tabindex="0">
+        <table class="admin-table">
+            <caption class="sr-only">Harvested commanders with deck count and last processed timestamp</caption>
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Commander</th>
+                    <th scope="col">Decks Categorized</th>
+                    <th scope="col">Last Processed (UTC)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    var rankOffset = (Model.DeckPage - 1) * Model.DeckPageSize;
+                }
+                @for (var i = 0; i < Model.HarvestedCommanders.Count; i++)
+                {
+                    var c = Model.HarvestedCommanders[i];
+                    <tr>
+                        <td>@(rankOffset + i + 1)</td>
+                        <td>@c.CommanderName</td>
+                        <td>@c.DeckCount</td>
+                        <td>@FormatLastProcessedUtc(c.LastProcessedUtc)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.DeckTotalPages > 1)
+    {
+        <nav class="admin-feedback-pagination admin-harvest__grid-pager" aria-label="Commander grid pagination">
+            @if (currentPage > 1)
+            {
+                <a href="#" data-page="@(currentPage - 1)">Prev</a>
+            }
+
+            @{
+                int? previousPage = null;
+            }
+            @foreach (var pageNumber in pages)
+            {
+                if (previousPage.HasValue && pageNumber - previousPage.Value > 1)
+                {
+                    <span aria-hidden="true">…</span>
+                }
+
+                if (pageNumber == currentPage)
+                {
+                    <strong aria-current="page">@pageNumber</strong>
+                }
+                else
+                {
+                    <a href="#" data-page="@pageNumber">@pageNumber</a>
+                }
+
+                previousPage = pageNumber;
+            }
+
+            @if (currentPage < totalPages)
+            {
+                <a href="#" data-page="@(currentPage + 1)">Next</a>
+            }
+        </nav>
+    }
+}
