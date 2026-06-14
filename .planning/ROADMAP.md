@@ -216,8 +216,11 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   1. Initial GET /Admin/Harvest returns the page skeleton (stats, recent runs, schedule sections) without executing `GetDistinctProcessedCommanderCountAsync` or `GetPagedProcessedCommandersAsync`; the commander grid section is an empty placeholder on first render
   2. The commander grid populates automatically after page load via a `GET /Admin/Harvest/commanders?page=1` AJAX request; pagination clicks replace only the grid section without a full-page reload
   3. A partial expression index on `LOWER(commander_name) WHERE processed=1` exists in `CategoryKnowledgeRepository`; the distinct-count query no longer full-scans the table
-  4. The new partial endpoint is guarded by `SameOriginRequestValidator`; direct browser navigation to `/Admin/Harvest/commanders` returns 403
-**Plans**: TBD
+  4. The new partial endpoint is guarded by `SameOriginRequestValidator`; a cross-origin request to `/Admin/Harvest/commanders` returns 403 (SC4 reinterpreted: the validator allows a bare no-header direct-nav GET by design; the security-relevant case is cross-origin → 403)
+**Plans**: 3 plans (2 waves: index + controller/partial in Wave 1, client wiring + UI checkpoint in Wave 2)
+- [ ] 44-01-PLAN.md — Consolidate deck_queue commander indexes into one partial expression index `LOWER(commander_name) WHERE processed=1` + EXPLAIN verification (GRID-02)
+- [ ] 44-02-PLAN.md — Strip Index slow queries, add same-origin-guarded `GET /Admin/Harvest/commanders` PartialView + slim `CommandersGridViewModel` + `_CommandersGrid` partial + SC1/SC2/SC4 tests (GRID-01)
+- [ ] 44-03-PLAN.md — Index.cshtml empty placeholder + `admin-harvest.ts` auto-load/swap/pagination delegation + admin-common.css states + browser-smoke checkpoint (GRID-01)
 **UI hint**: yes
 
 ---
@@ -288,7 +291,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
-| 44. Admin Grid Lazy Paging | 0/TBD | Not started | - |
+| 44. Admin Grid Lazy Paging | 0/3 | Not started | - |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started | - |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started | - |
