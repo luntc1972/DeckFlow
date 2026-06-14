@@ -154,7 +154,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
 - [x] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths (completed 2026-06-13)
 - [ ] **Phase 49: Dapper Data-Access Adoption** _(runs first — before any further DB work)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
-- [ ] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source
+- [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
 - [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
 - [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
 - [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
@@ -220,9 +220,9 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   3. A partial expression index on `LOWER(commander_name) WHERE processed=1` exists in `CategoryKnowledgeRepository`; the distinct-count query no longer full-scans the table
   4. The new partial endpoint is guarded by `SameOriginRequestValidator`; a cross-origin request to `/Admin/Harvest/commanders` returns 403 (SC4 reinterpreted: the validator allows a bare no-header direct-nav GET by design; the security-relevant case is cross-origin → 403)
 **Plans**: 3 plans (2 waves: index + controller/partial in Wave 1, client wiring + UI checkpoint in Wave 2)
-- [ ] 44-01-PLAN.md — Consolidate deck_queue commander indexes into one partial expression index `LOWER(commander_name) WHERE processed=1` + EXPLAIN verification (GRID-02)
-- [ ] 44-02-PLAN.md — Strip Index slow queries, add same-origin-guarded `GET /Admin/Harvest/commanders` PartialView + slim `CommandersGridViewModel` + `_CommandersGrid` partial + SC1/SC2/SC4 tests (GRID-01)
-- [ ] 44-03-PLAN.md — Index.cshtml empty placeholder + `admin-harvest.ts` auto-load/swap/pagination delegation + admin-common.css states + browser-smoke checkpoint (GRID-01)
+- [x] 44-01-PLAN.md — Consolidate deck_queue commander indexes into one partial expression index `LOWER(commander_name) WHERE processed=1` + EXPLAIN verification (GRID-02)
+- [x] 44-02-PLAN.md — Strip Index slow queries, add same-origin-guarded `GET /Admin/Harvest/commanders` PartialView + slim `CommandersGridViewModel` + `_CommandersGrid` partial + SC1/SC2/SC4 tests (GRID-01)
+- [x] 44-03-PLAN.md — Index.cshtml empty placeholder + `admin-harvest.ts` auto-load/swap/pagination delegation + admin-common.css states + browser-smoke checkpoint (GRID-01)
 **UI hint**: yes
 
 ---
@@ -322,7 +322,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
 | 49. Dapper Data-Access Adoption | 0/TBD | Not started (runs first) | - |
-| 44. Admin Grid Lazy Paging | 0/3 | Not started (after 49) | - |
+| 44. Admin Grid Lazy Paging | 3/3 | Complete (executed before 49) | 2026-06-14 |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started (after 49) | - |
