@@ -170,6 +170,26 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `scripts/run-web.sh` — bash wrapper that rebuilds `DeckFlow.Web` and launches it on `http://localhost:5173` with no browser auto-launch.
 - `scripts/run-web.ps1` — PowerShell equivalent for Windows terminals.
 
+### Code formatting gate
+
+DeckFlow's enforced formatting source of truth is the committed `.editorconfig`. Existing files are not mass-reflowed; the format gate checks changed C# lines only.
+
+Install the versioned pre-commit hook once per clone:
+
+WSL / Linux shell:
+```bash
+git config core.hooksPath .githooks
+```
+
+Windows Git-Bash:
+```bash
+git config core.hooksPath .githooks
+```
+
+After that opt-in, `.githooks/pre-commit` runs `bash scripts/format-check-changed.sh staged` on staged C# changes. A bad added line is blocked with a `file:line` failure; a clean staged change succeeds; a one-line edit in a legacy file passes when the violation is off-hunk.
+
+CI is the authoritative enforcer. The `format-gate` job runs `bash scripts/format-check-changed.sh ci`, selects the PR/push diff base, and fails only when formatter-reported violations intersect added or modified C# lines. That means a PR with a mis-formatted added line fails, while a PR that makes a clean one-line edit in a legacy file with unrelated pre-existing quirks still passes the format gate.
+
 ### Local development TypeScript toolchain
 
 Browser-side scripts under `DeckFlow.Web/wwwroot/ts/` compile to
