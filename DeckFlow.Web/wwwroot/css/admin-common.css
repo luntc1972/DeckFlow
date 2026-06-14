@@ -643,8 +643,9 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .kb-filter {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-flow: row wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
   margin: 16px 0 12px;
 }
 
@@ -655,8 +656,29 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 
+/* Search label (first) grows to fill the row; the Creator label stays at its
+   capped intrinsic width to its right. */
+.admin-shell .kb-filter > label:first-of-type {
+  flex: 1 1 18rem;
+  max-width: 32rem;
+}
+
 .admin-shell #kb-filter-search {
   width: min(100%, 32rem);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* Creator dropdown sits beside the search rather than stretching the full bar.
+   Without an explicit width it inherits the flex label's stretch and spans the
+   whole row (off-theme). Cap and theme it to match the search box. */
+.admin-shell #kb-creator-filter {
+  width: auto;
+  min-width: 12rem;
+  max-width: 20rem;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -670,6 +692,7 @@ a:hover { text-decoration: underline; }
 }
 
 .admin-shell .kb-filter__count {
+  flex-basis: 100%;
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
