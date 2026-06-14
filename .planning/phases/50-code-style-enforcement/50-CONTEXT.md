@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Reconcile the operator's ReSharper code-style into the committed `.editorconfig` (the five bug-driven carve-outs win every conflict), then enforce the reconciled style on **new/changed lines only** via a versioned pre-commit hook + a CI gate — with no mass reflow of existing files — and rewrite the project `CLAUDE.md` formatting rule from "never reformat" to "`.editorconfig` is the enforced source of truth." Should land AFTER Phases 44 and 49 so the gate doesn't thrash those in-flight mechanical refactors.
+Reconcile the operator's ReSharper code-style into the committed `.editorconfig` (the five bug-driven carve-outs win every conflict), then enforce the reconciled style on **new/changed lines only** via a versioned pre-commit hook + a CI gate — with no mass reflow of existing files — and rewrite the project `CLAUDE.md` formatting rule from "never reformat" to "`.editorconfig` is the enforced source of truth." Lands AFTER Phase 44 (shipped) and BEFORE Phase 49 (re-sequenced 2026-06-14 at operator request — original was after-49) so the reconciled style + gate are in place when 49's Dapper refactor lands; changed-lines-only scope means 49's untouched legacy code is never reflowed.
 
 </domain>
 

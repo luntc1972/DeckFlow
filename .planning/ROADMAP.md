@@ -153,13 +153,13 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
 - [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
 - [x] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths (completed 2026-06-13)
-- [ ] **Phase 49: Dapper Data-Access Adoption** _(runs first — before any further DB work)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
+- [ ] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** _(runs before Phase 49 — re-sequenced 2026-06-14 at operator request)_ — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth
+- [ ] **Phase 49: Dapper Data-Access Adoption** _(runs after Phase 50; before remaining DB work 46/47)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
 - [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
 - [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
 - [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
 - [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
 - [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
-- [ ] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth
 
 ### Phase Details
 
@@ -288,7 +288,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 #### Phase 49: Dapper Data-Access Adoption
 **Goal**: The dual-provider store classes use Dapper for query/execute mapping instead of hand-written `DbCommand`/reader loops, behind the unchanged `IRelationalDialect`/`RelationalDatabaseConnection` abstraction; Sqlite+Postgres parity is preserved by provider-aware Dapper type handlers; DDL/migration and the `RequestMetricsStore` unnest-batch path remain raw SQL; the `FeedbackStore` spike gates whether the rest proceeds
-**Sequencing**: RUNS FIRST among the remaining v1.7 phases — before any further database work (44, 46, 47). Rationale: it converts `CategoryKnowledgeRepository`/`CategoryKnowledgeStore` and the content stores that those later phases also touch; doing Dapper first avoids reworking the same DB code twice. Phase 50 still lands after 49.
+**Sequencing**: Runs AFTER Phase 50 (re-sequenced 2026-06-14 at operator request — 50 lands the format gate first so 49's Dapper changes conform to the reconciled style), then before remaining DB work (46, 47). 44 already shipped. Rationale for Dapper-before-46/47: it converts `CategoryKnowledgeRepository`/`CategoryKnowledgeStore` and the content stores those later phases also touch; doing Dapper first avoids reworking the same DB code twice.
 **Depends on**: Nothing (independent of Studio track; touches Core + Web store layer only)
 **Requirements**: DAP-01, DAP-02, DAP-03 (defined in SPEC.md)
 **Success Criteria** (what must be TRUE):
@@ -307,7 +307,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 #### Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate
 **Goal**: The operator's ReSharper code-style is reconciled into the committed `.editorconfig` (with the 5 bug-driven carve-outs winning every conflict) and is enforced on new/changed code via a pre-commit hook and a CI gate, without reflowing existing files; the project `CLAUDE.md` no longer forbids reformatting but instead names `.editorconfig` the enforced source of truth
-**Depends on**: Nothing structurally, but SHOULD land after Phase 44 and Phase 49 so the gate does not thrash those in-flight mechanical refactors
+**Depends on**: Nothing structurally. SHOULD land after Phase 44 (shipped) and BEFORE Phase 49 (re-sequenced 2026-06-14 at operator request — original plan was after-49; reversed so the reconciled `.editorconfig` + changed-lines gate are in place when 49's Dapper refactor lands, making 49's new/changed data-access lines conform from the start). The changed-lines-only scope means 49's edits are gated but untouched legacy code is never reflowed.
 **Requirements**: FMT-01..05 (defined in SPEC.md)
 **Success Criteria** (what must be TRUE):
   1. An exported ReSharper code-style `.editorconfig` is diffed against the current file; a reconciliation report lists every conflict and its resolution; the 5 carve-outs (init accessors, raw-string indent, attribute placement, switch expressions, xmldoc indent) are preserved regardless of the RS export
@@ -330,13 +330,13 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
-| 49. Dapper Data-Access Adoption | 0/4 | Planned (runs first) | - |
-| 44. Admin Grid Lazy Paging | 3/3 | Complete (executed before 49) | 2026-06-14 |
+| 50. Code-Style Enforcement | 0/4 | Planned (runs before 49) | - |
+| 49. Dapper Data-Access Adoption | 0/4 | Planned (runs after 50) | - |
+| 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started (after 49) | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
-| 50. Code-Style Enforcement (.editorconfig + PR Gate) | 0/TBD | Not started | - |
 
 ---
 

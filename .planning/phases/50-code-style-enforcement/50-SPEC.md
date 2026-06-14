@@ -21,7 +21,7 @@ The operator's local ReSharper settings (in their Windows JetBrains profile, **n
 
 Enforcement infrastructure today: a CI workflow (`.github/workflows/ci.yml`) builds + runs xUnit/Vitest/Playwright; there is **no** formatting check and **no** git hook (default `.git/hooks`, no `.githooks` dir). `dotnet format` is available via the .NET SDK but operates on whole files by default — a changed-lines-only gate requires scoping it to the PR diff.
 
-This phase is tech-debt/process, independent of the v1.7 publish-studio track, but should land **after** Phases 44 and 49 so the new gate does not thrash those in-flight mechanical refactors.
+This phase is tech-debt/process, independent of the v1.7 publish-studio track. It lands **after** Phase 44 (shipped) and **before** Phase 49 (re-sequenced 2026-06-14 at operator request — original spec said after-49). Landing the format gate before the Dapper refactor means 49's new/changed data-access lines conform to the reconciled `.editorconfig` from the start; the changed-lines-only scope guarantees 49's untouched legacy code is never reflowed.
 
 ## Requirements
 
