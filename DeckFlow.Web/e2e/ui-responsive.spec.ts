@@ -168,6 +168,43 @@ test('content kb card is tappable', async ({ page }) => {
   expect(page.url()).toContain(detailHref ?? '/content-kb/');
 });
 
+test('content kb search box is not oversized on desktop', async ({ page }) => {
+  const isMobile = test.info().project.name.includes('mobile');
+  if (isMobile) {
+    // Mobile stacks the filter bar in a column; this guards the desktop-only
+    // sizing regression (search input formerly stretched full-width and grew
+    // vertically to the open filters block height).
+    test.skip();
+  }
+
+  const response = await page.goto('/content-kb');
+  expect(response?.ok()).toBeTruthy();
+
+  const search = page.locator('[data-kb-search]');
+  const bar = page.locator('.kb-filter-bar');
+  const details = page.locator('details.kb-filters');
+
+  await expect(search).toBeVisible();
+
+  const searchBox = await search.boundingBox();
+  const barBox = await bar.boundingBox();
+  const detailsBox = await details.boundingBox();
+
+  expect(searchBox).not.toBeNull();
+  expect(barBox).not.toBeNull();
+  expect(detailsBox).not.toBeNull();
+
+  // Horizontal: `flex: 0 1 22rem` caps the search input (~352px @ 16px root)
+  // instead of letting it stretch across the whole filter bar.
+  expect(searchBox!.width).toBeLessThanOrEqual(420);
+  expect(searchBox!.width).toBeLessThan(barBox!.width * 0.75);
+
+  // Vertical: `align-items: flex-start` keeps the search input at its natural
+  // control height rather than stretching to match the tall open filters block.
+  expect(searchBox!.height).toBeLessThanOrEqual(60);
+  expect(detailsBox!.height).toBeGreaterThan(searchBox!.height + 40);
+});
+
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {
   test(`no horizontal overflow on key pages: ${route}`, async ({ page }) => {
     const response = await page.goto(route);
