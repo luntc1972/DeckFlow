@@ -107,6 +107,10 @@ else
         </div>
         <div class="kb-filter">
             <label>
+                Filter entries
+                <input id="kb-filter-search" type="search" autocomplete="off" placeholder="Filter by title, source, or tag" aria-controls="kb-entries-table" />
+            </label>
+            <label>
                 Creator
                 <select id="kb-creator-filter" autocomplete="off" aria-controls="kb-entries-table">
                     <option value="">All creators</option>
@@ -115,10 +119,6 @@ else
                         <option value="@source.Source">@source.Source</option>
                     }
                 </select>
-            </label>
-            <label>
-                Filter entries
-                <input id="kb-filter-search" type="search" autocomplete="off" placeholder="Filter by title, source, or tag" aria-controls="kb-entries-table" />
             </label>
             <p class="kb-filter__count" id="kb-filter-count" role="status" aria-live="polite"></p>
         </div>
