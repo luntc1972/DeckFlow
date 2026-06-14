@@ -138,10 +138,11 @@ public sealed class AdminContentKbController : Controller
     /// </summary>
     /// <param name="entryId">Surrogate row id.</param>
     /// <param name="visible">Desired visibility.</param>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("SetVisibility")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetVisibility(long entryId, bool visible, CancellationToken cancellationToken)
+    public async Task<IActionResult> SetVisibility(long entryId, bool visible, string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -150,17 +151,18 @@ public sealed class AdminContentKbController : Controller
 
         await _store.SetVisibilityAsync(entryId, visible, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = "Visibility updated.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 
     /// <summary>
     /// Hides a single entry by surrogate id. Double-CSRF-guarded.
     /// </summary>
     /// <param name="entryId">Surrogate row id.</param>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("Hide")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Hide(long entryId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Hide(long entryId, string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -169,7 +171,7 @@ public sealed class AdminContentKbController : Controller
 
         await _store.SetHiddenAsync(entryId, hidden: true, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = "Visibility updated.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 
     /// <summary>
@@ -177,10 +179,11 @@ public sealed class AdminContentKbController : Controller
     /// </summary>
     /// <param name="entryId">Surrogate row id.</param>
     /// <param name="evergreen">Desired evergreen flag value.</param>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("SetEvergreen")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetEvergreen(long entryId, bool evergreen, CancellationToken cancellationToken)
+    public async Task<IActionResult> SetEvergreen(long entryId, bool evergreen, string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -189,17 +192,18 @@ public sealed class AdminContentKbController : Controller
 
         await _store.SetEvergreenAsync(entryId, evergreen, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = "Evergreen status updated.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 
     /// <summary>
     /// Permanently removes a single site-index row by surrogate id. Double-CSRF-guarded.
     /// </summary>
     /// <param name="entryId">Surrogate row id.</param>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("Delete")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteEntry(long entryId, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteEntry(long entryId, string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -208,7 +212,7 @@ public sealed class AdminContentKbController : Controller
 
         var deleted = await _store.DeleteByIdAsync(entryId, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = deleted > 0 ? "Entry deleted." : "Entry not found.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 
     /// <summary>
@@ -216,10 +220,11 @@ public sealed class AdminContentKbController : Controller
     /// </summary>
     /// <param name="source">Source key.</param>
     /// <param name="visible">Desired visibility for all of the source's entries.</param>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("BulkSetVisibility")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> BulkSetVisibility(string source, bool visible, CancellationToken cancellationToken)
+    public async Task<IActionResult> BulkSetVisibility(string source, bool visible, string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -233,17 +238,18 @@ public sealed class AdminContentKbController : Controller
 
         await _store.SetVisibilityBySourceAsync(source, visible, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = $"Bulk visibility updated for {source}.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 
     /// <summary>
     /// Hides every entry for a given source. Double-CSRF-guarded.
     /// </summary>
     /// <param name="source">Source key.</param>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("BulkHide")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> BulkHide(string source, CancellationToken cancellationToken)
+    public async Task<IActionResult> BulkHide(string source, string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -257,17 +263,18 @@ public sealed class AdminContentKbController : Controller
 
         await _store.SetHiddenBySourceAsync(source, hidden: true, cancellationToken).ConfigureAwait(false);
         TempData[BannerKey] = $"Bulk visibility updated for {source}.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 
     /// <summary>
     /// Re-runs the seed loader to upsert the committed curation seed into the live index.
     /// Double-CSRF-guarded.
     /// </summary>
+    /// <param name="visibilityFilter">Current visibility tab to return to.</param>
     /// <param name="cancellationToken">Request-aborted token.</param>
     [HttpPost("ReloadSeed")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReloadSeed(CancellationToken cancellationToken)
+    public async Task<IActionResult> ReloadSeed(string? visibilityFilter, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -277,6 +284,6 @@ public sealed class AdminContentKbController : Controller
         var rowCount = await _seedLoader.LoadIfPresentAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Content KB seed reload completed. Rows={RowCount}", rowCount);
         TempData[BannerKey] = $"Reloaded seed ({rowCount} rows).";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
 }
