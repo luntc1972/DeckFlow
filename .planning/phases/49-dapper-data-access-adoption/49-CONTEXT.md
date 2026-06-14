@@ -19,7 +19,7 @@ Downstream agents MUST read `49-SPEC.md` before planning or implementing. Requir
 
 **In scope (from SPEC.md):**
 - Add `Dapper` package to `DeckFlow.Core`
-- ≤4 provider-aware Dapper type handlers (DateTime, decimal, bool, Guid) + registration
+- ≤5 provider-aware Dapper type handlers (DateTime, decimal, bool, Guid, DateTimeOffset) + registration (see D-06)
 - Convert `FeedbackStore` first as the spike, gated by the objective PASS criterion
 - After PASS: convert all 13 eligible stores' query/execute/scalar paths to Dapper, in waves
 - Keep all SQL text verbatim — only the execution/mapping mechanism changes
@@ -45,11 +45,14 @@ Downstream agents MUST read `49-SPEC.md` before planning or implementing. Requir
 - **D-02:** Do NOT use explicit `AS` aliases or per-type `SetTypeMap` for the general case (rejected as verbose / boilerplate that defeats the point of Dapper). A per-query alias is acceptable only where a column genuinely cannot match a property name even with underscore-stripping (flag any such case in the plan).
 
 ### Type-handler provider branching
-- **D-03:** Implement a **single global set of ≤4 `SqlMapper.TypeHandler<T>`** (DateTime, decimal, bool, Guid). Each handler is provider-agnostic and **self-detects at runtime**:
+- **D-03:** Implement a **single global set of ≤5 `SqlMapper.TypeHandler<T>`** (DateTime, decimal, bool, Guid, DateTimeOffset — see D-06). Each handler is provider-agnostic and **self-detects at runtime**:
   - `Parse(object value)` (read path): branch on the runtime type of the value the reader returned — `string`/`long` ⇒ SQLite-encoded, decode (ISO-8601 → DateTime, text → decimal, int → bool, text → Guid); already-native `DateTime`/`bool`/`decimal`/`Guid` ⇒ Postgres passthrough.
   - `SetValue(IDbDataParameter p, T value)` (write path): branch on the concrete parameter type — `SqliteParameter` ⇒ encode to text/int matching today's bind-time formatting; `NpgsqlParameter` ⇒ assign native value.
 - **D-04:** Handlers are registered **exactly once** via a thread-safe, idempotent guard (e.g. a static `EnsureRegistered()` invoked from a single chokepoint — candidate: `RelationalDatabaseConnection` static init or a Core registration helper). The guard must tolerate the test suite constructing stores directly AND DI wiring, and tolerate both providers being exercised in the same process (the suite does exactly that). Do NOT use an ambient "current provider" flag (rejected — breaks when both providers run in one process).
 - **D-05:** The handlers must reproduce **today's exact coercion semantics** — including DateTime `Kind`/offset handling (the current SQLite path uses `ToString("O", InvariantCulture)` + round-trip parse). Parity with the pre-Dapper values is the bar, not "a reasonable encoding."
+
+### Handler count (amended 2026-06-14)
+- **D-06:** The handler set is **≤5**, adding `DateTimeOffsetTypeHandler` to the original four (DateTime, decimal, bool, Guid). Rationale: `HarvestRunStore` + the content stores persist `DateTimeOffset`, which `TypeHandler<DateTime>` does not cover; the spike (`FeedbackStore`, DateTime-only) passes with 4, and the 5th is added in the sweep. This is a deliberate amendment of SPEC REQ-2's original `≤4` cap (user-approved 2026-06-14), not a spike FAIL. **Semantics (locked, identical logic to `DateTimeTypeHandler`):** write path — SQLite ⇒ `value.UtcDateTime.ToString("O", InvariantCulture)`, Postgres ⇒ native `DateTimeOffset`; read path — `string` ⇒ parse with round-trip (`O`/`Z`) tolerance falling back to `DateTimeStyles.AssumeUniversal | AdjustToUniversal`, native `DateTimeOffset`/`DateTime` ⇒ passthrough. Grounded in RESEARCH Assumption A1 / Pitfall 5.
 
 ### Claude's Discretion
 - Exact file/namespace for the type handlers and the registration chokepoint — planner/researcher choose, consistent with `DeckFlow.Core` conventions (one public type per file, `sealed`).

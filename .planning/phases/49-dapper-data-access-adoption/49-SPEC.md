@@ -25,9 +25,9 @@ This phase is independent of the v1.7 publish-studio track (Phases 41–48); it 
    - Target: `Dapper` (latest stable) referenced by `DeckFlow.Core` (and transitively available to `DeckFlow.Web` stores); no other new package added
    - Acceptance: `DeckFlow.Core.csproj` contains a `Dapper` `<PackageReference>`; `dotnet build DeckFlow.sln` succeeds 0 errors / 0 new warnings; no second new package appears in any csproj
 
-2. **Provider-aware type handlers**: A fixed, small set of Dapper type handlers round-trips the four coerced types on both providers.
-   - Current: Coercion is hand-written per-store in ~8 files (DateTime/decimal/bool/Guid), both on read (reader loops) and write (bind formatting)
-   - Target: ≤4 registered `SqlMapper.TypeHandler` implementations (DateTime, decimal, bool, Guid) that detect/branch on provider and produce identical values to today's hand-coercion; registered once at store/DI initialization
+2. **Provider-aware type handlers**: A fixed, small set of Dapper type handlers round-trips the coerced types on both providers.
+   - Current: Coercion is hand-written per-store in ~8 files (DateTime/decimal/bool/Guid/DateTimeOffset), both on read (reader loops) and write (bind formatting)
+   - Target: ≤5 registered `SqlMapper.TypeHandler` implementations (DateTime, decimal, bool, Guid, DateTimeOffset) that detect/branch on provider and produce identical values to today's hand-coercion; registered once at store/DI initialization. (Amended 2026-06-14 ≤4→≤5: the spike exercises only DateTime and passes with 4; the sweep adds `DateTimeOffsetTypeHandler` because `HarvestRunStore` + content stores store `DateTimeOffset` natively/encoded — still a small fixed set, see CONTEXT D-06.)
    - Acceptance: A focused round-trip test writes and reads each of the four types through a Dapper query on **both** an in-memory/temp SQLite db and a Postgres db, asserting value equality (including DateTime kind/offset semantics matching the pre-Dapper behavior)
 
 3. **FeedbackStore spike (gate)**: `FeedbackStore` is fully converted to Dapper as the first store, and an objective pass/fail gate decides whether the sweep proceeds.
@@ -54,7 +54,7 @@ This phase is independent of the v1.7 publish-studio track (Phases 41–48); it 
 
 **In scope:**
 - Add `Dapper` package to `DeckFlow.Core`
-- ≤4 provider-aware Dapper type handlers (DateTime, decimal, bool, Guid) + their registration
+- ≤5 provider-aware Dapper type handlers (DateTime, decimal, bool, Guid, DateTimeOffset) + their registration
 - Convert `FeedbackStore` first as the spike, gated by the objective PASS criterion
 - After PASS: convert all 13 eligible stores' query/execute/scalar paths to Dapper, in waves
 - Keep all SQL text (UPSERT `ON CONFLICT`, `RETURNING`, `COALESCE`, dialect fragments) verbatim — only the execution/mapping mechanism changes
@@ -82,7 +82,7 @@ This phase is independent of the v1.7 publish-studio track (Phases 41–48); it 
 ## Acceptance Criteria
 
 - [ ] `Dapper` package referenced in `DeckFlow.Core.csproj`; no other new package added; `dotnet build DeckFlow.sln` 0 errors / 0 new warnings
-- [ ] ≤4 provider-aware Dapper type handlers exist and a round-trip test proves DateTime/decimal/bool/Guid equality on both SQLite and Postgres
+- [ ] ≤5 provider-aware Dapper type handlers exist and a round-trip test proves DateTime/decimal/bool/Guid/DateTimeOffset equality on both SQLite and Postgres
 - [ ] `FeedbackStore` fully converted to Dapper with zero store-local type conversion; feedback tests pass on both providers
 - [ ] Spike gate evaluated and recorded in `49-GATE-VERDICT.md` (PASS proceeds; FAIL stops the phase at the spike)
 - [ ] On PASS: all 13 eligible stores converted; grep for `ExecuteReaderAsync` in eligible store files returns zero non-DDL occurrences
