@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 
@@ -54,6 +55,7 @@ public sealed class ContentVideoStore : IContentVideoStore
             await sourceStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -93,18 +95,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = InsertVideoSql;
-        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
-        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", (object?)youtubeVideoId ?? DBNull.Value);
-        RelationalDatabaseConnection.AddParameter(command, "@rssGuid", (object?)rssGuid ?? DBNull.Value);
-        RelationalDatabaseConnection.AddParameter(command, "@title", title);
-        RelationalDatabaseConnection.AddParameter(command, "@videoUrl", videoUrl);
-        RelationalDatabaseConnection.AddParameter(command, "@publishedUtc", FormatTimestamp(publishedUtc));
-        RelationalDatabaseConnection.AddParameter(command, "@transcriptStatus", transcriptStatus);
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return ContentStoreGeneratedId.Read(id);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            InsertVideoSql,
+            new { sourceId, youtubeVideoId, rssGuid, title, videoUrl, publishedUtc, transcriptStatus },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -117,18 +111,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = GetVideoByYoutubeIdSql;
-        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
-        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        return ReadVideo(reader);
+        return await connection.QuerySingleOrDefaultAsync<ContentVideo>(new CommandDefinition(
+            GetVideoByYoutubeIdSql,
+            new { sourceId, youtubeVideoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -139,20 +125,13 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
         // Why: source-scoped so a video is only ever distilled under its own
         // source slug and a disabled source's videos are skipped by the caller (HIGH-2).
-        command.CommandText = ListVideosPendingDistillSql;
-        RelationalDatabaseConnection.AddParameter(command, "@sourceId", sourceId);
-
-        var videos = new List<ContentVideo>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            videos.Add(ReadVideo(reader));
-        }
-
-        return videos;
+        var videos = await connection.QueryAsync<ContentVideo>(new CommandDefinition(
+            ListVideosPendingDistillSql,
+            new { sourceId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return videos.ToList();
     }
 
     /// <inheritdoc />
@@ -170,11 +149,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = UpdateTranscriptStatusSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@status", status);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            UpdateTranscriptStatusSql,
+            new { videoId, status },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -189,14 +167,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = InsertTranscriptSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@source", source);
-        RelationalDatabaseConnection.AddParameter(command, "@body", body);
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return ContentStoreGeneratedId.Read(id);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            InsertTranscriptSql,
+            new { videoId, source, body },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -207,21 +181,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = GetLatestTranscriptSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        return new ContentTranscriptBody
-        {
-            Body = reader.GetString(0),
-            Source = reader.GetString(1),
-        };
+        return await connection.QuerySingleOrDefaultAsync<ContentTranscriptBody>(new CommandDefinition(
+            GetLatestTranscriptSql,
+            new { videoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -231,13 +194,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = InsertSummarySql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@body", body);
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return ContentStoreGeneratedId.Read(id);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            InsertSummarySql,
+            new { videoId, body },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -252,15 +212,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = InsertClipSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@timestampS", timestampS);
-        RelationalDatabaseConnection.AddParameter(command, "@excerpt", excerpt);
-        RelationalDatabaseConnection.AddParameter(command, "@sortOrder", sortOrder);
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return ContentStoreGeneratedId.Read(id);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            InsertClipSql,
+            new { videoId, timestampS, excerpt, sortOrder },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -275,14 +230,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = InsertTagSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@dimension", dimension);
-        RelationalDatabaseConnection.AddParameter(command, "@tagValue", tagValue);
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return ContentStoreGeneratedId.Read(id);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            InsertTagSql,
+            new { videoId, dimension, tagValue },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -291,13 +242,13 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             DELETE FROM content_videos
              WHERE id = @videoId;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new { videoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -308,13 +259,13 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
             DELETE FROM content_videos
              WHERE youtube_video_id = @youtubeVideoId;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
-        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new { youtubeVideoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -323,11 +274,11 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
             DELETE FROM content_videos;
-            """;
-        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -336,12 +287,12 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
         // Why: enables idempotent clean re-distill before re-inserting generated
         // child rows, avoiding duplicates and content_tags UNIQUE violations.
-        command.CommandText = ClearDistillOutputSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            ClearDistillOutputSql,
+            new { videoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -350,17 +301,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = GetDistillStatusSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        return reader.GetString(0);
+        return await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            GetDistillStatusSql,
+            new { videoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -378,12 +322,10 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = _connectionInfo.IsPostgres ? PostgresSetDistillStatusSql : SqliteSetDistillStatusSql;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@status", status);
-        RelationalDatabaseConnection.AddParameter(command, "@updatedUtc", FormatTimestamp(DateTimeOffset.UtcNow));
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            _connectionInfo.IsPostgres ? PostgresSetDistillStatusSql : SqliteSetDistillStatusSql,
+            new { videoId, status, updatedUtc = DateTimeOffset.UtcNow },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -419,32 +361,6 @@ public sealed class ContentVideoStore : IContentVideoStore
             or DistillStatusFailed
             or DistillStatusFiltered;
 
-    private static ContentVideo ReadVideo(DbDataReader reader)
-        => new()
-        {
-            Id = reader.GetInt64(0),
-            SourceId = reader.GetInt64(1),
-            YoutubeVideoId = reader.IsDBNull(2) ? null : reader.GetString(2),
-            RssGuid = reader.IsDBNull(3) ? null : reader.GetString(3),
-            Title = reader.GetString(4),
-            VideoUrl = reader.GetString(5),
-            PublishedUtc = reader.IsDBNull(6) ? null : ReadDateTimeOffset(reader, 6),
-            TranscriptStatus = reader.GetString(7),
-            CreatedUtc = ReadDateTimeOffset(reader, 8)
-        };
-
-    private static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
-    }
-
     private async Task<int> CountByVideoAsync(
         string commandText,
         long videoId,
@@ -453,30 +369,17 @@ public sealed class ContentVideoStore : IContentVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = commandText;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-
-        var count = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt32(count, CultureInfo.InvariantCulture);
-    }
-
-    private object FormatTimestamp(DateTimeOffset? value)
-    {
-        if (value is null)
-        {
-            return DBNull.Value;
-        }
-
-        return _connectionInfo.IsPostgres
-            ? value.Value.UtcDateTime
-            : value.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            commandText,
+            new { videoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private async Task EnsureFilteredDistillStatusConstraintAsync(
         DbConnection connection,
         CancellationToken cancellationToken)
     {
+        // Why: filtered-status schema migration is an intentional raw ADO.NET carve-out for this phase.
         if (_connectionInfo.IsSqlite)
         {
             if (await SqliteDistillStatusAllowsFilteredAsync(connection, cancellationToken).ConfigureAwait(false))
