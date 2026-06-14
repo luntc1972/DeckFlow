@@ -153,7 +153,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
 - [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
 - [x] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths (completed 2026-06-13)
-- [ ] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** _(runs before Phase 49 — re-sequenced 2026-06-14 at operator request)_ — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth
+- [x] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** _(runs before Phase 49 — re-sequenced 2026-06-14 at operator request)_ — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth (completed 2026-06-14)
 - [ ] **Phase 49: Dapper Data-Access Adoption** _(runs after Phase 50; before remaining DB work 46/47)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
 - [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
 - [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
@@ -316,10 +316,10 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   4. The existing codebase is NOT mass-reflowed — `git diff` for the phase shows no whole-file formatting churn; the carve-out values (e.g. raw-string literals, `{ get; init; }`) are byte-identical
   5. Project `CLAUDE.md` is updated: the blanket "never reformat" rule is replaced with "`.editorconfig` is the enforced source of truth; the carve-outs remain protected; new/changed code must satisfy it"
 **Plans**: 4 plans across 3 waves
-- [ ] 50-01-PLAN.md — Reconcile ReSharper export into .editorconfig (carve-outs win); write 50-RECONCILIATION.md (FMT-01)
-- [ ] 50-02-PLAN.md — Shared diff-intersect script + pre-commit hook + parallel CI format-gate job (FMT-03, FMT-04)
-- [ ] 50-03-PLAN.md — CarveOutGuardTests: four byte-identity carve-out assertions (FMT-02)
-- [ ] 50-04-PLAN.md — Rewrite CLAUDE.md to source-of-truth model + hook-install docs + behavioral FMT-03/04 proof (FMT-05)
+- [x] 50-01-PLAN.md — Reconcile ReSharper export into .editorconfig (carve-outs win); write 50-RECONCILIATION.md (FMT-01)
+- [x] 50-02-PLAN.md — Shared diff-intersect script + pre-commit hook + parallel CI format-gate job (FMT-03, FMT-04)
+- [x] 50-03-PLAN.md — CarveOutGuardTests: four byte-identity carve-out assertions (FMT-02)
+- [x] 50-04-PLAN.md — Rewrite CLAUDE.md to source-of-truth model + hook-install docs + behavioral FMT-03/04 proof (FMT-05)
 
 ---
 
@@ -330,7 +330,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
-| 50. Code-Style Enforcement | 0/4 | Planned (runs before 49) | - |
+| 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
 | 49. Dapper Data-Access Adoption | 0/4 | Planned (runs after 50) | - |
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
