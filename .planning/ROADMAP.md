@@ -9,7 +9,7 @@
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
-- 🔵 **v1.7 Local Harvest & Publish Studio** — Phases 41-49 (in progress)
+- 🔵 **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (in progress)
 
 ## Phases
 
@@ -144,7 +144,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 ---
 
-## v1.7 Local Harvest & Publish Studio (Phases 41-49) — IN PROGRESS
+## v1.7 Local Harvest & Publish Studio (Phases 41-50) — IN PROGRESS
 
 **Goal:** A standalone local Blazor Server tool to discover YouTube videos, harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push.
 
@@ -159,6 +159,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
 - [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
 - [ ] **Phase 49: Dapper Data-Access Adoption** — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
+- [ ] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth
 
 ### Phase Details
 
@@ -298,6 +299,20 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 ---
 
+#### Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate
+**Goal**: The operator's ReSharper code-style is reconciled into the committed `.editorconfig` (with the 5 bug-driven carve-outs winning every conflict) and is enforced on new/changed code via a pre-commit hook and a CI gate, without reflowing existing files; the project `CLAUDE.md` no longer forbids reformatting but instead names `.editorconfig` the enforced source of truth
+**Depends on**: Nothing structurally, but SHOULD land after Phase 44 and Phase 49 so the gate does not thrash those in-flight mechanical refactors
+**Requirements**: FMT-01..05 (defined in SPEC.md)
+**Success Criteria** (what must be TRUE):
+  1. An exported ReSharper code-style `.editorconfig` is diffed against the current file; a reconciliation report lists every conflict and its resolution; the 5 carve-outs (init accessors, raw-string indent, attribute placement, switch expressions, xmldoc indent) are preserved regardless of the RS export
+  2. A changed-lines-only formatting gate runs in CI and fails the build when added/modified lines violate `.editorconfig`; untouched legacy lines do not trip it
+  3. A pre-commit hook runs the same changed-lines check locally before commit
+  4. The existing codebase is NOT mass-reflowed — `git diff` for the phase shows no whole-file formatting churn; the carve-out values (e.g. raw-string literals, `{ get; init; }`) are byte-identical
+  5. Project `CLAUDE.md` is updated: the blanket "never reformat" rule is replaced with "`.editorconfig` is the enforced source of truth; the carve-outs remain protected; new/changed code must satisfy it"
+**Plans**: TBD
+
+---
+
 ### Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -311,6 +326,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
 | 49. Dapper Data-Access Adoption | 0/TBD | Not started | - |
+| 50. Code-Style Enforcement (.editorconfig + PR Gate) | 0/TBD | Not started | - |
 
 ---
 
