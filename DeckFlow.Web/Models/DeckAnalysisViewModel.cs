@@ -69,4 +69,20 @@ public sealed class DeckAnalysisViewModel
     /// Gets a warning surfaced when the user's deck import succeeded but with caveats worth flagging.
     /// </summary>
     public string? ImportWarning { get; init; }
+
+    /// <summary>
+    /// Gets whether the "Build Analysis Prompt" step (Step 2) is complete. The prompt text is
+    /// only present on the generate postback; later steps (3) skip the deck load and return null
+    /// prompt text, so a parsed analysis response also counts as proof the prompt was generated.
+    /// </summary>
+    public bool IsAnalysisPromptStepComplete =>
+        !string.IsNullOrWhiteSpace(AnalysisPromptText) || AnalysisResponse is not null;
+
+    /// <summary>
+    /// Gets whether the "Build Set Upgrade Prompt" step (Step 4) is complete. Mirrors
+    /// <see cref="IsAnalysisPromptStepComplete"/>: a parsed set-upgrade response proves the
+    /// set-upgrade prompt was generated even when Step 5 returns null prompt text.
+    /// </summary>
+    public bool IsSetUpgradePromptStepComplete =>
+        !string.IsNullOrWhiteSpace(SetUpgradePromptText) || SetUpgradeResponse is not null;
 }

@@ -125,9 +125,12 @@ Do not omit any fields from the schema.
             Steps: new[]
             {
                 new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
-                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", !string.IsNullOrWhiteSpace(Model.AnalysisPromptText)),
+                // Steps 2/4 stay complete once their downstream response exists (the service
+                // returns null prompt text on steps 3/5 where the deck load is skipped); the
+                // completeness rule lives on the view model so it stays unit-tested.
+                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", Model.IsAnalysisPromptStepComplete),
                 new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Analysis Results", Model.AnalysisResponse is not null),
-                new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", !string.IsNullOrWhiteSpace(Model.SetUpgradePromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", Model.IsSetUpgradePromptStepComplete),
                 new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null)
             });
     }
