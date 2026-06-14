@@ -9,7 +9,7 @@
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
-- 🔵 **v1.7 Local Harvest & Publish Studio** — Phases 41-48 (in progress)
+- 🔵 **v1.7 Local Harvest & Publish Studio** — Phases 41-49 (in progress)
 
 ## Phases
 
@@ -144,7 +144,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 ---
 
-## v1.7 Local Harvest & Publish Studio (Phases 41-48) — IN PROGRESS
+## v1.7 Local Harvest & Publish Studio (Phases 41-49) — IN PROGRESS
 
 **Goal:** A standalone local Blazor Server tool to discover YouTube videos, harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push.
 
@@ -158,6 +158,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
 - [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
 - [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
+- [ ] **Phase 49: Dapper Data-Access Adoption** — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
 
 ### Phase Details
 
@@ -284,6 +285,19 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 ---
 
+#### Phase 49: Dapper Data-Access Adoption
+**Goal**: The dual-provider store classes use Dapper for query/execute mapping instead of hand-written `DbCommand`/reader loops, behind the unchanged `IRelationalDialect`/`RelationalDatabaseConnection` abstraction; Sqlite+Postgres parity is preserved by provider-aware Dapper type handlers; DDL/migration and the `RequestMetricsStore` unnest-batch path remain raw SQL; the `FeedbackStore` spike gates whether the rest proceeds
+**Depends on**: Nothing (independent of Studio track; touches Core + Web store layer only)
+**Requirements**: DAP-01, DAP-02, DAP-03 (defined in SPEC.md)
+**Success Criteria** (what must be TRUE):
+  1. `Dapper` package is referenced (user-approved) and provider-aware type handlers for DateTime/decimal/bool/Guid round-trip correctly on both Sqlite and Postgres
+  2. `FeedbackStore` is fully converted to Dapper as the spike; `DeckFlow.Web.Tests` for feedback pass per-provider; if the type-handler approach is judged not clean, the phase stops at the spike with a written verdict
+  3. Converted stores produce byte-identical behavior — existing `DeckFlow.Core.Tests` + `DeckFlow.Web.Tests` pass with 0 new failures on both providers; no DDL/migration method is rewritten
+  4. `RequestMetricsStore` unnest-batch and all DDL/schema-init methods remain raw ADO.NET by design (documented as out of scope)
+**Plans**: TBD
+
+---
+
 ### Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -296,6 +310,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started | - |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
+| 49. Dapper Data-Access Adoption | 0/TBD | Not started | - |
 
 ---
 
