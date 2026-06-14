@@ -326,6 +326,7 @@ summary:focus-visible,
 .kb-filter-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0.5rem;
   margin-bottom: 1rem;
   padding: 0;
@@ -334,7 +335,7 @@ summary:focus-visible,
 
 .kb-filter-bar > input,
 .kb-filter-bar > label {
-  flex: 1 1 10rem;
+  flex: 0 1 22rem;
   min-width: 7.5rem;
 }
 
