@@ -315,7 +315,11 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   3. A pre-commit hook runs the same changed-lines check locally before commit
   4. The existing codebase is NOT mass-reflowed — `git diff` for the phase shows no whole-file formatting churn; the carve-out values (e.g. raw-string literals, `{ get; init; }`) are byte-identical
   5. Project `CLAUDE.md` is updated: the blanket "never reformat" rule is replaced with "`.editorconfig` is the enforced source of truth; the carve-outs remain protected; new/changed code must satisfy it"
-**Plans**: TBD
+**Plans**: 4 plans across 3 waves
+- [ ] 50-01-PLAN.md — Reconcile ReSharper export into .editorconfig (carve-outs win); write 50-RECONCILIATION.md (FMT-01)
+- [ ] 50-02-PLAN.md — Shared diff-intersect script + pre-commit hook + parallel CI format-gate job (FMT-03, FMT-04)
+- [ ] 50-03-PLAN.md — CarveOutGuardTests: four byte-identity carve-out assertions (FMT-02)
+- [ ] 50-04-PLAN.md — Rewrite CLAUDE.md to source-of-truth model + hook-install docs + behavioral FMT-03/04 proof (FMT-05)
 
 ---
 
