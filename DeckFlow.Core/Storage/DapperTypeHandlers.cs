@@ -41,6 +41,10 @@ public static class DapperTypeHandlers
         SqlMapper.RemoveTypeMap(typeof(Guid?));
         SqlMapper.AddTypeHandler(new GuidTypeHandler());
 
+        SqlMapper.RemoveTypeMap(typeof(DateTimeOffset));
+        SqlMapper.RemoveTypeMap(typeof(DateTimeOffset?));
+        SqlMapper.AddTypeHandler(new DateTimeOffsetTypeHandler());
+
         // Why: D-01 prefers one global underscore mapping rule over per-query aliases.
         DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
@@ -127,5 +131,42 @@ internal sealed class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
         parameter.Value = parameter is SqliteParameter
             ? value.ToString()
             : value;
+    }
+}
+
+internal sealed class DateTimeOffsetTypeHandler : SqlMapper.TypeHandler<DateTimeOffset>
+{
+    public override DateTimeOffset Parse(object value)
+        => value switch
+        {
+            DateTimeOffset dateTimeOffset => dateTimeOffset.ToUniversalTime(),
+            DateTime dateTime => new(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc), TimeSpan.Zero),
+            string text => ParseOffsetString(text),
+            _ => new DateTimeOffset(Convert.ToDateTime(value, CultureInfo.InvariantCulture), TimeSpan.Zero)
+        };
+
+    public override void SetValue(IDbDataParameter parameter, DateTimeOffset value)
+    {
+        var normalized = value.ToUniversalTime();
+        parameter.Value = parameter is SqliteParameter
+            ? normalized.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)
+            : normalized.UtcDateTime;
+    }
+
+    private static DateTimeOffset ParseOffsetString(string text)
+    {
+        if (DateTimeOffset.TryParse(
+            text,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind,
+            out var roundTripValue))
+        {
+            return roundTripValue.ToUniversalTime();
+        }
+
+        return DateTimeOffset.Parse(
+            text,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal).ToUniversalTime();
     }
 }

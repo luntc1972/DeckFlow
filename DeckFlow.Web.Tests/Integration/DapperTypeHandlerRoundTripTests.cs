@@ -140,8 +140,37 @@ public sealed class DapperTypeHandlerRoundTripTests : IClassFixture<PostgresCont
         Assert.Equal(value, roundTrip);
     }
 
-    // 49-02: add DateTimeOffset SQLite and Postgres round-trip coverage when
-    // DateTimeOffsetTypeHandler becomes the sanctioned fifth registered handler.
+    [Fact]
+    public async Task DateTimeOffsetHandler_RoundTrips_OnSqlite_WithRawWritePathProof()
+    {
+        var connectionInfo = CreateSqliteConnection();
+        var value = new DateTimeOffset(2026, 06, 14, 12, 34, 56, TimeSpan.FromHours(-6));
+
+        await using var connection = await connectionInfo.OpenConnectionAsync();
+        await connection.ExecuteAsync("CREATE TABLE handler_roundtrip(value TEXT NOT NULL);");
+        await connection.ExecuteAsync("INSERT INTO handler_roundtrip(value) VALUES (@value);", new { value });
+
+        var raw = await ReadRawSqliteValueAsync(connectionInfo.ExtractSqlitePath(), "SELECT value FROM handler_roundtrip LIMIT 1;");
+        Assert.Equal(typeof(string), raw.FieldType);
+        Assert.Equal(value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture), Assert.IsType<string>(raw.Value));
+
+        var roundTrip = await connection.QuerySingleAsync<DateTimeOffset>("SELECT value FROM handler_roundtrip LIMIT 1;");
+        Assert.Equal(value.ToUniversalTime(), roundTrip);
+    }
+
+    [PostgresFact]
+    public async Task DateTimeOffsetHandler_RoundTrips_OnPostgres()
+    {
+        var connectionInfo = await CreatePostgresConnectionAsync();
+        var value = new DateTimeOffset(2026, 06, 14, 12, 34, 56, TimeSpan.FromHours(-6));
+
+        await using var connection = await connectionInfo.OpenConnectionAsync();
+        await connection.ExecuteAsync("CREATE TEMP TABLE handler_roundtrip(value TIMESTAMPTZ NOT NULL);");
+        await connection.ExecuteAsync("INSERT INTO handler_roundtrip(value) VALUES (@value);", new { value });
+
+        var roundTrip = await connection.QuerySingleAsync<DateTimeOffset>("SELECT value FROM handler_roundtrip LIMIT 1;");
+        Assert.Equal(value.ToUniversalTime(), roundTrip);
+    }
 
     public void Dispose()
     {

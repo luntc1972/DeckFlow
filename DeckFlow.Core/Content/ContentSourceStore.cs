@@ -1,5 +1,5 @@
 using System.Data.Common;
-using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 
@@ -49,6 +49,7 @@ public sealed class ContentSourceStore : IContentSourceStore
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -76,14 +77,10 @@ public sealed class ContentSourceStore : IContentSourceStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = InsertSourceSql;
-        RelationalDatabaseConnection.AddParameter(command, "@sourceSlug", sourceSlug);
-        RelationalDatabaseConnection.AddParameter(command, "@displayName", displayName);
-        RelationalDatabaseConnection.AddParameter(command, "@sourceType", sourceType);
-        RelationalDatabaseConnection.AddParameter(command, "@sourceUrl", sourceUrl);
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        var id = await connection.ExecuteScalarAsync(new CommandDefinition(
+            InsertSourceSql,
+            new { sourceSlug, displayName, sourceType, sourceUrl },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
         return ContentStoreGeneratedId.Read(id);
     }
 
@@ -93,21 +90,14 @@ public sealed class ContentSourceStore : IContentSourceStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        return await connection.QuerySingleOrDefaultAsync<ContentSource>(new CommandDefinition(
+            """
             SELECT id, source_slug, display_name, source_type, source_url, is_enabled, created_utc
               FROM content_sources
              WHERE id = @id;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@id", id);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        return ReadSource(reader);
+            """,
+            new { id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -116,18 +106,14 @@ public sealed class ContentSourceStore : IContentSourceStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             UPDATE content_sources
                SET is_enabled = @isEnabled
              WHERE id = @id;
-            """;
-        RelationalDatabaseConnection.AddParameter(
-            command,
-            "@isEnabled",
-            _connectionInfo.IsPostgres ? (object)isEnabled : isEnabled ? 1 : 0);
-        RelationalDatabaseConnection.AddParameter(command, "@id", id);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new { isEnabled, id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -136,68 +122,20 @@ public sealed class ContentSourceStore : IContentSourceStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var sources = await connection.QueryAsync<ContentSource>(new CommandDefinition(
+            """
             SELECT id, source_slug, display_name, source_type, source_url, is_enabled, created_utc
               FROM content_sources
              WHERE is_enabled = @isEnabled
              ORDER BY source_slug;
-            """;
-        RelationalDatabaseConnection.AddParameter(
-            command,
-            "@isEnabled",
-            _connectionInfo.IsPostgres ? (object)true : 1);
-
-        var sources = new List<ContentSource>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            sources.Add(ReadSource(reader));
-        }
-
-        return sources;
+            """,
+            new { isEnabled = true },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return sources.ToList();
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-
-    private static ContentSource ReadSource(DbDataReader reader)
-        => new()
-        {
-            Id = reader.GetInt64(0),
-            SourceSlug = reader.GetString(1),
-            DisplayName = reader.GetString(2),
-            SourceType = reader.GetString(3),
-            SourceUrl = reader.GetString(4),
-            IsEnabled = ReadBool(reader, 5),
-            CreatedUtc = ReadDateTimeOffset(reader, 6)
-        };
-
-    private static bool ReadBool(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            bool b => b,
-            long l => l != 0,
-            int i => i != 0,
-            short s => s != 0,
-            string str => str == "1" || string.Equals(str, "true", StringComparison.OrdinalIgnoreCase),
-            _ => Convert.ToBoolean(raw, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
-    }
 
     private const string InsertSourceSql = """
         INSERT INTO content_sources (source_slug, display_name, source_type, source_url)
