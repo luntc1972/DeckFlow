@@ -31,12 +31,15 @@
     }
     else
     {
+        <p class="page-lede kb-artifact-hint">
+            This entry is a ready-to-use AI prompt — copy it and paste into ChatGPT, Claude, or Gemini.
+        </p>
         <div class="chatgpt-sticky-download" role="region" aria-label="Copy artifact">
             <button type="button"
                     class="copy-button run-button"
                     data-copy-target="kb-artifact-text"
-                    aria-label="Copy this artifact">
-                Copy
+                    aria-label="Copy this ChatGPT-ready prompt">
+                Copy prompt for ChatGPT
             </button>
         </div>
         <textarea id="kb-artifact-text" readonly hidden>@Model.CleanBodyText</textarea>
