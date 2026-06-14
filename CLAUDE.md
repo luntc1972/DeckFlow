@@ -62,7 +62,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 ## Configuration
 - Configured via environment variables; no `.env` file present in repo.
 - Required for production: `ASPNETCORE_ENVIRONMENT=Production`, `MTG_DATA_DIR=/data`, `PORT` (Render/Fly inject).
-- Optional: `DECKFLOW_DATABASE_PROVIDER` (`Sqlite`|`Postgres`), `DECKFLOW_DATABASE_CONNECTION_STRING`, `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD`, `FEEDBACK_IP_SALT`, `DECKFLOW_DISABLE_AUTO_BROWSER`.
+- Optional: `DECKFLOW_DATABASE_PROVIDER` (`Sqlite`|`Postgres`), `DECKFLOW_DATABASE_CONNECTION_STRING`, `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD`, `FEEDBACK_IP_SALT`, `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER`.
 - App-level: `DeckFlow.Web/appsettings.json` (logging defaults, allowed hosts) and `appsettings.Development.json` (logging override).
 - `DeckFlow.Web/Properties/launchSettings.json` - Local dev URLs `http://localhost:5173` / `https://localhost:7173`.
 - `Directory.Build.props` - Clears NuGet fallback folders.
