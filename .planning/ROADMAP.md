@@ -299,8 +299,8 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 **Plans**: 5 plans (4 waves; spike-gated via a blocking abort gate)
 - [x] 49-01-PLAN.md — Add Dapper + 4 provider-aware type handlers + idempotent registration + round-trip test + FeedbackStore spike + 49-GATE-VERDICT.md (Wave 1, GATE)
 - [x] 49-01b-PLAN.md — Abort Gate: blocking checkpoint:decision reading 49-GATE-VERDICT.md → writes 49-GATE-ABORT.md (AUTHORIZED proceeds / ABORTED stops); sweep plans depend on this (Wave 1)
-- [ ] 49-02-PLAN.md — (on AUTHORIZED) add DateTimeOffset handler + convert 6 simple stores: BlockedVideo, ContentSource, spend ledgers, BruteForce, FeatureFlag, HarvestSchedule (Wave 2)
-- [ ] 49-03-PLAN.md — (on PASS) convert 4 mid stores: ContentHarvestRun, HarvestRun (Guid), ContentVideo, ContentSiteIndex (Wave 3)
+- [x] 49-02-PLAN.md — (on AUTHORIZED) add DateTimeOffset handler + convert 6 simple stores: BlockedVideo, ContentSource, spend ledgers, BruteForce, FeatureFlag, HarvestSchedule (Wave 2)
+- [x] 49-03-PLAN.md — (on PASS) convert 4 mid stores: ContentHarvestRun, HarvestRun (Guid), ContentVideo, ContentSiteIndex (Wave 3)
 - [ ] 49-04-PLAN.md — (on PASS) convert CategoryKnowledgeStore + CategoryKnowledgeRepository (transactions); document RequestMetricsStore carve-out; final parity gate (Wave 4)
 
 ---
@@ -331,7 +331,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
 | 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
-| 49. Dapper Data-Access Adoption | 2/5 | In Progress|  |
+| 49. Dapper Data-Access Adoption | 4/5 | In Progress|  |
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
