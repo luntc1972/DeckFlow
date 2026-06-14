@@ -1,5 +1,5 @@
 using System.Data.Common;
-using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Web.Services.Harvest;
@@ -64,6 +64,7 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using (var create = connection.CreateCommand())
             {
                 create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
@@ -90,20 +91,16 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT interval_hours, paused, updated_utc FROM harvest_schedule WHERE id = 1;";
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        var row = await connection.QuerySingleOrDefaultAsync<HarvestScheduleRow>(new CommandDefinition(
+            "SELECT interval_hours, paused, updated_utc FROM harvest_schedule WHERE id = 1;",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (row is null)
         {
             // Defensive — schema seed should always create the row.
             throw new InvalidOperationException("harvest_schedule seed row (id=1) is missing.");
         }
 
-        var intervalHours = reader.IsDBNull(0) ? (int?)null : reader.GetInt32(0);
-        var paused = ReadBool(reader, 1);
-        var updatedUtc = ReadTimestamp(reader, 2);
-        return new HarvestScheduleSnapshot(intervalHours, paused, updatedUtc);
+        return new HarvestScheduleSnapshot(row.IntervalHours, row.Paused, row.UpdatedUtc);
     }
 
     /// <inheritdoc />
@@ -112,45 +109,10 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = _connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql;
-        RelationalDatabaseConnection.AddParameter(
-            command, "@interval", (object?)intervalHours ?? DBNull.Value);
-        RelationalDatabaseConnection.AddParameter(
-            command, "@paused",
-            _connectionInfo.IsPostgres ? (object)paused : (paused ? 1 : 0));
-        RelationalDatabaseConnection.AddParameter(
-            command, "@now",
-            _connectionInfo.IsPostgres
-                ? (object)now.UtcDateTime
-                : now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private static bool ReadBool(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            bool b => b,
-            long l => l != 0,
-            int i => i != 0,
-            short s => s != 0,
-            string str => str == "1" || string.Equals(str, "true", StringComparison.OrdinalIgnoreCase),
-            _ => Convert.ToBoolean(raw, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private static DateTimeOffset ReadTimestamp(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
+        await connection.ExecuteAsync(new CommandDefinition(
+            _connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql,
+            new { interval = intervalHours, paused, now },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -212,4 +174,13 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
           paused         = excluded.paused,
           updated_utc    = excluded.updated_utc;
         """;
+
+    private sealed class HarvestScheduleRow
+    {
+        public int? IntervalHours { get; set; }
+
+        public required bool Paused { get; set; }
+
+        public required DateTimeOffset UpdatedUtc { get; set; }
+    }
 }
