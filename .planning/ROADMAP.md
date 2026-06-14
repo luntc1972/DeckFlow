@@ -154,7 +154,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
 - [x] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths (completed 2026-06-13)
 - [x] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** _(runs before Phase 49 — re-sequenced 2026-06-14 at operator request)_ — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth (completed 2026-06-14)
-- [ ] **Phase 49: Dapper Data-Access Adoption** _(runs after Phase 50; before remaining DB work 46/47)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest
+- [x] **Phase 49: Dapper Data-Access Adoption** _(runs after Phase 50; before remaining DB work 46/47)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest (completed 2026-06-14)
 - [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
 - [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
 - [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
@@ -301,7 +301,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] 49-01b-PLAN.md — Abort Gate: blocking checkpoint:decision reading 49-GATE-VERDICT.md → writes 49-GATE-ABORT.md (AUTHORIZED proceeds / ABORTED stops); sweep plans depend on this (Wave 1)
 - [x] 49-02-PLAN.md — (on AUTHORIZED) add DateTimeOffset handler + convert 6 simple stores: BlockedVideo, ContentSource, spend ledgers, BruteForce, FeatureFlag, HarvestSchedule (Wave 2)
 - [x] 49-03-PLAN.md — (on PASS) convert 4 mid stores: ContentHarvestRun, HarvestRun (Guid), ContentVideo, ContentSiteIndex (Wave 3)
-- [ ] 49-04-PLAN.md — (on PASS) convert CategoryKnowledgeStore + CategoryKnowledgeRepository (transactions); document RequestMetricsStore carve-out; final parity gate (Wave 4)
+- [x] 49-04-PLAN.md — (on PASS) convert CategoryKnowledgeStore + CategoryKnowledgeRepository (transactions); document RequestMetricsStore carve-out; final parity gate (Wave 4)
 
 ---
 
@@ -331,7 +331,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
 | 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
-| 49. Dapper Data-Access Adoption | 4/5 | In Progress|  |
+| 49. Dapper Data-Access Adoption | 5/5 | Complete   | 2026-06-14 |
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 0/TBD | Not started | - |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
