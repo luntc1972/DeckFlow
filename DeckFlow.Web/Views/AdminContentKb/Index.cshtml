@@ -45,6 +45,7 @@
 
         <form method="post" asp-action="ReloadSeed" class="admin-action-form" data-admin-confirm-reload>
             @Html.AntiForgeryToken()
+            <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
             <button type="submit">Reload Index from Seed</button>
         </form>
     </div>
@@ -76,12 +77,14 @@ else
                         <td data-label="Actions">
                             <form method="post" asp-action="BulkSetVisibility" class="admin-action-form">
                                 @Html.AntiForgeryToken()
+                                <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                 <input type="hidden" name="source" value="@source.Source" />
                                 <input type="hidden" name="visible" value="true" />
                                 <button type="submit" aria-label="Publish all entries from @source.Source">Publish All</button>
                             </form>
                             <form method="post" asp-action="BulkHide" class="admin-action-form" data-admin-confirm-twoclick>
                                 @Html.AntiForgeryToken()
+                                <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                 <input type="hidden" name="source" value="@source.Source" />
                                 <button type="submit" class="danger" data-confirm-label="Confirm Hide All"
                                         aria-label="Hide all entries from @source.Source">Hide All</button>
@@ -166,12 +169,14 @@ else
                                 {
                                     <form method="post" asp-action="SetVisibility" class="admin-action-form">
                                         @Html.AntiForgeryToken()
+                                        <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                         <input type="hidden" name="entryId" value="@entry.Id" />
                                         <input type="hidden" name="visible" value="false" />
                                         <button type="submit" aria-label="Unpublish '@entry.Title'">Unpublish</button>
                                     </form>
                                     <form method="post" asp-action="Hide" class="admin-action-form" data-admin-confirm-twoclick>
                                         @Html.AntiForgeryToken()
+                                        <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                         <input type="hidden" name="entryId" value="@entry.Id" />
                                         <button type="submit" class="danger" data-confirm-label="Confirm hide" aria-label="Hide '@entry.Title'">Hide</button>
                                     </form>
@@ -180,12 +185,14 @@ else
                                 {
                                     <form method="post" asp-action="SetVisibility" class="admin-action-form">
                                         @Html.AntiForgeryToken()
+                                        <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                         <input type="hidden" name="entryId" value="@entry.Id" />
                                         <input type="hidden" name="visible" value="true" />
                                         <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
                                     </form>
                                     <form method="post" asp-action="SetVisibility" class="admin-action-form">
                                         @Html.AntiForgeryToken()
+                                        <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                         <input type="hidden" name="entryId" value="@entry.Id" />
                                         <input type="hidden" name="visible" value="false" />
                                         <button type="submit" aria-label="Unpublish '@entry.Title'">Unpublish</button>
@@ -195,18 +202,21 @@ else
                                 {
                                     <form method="post" asp-action="SetVisibility" class="admin-action-form">
                                         @Html.AntiForgeryToken()
+                                        <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                         <input type="hidden" name="entryId" value="@entry.Id" />
                                         <input type="hidden" name="visible" value="true" />
                                         <button type="submit" aria-label="Publish '@entry.Title'">Publish</button>
                                     </form>
                                     <form method="post" asp-action="Hide" class="admin-action-form" data-admin-confirm-twoclick>
                                         @Html.AntiForgeryToken()
+                                        <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                         <input type="hidden" name="entryId" value="@entry.Id" />
                                         <button type="submit" class="danger" data-confirm-label="Confirm hide" aria-label="Hide '@entry.Title'">Hide</button>
                                     </form>
                                 }
                                 <form method="post" asp-action="SetEvergreen" class="admin-action-form">
                                     @Html.AntiForgeryToken()
+                                    <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                     <input type="hidden" name="entryId" value="@entry.Id" />
                                     <input type="hidden" name="evergreen" value="@((!entry.IsEvergreen).ToString().ToLowerInvariant())" />
                                     @if (entry.IsEvergreen)
@@ -220,6 +230,7 @@ else
                                 </form>
                                 <form method="post" asp-action="DeleteEntry" class="admin-action-form" data-admin-confirm-twoclick>
                                     @Html.AntiForgeryToken()
+                                    <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
                                     <input type="hidden" name="entryId" value="@entry.Id" />
                                     <button type="submit" class="danger" data-confirm-label="Confirm delete" aria-label="Delete '@entry.Title' permanently">Delete</button>
                                 </form>
