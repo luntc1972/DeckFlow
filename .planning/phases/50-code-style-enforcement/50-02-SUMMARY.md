@@ -19,8 +19,10 @@ Build the shared changed-lines formatting gate for C# only: one diff-intersect s
 - `staged` uses `git diff --cached --unified=0 -- '*.cs'`.
 - `ci` uses:
   - `pull_request`: `origin/${GITHUB_BASE_REF}...HEAD`
-  - `push`: valid `github.event.before` first, then merge-base with `origin/${GITHUB_REF_NAME}`, then merge-base with `origin/main`
-  - any empty / zero-SHA / invalid / `BASE==HEAD` result falls back to the empty-tree sentinel and logs why
+  - `push`: valid non-zero `github.event.before` uses `before..HEAD`
+  - first push / invalid `before` / unreachable `before` / `before == HEAD`: resolve `origin/main`, then diff `origin/main...HEAD` from its merge-base
+  - when `git merge-base origin/main HEAD == HEAD`, the gate logs that `HEAD` is already in `main` history and accepts the resulting empty diff
+  - only when `origin/main` cannot be resolved at all does the script fall back to the empty-tree sentinel, logging that it is the last-resort whole-tree path
 - The script parses `@@ -old +newStart[,count] @@` headers into changed current-file line numbers and exits early with `no changed C# files` when there are no added/modified `.cs` lines.
 - Formatter mode is full `dotnet format DeckFlow.sln --verify-no-changes --report ./artifacts/format-report.json --no-restore` scoped with `--include <changed .cs files>`. This stays on full mode even though 50-01 only merged JetBrains-only keys, because the gate is meant to enforce style, not whitespace-only. Plan `50-03` must use the same mode.
 - The formatter run is wrapped in a scoped `set +e; ...; status=$?; set -e`, and the script branches on the JSON report rather than the formatter exit code so legacy off-hunk violations do not false-fail a clean changed hunk.
@@ -36,7 +38,7 @@ Build the shared changed-lines formatting gate for C# only: one diff-intersect s
 
 - `.githooks/pre-commit` is executable, documents the one-time `git config core.hooksPath .githooks` opt-in, and runs `bash scripts/format-check-changed.sh staged`.
 - `.github/workflows/ci.yml` now has a separate `format-gate` job parallel to `build-and-test`.
-- `format-gate` uses `actions/checkout@v6` with `fetch-depth: 0`, restores `DeckFlow.sln`, and runs `bash scripts/format-check-changed.sh ci`.
+- `format-gate` uses `actions/checkout@v6` with `fetch-depth: 0`, fetches `origin/main` explicitly for the new-branch push path, restores `DeckFlow.sln`, and runs `bash scripts/format-check-changed.sh ci`.
 - The CI run step passes `GITHUB_BASE_REF`, `GITHUB_REF_NAME`, and `GITHUB_EVENT_BEFORE` through `env:`. `pull_request_target` was not introduced.
 
 ## Smoke results
@@ -59,7 +61,8 @@ Build the shared changed-lines formatting gate for C# only: one diff-intersect s
 - Shared script exists, is executable, and passes `bash -n`.
 - Hook exists, is executable, and invokes the shared script in staged mode.
 - CI has a separate `format-gate` job; `build-and-test` was left intact.
-- Base-ref selection is logged and guarded against empty / invalid / `BASE==HEAD` by empty-tree fallback.
+- Base-ref selection is logged; PRs keep the PR base, valid push `before` SHAs keep `before..HEAD`, `origin/main...HEAD` handles new-branch first pushes, and only an unresolvable `origin/main` falls back to the empty-tree sentinel.
+- New-branch first pushes no longer treat `merge-base origin/main == HEAD` as a whole-repo diff; they now run the intended empty `origin/main...HEAD` diff instead.
 - Missing/unreadable reports, quoted diff filenames, and report paths outside the repo fail closed as infrastructure errors.
 - Behavioral proof completed locally for the staged hook path: misformatted added line fails; cleaned staged edit passes.
 - `.gitignore` remained unchanged.

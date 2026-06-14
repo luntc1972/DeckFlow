@@ -89,31 +89,7 @@ is_valid_commit_ref() {
 select_ci_diff_args() {
   local zero_sha="0000000000000000000000000000000000000000"
   local before="${GITHUB_EVENT_BEFORE:-}"
-  local ref_name="${GITHUB_REF_NAME:-}"
-  local base=""
-  local reason=""
-
-  if [ -n "${GITHUB_BASE_REF:-}" ]; then
-    base="origin/${GITHUB_BASE_REF}"
-    reason="pull_request origin/${GITHUB_BASE_REF}"
-  elif [ -n "$before" ] && [ "$before" != "$zero_sha" ] && is_valid_commit_ref "$before"; then
-    base="$before"
-    reason="push github.event.before"
-  else
-    if [ -n "$ref_name" ]; then
-      base="$(git merge-base "origin/$ref_name" HEAD 2>/dev/null || true)"
-      if [ -n "$base" ]; then
-        reason="push merge-base origin/$ref_name"
-      fi
-    fi
-
-    if [ -z "$base" ]; then
-      base="$(git merge-base origin/main HEAD 2>/dev/null || true)"
-      if [ -n "$base" ]; then
-        reason="push merge-base origin/main"
-      fi
-    fi
-  fi
+  local integration_ref="origin/main"
 
   if ! is_valid_commit_ref HEAD; then
     infra_fail "HEAD is not a valid commit"
@@ -121,39 +97,65 @@ select_ci_diff_args() {
 
   local head_sha
   head_sha="$(git rev-parse HEAD)"
-  local use_empty_tree=0
-  local empty_reason=""
 
-  if [ -z "$base" ]; then
-    use_empty_tree=1
-    empty_reason="empty base"
-  elif [ "$base" = "$zero_sha" ]; then
-    use_empty_tree=1
-    empty_reason="zero SHA base"
-  elif ! is_valid_commit_ref "$base"; then
-    use_empty_tree=1
-    empty_reason="invalid base"
-  else
-    local base_sha
-    base_sha="$(git rev-parse "$base")"
-    if [ "$base_sha" = "$head_sha" ]; then
-      use_empty_tree=1
-      empty_reason="BASE==HEAD"
-    fi
-  fi
-
-  if [ "$use_empty_tree" -eq 1 ]; then
-    local empty_tree
-    empty_tree="$(git hash-object -t tree /dev/null)"
-    echo "format-gate base: $empty_tree (empty-tree sentinel; reason: $empty_reason; initial choice: ${reason:-none})"
-    DIFF_MODE="two-dot"
-    DIFF_BASE="$empty_tree"
+  if [ -n "${GITHUB_BASE_REF:-}" ]; then
+    local pr_base="origin/${GITHUB_BASE_REF}"
+    echo "format-gate base: $pr_base (pull_request origin/${GITHUB_BASE_REF})"
+    DIFF_MODE="three-dot"
+    DIFF_BASE="$pr_base"
     return 0
   fi
 
-  echo "format-gate base: $base ($reason)"
-  DIFF_MODE="three-dot"
-  DIFF_BASE="$base"
+  if [ -n "$before" ] && [ "$before" != "$zero_sha" ] && is_valid_commit_ref "$before"; then
+    local before_sha
+    before_sha="$(git rev-parse "$before")"
+    if [ "$before_sha" != "$head_sha" ]; then
+      echo "format-gate base: $before (push github.event.before)"
+      DIFF_MODE="two-dot"
+      DIFF_BASE="$before"
+      return 0
+    fi
+  fi
+
+  if is_valid_commit_ref "$integration_ref"; then
+    local merge_base
+    local merge_base_sha
+
+    merge_base="$(git merge-base "$integration_ref" HEAD 2>/dev/null || true)"
+    if [ -n "$merge_base" ] && is_valid_commit_ref "$merge_base"; then
+      merge_base_sha="$(git rev-parse "$merge_base")"
+      if [ "$merge_base_sha" = "$head_sha" ]; then
+        echo "format-gate base: $integration_ref (push origin/main merge-base == HEAD; HEAD already in main history; empty diff is correct)"
+      else
+        echo "format-gate base: $integration_ref (push origin/main merge-base $merge_base_sha)"
+      fi
+      DIFF_MODE="three-dot"
+      DIFF_BASE="$integration_ref"
+      return 0
+    fi
+  else
+    echo "INFRA: $integration_ref is unavailable; using empty-tree fallback so this push is not silently skipped" >&2
+  fi
+
+  local empty_tree
+  empty_tree="$(git hash-object -t tree /dev/null)"
+  echo "format-gate base: $empty_tree (empty-tree sentinel; last resort because $integration_ref could not be resolved)"
+  DIFF_MODE="empty-tree"
+  DIFF_BASE="$empty_tree"
+}
+
+build_ci_diff() {
+  case "$DIFF_MODE" in
+    three-dot)
+      git diff --unified=0 "$DIFF_BASE"...HEAD -- '*.cs'
+      ;;
+    two-dot|empty-tree)
+      git diff --unified=0 "$DIFF_BASE" HEAD -- '*.cs'
+      ;;
+    *)
+      infra_fail "unknown diff mode: $DIFF_MODE"
+      ;;
+  esac
 }
 
 collect_changed_lines() {
@@ -275,12 +277,7 @@ if [ "$MODE" = "staged" ]; then
   git diff --cached --unified=0 -- '*.cs' > "$DIFF_FILE"
 else
   select_ci_diff_args
-  if [ "$DIFF_MODE" = "three-dot" ]; then
-    git diff --unified=0 "$DIFF_BASE"...HEAD -- '*.cs' > "$DIFF_FILE"
-  else
-    # Safer than silently skipping a real push when BASE resolves to HEAD.
-    git diff --unified=0 "$DIFF_BASE" HEAD -- '*.cs' > "$DIFF_FILE"
-  fi
+  build_ci_diff > "$DIFF_FILE"
 fi
 
 if grep -Eq '^(---|\+\+\+) "' "$DIFF_FILE"; then
