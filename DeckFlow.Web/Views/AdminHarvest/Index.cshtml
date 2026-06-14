@@ -1,5 +1,4 @@
 @model DeckFlow.Web.Models.Admin.AdminHarvestViewModel
-@using System.Globalization
 @using DeckFlow.Web.Services.Harvest
 @{
     ViewData["Title"] = "Harvest";
@@ -17,22 +16,6 @@
         }
 
         return $"{value:0.##} {units[unitIndex]}";
-    }
-
-    static string FormatLastProcessedUtc(string? lastProcessedUtc)
-    {
-        if (string.IsNullOrWhiteSpace(lastProcessedUtc))
-        {
-            return "—";
-        }
-
-        return DateTimeOffset.TryParse(
-            lastProcessedUtc,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-            out var parsed)
-            ? parsed.UtcDateTime.ToString("u", CultureInfo.InvariantCulture)
-            : lastProcessedUtc;
     }
 
     static string GetRunStateBadgeClass(HarvestRunState state) => state switch
@@ -217,55 +200,9 @@
 
 <section id="harvested-commanders" class="admin-harvest__panel">
     <h2>Harvested Commanders</h2>
-    <p>@Model.DeckTotalCount commanders - Page @Model.DeckPage of @Model.DeckTotalPages</p>
-
-    @if (Model.HarvestedCommanders.Count == 0)
-    {
-        <p>No harvested commanders yet.</p>
-    }
-    else
-    {
-        <div class="admin-table-scroll" role="region" aria-label="Harvested commanders - scroll horizontally to see all columns" tabindex="0">
-            <table class="admin-table">
-                <caption class="sr-only">Harvested commanders with deck count and last processed timestamp</caption>
-                <thead>
-                    <tr>
-                        <th scope="col">#</th>
-                        <th scope="col">Commander</th>
-                        <th scope="col">Decks Categorized</th>
-                        <th scope="col">Last Processed (UTC)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @{
-                        var rankOffset = (Model.DeckPage - 1) * Model.DeckPageSize;
-                    }
-                    @for (var i = 0; i < Model.HarvestedCommanders.Count; i++)
-                    {
-                        var c = Model.HarvestedCommanders[i];
-                        <tr>
-                            <td>@(rankOffset + i + 1)</td>
-                            <td>@c.CommanderName</td>
-                            <td>@c.DeckCount</td>
-                            <td>@FormatLastProcessedUtc(c.LastProcessedUtc)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        <nav class="admin-feedback-pagination">
-            @if (Model.DeckPage > 1)
-            {
-                <a asp-action="Index" asp-route-page="@(Model.DeckPage - 1)" asp-fragment="harvested-commanders">Prev</a>
-            }
-            <span>Page @Model.DeckPage of @Model.DeckTotalPages</span>
-            @if (Model.DeckPage < Model.DeckTotalPages)
-            {
-                <a asp-action="Index" asp-route-page="@(Model.DeckPage + 1)" asp-fragment="harvested-commanders">Next</a>
-            }
-        </nav>
-    }
+    <div id="commanders-grid-container" aria-live="polite" aria-busy="true" aria-label="Harvested commanders grid">
+        <p class="admin-harvest__grid-loading">Loading commanders…</p>
+    </div>
 </section>
 
 @section Scripts

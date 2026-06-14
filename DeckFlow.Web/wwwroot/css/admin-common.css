@@ -731,3 +731,31 @@ a:hover { text-decoration: underline; }
 .admin-shell #kb-entries-table .admin-kb-source {
   overflow-wrap: break-word;
 }
+
+/* Phase 44 — commander grid lazy load states */
+.admin-shell .admin-harvest__grid-loading {
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+#commanders-grid-container {
+  min-height: 48px;
+}
+
+.admin-shell .admin-harvest__grid-error {
+  color: var(--danger);
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+.admin-shell .admin-harvest__grid-error a {
+  color: var(--accent);
+}
+
+.admin-shell .admin-harvest__grid-pager strong[aria-current="page"] {
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 4px;
+}
