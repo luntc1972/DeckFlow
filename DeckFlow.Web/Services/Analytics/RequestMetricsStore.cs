@@ -161,6 +161,9 @@ public sealed class RequestMetricsStore : IRequestMetricsStore
         await using var conn = (NpgsqlConnection)await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
+        // Why: Phase 49 leaves this method on raw ADO.NET because the unnest-array
+        // NpgsqlParameter batch shape has no Dapper equivalent, and this store's DDL
+        // is an intentional raw carve-out per the SPEC boundaries.
         // (1) request_metrics aggregate UPSERT — increments hit_count and error_count.
         await using (var cmd = conn.CreateCommand())
         {
