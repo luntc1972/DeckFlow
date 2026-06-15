@@ -582,6 +582,9 @@
     private IHarvestOrchestrator HarvestOrchestrator { get; set; } = default!;
 
     [Inject]
+    private IContentSourceManager SourceManager { get; set; } = default!;
+
+    [Inject]
     private VideoStatusResolver StatusResolver { get; set; } = default!;
 
     // Why: Injected now so the inject block is stable; distill wiring lands in Wave 4 (Plan 04).
@@ -606,6 +609,9 @@
     private string _channelBrowseError = string.Empty;
     private List<VideoViewModel> _channelVideos = new();
     private bool _allChannelSelected;
+    // Why: tracks the last successfully-browsed channel URL so harvest can auto-ensure a source
+    // for it. Empty string means no channel has been browsed yet in this session.
+    private string _lastBrowsedChannel = string.Empty;
 
     // ── Section 2 state ─────────────────────────────────────────────────────
     private string _pasteQueueText = string.Empty;
@@ -675,6 +681,9 @@
                 _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status));
             }
 
+            // Why: record last successfully-browsed channel so HarvestSelectedAsync can
+            // auto-ensure a content source without requiring a separate UI step.
+            _lastBrowsedChannel = _channelInput.Trim();
             _channelBrowseDone = true;
         }
         catch (OperationCanceledException)
@@ -806,6 +815,17 @@
             return;
         }
 
+        // Why: harvest requires a known channel source to attach videos to. The explicit-video-id
+        // path inside HarvestAsync needs a sourceId (or exactly one enabled source). Auto-ensure
+        // derives the source from the last successfully-browsed channel so no extra UI step is needed.
+        if (string.IsNullOrWhiteSpace(_lastBrowsedChannel))
+        {
+            _logLines.Clear();
+            _logLines.Add("Browse a channel first — harvested videos need a target source.");
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         _operationInFlight = true;
         _logLines.Clear();
         _harvestResult = null;
@@ -830,17 +850,41 @@
             }));
 
         var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
+        // Capture for the lambda below to avoid closure over the mutable field.
+        var channelUrl = _lastBrowsedChannel;
 
         try
         {
             // Why: Task.Run moves HarvestAsync off the Blazor sync context.
             // Without this, long-running IO blocks the SignalR circuit (Pitfall 1).
             _harvestResult = await Task.Run(
-                () => HarvestOrchestrator.HarvestAsync(
-                    limit: selectedIds.Count,
-                    videoIds: selectedIds,
-                    progress: progress,
-                    cancellationToken: _cts.Token),
+                async () =>
+                {
+                    // Why: EnsureYoutubeSourceAsync creates or re-enables the content source for
+                    // the browsed channel so the harvest has a valid sourceId to attach videos to.
+                    // This runs inside Task.Run to keep all IO off the Blazor circuit.
+                    var src = await SourceManager.EnsureYoutubeSourceAsync(
+                        channelUrl,
+                        channelUrl,
+                        progress,
+                        _cts.Token).ConfigureAwait(false);
+
+                    if (!src.Success || src.Id is null)
+                    {
+                        return new HarvestResult
+                        {
+                            Success = false,
+                            Message = src.Message ?? "Could not ensure a content source for this channel.",
+                        };
+                    }
+
+                    return await HarvestOrchestrator.HarvestAsync(
+                        limit: selectedIds.Count,
+                        videoIds: selectedIds,
+                        sourceId: src.Id,
+                        progress: progress,
+                        cancellationToken: _cts.Token).ConfigureAwait(false);
+                },
                 _cts.Token);
 
             // Re-resolve badges for harvested videos to reflect new DB state.
