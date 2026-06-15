@@ -138,6 +138,7 @@ Progress: [██████████] 96%
 | 260615-p4d | DB-backed "Load harvested (pending distill)" loader: PendingDistillVideo + IDistillOrchestrator.ListPendingDistillAsync (union/dedup/null-skip) + Harvest.razor loader table | 2026-06-15 | 83ecaa5 | [260615-p4d](./quick/260615-p4d-pending-distill-loader/) |
 | 260615-c9e | Typed LlmCliConfigurationException + orchestrator config-abort: one clear "Distiller CLI not configured" abort instead of N silent "distill failed" lines when DECKFLOW_LLM_CLI_COMMAND is missing/invalid | 2026-06-15 | 094c5a8 | [260615-c9e](./quick/260615-c9e-distill-config-error/) |
 | 260615-t7m | Per-video elapsed time (N.Ns) in Core distill progress lines + live Elapsed counter and Total time display in Studio Harvest page via PeriodicTimer ticker | 2026-06-15 | d6f58e7 | [260615-t7m](./quick/260615-t7m-distill-timing/) |
+| 260615-q3n | ChannelId/ChannelTitle on YouTubeChannelVideo; ListPlaylistAsync (default-throw on interface, real impl); Studio per-channel harvest grouping + playlist browse; remove Browse-first gate | 2026-06-15 | 7661107 | [260615-q3n](./quick/260615-q3n-queue-harvest-channel/) |
 
 ## Deferred Items
 
@@ -165,6 +166,6 @@ Progress: [██████████] 96%
 
 ## Session Continuity
 
-Last session: 2026-06-15T22:15:00.000Z
-Stopped at: Quick 260615-c9e complete (2 commits: 094c5a8, cc16da0); 45-04 Task 3 human-verify still PENDING
+Last session: 2026-06-15T23:10:00.000Z
+Stopped at: Quick 260615-q3n complete (2 commits: ea6f8f7, 7661107); 45-04 Task 3 human-verify still PENDING
 Resume: After human-verify approval for 45-04, run orchestrator to finalize 45-04 + advance plan counter.
