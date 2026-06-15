@@ -316,8 +316,75 @@
             <h2 class="h5 fw-semibold mb-0">Distill</h2>
         </div>
         <div class="card-body">
+
+            @* ─── DB-backed pending-distill loader (quick task 260615-p4d) ─── *@
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary"
+                        @onclick="LoadPendingDistillAsync"
+                        disabled="@(_operationInFlight || _loadingPending)">
+                    @if (_loadingPending)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"
+                              role="status"
+                              aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span> Loading...</span>
+                    }
+                    else
+                    {
+                        <span>Load harvested (pending distill)</span>
+                    }
+                </button>
+                <span class="form-text d-block">Loads harvested-but-not-distilled videos from the local DB so you can distill without re-browsing.</span>
+
+                @if (!string.IsNullOrEmpty(_pendingDistillMessage))
+                {
+                    <div class="alert alert-info py-2 mt-2 mb-0">@_pendingDistillMessage</div>
+                }
+            </div>
+
+            @if (_pendingLoaded && _pendingDistillVideos.Count > 0)
+            {
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width:40px">
+                                    <input type="checkbox"
+                                           @onclick="ToggleAllPendingSelections"
+                                           checked="@_allPendingSelected"
+                                           aria-label="Select all pending-distill videos" />
+                                </th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Published</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vm in _pendingDistillVideos)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@vm.Selected"
+                                               @onchange="() => vm.Selected = !vm.Selected"
+                                               aria-label="Select @vm.Title" />
+                                    </td>
+                                    <td>
+                                        <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                    </td>
+                                    <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@RenderBadge(vm.Status)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
             @{
-                var allSelectedForDistill = GetAllSelectedVideos();
+                var allSelectedForDistill = GetAllSelectedForDistill();
                 var distillHarvested = allSelectedForDistill.Where(v => v.Status == VideoStatus.Harvested).ToList();
                 var distillAlreadyDistilled = allSelectedForDistill.Where(v => v.Status == VideoStatus.Distilled).ToList();
                 var readyCount = distillHarvested.Count;
@@ -687,6 +754,14 @@
     private DistillResult? _distillLiveResult;
     private bool _distillCancelled;
 
+    // DB-backed pending-distill loader (quick task 260615-p4d): survives an app/circuit
+    // restart so harvested-but-not-distilled videos can be selected without re-browsing.
+    private List<VideoViewModel> _pendingDistillVideos = new();
+    private bool _pendingLoaded;
+    private bool _loadingPending;
+    private bool _allPendingSelected;
+    private string _pendingDistillMessage = string.Empty;
+
     // ── Section 1: Channel Browse (HARV-01) ─────────────────────────────────
     private async Task BrowseChannelAsync()
     {
@@ -836,6 +911,83 @@
         return _channelVideos.Where(v => v.Selected)
             .Concat(_queueVideos.Where(v => v.Selected))
             .ToList();
+    }
+
+    // ── DB-backed pending-distill loader (quick task 260615-p4d) ─────────────
+
+    /// <summary>
+    /// Combines the session-selected videos with the selected DB-backed pending-distill videos,
+    /// de-duplicating by VideoId so a video that is both browsed and pending counts once.
+    /// Used by the Distill section only — the Harvest section keeps <see cref="GetAllSelectedVideos"/>.
+    /// </summary>
+    private IReadOnlyList<VideoViewModel> GetAllSelectedForDistill()
+    {
+        return GetAllSelectedVideos()
+            .Concat(_pendingDistillVideos.Where(v => v.Selected))
+            .GroupBy(v => v.VideoId)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    /// <summary>
+    /// Loads harvested-but-not-yet-distilled videos across all enabled sources from the local DB so
+    /// the operator can distill them after an app/circuit restart without re-browsing a channel.
+    /// </summary>
+    private async Task LoadPendingDistillAsync()
+    {
+        if (_operationInFlight || _loadingPending)
+        {
+            return;
+        }
+
+        _loadingPending = true;
+        _pendingDistillMessage = string.Empty;
+
+        // Why: a short DB read — do NOT reuse an in-flight distill CTS. A fresh local CTS keeps
+        // this load cancel-on-dispose-safe without tying it to a running distill operation.
+        using var pendingCts = new CancellationTokenSource();
+        try
+        {
+            var pending = await Task.Run(
+                () => DistillOrchestrator.ListPendingDistillAsync(pendingCts.Token),
+                pendingCts.Token);
+
+            _pendingDistillVideos = pending
+                .Select(p => new VideoViewModel(p.YoutubeVideoId, p.VideoUrl, p.Title, p.PublishedUtc, VideoStatus.Harvested)
+                {
+                    Selected = false,
+                })
+                .ToList();
+            _pendingLoaded = true;
+            _allPendingSelected = false;
+
+            if (_pendingDistillVideos.Count == 0)
+            {
+                _pendingDistillMessage = "No harvested videos pending distill.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _pendingDistillMessage = "Loading pending-distill videos was cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _pendingDistillMessage = $"Could not load pending-distill videos — {ex.Message}";
+        }
+        finally
+        {
+            _loadingPending = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ToggleAllPendingSelections()
+    {
+        _allPendingSelected = !_allPendingSelected;
+        foreach (var vm in _pendingDistillVideos)
+        {
+            vm.Selected = _allPendingSelected;
+        }
     }
 
     private async Task HarvestSelectedAsync()
@@ -1111,6 +1263,14 @@
             if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
             {
                 await RefreshBadgesAsync(distillIds);
+
+                // Why: reload the DB-backed pending list so just-distilled videos drop off
+                // (quick task 260615-p4d). Only reload if it was previously loaded so an
+                // operator who never used the loader isn't surprised by a new table appearing.
+                if (_pendingLoaded)
+                {
+                    await LoadPendingDistillAsync();
+                }
             }
 
             await RefreshCapDisplayAsync();
