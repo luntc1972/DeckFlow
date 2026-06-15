@@ -99,6 +99,47 @@ public sealed class LlmSpendLedgerTests : IDisposable
         Assert.Equal(0.00558m, cost);
     }
 
+    [Fact]
+    public void GetMonthlyCapUsd_ReturnsDefaultWhenNoConfigurationSet()
+    {
+        // _ledger was constructed with no configurationValueResolver and no env var set
+        var cap = _ledger.GetMonthlyCapUsd();
+
+        Assert.Equal(15.00m, cap);
+    }
+
+    [Fact]
+    public void GetMonthlyCapUsd_ReturnsConfiguredValueWhenResolverProvided()
+    {
+        var ledger = new LlmSpendLedger(_dbPath, BuildConfiguration("25.00"));
+
+        var cap = ledger.GetMonthlyCapUsd();
+
+        Assert.Equal(25.00m, cap);
+    }
+
+    [Fact]
+    public async Task WouldExceedCapAsync_RespectsRaisedCapFromResolver()
+    {
+        // Why: proves the resolver-supplied cap flows into WouldExceedCapAsync (D-03 mechanism):
+        // a raised cap permits spend that the lower cap would block.
+        const string monthKey = "2026-06";
+        var videoId = await InsertVideoAsync("resolver-cap");
+
+        // Low cap: $0.50; after recording $0.40, a $0.40 projected call would exceed the cap.
+        var lowCapLedger = new LlmSpendLedger(_dbPath, BuildConfiguration("0.50"));
+        await lowCapLedger.RecordCallAsync(videoId, 1000, 100, 0.40m, monthKey);
+        var wouldExceedLowCap = await lowCapLedger.WouldExceedCapAsync(0.40m, monthKey);
+
+        Assert.True(wouldExceedLowCap);
+
+        // Raised cap: $5.00 on the same recorded spend; the same projected call no longer exceeds.
+        var highCapLedger = new LlmSpendLedger(_dbPath, BuildConfiguration("5.00"));
+        var wouldExceedHighCap = await highCapLedger.WouldExceedCapAsync(0.40m, monthKey);
+
+        Assert.False(wouldExceedHighCap);
+    }
+
     private async Task<long> InsertVideoAsync(string slug)
     {
         var sourceId = await _sourceStore.InsertSourceAsync(
