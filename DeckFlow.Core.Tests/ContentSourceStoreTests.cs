@@ -101,6 +101,39 @@ public sealed class ContentSourceStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task GetSourceByUrlAsync_KnownUrl_ReturnsMatchingSource()
+    {
+        var id = await _store.InsertSourceAsync(
+            "cedh-tv",
+            "cEDH TV",
+            ContentSourceType.Youtube,
+            "https://www.youtube.com/@cedhtv");
+
+        var source = await _store.GetSourceByUrlAsync("https://www.youtube.com/@cedhtv");
+
+        Assert.NotNull(source);
+        Assert.Equal(id, source!.Id);
+        Assert.Equal("cedh-tv", source.SourceSlug);
+        Assert.Equal("cEDH TV", source.DisplayName);
+        Assert.Equal(ContentSourceType.Youtube, source.SourceType);
+        Assert.Equal("https://www.youtube.com/@cedhtv", source.SourceUrl);
+    }
+
+    [Fact]
+    public async Task GetSourceByUrlAsync_UnknownUrl_ReturnsNull()
+    {
+        await _store.InsertSourceAsync(
+            "cedh-tv",
+            "cEDH TV",
+            ContentSourceType.Youtube,
+            "https://www.youtube.com/@cedhtv");
+
+        var source = await _store.GetSourceByUrlAsync("https://www.youtube.com/@nobody");
+
+        Assert.Null(source);
+    }
+
+    [Fact]
     public async Task InsertSourceAsync_ThrowsWhenGeneratedIdIsMissing()
     {
         await _store.EnsureSchemaAsync();
