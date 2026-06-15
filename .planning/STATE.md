@@ -133,6 +133,7 @@ Progress: [██████████] 96%
 | 260611-p9x | Fix Primer copy buttons (port data-copy-target wiring into primer-selection.ts + Vitest test) | 2026-06-12 | 29cf22e | [260611-p9x](./quick/260611-p9x-fix-primer-copy-buttons-port-data-copy-t/) |
 | 260612-kb1 | Admin KB per-entry Delete + restore Phase-37-broken page behaviors (filter/confirms/toast) | 2026-06-12 | e3b6ea4 | [260612-kb1](./quick/260612-kb1-admin-kb-delete-entry/) |
 | 260612-e2e | Playwright E2E smoke suite (15 routes × desktop+mobile) + CI stage; 68/68 green | 2026-06-12 | 6e8ddff | [260612-e2e](./quick/260612-e2e-playwright-smoke/) |
+| 260615-k8o | Add skip/offset to channel browse: IYouTubeChannelVideoLister + 5 implementers + Studio Skip input | 2026-06-15 | a018684 | [260615-k8o](./quick/260615-k8o-channel-browse-skip/) |
 
 ## Deferred Items
 
