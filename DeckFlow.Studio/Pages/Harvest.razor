@@ -39,6 +39,15 @@
                            @bind="_browseLimit"
                            disabled="@_operationInFlight" />
                 </div>
+                <div class="col-md-2">
+                    <label for="browseSkip" class="form-label fw-semibold small">Skip</label>
+                    <input id="browseSkip" type="number" class="form-control"
+                           min="0"
+                           @bind="_browseSkip"
+                           disabled="@_operationInFlight"
+                           aria-describedby="browseSkipHint" />
+                    <div id="browseSkipHint" class="form-text">Skip the newest N uploads to reach older videos.</div>
+                </div>
                 <div class="col-md-3">
                     <button class="btn btn-outline-primary w-100"
                             @onclick="BrowseChannelAsync"
@@ -591,6 +600,7 @@
     // ── Section 1 state ─────────────────────────────────────────────────────
     private string _channelInput = string.Empty;
     private int _browseLimit = 25;
+    private int _browseSkip;
     private bool _isBrowsingChannel;
     private bool _channelBrowseDone;
     private string _channelBrowseError = string.Empty;
@@ -655,7 +665,7 @@
             // Why: Task.Run moves the lister off the Blazor sync context (Pattern 2 — Pitfall 1).
             // AngleSharp requires serialized access; lister enforces SemaphoreSlim(1) internally.
             var videos = await Task.Run(
-                () => Lister.ListRecentAsync(_channelInput.Trim(), _browseLimit, browseCts.Token),
+                () => Lister.ListRecentAsync(_channelInput.Trim(), _browseLimit, _browseSkip, browseCts.Token),
                 browseCts.Token);
 
             // Resolve badges for each video at list-build time (HARV-03).
