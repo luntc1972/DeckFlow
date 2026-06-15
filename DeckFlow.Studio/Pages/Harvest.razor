@@ -24,8 +24,8 @@
                     Harvest or distill in progress — channel browse unavailable.
                 </div>
             }
-            <div class="row g-2 align-items-end mb-3">
-                <div class="col-md-7">
+            <div class="row g-2 align-items-end mb-1">
+                <div class="col-md-5">
                     <label for="channelInput" class="form-label fw-semibold small">YouTube channel URL, handle, or ID</label>
                     <input id="channelInput" type="text" class="form-control"
                            placeholder="e.g. @@SomeCreator or https://youtube.com/@@SomeCreator"
@@ -46,7 +46,6 @@
                            @bind="_browseSkip"
                            disabled="@_operationInFlight"
                            aria-describedby="browseSkipHint" />
-                    <div id="browseSkipHint" class="form-text">Skip the newest N uploads to reach older videos.</div>
                 </div>
                 <div class="col-md-3">
                     <button class="btn btn-outline-primary w-100"
@@ -68,6 +67,7 @@
                     </button>
                 </div>
             </div>
+            <div id="browseSkipHint" class="form-text mb-3">Skip the newest N uploads to reach older videos (with Count, acts as a page window).</div>
 
             @if (!string.IsNullOrEmpty(_channelBrowseError))
             {
