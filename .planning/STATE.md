@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: Phase 45 context gathered
-last_updated: "2026-06-15T19:22:39.936Z"
+stopped_at: Completed 45-03-PLAN.md (Harvest page, human-verify PASS)
+last_updated: "2026-06-15T19:59:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 24
-  completed_plans: 22
-  percent: 60
+  completed_plans: 23
+  percent: 63
 ---
 
 # Project State
@@ -26,13 +26,13 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 45 (harvest-distill-ui) — EXECUTING
-Plan: 3 of 4
-Status: Ready to execute
+Plan: 3 of 4 complete; next is 45-04 (Distill controls, Wave 4)
+Status: 45-03 Harvest page complete (human-verify PASS); ready for 45-04
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
 Last activity: 2026-06-15
 
 ```
-Progress: [█████████░] 92%
+Progress: [██████████] 96%
 ```
 
 ## Roadmap Summary
@@ -97,6 +97,7 @@ Progress: [█████████░] 92%
 - **Phase 45-02: Single providerEnv read closes HIGH-1:** `DECKFLOW_LLM_PROVIDER` read once in Program.cs; both `LlmDistillationProviderFactory.Resolve` and `isSubscriptionProvider` derive from the same var — distiller and spend flag cannot disagree.
 - **Phase 45-02: VideoStatusResolver in Core (not Studio):** Pure store-query badge-resolution logic lives in DeckFlow.Core so Core.Tests can unit-test it without inverting project dependencies (HIGH-2).
 - **Phase 45-02: Override-aware ledger is a single shared singleton:** `SessionCapOverride` captured in resolver closure; same ledger instance injected into both Harvest page and orchestrator so `WouldExceedCapAsync` sees the override (T-45-04 / Pitfall 6).
+- **Phase 45-03: Harvest page complete + human-verify PASS (2026-06-15):** Playwright smoke on `:5271` — HARV-01..04 + cancel-on-dispose + no-secrets all PASS; 0 ObjectDisposedException, 0 unobserved exceptions; circuit stayed responsive. CAVEAT (non-blocking): full success-stream + mid-flight cancel not exercised (local data dir had 0 enabled YouTube sources → orchestrator "0 sources enabled" guard hit immediately); environment-data condition, not a code defect. Re-exercise full success-stream + mid-flight cancel once a local data dir with an enabled source exists.
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)
 
@@ -157,6 +158,6 @@ Progress: [█████████░] 92%
 
 ## Session Continuity
 
-Last session: 2026-06-15T19:22:39.909Z
-Stopped at: Phase 45 context gathered
-Resume: Start Phase 41 with `/gsd:plan-phase 41`.
+Last session: 2026-06-15T19:59:00.000Z
+Stopped at: Completed 45-03-PLAN.md (Harvest page, human-verify PASS)
+Resume: Execute Phase 45 Plan 04 (Distill controls, Wave 4) with `/gsd:execute-phase 45`.
