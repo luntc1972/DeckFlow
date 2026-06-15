@@ -1,3 +1,4 @@
+using System.Globalization;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Orchestration;
@@ -49,10 +50,35 @@ public partial class Program
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IBlockedVideoStore>(_ => new BlockedVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentHarvestRunStore>(_ => new ContentHarvestRunStore(contentKbDatabasePath));
-            builder.Services.AddSingleton<ILlmSpendLedger>(_ => new LlmSpendLedger(contentKbDatabasePath));
+            // Why: Read DECKFLOW_LLM_PROVIDER ONCE so the factory-resolved distiller and
+            // StudioDistillConfig.IsSubscriptionProvider are always derived from the same value
+            // and can never disagree (HIGH-1 / D-01).
+            // Replicates DeckFlow.CLI/ContentKbCommandRunners.cs lines 95-97.
+            var providerEnv = builder.Configuration[LlmDistillationProviderFactory.EnvironmentVariableName]
+                ?? Environment.GetEnvironmentVariable(LlmDistillationProviderFactory.EnvironmentVariableName);
+            var isSubscriptionProvider = !string.IsNullOrWhiteSpace(providerEnv)
+                && !string.Equals(providerEnv.Trim(), "openai", StringComparison.OrdinalIgnoreCase);
+
+            // Why: SessionCapOverride registered first so the resolver closure can capture the reference.
+            // The same singleton ledger instance is injected into both the Harvest page and the orchestrator,
+            // so the override is seen by WouldExceedCapAsync inside DistillOrchestrator (D-03 / Pitfall 6).
+            var capOverride = new SessionCapOverride();
+            builder.Services.AddSingleton(capOverride);
+            builder.Services.AddSingleton<ILlmSpendLedger>(_ => new LlmSpendLedger(contentKbDatabasePath,
+                key =>
+                {
+                    if (key == "DECKFLOW_LLM_MONTHLY_CAP_USD" && capOverride.OverrideUsd.HasValue)
+                        return capOverride.OverrideUsd.Value.ToString("F2", CultureInfo.InvariantCulture);
+                    return null;
+                }));
             builder.Services.AddSingleton<IWhisperSpendLedger>(_ => new WhisperSpendLedger(contentKbDatabasePath));
             builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(15) });
-            builder.Services.AddSingleton<ILlmDistillationService>(sp => new LlmDistillationService(sp.GetRequiredService<HttpClient>()));
+            // Why: Factory-resolved from the single providerEnv so the distiller and spend flag
+            // are always consistent. When provider=openai: metered LlmDistillationService, cap enforced.
+            // When provider=claude: subscription CliLlmDistillationService ($0), cap bypassed. (HIGH-1)
+            builder.Services.AddSingleton<ILlmDistillationService>(sp =>
+                LlmDistillationProviderFactory.Resolve(providerEnv, sp.GetRequiredService<HttpClient>()));
+            builder.Services.AddSingleton(new StudioDistillConfig(isSubscriptionProvider));
             builder.Services.AddSingleton<IYouTubeChannelVideoLister>(sp => new YouTubeChannelVideoLister(sp.GetRequiredService<HttpClient>()));
             builder.Services.AddSingleton<IFfmpegAudioChunker, FfmpegAudioChunker>();
             builder.Services.AddSingleton<ITranscriptSource>(sp => new YouTubeTranscriptSource(
