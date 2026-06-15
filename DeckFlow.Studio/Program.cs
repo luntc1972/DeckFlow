@@ -95,6 +95,7 @@ public partial class Program
                 ArtifactRoot = contentKbArtifactRoot,
             });
             builder.Services.AddContentKbOrchestrator();
+            builder.Services.AddSingleton<VideoStatusResolver>();
             builder.Services.AddScoped<ContentKbOrchestratorSmokeService>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
