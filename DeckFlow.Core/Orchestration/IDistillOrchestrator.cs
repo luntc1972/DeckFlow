@@ -11,6 +11,12 @@ public interface IDistillOrchestrator
     /// <param name="limit">Maximum number of videos to process.</param>
     /// <param name="dryRun">Whether to project work without writing distill output.</param>
     /// <param name="isSubscriptionProvider">Whether the active LLM provider is subscription-backed instead of metered.</param>
+    /// <param name="redistill">
+    /// When <see langword="true"/>, bypasses the already-distilled skip for videos that are in the
+    /// targeted <paramref name="videoIds"/> set and clears their prior distill output before
+    /// re-distilling. Has no effect on videos not in <paramref name="videoIds"/>; distilled videos
+    /// outside the targeted set are still skipped. Defaults to <see langword="false"/>.
+    /// </param>
     /// <param name="videoIds">Optional targeted video identifiers that override broad source enumeration.</param>
     /// <param name="progress">Optional synchronous progress sink.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -19,6 +25,7 @@ public interface IDistillOrchestrator
         int limit,
         bool dryRun,
         bool isSubscriptionProvider,
+        bool redistill = false,
         IReadOnlyList<string>? videoIds = null,
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default);

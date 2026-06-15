@@ -179,6 +179,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         int limit,
         bool dryRun,
         bool isSubscriptionProvider,
+        bool redistill = false,
         IReadOnlyList<string>? videoIds = null,
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default)
@@ -252,9 +253,27 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                         var status = await _videoStore.GetDistillStatusAsync(video.Id, cancellationToken).ConfigureAwait(false);
                         if (string.Equals(status, DistillationValidation.DistillStatusDistilled, StringComparison.Ordinal))
                         {
-                            _logger.LogInformation("already distilled {VideoId}", naturalKey);
-                            progress?.Report($"already distilled {naturalKey}");
-                            continue;
+                            // Why: redistill=true bypasses the already-distilled skip ONLY for videos
+                            // explicitly listed in requestedKeys; a distilled video outside the targeted
+                            // set is still skipped so a blanket re-distill cannot occur (T-45-15).
+                            if (redistill && requestedKeys is not null && requestedKeys.Contains(naturalKey))
+                            {
+                                _logger.LogInformation("re-distilling {VideoId} (redistill=true)", naturalKey);
+                                progress?.Report($"re-distilling {naturalKey}");
+                                if (!dryRun)
+                                {
+                                    // Why: clear prior child rows before re-distilling so no orphaned
+                                    // half-old/half-new rows remain (T-45-16). Status reset is implicit:
+                                    // DistillVideoAsync re-sets it to "distilled" on success.
+                                    await _videoStore.ClearDistillOutputAsync(video.Id, cancellationToken).ConfigureAwait(false);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogInformation("already distilled {VideoId}", naturalKey);
+                                progress?.Report($"already distilled {naturalKey}");
+                                continue;
+                            }
                         }
 
                         attemptedForSource++;

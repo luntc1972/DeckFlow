@@ -103,7 +103,7 @@ internal static class ContentKbCommandRunners
                 transcriptSource: new ThrowingTranscriptSource(),
                 chunker: new ThrowingFfmpegAudioChunker());
             var result = await orchestrator
-                .DistillAsync(limit, dryRun, isSubscriptionProvider, videoIds, new ConsoleOrchestratorProgress(), ct)
+                .DistillAsync(limit, dryRun, isSubscriptionProvider, videoIds: videoIds, progress: new ConsoleOrchestratorProgress(), cancellationToken: ct)
                 .ConfigureAwait(false);
 
             if (!result.Success)
