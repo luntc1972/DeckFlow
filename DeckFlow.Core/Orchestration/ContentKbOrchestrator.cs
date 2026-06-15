@@ -1183,6 +1183,15 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             progress?.Report($"distilled {naturalKey}");
             return DistillVideoOutcome.Distilled(llmCalls, llmSpend);
         }
+        catch (LlmCliConfigurationException ex)
+        {
+            // Why: config errors are not the video's fault; do NOT mark the video Failed.
+            // Return AbortedConfig so the outer loop sets abortedReason + stopRun on the first video,
+            // surfacing one clear message instead of N "distill failed" lines (quick 260615-c9e).
+            _logger.LogError(ex, "distill aborted — distiller CLI not configured");
+            progress?.Report($"distill aborted — distiller CLI not configured: {ex.Message}");
+            return DistillVideoOutcome.AbortedConfig(llmCalls, llmSpend, $"Distiller CLI not configured: {ex.Message}");
+        }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             await _videoStore.SetDistillStatusAsync(video.Id, DistillationValidation.DistillStatusFailed, cancellationToken).ConfigureAwait(false);
@@ -1370,6 +1379,9 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
 
         public static DistillVideoOutcome SkippedOverCap(int llmCalls, decimal llmSpendUsd, string abortedReason)
             => new(false, false, llmCalls, llmSpendUsd, FailedVideoId: null, abortedReason);
+
+        public static DistillVideoOutcome AbortedConfig(int llmCalls, decimal llmSpendUsd, string reason)
+            => new(false, false, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: reason);
     }
 
     private sealed class HarvestCounts
