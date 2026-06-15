@@ -13,10 +13,10 @@
 
 <article class="content px-4">
 
-    @* ─── Section 1: Channel Browse (HARV-01) ─── *@
+    @* ─── Section 1: Channel or Playlist Browse (HARV-01) ─── *@
     <div class="card mt-4">
         <div class="card-header">
-            <h2 class="h5 fw-semibold mb-0">Browse Channel</h2>
+            <h2 class="h5 fw-semibold mb-0">Browse Channel or Playlist</h2>
         </div>
         <div class="card-body">
             @if (_operationInFlight)
@@ -27,9 +27,9 @@
             }
             <div class="row g-2 align-items-end mb-1">
                 <div class="col-md-5">
-                    <label for="channelInput" class="form-label fw-semibold small">YouTube channel URL, handle, or ID</label>
+                    <label for="channelInput" class="form-label fw-semibold small">YouTube channel URL, handle, ID, or playlist URL</label>
                     <input id="channelInput" type="text" class="form-control"
-                           placeholder="e.g. @@SomeCreator or https://youtube.com/@@SomeCreator"
+                           placeholder="e.g. @@SomeCreator or https://youtube.com/playlist?list=PL..."
                            @bind="_channelInput"
                            disabled="@_operationInFlight" />
                 </div>
@@ -63,12 +63,12 @@
                         }
                         else
                         {
-                            <span>Browse Channel</span>
+                            <span>Browse</span>
                         }
                     </button>
                 </div>
             </div>
-            <div id="browseSkipHint" class="form-text mb-3">Skip the newest N uploads to reach older videos (with Count, acts as a page window).</div>
+            <div id="browseSkipHint" class="form-text mb-3">Channel or playlist URL accepted. Skip the newest N items to reach older videos (with Count, acts as a page window).</div>
 
             @if (!string.IsNullOrEmpty(_channelBrowseError))
             {
@@ -771,7 +771,7 @@
     private bool _allPendingSelected;
     private string _pendingDistillMessage = string.Empty;
 
-    // ── Section 1: Channel Browse (HARV-01) ─────────────────────────────────
+    // ── Section 1: Channel or Playlist Browse (HARV-01) ────────────────────
     private async Task BrowseChannelAsync()
     {
         if (_operationInFlight || _isBrowsingChannel || string.IsNullOrWhiteSpace(_channelInput))
@@ -784,6 +784,12 @@
         _channelBrowseDone = false;
         _channelVideos.Clear();
 
+        var input = _channelInput.Trim();
+        // Why: detect a playlist URL by the presence of "list=" or "playlist?" in the input.
+        // Channel URLs and handles never contain these tokens.
+        var isPlaylist = input.Contains("list=", StringComparison.OrdinalIgnoreCase)
+            || input.Contains("playlist?", StringComparison.OrdinalIgnoreCase);
+
         // Why: CTS created per-operation so cancel-on-dispose works for browse too.
         using var browseCts = new CancellationTokenSource();
         try
@@ -791,28 +797,35 @@
             // Why: Task.Run moves the lister off the Blazor sync context (Pattern 2 — Pitfall 1).
             // AngleSharp requires serialized access; lister enforces SemaphoreSlim(1) internally.
             var videos = await Task.Run(
-                () => Lister.ListRecentAsync(_channelInput.Trim(), _browseLimit, _browseSkip, browseCts.Token),
+                () => isPlaylist
+                    ? Lister.ListPlaylistAsync(input, _browseLimit, _browseSkip, browseCts.Token)
+                    : Lister.ListRecentAsync(input, _browseLimit, _browseSkip, browseCts.Token),
                 browseCts.Token);
 
             // Resolve badges for each video at list-build time (HARV-03).
             foreach (var v in videos)
             {
                 var status = await StatusResolver.ResolveStatusAsync(v.VideoId, browseCts.Token);
-                _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status));
+                _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status, v.ChannelId, v.ChannelTitle));
             }
 
-            // Why: record last successfully-browsed channel so HarvestSelectedAsync can
-            // auto-ensure a content source without requiring a separate UI step.
-            _lastBrowsedChannel = _channelInput.Trim();
+            // Why: record last successfully-browsed channel (not playlist) so it can serve as
+            // a fallback source hint for videos that lack ChannelId. Do NOT overwrite with a
+            // playlist URL — a playlist spans channels and is not a valid channel source URL.
+            if (!isPlaylist)
+            {
+                _lastBrowsedChannel = input;
+            }
+
             _channelBrowseDone = true;
         }
         catch (OperationCanceledException)
         {
-            _channelBrowseError = "Channel browse was cancelled.";
+            _channelBrowseError = "Browse was cancelled.";
         }
         catch (Exception ex)
         {
-            _channelBrowseError = $"Could not fetch channel — {ex.Message}. Check the URL format and try again.";
+            _channelBrowseError = $"Could not fetch — {ex.Message}. Check the URL format and try again.";
         }
         finally
         {
@@ -875,7 +888,7 @@
                     ? VideoStatus.Duplicate
                     : status;
 
-                _queueVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, displayStatus));
+                _queueVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, displayStatus, v.ChannelId, v.ChannelTitle));
             }
 
             _pasteQueueText = string.Empty;
@@ -1012,15 +1025,41 @@
             return;
         }
 
-        // Why: harvest requires a known channel source to attach videos to. The explicit-video-id
-        // path inside HarvestAsync needs a sourceId (or exactly one enabled source). Auto-ensure
-        // derives the source from the last successfully-browsed channel so no extra UI step is needed.
-        if (string.IsNullOrWhiteSpace(_lastBrowsedChannel))
+        // Resolve a channel URL and name for each selected video.
+        // Videos from the explicit-id queue carry ChannelId from YouTube metadata;
+        // browsed videos carry ChannelId from the playlist/channel feed.
+        // _lastBrowsedChannel is a fallback for videos without ChannelId.
+        var resolvable = new List<(string ChannelUrl, string ChannelName, VideoViewModel Video)>();
+        var unresolvedIds = new List<string>();
+
+        foreach (var v in selectedVideos)
         {
+            string? channelUrl = !string.IsNullOrWhiteSpace(v.ChannelId)
+                ? $"https://www.youtube.com/channel/{v.ChannelId}"
+                : (!string.IsNullOrWhiteSpace(_lastBrowsedChannel) ? _lastBrowsedChannel : null);
+
+            if (channelUrl is null)
+            {
+                unresolvedIds.Add(v.VideoId);
+                continue;
+            }
+
+            var channelName = v.ChannelTitle ?? v.ChannelId ?? _lastBrowsedChannel;
+            resolvable.Add((channelUrl, channelName ?? channelUrl, v));
+        }
+
+        if (resolvable.Count == 0)
+        {
+            // All selected videos are unresolved — abort cleanly without throwing.
             _logLines.Clear();
-            _logLines.Add("Browse a channel first — harvested videos need a target source.");
+            _logLines.Add("Could not determine a channel for the selected video(s).");
             await InvokeAsync(StateHasChanged);
             return;
+        }
+
+        if (unresolvedIds.Count > 0)
+        {
+            _logLines.Add($"Warning: skipping {unresolvedIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", unresolvedIds)}");
         }
 
         _operationInFlight = true;
@@ -1046,41 +1085,73 @@
                 catch (InvalidOperationException) { }
             }));
 
+        // Group resolvable videos by channel URL so each channel gets exactly one
+        // EnsureYoutubeSourceAsync call and one HarvestAsync call.
+        var groups = resolvable
+            .GroupBy(x => x.ChannelUrl)
+            .Select(g => (
+                ChannelUrl: g.Key,
+                ChannelName: g.First().ChannelName,
+                VideoIds: g.Select(x => x.Video.VideoId).ToList().AsReadOnly()))
+            .ToList();
+
         var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
-        // Capture for the lambda below to avoid closure over the mutable field.
-        var channelUrl = _lastBrowsedChannel;
 
         try
         {
-            // Why: Task.Run moves HarvestAsync off the Blazor sync context.
-            // Without this, long-running IO blocks the SignalR circuit (Pitfall 1).
+            // Why: Task.Run moves all IO off the Blazor sync context (Pitfall 1).
             _harvestResult = await Task.Run(
                 async () =>
                 {
-                    // Why: EnsureYoutubeSourceAsync creates or re-enables the content source for
-                    // the browsed channel so the harvest has a valid sourceId to attach videos to.
-                    // This runs inside Task.Run to keep all IO off the Blazor circuit.
-                    var src = await SourceManager.EnsureYoutubeSourceAsync(
-                        channelUrl,
-                        channelUrl,
-                        progress,
-                        _cts.Token).ConfigureAwait(false);
+                    int totalCaptions = 0;
+                    int totalWhisper = 0;
+                    int totalSkipped = 0;
+                    bool anyGroupFailed = false;
+                    string? firstFailureMessage = null;
 
-                    if (!src.Success || src.Id is null)
+                    foreach (var group in groups)
                     {
-                        return new HarvestResult
+                        // Why: EnsureYoutubeSourceAsync creates or re-enables the content source
+                        // for each channel so each group's harvest has a valid sourceId.
+                        var src = await SourceManager.EnsureYoutubeSourceAsync(
+                            group.ChannelUrl,
+                            group.ChannelName,
+                            progress,
+                            _cts.Token).ConfigureAwait(false);
+
+                        if (!src.Success || src.Id is null)
                         {
-                            Success = false,
-                            Message = src.Message ?? "Could not ensure a content source for this channel.",
-                        };
+                            anyGroupFailed = true;
+                            firstFailureMessage ??= src.Message ?? $"Could not ensure a content source for {group.ChannelUrl}.";
+                            continue;
+                        }
+
+                        var r = await HarvestOrchestrator.HarvestAsync(
+                            limit: group.VideoIds.Count,
+                            videoIds: group.VideoIds,
+                            sourceId: src.Id,
+                            progress: progress,
+                            cancellationToken: _cts.Token).ConfigureAwait(false);
+
+                        if (!r.Success)
+                        {
+                            anyGroupFailed = true;
+                            firstFailureMessage ??= r.Message;
+                        }
+
+                        totalCaptions += r.Captions;
+                        totalWhisper += r.Whisper;
+                        totalSkipped += r.SkippedNoCaptions;
                     }
 
-                    return await HarvestOrchestrator.HarvestAsync(
-                        limit: selectedIds.Count,
-                        videoIds: selectedIds,
-                        sourceId: src.Id,
-                        progress: progress,
-                        cancellationToken: _cts.Token).ConfigureAwait(false);
+                    return new HarvestResult
+                    {
+                        Success = !anyGroupFailed && groups.Count > 0,
+                        Captions = totalCaptions,
+                        Whisper = totalWhisper,
+                        SkippedNoCaptions = totalSkipped,
+                        Message = anyGroupFailed ? firstFailureMessage : null,
+                    };
                 },
                 _cts.Token);
 
@@ -1395,14 +1466,27 @@
         public DateTimeOffset? PublishedUtc { get; }
         public VideoStatus Status { get; set; }
         public bool Selected { get; set; }
+        /// <summary>YouTube channel id for this video's author, when available from the listing source.</summary>
+        public string? ChannelId { get; }
+        /// <summary>Display name of the YouTube channel that published this video, when available.</summary>
+        public string? ChannelTitle { get; }
 
-        public VideoViewModel(string videoId, string url, string title, DateTimeOffset? publishedUtc, VideoStatus status)
+        public VideoViewModel(
+            string videoId,
+            string url,
+            string title,
+            DateTimeOffset? publishedUtc,
+            VideoStatus status,
+            string? channelId = null,
+            string? channelTitle = null)
         {
             VideoId = videoId;
             Url = url;
             Title = title;
             PublishedUtc = publishedUtc;
             Status = status;
+            ChannelId = channelId;
+            ChannelTitle = channelTitle;
         }
     }
 }
