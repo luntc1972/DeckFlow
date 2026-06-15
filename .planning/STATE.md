@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING
-last_updated: "2026-06-15T21:00:00.000Z"
+stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-h2v DONE
+last_updated: "2026-06-15T21:55:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
@@ -134,6 +134,7 @@ Progress: [██████████] 96%
 | 260612-kb1 | Admin KB per-entry Delete + restore Phase-37-broken page behaviors (filter/confirms/toast) | 2026-06-12 | e3b6ea4 | [260612-kb1](./quick/260612-kb1-admin-kb-delete-entry/) |
 | 260612-e2e | Playwright E2E smoke suite (15 routes × desktop+mobile) + CI stage; 68/68 green | 2026-06-12 | 6e8ddff | [260612-e2e](./quick/260612-e2e-playwright-smoke/) |
 | 260615-k8o | Add skip/offset to channel browse: IYouTubeChannelVideoLister + 5 implementers + Studio Skip input | 2026-06-15 | a018684 | [260615-k8o](./quick/260615-k8o-channel-browse-skip/) |
+| 260615-h2v | Auto-ensure YouTube source from browsed channel before harvest: GetSourceByUrlAsync + EnsureYoutubeSourceAsync + Harvest.razor wire-up | 2026-06-15 | 2db4513 | [260615-h2v](./quick/260615-h2v-harvest-source-autoensure/) |
 
 ## Deferred Items
 
@@ -160,6 +161,6 @@ Progress: [██████████] 96%
 
 ## Session Continuity
 
-Last session: 2026-06-15T21:00:00.000Z
-Stopped at: 45-04 Task 3 human-verify PENDING (code tasks committed 4f3c2df)
-Resume: After human-verify approval, run orchestrator to finalize 45-04 + advance plan counter.
+Last session: 2026-06-15T21:55:00.000Z
+Stopped at: Quick 260615-h2v complete (4 commits: 01ef743, 551f70f, a78eff5, 2db4513); 45-04 Task 3 human-verify still PENDING
+Resume: After human-verify approval for 45-04, run orchestrator to finalize 45-04 + advance plan counter.
