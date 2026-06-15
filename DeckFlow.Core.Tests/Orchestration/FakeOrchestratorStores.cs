@@ -22,6 +22,9 @@ internal sealed class FakeContentSourceStore : IContentSourceStore
     public Task<ContentSource?> GetSourceAsync(long id, CancellationToken cancellationToken = default)
         => throw new NotImplementedException();
 
+    public Task<ContentSource?> GetSourceByUrlAsync(string url, CancellationToken cancellationToken = default)
+        => Task.FromResult(_sources.FirstOrDefault(s => string.Equals(s.SourceUrl, url, StringComparison.Ordinal)));
+
     public Task<IReadOnlyList<ContentSource>> ListEnabledSourcesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<ContentSource>>(_sources);
 }

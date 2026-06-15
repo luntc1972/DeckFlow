@@ -101,6 +101,22 @@ public sealed class ContentSourceStore : IContentSourceStore
     }
 
     /// <inheritdoc />
+    public async Task<ContentSource?> GetSourceByUrlAsync(string url, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.QuerySingleOrDefaultAsync<ContentSource>(new CommandDefinition(
+            """
+            SELECT id, source_slug, display_name, source_type, source_url, is_enabled, created_utc
+              FROM content_sources
+             WHERE source_url = @url;
+            """,
+            new { url },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task SetEnabledAsync(long id, bool isEnabled, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
