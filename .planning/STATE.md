@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-h2v DONE
+stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-p4d DONE
 last_updated: "2026-06-15T21:55:00.000Z"
 last_activity: 2026-06-15
 progress:
@@ -135,6 +135,7 @@ Progress: [██████████] 96%
 | 260612-e2e | Playwright E2E smoke suite (15 routes × desktop+mobile) + CI stage; 68/68 green | 2026-06-12 | 6e8ddff | [260612-e2e](./quick/260612-e2e-playwright-smoke/) |
 | 260615-k8o | Add skip/offset to channel browse: IYouTubeChannelVideoLister + 5 implementers + Studio Skip input | 2026-06-15 | a018684 | [260615-k8o](./quick/260615-k8o-channel-browse-skip/) |
 | 260615-h2v | Auto-ensure YouTube source from browsed channel before harvest: GetSourceByUrlAsync + EnsureYoutubeSourceAsync + Harvest.razor wire-up | 2026-06-15 | 2db4513 | [260615-h2v](./quick/260615-h2v-harvest-source-autoensure/) |
+| 260615-p4d | DB-backed "Load harvested (pending distill)" loader: PendingDistillVideo + IDistillOrchestrator.ListPendingDistillAsync (union/dedup/null-skip) + Harvest.razor loader table | 2026-06-15 | 83ecaa5 | [260615-p4d](./quick/260615-p4d-pending-distill-loader/) |
 
 ## Deferred Items
 
