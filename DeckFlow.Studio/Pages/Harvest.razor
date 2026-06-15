@@ -407,6 +407,41 @@
                 }
             }
 
+            @if (DistillConfig.IsSubscriptionProvider)
+            {
+                @* Subscription ($0): the dry-run is a spend-safety gate (HARV-05). With no metered
+                   spend there is nothing to estimate, so Run Distill is reachable directly. The
+                   re-distill double-confirm (folded into dryRunButtonEnabled) still applies. *@
+                <p class="text-muted small mb-2">Subscription provider ($0) — no spend estimate needed.</p>
+                <div class="d-flex gap-2 align-items-center mb-3">
+                    <button class="btn btn-primary"
+                            @onclick="() => RunDistillStageBAsync(distillIds, redistillConfirmed)"
+                            disabled="@(!dryRunButtonEnabled || _distillLiveInFlight)">
+                        @if (_distillLiveInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Distilling...</span>
+                        }
+                        else
+                        {
+                            <span>Run Distill</span>
+                        }
+                    </button>
+                    @if (_distillLiveInFlight)
+                    {
+                        <button class="btn btn-outline-danger btn-sm"
+                                @onclick="CancelOperation">
+                            Cancel Distill
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
             @* Stage A: Dry-run trigger *@
             <div class="d-flex gap-2 align-items-center mb-3">
                 <button class="btn btn-outline-primary"
@@ -513,6 +548,7 @@
                         }
                     </div>
                 }
+            }
             }
 
             @* Stage B progress log and result *@
@@ -1027,7 +1063,10 @@
         IReadOnlyList<string> distillIds,
         bool redistillConfirmed)
     {
-        if (_operationInFlight || !_distillSpendConfirmed)
+        // Why: the reviewed-spend confirmation is a spend-safety gate (HARV-05). A subscription
+        // ($0) provider has no metered spend, so the dry-run + confirm are skipped and Run Distill
+        // is reachable directly; metered providers still require _distillSpendConfirmed.
+        if (_operationInFlight || (!_distillSpendConfirmed && !DistillConfig.IsSubscriptionProvider))
         {
             return;
         }
