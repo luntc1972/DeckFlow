@@ -1,10 +1,11 @@
 ---
 phase: 45
 slug: harvest-distill-ui
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-15
+reviewed_at: 2026-06-15
 ---
 
 # Phase 45 — UI Design Contract: Harvest + Distill UI
@@ -75,9 +76,6 @@ All sizes are rem-derived, converted to px at 16px base.
 | Page heading | 24px (1.5rem) | 600 (semibold) | 1.2 | `<h1 class="h4 fw-semibold">` |
 
 Maximum 4 sizes, 2 weights (400 regular + 600 semibold). Do not introduce a third weight.
-
-Progress log text: 13px monospace (`font-family: monospace; font-size: 0.8125rem`) inside
-the scrollable log pane. This is the only monospace context.
 
 ---
 
@@ -162,7 +160,8 @@ Show a note: "Harvest or distill in progress — channel browse unavailable."
 ID, cross-references DB, and appends to the queue list below.
 
 **Queue list:** Same columns as channel browse table. `duplicate` badge shown for videos already
-in DB. Operator can remove individual rows via a `btn-close` / `oi oi-x` icon per row.
+in DB. Operator can remove individual rows via a `btn-close` / `oi oi-x` icon per row. This
+button must carry `aria-label="Remove video from queue"` for screen reader accessibility.
 
 **Duplicate handling:** Duplicates are flagged visually but NOT blocked from harvest. The
 operator explicitly selects which videos to harvest; duplicates are pre-warned, not auto-excluded.
@@ -372,6 +371,9 @@ and standard Blazor component model.
 - Spinner has `aria-label="Operation in progress"` + `role="status"`.
 - Disabled buttons retain their label text (do not clear to blank when disabled).
 - Badge color is never the sole differentiator — label text always accompanies color.
+- Per-row remove button in the URL/ID paste queue is icon-only (`btn-close` / `oi oi-x`) and
+  MUST carry `aria-label="Remove video from queue"` — color and icon alone are not sufficient
+  for screen reader users.
 
 ---
 
