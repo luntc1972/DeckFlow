@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-c9e DONE
-last_updated: "2026-06-15T22:15:00.000Z"
+stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-t7m DONE
+last_updated: "2026-06-15T22:45:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
@@ -137,6 +137,7 @@ Progress: [██████████] 96%
 | 260615-h2v | Auto-ensure YouTube source from browsed channel before harvest: GetSourceByUrlAsync + EnsureYoutubeSourceAsync + Harvest.razor wire-up | 2026-06-15 | 2db4513 | [260615-h2v](./quick/260615-h2v-harvest-source-autoensure/) |
 | 260615-p4d | DB-backed "Load harvested (pending distill)" loader: PendingDistillVideo + IDistillOrchestrator.ListPendingDistillAsync (union/dedup/null-skip) + Harvest.razor loader table | 2026-06-15 | 83ecaa5 | [260615-p4d](./quick/260615-p4d-pending-distill-loader/) |
 | 260615-c9e | Typed LlmCliConfigurationException + orchestrator config-abort: one clear "Distiller CLI not configured" abort instead of N silent "distill failed" lines when DECKFLOW_LLM_CLI_COMMAND is missing/invalid | 2026-06-15 | 094c5a8 | [260615-c9e](./quick/260615-c9e-distill-config-error/) |
+| 260615-t7m | Per-video elapsed time (N.Ns) in Core distill progress lines + live Elapsed counter and Total time display in Studio Harvest page via PeriodicTimer ticker | 2026-06-15 | d6f58e7 | [260615-t7m](./quick/260615-t7m-distill-timing/) |
 
 ## Deferred Items
 
