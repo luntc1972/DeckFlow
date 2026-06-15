@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-p4d DONE
-last_updated: "2026-06-15T21:55:00.000Z"
+stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-c9e DONE
+last_updated: "2026-06-15T22:15:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
@@ -136,6 +136,7 @@ Progress: [██████████] 96%
 | 260615-k8o | Add skip/offset to channel browse: IYouTubeChannelVideoLister + 5 implementers + Studio Skip input | 2026-06-15 | a018684 | [260615-k8o](./quick/260615-k8o-channel-browse-skip/) |
 | 260615-h2v | Auto-ensure YouTube source from browsed channel before harvest: GetSourceByUrlAsync + EnsureYoutubeSourceAsync + Harvest.razor wire-up | 2026-06-15 | 2db4513 | [260615-h2v](./quick/260615-h2v-harvest-source-autoensure/) |
 | 260615-p4d | DB-backed "Load harvested (pending distill)" loader: PendingDistillVideo + IDistillOrchestrator.ListPendingDistillAsync (union/dedup/null-skip) + Harvest.razor loader table | 2026-06-15 | 83ecaa5 | [260615-p4d](./quick/260615-p4d-pending-distill-loader/) |
+| 260615-c9e | Typed LlmCliConfigurationException + orchestrator config-abort: one clear "Distiller CLI not configured" abort instead of N silent "distill failed" lines when DECKFLOW_LLM_CLI_COMMAND is missing/invalid | 2026-06-15 | 094c5a8 | [260615-c9e](./quick/260615-c9e-distill-config-error/) |
 
 ## Deferred Items
 
@@ -162,6 +163,6 @@ Progress: [██████████] 96%
 
 ## Session Continuity
 
-Last session: 2026-06-15T21:55:00.000Z
-Stopped at: Quick 260615-h2v complete (4 commits: 01ef743, 551f70f, a78eff5, 2db4513); 45-04 Task 3 human-verify still PENDING
+Last session: 2026-06-15T22:15:00.000Z
+Stopped at: Quick 260615-c9e complete (2 commits: 094c5a8, cc16da0); 45-04 Task 3 human-verify still PENDING
 Resume: After human-verify approval for 45-04, run orchestrator to finalize 45-04 + advance plan counter.
