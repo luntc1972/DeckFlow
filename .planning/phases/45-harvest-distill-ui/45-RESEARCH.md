@@ -716,9 +716,9 @@ concurrency internally. The Harvest.razor component can inject both `IHarvestOrc
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED — planner chose paths in 45-0x-PLAN.md)
 
-1. **sourceId for GetVideoByYoutubeIdAsync in badge resolution**
+1. **sourceId for GetVideoByYoutubeIdAsync in badge resolution** — **RESOLVED:** `GetByNaturalKeyAsync("youtube", ytId)` proxy in `VideoStatusResolver` (45-02).
    - What we know: `IContentVideoStore.GetVideoByYoutubeIdAsync(sourceId, ytId)` requires a source ID.
      `IContentSiteIndexStore.GetByNaturalKeyAsync("youtube", ytId)` does NOT require a source ID.
    - What's unclear: Is there a cross-source "does this ytId exist anywhere in content_videos?" method
@@ -729,7 +729,7 @@ concurrency internally. The Harvest.razor component can inject both `IHarvestOrc
      from a source-iteration approach. Or add a `GetVideoByYoutubeIdAnySourceAsync(ytId)` method to
      `IContentVideoStore`. The planner should pick one path and note it as a plan decision.
 
-2. **Thumbnail URL for video table**
+2. **Thumbnail URL for video table** — **RESOLVED:** constructed at render time from VideoId (no Core model change) in 45-03.
    - What we know: `YouTubeChannelVideo` has no `ThumbnailUrl` field. UI-SPEC requires 40x30px thumbnails.
    - What's unclear: Whether to add `ThumbnailUrl` to `YouTubeChannelVideo` (Core model change,
      requires `PlaylistVideo.Thumbnails` in `MapVideo`) or construct from VideoId at render time.
@@ -737,7 +737,7 @@ concurrency internally. The Harvest.razor component can inject both `IHarvestOrc
      No Core change needed. If a video thumbnail fails to load, `<img>` shows broken image — add
      `onerror="this.style.display='none'"` as a safety net.
 
-3. **Blazor component injection of scoped orchestrator**
+3. **Blazor component injection of scoped orchestrator** — **RESOLVED:** direct `[Inject]` of scoped `IHarvestOrchestrator`/`IDistillOrchestrator` per-circuit scope in 45-03.
    - What we know: `AddContentKbOrchestrator()` registers as scoped. Blazor Server components can
      inject scoped services via `@inject` or `[Inject]`.
    - What's unclear: Whether the existing `ContentKbOrchestratorSmokeService` (which is also scoped,
