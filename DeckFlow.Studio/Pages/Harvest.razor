@@ -1,0 +1,654 @@
+@page "/harvest"
+@implements IDisposable
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Integration
+@using DeckFlow.Core.Orchestration
+@using DeckFlow.Studio.Services
+
+<PageTitle>Harvest + Distill</PageTitle>
+
+<h1 class="h4 fw-semibold">Harvest + Distill</h1>
+<p class="text-muted">Discover videos, harvest transcripts, and distill to knowledge base.</p>
+
+<article class="content px-4">
+
+    @* ─── Section 1: Channel Browse (HARV-01) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Browse Channel</h2>
+        </div>
+        <div class="card-body">
+            @if (_operationInFlight)
+            {
+                <div class="alert alert-info py-2 mb-3">
+                    Harvest or distill in progress — channel browse unavailable.
+                </div>
+            }
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-7">
+                    <label for="channelInput" class="form-label fw-semibold small">YouTube channel URL, handle, or ID</label>
+                    <input id="channelInput" type="text" class="form-control"
+                           placeholder="e.g. @@SomeCreator or https://youtube.com/@@SomeCreator"
+                           @bind="_channelInput"
+                           disabled="@_operationInFlight" />
+                </div>
+                <div class="col-md-2">
+                    <label for="browseLimit" class="form-label fw-semibold small">Count</label>
+                    <input id="browseLimit" type="number" class="form-control"
+                           min="1" max="200"
+                           @bind="_browseLimit"
+                           disabled="@_operationInFlight" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100"
+                            @onclick="BrowseChannelAsync"
+                            disabled="@(_operationInFlight || _isBrowsingChannel)">
+                        @if (_isBrowsingChannel)
+                        {
+                            <span class="spinner-border spinner-border-sm text-primary"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Fetching channel videos...</span>
+                        }
+                        else
+                        {
+                            <span>Browse Channel</span>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_channelBrowseError))
+            {
+                <div class="alert alert-danger py-2">@_channelBrowseError</div>
+            }
+
+            @if (_channelVideos.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width:40px">
+                                    <input type="checkbox"
+                                           @onclick="ToggleAllChannelSelections"
+                                           checked="@_allChannelSelected"
+                                           aria-label="Select all channel videos" />
+                                </th>
+                                <th scope="col" style="width:50px">Thumb</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Published</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vm in _channelVideos)
+                            {
+                                <tr class="@(vm.Status == VideoStatus.Harvested || vm.Status == VideoStatus.Distilled ? "table-secondary" : "")">
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@vm.Selected"
+                                               @onchange="() => vm.Selected = !vm.Selected"
+                                               aria-label="Select @vm.Title" />
+                                    </td>
+                                    <td>
+                                        <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
+                                             width="40" height="30"
+                                             alt=""
+                                             onerror="this.style.display='none'" />
+                                    </td>
+                                    <td>
+                                        <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                    </td>
+                                    <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@RenderBadge(vm.Status)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (_channelBrowseDone && string.IsNullOrEmpty(_channelBrowseError))
+            {
+                <p class="text-muted">No videos found for this channel. Check the handle or URL and try again.</p>
+            }
+        </div>
+    </div>
+
+    @* ─── Section 2: URL/ID Paste Queue (HARV-02) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">URL / ID Paste Queue</h2>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="pasteQueue" class="form-label fw-semibold small">Paste video URLs or IDs (one per line)</label>
+                <textarea id="pasteQueue" class="form-control" rows="4"
+                          @bind="_pasteQueueText"
+                          disabled="@_operationInFlight"></textarea>
+            </div>
+            <button class="btn btn-outline-secondary"
+                    @onclick="AddToQueueAsync"
+                    disabled="@(_operationInFlight || _isAddingToQueue)">
+                @if (_isAddingToQueue)
+                {
+                    <span class="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Resolving...</span>
+                }
+                else
+                {
+                    <span>Add to Queue</span>
+                }
+            </button>
+
+            @if (!string.IsNullOrEmpty(_queueAddError))
+            {
+                <div class="alert alert-danger py-2 mt-2">@_queueAddError</div>
+            }
+
+            @if (_queueVideos.Count > 0)
+            {
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width:40px">
+                                    <input type="checkbox"
+                                           @onclick="ToggleAllQueueSelections"
+                                           checked="@_allQueueSelected"
+                                           aria-label="Select all queued videos" />
+                                </th>
+                                <th scope="col" style="width:50px">Thumb</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Published</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" style="width:50px"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vm in _queueVideos)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@vm.Selected"
+                                               @onchange="() => vm.Selected = !vm.Selected"
+                                               aria-label="Select @vm.Title" />
+                                    </td>
+                                    <td>
+                                        <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
+                                             width="40" height="30"
+                                             alt=""
+                                             onerror="this.style.display='none'" />
+                                    </td>
+                                    <td>
+                                        <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                    </td>
+                                    <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@RenderBadge(vm.Status)</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => RemoveFromQueue(vm)"
+                                                aria-label="Remove video from queue">
+                                            <span class="oi oi-x" aria-hidden="true"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted mt-2">No videos in queue. Paste URLs or IDs above, or browse a channel.</p>
+            }
+        </div>
+    </div>
+
+    <hr class="mt-4" />
+
+    @* ─── Section 3: Harvest Trigger (HARV-04) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Harvest</h2>
+        </div>
+        <div class="card-body">
+            @{
+                var selectedVideos = GetAllSelectedVideos();
+                var selectedCount = selectedVideos.Count;
+                var alreadyHarvestedCount = selectedVideos.Count(v => v.Status == VideoStatus.Harvested || v.Status == VideoStatus.Distilled);
+            }
+
+            <p>
+                <strong>@selectedCount</strong> video@(selectedCount == 1 ? "" : "s") selected
+                @if (alreadyHarvestedCount > 0)
+                {
+                    <span>(@alreadyHarvestedCount already harvested)</span>
+                }
+            </p>
+
+            @if (alreadyHarvestedCount > 0)
+            {
+                <p class="text-warning">
+                    <span class="oi oi-warning" aria-hidden="true"></span>
+                    @alreadyHarvestedCount selected video@(alreadyHarvestedCount == 1 ? "" : "s") already harvested — these will be skipped by the harvester.
+                </p>
+            }
+
+            @if (selectedCount == 0 && !_operationInFlight)
+            {
+                <p class="text-muted">Select at least one video to harvest.</p>
+            }
+
+            <div class="d-flex gap-2 align-items-center mb-3">
+                <button class="btn btn-primary"
+                        @onclick="HarvestSelectedAsync"
+                        disabled="@(selectedCount == 0 || _operationInFlight)">
+                    Harvest Selected
+                </button>
+                @if (_operationInFlight)
+                {
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="CancelOperation">
+                        Cancel Harvest
+                    </button>
+                }
+            </div>
+
+            @if (_operationInFlight || _logLines.Count > 0)
+            {
+                <div class="mb-2">
+                    @if (_operationInFlight)
+                    {
+                        <span class="fw-semibold me-2">Harvesting...</span>
+                        <div class="spinner-border spinner-border-sm text-primary d-inline-block"
+                             role="status"
+                             aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    }
+                    else if (_harvestResult is not null)
+                    {
+                        @if (_harvestResult.Success)
+                        {
+                            <span class="oi oi-check text-success me-1" aria-hidden="true"></span>
+                            <span>Harvest complete — @_harvestResult.Captions transcript@(_harvestResult.Captions == 1 ? "" : "s") from captions, @_harvestResult.Whisper via Whisper, @_harvestResult.SkippedNoCaptions skipped (no captions).</span>
+                        }
+                        else
+                        {
+                            <span class="oi oi-warning text-danger me-1" aria-hidden="true"></span>
+                            <span>Harvest stopped — @(_harvestResult.Message ?? "Unknown error"). Check the log above for details.</span>
+                        }
+                    }
+                    else if (_harvestCancelled)
+                    {
+                        <span class="text-muted">Harvest cancelled.</span>
+                    }
+                </div>
+
+                <pre class="bg-light border rounded p-2"
+                     style="height:200px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"
+                     role="log"
+                     aria-live="polite">@string.Join("\n", _logLines)</pre>
+            }
+        </div>
+    </div>
+
+    @* ─── Section 4: Distill (placeholder — wired in Wave 4 / Plan 04) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Distill</h2>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Distill controls added next (Wave 4 / Plan 04).</p>
+        </div>
+    </div>
+
+</article>
+
+@code {
+    // ── Injected services ───────────────────────────────────────────────────
+    [Inject]
+    private IYouTubeChannelVideoLister Lister { get; set; } = default!;
+
+    [Inject]
+    private IHarvestOrchestrator HarvestOrchestrator { get; set; } = default!;
+
+    [Inject]
+    private VideoStatusResolver StatusResolver { get; set; } = default!;
+
+    // Why: Injected now so the inject block is stable; distill wiring lands in Wave 4 (Plan 04).
+    [Inject]
+    private IDistillOrchestrator DistillOrchestrator { get; set; } = default!;
+
+    [Inject]
+    private StudioDistillConfig DistillConfig { get; set; } = default!;
+
+    [Inject]
+    private SessionCapOverride CapOverride { get; set; } = default!;
+
+    [Inject]
+    private ILlmSpendLedger SpendLedger { get; set; } = default!;
+
+    // ── Section 1 state ─────────────────────────────────────────────────────
+    private string _channelInput = string.Empty;
+    private int _browseLimit = 25;
+    private bool _isBrowsingChannel;
+    private bool _channelBrowseDone;
+    private string _channelBrowseError = string.Empty;
+    private List<VideoViewModel> _channelVideos = new();
+    private bool _allChannelSelected;
+
+    // ── Section 2 state ─────────────────────────────────────────────────────
+    private string _pasteQueueText = string.Empty;
+    private bool _isAddingToQueue;
+    private string _queueAddError = string.Empty;
+    private List<VideoViewModel> _queueVideos = new();
+    private bool _allQueueSelected;
+
+    // ── Section 3 harvest state ──────────────────────────────────────────────
+    private CancellationTokenSource? _cts;
+    private bool _operationInFlight;
+    private List<string> _logLines = new();
+    private HarvestResult? _harvestResult;
+    private bool _harvestCancelled;
+
+    // ── Section 1: Channel Browse (HARV-01) ─────────────────────────────────
+    private async Task BrowseChannelAsync()
+    {
+        if (_operationInFlight || _isBrowsingChannel || string.IsNullOrWhiteSpace(_channelInput))
+        {
+            return;
+        }
+
+        _isBrowsingChannel = true;
+        _channelBrowseError = string.Empty;
+        _channelBrowseDone = false;
+        _channelVideos.Clear();
+
+        // Why: CTS created per-operation so cancel-on-dispose works for browse too.
+        using var browseCts = new CancellationTokenSource();
+        try
+        {
+            // Why: Task.Run moves the lister off the Blazor sync context (Pattern 2 — Pitfall 1).
+            // AngleSharp requires serialized access; lister enforces SemaphoreSlim(1) internally.
+            var videos = await Task.Run(
+                () => Lister.ListRecentAsync(_channelInput.Trim(), _browseLimit, browseCts.Token),
+                browseCts.Token);
+
+            // Resolve badges for each video at list-build time (HARV-03).
+            foreach (var v in videos)
+            {
+                var status = await StatusResolver.ResolveStatusAsync(v.VideoId, browseCts.Token);
+                _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status));
+            }
+
+            _channelBrowseDone = true;
+        }
+        catch (OperationCanceledException)
+        {
+            _channelBrowseError = "Channel browse was cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _channelBrowseError = $"Could not fetch channel — {ex.Message}. Check the URL format and try again.";
+        }
+        finally
+        {
+            _isBrowsingChannel = false;
+            _allChannelSelected = false;
+        }
+    }
+
+    private void ToggleAllChannelSelections()
+    {
+        _allChannelSelected = !_allChannelSelected;
+        foreach (var vm in _channelVideos)
+        {
+            vm.Selected = _allChannelSelected;
+        }
+    }
+
+    // ── Section 2: URL/ID Paste Queue (HARV-02) ─────────────────────────────
+    private async Task AddToQueueAsync()
+    {
+        if (_operationInFlight || _isAddingToQueue || string.IsNullOrWhiteSpace(_pasteQueueText))
+        {
+            return;
+        }
+
+        var rawLines = _pasteQueueText
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToList();
+
+        if (rawLines.Count == 0)
+        {
+            return;
+        }
+
+        _isAddingToQueue = true;
+        _queueAddError = string.Empty;
+
+        using var addCts = new CancellationTokenSource();
+        try
+        {
+            // Why: Task.Run avoids blocking the Blazor circuit during YouTube metadata resolution.
+            var videos = await Task.Run(
+                () => Lister.GetByIdsAsync(rawLines.AsReadOnly(), addCts.Token),
+                addCts.Token);
+
+            foreach (var v in videos)
+            {
+                // Skip if already in queue (by VideoId).
+                if (_queueVideos.Any(q => q.VideoId == v.VideoId))
+                {
+                    continue;
+                }
+
+                var status = await StatusResolver.ResolveStatusAsync(v.VideoId, addCts.Token);
+
+                // Why: the paste queue shows Duplicate badge for already-in-DB videos (HARV-02).
+                // Duplicate = Harvested or Distilled — a pre-harvest warning, not auto-exclusion.
+                var displayStatus = (status == VideoStatus.Harvested || status == VideoStatus.Distilled)
+                    ? VideoStatus.Duplicate
+                    : status;
+
+                _queueVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, displayStatus));
+            }
+
+            _pasteQueueText = string.Empty;
+        }
+        catch (ArgumentException ex)
+        {
+            // Why: GetByIdsAsync throws ArgumentException on unparseable input (T-45-06).
+            _queueAddError = $"Could not fetch — {ex.Message}";
+        }
+        catch (OperationCanceledException)
+        {
+            _queueAddError = "Queue add was cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _queueAddError = $"Could not fetch — {ex.Message}";
+        }
+        finally
+        {
+            _isAddingToQueue = false;
+            _allQueueSelected = false;
+        }
+    }
+
+    private void RemoveFromQueue(VideoViewModel vm)
+    {
+        _queueVideos.Remove(vm);
+    }
+
+    private void ToggleAllQueueSelections()
+    {
+        _allQueueSelected = !_allQueueSelected;
+        foreach (var vm in _queueVideos)
+        {
+            vm.Selected = _allQueueSelected;
+        }
+    }
+
+    // ── Section 3: Harvest Trigger (HARV-04) ────────────────────────────────
+    private IReadOnlyList<VideoViewModel> GetAllSelectedVideos()
+    {
+        return _channelVideos.Where(v => v.Selected)
+            .Concat(_queueVideos.Where(v => v.Selected))
+            .ToList();
+    }
+
+    private async Task HarvestSelectedAsync()
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        var selectedVideos = GetAllSelectedVideos();
+        if (selectedVideos.Count == 0)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _logLines.Clear();
+        _harvestResult = null;
+        _harvestCancelled = false;
+        _cts = new CancellationTokenSource();
+
+        // Why: the progress sink must marshal BOTH _logLines.Add and StateHasChanged through
+        // InvokeAsync so list mutation and render happen on the Blazor sync context together.
+        // The try/catch swallows ObjectDisposedException and InvalidOperationException from a
+        // disposed renderer — a callback arriving after the component is disposed (operator closed
+        // tab mid-run) must drop silently rather than surface an unobserved exception (T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _logLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
+
+        try
+        {
+            // Why: Task.Run moves HarvestAsync off the Blazor sync context.
+            // Without this, long-running IO blocks the SignalR circuit (Pitfall 1).
+            _harvestResult = await Task.Run(
+                () => HarvestOrchestrator.HarvestAsync(
+                    limit: selectedIds.Count,
+                    videoIds: selectedIds,
+                    progress: progress,
+                    cancellationToken: _cts.Token),
+                _cts.Token);
+
+            // Re-resolve badges for harvested videos to reflect new DB state.
+            if (_harvestResult.Success)
+            {
+                await RefreshBadgesAsync(selectedIds);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logLines.Add("Harvest cancelled.");
+            _harvestCancelled = true;
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void CancelOperation()
+    {
+        _cts?.Cancel();
+    }
+
+    private async Task RefreshBadgesAsync(IReadOnlyList<string> videoIds)
+    {
+        foreach (var videoId in videoIds)
+        {
+            var newStatus = await StatusResolver.ResolveStatusAsync(videoId);
+
+            var channelVm = _channelVideos.FirstOrDefault(v => v.VideoId == videoId);
+            if (channelVm is not null)
+            {
+                channelVm.Status = newStatus;
+            }
+
+            var queueVm = _queueVideos.FirstOrDefault(v => v.VideoId == videoId);
+            if (queueVm is not null)
+            {
+                // Re-apply duplicate logic for queue items.
+                queueVm.Status = (newStatus == VideoStatus.Harvested || newStatus == VideoStatus.Distilled)
+                    ? VideoStatus.Duplicate
+                    : newStatus;
+            }
+        }
+    }
+
+    // ── Badge rendering (HARV-03) ────────────────────────────────────────────
+    /// <summary>
+    /// Maps <see cref="VideoStatus"/> to the exact Bootstrap badge class + label per UI-SPEC
+    /// Status Badge Vocabulary (45-UI-SPEC.md lines 110-126).
+    /// Badge label text always accompanies color (accessibility — label never sole differentiator).
+    /// </summary>
+    private static RenderFragment RenderBadge(VideoStatus status) => status switch
+    {
+        VideoStatus.NotHarvested => @<span class="badge bg-secondary">Not harvested</span>,
+        VideoStatus.Harvested    => @<span class="badge bg-info text-dark">Harvested</span>,
+        VideoStatus.Distilled    => @<span class="badge bg-success">Distilled</span>,
+        VideoStatus.Blocked      => @<span class="badge bg-danger">Blocked</span>,
+        VideoStatus.Duplicate    => @<span class="badge bg-warning text-dark">Already in DB</span>,
+        _                        => @<span class="badge bg-secondary">Unknown</span>,
+    };
+
+    // ── IDisposable: cancel in-flight op on circuit drop (D-06) ─────────────
+    /// <summary>
+    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
+    /// harvest is stopped when the operator closes the tab or the SignalR circuit drops (D-06).
+    /// </summary>
+    public void Dispose()
+    {
+        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-06).
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+
+    // ── Video view model ─────────────────────────────────────────────────────
+    private sealed class VideoViewModel
+    {
+        public string VideoId { get; }
+        public string Url { get; }
+        public string Title { get; }
+        public DateTimeOffset? PublishedUtc { get; }
+        public VideoStatus Status { get; set; }
+        public bool Selected { get; set; }
+
+        public VideoViewModel(string videoId, string url, string title, DateTimeOffset? publishedUtc, VideoStatus status)
+        {
+            VideoId = videoId;
+            Url = url;
+            Title = title;
+            PublishedUtc = publishedUtc;
+            Status = status;
+        }
+    }
+}
