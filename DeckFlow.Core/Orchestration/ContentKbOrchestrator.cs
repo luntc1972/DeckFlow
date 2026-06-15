@@ -452,6 +452,46 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<PendingDistillVideo>> ListPendingDistillAsync(CancellationToken cancellationToken = default)
+    {
+        var sources = await _sourceStore.ListEnabledSourcesAsync(cancellationToken).ConfigureAwait(false);
+        var results = new List<PendingDistillVideo>();
+        // Why: dedup by youtube id across sources so a video harvested under two enabled sources lists once.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var source in sources)
+        {
+            IReadOnlyList<ContentVideo> pending;
+            try
+            {
+                pending = await _videoStore.ListVideosPendingDistillAsync(source.Id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError(exception, "list pending-distill source failed {SourceSlug}", source.SourceSlug);
+                continue;
+            }
+
+            foreach (var video in pending)
+            {
+                if (string.IsNullOrEmpty(video.YoutubeVideoId) || !seen.Add(video.YoutubeVideoId))
+                {
+                    continue;
+                }
+
+                results.Add(new PendingDistillVideo
+                {
+                    YoutubeVideoId = video.YoutubeVideoId,
+                    Title = video.Title,
+                    VideoUrl = video.VideoUrl,
+                    PublishedUtc = video.PublishedUtc,
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /// <inheritdoc />
     public async Task<HarvestResult> HarvestAsync(
         int limit,
         IReadOnlyList<string>? videoIds = null,

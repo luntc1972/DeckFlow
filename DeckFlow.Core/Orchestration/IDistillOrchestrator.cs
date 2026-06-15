@@ -29,4 +29,14 @@ public interface IDistillOrchestrator
         IReadOnlyList<string>? videoIds = null,
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists harvested-but-not-yet-distilled videos across all enabled sources so a host can
+    /// offer a DB-backed distill selection that survives an app/circuit restart.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The flat, de-duplicated (by YouTube video id) list of pending-distill videos.</returns>
+    // Why: default-throw keeps existing test doubles that only stub DistillAsync compiling.
+    Task<IReadOnlyList<PendingDistillVideo>> ListPendingDistillAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException($"{GetType().Name} does not implement {nameof(ListPendingDistillAsync)}.");
 }
