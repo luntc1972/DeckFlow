@@ -1,10 +1,11 @@
 ---
 phase: 49
 slug: dapper-data-access-adoption
-status: draft
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-14
+validated: 2026-06-14
 ---
 
 # Phase 49 — Validation Strategy
@@ -40,21 +41,21 @@ created: 2026-06-14
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | Test Class / Artifact | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-----------------------|--------|
-| 49-01 T1 | 49-01 | 1 | REQ-1, REQ-2 | T-49-02, T-49-03, T-49-SC | Idempotent handler registration; fail-closed Parse | unit/build | `build DeckFlow.sln` + grep AddTypeHandler / MatchNamesWithUnderscores / EnsureRegistered | DapperTypeHandlers.cs (build gate) | ⬜ pending |
-| 49-01 T2 | 49-01 | 1 | REQ-2 | T-49-02 | Round-trip parity (D-05) on both providers | unit | `test ... --filter ~DapperTypeHandlerRoundTrip` | **DapperTypeHandlerRoundTripTests** (Wave 0 — created+run by this task; SQLite [Fact] + [PostgresFact]) | ⬜ pending |
-| 49-01 T3 | 49-01 | 1 | REQ-3 | T-49-01 | Zero store-local coercion; SQL verbatim/parameterized | unit | `test ... --filter ~Feedback` + comment-filtered coercion grep == 0 | AdminFeedbackControllerTests + feedback tests; **DapperTypeHandlerRoundTripTests** (REQ-2 proof) | ⬜ pending |
-| 49-01 T4 | 49-01 | 1 | REQ-3 | T-49-01 | Objective falsifiable verdict | doc | `grep VERDICT: (PASS\|FAIL)` in 49-GATE-VERDICT.md | 49-GATE-VERDICT.md | ⬜ pending |
-| 49-01b T1 | 49-01b | 1 | REQ-3 | T-49-GATE | Structural abort gate (blocking decision) | checkpoint:decision | `grep GATE: (AUTHORIZED\|ABORTED)` in 49-GATE-ABORT.md | 49-GATE-ABORT.md | ⬜ pending |
-| 49-02 T1 | 49-02 | 2 | REQ-2, REQ-4 | T-49-04, T-49-05 | 5th handler (D-06); bool/DTO coercion global | unit | `test ... --filter ~BlockedVideo\|~ContentSource` + grep DateTimeOffsetTypeHandler | BlockedVideoStoreTests + ContentSourceStoreTests (+ContentSourceStoreSetEnabledTests) | ⬜ pending |
-| 49-02 T2 | 49-02 | 2 | REQ-4 | T-49-04 | decimal + DTO coercion global; SQL verbatim | unit | `test ... --filter ~LlmSpendLedgerTests\|~WhisperSpendLedgerTests` | LlmSpendLedgerTests + WhisperSpendLedgerTests (SpendLedgerBase exercised via subclasses — no own class) | ⬜ pending |
-| 49-02 T3 | 49-02 | 2 | REQ-4 | T-49-04, T-49-06 | UPSERT arithmetic verbatim; DDL raw | unit | `test ... --filter ~AdminBruteForceTrackerStoreTests` + wave-level full Web.Tests | AdminBruteForceTrackerStoreTests (only dedicated class); FeatureFlagStore/HarvestScheduleStore have NO own class → full Web.Tests is the real gate | ⬜ pending |
-| 49-03 T1 | 49-03 | 3 | REQ-4 | T-49-07 | decimal + DTO coercion global; DDL raw | unit | `test ... --filter ~ContentHarvestRun` | ContentHarvestRunStoreTests | ⬜ pending |
-| 49-03 T2 | 49-03 | 3 | REQ-4 | T-49-07, T-49-08 | Guid + nullable timestamp global; constraint-migration raw | unit | `test ... --filter ~HarvestRun` (web) | HarvestRunStoreTests | ⬜ pending |
-| 49-03 T3 | 49-03 | 3 | REQ-4 | T-49-07, T-49-09 | DTO coercion global; constraint DDL raw | unit | `test ... --filter ~ContentVideoStore` | ContentVideoStoreTests + ContentVideoStoreDistillTests | ⬜ pending |
-| 49-03 T4 | 49-03 | 3 | REQ-4 | T-49-07, T-49-09 | bool + DTO coercion global; ALTER/introspection raw | unit | `test ... --filter ~ContentSiteIndexStore` | ContentSiteIndexStoreTests + ...VisibilityTests + ...ApprovalTests | ⬜ pending |
-| 49-04 T1 | 49-04 | 4 | REQ-4 | T-49-10 | DateTime coercion global; CoerceCount retained | unit | `test ... --filter ~CategoryKnowledgeStore` | CategoryKnowledgeStoreTests | ⬜ pending |
-| 49-04 T2 | 49-04 | 4 | REQ-4 | T-49-10, T-49-11 | transaction: on every in-tx call; card-id cache intact | unit | `test ... --filter ~CategoryKnowledgeRepository` | CategoryKnowledgeRepositoryTests (17 facts + parity + dedup) | ⬜ pending |
-| 49-04 T3 | 49-04 | 4 | REQ-5, REQ-6 | T-49-12 | Carve-out comment-only diff; phase-wide parity | unit/grep | full Core.Tests + Web.Tests + eligible-file ExecuteReaderAsync grep == 0 + git diff comment-only | RequestMetricsStore.cs (carve-out); full SQLite suites | ⬜ pending |
+| 49-01 T1 | 49-01 | 1 | REQ-1, REQ-2 | T-49-02, T-49-03, T-49-SC | Idempotent handler registration; fail-closed Parse | unit/build | `build DeckFlow.sln` + grep AddTypeHandler / MatchNamesWithUnderscores / EnsureRegistered | DapperTypeHandlers.cs (build gate) | ✅ green |
+| 49-01 T2 | 49-01 | 1 | REQ-2 | T-49-02 | Round-trip parity (D-05) on both providers | unit | `test ... --filter ~DapperTypeHandlerRoundTrip` | **DapperTypeHandlerRoundTripTests** (Wave 0 — created+run by this task; SQLite [Fact] + [PostgresFact]) | ✅ green |
+| 49-01 T3 | 49-01 | 1 | REQ-3 | T-49-01 | Zero store-local coercion; SQL verbatim/parameterized | unit | `test ... --filter ~Feedback` + comment-filtered coercion grep == 0 | AdminFeedbackControllerTests + feedback tests; **DapperTypeHandlerRoundTripTests** (REQ-2 proof) | ✅ green |
+| 49-01 T4 | 49-01 | 1 | REQ-3 | T-49-01 | Objective falsifiable verdict | doc | `grep VERDICT: (PASS\|FAIL)` in 49-GATE-VERDICT.md | 49-GATE-VERDICT.md | ✅ green |
+| 49-01b T1 | 49-01b | 1 | REQ-3 | T-49-GATE | Structural abort gate (blocking decision) | checkpoint:decision | `grep GATE: (AUTHORIZED\|ABORTED)` in 49-GATE-ABORT.md | 49-GATE-ABORT.md | ✅ green |
+| 49-02 T1 | 49-02 | 2 | REQ-2, REQ-4 | T-49-04, T-49-05 | 5th handler (D-06); bool/DTO coercion global | unit | `test ... --filter ~BlockedVideo\|~ContentSource` + grep DateTimeOffsetTypeHandler | BlockedVideoStoreTests + ContentSourceStoreTests (+ContentSourceStoreSetEnabledTests) | ✅ green |
+| 49-02 T2 | 49-02 | 2 | REQ-4 | T-49-04 | decimal + DTO coercion global; SQL verbatim | unit | `test ... --filter ~LlmSpendLedgerTests\|~WhisperSpendLedgerTests` | LlmSpendLedgerTests + WhisperSpendLedgerTests (SpendLedgerBase exercised via subclasses — no own class) | ✅ green |
+| 49-02 T3 | 49-02 | 2 | REQ-4 | T-49-04, T-49-06 | UPSERT arithmetic verbatim; DDL raw | unit | `test ... --filter ~AdminBruteForceTrackerStoreTests` + wave-level full Web.Tests | AdminBruteForceTrackerStoreTests (only dedicated class); FeatureFlagStore/HarvestScheduleStore have NO own class → full Web.Tests is the real gate | ✅ green |
+| 49-03 T1 | 49-03 | 3 | REQ-4 | T-49-07 | decimal + DTO coercion global; DDL raw | unit | `test ... --filter ~ContentHarvestRun` | ContentHarvestRunStoreTests | ✅ green |
+| 49-03 T2 | 49-03 | 3 | REQ-4 | T-49-07, T-49-08 | Guid + nullable timestamp global; constraint-migration raw | unit | `test ... --filter ~HarvestRun` (web) | HarvestRunStoreTests | ✅ green |
+| 49-03 T3 | 49-03 | 3 | REQ-4 | T-49-07, T-49-09 | DTO coercion global; constraint DDL raw | unit | `test ... --filter ~ContentVideoStore` | ContentVideoStoreTests + ContentVideoStoreDistillTests | ✅ green |
+| 49-03 T4 | 49-03 | 3 | REQ-4 | T-49-07, T-49-09 | bool + DTO coercion global; ALTER/introspection raw | unit | `test ... --filter ~ContentSiteIndexStore` | ContentSiteIndexStoreTests + ...VisibilityTests + ...ApprovalTests | ✅ green |
+| 49-04 T1 | 49-04 | 4 | REQ-4 | T-49-10 | DateTime coercion global; CoerceCount retained | unit | `test ... --filter ~CategoryKnowledgeStore` | CategoryKnowledgeStoreTests | ✅ green |
+| 49-04 T2 | 49-04 | 4 | REQ-4 | T-49-10, T-49-11 | transaction: on every in-tx call; card-id cache intact | unit | `test ... --filter ~CategoryKnowledgeRepository` | CategoryKnowledgeRepositoryTests (17 facts + parity + dedup) | ✅ green |
+| 49-04 T3 | 49-04 | 4 | REQ-5, REQ-6 | T-49-12 | Carve-out comment-only diff; phase-wide parity | unit/grep | full Core.Tests + Web.Tests + eligible-file ExecuteReaderAsync grep == 0 + git diff comment-only | RequestMetricsStore.cs (carve-out); full SQLite suites | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -78,6 +79,18 @@ created: 2026-06-14
 |----------|-------------|------------|-------------------|
 | Postgres-side parity of converted stores | REQ-2, REQ-6 | CI does not spin a PG container; PG tests self-skip unless env-flagged; VSTest unreliable in WSL | Run `PostgresFactAttribute` tests with the PG env flag set (Testcontainers spins the container); confirm round-trip equality + 0 new failures |
 | Spike gate verdict | REQ-3 | Human judgement on "zero store-local conversion" criterion (a)(b)(c) | After FeedbackStore conversion, grep for `GetInt64`/`GetBoolean`/`Parse`/`ToString("O")` in FeedbackStore.cs = 0; record PASS/FAIL in `49-GATE-VERDICT.md`; the `49-01b` blocking decision then writes `49-GATE-ABORT.md` and authorizes-or-aborts the sweep |
+
+---
+
+## Validation Audit 2026-06-14
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Post-execution audit (State A). All 14 task rows flipped ⬜→✅: 12 mapped store/round-trip test classes confirmed present on disk; `DapperTypeHandlerRoundTripTests` = 5 SQLite facts (DateTime/decimal/bool/Guid/DateTimeOffset) + raw on-disk write-path assertions; grep gates pass (`VERDICT: PASS`, `GATE: AUTHORIZED`, eligible-store non-DDL reader grep clean bar documented DDL/introspection carve-outs). Full suites green at execution: `DeckFlow.Core.Tests` 346/0, `DeckFlow.Web.Tests` 622/0/11-skip; no code changed since (docs-only commits). PG parity unchanged — remains the documented manual-only gate below.
 
 ---
 
