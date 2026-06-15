@@ -160,6 +160,7 @@ Progress: [██████████] 96%
 | arch | Findings D-K | DEFERRED (backlog) | v1.6 Phase 39 |
 | housekeeping | 15 pre-v1.5 open artifacts | ACKNOWLEDGED — clean via `/gsd-cleanup` | v1.5 close 2026-06-10 |
 | ops | SEL-02 expert-pin live-pin re-confirm | PENDING — needs KB-enable window | v1.5 close |
+| ui | Studio "About" link is the Blazor scaffold placeholder (points at ASP.NET docs) — needs a real value (Studio About/version or deckflow.gg). `MainLayout.razor:12`, TODO inline | TODO — Phase 48 UI audit | v1.7 Phase 45 dogfood 2026-06-15 |
 
 ## Session Continuity
 
