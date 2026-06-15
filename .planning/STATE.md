@@ -4,13 +4,13 @@ milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
 stopped_at: Phase 45 context gathered
-last_updated: "2026-06-15T19:12:24.989Z"
+last_updated: "2026-06-15T19:22:39.936Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 24
-  completed_plans: 21
+  completed_plans: 22
   percent: 60
 ---
 
@@ -26,13 +26,13 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 45 (harvest-distill-ui) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
 Last activity: 2026-06-15
 
 ```
-Progress: [█████████░] 88%
+Progress: [█████████░] 92%
 ```
 
 ## Roadmap Summary
@@ -78,6 +78,7 @@ Progress: [█████████░] 88%
 | 47 — Direct Prod-DB + SCP Publish | PUB-04..05 | File-first ordering: SCP before DB push (Pitfall 2); plan needs Render SSH key setup checklist |
 | 48 — UI Audit + Remediation | UIR-01..03 | Browser screenshots at ≥2 viewports required; grep-only insufficient |
 | Phase 45 P01 | 25m | 3 tasks | 9 files |
+| Phase 45 P02 | ~25m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Progress: [█████████░] 88%
 - **Dockerfile stays project-scoped:** `dotnet restore DeckFlow.Web/DeckFlow.Web.csproj` is the restore command in the Dockerfile. Adding Studio to the solution does NOT change this. Adding Studio to .sln is correct; changing restore to solution-level is a constraint violation.
 - **Studio binds to localhost only:** `applicationUrl` in Studio launchSettings.json must be `http://localhost:{port}` only; no LAN exposure.
 - **Corpus-reset not exposed in Studio UI:** `RunCorpusResetAsync` is CLI-only. Emergency operation; exposing it in a UI without typing confirmation is a security mistake (PITFALLS.md).
+- **Phase 45-02: Single providerEnv read closes HIGH-1:** `DECKFLOW_LLM_PROVIDER` read once in Program.cs; both `LlmDistillationProviderFactory.Resolve` and `isSubscriptionProvider` derive from the same var — distiller and spend flag cannot disagree.
+- **Phase 45-02: VideoStatusResolver in Core (not Studio):** Pure store-query badge-resolution logic lives in DeckFlow.Core so Core.Tests can unit-test it without inverting project dependencies (HIGH-2).
+- **Phase 45-02: Override-aware ledger is a single shared singleton:** `SessionCapOverride` captured in resolver closure; same ledger instance injected into both Harvest page and orchestrator so `WouldExceedCapAsync` sees the override (T-45-04 / Pitfall 6).
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)
 
@@ -153,6 +157,6 @@ Progress: [█████████░] 88%
 
 ## Session Continuity
 
-Last session: 2026-06-15T19:12:24.959Z
+Last session: 2026-06-15T19:22:39.909Z
 Stopped at: Phase 45 context gathered
 Resume: Start Phase 41 with `/gsd:plan-phase 41`.
