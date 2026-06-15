@@ -505,6 +505,7 @@
                                 @onclick="CancelOperation">
                             Cancel Distill
                         </button>
+                        <span class="text-muted small ms-2">Elapsed: @FormatElapsed(_distillStopwatch?.Elapsed ?? TimeSpan.Zero)</span>
                     }
                 </div>
             }
