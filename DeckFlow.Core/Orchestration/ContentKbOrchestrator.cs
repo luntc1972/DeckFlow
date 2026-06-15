@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
@@ -998,6 +999,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         bool isSubscriptionProvider = false)
     {
         var naturalKey = GetContentNaturalKey(video);
+        var sw = Stopwatch.StartNew();
         var llmCalls = 0;
         var llmSpend = 0m;
         try
@@ -1022,7 +1024,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 }
 
                 _logger.LogInformation("filtered {VideoId} reason={Reason}", naturalKey, classification.Reason);
-                progress?.Report($"filtered {naturalKey} reason={classification.Reason}");
+                progress?.Report($"filtered {naturalKey} reason={classification.Reason} ({sw.Elapsed.TotalSeconds:F1}s)");
                 return DistillVideoOutcome.Filtered();
             }
 
@@ -1180,7 +1182,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 cancellationToken).ConfigureAwait(false);
             await _videoStore.SetDistillStatusAsync(video.Id, DistillationValidation.DistillStatusDistilled, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("distilled {VideoId}", naturalKey);
-            progress?.Report($"distilled {naturalKey}");
+            progress?.Report($"distilled {naturalKey} ({sw.Elapsed.TotalSeconds:F1}s)");
             return DistillVideoOutcome.Distilled(llmCalls, llmSpend);
         }
         catch (LlmCliConfigurationException ex)
@@ -1196,7 +1198,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         {
             await _videoStore.SetDistillStatusAsync(video.Id, DistillationValidation.DistillStatusFailed, cancellationToken).ConfigureAwait(false);
             _logger.LogError(exception, "distill failed {VideoId}", naturalKey);
-            progress?.Report($"distill failed {naturalKey}");
+            progress?.Report($"distill failed {naturalKey} ({sw.Elapsed.TotalSeconds:F1}s)");
             return DistillVideoOutcome.Failed(llmCalls, llmSpend, naturalKey);
         }
     }
