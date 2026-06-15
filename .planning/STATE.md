@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: Completed 45-03-PLAN.md (Harvest page, human-verify PASS)
-last_updated: "2026-06-15T19:59:00.000Z"
+stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING
+last_updated: "2026-06-15T21:00:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md
 
 Phase: 45 (harvest-distill-ui) — EXECUTING
 Plan: 3 of 4 complete; next is 45-04 (Distill controls, Wave 4)
-Status: 45-03 Harvest page complete (human-verify PASS); ready for 45-04
+Status: 45-04 Tasks 1+2 code complete (commit 4f3c2df); Task 3 human-verify PENDING
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
 Last activity: 2026-06-15
 
@@ -97,6 +97,7 @@ Progress: [██████████] 96%
 - **Phase 45-02: Single providerEnv read closes HIGH-1:** `DECKFLOW_LLM_PROVIDER` read once in Program.cs; both `LlmDistillationProviderFactory.Resolve` and `isSubscriptionProvider` derive from the same var — distiller and spend flag cannot disagree.
 - **Phase 45-02: VideoStatusResolver in Core (not Studio):** Pure store-query badge-resolution logic lives in DeckFlow.Core so Core.Tests can unit-test it without inverting project dependencies (HIGH-2).
 - **Phase 45-02: Override-aware ledger is a single shared singleton:** `SessionCapOverride` captured in resolver closure; same ledger instance injected into both Harvest page and orchestrator so `WouldExceedCapAsync` sees the override (T-45-04 / Pitfall 6).
+- **Phase 45-04: Distill spend gate code complete (2026-06-15):** Tasks 1+2 committed (4f3c2df). Two-stage spend gate with dry-run projection, re-distill double-confirm (redistillConfirmed gates both distillIds and redistill: named arg, HIGH-4), monthly cap display + session override (D-03), cap-exceeded block, Stage B reviewed-spend confirm, actual spend + failure reporting, badge + cap refresh after distill. Task 3 human-verify PENDING.
 - **Phase 45-03: Harvest page complete + human-verify PASS (2026-06-15):** Playwright smoke on `:5271` — HARV-01..04 + cancel-on-dispose + no-secrets all PASS; 0 ObjectDisposedException, 0 unobserved exceptions; circuit stayed responsive. CAVEAT (non-blocking): full success-stream + mid-flight cancel not exercised (local data dir had 0 enabled YouTube sources → orchestrator "0 sources enabled" guard hit immediately); environment-data condition, not a code defect. Re-exercise full success-stream + mid-flight cancel once a local data dir with an enabled source exists.
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)
@@ -158,6 +159,6 @@ Progress: [██████████] 96%
 
 ## Session Continuity
 
-Last session: 2026-06-15T19:59:00.000Z
-Stopped at: Completed 45-03-PLAN.md (Harvest page, human-verify PASS)
-Resume: Execute Phase 45 Plan 04 (Distill controls, Wave 4) with `/gsd:execute-phase 45`.
+Last session: 2026-06-15T21:00:00.000Z
+Stopped at: 45-04 Task 3 human-verify PENDING (code tasks committed 4f3c2df)
+Resume: After human-verify approval, run orchestrator to finalize 45-04 + advance plan counter.
