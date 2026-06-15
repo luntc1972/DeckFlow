@@ -201,6 +201,8 @@ internal sealed class FakeLlmSpendLedger : ILlmSpendLedger
 
     public Task<bool> WouldExceedCapAsync(decimal projectedCallCostUsd, string monthKey, CancellationToken cancellationToken = default)
         => Task.FromResult(false);
+
+    public decimal GetMonthlyCapUsd() => 15.00m;
 }
 
 internal sealed class FakeLlmDistillationService : ILlmDistillationService

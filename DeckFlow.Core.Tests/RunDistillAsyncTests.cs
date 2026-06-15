@@ -893,6 +893,8 @@ public sealed class RunDistillAsyncTests : IDisposable
             WouldExceedChecks.Add(projectedCallCostUsd);
             return Task.FromResult(WouldExceedResults.Count > 0 && WouldExceedResults.Dequeue());
         }
+
+        public decimal GetMonthlyCapUsd() => 15.00m;
     }
 
     private sealed class FakeLlmDistillationService : ILlmDistillationService

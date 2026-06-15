@@ -176,6 +176,9 @@ internal sealed class ThrowingLlmSpendLedger : ILlmSpendLedger
 
     public Task<bool> WouldExceedCapAsync(decimal projectedCallCostUsd, string monthKey, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingLlmSpendLedger)}.{nameof(WouldExceedCapAsync)} must not be called by the current path");
+
+    public decimal GetMonthlyCapUsd()
+        => throw new InvalidOperationException($"{nameof(ThrowingLlmSpendLedger)}.{nameof(GetMonthlyCapUsd)} must not be called by the current path");
 }
 
 internal sealed class ThrowingWhisperSpendLedger : IWhisperSpendLedger

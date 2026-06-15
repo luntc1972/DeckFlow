@@ -132,7 +132,12 @@ public abstract class SpendLedgerBase
     protected async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
-    private decimal ReadMonthlyCapUsd()
+    /// <inheritdoc />
+    public decimal GetMonthlyCapUsd() => ReadMonthlyCapUsd();
+
+    /// <summary>Reads the configured monthly USD cap from the resolver or environment variable.</summary>
+    /// <returns>Configured monthly cap, or $15.00 when not set.</returns>
+    protected decimal ReadMonthlyCapUsd()
     {
         var configured = _configurationValueResolver?.Invoke(MonthlyCapConfigurationKey);
         if (string.IsNullOrWhiteSpace(configured))
