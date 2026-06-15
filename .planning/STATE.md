@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: 45-04 Tasks 1+2 DONE (commit 4f3c2df); Task 3 human-verify PENDING; quick 260615-t7m DONE
-last_updated: "2026-06-15T22:45:00.000Z"
+stopped_at: "45-04 COMPLETE (commit 4f3c2df; Task 3 human-verify PASS 2026-06-15); Phase 45 all 4 plans complete"
+last_updated: "2026-06-15T23:40:06.303Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 24
-  completed_plans: 23
-  percent: 63
+  completed_plans: 24
+  percent: 70
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 45 (harvest-distill-ui) — EXECUTING
-Plan: 3 of 4 complete; next is 45-04 (Distill controls, Wave 4)
-Status: 45-04 Tasks 1+2 code complete (commit 4f3c2df); Task 3 human-verify PENDING
+Phase: 45 (harvest-distill-ui) — COMPLETE (all 4 plans)
+Plan: 4 of 4 complete; 45-04 Task 3 human-verify PASS 2026-06-15
+Status: Phase 45 complete; next phase per execution order is 46 (Review Queue + Commit-Publish)
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
 Last activity: 2026-06-15
 
 ```
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 ```
 
 ## Roadmap Summary
@@ -43,7 +43,7 @@ Progress: [██████████] 96%
 | 42 | Orchestrator Extraction | ORCH-01, ORCH-02 | Not started |
 | 43 | Approval Status + Safe Upsert | REVQ-01, PUB-01, PUB-02 | Not started |
 | 44 | Admin Grid Lazy Paging | GRID-01, GRID-02 | Not started |
-| 45 | Harvest + Distill UI | HARV-01..05 | Not started |
+| 45 | Harvest + Distill UI | HARV-01..05 | Complete |
 | 46 | Review Queue + Commit-Publish Path | REVQ-02, REVQ-03, PUB-03 | Not started |
 | 47 | Direct Prod-DB + SCP Publish Path | PUB-04, PUB-05 | Not started |
 | 48 | UI Audit + Remediation | UIR-01, UIR-02, UIR-03 | Not started |
@@ -97,7 +97,7 @@ Progress: [██████████] 96%
 - **Phase 45-02: Single providerEnv read closes HIGH-1:** `DECKFLOW_LLM_PROVIDER` read once in Program.cs; both `LlmDistillationProviderFactory.Resolve` and `isSubscriptionProvider` derive from the same var — distiller and spend flag cannot disagree.
 - **Phase 45-02: VideoStatusResolver in Core (not Studio):** Pure store-query badge-resolution logic lives in DeckFlow.Core so Core.Tests can unit-test it without inverting project dependencies (HIGH-2).
 - **Phase 45-02: Override-aware ledger is a single shared singleton:** `SessionCapOverride` captured in resolver closure; same ledger instance injected into both Harvest page and orchestrator so `WouldExceedCapAsync` sees the override (T-45-04 / Pitfall 6).
-- **Phase 45-04: Distill spend gate code complete (2026-06-15):** Tasks 1+2 committed (4f3c2df). Two-stage spend gate with dry-run projection, re-distill double-confirm (redistillConfirmed gates both distillIds and redistill: named arg, HIGH-4), monthly cap display + session override (D-03), cap-exceeded block, Stage B reviewed-spend confirm, actual spend + failure reporting, badge + cap refresh after distill. Task 3 human-verify PENDING.
+- **Phase 45-04: Distill spend gate COMPLETE + human-verify PASS (2026-06-15):** Tasks 1+2 committed (4f3c2df). Two-stage spend gate with dry-run projection, re-distill double-confirm (redistillConfirmed gates both distillIds and redistill: named arg, HIGH-4), monthly cap display + session override (D-03), cap-exceeded block, Stage B reviewed-spend confirm, actual spend + failure reporting, badge + cap refresh after distill. Task 3 human-verify PASS: cap display, HIGH-1 provider→badge (Metered vs Subscription $0) verified live, dry-run/Stage-B gating, re-distill amber banner + session cap-raise, no secrets in page/logs, 0 ObjectDisposedException/unobserved exceptions, and a live $0 claude-CLI distill confirmed end-to-end (badges flip to Distilled, per-video + total timing, cancel works). Phase 45 all 4 plans complete. Related dogfood follow-up quick tasks: 260615-h2v, k8o, p4d, c9e, t7m, q3n (+ skip-estimate-on-subscription).
 - **Phase 45-03: Harvest page complete + human-verify PASS (2026-06-15):** Playwright smoke on `:5271` — HARV-01..04 + cancel-on-dispose + no-secrets all PASS; 0 ObjectDisposedException, 0 unobserved exceptions; circuit stayed responsive. CAVEAT (non-blocking): full success-stream + mid-flight cancel not exercised (local data dir had 0 enabled YouTube sources → orchestrator "0 sources enabled" guard hit immediately); environment-data condition, not a code defect. Re-exercise full success-stream + mid-flight cancel once a local data dir with an enabled source exists.
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)
@@ -166,6 +166,6 @@ Progress: [██████████] 96%
 
 ## Session Continuity
 
-Last session: 2026-06-15T23:10:00.000Z
-Stopped at: Quick 260615-q3n complete (2 commits: ea6f8f7, 7661107); 45-04 Task 3 human-verify still PENDING
-Resume: After human-verify approval for 45-04, run orchestrator to finalize 45-04 + advance plan counter.
+Last session: 2026-06-15T23:39:00.000Z
+Stopped at: 45-04 finalized after human-verify PASS; Phase 45 (Harvest + Distill UI) all 4 plans complete.
+Resume: Phase 45 done. Per execution order, next is Phase 46 (Review Queue + Commit-Publish Path). Optionally /gsd-secure-phase 45.

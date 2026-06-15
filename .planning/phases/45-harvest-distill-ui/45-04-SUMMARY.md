@@ -25,7 +25,7 @@ decisions:
 metrics:
   duration: "~25 minutes"
   completed: "2026-06-15"
-  tasks_completed: 2
+  tasks_completed: 3
   files_changed: 1
 ---
 
@@ -75,11 +75,32 @@ metrics:
 
 **Subscription provider indicator:** When `DistillConfig.IsSubscriptionProvider` is true, a `badge bg-info` "$0 Subscription" badge is shown alongside the ready count; metered shows `bg-warning`. Cap enforcement is skipped for subscription providers (cap-exceeded check: `!DistillConfig.IsSubscriptionProvider && ...`).
 
-## Human-Verify Checkpoint (Task 3): PENDING
+## Human-Verify Checkpoint (Task 3): PASSED
 
-Task 3 is a `type="checkpoint:human-verify" gate="blocking"` checkpoint. The operator must verify the multi-step spend gate, re-distill guard (including actual re-processing end-to-end), and cap enforcement in a live Studio run. This checkpoint CANNOT be self-approved.
+Task 3 was a `type="checkpoint:human-verify" gate="blocking"` checkpoint. The operator verified the multi-step spend gate, re-distill guard, and cap enforcement in a live Studio run, and typed "approved" on 2026-06-15.
 
-**Plan is NOT marked complete — orchestrator finalizes after human approval.**
+**Verification results (orchestrator-driven deterministic checks + live user dogfood):**
+
+- Cap display (monthly cap / spent this month / remaining): PASS.
+- HIGH-1 provider→badge verified LIVE: badge shows "Metered" when `DECKFLOW_LLM_PROVIDER=openai`/unset, "Subscription ($0)" when `=claude` — a single provider decision drives both the badge and the distiller.
+- Dry-run button disabled with 0 selected; Stage B hidden before a successful dry-run: PASS.
+- Re-distill amber banner absent at rest; session cap-raise input present with revert note: PASS.
+- No secrets in page or server logs; 0 `ObjectDisposedException` / 0 unobserved exceptions: PASS.
+- LIVE distill (claude CLI, $0) confirmed working end-to-end: videos distilled, badges flip to Distilled, per-video and total timing shown, cancel works. User typed "approved".
+
+**Plan is complete — orchestrator finalized after human approval.**
+
+### Related follow-up quick tasks (context, not part of this plan's scope)
+
+Several follow-on quick tasks shipped during dogfood that made the live flow usable; tracked as their own quick tasks, noted here only as related follow-ups:
+
+- Harvest source auto-ensure (260615-h2v)
+- Browse skip/offset (k8o)
+- Skip-estimate-on-subscription
+- DB-backed pending-distill loader (p4d)
+- Clear distill CLI-config error (c9e)
+- Per-video + live distill timing (t7m)
+- Playlist/queue harvest + per-channel grouping (q3n)
 
 ## Deviations from Plan
 

@@ -156,7 +156,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** _(runs before Phase 49 — re-sequenced 2026-06-14 at operator request)_ — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth (completed 2026-06-14)
 - [x] **Phase 49: Dapper Data-Access Adoption** _(runs after Phase 50; before remaining DB work 46/47)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest (completed 2026-06-14)
 - [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
-- [ ] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator
+- [x] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator (completed 2026-06-15)
 - [ ] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview
 - [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
 - [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
@@ -241,7 +241,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   - [x] 45-01-PLAN.md (wave 1) — Core ledger enabler: GetMonthlyCapUsd() + override-affects-cap tests (HARV-05)
   - [x] 45-02-PLAN.md (wave 2) — Studio DI: StudioDistillConfig, SessionCapOverride, override-aware ledger, VideoStatusResolver + tests (HARV-03, HARV-05)
   - [x] 45-03-PLAN.md (wave 3) — Harvest.razor: channel browse, paste queue, badges, live harvest + NavMenu (HARV-01..04)
-  - [ ] 45-04-PLAN.md (wave 4) — Distill spend gate: dry-run, re-distill double-confirm, cap + session override, execute (HARV-05)
+  - [x] 45-04-PLAN.md (wave 4) — Distill spend gate: dry-run, re-distill double-confirm, cap + session override, execute (HARV-05)
 **UI hint**: yes
 
 ---
@@ -337,7 +337,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
 | 49. Dapper Data-Access Adoption | 5/5 | Complete   | 2026-06-14 |
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
-| 45. Harvest + Distill UI | 3/4 | In Progress|  |
+| 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started (after 49) | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
