@@ -4,6 +4,7 @@
 @using DeckFlow.Core.Integration
 @using DeckFlow.Core.Orchestration
 @using DeckFlow.Studio.Services
+@using System.Diagnostics
 
 <PageTitle>Harvest + Distill</PageTitle>
 
@@ -612,6 +613,7 @@
                                     @onclick="CancelOperation">
                                 Cancel Distill
                             </button>
+                            <span class="text-muted small ms-2">Elapsed: @FormatElapsed(_distillStopwatch?.Elapsed ?? TimeSpan.Zero)</span>
                         }
                     </div>
                 }
@@ -653,6 +655,8 @@
                                 <dd class="col-sm-7">@_distillLiveResult.VideosFiltered</dd>
                                 <dt class="col-sm-5">Failed:</dt>
                                 <dd class="col-sm-7">@_distillLiveResult.DistillFailed</dd>
+                                <dt class="col-sm-5">Total time:</dt>
+                                <dd class="col-sm-7">@FormatElapsed(_distillTotalElapsed ?? TimeSpan.Zero)</dd>
                             </dl>
 
                             @if (_distillLiveResult.DistillFailed > 0)
@@ -753,6 +757,11 @@
     private bool _distillLiveInFlight;
     private DistillResult? _distillLiveResult;
     private bool _distillCancelled;
+
+    // Stage B timing (quick task 260615-t7m): live elapsed clock + total time after completion.
+    private Stopwatch? _distillStopwatch;
+    private TimeSpan? _distillTotalElapsed;
+    private CancellationTokenSource? _distillTickerCts;
 
     // DB-backed pending-distill loader (quick task 260615-p4d): survives an app/circuit
     // restart so harvested-but-not-distilled videos can be selected without re-browsing.
@@ -1230,6 +1239,27 @@
         _distillCancelled = false;
         _cts = new CancellationTokenSource();
 
+        // Start elapsed clock and 1-second ticker for live progress display (260615-t7m).
+        _distillStopwatch = Stopwatch.StartNew();
+        _distillTotalElapsed = null;
+        _distillTickerCts = new CancellationTokenSource();
+        // Why: fire-and-forget ticker is display-only; PeriodicTimer + InvokeAsync keeps
+        // re-renders on the Blazor sync context. OperationCanceledException and
+        // ObjectDisposedException are swallowed so a circuit drop never throws from the ticker.
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(_distillTickerCts.Token))
+                {
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
+        });
+
         // Why: same disposal-safe progress pattern as Stage A and harvest (T-45-18).
         var progress = new ActionOrchestratorProgress(msg =>
             InvokeAsync(() =>
@@ -1282,6 +1312,14 @@
         }
         finally
         {
+            // Stop elapsed clock and ticker before the final render so the result card shows
+            // the frozen total time rather than a still-ticking value (260615-t7m).
+            _distillStopwatch?.Stop();
+            _distillTotalElapsed = _distillStopwatch?.Elapsed;
+            _distillTickerCts?.Cancel();
+            _distillTickerCts?.Dispose();
+            _distillTickerCts = null;
+
             _distillLiveInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
@@ -1327,6 +1365,10 @@
         _                        => @<span class="badge bg-secondary">Unknown</span>,
     };
 
+    // ── Elapsed formatting (260615-t7m) ─────────────────────────────────────
+    private static string FormatElapsed(TimeSpan t) =>
+        t.TotalSeconds < 60 ? $"{t.TotalSeconds:F0}s" : $"{(int)t.TotalMinutes}m {t.Seconds}s";
+
     // ── IDisposable: cancel in-flight op on circuit drop (D-06) ─────────────
     /// <summary>
     /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
@@ -1337,6 +1379,11 @@
         // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-06).
         _cts?.Cancel();
         _cts?.Dispose();
+        // Why: ticker CTS must also be cancelled on disposal so the PeriodicTimer loop exits cleanly
+        // when the operator closes the tab mid-distill (260615-t7m).
+        _distillTickerCts?.Cancel();
+        _distillTickerCts?.Dispose();
+        _distillStopwatch?.Stop();
     }
 
     // ── Video view model ─────────────────────────────────────────────────────
