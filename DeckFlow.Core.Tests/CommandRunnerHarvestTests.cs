@@ -630,6 +630,7 @@ public sealed class CommandRunnerHarvestTests
         public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(
             string channelUrl,
             int limit,
+            int skip = 0,
             CancellationToken ct = default)
         {
             if (ExceptionsByChannelUrl.TryGetValue(channelUrl, out var exception))

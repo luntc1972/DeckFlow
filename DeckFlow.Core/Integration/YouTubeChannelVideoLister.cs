@@ -12,7 +12,7 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
 {
-    private readonly Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _executeAsync;
+    private readonly Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _executeAsync;
     private readonly Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _getByIdsAsync;
 
     /// <summary>
@@ -27,10 +27,10 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
     /// <summary>
     /// Initializes a channel video lister with delegate seams for tests.
     /// </summary>
-    /// <param name="executeAsync">Recent video listing delegate.</param>
+    /// <param name="executeAsync">Recent video listing delegate (channelUrl, limit, skip, ct).</param>
     /// <param name="getByIdsAsync">Explicit video-id fetch delegate; defaults to a not-supported throw.</param>
     internal YouTubeChannelVideoLister(
-        Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> executeAsync,
+        Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> executeAsync,
         Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>>? getByIdsAsync = null)
     {
         ArgumentNullException.ThrowIfNull(executeAsync);
@@ -43,12 +43,14 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
     public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(
         string channelUrl,
         int limit,
+        int skip = 0,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(channelUrl);
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
 
-        return _executeAsync(channelUrl, limit, ct);
+        return _executeAsync(channelUrl, limit, skip, ct);
     }
 
     /// <inheritdoc />
@@ -62,11 +64,11 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         return _getByIdsAsync(videoIds, ct);
     }
 
-    private static Func<string, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateExecuteAsync(
+    private static Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateExecuteAsync(
         HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
-        return (channelUrl, limit, ct) => ListWithClientAsync(httpClient, channelUrl, limit, ct);
+        return (channelUrl, limit, skip, ct) => ListWithClientAsync(httpClient, channelUrl, limit, skip, ct);
     }
 
     private static Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateGetByIdsAsync(
@@ -133,11 +135,15 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         HttpClient httpClient,
         string channelUrl,
         int limit,
+        int skip,
         CancellationToken ct)
     {
         var youtube = new YoutubeClient(httpClient);
         var channelId = await ResolveChannelIdAsync(youtube, channelUrl, ct).ConfigureAwait(false);
-        var uploads = await youtube.Channels.GetUploadsAsync(channelId, ct).CollectAsync(limit).ConfigureAwait(false);
+        // Why: fetch skip+limit uploads so we can discard the first `skip` without wasting
+        // metadata lookups on videos the operator intentionally wants to skip over.
+        var allUploads = await youtube.Channels.GetUploadsAsync(channelId, ct).CollectAsync(skip + limit).ConfigureAwait(false);
+        var uploads = allUploads.Skip(skip).ToList();
 
         // PlaylistVideo in YoutubeExplode 6.6.0 does not expose upload date or views;
         // this bounded parallel metadata lookup populates published_utc/view_count when available.

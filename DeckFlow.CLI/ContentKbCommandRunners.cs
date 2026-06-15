@@ -530,7 +530,7 @@ internal static class ContentKbCommandRunners
 
     private sealed class ThrowingYouTubeChannelVideoLister : IYouTubeChannelVideoLister
     {
-        public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(string channelUrl, int limit, CancellationToken ct = default)
+        public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(string channelUrl, int limit, int skip = 0, CancellationToken ct = default)
             => throw new InvalidOperationException($"{nameof(ThrowingYouTubeChannelVideoLister)}.{nameof(ListRecentAsync)} must not be called by this CLI path");
 
         public Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsAsync(IReadOnlyList<string> videoIds, CancellationToken ct = default)

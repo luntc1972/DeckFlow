@@ -10,11 +10,13 @@ public interface IYouTubeChannelVideoLister
     /// </summary>
     /// <param name="channelUrl">YouTube channel URL, id, handle, or slug.</param>
     /// <param name="limit">Maximum number of videos to list.</param>
+    /// <param name="skip">Number of most-recent videos to skip before listing.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Bounded recent channel videos.</returns>
     Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(
         string channelUrl,
         int limit,
+        int skip = 0,
         CancellationToken ct = default);
 
     /// <summary>

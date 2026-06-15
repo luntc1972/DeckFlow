@@ -72,7 +72,7 @@ public sealed class AdminYoutubeExportController : Controller
 
         try
         {
-            var videos = await _lister.ListRecentAsync(channel.Trim(), clampedLimit, timeoutSource.Token).ConfigureAwait(false);
+            var videos = await _lister.ListRecentAsync(channel.Trim(), clampedLimit, ct: timeoutSource.Token).ConfigureAwait(false);
             if (videos.Count == 0)
             {
                 return View("Index", new AdminYoutubeExportViewModel

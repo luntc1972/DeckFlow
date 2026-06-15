@@ -715,7 +715,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         CancellationToken cancellationToken)
     {
         var counts = new HarvestCounts();
-        var videos = await _lister.ListRecentAsync(source.SourceUrl, limit, cancellationToken).ConfigureAwait(false);
+        var videos = await _lister.ListRecentAsync(source.SourceUrl, limit, ct: cancellationToken).ConfigureAwait(false);
         foreach (var video in videos)
         {
             await HarvestVideoAsync(source, video, counts, progress, cancellationToken).ConfigureAwait(false);
