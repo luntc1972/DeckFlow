@@ -14,13 +14,14 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
 {
     private readonly Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _executeAsync;
     private readonly Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _getByIdsAsync;
+    private readonly Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> _listPlaylistAsync;
 
     /// <summary>
     /// Initializes a channel video lister with an injected HTTP client.
     /// </summary>
     /// <param name="httpClient">HTTP client used by YoutubeExplode.</param>
     public YouTubeChannelVideoLister(HttpClient httpClient)
-        : this(CreateExecuteAsync(httpClient), CreateGetByIdsAsync(httpClient))
+        : this(CreateExecuteAsync(httpClient), CreateGetByIdsAsync(httpClient), CreateListPlaylistAsync(httpClient))
     {
     }
 
@@ -29,14 +30,18 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
     /// </summary>
     /// <param name="executeAsync">Recent video listing delegate (channelUrl, limit, skip, ct).</param>
     /// <param name="getByIdsAsync">Explicit video-id fetch delegate; defaults to a not-supported throw.</param>
+    /// <param name="listPlaylistAsync">Playlist listing delegate; defaults to a not-supported throw.</param>
     internal YouTubeChannelVideoLister(
         Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> executeAsync,
-        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>>? getByIdsAsync = null)
+        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>>? getByIdsAsync = null,
+        Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>>? listPlaylistAsync = null)
     {
         ArgumentNullException.ThrowIfNull(executeAsync);
         _executeAsync = executeAsync;
         _getByIdsAsync = getByIdsAsync
             ?? ((_, _) => throw new NotSupportedException("GetByIdsAsync delegate not supplied to this test instance."));
+        _listPlaylistAsync = listPlaylistAsync
+            ?? ((_, _, _, _) => throw new NotSupportedException("ListPlaylistAsync delegate not supplied to this test instance."));
     }
 
     /// <inheritdoc />
@@ -64,6 +69,20 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         return _getByIdsAsync(videoIds, ct);
     }
 
+    /// <inheritdoc />
+    public Task<IReadOnlyList<YouTubeChannelVideo>> ListPlaylistAsync(
+        string playlistUrl,
+        int limit,
+        int skip = 0,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(playlistUrl);
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+
+        return _listPlaylistAsync(playlistUrl, limit, skip, ct);
+    }
+
     private static Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateExecuteAsync(
         HttpClient httpClient)
     {
@@ -76,6 +95,13 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         return (videoIds, ct) => GetByIdsWithClientAsync(httpClient, videoIds, ct);
+    }
+
+    private static Func<string, int, int, CancellationToken, Task<IReadOnlyList<YouTubeChannelVideo>>> CreateListPlaylistAsync(
+        HttpClient httpClient)
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        return (playlistUrl, limit, skip, ct) => ListPlaylistWithClientAsync(httpClient, playlistUrl, limit, skip, ct);
     }
 
     private static async Task<IReadOnlyList<YouTubeChannelVideo>> GetByIdsWithClientAsync(
@@ -166,6 +192,31 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
         return await Task.WhenAll(lookups).ConfigureAwait(false);
     }
 
+    private static async Task<IReadOnlyList<YouTubeChannelVideo>> ListPlaylistWithClientAsync(
+        HttpClient httpClient,
+        string playlistUrl,
+        int limit,
+        int skip,
+        CancellationToken ct)
+    {
+        var pid = PlaylistId.TryParse(playlistUrl)
+            ?? throw new ArgumentException($"Unable to parse YouTube playlist URL or id: {playlistUrl}", nameof(playlistUrl));
+
+        var youtube = new YoutubeClient(httpClient);
+        // Why: fetch skip+limit videos so we can discard the first `skip` without collecting
+        // more than necessary. CollectAsync(n) stops streaming after n items.
+        var allVideos = await youtube.Playlists.GetVideosAsync(pid, ct).CollectAsync(skip + limit).ConfigureAwait(false);
+        var page = allVideos.Skip(skip).ToList();
+
+        // Why: PlaylistVideo.Author in YoutubeExplode 6.6.0 exposes ChannelId and ChannelTitle
+        // directly from the playlist feed — no per-video metadata round-trip is needed here
+        // (avoids Pitfall WR-02 / unbounded lookups). PublishedUtc and ViewCount are not
+        // available from the playlist feed; they remain null for playlist-path videos.
+        return page
+            .Select(v => MapVideo(v, publishedUtc: null, viewCount: null))
+            .ToList();
+    }
+
     /// <summary>
     /// Parses a channel handle from a bare handle, an <c>@</c>-prefixed handle, or a channel URL.
     /// </summary>
@@ -234,6 +285,8 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             Duration = metadata.Duration,
             PublishedUtc = metadata.UploadDate,
             ViewCount = metadata.Engagement.ViewCount,
+            ChannelId = metadata.Author.ChannelId.Value,
+            ChannelTitle = metadata.Author.ChannelTitle,
         };
     }
 
@@ -246,5 +299,7 @@ public sealed class YouTubeChannelVideoLister : IYouTubeChannelVideoLister
             Duration = video.Duration,
             PublishedUtc = publishedUtc,
             ViewCount = viewCount,
+            ChannelId = video.Author.ChannelId.Value,
+            ChannelTitle = video.Author.ChannelTitle,
         };
 }
