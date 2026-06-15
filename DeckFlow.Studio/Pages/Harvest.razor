@@ -301,13 +301,264 @@
         </div>
     </div>
 
-    @* ─── Section 4: Distill (placeholder — wired in Wave 4 / Plan 04) ─── *@
+    @* ─── Section 4: Distill Spend Gate (HARV-05) ─── *@
     <div class="card mt-4">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Distill</h2>
         </div>
         <div class="card-body">
-            <p class="text-muted">Distill controls added next (Wave 4 / Plan 04).</p>
+            @{
+                var allSelectedForDistill = GetAllSelectedVideos();
+                var distillHarvested = allSelectedForDistill.Where(v => v.Status == VideoStatus.Harvested).ToList();
+                var distillAlreadyDistilled = allSelectedForDistill.Where(v => v.Status == VideoStatus.Distilled).ToList();
+                var readyCount = distillHarvested.Count;
+                var alreadyDistilledCount = distillAlreadyDistilled.Count;
+                var redistillConfirmed = _redistillCheck1 && _redistillCheck2;
+                var distillIds = redistillConfirmed
+                    ? distillHarvested.Select(v => v.VideoId).Concat(distillAlreadyDistilled.Select(v => v.VideoId)).ToList().AsReadOnly()
+                    : distillHarvested.Select(v => v.VideoId).ToList().AsReadOnly();
+                var dryRunButtonEnabled = !_operationInFlight
+                    && (alreadyDistilledCount == 0 || redistillConfirmed)
+                    && (readyCount > 0 || (alreadyDistilledCount > 0 && redistillConfirmed));
+            }
+
+            @* Pre-conditions: ready count + cap display *@
+            <div class="mb-3">
+                <p>
+                    <strong>Videos ready to distill: @readyCount</strong>
+                    @if (DistillConfig.IsSubscriptionProvider)
+                    {
+                        <span class="ms-2 badge bg-info text-dark">Subscription ($0)</span>
+                    }
+                    else
+                    {
+                        <span class="ms-2 badge bg-warning text-dark">Metered</span>
+                    }
+                </p>
+
+                @* Cap display (D-02) *@
+                <div class="d-flex gap-3 align-items-center flex-wrap mb-2">
+                    <span>Monthly cap: <strong>$@_monthlyCap.ToString("F2")</strong></span>
+                    <span>Spent this month: <strong>$@_monthlySpent.ToString("F2")</strong></span>
+                    <span>Remaining: <strong class="@(_monthlyCap - _monthlySpent < 0 ? "text-danger" : "text-success")">$@((_monthlyCap - _monthlySpent).ToString("F2"))</strong></span>
+                </div>
+
+                @* Session cap-raise control (D-03) *@
+                <div class="d-flex gap-2 align-items-end flex-wrap">
+                    <div>
+                        <label for="capRaiseInput" class="form-label fw-semibold small">Raise cap (this session only)</label>
+                        <input id="capRaiseInput" type="number" class="form-control form-control-sm"
+                               style="width:120px"
+                               min="0" step="1"
+                               @bind="_capRaiseInput"
+                               placeholder="@_monthlyCap.ToString("F2")" />
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm"
+                            @onclick="RaiseCapAsync"
+                            disabled="@_operationInFlight">
+                        Raise cap
+                    </button>
+                </div>
+                <p class="text-muted small mt-1">Session-only override — resets to env/default on Studio restart.</p>
+            </div>
+
+            @* Re-distill warning + double-confirm (Pitfall 3 / T-45-10) *@
+            @if (alreadyDistilledCount > 0)
+            {
+                <div class="alert alert-warning py-2 mb-3">
+                    <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                    Warning: @alreadyDistilledCount selected video@(alreadyDistilledCount == 1 ? "" : "s") have already been distilled. Re-distilling will overwrite existing summaries.
+                </div>
+
+                <div class="mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="redistillCheck1"
+                               @bind="_redistillCheck1" />
+                        <label class="form-check-label" for="redistillCheck1">
+                            Re-distill already-distilled videos (additional spend)
+                        </label>
+                    </div>
+                </div>
+
+                @if (_redistillCheck1)
+                {
+                    <div class="mb-3 ms-3">
+                        <p class="mb-1 text-warning small">
+                            You are about to re-distill @alreadyDistilledCount video@(alreadyDistilledCount == 1 ? "" : "s") that already have summaries.
+                            This will overwrite existing distill output. Are you sure?
+                        </p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="redistillCheck2"
+                                   @bind="_redistillCheck2" />
+                            <label class="form-check-label" for="redistillCheck2">
+                                Yes, I understand — overwrite existing distill output for @alreadyDistilledCount video@(alreadyDistilledCount == 1 ? "" : "s").
+                            </label>
+                        </div>
+                    </div>
+                }
+            }
+
+            @* Stage A: Dry-run trigger *@
+            <div class="d-flex gap-2 align-items-center mb-3">
+                <button class="btn btn-outline-primary"
+                        @onclick="() => RunDistillStageAAsync(distillIds, redistillConfirmed)"
+                        disabled="@(!dryRunButtonEnabled)">
+                    @if (_distillDryRunInFlight)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"
+                              role="status"
+                              aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span> Estimating spend...</span>
+                    }
+                    else
+                    {
+                        <span>Estimate Spend (dry run)</span>
+                    }
+                </button>
+                @if (_distillDryRunInFlight)
+                {
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="CancelOperation">
+                        Cancel Distill
+                    </button>
+                }
+            </div>
+
+            @* Dry-run progress log *@
+            @if (_distillDryRunInFlight || (_distillLogLines.Count > 0 && _distillDryRunResult is null && !_distillLiveInFlight))
+            {
+                <pre class="bg-light border rounded p-2"
+                     style="height:150px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"
+                     role="log"
+                     aria-live="polite">@string.Join("\n", _distillLogLines)</pre>
+            }
+
+            @* Dry-run result card *@
+            @if (_distillDryRunResult is not null && !_distillDryRunInFlight)
+            {
+                var remaining = _monthlyCap - _monthlySpent;
+                var capExceeded = !DistillConfig.IsSubscriptionProvider
+                    && _distillDryRunResult.ProjectedSpendUsd > remaining;
+
+                <div class="card border-primary mb-3">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold text-primary mb-2">Dry-run complete</h3>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Videos that would distill:</dt>
+                            <dd class="col-sm-7">@_distillDryRunResult.WouldRun</dd>
+                            <dt class="col-sm-5">Projected spend:</dt>
+                            <dd class="col-sm-7">$@_distillDryRunResult.ProjectedSpendUsd.ToString("F4") USD</dd>
+                            <dt class="col-sm-5">Monthly cap remaining:</dt>
+                            <dd class="col-sm-7">$@remaining.ToString("F2") USD</dd>
+                        </dl>
+
+                        @if (capExceeded)
+                        {
+                            <div class="alert alert-danger py-2 mt-2 mb-0">
+                                <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                                Projected spend ($@_distillDryRunResult.ProjectedSpendUsd.ToString("F4")) exceeds your monthly cap ($@_monthlyCap.ToString("F2")). Reduce selection or raise the cap.
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* Stage B: available only after a successful dry-run with no cap-exceeded block *@
+                @if (!capExceeded)
+                {
+                    <div class="mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="distillConfirm"
+                                   @bind="_distillSpendConfirmed" />
+                            <label class="form-check-label" for="distillConfirm">
+                                I have reviewed the estimated spend above and want to proceed with actual distillation.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center mb-3">
+                        <button class="btn btn-primary"
+                                @onclick="() => RunDistillStageBAsync(distillIds, redistillConfirmed)"
+                                disabled="@(!_distillSpendConfirmed || _operationInFlight)">
+                            @if (_distillLiveInFlight)
+                            {
+                                <span class="spinner-border spinner-border-sm"
+                                      role="status"
+                                      aria-label="Operation in progress">
+                                    <span class="visually-hidden">Loading...</span>
+                                </span>
+                                <span> Distilling...</span>
+                            }
+                            else
+                            {
+                                <span>Run Distill</span>
+                            }
+                        </button>
+                        @if (_distillLiveInFlight)
+                        {
+                            <button class="btn btn-outline-danger btn-sm"
+                                    @onclick="CancelOperation">
+                                Cancel Distill
+                            </button>
+                        }
+                    </div>
+                }
+            }
+
+            @* Stage B progress log and result *@
+            @if (_distillLiveInFlight || _distillLogLines.Count > 0 && (_distillLiveInFlight || _distillLiveResult is not null || _distillCancelled))
+            {
+                <pre class="bg-light border rounded p-2"
+                     style="height:150px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"
+                     role="log"
+                     aria-live="polite">@string.Join("\n", _distillLogLines)</pre>
+            }
+
+            @* Stage B result *@
+            @if (_distillLiveResult is not null && !_distillLiveInFlight)
+            {
+                @if (!_distillLiveResult.Success && !string.IsNullOrEmpty(_distillLiveResult.AbortedReason))
+                {
+                    <div class="alert alert-danger py-2">
+                        <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                        Distill aborted: @_distillLiveResult.AbortedReason
+                    </div>
+                }
+                else if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
+                {
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h3 class="h6 fw-semibold text-success mb-2">Distill complete</h3>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5">Videos distilled:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.VideosDistilled</dd>
+                                <dt class="col-sm-5">LLM calls:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.LlmCalls</dd>
+                                <dt class="col-sm-5">Actual spend:</dt>
+                                <dd class="col-sm-7">$@_distillLiveResult.LlmSpendUsd.ToString("F4") USD</dd>
+                                <dt class="col-sm-5">Videos filtered:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.VideosFiltered</dd>
+                                <dt class="col-sm-5">Failed:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.DistillFailed</dd>
+                            </dl>
+
+                            @if (_distillLiveResult.DistillFailed > 0)
+                            {
+                                <div class="alert alert-warning py-2 mt-2 mb-0">
+                                    <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                                    Failed video IDs: @string.Join(", ", _distillLiveResult.FailedVideoIds)
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (_distillCancelled && !_distillLiveInFlight && !_distillDryRunInFlight)
+            {
+                <p class="text-muted">Distill cancelled.</p>
+            }
         </div>
     </div>
 
@@ -359,6 +610,30 @@
     private List<string> _logLines = new();
     private HarvestResult? _harvestResult;
     private bool _harvestCancelled;
+
+    // ── Section 4 distill state ──────────────────────────────────────────────
+    // Cap display (D-02): loaded at page init and refreshed after distill.
+    private decimal _monthlyCap;
+    private decimal _monthlySpent;
+    private string _capRaiseInput = string.Empty;
+
+    // Re-distill double-confirm (T-45-10 / Pitfall 3).
+    // _redistillCheck1: "Re-distill already-distilled videos"
+    // _redistillCheck2: "Yes, I understand — overwrite existing distill output"
+    // redistillConfirmed (computed in markup): _redistillCheck1 && _redistillCheck2
+    private bool _redistillCheck1;
+    private bool _redistillCheck2;
+
+    // Stage A dry-run state.
+    private bool _distillDryRunInFlight;
+    private List<string> _distillLogLines = new();
+    private DistillResult? _distillDryRunResult;
+
+    // Stage B live-distill state.
+    private bool _distillSpendConfirmed;
+    private bool _distillLiveInFlight;
+    private DistillResult? _distillLiveResult;
+    private bool _distillCancelled;
 
     // ── Section 1: Channel Browse (HARV-01) ─────────────────────────────────
     private async Task BrowseChannelAsync()
@@ -579,6 +854,185 @@
     private void CancelOperation()
     {
         _cts?.Cancel();
+    }
+
+    // ── Section 4: Distill Spend Gate (HARV-05) ─────────────────────────────
+
+    /// <summary>
+    /// Loads monthly cap and current-month spend at page init (D-02).
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshCapDisplayAsync();
+    }
+
+    private async Task RefreshCapDisplayAsync()
+    {
+        _monthlyCap = SpendLedger.GetMonthlyCapUsd();
+        var monthKey = DateTime.UtcNow.ToString("yyyy-MM");
+        _monthlySpent = await SpendLedger.GetMonthlyTotalAsync(monthKey);
+    }
+
+    /// <summary>
+    /// Validates and applies a session cap override from the operator input (D-03).
+    /// The new value is written to <see cref="SessionCapOverride.OverrideUsd"/>; the singleton
+    /// ledger immediately reflects it (Pitfall 6 mitigated — same singleton seen by orchestrator).
+    /// </summary>
+    private async Task RaiseCapAsync()
+    {
+        if (!decimal.TryParse(_capRaiseInput, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out var newCap)
+            || newCap < 0m)
+        {
+            // Why: V5 input validation — ignore invalid or negative input without throwing.
+            return;
+        }
+
+        // Why: OverrideUsd write propagates to both the page display (GetMonthlyCapUsd) and
+        // the orchestrator's WouldExceedCapAsync call because both resolve the same singleton (D-03).
+        CapOverride.OverrideUsd = newCap;
+        await RefreshCapDisplayAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Stage A: runs a dry-run distill to project spend before any live execution.
+    /// Passes <paramref name="redistillConfirmed"/> as the <c>redistill:</c> named argument so
+    /// re-distill videos are counted in WouldRun only when the operator double-confirmed (HIGH-4).
+    /// </summary>
+    private async Task RunDistillStageAAsync(
+        IReadOnlyList<string> distillIds,
+        bool redistillConfirmed)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _distillDryRunInFlight = true;
+        _distillLogLines.Clear();
+        _distillDryRunResult = null;
+        _distillLiveResult = null;
+        _distillSpendConfirmed = false;
+        _distillCancelled = false;
+        _cts = new CancellationTokenSource();
+
+        // Why: progress sink must marshal _distillLogLines.Add and StateHasChanged through
+        // InvokeAsync — same disposal-safe pattern as harvest (T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _distillLogLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        try
+        {
+            // Why: Task.Run moves DistillAsync off the Blazor sync context (Pitfall 1).
+            // redistill: is passed by name (HIGH-4) — value is the same gate as the dry-run button
+            // enable condition, so re-distill videos enter distillIds and are counted in WouldRun
+            // only when redistillConfirmed is true.
+            _distillDryRunResult = await Task.Run(
+                () => DistillOrchestrator.DistillAsync(
+                    limit: distillIds.Count,
+                    dryRun: true,
+                    isSubscriptionProvider: DistillConfig.IsSubscriptionProvider,
+                    redistill: redistillConfirmed,
+                    videoIds: distillIds,
+                    progress: progress,
+                    cancellationToken: _cts.Token),
+                _cts.Token);
+
+            await RefreshCapDisplayAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _distillLogLines.Add("Distill cancelled.");
+            _distillCancelled = true;
+        }
+        finally
+        {
+            _distillDryRunInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>
+    /// Stage B: runs the live distill after the operator has reviewed the dry-run and
+    /// confirmed spend. Passes the same <paramref name="redistillConfirmed"/> gate so
+    /// already-distilled videos are only re-processed when the double-confirm was given (HIGH-4).
+    /// </summary>
+    private async Task RunDistillStageBAsync(
+        IReadOnlyList<string> distillIds,
+        bool redistillConfirmed)
+    {
+        if (_operationInFlight || !_distillSpendConfirmed)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _distillLiveInFlight = true;
+        _distillLogLines.Clear();
+        _distillLiveResult = null;
+        _distillCancelled = false;
+        _cts = new CancellationTokenSource();
+
+        // Why: same disposal-safe progress pattern as Stage A and harvest (T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _distillLogLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        try
+        {
+            // Why: dryRun: false executes the live distill. redistill: is the same gate as Stage A
+            // so the re-distill guard is consistent end-to-end (HIGH-4). Named argument form used
+            // to decouple from parameter position.
+            _distillLiveResult = await Task.Run(
+                () => DistillOrchestrator.DistillAsync(
+                    limit: distillIds.Count,
+                    dryRun: false,
+                    isSubscriptionProvider: DistillConfig.IsSubscriptionProvider,
+                    redistill: redistillConfirmed,
+                    videoIds: distillIds,
+                    progress: progress,
+                    cancellationToken: _cts.Token),
+                _cts.Token);
+
+            // Refresh badges for distilled videos and update cap display.
+            if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
+            {
+                await RefreshBadgesAsync(distillIds);
+            }
+
+            await RefreshCapDisplayAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _distillLogLines.Add("Distill cancelled.");
+            _distillCancelled = true;
+        }
+        finally
+        {
+            _distillLiveInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task RefreshBadgesAsync(IReadOnlyList<string> videoIds)
