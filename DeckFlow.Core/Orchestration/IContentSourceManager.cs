@@ -34,4 +34,20 @@ public interface IContentSourceManager
         bool enabled,
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ensures a YouTube content source exists and is enabled for the given URL.
+    /// If the source does not exist it is created; if it exists but is disabled it is re-enabled.
+    /// Always returns the resolved source identifier on success.
+    /// </summary>
+    /// <param name="url">Canonical YouTube channel URL, handle, or ID.</param>
+    /// <param name="name">Human-readable display name used when creating the source.</param>
+    /// <param name="progress">Optional synchronous progress sink.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Structured source-operation status with <see cref="ContentSourceResult.Id"/> set on success.</returns>
+    Task<ContentSourceResult> EnsureYoutubeSourceAsync(
+        string url,
+        string name,
+        IOrchestratorProgress? progress = null,
+        CancellationToken cancellationToken = default);
 }

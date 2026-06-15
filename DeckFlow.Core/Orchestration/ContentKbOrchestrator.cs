@@ -175,6 +175,59 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     }
 
     /// <inheritdoc />
+    public async Task<ContentSourceResult> EnsureYoutubeSourceAsync(
+        string url,
+        string name,
+        IOrchestratorProgress? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Step 1: attempt to add. On success (Added) we have the new id immediately.
+        var addResult = await AddSourceAsync(url, name, ContentSourceType.Youtube, progress, cancellationToken).ConfigureAwait(false);
+
+        long id;
+        if (addResult.Outcome == ContentSourceResult.ContentSourceOutcome.Added)
+        {
+            // Why: AddSourceAsync returns Id on Added; assert to surface any logic regression.
+            id = addResult.Id ?? throw new InvalidOperationException("AddSourceAsync returned Added but Id was null.");
+        }
+        else if (addResult.Outcome == ContentSourceResult.ContentSourceOutcome.AlreadyExistsSameUrl)
+        {
+            // Why: AlreadyExistsSameUrl means the row already exists but may be disabled.
+            // IContentSourceStore has no enabled-agnostic lookup by URL except GetSourceByUrlAsync (added Task 1).
+            var existing = await _sourceStore.GetSourceByUrlAsync(url, cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+            {
+                return new ContentSourceResult
+                {
+                    Success = false,
+                    Outcome = ContentSourceResult.ContentSourceOutcome.Error,
+                    Message = $"Source already exists for URL '{url}' but could not be retrieved by URL.",
+                };
+            }
+
+            id = existing.Id;
+        }
+        else
+        {
+            // SlugConflict / InvalidType / Error — propagate as-is.
+            return addResult;
+        }
+
+        // Step 2: idempotent enable — covers both new sources and previously-disabled ones.
+        await _sourceStore.SetEnabledAsync(id, true, cancellationToken).ConfigureAwait(false);
+        progress?.Report($"Source {id} ensured and enabled.");
+
+        return new ContentSourceResult
+        {
+            Success = true,
+            Outcome = addResult.Outcome,
+            Id = id,
+            Slug = addResult.Slug,
+            Message = $"Source {id} ensured and enabled.",
+        };
+    }
+
+    /// <inheritdoc />
     public async Task<DistillResult> DistillAsync(
         int limit,
         bool dryRun,
