@@ -24,7 +24,7 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 - [ ] **HARV-02**: Operator can paste individual YouTube video URLs/IDs to queue specific videos.
 - [ ] **HARV-03**: Selected videos display a harvested/distilled status badge and are de-duplicated against already-harvested entries (no accidental re-harvest).
 - [ ] **HARV-04**: Operator can trigger harvest + distill on selected videos from the UI, with live progress, without blocking the UI/circuit.
-- [ ] **HARV-05**: Estimated + actual LLM distill spend is shown before and after a distill run, gated by the existing spend ledger/cap; already-distilled videos are not silently re-distilled (re-distill is explicit/opt-in).
+- [x] **HARV-05**: Estimated + actual LLM distill spend is shown before and after a distill run, gated by the existing spend ledger/cap; already-distilled videos are not silently re-distilled (re-distill is explicit/opt-in).
 
 ### Review & Approve Queue (REVQ)
 
@@ -91,7 +91,7 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 | HARV-02 | Phase 45 | Pending |
 | HARV-03 | Phase 45 | Pending |
 | HARV-04 | Phase 45 | Pending |
-| HARV-05 | Phase 45 | Pending |
+| HARV-05 | Phase 45 | Complete |
 | REVQ-02 | Phase 46 | Pending |
 | REVQ-03 | Phase 46 | Pending |
 | PUB-03 | Phase 46 | Pending |

@@ -238,7 +238,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   4. Before distill runs, the operator sees an estimated LLM spend projection (dry-run output); already-distilled videos show a "Re-distill" warning with explicit secondary confirmation before re-queuing; the confirm step is required before `dryRun:false` executes
   5. Actual spend is shown after distill completes; the monthly cap from the existing spend ledger is enforced; already-distilled videos are not silently re-distilled without the explicit Re-distill flow
 **Plans**: 4 plans across 4 waves
-  - [ ] 45-01-PLAN.md (wave 1) — Core ledger enabler: GetMonthlyCapUsd() + override-affects-cap tests (HARV-05)
+  - [x] 45-01-PLAN.md (wave 1) — Core ledger enabler: GetMonthlyCapUsd() + override-affects-cap tests (HARV-05)
   - [ ] 45-02-PLAN.md (wave 2) — Studio DI: StudioDistillConfig, SessionCapOverride, override-aware ledger, VideoStatusResolver + tests (HARV-03, HARV-05)
   - [ ] 45-03-PLAN.md (wave 3) — Harvest.razor: channel browse, paste queue, badges, live harvest + NavMenu (HARV-01..04)
   - [ ] 45-04-PLAN.md (wave 4) — Distill spend gate: dry-run, re-distill double-confirm, cap + session override, execute (HARV-05)
@@ -337,7 +337,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
 | 49. Dapper Data-Access Adoption | 5/5 | Complete   | 2026-06-14 |
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
-| 45. Harvest + Distill UI | 0/TBD | Not started | - |
+| 45. Harvest + Distill UI | 1/4 | In Progress|  |
 | 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started (after 49) | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
