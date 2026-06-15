@@ -134,7 +134,7 @@
         </div>
         <div class="card-body">
             <div class="mb-3">
-                <label for="pasteQueue" class="form-label fw-semibold small">Paste video URLs or IDs (one per line)</label>
+                <label for="pasteQueue" class="form-label fw-semibold small">Paste video URLs or IDs, or a playlist URL (one per line)</label>
                 <textarea id="pasteQueue" class="form-control" rows="4"
                           @bind="_pasteQueueText"
                           disabled="@_operationInFlight"></textarea>
@@ -867,9 +867,29 @@
         using var addCts = new CancellationTokenSource();
         try
         {
-            // Why: Task.Run avoids blocking the Blazor circuit during YouTube metadata resolution.
+            // Why: a pasted playlist URL is expanded via ListPlaylistAsync (bounded by Count); the
+            // remaining lines resolve as individual video ids/urls through GetByIdsAsync. Lister calls
+            // are serialized (no Task.WhenAll) to honor AngleSharp's single-thread constraint (Pitfall 6).
+            var playlistLines = rawLines
+                .Where(l => l.Contains("list=", StringComparison.OrdinalIgnoreCase)
+                    || l.Contains("playlist?", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var idLines = rawLines.Except(playlistLines).ToList();
+            var limit = _browseLimit;
             var videos = await Task.Run(
-                () => Lister.GetByIdsAsync(rawLines.AsReadOnly(), addCts.Token),
+                async () =>
+                {
+                    var collected = new List<YouTubeChannelVideo>();
+                    foreach (var pl in playlistLines)
+                    {
+                        collected.AddRange(await Lister.ListPlaylistAsync(pl, limit, 0, addCts.Token).ConfigureAwait(false));
+                    }
+                    if (idLines.Count > 0)
+                    {
+                        collected.AddRange(await Lister.GetByIdsAsync(idLines.AsReadOnly(), addCts.Token).ConfigureAwait(false));
+                    }
+                    return (IReadOnlyList<YouTubeChannelVideo>)collected;
+                },
                 addCts.Token);
 
             foreach (var v in videos)
