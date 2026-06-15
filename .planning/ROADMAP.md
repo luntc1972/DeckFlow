@@ -237,7 +237,11 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   3. Operator can trigger harvest on selected videos and see live progress updates in the UI without the browser tab freezing; cancelling or closing the tab stops the in-flight operation (CancellationToken wired to component disposal)
   4. Before distill runs, the operator sees an estimated LLM spend projection (dry-run output); already-distilled videos show a "Re-distill" warning with explicit secondary confirmation before re-queuing; the confirm step is required before `dryRun:false` executes
   5. Actual spend is shown after distill completes; the monthly cap from the existing spend ledger is enforced; already-distilled videos are not silently re-distilled without the explicit Re-distill flow
-**Plans**: TBD
+**Plans**: 4 plans across 4 waves
+  - [ ] 45-01-PLAN.md (wave 1) — Core ledger enabler: GetMonthlyCapUsd() + override-affects-cap tests (HARV-05)
+  - [ ] 45-02-PLAN.md (wave 2) — Studio DI: StudioDistillConfig, SessionCapOverride, override-aware ledger, VideoStatusResolver + tests (HARV-03, HARV-05)
+  - [ ] 45-03-PLAN.md (wave 3) — Harvest.razor: channel browse, paste queue, badges, live harvest + NavMenu (HARV-01..04)
+  - [ ] 45-04-PLAN.md (wave 4) — Distill spend gate: dry-run, re-distill double-confirm, cap + session override, execute (HARV-05)
 **UI hint**: yes
 
 ---
