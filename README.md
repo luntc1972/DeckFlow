@@ -597,6 +597,14 @@ dotnet run --project DeckFlow.CLI -- content-index-export
 
 - Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 timestamped clips, and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category).
 - The distill LLM backend is selected by `DECKFLOW_LLM_PROVIDER` (`openai` default with Structured Outputs, or `claude` to shell the Claude Code CLI at $0 subscription cost). Monthly spend caps: `DECKFLOW_LLM_MONTHLY_CAP_USD` and `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15; cap-gating applies to the OpenAI/Whisper paid paths).
+- **`claude` provider on Windows — set `DECKFLOW_LLM_CLI_COMMAND`.** With `DECKFLOW_LLM_PROVIDER=claude`, the distiller shells the `claude` CLI. On Linux/macOS it runs bare `claude` (must be on `PATH`). On **Windows** the bare default is not used — set `DECKFLOW_LLM_CLI_COMMAND` to a JSON array invoking the CLI, with exactly one `{instruction}` placeholder. If your `claude` lives in WSL, call it via `wsl.exe` using the **full path** (wsl.exe uses a non-login shell, so `~/.local/bin` is not on `PATH` — bare `wsl.exe claude` fails):
+
+  ```jsonc
+  // PowerShell user env var, or _run-claude.bat `set` line, or dotnet user-secrets:
+  DECKFLOW_LLM_CLI_COMMAND = ["wsl.exe","/home/<you>/.local/bin/claude","-p","{instruction}","--output-format","json","--allowedTools",""]
+  ```
+
+  A native Windows `claude` install instead uses `["cmd.exe","/c","claude.cmd","-p","{instruction}","--output-format","json","--allowedTools",""]`. Optional `DECKFLOW_LLM_CLI_TIMEOUT_SECONDS` bounds each call. If it is unset/invalid on Windows, distill aborts with a clear "Distiller CLI not configured" message (not silent per-video failures).
 - The public browse/detail pages at `/content-kb` are gated behind the `content.kb.enabled` feature flag (default OFF) and only show entries an admin published via `/Admin/ContentKb` (per-entry or per-source bulk curation; visibility survives seed reloads).
 - `/Admin/YoutubeExport` downloads a channel's upload list (title, views, upload date, URL) as text or CSV — useful for picking `--video-ids` targets.
 
