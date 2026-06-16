@@ -131,22 +131,6 @@
                         <div class="alert alert-danger py-2">@_commitError</div>
                     }
 
-                    @if (_commitSuccess)
-                    {
-                        <div class="alert alert-success py-2">
-                            Committed: <strong>@_commitSha</strong> — @_approvedCount @(_approvedCount == 1 ? "entry" : "entries") on branch <strong>@_branch</strong>.
-                        </div>
-
-                        @* ─── Post-commit push reminder (D-01, success only) ─── *@
-                        <div class="alert alert-info py-2">
-                            <strong>Next step:</strong> push from your terminal to deploy.
-                            <br />
-                            <code>git push origin @_branch</code>
-                            <br />
-                            <span class="text-muted small">Render auto-deploys when push reaches main. Studio never pushes.</span>
-                        </div>
-                    }
-
                     <div class="mb-3">
                         <label for="commitMessage" class="form-label fw-semibold small">Commit message</label>
                         <input id="commitMessage"
@@ -186,6 +170,25 @@
                         }
                     </button>
                 </div>
+            </div>
+        }
+
+        @* ─── Post-commit success + push reminder (D-01) ─── *@
+        @* Why: gated on _commitSuccess only, NOT nested under @if(_diffReady). A successful
+           commit sets _diffReady=false (to tear down Stage 2 and block double-commit), so the
+           success alert + push reminder must live outside that guard or they never render. *@
+        @if (_commitSuccess)
+        {
+            <div class="alert alert-success py-2 mt-3">
+                Committed: <strong>@_commitSha</strong> — @_approvedCount @(_approvedCount == 1 ? "entry" : "entries") on branch <strong>@_branch</strong>.
+            </div>
+
+            <div class="alert alert-info py-2">
+                <strong>Next step:</strong> push from your terminal to deploy.
+                <br />
+                <code>git push origin @_branch</code>
+                <br />
+                <span class="text-muted small">Render auto-deploys when push reaches main. Studio never pushes.</span>
             </div>
         }
     }
