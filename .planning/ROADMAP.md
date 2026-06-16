@@ -294,7 +294,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   3. Each remediated finding is verified with browser screenshots at ≥2 viewports (mobile ≤768px and desktop ≥1024px); no finding is closed on grep or static analysis alone
   4. Layout CSS changes go into `site-common.css`; new or modified design tokens go into the `:root` block of each guild theme file; no layout rules are added to `site.css`
 **Plans**: 3 plans (2 waves)
-- [ ] 48-01-PLAN.md — Token remediation: F3 (--fs-xs), F5 (--muted AA), F2 surface tokens (--panel/--bg/--line) across all 24 themes + accept UIR-01 audit (Wave 1)
+- [x] 48-01-PLAN.md — Token remediation: F3 (--fs-xs), F5 (--muted AA), F2 surface tokens (--panel/--bg/--line) across all 24 themes + accept UIR-01 audit (Wave 1)
 - [ ] 48-02-PLAN.md — Layout + markup: F1 (inline-SVG icons + card elevation), F2 shadow, F4 (heading/label typography), F6/F7 (short-form cap + example panel) in site-common.css + views (Wave 1)
 - [ ] 48-03-PLAN.md — Verification: 2-viewport browser re-score to >=20/24 (light+dark themes) + blocking operator confirm on deployed deckflow.gg (Wave 2)
 **UI hint**: yes
@@ -351,7 +351,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
 | 46. Review Queue + Commit-Publish Path | 5/5 | Complete   | 2026-06-16 |
 | 47. Direct Prod-DB + SCP Publish Path | 3/3 | Complete   | 2026-06-16 |
-| 48. UI Audit + Remediation | 0/TBD | Not started | - |
+| 48. UI Audit + Remediation | 1/3 | In Progress|  |
 
 ---
 
