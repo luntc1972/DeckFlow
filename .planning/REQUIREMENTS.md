@@ -36,7 +36,7 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 
 - [ ] **PUB-01**: A content-only-columns upsert overload exists in `ContentSiteIndexStore` that updates display/navigation fields WITHOUT clobbering admin-set `is_visible` / `is_evergreen` / pin state (prerequisite for any direct write).
 - [ ] **PUB-02**: Seed export is filtered to `approved` rows only, so `pending`/`rejected` content never ships to the public repo or prod.
-- [ ] **PUB-03**: Commit-then-deploy publish (primary): from the UI the operator can export the approved seed, see a diff of what will change, and stage + commit the seed + markdown artifacts (LF-normalized) for push → Render auto-deploy. (Push to `main` remains the operator's explicit action.)
+- [x] **PUB-03**: Commit-then-deploy publish (primary): from the UI the operator can export the approved seed, see a diff of what will change, and stage + commit the seed + markdown artifacts (LF-normalized) for push → Render auto-deploy. (Push to `main` remains the operator's explicit action.)
 - [ ] **PUB-04**: Direct prod-DB push (secondary): operator can write approved rows straight into the Render Postgres site-index via the safe content-only upsert and upload the matching markdown to Render `/data` via SCP — artifact-first ordering (SCP before DB) so no DB row references a missing artifact.
 - [ ] **PUB-05**: Direct push requires a dry-run/preview + explicit confirmation showing exactly which rows and artifacts will be written and to which target (prod), and surfaces partial-failure state for reconcile.
 
@@ -94,7 +94,7 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 | HARV-05 | Phase 45 | Complete |
 | REVQ-02 | Phase 46 | Pending |
 | REVQ-03 | Phase 46 | Pending |
-| PUB-03 | Phase 46 | Pending |
+| PUB-03 | Phase 46 | Complete |
 | PUB-04 | Phase 47 | Pending |
 | PUB-05 | Phase 47 | Pending |
 | UIR-01 | Phase 48 | Pending |
