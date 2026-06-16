@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeckFlow.Web.Tests", "DeckF
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeckFlow.Studio", "DeckFlow.Studio\DeckFlow.Studio.csproj", "{2D880C31-EBCB-450D-A9A8-AB7B31696A33}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeckFlow.Studio.Tests", "DeckFlow.Studio.Tests\DeckFlow.Studio.Tests.csproj", "{1698DA69-5C52-41FA-95DD-BE0813E74F71}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -97,6 +99,18 @@ Global
 		{2D880C31-EBCB-450D-A9A8-AB7B31696A33}.Release|x64.Build.0 = Release|Any CPU
 		{2D880C31-EBCB-450D-A9A8-AB7B31696A33}.Release|x86.ActiveCfg = Release|Any CPU
 		{2D880C31-EBCB-450D-A9A8-AB7B31696A33}.Release|x86.Build.0 = Release|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Debug|x64.Build.0 = Debug|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Debug|x86.Build.0 = Debug|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Release|x64.ActiveCfg = Release|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Release|x64.Build.0 = Release|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Release|x86.ActiveCfg = Release|Any CPU
+		{1698DA69-5C52-41FA-95DD-BE0813E74F71}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
