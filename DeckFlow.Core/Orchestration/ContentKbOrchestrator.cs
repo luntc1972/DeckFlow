@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
@@ -719,9 +720,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     {
         try
         {
-            await _indexStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-            var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
-            var exportRows = rows.Select(ContentIndexExportRow.From).ToList();
+            var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
             return new ContentIndexExportResult
             {
                 Success = true,
@@ -737,6 +736,67 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 Message = exception.Message,
             };
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<ContentIndexExportResult> ExportIndexToFileAsync(
+        string seedPath,
+        IOrchestratorProgress? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(seedPath);
+        try
+        {
+            var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
+
+            var json = JsonSerializer.Serialize(
+                exportRows,
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = true,
+                });
+
+            // Why: WriteIndented on Windows may emit \r\n; D-13 / SC5 require pure LF so a
+            // Windows-run Studio never commits a CRLF seed file into the repo.
+            var body = json.Replace("\r\n", "\n") + "\n";
+
+            var dir = Path.GetDirectoryName(seedPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            await File.WriteAllTextAsync(seedPath, body, cancellationToken).ConfigureAwait(false);
+
+            return new ContentIndexExportResult
+            {
+                Success = true,
+                Rows = exportRows,
+                RowCount = exportRows.Count,
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new ContentIndexExportResult
+            {
+                Success = false,
+                Message = exception.Message,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Fetches approved rows from the index store and projects them to export rows.
+    /// Shared by <see cref="ExportIndexAsync"/> and <see cref="ExportIndexToFileAsync"/> so
+    /// both methods produce exactly the same approved-row set.
+    /// </summary>
+    private async Task<List<ContentIndexExportRow>> GetApprovedExportRowsAsync(
+        CancellationToken cancellationToken)
+    {
+        await _indexStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
+        return rows.Select(ContentIndexExportRow.From).ToList();
     }
 
     private async Task<HarvestResult> HarvestExplicitVideoIdsAsync(
