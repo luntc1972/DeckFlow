@@ -158,6 +158,13 @@ public sealed class PublishPageTests : BunitContext
             Assert.Contains("Updated: 0", cut.Markup);
             Assert.Contains("Removed: 0", cut.Markup);
         });
+
+        // Assert: commit message reports the DELTA (what changed), not the full seed size.
+        cut.WaitForAssertion(() =>
+        {
+            var commitMsg = cut.Find("input#commitMessage").GetAttribute("value");
+            Assert.Equal("content: publish KB seed (1 added, 0 updated, 0 removed)", commitMsg);
+        });
     }
 
     // ── PUB-03: "Commit to Branch" disabled until checkbox checked AND rawDiff non-empty ──

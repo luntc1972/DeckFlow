@@ -279,7 +279,8 @@
             _branch = branch;
             _approvedCount = approvedCount;
             _dataRoot = dataRoot;
-            _commitMessage = $"content: publish approved KB seed ({_approvedCount} entries)";
+            // Placeholder until Export computes the actual delta; commit is disabled until then.
+            _commitMessage = "content: publish KB seed";
         }
         catch (OperationCanceledException)
         {
@@ -451,7 +452,9 @@
                     _updatedCount = updated;
                     _removedCount = removed;
                     _diffReady = true;
-                    _commitMessage = $"content: publish approved KB seed ({newRows.Count} entries)";
+                    // Why: report the DELTA (what this commit changes), not the full seed size —
+                    // a cumulative "{N} entries" total reads as if N were published when only a few changed.
+                    _commitMessage = $"content: publish KB seed ({added} added, {updated} updated, {removed} removed)";
                     _exportInFlight = false;
                     _operationInFlight = false;
                     try { StateHasChanged(); }
