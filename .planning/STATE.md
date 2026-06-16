@@ -4,12 +4,12 @@ milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
 stopped_at: Phase 47 UI-SPEC approved
-last_updated: "2026-06-16T19:31:40.271Z"
-last_activity: 2026-06-16
+last_updated: "2026-06-16T20:25:25.391Z"
+last_activity: 2026-06-16 -- Phase 47 planning complete
 progress:
   total_phases: 10
   completed_phases: 8
-  total_plans: 29
+  total_plans: 32
   completed_plans: 29
   percent: 80
 ---
@@ -29,7 +29,7 @@ Phase: 46 (review-queue-commit-publish-path) — EXECUTING
 Plan: 2 of 5
 Status: Ready to execute
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
-Last activity: 2026-06-16
+Last activity: 2026-06-16 -- Phase 47 planning complete
 
 ```
 Progress: [██████████] 100%

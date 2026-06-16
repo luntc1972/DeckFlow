@@ -937,7 +937,7 @@ Blazor event handler blocks the SignalR circuit thread, freezing the UI.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Render SSH access mechanism**
    - What we know: Render exposes an SSH endpoint for shell access to the service container.
