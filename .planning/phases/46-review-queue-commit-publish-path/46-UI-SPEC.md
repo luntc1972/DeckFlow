@@ -61,8 +61,6 @@ utilities where possible; raw CSS values for component-level scoped CSS.
 | 3xl | 64px | not used in this phase | Not needed in Studio |
 
 Exceptions:
-- Diff output `<pre>` uses 13px (0.8125rem) monospace font — same as progress log in Phase 45;
-  not on the 8-point scale, justified by monospace log/diff convention.
 - Inline expand rows for entry preview use 12px `gap-1` vertical rhythm within the expanded
   content block (dense content, not layout).
 
@@ -79,6 +77,9 @@ All sizes are rem-derived, converted to px at 16px base. Identical to Phase 45 c
 | Label | 14px (0.875rem) | 600 (semibold) | 1.4 | `.fw-semibold .small` |
 | Section heading | 20px (1.25rem) | 600 (semibold) | 1.2 | `<h2 class="h5 fw-semibold">` |
 | Page heading | 24px (1.5rem) | 600 (semibold) | 1.2 | `<h1 class="h4 fw-semibold">` |
+
+Monospace `<pre>` blocks (artifact preview, diff output) use `font-size: 0.875rem` (14px —
+the Label size) with `font-family: monospace`. This keeps the type system at exactly 4 sizes.
 
 ---
 
@@ -98,14 +99,14 @@ and extended with phase-specific accent reservations.
 | Muted | `--bs-secondary` / `text-muted` | #6c757d | Pending badge, placeholder copy, rejected badge |
 
 Accent (`--bs-primary`) is reserved for:
-- "Approve" per-row CTA button (`btn-outline-primary`)
+- "Approve Entry" per-row CTA button (`btn-outline-primary`)
 - "Approve Selected" bulk action button (`btn-primary`)
 - Active/selected filter tab highlight (`nav-link active`)
 - Diff preview card border (`card border-primary`)
 - Progress spinner during export + commit operations (`spinner-border text-primary`)
 
 Destructive (`--bs-danger`) is reserved for:
-- "Reject" per-row CTA button (`btn-outline-danger`)
+- "Reject Entry" per-row CTA button (`btn-outline-danger`)
 - "Reject Selected" bulk action button (`btn-outline-danger`)
 - "Artifact missing — cannot approve" inline badge
 - Any git command failure alert (`alert alert-danger`)
@@ -163,7 +164,7 @@ Nav order: Home / Harvest / Review / Publish.
                                             only visible when ≥1 checkbox is checked
 
 [Queue table]                            ← Bootstrap table-sm table-hover align-middle
-  [Row: checkbox | title | video link | tags summary | approval badge | Approve | Reject | Expand]
+  [Row: checkbox | title | video link | tags summary | approval badge | Approve Entry | Reject Entry | Expand]
   [Expanded row (inline, below parent)] ← full markdown artifact content + tag details
 
 [Empty state]                            ← shown when filtered list is empty
@@ -234,8 +235,8 @@ If artifact is missing, show both badges side-by-side (approval badge + `badge b
 
 | Button | Label | Style | Disabled When |
 |--------|-------|-------|---------------|
-| Approve | Approve | `btn btn-sm btn-outline-primary` | Row already `approved`; artifact missing (D-10) |
-| Reject | Reject | `btn btn-sm btn-outline-danger` | Row already `rejected` |
+| Approve Entry | Approve Entry | `btn btn-sm btn-outline-primary` | Row already `approved`; artifact missing (D-10) |
+| Reject Entry | Reject Entry | `btn btn-sm btn-outline-danger` | Row already `rejected` |
 
 Both buttons call `SetApprovalStatusAsync` immediately on click (D-05 — optimistic, no separate Save).
 After click: badge updates in place, row tint reflects new state, button re-evaluates disabled state.
@@ -261,7 +262,7 @@ It spans all columns (`colspan="8"` or column count). Background: `bg-light`.
 
 1. **Artifact content** — the full markdown artifact file at `artifact_path` rendered as
    plain text in a `<pre>` block. Style: `bg-white border rounded p-2` with
-   `max-height: 400px; overflow-y: auto; font-size: 0.8125rem; font-family: monospace`.
+   `max-height: 400px; overflow-y: auto; font-size: 0.875rem; font-family: monospace`.
    Label above: `<h3 class="h6 fw-semibold mb-1">Content Preview</h3>`.
 
 2. **Full tag sets** — displayed as a definition list `<dl class="row mb-0">` with three rows:
@@ -332,7 +333,7 @@ Summary row uses inline `badge` per count: `badge bg-success` for Added,
 `badge bg-primary` for Updated, `badge bg-danger` for Removed. Label + count always shown
 even if zero (e.g., "Added: 0").
 
-Raw diff box: `<pre class="bg-light border rounded p-2" style="max-height:300px; overflow-y:auto; font-size:0.8125rem; font-family:monospace">`. If `git diff` produces no output (no changes vs HEAD): show `<p class="text-muted">No changes vs HEAD — seed is already up to date.</p>` and disable Commit button.
+Raw diff box: `<pre class="bg-light border rounded p-2" style="max-height:300px; overflow-y:auto; font-size:0.875rem; font-family:monospace">`. If `git diff` produces no output (no changes vs HEAD): show `<p class="text-muted">No changes vs HEAD — seed is already up to date.</p>` and disable Commit button.
 
 **Git diff error:** `<div class="alert alert-danger py-2">` with copy:
 "Could not compute git diff — {reason}. Check that Studio is running from the repo root."
@@ -450,8 +451,8 @@ No cards wrapping the table — the table is the primary content, tabs act as th
 ```
 Idle
   → [tab switch]           → FilterChanged  → Idle (table re-rendered, selections cleared)
-  → [Approve row]          → ApprovingRow   → Idle (badge updated optimistically)
-  → [Reject row]           → RejectingRow   → Idle (badge updated optimistically)
+  → [Approve Entry row]    → ApprovingRow   → Idle (badge updated optimistically)
+  → [Reject Entry row]     → RejectingRow   → Idle (badge updated optimistically)
   → [Approve Selected]     → BatchApproving → Idle (badges updated, selections cleared)
   → [Reject Selected]      → BatchRejecting → Idle (badges updated, selections cleared)
   → [Expand row]           → Expanding      → Idle (artifact loaded once, cached in _expandCache)
@@ -492,8 +493,8 @@ After a successful commit: disable the Commit button; require a new Export cycle
 | Tab: All | All ({N}) |
 | Batch approve CTA | Approve Selected ({N}) |
 | Batch reject CTA | Reject Selected ({N}) |
-| Per-row approve CTA | Approve |
-| Per-row reject CTA | Reject |
+| Per-row approve CTA | Approve Entry |
+| Per-row reject CTA | Reject Entry |
 | Expand toggle (collapsed) | aria-label="Expand entry for {title}" |
 | Expand toggle (expanded) | aria-label="Collapse entry for {title}" |
 | Section heading (expand content) | Content Preview |
@@ -502,7 +503,7 @@ After a successful commit: disable the Commit button; require a new Export cycle
 | Empty state — Rejected tab | No rejected entries. |
 | Empty state — All tab | No distilled entries in the knowledge base. Run Harvest + Distill first. |
 | Artifact missing warning (inline) | Artifact file not found — cannot display content preview. Reject is still allowed; approve is disabled until the artifact is restored. |
-| Approve disabled (artifact missing) | aria-label="Approve disabled — artifact file missing" |
+| Approve disabled (artifact missing) | aria-label="Approve Entry disabled — artifact file missing" |
 | Loading (batch op spinner) | aria-label="Operation in progress" |
 | Batch op complete (no toast needed) | Badge and count updates are the confirmation. |
 
@@ -542,7 +543,7 @@ After a successful commit: disable the Commit button; require a new Export cycle
 
 | Action | Risk | Confirmation |
 |--------|------|-------------|
-| Reject entry (per-row) | Status change — removes entry from next export | Single "Reject" button click — optimistic, immediate; reversible by clicking Approve; no modal |
+| Reject Entry (per-row) | Status change — removes entry from next export | Single "Reject Entry" button click — optimistic, immediate; reversible by clicking "Approve Entry"; no modal |
 | Reject Selected (batch) | Multiple status changes at once | Single "Reject Selected" button click; count displayed in button label before click (operator sees N before acting) |
 | Commit to branch | Writes a git commit onto the working branch | Reviewed-diff checkbox must be checked; button remains disabled until checked |
 
@@ -561,7 +562,7 @@ No hard-delete actions exist in Phase 46. Approval status changes are reversible
 - Disabled buttons retain their label text (do not clear to blank when disabled).
 - Badge color is never the sole differentiator — label text always accompanies color.
 - Approve button's `aria-label` is overridden when disabled due to missing artifact, per
-  copywriting contract ("Approve disabled — artifact file missing").
+  copywriting contract ("Approve Entry disabled — artifact file missing").
 
 ---
 
