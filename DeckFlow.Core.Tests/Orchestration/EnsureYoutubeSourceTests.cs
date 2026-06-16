@@ -29,7 +29,7 @@ public sealed class EnsureYoutubeSourceTests
         Assert.True(result.Success);
         Assert.Equal(ContentSourceResult.ContentSourceOutcome.Added, result.Outcome);
         Assert.Equal(insertedId, result.Id);
-        Assert.True(store.SetEnabledCalledFor.Contains(insertedId));
+        Assert.Contains(insertedId, store.SetEnabledCalledFor);
     }
 
     // ── already-exists, currently disabled ──────────────────────────────────
@@ -79,7 +79,7 @@ public sealed class EnsureYoutubeSourceTests
         Assert.Equal(ContentSourceResult.ContentSourceOutcome.AlreadyExistsSameUrl, result.Outcome);
         Assert.Equal(existingId, result.Id);
         // Why: must enable the source even when it was previously disabled (idempotent enable).
-        Assert.True(store.SetEnabledCalledFor.Contains(existingId));
+        Assert.Contains(existingId, store.SetEnabledCalledFor);
     }
 
     // ── already-exists, already enabled ─────────────────────────────────────
@@ -115,7 +115,7 @@ public sealed class EnsureYoutubeSourceTests
         Assert.Equal(existingId, result.Id);
         // Why: SetEnabledAsync(id, true) is idempotent — calling it on an already-enabled source
         // is harmless and must not cause an error.
-        Assert.True(store.SetEnabledCalledFor.Contains(existingId));
+        Assert.Contains(existingId, store.SetEnabledCalledFor);
     }
 
     // ── by-url store integration tests ──────────────────────────────────────
