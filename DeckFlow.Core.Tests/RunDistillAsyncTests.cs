@@ -799,6 +799,12 @@ public sealed class RunDistillAsyncTests : IDisposable
             return Task.FromResult(count);
         }
 
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         private static bool MatchesNaturalKey(ContentSiteIndexRow left, ContentSiteIndexRow right)
             => MatchesNaturalKey(left, ContentSourceType.Youtube, right.YoutubeVideoId)
                || MatchesNaturalKey(left, ContentSourceType.Podcast, right.RssGuid);

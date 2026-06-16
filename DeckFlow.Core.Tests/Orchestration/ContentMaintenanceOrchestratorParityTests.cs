@@ -248,5 +248,11 @@ public sealed class ContentMaintenanceOrchestratorParityTests
 
         public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
     }
 }

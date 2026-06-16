@@ -127,6 +127,9 @@ public sealed class ContentIndexSeedWriteTests : IDisposable
         {
             var row = BuildRow($"approved-video-{i}", approvalStatus: "approved");
             await store.UpsertRowAsync(row);
+            // UpsertRowAsync defaults approval_status to 'pending'; approval is a separate
+            // admin action (Phase 43), so mark the row approved via the dedicated mutation.
+            await store.SetApprovalStatusAsync(ContentSourceType.Youtube, row.YoutubeVideoId!, "approved");
         }
 
         for (var i = 0; i < pendingCount; i++)
@@ -146,6 +149,9 @@ public sealed class ContentIndexSeedWriteTests : IDisposable
         {
             var row = BuildRow($"approved-video-{i}", approvalStatus: "approved");
             await store.UpsertRowAsync(row);
+            // UpsertRowAsync defaults approval_status to 'pending'; approval is a separate
+            // admin action (Phase 43), so mark the row approved via the dedicated mutation.
+            await store.SetApprovalStatusAsync(ContentSourceType.Youtube, row.YoutubeVideoId!, "approved");
             rows.Add(ContentIndexExportRow.From(row));
         }
 

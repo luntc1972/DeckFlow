@@ -55,6 +55,8 @@ public sealed class VideoStatusResolverTests
         public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeSourceStore : IContentSourceStore

@@ -846,7 +846,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         }
 
         // Why: leading ':' is a git pathspec-magic prefix; reject to prevent git injection (T-46-02-06).
-        if (relativePath.StartsWith(':', StringComparison.Ordinal))
+        if (relativePath.StartsWith(":", StringComparison.Ordinal))
         {
             throw new ArgumentException(
                 $"Artifact path must not start with ':' (git pathspec-magic): {relativePath}", nameof(relativePath));

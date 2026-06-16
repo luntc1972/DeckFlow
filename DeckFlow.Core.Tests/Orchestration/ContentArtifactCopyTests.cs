@@ -43,6 +43,9 @@ public sealed class ContentArtifactCopyTests : IDisposable
 
         await _indexStore.EnsureSchemaAsync();
         await _indexStore.UpsertRowAsync(BuildRow(videoId, slug, artifactPath, "approved"));
+        // UpsertRowAsync defaults approval_status to 'pending' (Phase 43); approve via the
+        // dedicated mutation so GetApprovedRowsAsync actually returns this row.
+        await _indexStore.SetApprovalStatusAsync(ContentSourceType.Youtube, videoId, "approved");
 
         var dataRoot = Path.Combine(_tempDir, "data");
         var repoRoot = Path.Combine(_tempDir, "repo");
@@ -78,6 +81,9 @@ public sealed class ContentArtifactCopyTests : IDisposable
 
         await _indexStore.EnsureSchemaAsync();
         await _indexStore.UpsertRowAsync(BuildRow(videoId, slug, artifactPath, "approved"));
+        // UpsertRowAsync defaults approval_status to 'pending' (Phase 43); approve via the
+        // dedicated mutation so GetApprovedRowsAsync actually returns this row.
+        await _indexStore.SetApprovalStatusAsync(ContentSourceType.Youtube, videoId, "approved");
 
         var dataRoot = Path.Combine(_tempDir, "data-missing");
         var repoRoot = Path.Combine(_tempDir, "repo-missing");
@@ -223,6 +229,12 @@ public sealed class ContentArtifactCopyTests : IDisposable
             => throw new NotImplementedException();
 
         public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 }

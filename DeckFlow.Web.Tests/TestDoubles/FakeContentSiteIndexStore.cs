@@ -163,6 +163,45 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         return Task.FromResult(count);
     }
 
+    public Task<int> SetApprovalStatusAsync(
+        string naturalKeyType,
+        string naturalKeyValue,
+        string status,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(ApplyApprovalStatus(naturalKeyType, naturalKeyValue, status));
+
+    public Task<int> SetApprovalStatusAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        var count = 0;
+        foreach (var (type, value) in keys)
+        {
+            count += ApplyApprovalStatus(type, value, status);
+        }
+
+        return Task.FromResult(count);
+    }
+
+    private int ApplyApprovalStatus(string naturalKeyType, string naturalKeyValue, string status)
+    {
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            var matches =
+                (naturalKeyType == ContentSourceType.Youtube && Rows[i].YoutubeVideoId == naturalKeyValue)
+                || (naturalKeyType == ContentSourceType.Podcast && Rows[i].RssGuid == naturalKeyValue);
+            if (matches)
+            {
+                Rows[i] = Rows[i] with { ApprovalStatus = status };
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     private static ContentSiteIndexRow ApplyInvariant(ContentSiteIndexRow row)
         => row.IsVisible ? row with { IsHidden = false } : row;
 }
