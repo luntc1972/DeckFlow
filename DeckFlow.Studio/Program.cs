@@ -37,6 +37,12 @@ public partial class Program
 
             var prodConnStr = builder.Configuration["Studio:ProdConnectionString"];
             var isProdConfigured = !string.IsNullOrEmpty(prodConnStr);
+            // Why: presence-only check — never log values (D-07 / SC5). KeyPassphrase is optional
+            // and so is intentionally excluded from the presence check.
+            var isScpConfigured = !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:Host"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:Username"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:KeyFile"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:RemoteArtifactRoot"]);
             var studioDataDirectory = ResolveStudioDataDirectory();
             var contentKbDatabasePath = Path.Combine(studioDataDirectory, "content-kb.db");
             var contentKbArtifactRoot = Path.Combine(studioDataDirectory, "content-kb");
@@ -44,7 +50,9 @@ public partial class Program
             Directory.CreateDirectory(studioDataDirectory);
             Directory.CreateDirectory(contentKbArtifactRoot);
 
-            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, false)); // TODO(47-02): real SCP detection
+            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
+            builder.Services.AddSingleton<ISshArtifactUploader, SftpArtifactUploader>();
+            builder.Services.AddSingleton<IProdStoreFactory, ProdStoreFactory>();
             builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
@@ -108,6 +116,7 @@ public partial class Program
             }
 
             Log.Information("Studio prod connection: {Status}", isProdConfigured ? "configured" : "not configured");
+            Log.Information("Studio SCP: {Status}", isScpConfigured ? "configured" : "not configured");
 
             if (!app.Environment.IsDevelopment())
             {
