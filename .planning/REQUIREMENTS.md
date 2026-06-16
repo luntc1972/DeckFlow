@@ -29,8 +29,8 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 ### Review & Approve Queue (REVQ)
 
 - [ ] **REVQ-01**: A new `approval_status` column (`pending` / `approved` / `rejected`) is added to the content site-index via the established self-healing ALTER migration pattern (Sqlite + Postgres), defaulting to `pending`.
-- [ ] **REVQ-02**: Operator can review each distilled entry in a queue — preview the summary, timestamped clips, and tags — and approve, reject, or leave pending.
-- [ ] **REVQ-03**: Queue supports batch approve/reject and filters by status; status transitions are visible (harvested → distilled → approved/rejected → published).
+- [x] **REVQ-02**: Operator can review each distilled entry in a queue — preview the summary, timestamped clips, and tags — and approve, reject, or leave pending.
+- [x] **REVQ-03**: Queue supports batch approve/reject and filters by status; status transitions are visible (harvested → distilled → approved/rejected → published).
 
 ### Publish Paths (PUB)
 
@@ -92,8 +92,8 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 | HARV-03 | Phase 45 | Complete |
 | HARV-04 | Phase 45 | Pending |
 | HARV-05 | Phase 45 | Complete |
-| REVQ-02 | Phase 46 | Pending |
-| REVQ-03 | Phase 46 | Pending |
+| REVQ-02 | Phase 46 | Complete |
+| REVQ-03 | Phase 46 | Complete |
 | PUB-03 | Phase 46 | Complete |
 | PUB-04 | Phase 47 | Pending |
 | PUB-05 | Phase 47 | Pending |
