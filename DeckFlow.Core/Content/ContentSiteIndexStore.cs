@@ -512,6 +512,80 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task<int> SetApprovalStatusAsync(
+        string naturalKeyType,
+        string naturalKeyValue,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(naturalKeyType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(naturalKeyValue);
+        ValidateApprovalStatus(status);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE content_site_index
+               SET approval_status = @status
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """,
+            new { status, type = naturalKeyType, value = naturalKeyValue },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetApprovalStatusAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        ValidateApprovalStatus(status);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (D-06); partial approvals are forbidden.
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        const string sql = """
+            UPDATE content_site_index
+               SET approval_status = @status
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { status, type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    private static readonly string[] AllowedApprovalStatuses = ["pending", "approved", "rejected"];
+
+    private static void ValidateApprovalStatus(string status)
+    {
+        if (!AllowedApprovalStatuses.Contains(status, StringComparer.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Invalid approval status '{status}'. Must be one of: pending, approved, rejected.",
+                nameof(status));
+        }
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
