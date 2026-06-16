@@ -158,7 +158,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
 - [x] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator (completed 2026-06-15)
 - [x] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview (completed 2026-06-16)
-- [ ] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly
+- [x] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly (completed 2026-06-16)
 - [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
 
 ### Phase Details
@@ -279,7 +279,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 **Plans**: 3 plans (3 waves)
 - [x] 47-01-PLAN.md — Wave-0 seams: ISshArtifactUploader + IProdStoreFactory contracts, StudioConfig+IsScpConfigured, SSH.NET 2025.0.0 (Studio only), test doubles + 8 stub facts (PUB-04, PUB-05)
 - [x] 47-02-PLAN.md — SftpArtifactUploader (SSH.NET SFTP, per-file results, path-safety, secret sanitization) + Program.cs SCP detection/registration/presence-log (PUB-04)
-- [ ] 47-03-PLAN.md — DirectPush.razor 3-stage gated PROD-write page + NavMenu + 11 bUnit tests (Tasks 1-2 DONE, commits 6026419/ca9d824); Task 3 SSH.NET supply-chain + PROD-write UI blocking-human checkpoint PENDING (orchestrator-owned, NOT auto-approvable) (PUB-04, PUB-05)
+- [x] 47-03-PLAN.md — DirectPush.razor 3-stage gated PROD-write page + NavMenu + 11 bUnit tests (commits 6026419/ca9d824); Task 3 SSH.NET supply-chain + PROD-write UI blocking-human checkpoint APPROVED by operator 2026-06-16 (SSH.NET bumped 2025.0.0→2025.1.0, commit a5c291c) (PUB-04, PUB-05)
 **UI hint**: yes
 
 ---
@@ -347,7 +347,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
 | 46. Review Queue + Commit-Publish Path | 5/5 | Complete   | 2026-06-16 |
-| 47. Direct Prod-DB + SCP Publish Path | 1/3 | In progress | - |
+| 47. Direct Prod-DB + SCP Publish Path | 3/3 | Complete   | 2026-06-16 |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
 
 ---

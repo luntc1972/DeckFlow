@@ -109,9 +109,22 @@ csproj InternalsVisibleTo, razor test seam) which this resume verified, fixed, a
   WriteRowsAsync();` seam for the MEDIUM-1 hard-guard test (8 lines; page logic from Task 1 in
   6026419 unchanged).
 
-## Task 3 — PENDING (blocking-human checkpoint, orchestrator-owned)
+## Task 3 — APPROVED 2026-06-16 (blocking-human checkpoint, orchestrator-owned)
 
-Task 3 is `type="checkpoint:human-verify" gate="blocking-human"` and is **NOT auto-approvable**
+**Resolution:** Operator approved at the orchestrator checkpoint on 2026-06-16. Supply-chain gate
+verified live: SSH.NET published on NuGet (`github.com/sshnet/SSH.NET`, MIT), present only in
+`DeckFlow.Studio.csproj`, sole new transitive `BouncyCastle.Cryptography`. Operator elected to bump
+`SSH.NET 2025.0.0 → 2025.1.0` (commit `a5c291c`); rebuild clean, full Studio suite 34/34 green,
+transitive remains only `BouncyCastle.Cryptography` (2.5.1→2.6.2). PROD-write UI gate verified with
+Studio running unconfigured: startup logs presence-only (`prod connection: not configured` / `SCP:
+not configured`, no secrets), `/direct-push` shows the `TARGET: PRODUCTION` banner and names missing
+config, HTML secret-leak scan empty; button/checkbox/DB-lock gating proven by the 13 passing bUnit
+cases. Items B3 (with-config live banner) and C (live prod smoke) remain operator-only and were not
+run (no prod/SCP secrets used). Phase 47 closed.
+
+---
+
+Task 3 was `type="checkpoint:human-verify" gate="blocking-human"` and was **NOT auto-approvable**
 (`workflow.auto_advance` is explicitly ignored per T-47-SC). This resume executor did **not**
 execute, simulate, or approve it. It requires a human operator to:
 
