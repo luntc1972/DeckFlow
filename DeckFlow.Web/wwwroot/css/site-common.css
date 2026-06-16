@@ -552,6 +552,19 @@ summary:focus-visible,
   color: var(--ink, inherit);
 }
 
+/* The KB article header (title + source line) sat flush against the deck-tool
+   nav below it because a bare <header> has no bottom margin; match the .hero
+   margin that the deck-tool pages use so the nav gets the same breathing room. */
+.kb-artifact-header {
+  margin-bottom: 1rem;
+}
+
+/* Separate the Analysis questions picker from the candidate-references panel
+   directly above it; the picker section itself only carries a bottom margin. */
+.chatgpt-question-picker {
+  margin-top: 1.5rem;
+}
+
 @media (max-width: 600px) {
   .kb-filter-bar {
     flex-direction: column;
