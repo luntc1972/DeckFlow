@@ -279,7 +279,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 **Plans**: 3 plans (3 waves)
 - [x] 47-01-PLAN.md — Wave-0 seams: ISshArtifactUploader + IProdStoreFactory contracts, StudioConfig+IsScpConfigured, SSH.NET 2025.0.0 (Studio only), test doubles + 8 stub facts (PUB-04, PUB-05)
 - [x] 47-02-PLAN.md — SftpArtifactUploader (SSH.NET SFTP, per-file results, path-safety, secret sanitization) + Program.cs SCP detection/registration/presence-log (PUB-04)
-- [ ] 47-03-PLAN.md — DirectPush.razor 3-stage gated PROD-write page + NavMenu + 8 bUnit tests + SSH.NET supply-chain blocking-human checkpoint (PUB-04, PUB-05)
+- [ ] 47-03-PLAN.md — DirectPush.razor 3-stage gated PROD-write page + NavMenu + 11 bUnit tests (Tasks 1-2 DONE, commits 6026419/ca9d824); Task 3 SSH.NET supply-chain + PROD-write UI blocking-human checkpoint PENDING (orchestrator-owned, NOT auto-approvable) (PUB-04, PUB-05)
 **UI hint**: yes
 
 ---
