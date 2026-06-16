@@ -1,8 +1,8 @@
 ---
 phase: 47
 slug: direct-prod-db-scp-publish-path
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-16
 ---
@@ -49,6 +49,9 @@ created: 2026-06-16
 | db-fail | — | — | PUB-05 (SC4) | — | DB partial failure → per-row list shown; does not re-lock Stage 2 | bUnit | `dotnet test ... --filter "DirectPush_DbPartialFailure_PerRowListShown"` | ❌ W0 | ⬜ pending |
 | redact | — | — | SC5 | T-info-secrets | Secrets (conn string, SSH host/user/key, remote path) never appear in rendered markup | bUnit | `dotnet test ... --filter "DirectPush_Secrets_NeverInMarkup"` | ❌ W0 | ⬜ pending |
 | disabled | — | — | PUB-04 (SC2) | — | `not configured` (prod or SCP) disables all action buttons | bUnit | `dotnet test ... --filter "DirectPush_NotConfigured_ButtonsDisabled"` | ❌ W0 | ⬜ pending |
+| diff-leak | — | — | SC5 | T-info-secrets / HIGH-2 | Diff-read exception (sentinel-bearing) → sanitized copy, no secret in markup | bUnit | `dotnet test ... --filter "DirectPush_DiffReadFailure_SecretsNeverSurface"` | ❌ W0 | ⬜ pending |
+| db-leak | — | — | SC5 | T-info-secrets / HIGH-2 | DB-write exception (sentinel-bearing) → sanitized Reason, no secret in markup | bUnit | `dotnet test ... --filter "DirectPush_DbWriteFailure_SecretsNeverSurface"` | ❌ W0 | ⬜ pending |
+| guard | — | — | PUB-04 (SC2) | MEDIUM-1 | Stage-3 invoked before SCP success → WriteRowsAsync hard-guard, no prod upsert | bUnit | `dotnet test ... --filter "DirectPush_Stage3InvokedBeforeScp_NoUpsert"` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -85,4 +88,4 @@ created: 2026-06-16
 - [ ] Feedback latency < 15s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-16 (plans passed gsd-plan-checker + Codex peer review)
