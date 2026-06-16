@@ -786,10 +786,101 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         }
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> CopyApprovedArtifactsToRepoAsync(
+        string dataRoot,
+        string repoRoot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+
+        var dataRootFull = Path.GetFullPath(dataRoot);
+        var repoRootFull = Path.GetFullPath(repoRoot);
+
+        var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
+
+        var copiedPaths = new List<string>(exportRows.Count);
+        foreach (var row in exportRows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Why: containment-guard both source (under dataRoot) and dest (under repoRoot)
+            // to prevent path traversal out of the data dir or the repo tree (T-46-02-06).
+            var sourceFull = ResolveContainedPath(dataRootFull, row.ArtifactPath);
+            var destFull = ResolveContainedPath(repoRootFull, row.ArtifactPath);
+
+            // Why: missing/unreadable source is a publish-blocking error (D-10); never
+            // silently skip — callers must not commit a seed referencing absent files.
+            if (!File.Exists(sourceFull))
+            {
+                throw new InvalidOperationException(
+                    $"Approved artifact source missing: {row.ArtifactPath}");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destFull)!);
+            File.Copy(sourceFull, destFull, overwrite: true);
+
+            copiedPaths.Add(row.ArtifactPath);
+        }
+
+        return copiedPaths;
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="relativePath"/> under <paramref name="rootFull"/> and asserts
+    /// the result is strictly contained within that root (no traversal, no rooted paths,
+    /// no git pathspec-magic). Throws <see cref="ArgumentException"/> on any violation.
+    /// </summary>
+    private static string ResolveContainedPath(string rootFull, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new ArgumentException("Artifact path must not be null or whitespace.", nameof(relativePath));
+        }
+
+        if (Path.IsPathRooted(relativePath))
+        {
+            throw new ArgumentException(
+                $"Artifact path must be relative, not rooted: {relativePath}", nameof(relativePath));
+        }
+
+        // Why: leading ':' is a git pathspec-magic prefix; reject to prevent git injection (T-46-02-06).
+        if (relativePath.StartsWith(':', StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Artifact path must not start with ':' (git pathspec-magic): {relativePath}", nameof(relativePath));
+        }
+
+        // Why: any '..' segment could escape the root; validate every segment.
+        var segments = relativePath.Split('/', '\\');
+        foreach (var segment in segments)
+        {
+            if (segment == "..")
+            {
+                throw new ArgumentException(
+                    $"Artifact path must not contain '..' traversal segments: {relativePath}", nameof(relativePath));
+            }
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(rootFull, relativePath));
+
+        // Why: belt-and-suspenders — ensure the resolved absolute path is strictly under root.
+        if (!fullPath.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Artifact path '{relativePath}' resolves outside the expected root '{rootFull}'.",
+                nameof(relativePath));
+        }
+
+        return fullPath;
+    }
+
     /// <summary>
     /// Fetches approved rows from the index store and projects them to export rows.
-    /// Shared by <see cref="ExportIndexAsync"/> and <see cref="ExportIndexToFileAsync"/> so
-    /// both methods produce exactly the same approved-row set.
+    /// Shared by <see cref="ExportIndexAsync"/>, <see cref="ExportIndexToFileAsync"/>, and
+    /// <see cref="CopyApprovedArtifactsToRepoAsync"/> so all three produce exactly the same
+    /// approved-row set.
     /// </summary>
     private async Task<List<ContentIndexExportRow>> GetApprovedExportRowsAsync(
         CancellationToken cancellationToken)
