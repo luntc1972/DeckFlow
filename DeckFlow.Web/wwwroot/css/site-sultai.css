@@ -1,10 +1,10 @@
 :root {
   /* Sultai: Black (B) / Green (G) / Blue (U) */
   --bg: #151d1d;
-  --panel: #1d2727;
+  --panel: #283838;
   --ink: #d5dfda;
   --muted: #90a39d;
-  --line: #35504d;
+  --line: #456660;
   --accent: #2f7c7c;          /* Sultai teal / necromantic tide */
   --accent-strong: #4f9b93;
   --warning: #3a3320;
@@ -32,7 +32,7 @@
   --panel-fallback-bg: #1a2021;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

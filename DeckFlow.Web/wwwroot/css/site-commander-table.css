@@ -1,10 +1,11 @@
 :root {
   /* Commander Table — warm parchment, playmat green, tabletop feel */
-  --bg: #f0ebe0;
+  --bg: #e4dbc8;
   --panel: #faf8f3;
   --ink: #1a1510;
-  --muted: #6b6050;
-  --line: #d4cbb8;
+  --muted: #574840;
+  --line: #b8a98e;
+  --fs-xs:   0.85rem;
   --accent: #2d7a4f;          /* playmat green */
   --accent-strong: #1f5c39;
   --table-warm: #f5f0e8;      /* warm parchment surface */
@@ -222,7 +223,7 @@ summary:focus-visible,
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   margin-left: 0.4rem;
   cursor: default;
@@ -931,7 +932,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .sync-column__status {
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;

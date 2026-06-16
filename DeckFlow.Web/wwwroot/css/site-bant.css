@@ -1,10 +1,10 @@
 :root {
   /* Bant: White (W) / Blue (U) / Green (G) */
-  --bg: #edf3ee;
+  --bg: #e0ece2;
   --panel: #fbfcfa;
   --ink: #1a2a26;
-  --muted: #5a6d68;
-  --line: #c7d6cf;
+  --muted: #475c57;
+  --line: #afc3b8;
   --accent: #2f6fa3;          /* Bant blue / skyward insight */
   --accent-strong: #23567d;
   --bant-green: #4f8b5b;      /* Bant green / canopy growth */
@@ -35,7 +35,7 @@
   --panel-fallback-bg: #f2f5f2;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;
