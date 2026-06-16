@@ -202,6 +202,134 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
         Assert.Contains("TEXT NOT NULL DEFAULT 'pending'", sqlite, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SetApprovalStatusAsync_Single_UpdatesMatchingRow()
+    {
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-single-update"));
+
+        var rowsAffected = await _store.SetApprovalStatusAsync(
+            ContentSourceType.Youtube,
+            "yt-single-update",
+            "approved");
+
+        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-single-update");
+        Assert.Equal(1, rowsAffected);
+        Assert.NotNull(row);
+        Assert.Equal("approved", row!.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_Single_NoMatch_ReturnsZero()
+    {
+        await _store.EnsureSchemaAsync();
+
+        var rowsAffected = await _store.SetApprovalStatusAsync(
+            ContentSourceType.Youtube,
+            "yt-does-not-exist",
+            "approved");
+
+        Assert.Equal(0, rowsAffected);
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_Batch_UpdatesAllKeys()
+    {
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-batch-01"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-batch-02"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-batch-03"));
+
+        var keys = new (string Type, string Value)[]
+        {
+            (ContentSourceType.Youtube, "yt-batch-01"),
+            (ContentSourceType.Youtube, "yt-batch-02"),
+            (ContentSourceType.Youtube, "yt-batch-03"),
+        };
+
+        var rowsAffected = await _store.SetApprovalStatusAsync(keys, "rejected");
+
+        Assert.Equal(3, rowsAffected);
+        var row1 = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-batch-01");
+        var row2 = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-batch-02");
+        var row3 = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-batch-03");
+        Assert.Equal("rejected", row1!.ApprovalStatus);
+        Assert.Equal("rejected", row2!.ApprovalStatus);
+        Assert.Equal("rejected", row3!.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_Batch_IsAtomic()
+    {
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-atomic-01"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-atomic-02"));
+
+        var keys = new (string Type, string Value)[]
+        {
+            (ContentSourceType.Youtube, "yt-atomic-01"),
+            (ContentSourceType.Youtube, "yt-atomic-02"),
+        };
+
+        // Use an already-cancelled token so the batch is aborted mid-flight (before or during commits).
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _store.SetApprovalStatusAsync(keys, "approved", cts.Token));
+
+        // Both rows must still be at their original "pending" status — transaction rolled back, nothing committed.
+        var row1 = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-atomic-01");
+        var row2 = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-atomic-02");
+        Assert.Equal("pending", row1!.ApprovalStatus);
+        Assert.Equal("pending", row2!.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_Batch_EmptyList_ReturnsZero()
+    {
+        await _store.EnsureSchemaAsync();
+
+        var rowsAffected = await _store.SetApprovalStatusAsync(
+            Array.Empty<(string Type, string Value)>(),
+            "approved");
+
+        Assert.Equal(0, rowsAffected);
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_InvalidStatus_Throws()
+    {
+        await _store.EnsureSchemaAsync();
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-invalid", "deleted"));
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _store.SetApprovalStatusAsync(
+                new (string Type, string Value)[] { (ContentSourceType.Youtube, "yt-invalid") },
+                "deleted"));
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_PreservesAdminFields()
+    {
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-preserve-fields"));
+        var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-fields");
+        Assert.NotNull(inserted);
+
+        await _store.SetVisibilityAsync(inserted!.Id, visible: true);
+        await _store.SetEvergreenAsync(inserted.Id, evergreen: true);
+
+        await _store.SetApprovalStatusAsync(
+            ContentSourceType.Youtube,
+            "yt-preserve-fields",
+            "approved");
+
+        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-fields");
+        Assert.NotNull(row);
+        Assert.True(row!.IsVisible);
+        Assert.True(row.IsEvergreen);
+        Assert.Equal("approved", row.ApprovalStatus);
+    }
+
     private async Task CreateLegacySchemaAsync(params LegacySeed[] rows)
     {
         await using var connection = await RelationalDatabaseConnection
