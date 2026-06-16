@@ -257,8 +257,8 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   4. Stage 1 (export + diff preview) and Stage 2 (commit) are separate UI actions; Stage 2 requires a checkbox "I have reviewed the diff above" before the Commit button is enabled. **SC4 reinterpreted per CONTEXT D-04:** Studio commits only and never runs `git push`; the manual `git push` is the deliberate out-of-app third step. This honors SC4's intent (prevent accidental auto-deploy; force a diff-reviewed action) more strongly than the literal "commit then push" wording.
   5. The exported `index-seed.json` contains only `approval_status='approved'` rows and is LF-normalized (running `file index-seed.json` on Linux reports `ASCII text`, not `ASCII text, with CRLF line terminators`)
 **Plans**: 5 plans (3 waves)
-- [ ] 46-01-PLAN.md — SetApprovalStatusAsync (single + batch) on IContentSiteIndexStore + real-SQLite tests (REVQ-02/03)
-- [ ] 46-02-PLAN.md — IGitRepository git shell-out service + ExportIndexToFileAsync LF seed write + LF/byte-shape tests (PUB-03)
+- [x] 46-01-PLAN.md — SetApprovalStatusAsync (single + batch) on IContentSiteIndexStore + real-SQLite tests (REVQ-02/03)
+- [x] 46-02-PLAN.md — IGitRepository git shell-out service + ExportIndexToFileAsync LF seed write + LF/byte-shape tests (PUB-03)
 - [ ] 46-03-PLAN.md — Review.razor queue (tabs/badges/expand/optimistic+batch approve-reject) + NavMenu entries (REVQ-02/03)
 - [ ] 46-04-PLAN.md — Publish.razor export+diff+gated commit (never pushes) + IGitRepository DI (PUB-03)
 - [ ] 46-05-PLAN.md — Full-solution build + phase Core.Tests + format-gate verification + coverage-gap summary
@@ -343,7 +343,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 49. Dapper Data-Access Adoption | 5/5 | Complete   | 2026-06-14 |
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
-| 46. Review Queue + Commit-Publish Path | 0/TBD | Not started (after 49) | - |
+| 46. Review Queue + Commit-Publish Path | 2/5 | In Progress|  |
 | 47. Direct Prod-DB + SCP Publish Path | 0/TBD | Not started (after 49) | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
 

@@ -4,8 +4,8 @@ milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
 stopped_at: Phase 46 UI-SPEC approved
-last_updated: "2026-06-16T15:36:59.738Z"
-last_activity: 2026-06-16 -- Phase 46 planning complete
+last_updated: "2026-06-16T15:45:14.488Z"
+last_activity: 2026-06-16 -- Phase 46 execution started
 progress:
   total_phases: 10
   completed_phases: 7
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 45 — harvest-distill-ui
+**Current focus:** Phase 46 — review-queue-commit-publish-path
 
 ## Current Position
 
-Phase: 45 (harvest-distill-ui) — COMPLETE (all 4 plans)
-Plan: 4 of 4 complete; 45-04 Task 3 human-verify PASS 2026-06-15
-Status: Ready to execute
+Phase: 46 (review-queue-commit-publish-path) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 46
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
-Last activity: 2026-06-16 -- Phase 46 planning complete
+Last activity: 2026-06-16 -- Phase 46 execution started
 
 ```
 Progress: [██████████] 100%
