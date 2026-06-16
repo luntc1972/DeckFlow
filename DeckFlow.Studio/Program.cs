@@ -81,6 +81,7 @@ public partial class Program
             builder.Services.AddSingleton(new StudioDistillConfig(isSubscriptionProvider));
             builder.Services.AddSingleton<IYouTubeChannelVideoLister>(sp => new YouTubeChannelVideoLister(sp.GetRequiredService<HttpClient>()));
             builder.Services.AddSingleton<IFfmpegAudioChunker, FfmpegAudioChunker>();
+            builder.Services.AddSingleton<IGitRepository, GitRepository>();
             builder.Services.AddSingleton<ITranscriptSource>(sp => new YouTubeTranscriptSource(
                 TranscriptProviderFactory.Resolve(sp.GetRequiredService<HttpClient>()),
                 new YouTubeAudioSource(sp.GetRequiredService<HttpClient>()),
