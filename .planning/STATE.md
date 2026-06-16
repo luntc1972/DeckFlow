@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: Phase 47 UI-SPEC approved
-last_updated: "2026-06-16T20:25:25.391Z"
-last_activity: 2026-06-16 -- Phase 47 planning complete
+stopped_at: Phase 47 Plan 01 complete
+last_updated: "2026-06-16T20:55:00.000Z"
+last_activity: 2026-06-16 -- Phase 47 Plan 01 executed (Wave-0 scaffold)
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 32
-  completed_plans: 29
-  percent: 80
+  completed_plans: 30
+  percent: 82
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 46 — review-queue-commit-publish-path
+**Current focus:** Phase 47 — Direct Prod-DB + SCP Publish Path
 
 ## Current Position
 
-Phase: 46 (review-queue-commit-publish-path) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute
+Phase: 47 (Direct Prod-DB + SCP Publish Path) — EXECUTING
+Plan: 2 of 3 (Plan 01 complete)
+Status: Executing Phase 47
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
-Last activity: 2026-06-16 -- Phase 47 planning complete
+Last activity: 2026-06-16 -- Phase 47 Plan 01 executed (Wave-0 scaffold)
 
 ```
 Progress: [██████████] 100%
@@ -99,6 +99,7 @@ Progress: [██████████] 100%
 - **Phase 45-02: VideoStatusResolver in Core (not Studio):** Pure store-query badge-resolution logic lives in DeckFlow.Core so Core.Tests can unit-test it without inverting project dependencies (HIGH-2).
 - **Phase 45-02: Override-aware ledger is a single shared singleton:** `SessionCapOverride` captured in resolver closure; same ledger instance injected into both Harvest page and orchestrator so `WouldExceedCapAsync` sees the override (T-45-04 / Pitfall 6).
 - **Phase 45-04: Distill spend gate COMPLETE + human-verify PASS (2026-06-15):** Tasks 1+2 committed (4f3c2df). Two-stage spend gate with dry-run projection, re-distill double-confirm (redistillConfirmed gates both distillIds and redistill: named arg, HIGH-4), monthly cap display + session override (D-03), cap-exceeded block, Stage B reviewed-spend confirm, actual spend + failure reporting, badge + cap refresh after distill. Task 3 human-verify PASS: cap display, HIGH-1 provider→badge (Metered vs Subscription $0) verified live, dry-run/Stage-B gating, re-distill amber banner + session cap-raise, no secrets in page/logs, 0 ObjectDisposedException/unobserved exceptions, and a live $0 claude-CLI distill confirmed end-to-end (badges flip to Distilled, per-video + total timing, cancel works). Phase 45 all 4 plans complete. Related dogfood follow-up quick tasks: 260615-h2v, k8o, p4d, c9e, t7m, q3n (+ skip-estimate-on-subscription).
+- **Phase 47-01: Wave-0 scaffold complete (2026-06-16):** Commits a1d14ed/a9f272d/e687b9b. SSH.NET 2025.0.0 added to DeckFlow.Studio ONLY (D-01 approved exception; absent from Tests + Core). `ISshArtifactUploader` takes `SshUploadRequest(LocalPath, RemoteRelativePath)` NOT `IReadOnlyList<string>` (Codex HIGH-1 path-traversal guard) — this supersedes the string-list shape shown in 47-PATTERNS.md/47-RESEARCH.md; `SshUploadResult` also carries `RemoteRelativePath` for the SC4 per-file reconcile key. `ProdStoreFactory.Create` builds on-demand Postgres `ContentSiteIndexStore` via `PostgresConnectionStringNormalizer.Normalize` + `RelationalDatabaseConnection(Postgres,...)` (D-03; no Core change). `StudioConfig` gained `IsScpConfigured`; Program.cs:47 temp 2-arg `new StudioConfig(isProdConfigured, false)` with `// TODO(47-02)` — Plan 02 wires real SCP detection. `FakeContentSiteIndexStore.UpsertMethodCalls` records method names so SC3/D-08 (only `UpsertContentColumnsOnlyAsync` on prod) is assertable. `DirectPushPageTests` stubs 8 named facts (Render<DirectPush> commented, TODO 47-03). Build 0/0 (1 pre-existing Core CS1574 cref warning, out of scope); Studio suite 29/29 green; --filter DirectPush 8/8.
 - **Phase 45-03: Harvest page complete + human-verify PASS (2026-06-15):** Playwright smoke on `:5271` — HARV-01..04 + cancel-on-dispose + no-secrets all PASS; 0 ObjectDisposedException, 0 unobserved exceptions; circuit stayed responsive. CAVEAT (non-blocking): full success-stream + mid-flight cancel not exercised (local data dir had 0 enabled YouTube sources → orchestrator "0 sources enabled" guard hit immediately); environment-data condition, not a code defect. Re-exercise full success-stream + mid-flight cancel once a local data dir with an enabled source exists.
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)

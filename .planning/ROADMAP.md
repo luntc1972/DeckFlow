@@ -347,7 +347,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
 | 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
 | 46. Review Queue + Commit-Publish Path | 5/5 | Complete   | 2026-06-16 |
-| 47. Direct Prod-DB + SCP Publish Path | 0/3 | Not started | - |
+| 47. Direct Prod-DB + SCP Publish Path | 1/3 | In progress | - |
 | 48. UI Audit + Remediation | 0/TBD | Not started | - |
 
 ---
