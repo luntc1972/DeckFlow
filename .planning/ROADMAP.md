@@ -277,8 +277,8 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
   4. If Step 1 or Step 2 fails, the UI displays which rows/files succeeded and which did not, with enough detail for manual reconcile without re-running the full set
   5. The prod connection string never appears in any log line, UI text, or error message; Studio logs show "Prod connection: configured" / "not configured" only
 **Plans**: 3 plans (3 waves)
-- [ ] 47-01-PLAN.md — Wave-0 seams: ISshArtifactUploader + IProdStoreFactory contracts, StudioConfig+IsScpConfigured, SSH.NET 2025.0.0 (Studio only), test doubles + 8 stub facts (PUB-04, PUB-05)
-- [ ] 47-02-PLAN.md — SftpArtifactUploader (SSH.NET SFTP, per-file results, path-safety, secret sanitization) + Program.cs SCP detection/registration/presence-log (PUB-04)
+- [x] 47-01-PLAN.md — Wave-0 seams: ISshArtifactUploader + IProdStoreFactory contracts, StudioConfig+IsScpConfigured, SSH.NET 2025.0.0 (Studio only), test doubles + 8 stub facts (PUB-04, PUB-05)
+- [x] 47-02-PLAN.md — SftpArtifactUploader (SSH.NET SFTP, per-file results, path-safety, secret sanitization) + Program.cs SCP detection/registration/presence-log (PUB-04)
 - [ ] 47-03-PLAN.md — DirectPush.razor 3-stage gated PROD-write page + NavMenu + 8 bUnit tests + SSH.NET supply-chain blocking-human checkpoint (PUB-04, PUB-05)
 **UI hint**: yes
 

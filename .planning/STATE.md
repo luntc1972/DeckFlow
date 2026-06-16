@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: Phase 47 Plan 01 complete
-last_updated: "2026-06-16T20:55:00.000Z"
-last_activity: 2026-06-16 -- Phase 47 Plan 01 executed (Wave-0 scaffold)
+stopped_at: Phase 47 Plan 02 complete
+last_updated: "2026-06-16T21:00:00.000Z"
+last_activity: 2026-06-16 -- Phase 47 Plan 02 executed (SFTP transport + Studio wiring)
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 32
-  completed_plans: 30
-  percent: 82
+  completed_plans: 31
+  percent: 84
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 47 (Direct Prod-DB + SCP Publish Path) — EXECUTING
-Plan: 2 of 3 (Plan 01 complete)
+Plan: 3 of 3 (Plans 01-02 complete)
 Status: Executing Phase 47
 Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
-Last activity: 2026-06-16 -- Phase 47 Plan 01 executed (Wave-0 scaffold)
+Last activity: 2026-06-16 -- Phase 47 Plan 02 executed (SFTP transport + Studio wiring)
 
 ```
 Progress: [██████████] 100%
@@ -80,6 +80,7 @@ Progress: [██████████] 100%
 | Phase 45 P01 | 25m | 3 tasks | 9 files |
 | Phase 45 P02 | ~25m | 2 tasks | 6 files |
 | Phase 46-review-queue-commit-publish-path P05 | 15 | 2 tasks | 1 files |
+| Phase 47-direct-prod-db-scp-publish-path P02 | ~10m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,7 @@ Progress: [██████████] 100%
 - **Phase 45-02: Override-aware ledger is a single shared singleton:** `SessionCapOverride` captured in resolver closure; same ledger instance injected into both Harvest page and orchestrator so `WouldExceedCapAsync` sees the override (T-45-04 / Pitfall 6).
 - **Phase 45-04: Distill spend gate COMPLETE + human-verify PASS (2026-06-15):** Tasks 1+2 committed (4f3c2df). Two-stage spend gate with dry-run projection, re-distill double-confirm (redistillConfirmed gates both distillIds and redistill: named arg, HIGH-4), monthly cap display + session override (D-03), cap-exceeded block, Stage B reviewed-spend confirm, actual spend + failure reporting, badge + cap refresh after distill. Task 3 human-verify PASS: cap display, HIGH-1 provider→badge (Metered vs Subscription $0) verified live, dry-run/Stage-B gating, re-distill amber banner + session cap-raise, no secrets in page/logs, 0 ObjectDisposedException/unobserved exceptions, and a live $0 claude-CLI distill confirmed end-to-end (badges flip to Distilled, per-video + total timing, cancel works). Phase 45 all 4 plans complete. Related dogfood follow-up quick tasks: 260615-h2v, k8o, p4d, c9e, t7m, q3n (+ skip-estimate-on-subscription).
 - **Phase 47-01: Wave-0 scaffold complete (2026-06-16):** Commits a1d14ed/a9f272d/e687b9b. SSH.NET 2025.0.0 added to DeckFlow.Studio ONLY (D-01 approved exception; absent from Tests + Core). `ISshArtifactUploader` takes `SshUploadRequest(LocalPath, RemoteRelativePath)` NOT `IReadOnlyList<string>` (Codex HIGH-1 path-traversal guard) — this supersedes the string-list shape shown in 47-PATTERNS.md/47-RESEARCH.md; `SshUploadResult` also carries `RemoteRelativePath` for the SC4 per-file reconcile key. `ProdStoreFactory.Create` builds on-demand Postgres `ContentSiteIndexStore` via `PostgresConnectionStringNormalizer.Normalize` + `RelationalDatabaseConnection(Postgres,...)` (D-03; no Core change). `StudioConfig` gained `IsScpConfigured`; Program.cs:47 temp 2-arg `new StudioConfig(isProdConfigured, false)` with `// TODO(47-02)` — Plan 02 wires real SCP detection. `FakeContentSiteIndexStore.UpsertMethodCalls` records method names so SC3/D-08 (only `UpsertContentColumnsOnlyAsync` on prod) is assertable. `DirectPushPageTests` stubs 8 named facts (Render<DirectPush> commented, TODO 47-03). Build 0/0 (1 pre-existing Core CS1574 cref warning, out of scope); Studio suite 29/29 green; --filter DirectPush 8/8.
+- **Phase 47-02: SFTP transport + Studio wiring complete (2026-06-16):** Commits 9d45dc4/e85312b. `SftpArtifactUploader` (SSH.NET `SftpClient`) implements the Wave-1 request-based `ISshArtifactUploader` (`IReadOnlyList<SshUploadRequest>` -> `SshUploadResult{LocalPath,RemoteRelativePath,Success,FailureReason}`) — NOT the `IReadOnlyList<string>` shape in 47-PATTERNS/47-RESEARCH. Per-file results, never throws on single-file failure; one client per call + sequential uploads (Pitfall 5); `EnsureRemoteDirectory` walks each `/`-segment under root (Pitfall 6/MEDIUM-3); `TryBuildRemotePath` rejects rooted/`..`/out-of-root paths (T-47-02c/V5); only the sanitized literal `"SSH upload failed — check SCP configuration and Render SSH access."` is ever surfaced — never `ex.Message` (D-07/Pitfall 3). Program.cs: real presence-only `isScpConfigured` (Host+Username+KeyFile+RemoteArtifactRoot; KeyPassphrase excluded), `new StudioConfig(isProdConfigured, isScpConfigured)` replaces the `false`/`TODO(47-02)` stub, registers `ISshArtifactUploader`->`SftpArtifactUploader` + `IProdStoreFactory`->`ProdStoreFactory`, presence-only `"Studio SCP: configured/not configured"` log; prod conn string still on-demand only (D-03, never a DI singleton). Build 0/0 (1 pre-existing Core CS1574, out of scope); --filter DirectPush 8/8 (no regression). Plan 03 (DirectPush.razor page + tests) remains.
 - **Phase 45-03: Harvest page complete + human-verify PASS (2026-06-15):** Playwright smoke on `:5271` — HARV-01..04 + cancel-on-dispose + no-secrets all PASS; 0 ObjectDisposedException, 0 unobserved exceptions; circuit stayed responsive. CAVEAT (non-blocking): full success-stream + mid-flight cancel not exercised (local data dir had 0 enabled YouTube sources → orchestrator "0 sources enabled" guard hit immediately); environment-data condition, not a code defect. Re-exercise full success-stream + mid-flight cancel once a local data dir with an enabled source exists.
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)
@@ -168,6 +170,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-06-16T19:31:40.232Z
-Stopped at: Phase 47 UI-SPEC approved
-Resume: Phase 45 done. Per execution order, next is Phase 46 (Review Queue + Commit-Publish Path). Optionally /gsd-secure-phase 45.
+Last session: 2026-06-16T21:00:00.000Z
+Stopped at: Phase 47 Plan 02 complete (SFTP transport + Studio wiring)
+Resume: Phase 47 Plans 01-02 complete. Next is Plan 03 (DirectPush.razor page + bUnit tests filling the 8 stub facts). Run /gsd-execute-phase 47 to continue Wave 3.
