@@ -2062,6 +2062,36 @@ details.info-tooltip > p {
 }
 
 /* ============================================================
+   F4 — Typography weight/letter-spacing hierarchy (48-02).
+   Three tiers — display heading / section label / body — using the
+   existing system font stack only. No new font-family introduced.
+   ============================================================ */
+
+/* Tier 1 — display heading: tight letter-spacing for largest text. */
+.hero h1 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Section-label eyebrow tier: 700 weight + positive spacing so labels
+   read distinctly from body copy. .hub-group__title already had 600 here;
+   bump to 700 for consistent eyebrow treatment. */
+.hub-group__title,
+.hub-hero__eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* Field labels and panel sub-headings: medium weight + micro spacing. */
+.field > span,
+.field > label > span,
+label.field > span,
+.panel-heading h2 {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
    F1 — Hub icon classes (48-02: inline-SVG icon affordance)
    Icons are decorative: aria-hidden="true" on every <svg>.
    color: var(--accent) so icons inherit the theme accent color.
