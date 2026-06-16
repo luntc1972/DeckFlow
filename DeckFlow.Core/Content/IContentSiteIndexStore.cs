@@ -137,4 +137,34 @@ public interface IContentSiteIndexStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of rows updated.</returns>
     Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the approval status for a single site-index row, keyed by natural key.
+    /// Only <c>approval_status</c> is mutated; <c>is_visible</c>, <c>is_hidden</c>, and <c>is_evergreen</c> are unchanged.
+    /// </summary>
+    /// <param name="naturalKeyType">Natural key type, such as <see cref="ContentSourceType.Youtube"/> or <see cref="ContentSourceType.Podcast"/>.</param>
+    /// <param name="naturalKeyValue">Natural key value.</param>
+    /// <param name="status">Approval status to set; must be one of <c>pending</c>, <c>approved</c>, or <c>rejected</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated (1 on match, 0 when the natural key is not found).</returns>
+    Task<int> SetApprovalStatusAsync(
+        string naturalKeyType,
+        string naturalKeyValue,
+        string status,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the approval status for a batch of site-index rows, keyed by natural key, inside a single atomic transaction.
+    /// All rows are updated to the same <paramref name="status"/> or none are (all-or-nothing).
+    /// Only <c>approval_status</c> is mutated; <c>is_visible</c>, <c>is_hidden</c>, and <c>is_evergreen</c> are unchanged.
+    /// D-06: the batch runs in one transaction — one logical round-trip; partial approvals are forbidden.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="status">Approval status to set; must be one of <c>pending</c>, <c>approved</c>, or <c>rejected</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> SetApprovalStatusAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        string status,
+        CancellationToken cancellationToken = default);
 }
