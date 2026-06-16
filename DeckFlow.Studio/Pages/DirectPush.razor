@@ -752,6 +752,14 @@ unlocks only after every file uploads.</p>
         }
     }
 
+    // ── Test seam (Codex MEDIUM-1) ──────────────────────────────────────────
+    // Why: exercises the WriteRowsAsync hard-guard directly. bUnit will not dispatch a click to a
+    // disabled button, so the guard (which protects against a stale render / future refactor
+    // reaching the prod upsert before SCP success) is unreachable through the UI in a test. This
+    // internal method lets the test invoke the handler in the pre-SCP state and assert no upsert
+    // ran. It calls the exact production handler — no behavior is duplicated.
+    internal Task InvokeWriteRowsForTest() => WriteRowsAsync();
+
     // ── IDisposable: cancel in-flight ops on circuit drop ───────────────────
     /// <summary>
     /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight

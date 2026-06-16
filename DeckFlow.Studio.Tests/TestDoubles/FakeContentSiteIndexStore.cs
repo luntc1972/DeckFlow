@@ -17,28 +17,50 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     public List<(IReadOnlyList<(string Type, string Value)> Keys, string Status)> BatchApprovalCalls { get; } = new();
 
     // Upsert-method call tracking — lets SC3 (D-08) assert ONLY UpsertContentColumnsOnlyAsync
-    // was invoked on the prod store (never UpsertRowAsync / UpsertRowPreservingVisibilityAsync).
+    // was invoked on the prod store (never the two full-row upserts).
     public List<string> UpsertMethodCalls { get; } = new();
+
+    // ── Fault-injection hooks (47-03) ─────────────────────────────────────────
+    // Natural keys (YoutubeVideoId ?? RssGuid) that should throw from the content-columns-only
+    // upsert; drives the per-row partial-failure + HIGH-2 secret-leak tests.
+    public HashSet<string> KeysToFailOnUpsert { get; } = new();
+
+    // Message used when an upsert is forced to fail. The HIGH-2 secret test sets this to a
+    // sentinel-bearing connection string so the page's catch path can be proven NOT to surface it.
+    public string UpsertFailureMessage { get; set; } = "Simulated prod upsert failure";
+
+    // If set, GetAllRowsAsync throws with this message. The HIGH-2 diff-read test sets the
+    // sentinel-bearing string to prove the diff catch never surfaces ex.Message.
+    public string? ReadFailureMessage { get; set; }
 
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
+        // MEDIUM-4: full-row upsert is forbidden on the prod store — fail loudly if ever called
+        // so an accidental clobber of is_visible / is_evergreen breaks the test, not just an
+        // absent assertion.
         UpsertMethodCalls.Add("UpsertRowAsync");
-        Rows.Add(row);
-        return Task.CompletedTask;
+        throw new InvalidOperationException("full-row upsert is forbidden on the prod store");
     }
 
     public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
+        // MEDIUM-4: full-row upsert is forbidden on the prod store (see UpsertRowAsync).
         UpsertMethodCalls.Add("UpsertRowPreservingVisibilityAsync");
-        Rows.Add(row);
-        return Task.CompletedTask;
+        throw new InvalidOperationException("full-row upsert is forbidden on the prod store");
     }
 
     public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
         UpsertMethodCalls.Add("UpsertContentColumnsOnlyAsync");
+
+        var key = row.YoutubeVideoId ?? row.RssGuid ?? string.Empty;
+        if (KeysToFailOnUpsert.Contains(key))
+        {
+            throw new InvalidOperationException(UpsertFailureMessage);
+        }
+
         Rows.Add(row);
         return Task.CompletedTask;
     }
@@ -58,7 +80,14 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(r => r.ApprovalStatus == "approved").ToList());
 
     public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.ToList());
+    {
+        if (ReadFailureMessage is not null)
+        {
+            throw new InvalidOperationException(ReadFailureMessage);
+        }
+
+        return Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.ToList());
+    }
 
     public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
         => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id));

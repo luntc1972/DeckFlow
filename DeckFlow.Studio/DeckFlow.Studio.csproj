@@ -11,6 +11,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Why: grants the test project access to the internal WriteRowsAsync test seam on
+         DirectPush (Codex MEDIUM-1 hard-guard test); no internal surface leaks to consumers. -->
+    <InternalsVisibleTo Include="DeckFlow.Studio.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="SSH.NET" Version="2025.0.0" />
