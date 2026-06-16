@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
 status: executing
-stopped_at: Phase 47 context gathered
-last_updated: "2026-06-16T19:25:42.683Z"
+stopped_at: Phase 47 UI-SPEC approved
+last_updated: "2026-06-16T19:31:40.271Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 10
@@ -167,6 +167,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-06-16T19:25:42.643Z
-Stopped at: Phase 47 context gathered
+Last session: 2026-06-16T19:31:40.232Z
+Stopped at: Phase 47 UI-SPEC approved
 Resume: Phase 45 done. Per execution order, next is Phase 46 (Review Queue + Commit-Publish Path). Optionally /gsd-secure-phase 45.
