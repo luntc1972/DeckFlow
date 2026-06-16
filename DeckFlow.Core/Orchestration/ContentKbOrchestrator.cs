@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
@@ -719,9 +720,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     {
         try
         {
-            await _indexStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-            var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
-            var exportRows = rows.Select(ContentIndexExportRow.From).ToList();
+            var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
             return new ContentIndexExportResult
             {
                 Success = true,
@@ -737,6 +736,158 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 Message = exception.Message,
             };
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<ContentIndexExportResult> ExportIndexToFileAsync(
+        string seedPath,
+        IOrchestratorProgress? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(seedPath);
+        try
+        {
+            var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
+
+            var json = JsonSerializer.Serialize(
+                exportRows,
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = true,
+                });
+
+            // Why: WriteIndented on Windows may emit \r\n; D-13 / SC5 require pure LF so a
+            // Windows-run Studio never commits a CRLF seed file into the repo.
+            var body = json.Replace("\r\n", "\n") + "\n";
+
+            var dir = Path.GetDirectoryName(seedPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            await File.WriteAllTextAsync(seedPath, body, cancellationToken).ConfigureAwait(false);
+
+            return new ContentIndexExportResult
+            {
+                Success = true,
+                Rows = exportRows,
+                RowCount = exportRows.Count,
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new ContentIndexExportResult
+            {
+                Success = false,
+                Message = exception.Message,
+            };
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> CopyApprovedArtifactsToRepoAsync(
+        string dataRoot,
+        string repoRoot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+
+        var dataRootFull = Path.GetFullPath(dataRoot);
+        var repoRootFull = Path.GetFullPath(repoRoot);
+
+        var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
+
+        var copiedPaths = new List<string>(exportRows.Count);
+        foreach (var row in exportRows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Why: containment-guard both source (under dataRoot) and dest (under repoRoot)
+            // to prevent path traversal out of the data dir or the repo tree (T-46-02-06).
+            var sourceFull = ResolveContainedPath(dataRootFull, row.ArtifactPath);
+            var destFull = ResolveContainedPath(repoRootFull, row.ArtifactPath);
+
+            // Why: missing/unreadable source is a publish-blocking error (D-10); never
+            // silently skip — callers must not commit a seed referencing absent files.
+            if (!File.Exists(sourceFull))
+            {
+                throw new InvalidOperationException(
+                    $"Approved artifact source missing: {row.ArtifactPath}");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destFull)!);
+            File.Copy(sourceFull, destFull, overwrite: true);
+
+            copiedPaths.Add(row.ArtifactPath);
+        }
+
+        return copiedPaths;
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="relativePath"/> under <paramref name="rootFull"/> and asserts
+    /// the result is strictly contained within that root (no traversal, no rooted paths,
+    /// no git pathspec-magic). Throws <see cref="ArgumentException"/> on any violation.
+    /// </summary>
+    private static string ResolveContainedPath(string rootFull, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new ArgumentException("Artifact path must not be null or whitespace.", nameof(relativePath));
+        }
+
+        if (Path.IsPathRooted(relativePath))
+        {
+            throw new ArgumentException(
+                $"Artifact path must be relative, not rooted: {relativePath}", nameof(relativePath));
+        }
+
+        // Why: leading ':' is a git pathspec-magic prefix; reject to prevent git injection (T-46-02-06).
+        if (relativePath.StartsWith(':', StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Artifact path must not start with ':' (git pathspec-magic): {relativePath}", nameof(relativePath));
+        }
+
+        // Why: any '..' segment could escape the root; validate every segment.
+        var segments = relativePath.Split('/', '\\');
+        foreach (var segment in segments)
+        {
+            if (segment == "..")
+            {
+                throw new ArgumentException(
+                    $"Artifact path must not contain '..' traversal segments: {relativePath}", nameof(relativePath));
+            }
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(rootFull, relativePath));
+
+        // Why: belt-and-suspenders — ensure the resolved absolute path is strictly under root.
+        if (!fullPath.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Artifact path '{relativePath}' resolves outside the expected root '{rootFull}'.",
+                nameof(relativePath));
+        }
+
+        return fullPath;
+    }
+
+    /// <summary>
+    /// Fetches approved rows from the index store and projects them to export rows.
+    /// Shared by <see cref="ExportIndexAsync"/>, <see cref="ExportIndexToFileAsync"/>, and
+    /// <see cref="CopyApprovedArtifactsToRepoAsync"/> so all three produce exactly the same
+    /// approved-row set.
+    /// </summary>
+    private async Task<List<ContentIndexExportRow>> GetApprovedExportRowsAsync(
+        CancellationToken cancellationToken)
+    {
+        await _indexStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
+        return rows.Select(ContentIndexExportRow.From).ToList();
     }
 
     private async Task<HarvestResult> HarvestExplicitVideoIdsAsync(
