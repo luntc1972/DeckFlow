@@ -2060,3 +2060,50 @@ details.info-tooltip > p {
     flex-direction: column;
   }
 }
+
+/* ============================================================
+   F1 — Hub icon classes (48-02: inline-SVG icon affordance)
+   Icons are decorative: aria-hidden="true" on every <svg>.
+   color: var(--accent) so icons inherit the theme accent color.
+   ============================================================ */
+
+.hub-group__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.hub-group__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.hub-group__icon svg {
+  display: block;
+}
+
+/* Hub cards: icon row above title/description text */
+.hub-card__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--accent, currentColor);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.hub-card__icon svg {
+  display: block;
+}
+
+/* F2 — Resting elevation baseline for card containers (48-02).
+   Theme files may supply their own (often richer) box-shadow after this
+   baseline loads — that is intentional and acceptable. This ensures any
+   theme that does NOT set its own shadow still reads as elevated.
+   Do NOT use !important here; theme overrides are fine. */
+.hub-card,
+.deck-form,
+.result-panel {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
