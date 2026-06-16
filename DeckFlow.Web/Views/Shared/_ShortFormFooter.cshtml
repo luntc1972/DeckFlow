@@ -1,0 +1,18 @@
+@* Short-form footer partial (F7 empty-state guidance, 48-02).
+   Renders an example/next-step panel below the form on short tool pages
+   (Card Lookup, Ask a Judge) so the page does not end in dead space.
+   Usage: @await Html.PartialAsync("_ShortFormFooter", (string)ViewData["ShortFormFooterHint"])
+   The model string is the page-specific hint text; callers set
+   ViewData["ShortFormFooterHint"] before invoking the partial, or pass a
+   string model directly. Falls back to a generic prompt if null/empty.
+*@
+@model string
+@{
+    var hint = string.IsNullOrWhiteSpace(Model)
+        ? "Start by entering your search above and pressing the action button."
+        : Model;
+}
+<div class="short-form-footer">
+    <p class="short-form-footer__heading">Example</p>
+    <p class="short-form-footer__hint">@hint</p>
+</div>
