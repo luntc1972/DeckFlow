@@ -5,6 +5,10 @@
   const hasToken = (tokens: string, filter: string): boolean =>
     filter.length === 0 || tokens.split('|').some(token => normalize(token) === filter);
 
+  // Persist the browse filters so returning from a detail tile (back link or
+  // browser back) lands on the same filtered view instead of a reset grid.
+  const FILTER_STORAGE_KEY = 'deckflow.kb.filters';
+
   const attachFilters = (): void => {
     const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-kb-entry]'));
     if (cards.length === 0) {
@@ -26,6 +30,40 @@
     const noMatch = document.querySelector<HTMLElement>('[data-kb-empty-filter]');
     const count = document.querySelector<HTMLElement>('[data-kb-match-count]');
     let timer: number | null = null;
+
+    const persist = (): void => {
+      try {
+        const state: Record<string, string> = { search: search?.value ?? '' };
+        filters.forEach(filter => {
+          state[filter.dataset.kbFilter ?? ''] = filter.value;
+        });
+        sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // sessionStorage may be unavailable (private mode / quota) — non-fatal.
+      }
+    };
+
+    const restore = (): void => {
+      try {
+        const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+        if (raw === null) {
+          return;
+        }
+        const state = JSON.parse(raw) as Record<string, string>;
+        if (search && typeof state.search === 'string') {
+          search.value = state.search;
+        }
+        filters.forEach(filter => {
+          const value = state[filter.dataset.kbFilter ?? ''];
+          if (typeof value === 'string') {
+            filter.value = value;
+            window.DeckFlow?.refreshDfSelect?.(filter);
+          }
+        });
+      } catch {
+        // Corrupt or unavailable state — fall back to the default unfiltered view.
+      }
+    };
 
     const apply = (): void => {
       const query = normalize(search?.value ?? '');
@@ -51,6 +89,7 @@
       if (count) {
         count.textContent = `${shown} ${shown === 1 ? 'entry' : 'entries'} shown`;
       }
+      persist();
     };
 
     const schedule = (): void => {
@@ -78,6 +117,7 @@
       });
       apply();
     });
+    restore();
     apply();
   };
 

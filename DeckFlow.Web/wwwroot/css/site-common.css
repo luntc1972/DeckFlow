@@ -354,6 +354,30 @@ summary:focus-visible,
   min-height: 44px;
 }
 
+/* The Filters disclosure drops to its own full-width row; its selects then lay
+   out in a responsive horizontal grid instead of the default vertical stack.
+   The grid lives on an inner wrapper (not the <details> itself) because
+   flexing/gridding a <details> element renders its slotted content as a column
+   in Chromium. */
+.kb-filter-bar > .kb-filters {
+  flex: 1 1 100%;
+}
+
+.kb-filters__summary {
+  margin: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.kb-filters__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
 .kb-tag {
   display: inline-flex;
   align-items: center;
@@ -1229,6 +1253,19 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 .help-breadcrumb a:hover,
 .help-breadcrumb a:focus-visible {
+    text-decoration: underline;
+}
+.kb-artifact-back {
+    margin-top: 1.5rem;
+}
+.kb-back-link {
+    display: inline-block;
+    color: var(--accent-strong, var(--accent));
+    text-decoration: none;
+    font-size: var(--fs-base);
+}
+.kb-back-link:hover,
+.kb-back-link:focus-visible {
     text-decoration: underline;
 }
 .help-prose {
