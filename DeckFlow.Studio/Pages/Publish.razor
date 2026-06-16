@@ -1,0 +1,546 @@
+@page "/publish"
+@implements IDisposable
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Integration
+@using DeckFlow.Core.Orchestration
+@using DeckFlow.Studio.Services
+@using System.Text.Json
+
+<PageTitle>Publish to Git</PageTitle>
+
+<h1 class="h4 fw-semibold">Publish to Git</h1>
+<p class="text-muted">Export the approved seed into the repo, copy artifacts, review the diff, then commit.</p>
+
+<article class="content px-4">
+
+    @if (_initError is not null)
+    {
+        <div class="alert alert-danger py-2 mt-3">@_initError</div>
+    }
+    else if (_initInFlight)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary"
+                  role="status"
+                  aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Resolving repository info...</span>
+        </div>
+    }
+    else
+    {
+        @* ─── Repository info header ─── *@
+        <div class="mt-3 mb-1">
+            <span>Current branch: <strong>@_branch</strong></span>
+            <span class="ms-3 text-muted small">Repo root: <code>@_repoRoot</code></span>
+        </div>
+        <p>
+            @if (_approvedCount == 0)
+            {
+                <span class="text-muted">No approved entries — approve entries on the Review page before publishing.</span>
+            }
+            else
+            {
+                <strong>@_approvedCount</strong>
+                <span> @(_approvedCount == 1 ? "entry" : "entries") approved and ready to commit.</span>
+            }
+        </p>
+
+        @* ─── Section 1: Export, Copy & Preview Diff (Stage 1) ─── *@
+        <div class="card mt-3">
+            <div class="card-header">
+                <h2 class="h5 fw-semibold mb-0">Stage 1 — Export &amp; Preview Diff</h2>
+            </div>
+            <div class="card-body">
+
+                @if (!string.IsNullOrEmpty(_exportError))
+                {
+                    <div class="alert alert-danger py-2">@_exportError</div>
+                }
+
+                <button class="btn btn-outline-primary"
+                        @onclick="ExportAndDiffAsync"
+                        disabled="@(_operationInFlight || _approvedCount == 0 || _initError is not null)">
+                    @if (_exportInFlight)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"
+                              role="status"
+                              aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span> Exporting &amp; computing diff...</span>
+                    }
+                    else
+                    {
+                        <span>Export &amp; Preview Diff</span>
+                    }
+                </button>
+
+                @if (_approvedCount == 0)
+                {
+                    <p class="text-muted mt-2 mb-0 small">Approve entries on the Review page first.</p>
+                }
+
+                @* ─── Diff Preview card (visible after a successful export) ─── *@
+                @if (_diffReady)
+                {
+                    <div class="card border-primary mt-3">
+                        <div class="card-body">
+                            <h3 class="h6 fw-semibold text-primary mb-2">Diff Preview</h3>
+                            <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+                                <span class="badge bg-success">Added: @_addedCount</span>
+                                <span class="badge bg-primary">Updated: @_updatedCount</span>
+                                <span class="badge bg-danger">Removed: @_removedCount</span>
+                            </div>
+                            <dl class="row mb-2">
+                                <dt class="col-sm-4">Committing onto branch:</dt>
+                                <dd class="col-sm-8"><code>@_branch</code></dd>
+                                <dt class="col-sm-4">Seed path:</dt>
+                                <dd class="col-sm-8"><code>content-kb/seed/index-seed.json</code></dd>
+                            </dl>
+
+                            @if (string.IsNullOrWhiteSpace(_rawDiff))
+                            {
+                                <p class="text-muted mb-0 small">No changes vs HEAD — seed is already up to date.</p>
+                            }
+                            else
+                            {
+                                <pre class="bg-light border rounded p-2"
+                                     style="max-height:300px;overflow-y:auto;font-size:0.875rem;font-family:monospace"
+                                     role="log"
+                                     aria-live="polite">@_rawDiff</pre>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ─── Section 2: Commit (Stage 2 — visible only when diff is ready) ─── *@
+        @if (_diffReady)
+        {
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h2 class="h5 fw-semibold mb-0">Stage 2 — Commit</h2>
+                </div>
+                <div class="card-body">
+
+                    @if (!string.IsNullOrEmpty(_commitError))
+                    {
+                        <div class="alert alert-danger py-2">@_commitError</div>
+                    }
+
+                    @if (_commitSuccess)
+                    {
+                        <div class="alert alert-success py-2">
+                            Committed: <strong>@_commitSha</strong> — @_approvedCount @(_approvedCount == 1 ? "entry" : "entries") on branch <strong>@_branch</strong>.
+                        </div>
+
+                        @* ─── Post-commit push reminder (D-01, success only) ─── *@
+                        <div class="alert alert-info py-2">
+                            <strong>Next step:</strong> push from your terminal to deploy.
+                            <br />
+                            <code>git push origin @_branch</code>
+                            <br />
+                            <span class="text-muted small">Render auto-deploys when push reaches main. Studio never pushes.</span>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label for="commitMessage" class="form-label fw-semibold small">Commit message</label>
+                        <input id="commitMessage"
+                               type="text"
+                               class="form-control"
+                               value="@_commitMessage"
+                               readonly />
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="diffReviewed"
+                                   @bind="_diffReviewed" />
+                            <label class="form-check-label" for="diffReviewed">
+                                I have reviewed the diff above and want to commit these changes.
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary"
+                            @onclick="CommitAsync"
+                            disabled="@(!_diffReviewed || _operationInFlight || string.IsNullOrWhiteSpace(_rawDiff))">
+                        @if (_commitInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Committing...</span>
+                        }
+                        else
+                        {
+                            <span>Commit to Branch</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    }
+
+</article>
+
+@code {
+    // ── Injected services ───────────────────────────────────────────────────
+    [Inject]
+    private IGitRepository Git { get; set; } = default!;
+
+    [Inject]
+    private IContentKbOrchestrator Orchestrator { get; set; } = default!;
+
+    [Inject]
+    private IContentSiteIndexStore IndexStore { get; set; } = default!;
+
+    [Inject]
+    private ContentKbOrchestratorOptions Options { get; set; } = default!;
+
+    // ── Init state ──────────────────────────────────────────────────────────
+    private bool _initInFlight = true;
+    private string? _initError;
+    private string _repoRoot = string.Empty;
+    private string _branch = string.Empty;
+    private int _approvedCount;
+
+    // dataRoot = parent of ArtifactRoot = {studioDataDirectory}
+    // Why: ArtifactPath already carries content-kb/; combining with ArtifactRoot would
+    // double the segment. The data root is the correct base (D-01/D-03/D-10).
+    private string _dataRoot = string.Empty;
+
+    // ── Seed path constants ─────────────────────────────────────────────────
+    private const string SeedRelative = "content-kb/seed/index-seed.json";
+
+    // ── Stage 1 state ───────────────────────────────────────────────────────
+    private bool _exportInFlight;
+    private string _exportError = string.Empty;
+    private bool _diffReady;
+    private string _rawDiff = string.Empty;
+    private int _addedCount;
+    private int _updatedCount;
+    private int _removedCount;
+
+    // Persisted staged paths for the commit handler ([seedRelative] + copied artifact paths).
+    private IReadOnlyList<string> _stagedPaths = Array.Empty<string>();
+
+    // ── Stage 2 state ───────────────────────────────────────────────────────
+    private bool _diffReviewed;
+    private bool _commitInFlight;
+    private bool _commitSuccess;
+    private string _commitSha = string.Empty;
+    private string _commitError = string.Empty;
+    private string _commitMessage = string.Empty;
+
+    // ── Shared in-flight guard ──────────────────────────────────────────────
+    private bool _operationInFlight;
+
+    // ── CTS for disposal-safe cancellation ─────────────────────────────────
+    private CancellationTokenSource _cts = new();
+
+    // ── Pinned serializer options for canonical per-row JSON comparison ──────
+    // Why: ContentIndexExportRow tag props are IReadOnlyList<string>; record == compares
+    // list references not contents, miscounting unchanged rows as Updated. Compare canonical
+    // per-row JSON instead. Options match the Phase 42 byte-shape (camelCase + indented).
+    private static readonly JsonSerializerOptions _canonicalJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+    };
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Why: Task.Run moves git + store calls off the Blazor sync context (Pitfall 7).
+            var (repoRoot, branch, approvedCount, dataRoot) = await Task.Run(async () =>
+            {
+                var rr = await Git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), _cts.Token).ConfigureAwait(false);
+                var br = await Git.GetCurrentBranchAsync(rr, _cts.Token).ConfigureAwait(false);
+                var rows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+                var dr = Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot;
+                return (rr, br, rows.Count, dr);
+            }, _cts.Token);
+
+            _repoRoot = repoRoot;
+            _branch = branch;
+            _approvedCount = approvedCount;
+            _dataRoot = dataRoot;
+            _commitMessage = $"content: publish approved KB seed ({_approvedCount} entries)";
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed mid-load — swallow.
+        }
+        catch (Exception ex)
+        {
+            // Why: ResolveRepoRootAsync throws when Studio is not running from inside a git repo
+            // (GitCommandException). Surface a clear message and disable export.
+            _initError = $"Could not compute git diff — {ex.Message}. Check that Studio is running from the repo root.";
+        }
+        finally
+        {
+            _initInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Stage 1: Export, Copy Artifacts & Preview Diff ─────────────────────
+    private async Task ExportAndDiffAsync()
+    {
+        if (_operationInFlight || _approvedCount == 0 || _initError is not null)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _exportInFlight = true;
+        _exportError = string.Empty;
+        _diffReady = false;
+        _rawDiff = string.Empty;
+        _diffReviewed = false;
+        _commitSuccess = false;
+        _commitError = string.Empty;
+        _stagedPaths = Array.Empty<string>();
+
+        // Why: progress sink uses disposal-safe InvokeAsync pattern (Harvest.razor T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                // SEED (must land in the REPO tree, NOT the data dir):
+                // Why: ArtifactPath already carries content-kb/; the seed is written under
+                // repoRoot so the committed seed is the repo's file (FIX — earlier wiring risked
+                // writing under the Studio data dir, which git would never see). (D-01/D-03/D-10).
+                var seedAbsPath = Path.GetFullPath(Path.Combine(_repoRoot, SeedRelative));
+
+                // Step 1: Write the approved-only LF seed into the repo tree.
+                var exportResult = await Orchestrator.ExportIndexToFileAsync(seedAbsPath, progress, _cts.Token).ConfigureAwait(false);
+                if (!exportResult.Success)
+                {
+                    await InvokeAsync(() =>
+                    {
+                        _exportError = $"Seed export failed — {exportResult.Message}";
+                        _exportInFlight = false;
+                        _operationInFlight = false;
+                        try { StateHasChanged(); }
+                        catch (ObjectDisposedException) { }
+                        catch (InvalidOperationException) { }
+                    });
+                    return;
+                }
+
+                // Step 2: COPY APPROVED ARTIFACTS INTO REPO (D-03).
+                // Why: ArtifactPath already carries content-kb/; the seed is written under repoRoot
+                // and artifacts are COPIED from the Studio data root (parent of ArtifactRoot) into
+                // repoRoot/content-kb so the commit ships real files.
+                // CopyApprovedArtifactsToRepoAsync containment-guards both ends and throws
+                // (publish-blocking) on a missing source (D-01/D-03/D-10).
+                IReadOnlyList<string> copiedArtifactPaths;
+                try
+                {
+                    copiedArtifactPaths = await Orchestrator.CopyApprovedArtifactsToRepoAsync(
+                        _dataRoot, _repoRoot, _cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    await InvokeAsync(() =>
+                    {
+                        _exportError = $"Cannot publish — an approved artifact is missing or unreadable: {ex.Message}. Re-distill or remove that entry, then retry.";
+                        _exportInFlight = false;
+                        _operationInFlight = false;
+                        try { StateHasChanged(); }
+                        catch (ObjectDisposedException) { }
+                        catch (InvalidOperationException) { }
+                    });
+                    return;
+                }
+
+                // Step 3: Build the staged repo-relative path list = [seedRelative] + copiedArtifactPaths.
+                var staged = new List<string> { SeedRelative };
+                staged.AddRange(copiedArtifactPaths);
+                var stagedReadOnly = staged.AsReadOnly();
+
+                // Step 4: Get the raw git diff for the staged paths.
+                var rawDiff = await Git.DiffAsync(_repoRoot, stagedReadOnly, _cts.Token).ConfigureAwait(false);
+
+                // Step 5: In-memory counts via CANONICAL PER-ROW JSON (FIX — never record/list-reference equality).
+                // Why: ContentIndexExportRow tag props are IReadOnlyList<string>; record == compares
+                // list references not contents, miscounting unchanged rows as Updated. Compare
+                // canonical per-row JSON instead.
+                var headSeedText = await Git.CatHeadSeedAsync(_repoRoot, SeedRelative, _cts.Token).ConfigureAwait(false);
+                List<ContentIndexExportRow> headRows;
+                if (string.IsNullOrEmpty(headSeedText))
+                {
+                    headRows = new List<ContentIndexExportRow>();
+                }
+                else
+                {
+                    headRows = JsonSerializer.Deserialize<List<ContentIndexExportRow>>(headSeedText, _canonicalJsonOptions)
+                        ?? new List<ContentIndexExportRow>();
+                }
+
+                // Build new rows from the export result (same approved set that was just written).
+                var newRows = exportResult.Rows;
+
+                // Key both sets by (NaturalKeyType, NaturalKeyValue) for comparison.
+                Func<ContentIndexExportRow, string> Canonical =
+                    r => JsonSerializer.Serialize(r, _canonicalJsonOptions);
+
+                var headByKey = headRows.ToDictionary(
+                    r => (r.NaturalKeyType, r.NaturalKeyValue),
+                    r => Canonical(r));
+                var newByKey = newRows.ToDictionary(
+                    r => (r.NaturalKeyType, r.NaturalKeyValue),
+                    r => Canonical(r));
+
+                int added = 0;
+                int updated = 0;
+                int removed = 0;
+
+                foreach (var key in newByKey.Keys)
+                {
+                    if (!headByKey.ContainsKey(key))
+                    {
+                        added++;
+                    }
+                    else if (newByKey[key] != headByKey[key])
+                    {
+                        updated++;
+                    }
+                }
+
+                foreach (var key in headByKey.Keys)
+                {
+                    if (!newByKey.ContainsKey(key))
+                    {
+                        removed++;
+                    }
+                }
+
+                await InvokeAsync(() =>
+                {
+                    _stagedPaths = stagedReadOnly;
+                    _rawDiff = rawDiff;
+                    _addedCount = added;
+                    _updatedCount = updated;
+                    _removedCount = removed;
+                    _diffReady = true;
+                    _commitMessage = $"content: publish approved KB seed ({newRows.Count} entries)";
+                    _exportInFlight = false;
+                    _operationInFlight = false;
+                    try { StateHasChanged(); }
+                    catch (ObjectDisposedException) { }
+                    catch (InvalidOperationException) { }
+                });
+            }, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _exportError = "Export was cancelled.";
+            _exportInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _exportError = $"Export failed — {ex.Message}";
+            _exportInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Stage 2: Commit ─────────────────────────────────────────────────────
+    private async Task CommitAsync()
+    {
+        if (!_diffReviewed || _operationInFlight || string.IsNullOrWhiteSpace(_rawDiff))
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _commitInFlight = true;
+        _commitError = string.Empty;
+        _commitSuccess = false;
+
+        try
+        {
+            // Why: StageAndCommitAsync stages ONLY the repo-relative seed + copied artifact paths
+            // (never -A). It throws GitForeignStagedChangesException if unrelated paths are already
+            // staged. The pathspec-scoped commit is defense-in-depth. (D-01/D-02/D-03).
+            var sha = await Task.Run(
+                () => Git.StageAndCommitAsync(_repoRoot, _stagedPaths, _commitMessage, _cts.Token),
+                _cts.Token);
+
+            _commitSha = sha;
+            _commitSuccess = true;
+
+            // After a successful commit, disable the Commit button until a new export cycle runs.
+            _diffReady = false;
+            _diffReviewed = false;
+            _stagedPaths = Array.Empty<string>();
+        }
+        catch (OperationCanceledException)
+        {
+            _commitError = "Commit was cancelled.";
+        }
+        catch (GitForeignStagedChangesException ex)
+        {
+            // Why: catch the foreign-staged guard FIRST before the broader GitCommandException
+            // (GitForeignStagedChangesException : GitCommandException). Surface the specific
+            // "unrelated changes" message so the operator knows to unstage and retry.
+            _commitError = $"Cannot commit — unrelated changes are already staged: {ex.Message}. Unstage them (git reset) and retry. No files were changed.";
+        }
+        catch (GitCommandException ex)
+        {
+            _commitError = $"Commit failed — {ex.Message}. No files were changed.";
+        }
+        finally
+        {
+            _commitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    // ── IDisposable: cancel in-flight ops on circuit drop ───────────────────
+    /// <summary>
+    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
+    /// git op or store read is stopped when the operator closes the tab or the SignalR circuit
+    /// drops (D-09).
+    /// </summary>
+    public void Dispose()
+    {
+        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-09).
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}
