@@ -44,7 +44,7 @@ public partial class Program
             Directory.CreateDirectory(studioDataDirectory);
             Directory.CreateDirectory(contentKbArtifactRoot);
 
-            builder.Services.AddSingleton(new StudioConfig(isProdConfigured));
+            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, false)); // TODO(47-02): real SCP detection
             builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));

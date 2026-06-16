@@ -16,22 +16,29 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     public List<(string Type, string Value, string Status)> SingleApprovalCalls { get; } = new();
     public List<(IReadOnlyList<(string Type, string Value)> Keys, string Status)> BatchApprovalCalls { get; } = new();
 
+    // Upsert-method call tracking — lets SC3 (D-08) assert ONLY UpsertContentColumnsOnlyAsync
+    // was invoked on the prod store (never UpsertRowAsync / UpsertRowPreservingVisibilityAsync).
+    public List<string> UpsertMethodCalls { get; } = new();
+
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
+        UpsertMethodCalls.Add("UpsertRowAsync");
         Rows.Add(row);
         return Task.CompletedTask;
     }
 
     public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
+        UpsertMethodCalls.Add("UpsertRowPreservingVisibilityAsync");
         Rows.Add(row);
         return Task.CompletedTask;
     }
 
     public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
+        UpsertMethodCalls.Add("UpsertContentColumnsOnlyAsync");
         Rows.Add(row);
         return Task.CompletedTask;
     }
