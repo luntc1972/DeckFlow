@@ -342,7 +342,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 41. Studio Scaffold + Secrets Wiring | 0/1 | Not started | - |
+| 41. Studio Scaffold + Secrets Wiring | 1/1 | Complete   | 2026-06-13 |
 | 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
 | 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
 | 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
