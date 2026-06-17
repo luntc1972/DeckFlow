@@ -36,9 +36,25 @@ decoupled planning milestones** for GSD.
   GSD plans / audits / archives (`.planning/milestones/<id>-*.md`); it no longer
   pretends to be a product version. When a milestone ships, it is tagged with the
   CalVer of its ship date.
-- **`v1.7` is the final SemVer tag.** CalVer starts with the next public release.
-  Existing `v1.0`–`v1.7` tags and `.planning/milestones/v1.*` archives are
-  historical record and are NOT renamed.
+- **`v1.7` is the final SemVer tag.** The existing `v1.0`–`v1.7` tags and
+  `.planning/milestones/v1.*` archives are kept as historical record and are NOT
+  renamed. Equivalent **CalVer tags were added retroactively** (2026-06-17),
+  pointing at the same release commits, so the whole history reads as one CalVer
+  timeline. Both tag sets coexist on each commit:
+
+  | CalVer | Legacy | Commit | Shipped |
+  |--------|--------|--------|---------|
+  | `2026.05`   | v1.0 | 610745c | 2026-05-02 |
+  | `2026.05.1` | v1.2 | b719d9e | 2026-05-13 |
+  | `2026.05.2` | v1.3 | f8492dc | 2026-05-23 |
+  | `2026.06`   | v1.4 | 301d490 | 2026-06-03 |
+  | `2026.06.1` | v1.5 | e880253 | 2026-06-10 |
+  | `2026.06.2` | v1.6 | 950f003 | 2026-06-12 |
+  | `2026.06.3` | v1.7 | 2f6a475 | 2026-06-17 |
+
+  `v1.1` (Admin Console, 2026-05-08) was never tagged and has no anchorable release
+  commit, so it has no CalVer equivalent — the CalVer patch numbers are contiguous by
+  ship date and therefore do not 1:1-match the old minor numbers.
 - **`2.0`/major resets are abolished as a routine target.** A whole-number identity
   reset is only considered for a deliberate "new product era" event (e.g. a
   framework migration off ASP.NET, a ground-up rewrite, a brand relaunch). Absent
