@@ -1,73 +1,154 @@
-# SECURITY.md — Phase 50: Code-Style Enforcement (format gate)
+---
+phase: 50
+slug: code-style-enforcement
+status: verified
+threats_total: 7
+threats_open: 0
+threats_closed: 7
+asvs_level: 1
+created: 2026-06-14
+last_audited: 2026-06-17
+---
 
-**Audit date:** 2026-06-14
-**Phase:** 50 — Code-Style Enforcement (changed-lines format gate)
-**ASVS Level:** 1
-**Auditor:** gsd-security-auditor (claude-opus-4-8)
-**block_on:** high (BLOCKER = OPEN_THREATS)
+# Phase 50 — Security
+
+> Per-phase security contract: threat register, accepted risks, and audit trail.
+> Threat model source: `.planning/phases/50-code-style-enforcement/50-02-PLAN.md` `<threat_model>` block.
 
 ---
 
-## Result: SECURED
+## Trust Boundaries
 
-All 6 `mitigate` threats verified CLOSED against the implemented code. The 1 `accept`
-threat (T-50-04) is confirmed documented in CLAUDE.md. Verification was performed against
-the CURRENT, hardened code (post commit `7420c21`), not the plan-time wording.
-
----
-
-## Threat Verification
-
-| Threat ID | Category | Disposition | Status | Evidence |
-|-----------|----------|-------------|--------|----------|
-| T-50-01 | Tampering | mitigate | CLOSED | `scripts/format-check-changed.sh:2` `set -euo pipefail`; changed files passed as separate argv via `--include "${CHANGED_FILES[@]}"` (`:299`), not a joined string; every `"$file"`/`"$path"`/`"$current_file"` expansion quoted; C-quoted/control-char diff paths fail CLOSED at `normalize_diff_path` (`:68-70`) and the top-level diff guard (`:283-285`, `^(---|\+\+\+) "` → `infra_fail`); no `eval` (grep clean). |
-| T-50-02 | Elevation of Privilege | mitigate | CLOSED | No `eval` anywhere in `scripts/format-check-changed.sh` (verified by grep). Filenames are argv data: `--include "${CHANGED_FILES[@]}"` (`:299`) — array elements, never interpolated into a command string. |
-| T-50-03 | Elevation of Privilege | mitigate | CLOSED | `.github/workflows/ci.yml:10-12` uses `on: push: / pull_request:` — NOT `pull_request_target` (grep clean). The `format-gate` job (`:16-41`) requests no secrets; untrusted fork code runs without the repo write token. |
-| T-50-04 | Repudiation | accept | CLOSED | Acceptance DOCUMENTED in `CLAUDE.md:19`: hook is a local `git config core.hooksPath .githooks` opt-in convenience and CI `format-gate` "is the authoritative enforcer." Bypass via `--no-verify` is not prevented (by design) but is caught by CI on push/PR. |
-| T-50-05 | Tampering | mitigate | CLOSED | Diff filters strictly `-- '*.cs'` in staged mode (`:277`) and both CI diff modes (`:150`, `:153`); `--include` is populated only from those `*.cs` diffs (`extract_changed_files`, `:204-211`); no `git add` and no EOL normalization anywhere (grep clean). `.ps1/.bat/.cmd` carve-out files are never touched. |
-| T-50-06 | Spoofing/Tampering | mitigate | CLOSED | `select_ci_diff_args` (`:89-145`) — HEAD validated as a real commit else `infra_fail` (`:94-96`); all-zeros SHA rejected (`:109`); `before` validated as a real object via `is_valid_commit_ref` (`:109`); `before == HEAD` rejected (`:112`); every resolution path `echo`s the chosen base + reason (`:103`, `:113`, `:128`, `:130`, `:137`, `:142`); empty-tree sentinel is LAST-RESORT only, when `origin/main` is wholly unresolvable (`:120/136-144`). No path yields a silent empty-diff pass — every base is logged. |
-| T-50-SC | Tampering | mitigate | CLOSED | Zero packages added. `scripts/format-check-changed.sh` uses only git/grep/sed/awk/`dotnet format` — no `jq`, no husky (grep clean). `format-gate` CI job (`ci.yml:16-41`) adds no install step beyond `dotnet restore` (already used by `build-and-test`). |
+| Boundary | Description | Data Crossing |
+|----------|-------------|---------------|
+| PR contributor -> CI runner | Untrusted PR code/filenames/diff content reach the `format-gate` bash script and `dotnet format` | Staged file paths, diff hunk content, dotnet format report JSON |
+| Developer working tree -> pre-commit hook | Staged hunks (including attacker-influenced filenames) reach the shared script locally | Staged `.cs` file paths, diff content |
 
 ---
 
-## T-50-06 hardening note (verified against current code, not plan-time wording)
+## Threat Register
 
-The plan-time mitigation described an empty-tree sentinel as the fallback when `BASE==HEAD`.
-The gate was hardened in commit `7420c21`: the new-branch / first-push fallback now resolves
-to `origin/main`'s merge-base (three-dot `origin/main...HEAD`), and the empty-tree sentinel is
-reserved as a genuine last resort for when `origin/main` cannot be resolved at all.
+| Threat ID | Category | Component | Disposition | Mitigation | Status |
+|-----------|----------|-----------|-------------|------------|--------|
+| T-50-01 | Tampering | `scripts/format-check-changed.sh` diff/report parsing | mitigate | Quote all `"$file"` expansions; argv array for `--include`; no `eval`; `set -euo pipefail`; C-quoted/control-char filenames fail CLOSED | closed |
+| T-50-02 | Elevation of Privilege | shared script command construction | mitigate | No `eval` anywhere; filenames are argv data passed via `"${CHANGED_FILES[@]}"` array, never interpolated into a command string | closed |
+| T-50-03 | Elevation of Privilege | `format-gate` CI job on PR events | mitigate | `pull_request` (not `pull_request_target`); no secrets in `format-gate` job; untrusted fork code runs without repo write token | closed |
+| T-50-04 | Repudiation | hook bypass via `git commit --no-verify` | accept | Hook is local opt-in convenience; CI `format-gate` is the authoritative enforcer; documented in `CLAUDE.md:19` | closed |
+| T-50-05 | Tampering | EOL normalization on carve-out files | mitigate | Diff and `--include` scoped strictly to `*.cs`; no `git add`; no EOL normalization anywhere in script | closed |
+| T-50-06 | Spoofing/Tampering | CI base-ref selection on `push` to main | mitigate | Zero-SHA rejected; `event.before` validated as real object; `before==HEAD` rejected; unresolvable `origin/main` falls to empty-tree sentinel; every base choice logged | closed |
+| T-50-SC | Tampering | npm/NuGet supply chain | mitigate | Zero packages added; `format-gate` CI job uses only `actions/checkout`, `actions/setup-dotnet`, and `dotnet restore` (already in `build-and-test`); no `jq`, no husky | closed |
 
-The declared mitigation INTENT — "reject zero-SHA / invalid / `BASE==HEAD`, ALWAYS log the
-chosen base, never a silent empty-diff pass" — is satisfied by the current code:
+---
 
-- **Zero-SHA rejected:** `:109` `[ "$before" != "$zero_sha" ]`.
-- **Invalid object rejected:** `:109` `is_valid_commit_ref "$before"`; `:94-96` HEAD itself validated.
-- **`BASE==HEAD` handled:** the `before` path rejects `before == HEAD` (`:112`); the `origin/main`
-  merge-base path detects `merge_base == HEAD` and LOGS that HEAD is already in main history
-  before accepting the (correct) empty diff (`:127-129`). This is correct git semantics — those
-  commits were already gated when they entered `main` — and it is logged, not silent.
-- **Always logged:** every branch emits a `format-gate base: ...` line (`:103/113/128/130/137/142`),
-  so an empty diff is always observable with its justification.
-- **No silent skip of a genuinely new commit:** a real, un-gated pushed commit cannot reach an
-  empty diff without a logged base choice; an unresolvable integration ref falls to the empty-tree
-  sentinel (check everything), logged as last resort (`:140-144`).
+## Threat Verification Detail
 
-CLOSED.
+### T-50-01 — Tampering — CLOSED
+
+**Mitigation verified in `scripts/format-check-changed.sh`:**
+
+- `set -euo pipefail` at line 2 — script-wide fail-fast.
+- No `eval` anywhere — `grep -cn 'eval' scripts/format-check-changed.sh` returns 0.
+- Changed files passed as array argv: `--include "${CHANGED_FILES[@]}"` at line 299 — never a joined/interpolated string.
+- C-quoted diff path guard (line 68-70): `normalize_diff_path` fails CLOSED via `infra_fail` when path starts with `"`.
+- Top-level C-quoted guard (lines 283-285): `grep -Eq '^(---|\+\+\+) "'` against full diff before hunk parsing, fails CLOSED.
+- Unmappable report paths fail CLOSED at line 62: `infra_fail "report path outside repo root: $path"`.
+
+### T-50-02 — Elevation of Privilege — CLOSED
+
+**Mitigation verified in `scripts/format-check-changed.sh`:**
+
+- Zero `eval` occurrences confirmed by grep (count: 0).
+- `CHANGED_FILES` is a bash array built by reading file paths one per element (lines 207-210); passed to `dotnet format` as `"${CHANGED_FILES[@]}"` (line 299) — array expansion, each element a separate argv, not shell-interpreted.
+
+### T-50-03 — Elevation of Privilege — CLOSED
+
+**Mitigation verified in `.github/workflows/ci.yml`:**
+
+- `on:` block (lines 10-12) uses `push:` and `pull_request:` only — `pull_request_target` absent (grep returns zero matches).
+- `format-gate` job (lines 16-42) contains no `secrets.*`, no `token:`, no `password:`, no `key:` references — confirmed by grep.
+- No explicit `permissions:` block on the job; inherits repository default (public repo: `read` for most scopes, no write token issued to fork PR runners).
+
+### T-50-04 — Repudiation — CLOSED (accepted risk)
+
+**Acceptance documented at `CLAUDE.md` line 19:**
+
+> "New and changed C# lines must satisfy the changed-lines gate locally (`git config core.hooksPath .githooks` opt-in, then the versioned pre-commit hook runs `scripts/format-check-changed.sh staged`) and in CI (`format-gate`, which is the authoritative enforcer)."
+
+The opt-in nature of the local hook (`core.hooksPath .githooks`) is also documented in `.githooks/pre-commit` line 4. A developer bypassing via `git commit --no-verify` is still caught by CI `format-gate` on push/PR. Hook bypass is not prevented by design; the CI gate is the non-bypassable enforcement layer.
+
+### T-50-05 — Tampering (EOL carve-out files) — CLOSED
+
+**Mitigation verified in `scripts/format-check-changed.sh`:**
+
+- Staged mode diff: `git diff --cached --unified=0 -- '*.cs'` (line 277).
+- CI three-dot diff: `git diff --unified=0 "$DIFF_BASE"...HEAD -- '*.cs'` (line 150).
+- CI two-dot/empty-tree diff: `git diff --unified=0 "$DIFF_BASE" HEAD -- '*.cs'` (line 153).
+- `CHANGED_FILES` array populated only from those `*.cs`-scoped diffs (lines 204-210).
+- No `git add`, no `dos2unix`, no EOL conversion anywhere in the script (grep clean).
+
+### T-50-06 — Spoofing/Tampering (CI base-ref) — CLOSED
+
+**Mitigation verified in `scripts/format-check-changed.sh` `select_ci_diff_args` function (lines 89-145):**
+
+- `zero_sha` defined at line 90; rejected at line 109: `[ "$before" != "$zero_sha" ]`.
+- `event.before` validated as a real commit object via `is_valid_commit_ref "$before"` (line 109), which calls `git cat-file -e "$ref^{commit}"` (line 86).
+- `before == HEAD` rejected at line 112: `[ "$before_sha" != "$head_sha" ]`.
+- HEAD itself validated at lines 94-96: `infra_fail "HEAD is not a valid commit"` if invalid.
+- Every resolution path emits a `format-gate base:` log line (lines 103, 113, 128, 130, 137, 142) — no branch is silent.
+- Last-resort empty-tree sentinel (lines 140-144): triggered only when `origin/main` cannot be resolved; uses `git hash-object -t tree /dev/null`.
+
+**Documented deviation from plan spec (WARNING, not BLOCKER):**
+
+The plan-time mitigation specified that `BASE==HEAD` (when `merge-base origin/main == HEAD`) should trigger the empty-tree sentinel. The implemented code instead logs "HEAD already in main history; empty diff is correct" and proceeds with `origin/main...HEAD` (three-dot, producing an empty diff). This is documented in `50-02-SUMMARY.md` lines 23-25 and `50-VERIFICATION.md` lines 105-107.
+
+The deviation is not exploitable: the `merge-base==HEAD` path in the code only fires when (a) `event.before` is invalid/zero-SHA (the first and highest-priority branch already handles all valid direct pushes to main at lines 109-117), and (b) `origin/main` is resolvable AND merge-base equals HEAD — which means the commits at HEAD are already present in main history and were gated when they entered main. The base choice is logged (line 128), so the empty diff is observable, not silent. The higher-risk scenario (direct push to main with truly new commits) is correctly guarded by the `event.before` branch (lines 109-117).
+
+### T-50-SC — Supply Chain — CLOSED
+
+**Mitigation verified:**
+
+- `scripts/format-check-changed.sh`: no `jq`, no `husky`, no `/tmp` — all confirmed by grep (zero matches each).
+- `.github/workflows/ci.yml` `format-gate` job (lines 16-42): uses only `actions/checkout@v6`, `actions/setup-dotnet@v5`, `git fetch`, `dotnet restore`, and `bash scripts/format-check-changed.sh ci` — no new npm/pip/NuGet package installs beyond what `build-and-test` already uses.
+- Report stored under `./artifacts/format-report.json` (line 263), not `/tmp`; `artifacts/` is pre-existing in `.gitignore`.
+
+---
+
+## Accepted Risks Log
+
+| Risk ID | Threat Ref | Rationale | Accepted By | Date |
+|---------|------------|-----------|-------------|------|
+| AR-50-01 | T-50-04 | Pre-commit hook is a local convenience gate, opt-in via `git config core.hooksPath .githooks`. Bypass via `--no-verify` is possible locally but all bypassed commits are caught by the authoritative CI `format-gate` on push/PR. No secrets or integrity-critical data flow through this hook. | operator (documented in `CLAUDE.md:19`) | 2026-06-14 |
 
 ---
 
 ## Unregistered Flags
 
-None. The SUMMARY.md "Threat-model notes" section maps cleanly to the registered threats
-(no-new-deps → T-50-SC; no-eval/argv → T-50-01/T-50-02; report under gitignored `artifacts/`
-→ infrastructure hygiene; `*.cs`-only scope → T-50-05). No new attack surface appeared during
-implementation that lacks a threat mapping.
+None. The `50-02-SUMMARY.md` "Threat-model notes" section maps cleanly to registered threats:
+
+- No `eval`, filenames as argv → T-50-01/T-50-02
+- No `jq`, no husky, no new packages → T-50-SC
+- Report under already-gitignored `artifacts/` → infrastructure hygiene (no threat surface)
+- `*.cs`-only diff scope → T-50-05
+- No `pull_request_target` → T-50-03
+
+No new attack surface appeared during implementation without a threat mapping.
 
 ---
 
-## Notes
+## Security Audit Trail
 
-- Implementation files were NOT modified by this audit. Only this SECURITY.md was written.
-- Behavioral FMT-03/FMT-04 proof (live-CI test-PR + hook block/allow) is deferred to Plan 04 per
-  the plan's own `<verification>` block; this audit verifies the static mitigation surface, which
-  is present and correct.
+| Audit Date | Threats Total | Closed | Open | Run By |
+|------------|---------------|--------|------|--------|
+| 2026-06-14 | 7 | 7 | 0 | gsd-security-auditor (claude-opus-4-8) |
+| 2026-06-17 | 7 | 7 | 0 | gsd-security-auditor (claude-sonnet-4-6) |
+
+---
+
+## Sign-Off
+
+- [x] All threats have a disposition (mitigate / accept / transfer)
+- [x] Accepted risks documented in Accepted Risks Log (AR-50-01 / T-50-04)
+- [x] `threats_open: 0` confirmed
+- [x] `status: verified` set in frontmatter
+
+**Approval:** verified 2026-06-17
