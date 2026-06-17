@@ -77,26 +77,26 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STU-01 | Phase 41 | Pending |
-| STU-02 | Phase 41 | Pending |
-| STU-03 | Phase 41 | Pending |
-| ORCH-01 | Phase 42 | Pending |
-| ORCH-02 | Phase 42 | Pending |
-| REVQ-01 | Phase 43 | Pending |
-| PUB-01 | Phase 43 | Pending |
-| PUB-02 | Phase 43 | Pending |
-| GRID-01 | Phase 44 | Pending |
-| GRID-02 | Phase 44 | Pending |
-| HARV-01 | Phase 45 | Pending |
-| HARV-02 | Phase 45 | Pending |
+| STU-01 | Phase 41 | Complete |
+| STU-02 | Phase 41 | Complete |
+| STU-03 | Phase 41 | Complete |
+| ORCH-01 | Phase 42 | Complete |
+| ORCH-02 | Phase 42 | Complete |
+| REVQ-01 | Phase 43 | Complete |
+| PUB-01 | Phase 43 | Complete |
+| PUB-02 | Phase 43 | Complete |
+| GRID-01 | Phase 44 | Complete |
+| GRID-02 | Phase 44 | Complete |
+| HARV-01 | Phase 45 | Complete |
+| HARV-02 | Phase 45 | Complete |
 | HARV-03 | Phase 45 | Complete |
-| HARV-04 | Phase 45 | Pending |
+| HARV-04 | Phase 45 | Complete |
 | HARV-05 | Phase 45 | Complete |
 | REVQ-02 | Phase 46 | Complete |
 | REVQ-03 | Phase 46 | Complete |
 | PUB-03 | Phase 46 | Complete |
-| PUB-04 | Phase 47 | Pending |
-| PUB-05 | Phase 47 | Pending |
+| PUB-04 | Phase 47 | Complete |
+| PUB-05 | Phase 47 | Complete |
 | UIR-01 | Phase 48 | Complete |
 | UIR-02 | Phase 48 | Complete |
 | UIR-03 | Phase 48 | Complete |
