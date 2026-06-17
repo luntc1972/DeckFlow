@@ -710,10 +710,20 @@ public sealed class CategoryKnowledgeRepository
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        // Why: last_checked_utc is a TEXT column on both dialects, but the Dapper DateTime
+        // handler binds @requeueBeforeUtc as a native timestamptz on Postgres — and Postgres
+        // has no `text <= timestamptz` operator (42883), so the comparison must cast the column
+        // to timestamptz there. `::timestamptz` parses every datetime text format the column can
+        // hold (ISO-8601 "O" and Postgres' own coercion form), so no data backfill is needed.
+        // SQLite keeps its lexical TEXT comparison unchanged. (F-51-PG-01)
+        var lastChecked = _connectionInfo.IsSqlite
+            ? "deck_queue.last_checked_utc"
+            : "deck_queue.last_checked_utc::timestamptz";
+
         foreach (var deckId in unique)
         {
             await connection.ExecuteAsync(new CommandDefinition(
-                """
+                $"""
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
                 VALUES (@deckId, @insertedUtc, 0, 0, NULL)
                 ON CONFLICT(deck_id)
@@ -721,12 +731,12 @@ public sealed class CategoryKnowledgeRepository
                     inserted_utc = excluded.inserted_utc,
                     processed = CASE
                         WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
-                        WHEN deck_queue.last_checked_utc IS NULL OR deck_queue.last_checked_utc <= @requeueBeforeUtc THEN 0
+                        WHEN deck_queue.last_checked_utc IS NULL OR {lastChecked} <= @requeueBeforeUtc THEN 0
                         ELSE deck_queue.processed
                     END,
                     skipped = CASE
                         WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
-                        WHEN deck_queue.last_checked_utc IS NULL OR deck_queue.last_checked_utc <= @requeueBeforeUtc THEN 0
+                        WHEN deck_queue.last_checked_utc IS NULL OR {lastChecked} <= @requeueBeforeUtc THEN 0
                         ELSE deck_queue.skipped
                     END;
                 """,
