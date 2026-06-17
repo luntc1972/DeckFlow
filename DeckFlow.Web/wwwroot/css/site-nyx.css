@@ -1,10 +1,10 @@
 :root {
   /* Nyx Enchantment — Theros starfield / constellation frame */
   --bg: #13111c;
-  --panel: #1e1b2e;
+  --panel: #2a263e;
   --ink: #d4d0e4;
   --muted: #908ba8;
-  --line: #3d3558;
+  --line: #504870;
   --accent: #8b6cc1;          /* enchantment purple */
   --accent-strong: #a88cd8;
   --nyx-gold: #d4af6e;        /* constellation gold */
@@ -33,7 +33,7 @@
   --panel-fallback-bg: #1a1828;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

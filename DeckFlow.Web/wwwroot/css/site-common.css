@@ -354,6 +354,30 @@ summary:focus-visible,
   min-height: 44px;
 }
 
+/* The Filters disclosure drops to its own full-width row; its selects then lay
+   out in a responsive horizontal grid instead of the default vertical stack.
+   The grid lives on an inner wrapper (not the <details> itself) because
+   flexing/gridding a <details> element renders its slotted content as a column
+   in Chromium. */
+.kb-filter-bar > .kb-filters {
+  flex: 1 1 100%;
+}
+
+.kb-filters__summary {
+  margin: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.kb-filters__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
 .kb-tag {
   display: inline-flex;
   align-items: center;
@@ -550,6 +574,19 @@ summary:focus-visible,
   background: var(--panel);
   padding: 1.5rem 1.75rem;
   color: var(--ink, inherit);
+}
+
+/* The KB article header (title + source line) sat flush against the deck-tool
+   nav below it because a bare <header> has no bottom margin; match the .hero
+   margin that the deck-tool pages use so the nav gets the same breathing room. */
+.kb-artifact-header {
+  margin-bottom: 1rem;
+}
+
+/* Separate the Analysis questions picker from the candidate-references panel
+   directly above it; the picker section itself only carries a bottom margin. */
+.chatgpt-question-picker {
+  margin-top: 1.5rem;
 }
 
 @media (max-width: 600px) {
@@ -1216,6 +1253,19 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 .help-breadcrumb a:hover,
 .help-breadcrumb a:focus-visible {
+    text-decoration: underline;
+}
+.kb-artifact-back {
+    margin-top: 1.5rem;
+}
+.kb-back-link {
+    display: inline-block;
+    color: var(--accent-strong, var(--accent));
+    text-decoration: none;
+    font-size: var(--fs-base);
+}
+.kb-back-link:hover,
+.kb-back-link:focus-visible {
     text-decoration: underline;
 }
 .help-prose {
@@ -2009,4 +2059,119 @@ details.info-tooltip > p {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+/* ============================================================
+   F4 — Typography weight/letter-spacing hierarchy (48-02).
+   Three tiers — display heading / section label / body — using the
+   existing system font stack only. No new font-family introduced.
+   ============================================================ */
+
+/* Tier 1 — display heading: tight letter-spacing for largest text. */
+.hero h1 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Section-label eyebrow tier: 700 weight + positive spacing so labels
+   read distinctly from body copy. .hub-group__title already had 600 here;
+   bump to 700 for consistent eyebrow treatment. */
+.hub-group__title,
+.hub-hero__eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* Field labels and panel sub-headings: medium weight + micro spacing. */
+.field > span,
+.field > label > span,
+label.field > span,
+.panel-heading h2 {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   F1 — Hub icon classes (48-02: inline-SVG icon affordance)
+   Icons are decorative: aria-hidden="true" on every <svg>.
+   color: var(--accent) so icons inherit the theme accent color.
+   ============================================================ */
+
+.hub-group__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.hub-group__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.hub-group__icon svg {
+  display: block;
+}
+
+/* Hub cards: icon row above title/description text */
+.hub-card__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--accent, currentColor);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.hub-card__icon svg {
+  display: block;
+}
+
+/* ============================================================
+   F6 + F7 — Short-form page cap/center + example panel (48-02).
+   .short-form: optional wrapper for short tool pages to cap the
+   content column and prevent a wide empty band on large viewports.
+   .short-form-footer: closing example/next-step panel (F7 empty-state).
+   ============================================================ */
+
+.short-form {
+  max-width: 64ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.short-form-footer {
+  margin-top: 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.short-form-footer__heading {
+  margin: 0 0 0.35rem;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.short-form-footer__hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* F2 — Resting elevation baseline for card containers (48-02).
+   Theme files may supply their own (often richer) box-shadow after this
+   baseline loads — that is intentional and acceptable. This ensures any
+   theme that does NOT set its own shadow still reads as elevated.
+   Do NOT use !important here; theme overrides are fine. */
+.hub-card,
+.deck-form,
+.result-panel {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
 }

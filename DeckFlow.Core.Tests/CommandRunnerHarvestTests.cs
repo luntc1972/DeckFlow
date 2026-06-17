@@ -2,7 +2,7 @@ using DeckFlow.CLI;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
-using Serilog;
+using DeckFlow.Core.Orchestration;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -12,6 +12,10 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class CommandRunnerHarvestTests
 {
+    private RecordingOrchestratorProgress? LastProgress { get; set; }
+
+    private RecordingLogger<ContentKbOrchestrator>? LastLogger { get; set; }
+
     [Fact]
     public async Task RunHarvestAsync_WhisperSuccessWritesTranscriptStatusAndLedgerWithSameMonthKey()
     {
@@ -21,9 +25,9 @@ public sealed class CommandRunnerHarvestTests
         var ledger = new FakeWhisperSpendLedger();
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromWhisper("whisper body", 2520, 0.252m));
 
-        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [video]);
+        var result = await RunAsync(videoStore, ledger, transcriptSource, [video]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(duration, transcriptSource.LastKnownDuration);
         Assert.Equal("2026-05", transcriptSource.LastMonthKey);
         var transcript = Assert.Single(videoStore.Transcripts);
@@ -43,9 +47,9 @@ public sealed class CommandRunnerHarvestTests
         var ledger = new FakeWhisperSpendLedger();
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromWhisper("whisper body", 2520, 0.252m));
 
-        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(42))]);
+        var result = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(42))]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         var ledgerRecord = Assert.Single(ledger.Records);
         Assert.Equal(10, ledgerRecord.VideoId);
         Assert.Equal(2520, ledgerRecord.SecondsBilled);
@@ -61,9 +65,9 @@ public sealed class CommandRunnerHarvestTests
         var ledger = new FakeWhisperSpendLedger();
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", true));
 
-        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-short", TimeSpan.FromSeconds(60))]);
+        var result = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-short", TimeSpan.FromSeconds(60))]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Empty(videoStore.InsertedVideos);
         Assert.Empty(videoStore.Transcripts);
         Assert.Empty(videoStore.StatusUpdates);
@@ -86,9 +90,9 @@ public sealed class CommandRunnerHarvestTests
         };
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", true));
 
-        var exitCode = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, [failed, alreadyDone]);
+        var result = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, [failed, alreadyDone]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(["video-failed"], transcriptSource.NaturalKeys);
         Assert.Empty(videoStore.InsertedVideos);
         Assert.Equal(20, Assert.Single(videoStore.Transcripts).VideoId);
@@ -107,9 +111,9 @@ public sealed class CommandRunnerHarvestTests
         };
         var transcriptSource = new FakeTranscriptSource(new InvalidOperationException("retry failed"));
 
-        var exitCode = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, [CreateListedVideo("video-skipped", TimeSpan.FromMinutes(5))]);
+        var result = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, [CreateListedVideo("video-skipped", TimeSpan.FromMinutes(5))]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Empty(videoStore.StatusUpdates);
     }
 
@@ -120,9 +124,9 @@ public sealed class CommandRunnerHarvestTests
         var ledger = new FakeWhisperSpendLedger();
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.SkippedOverCap());
 
-        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(12))]);
+        var result = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(12))]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal("skipped_over_cap", Assert.Single(videoStore.StatusUpdates).Status);
         Assert.Empty(videoStore.Transcripts);
         Assert.Empty(ledger.Records);
@@ -138,9 +142,9 @@ public sealed class CommandRunnerHarvestTests
         var whisper = new FakeWhisperTranscriptionService();
         var transcriptSource = new YouTubeTranscriptSource(fetcher, audioSource, whisper, whisperEnabled: false);
 
-        var exitCode = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(12))]);
+        var result = await RunAsync(videoStore, ledger, transcriptSource, [CreateListedVideo("video-1", TimeSpan.FromMinutes(12))]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(TranscriptStatus.SkippedNoCaptions, Assert.Single(videoStore.StatusUpdates).Status);
         Assert.Empty(videoStore.Transcripts);
         Assert.Empty(ledger.Records);
@@ -156,14 +160,14 @@ public sealed class CommandRunnerHarvestTests
         var chunker = new FakeFfmpegAudioChunker { IsAvailable = false };
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", false));
 
-        var exitCode = await RunAsync(
+        var result = await RunAsync(
             videoStore,
             new FakeWhisperSpendLedger(),
             transcriptSource,
             [CreateListedVideo("video-1", TimeSpan.FromMinutes(7))],
             chunker);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(1, chunker.IsAvailableCalls);
         Assert.Equal(["video-1"], transcriptSource.NaturalKeys);
     }
@@ -192,20 +196,16 @@ public sealed class CommandRunnerHarvestTests
             },
         };
 
-        var exitCode = await ContentKbCommandRunners.RunHarvestAsync(
-            sourceStore,
+        var result = await RunAsync(
             videoStore,
-            new FakeBlockedVideoStore([]),
             new FakeWhisperSpendLedger(),
-            lister,
             new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", false)),
-            new FakeFfmpegAudioChunker(),
-            limit: 5,
-            logger: new LoggerConfiguration().CreateLogger(),
-            utcNow: () => new DateTimeOffset(2026, 5, 27, 23, 59, 59, TimeSpan.Zero),
-            CancellationToken.None);
+            [],
+            chunker: new FakeFfmpegAudioChunker(),
+            sourceStore: sourceStore,
+            lister: lister);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         var insertedVideo = Assert.Single(videoStore.InsertedVideos);
         Assert.Equal(2, insertedVideo.SourceId);
         Assert.Equal("video-live", insertedVideo.YoutubeVideoId);
@@ -224,9 +224,9 @@ public sealed class CommandRunnerHarvestTests
         var videoStore = new FakeContentVideoStore();
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", isAutoGenerated: true));
 
-        var exitCode = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, videos, videoIds: ["video-a", "video-c"]);
+        var result = await RunAsync(videoStore, new FakeWhisperSpendLedger(), transcriptSource, videos, videoIds: ["video-a", "video-c"]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(["video-a", "video-c"], videoStore.InsertedVideos.Select(video => video.YoutubeVideoId));
         Assert.Equal(2, videoStore.Transcripts.Count);
     }
@@ -243,7 +243,7 @@ public sealed class CommandRunnerHarvestTests
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", isAutoGenerated: true));
         var blockedVideoStore = new FakeBlockedVideoStore(["blocked-video"]);
 
-        var exitCode = await RunAsync(
+        var result = await RunAsync(
             videoStore,
             new FakeWhisperSpendLedger(),
             transcriptSource,
@@ -251,7 +251,7 @@ public sealed class CommandRunnerHarvestTests
             videoIds: ["blocked-video", "normal-video"],
             blockedVideoStore: blockedVideoStore);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(["blocked-video", "normal-video"], blockedVideoStore.IsBlockedChecks);
         var insertedVideo = Assert.Single(videoStore.InsertedVideos);
         Assert.Equal("normal-video", insertedVideo.YoutubeVideoId);
@@ -264,7 +264,7 @@ public sealed class CommandRunnerHarvestTests
         var videoStore = new FakeContentVideoStore();
         var transcriptSource = new FakeTranscriptSource(TranscriptFetchResult.FromCaptions("caption body", isAutoGenerated: true));
 
-        var exitCode = await RunAsync(
+        var result = await RunAsync(
             videoStore,
             new FakeWhisperSpendLedger(),
             transcriptSource,
@@ -272,7 +272,7 @@ public sealed class CommandRunnerHarvestTests
             videoIds: ["video-a"],
             blockedVideoStore: new FakeBlockedVideoStore([]));
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal("video-a", Assert.Single(videoStore.InsertedVideos).YoutubeVideoId);
         Assert.Equal(["video-a"], transcriptSource.NaturalKeys);
     }
@@ -288,7 +288,7 @@ public sealed class CommandRunnerHarvestTests
             CreateSource(2, "channel-two", "https://www.youtube.com/@two"),
         ]);
 
-        var exitCode = await RunAsync(
+        var result = await RunAsync(
             videoStore,
             new FakeWhisperSpendLedger(),
             transcriptSource,
@@ -296,7 +296,8 @@ public sealed class CommandRunnerHarvestTests
             videoIds: ["video-a"],
             sourceStore: sourceStore);
 
-        Assert.Equal(1, exitCode);
+        Assert.False(result.Success);
+        Assert.Contains("single target source", result.Message, StringComparison.Ordinal);
         Assert.Empty(videoStore.InsertedVideos);
     }
 
@@ -311,7 +312,7 @@ public sealed class CommandRunnerHarvestTests
             CreateSource(2, "channel-two", "https://www.youtube.com/@two"),
         ]);
 
-        var exitCode = await RunAsync(
+        var result = await RunAsync(
             videoStore,
             new FakeWhisperSpendLedger(),
             transcriptSource,
@@ -320,7 +321,7 @@ public sealed class CommandRunnerHarvestTests
             sourceId: 2,
             sourceStore: sourceStore);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         var inserted = Assert.Single(videoStore.InsertedVideos);
         Assert.Equal(2, inserted.SourceId);
         Assert.Equal("video-a", inserted.YoutubeVideoId);
@@ -340,7 +341,9 @@ public sealed class CommandRunnerHarvestTests
         Assert.Null(ContentKbCommandRunners.ParseVideoIds(" , ,"));
     }
 
-    private static Task<int> RunAsync(
+    private HarvestResult? LastResult { get; set; }
+
+    private async Task<HarvestResult> RunAsync(
         FakeContentVideoStore videoStore,
         FakeWhisperSpendLedger ledger,
         ITranscriptSource transcriptSource,
@@ -349,21 +352,37 @@ public sealed class CommandRunnerHarvestTests
         IReadOnlyList<string>? videoIds = null,
         long? sourceId = null,
         FakeContentSourceStore? sourceStore = null,
-        IBlockedVideoStore? blockedVideoStore = null)
-        => ContentKbCommandRunners.RunHarvestAsync(
+        IBlockedVideoStore? blockedVideoStore = null,
+        IYouTubeChannelVideoLister? lister = null)
+    {
+        LastProgress = new RecordingOrchestratorProgress();
+        LastLogger = new RecordingLogger<ContentKbOrchestrator>();
+        var orchestrator = new ContentKbOrchestrator(
             sourceStore ?? new FakeContentSourceStore(),
             videoStore,
+            new ThrowingContentSiteIndexStore(),
             blockedVideoStore ?? new FakeBlockedVideoStore([]),
+            new ThrowingContentHarvestRunStore(),
+            new ThrowingLlmSpendLedger(),
             ledger,
-            new FakeYouTubeChannelVideoLister(videos),
+            new ThrowingLlmDistillationService(),
+            lister ?? new FakeYouTubeChannelVideoLister(videos),
             transcriptSource,
             chunker ?? new FakeFfmpegAudioChunker(),
+            () => new DateTimeOffset(2026, 5, 27, 23, 59, 59, TimeSpan.Zero),
+            new ContentKbOrchestratorOptions
+            {
+                ArtifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-harvest-tests"),
+            },
+            LastLogger);
+        LastResult = await orchestrator.HarvestAsync(
             limit: 5,
-            logger: new LoggerConfiguration().CreateLogger(),
-            utcNow: () => new DateTimeOffset(2026, 5, 27, 23, 59, 59, TimeSpan.Zero),
-            CancellationToken.None,
-            videoIds,
-            sourceId);
+            videoIds: videoIds,
+            sourceId: sourceId,
+            progress: LastProgress,
+            cancellationToken: CancellationToken.None);
+        return LastResult;
+    }
 
     private static YouTubeChannelVideo CreateListedVideo(string videoId, TimeSpan duration)
         => new()
@@ -611,6 +630,7 @@ public sealed class CommandRunnerHarvestTests
         public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(
             string channelUrl,
             int limit,
+            int skip = 0,
             CancellationToken ct = default)
         {
             if (ExceptionsByChannelUrl.TryGetValue(channelUrl, out var exception))

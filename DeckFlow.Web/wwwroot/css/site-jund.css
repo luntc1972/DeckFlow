@@ -1,10 +1,10 @@
 :root {
   /* Jund: Black (B) / Red (R) / Green (G) */
   --bg: #1c1a17;
-  --panel: #2a221d;
+  --panel: #352b24;
   --ink: #e2d7cb;
   --muted: #a08d7d;
-  --line: #5a473c;
+  --line: #6a5548;
   --accent: #8a4c35;          /* Jund red / volcanic bloodline */
   --accent-strong: #a6613f;
   --warning: #3f341f;
@@ -32,7 +32,7 @@
   --panel-fallback-bg: #231f1c;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

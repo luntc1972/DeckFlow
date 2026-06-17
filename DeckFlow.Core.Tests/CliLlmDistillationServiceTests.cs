@@ -364,20 +364,20 @@ public sealed class CliLlmDistillationServiceTests
     }
 
     [Fact]
-    public async Task BuildSpec_OverrideNonJson_ThrowsFastRunnerNotInvoked()
-        => await AssertBadOverrideThrowsFastAsync("not json");
+    public async Task BuildSpec_OverrideNonJson_ThrowsLlmCliConfigurationException()
+        => await AssertBadOverrideThrowsConfigExceptionAsync("not json");
 
     [Fact]
-    public async Task BuildSpec_OverrideMissingPlaceholder_ThrowsFastRunnerNotInvoked()
-        => await AssertBadOverrideThrowsFastAsync("[\"wsl.exe\",\"claude\",\"-p\"]");
+    public async Task BuildSpec_OverrideMissingPlaceholder_ThrowsLlmCliConfigurationException()
+        => await AssertBadOverrideThrowsConfigExceptionAsync("[\"wsl.exe\",\"claude\",\"-p\"]");
 
     [Fact]
-    public async Task BuildSpec_OverrideDuplicatePlaceholder_ThrowsFastRunnerNotInvoked()
-        => await AssertBadOverrideThrowsFastAsync("[\"wsl.exe\",\"claude\",\"-p\",\"{instruction}\",\"{instruction}\"]");
+    public async Task BuildSpec_OverrideDuplicatePlaceholder_ThrowsLlmCliConfigurationException()
+        => await AssertBadOverrideThrowsConfigExceptionAsync("[\"wsl.exe\",\"claude\",\"-p\",\"{instruction}\",\"{instruction}\"]");
 
     [Fact]
-    public async Task BuildSpec_OverrideEmptyArray_ThrowsFastRunnerNotInvoked()
-        => await AssertBadOverrideThrowsFastAsync("[]");
+    public async Task BuildSpec_OverrideEmptyArray_ThrowsLlmCliConfigurationException()
+        => await AssertBadOverrideThrowsConfigExceptionAsync("[]");
 
     private static CliLlmDistillationService CreateService(Queue<string> stdoutQueue, TimeSpan? timeout = null)
         => new(
@@ -385,7 +385,7 @@ public sealed class CliLlmDistillationServiceTests
             (_, _, _) => Task.FromResult(stdoutQueue.Dequeue()),
             timeout);
 
-    private static async Task AssertBadOverrideThrowsFastAsync(string overrideValue)
+    private static async Task AssertBadOverrideThrowsConfigExceptionAsync(string overrideValue)
     {
         var invocations = 0;
         var service = new CliLlmDistillationService(
@@ -396,7 +396,7 @@ public sealed class CliLlmDistillationServiceTests
                 return Task.FromResult(ClaudeEnvelope("""{"summary":"Should not run."}"""));
             });
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+        var exception = await Assert.ThrowsAsync<LlmCliConfigurationException>(
             () => WithCommandOverrideAsync(overrideValue, () => service.SummarizeAsync("transcript")));
 
         Assert.Equal(0, invocations);

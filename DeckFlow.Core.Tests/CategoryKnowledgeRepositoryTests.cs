@@ -282,8 +282,9 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         var indexNames = await GetDeckQueueIndexNamesAsync();
         Assert.Contains("ix_deck_queue_processed", indexNames);
         Assert.Contains("ix_deck_queue_processed_inserted_deck", indexNames);
-        Assert.Contains("ix_deck_queue_processed_commander", indexNames);
-        Assert.Contains("ix_deck_queue_processed_commander_lower", indexNames);
+        Assert.DoesNotContain("ix_deck_queue_processed_commander", indexNames);
+        Assert.DoesNotContain("ix_deck_queue_processed_commander_lower", indexNames);
+        Assert.Contains("ix_deck_queue_commander_lower_processed", indexNames);
     }
 
     [Fact]
@@ -398,7 +399,8 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
                 'ix_deck_queue_processed',
                 'ix_deck_queue_processed_inserted_deck',
                 'ix_deck_queue_processed_commander',
-                'ix_deck_queue_processed_commander_lower')
+                'ix_deck_queue_processed_commander_lower',
+                'ix_deck_queue_commander_lower_processed')
             ORDER BY name;
             """;
 

@@ -1,0 +1,1513 @@
+@page "/harvest"
+@implements IDisposable
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Integration
+@using DeckFlow.Core.Orchestration
+@using DeckFlow.Studio.Services
+@using System.Diagnostics
+
+<PageTitle>Harvest + Distill</PageTitle>
+
+<h1 class="h4 fw-semibold">Harvest + Distill</h1>
+<p class="text-muted">Discover videos, harvest transcripts, and distill to knowledge base.</p>
+
+<article class="content px-4">
+
+    @* ─── Section 1: Channel or Playlist Browse (HARV-01) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Browse Channel or Playlist</h2>
+        </div>
+        <div class="card-body">
+            @if (_operationInFlight)
+            {
+                <div class="alert alert-info py-2 mb-3">
+                    Harvest or distill in progress — channel browse unavailable.
+                </div>
+            }
+            <div class="row g-2 align-items-end mb-1">
+                <div class="col-md-5">
+                    <label for="channelInput" class="form-label fw-semibold small">YouTube channel URL, handle, ID, or playlist URL</label>
+                    <input id="channelInput" type="text" class="form-control"
+                           placeholder="e.g. @@SomeCreator or https://youtube.com/playlist?list=PL..."
+                           @bind="_channelInput"
+                           disabled="@_operationInFlight" />
+                </div>
+                <div class="col-md-2">
+                    <label for="browseLimit" class="form-label fw-semibold small">Count</label>
+                    <input id="browseLimit" type="number" class="form-control"
+                           min="1" max="200"
+                           @bind="_browseLimit"
+                           disabled="@_operationInFlight" />
+                </div>
+                <div class="col-md-2">
+                    <label for="browseSkip" class="form-label fw-semibold small">Skip</label>
+                    <input id="browseSkip" type="number" class="form-control"
+                           min="0"
+                           @bind="_browseSkip"
+                           disabled="@_operationInFlight"
+                           aria-describedby="browseSkipHint" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100"
+                            @onclick="BrowseChannelAsync"
+                            disabled="@(_operationInFlight || _isBrowsingChannel)">
+                        @if (_isBrowsingChannel)
+                        {
+                            <span class="spinner-border spinner-border-sm text-primary"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Fetching channel videos...</span>
+                        }
+                        else
+                        {
+                            <span>Browse</span>
+                        }
+                    </button>
+                </div>
+            </div>
+            <div id="browseSkipHint" class="form-text mb-3">Channel or playlist URL accepted. Skip the newest N items to reach older videos (with Count, acts as a page window).</div>
+
+            @if (!string.IsNullOrEmpty(_channelBrowseError))
+            {
+                <div class="alert alert-danger py-2">@_channelBrowseError</div>
+            }
+
+            @if (_channelVideos.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width:40px">
+                                    <input type="checkbox"
+                                           @onclick="ToggleAllChannelSelections"
+                                           checked="@_allChannelSelected"
+                                           aria-label="Select all channel videos" />
+                                </th>
+                                <th scope="col" style="width:50px">Thumb</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Published</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vm in _channelVideos)
+                            {
+                                <tr class="@(vm.Status == VideoStatus.Harvested || vm.Status == VideoStatus.Distilled ? "table-secondary" : "")">
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@vm.Selected"
+                                               @onchange="() => vm.Selected = !vm.Selected"
+                                               aria-label="Select @vm.Title" />
+                                    </td>
+                                    <td>
+                                        <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
+                                             width="40" height="30"
+                                             alt=""
+                                             onerror="this.style.display='none'" />
+                                    </td>
+                                    <td>
+                                        <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                    </td>
+                                    <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@RenderBadge(vm.Status)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (_channelBrowseDone && string.IsNullOrEmpty(_channelBrowseError))
+            {
+                <p class="text-muted">No videos found for this channel. Check the handle or URL and try again.</p>
+            }
+        </div>
+    </div>
+
+    @* ─── Section 2: URL/ID Paste Queue (HARV-02) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">URL / ID Paste Queue</h2>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="pasteQueue" class="form-label fw-semibold small">Paste video URLs or IDs, or a playlist URL (one per line)</label>
+                <textarea id="pasteQueue" class="form-control" rows="4"
+                          @bind="_pasteQueueText"
+                          disabled="@_operationInFlight"></textarea>
+            </div>
+            <button class="btn btn-outline-secondary"
+                    @onclick="AddToQueueAsync"
+                    disabled="@(_operationInFlight || _isAddingToQueue)">
+                @if (_isAddingToQueue)
+                {
+                    <span class="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Resolving...</span>
+                }
+                else
+                {
+                    <span>Add to Queue</span>
+                }
+            </button>
+
+            @if (!string.IsNullOrEmpty(_queueAddError))
+            {
+                <div class="alert alert-danger py-2 mt-2">@_queueAddError</div>
+            }
+
+            @if (_queueVideos.Count > 0)
+            {
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width:40px">
+                                    <input type="checkbox"
+                                           @onclick="ToggleAllQueueSelections"
+                                           checked="@_allQueueSelected"
+                                           aria-label="Select all queued videos" />
+                                </th>
+                                <th scope="col" style="width:50px">Thumb</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Published</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" style="width:50px"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vm in _queueVideos)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@vm.Selected"
+                                               @onchange="() => vm.Selected = !vm.Selected"
+                                               aria-label="Select @vm.Title" />
+                                    </td>
+                                    <td>
+                                        <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
+                                             width="40" height="30"
+                                             alt=""
+                                             onerror="this.style.display='none'" />
+                                    </td>
+                                    <td>
+                                        <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                    </td>
+                                    <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@RenderBadge(vm.Status)</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => RemoveFromQueue(vm)"
+                                                aria-label="Remove video from queue">
+                                            <span class="oi oi-x" aria-hidden="true"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted mt-2">No videos in queue. Paste URLs or IDs above, or browse a channel.</p>
+            }
+        </div>
+    </div>
+
+    <hr class="mt-4" />
+
+    @* ─── Section 3: Harvest Trigger (HARV-04) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Harvest</h2>
+        </div>
+        <div class="card-body">
+            @{
+                var selectedVideos = GetAllSelectedVideos();
+                var selectedCount = selectedVideos.Count;
+                var alreadyHarvestedCount = selectedVideos.Count(v => v.Status == VideoStatus.Harvested || v.Status == VideoStatus.Distilled);
+            }
+
+            <p>
+                <strong>@selectedCount</strong> video@(selectedCount == 1 ? "" : "s") selected
+                @if (alreadyHarvestedCount > 0)
+                {
+                    <span>(@alreadyHarvestedCount already harvested)</span>
+                }
+            </p>
+
+            @if (alreadyHarvestedCount > 0)
+            {
+                <p class="text-warning">
+                    <span class="oi oi-warning" aria-hidden="true"></span>
+                    @alreadyHarvestedCount selected video@(alreadyHarvestedCount == 1 ? "" : "s") already harvested — these will be skipped by the harvester.
+                </p>
+            }
+
+            @if (selectedCount == 0 && !_operationInFlight)
+            {
+                <p class="text-muted">Select at least one video to harvest.</p>
+            }
+
+            <div class="d-flex gap-2 align-items-center mb-3">
+                <button class="btn btn-primary"
+                        @onclick="HarvestSelectedAsync"
+                        disabled="@(selectedCount == 0 || _operationInFlight)">
+                    Harvest Selected
+                </button>
+                @if (_operationInFlight)
+                {
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="CancelOperation">
+                        Cancel Harvest
+                    </button>
+                }
+            </div>
+
+            @if (_operationInFlight || _logLines.Count > 0)
+            {
+                <div class="mb-2">
+                    @if (_operationInFlight)
+                    {
+                        <span class="fw-semibold me-2">Harvesting...</span>
+                        <div class="spinner-border spinner-border-sm text-primary d-inline-block"
+                             role="status"
+                             aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    }
+                    else if (_harvestResult is not null)
+                    {
+                        @if (_harvestResult.Success)
+                        {
+                            <span class="oi oi-check text-success me-1" aria-hidden="true"></span>
+                            <span>Harvest complete — @_harvestResult.Captions transcript@(_harvestResult.Captions == 1 ? "" : "s") from captions, @_harvestResult.Whisper via Whisper, @_harvestResult.SkippedNoCaptions skipped (no captions).</span>
+                        }
+                        else
+                        {
+                            <span class="oi oi-warning text-danger me-1" aria-hidden="true"></span>
+                            <span>Harvest stopped — @(_harvestResult.Message ?? "Unknown error"). Check the log above for details.</span>
+                        }
+                    }
+                    else if (_harvestCancelled)
+                    {
+                        <span class="text-muted">Harvest cancelled.</span>
+                    }
+                </div>
+
+                <pre class="bg-light border rounded p-2"
+                     style="height:200px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"
+                     role="log"
+                     aria-live="polite">@string.Join("\n", _logLines)</pre>
+            }
+        </div>
+    </div>
+
+    @* ─── Section 4: Distill Spend Gate (HARV-05) ─── *@
+    <div class="card mt-4">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Distill</h2>
+        </div>
+        <div class="card-body">
+
+            @* ─── DB-backed pending-distill loader (quick task 260615-p4d) ─── *@
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary"
+                        @onclick="LoadPendingDistillAsync"
+                        disabled="@(_operationInFlight || _loadingPending)">
+                    @if (_loadingPending)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"
+                              role="status"
+                              aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span> Loading...</span>
+                    }
+                    else
+                    {
+                        <span>Load harvested (pending distill)</span>
+                    }
+                </button>
+                <span class="form-text d-block">Loads harvested-but-not-distilled videos from the local DB so you can distill without re-browsing.</span>
+
+                @if (!string.IsNullOrEmpty(_pendingDistillMessage))
+                {
+                    <div class="alert alert-info py-2 mt-2 mb-0">@_pendingDistillMessage</div>
+                }
+            </div>
+
+            @if (_pendingLoaded && _pendingDistillVideos.Count > 0)
+            {
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width:40px">
+                                    <input type="checkbox"
+                                           @onclick="ToggleAllPendingSelections"
+                                           checked="@_allPendingSelected"
+                                           aria-label="Select all pending-distill videos" />
+                                </th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Published</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vm in _pendingDistillVideos)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@vm.Selected"
+                                               @onchange="() => vm.Selected = !vm.Selected"
+                                               aria-label="Select @vm.Title" />
+                                    </td>
+                                    <td>
+                                        <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                    </td>
+                                    <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@RenderBadge(vm.Status)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @{
+                var allSelectedForDistill = GetAllSelectedForDistill();
+                var distillHarvested = allSelectedForDistill.Where(v => v.Status == VideoStatus.Harvested).ToList();
+                var distillAlreadyDistilled = allSelectedForDistill.Where(v => v.Status == VideoStatus.Distilled).ToList();
+                var readyCount = distillHarvested.Count;
+                var alreadyDistilledCount = distillAlreadyDistilled.Count;
+                var redistillConfirmed = _redistillCheck1 && _redistillCheck2;
+                var distillIds = redistillConfirmed
+                    ? distillHarvested.Select(v => v.VideoId).Concat(distillAlreadyDistilled.Select(v => v.VideoId)).ToList().AsReadOnly()
+                    : distillHarvested.Select(v => v.VideoId).ToList().AsReadOnly();
+                var dryRunButtonEnabled = !_operationInFlight
+                    && (alreadyDistilledCount == 0 || redistillConfirmed)
+                    && (readyCount > 0 || (alreadyDistilledCount > 0 && redistillConfirmed));
+            }
+
+            @* Pre-conditions: ready count + cap display *@
+            <div class="mb-3">
+                <p>
+                    <strong>Videos ready to distill: @readyCount</strong>
+                    @if (DistillConfig.IsSubscriptionProvider)
+                    {
+                        <span class="ms-2 badge bg-info text-dark">Subscription ($0)</span>
+                    }
+                    else
+                    {
+                        <span class="ms-2 badge bg-warning text-dark">Metered</span>
+                    }
+                </p>
+
+                @* Cap display (D-02) *@
+                <div class="d-flex gap-3 align-items-center flex-wrap mb-2">
+                    <span>Monthly cap: <strong>$@_monthlyCap.ToString("F2")</strong></span>
+                    <span>Spent this month: <strong>$@_monthlySpent.ToString("F2")</strong></span>
+                    <span>Remaining: <strong class="@(_monthlyCap - _monthlySpent < 0 ? "text-danger" : "text-success")">$@((_monthlyCap - _monthlySpent).ToString("F2"))</strong></span>
+                </div>
+
+                @* Session cap-raise control (D-03) *@
+                <div class="d-flex gap-2 align-items-end flex-wrap">
+                    <div>
+                        <label for="capRaiseInput" class="form-label fw-semibold small">Raise cap (this session only)</label>
+                        <input id="capRaiseInput" type="number" class="form-control form-control-sm"
+                               style="width:120px"
+                               min="0" step="1"
+                               @bind="_capRaiseInput"
+                               placeholder="@_monthlyCap.ToString("F2")" />
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm"
+                            @onclick="RaiseCapAsync"
+                            disabled="@_operationInFlight">
+                        Raise cap
+                    </button>
+                </div>
+                <p class="text-muted small mt-1">Session-only override — resets to env/default on Studio restart.</p>
+            </div>
+
+            @* Re-distill warning + double-confirm (Pitfall 3 / T-45-10) *@
+            @if (alreadyDistilledCount > 0)
+            {
+                <div class="alert alert-warning py-2 mb-3">
+                    <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                    Warning: @alreadyDistilledCount selected video@(alreadyDistilledCount == 1 ? "" : "s") have already been distilled. Re-distilling will overwrite existing summaries.
+                </div>
+
+                <div class="mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="redistillCheck1"
+                               @bind="_redistillCheck1" />
+                        <label class="form-check-label" for="redistillCheck1">
+                            Re-distill already-distilled videos (additional spend)
+                        </label>
+                    </div>
+                </div>
+
+                @if (_redistillCheck1)
+                {
+                    <div class="mb-3 ms-3">
+                        <p class="mb-1 text-warning small">
+                            You are about to re-distill @alreadyDistilledCount video@(alreadyDistilledCount == 1 ? "" : "s") that already have summaries.
+                            This will overwrite existing distill output. Are you sure?
+                        </p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="redistillCheck2"
+                                   @bind="_redistillCheck2" />
+                            <label class="form-check-label" for="redistillCheck2">
+                                Yes, I understand — overwrite existing distill output for @alreadyDistilledCount video@(alreadyDistilledCount == 1 ? "" : "s").
+                            </label>
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (DistillConfig.IsSubscriptionProvider)
+            {
+                @* Subscription ($0): the dry-run is a spend-safety gate (HARV-05). With no metered
+                   spend there is nothing to estimate, so Run Distill is reachable directly. The
+                   re-distill double-confirm (folded into dryRunButtonEnabled) still applies. *@
+                <p class="text-muted small mb-2">Subscription provider ($0) — no spend estimate needed.</p>
+                <div class="d-flex gap-2 align-items-center mb-3">
+                    <button class="btn btn-primary"
+                            @onclick="() => RunDistillStageBAsync(distillIds, redistillConfirmed)"
+                            disabled="@(!dryRunButtonEnabled || _distillLiveInFlight)">
+                        @if (_distillLiveInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Distilling...</span>
+                        }
+                        else
+                        {
+                            <span>Run Distill</span>
+                        }
+                    </button>
+                    @if (_distillLiveInFlight)
+                    {
+                        <button class="btn btn-outline-danger btn-sm"
+                                @onclick="CancelOperation">
+                            Cancel Distill
+                        </button>
+                        <span class="text-muted small ms-2">Elapsed: @FormatElapsed(_distillStopwatch?.Elapsed ?? TimeSpan.Zero)</span>
+                    }
+                </div>
+            }
+            else
+            {
+            @* Stage A: Dry-run trigger *@
+            <div class="d-flex gap-2 align-items-center mb-3">
+                <button class="btn btn-outline-primary"
+                        @onclick="() => RunDistillStageAAsync(distillIds, redistillConfirmed)"
+                        disabled="@(!dryRunButtonEnabled)">
+                    @if (_distillDryRunInFlight)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"
+                              role="status"
+                              aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span> Estimating spend...</span>
+                    }
+                    else
+                    {
+                        <span>Estimate Spend (dry run)</span>
+                    }
+                </button>
+                @if (_distillDryRunInFlight)
+                {
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="CancelOperation">
+                        Cancel Distill
+                    </button>
+                }
+            </div>
+
+            @* Dry-run progress log *@
+            @if (_distillDryRunInFlight || (_distillLogLines.Count > 0 && _distillDryRunResult is null && !_distillLiveInFlight))
+            {
+                <pre class="bg-light border rounded p-2"
+                     style="height:150px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"
+                     role="log"
+                     aria-live="polite">@string.Join("\n", _distillLogLines)</pre>
+            }
+
+            @* Dry-run result card *@
+            @if (_distillDryRunResult is not null && !_distillDryRunInFlight)
+            {
+                var remaining = _monthlyCap - _monthlySpent;
+                var capExceeded = !DistillConfig.IsSubscriptionProvider
+                    && _distillDryRunResult.ProjectedSpendUsd > remaining;
+
+                <div class="card border-primary mb-3">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold text-primary mb-2">Dry-run complete</h3>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Videos that would distill:</dt>
+                            <dd class="col-sm-7">@_distillDryRunResult.WouldRun</dd>
+                            <dt class="col-sm-5">Projected spend:</dt>
+                            <dd class="col-sm-7">$@_distillDryRunResult.ProjectedSpendUsd.ToString("F4") USD</dd>
+                            <dt class="col-sm-5">Monthly cap remaining:</dt>
+                            <dd class="col-sm-7">$@remaining.ToString("F2") USD</dd>
+                        </dl>
+
+                        @if (capExceeded)
+                        {
+                            <div class="alert alert-danger py-2 mt-2 mb-0">
+                                <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                                Projected spend ($@_distillDryRunResult.ProjectedSpendUsd.ToString("F4")) exceeds your monthly cap ($@_monthlyCap.ToString("F2")). Reduce selection or raise the cap.
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* Stage B: available only after a successful dry-run with no cap-exceeded block *@
+                @if (!capExceeded)
+                {
+                    <div class="mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="distillConfirm"
+                                   @bind="_distillSpendConfirmed" />
+                            <label class="form-check-label" for="distillConfirm">
+                                I have reviewed the estimated spend above and want to proceed with actual distillation.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center mb-3">
+                        <button class="btn btn-primary"
+                                @onclick="() => RunDistillStageBAsync(distillIds, redistillConfirmed)"
+                                disabled="@(!_distillSpendConfirmed || _operationInFlight)">
+                            @if (_distillLiveInFlight)
+                            {
+                                <span class="spinner-border spinner-border-sm"
+                                      role="status"
+                                      aria-label="Operation in progress">
+                                    <span class="visually-hidden">Loading...</span>
+                                </span>
+                                <span> Distilling...</span>
+                            }
+                            else
+                            {
+                                <span>Run Distill</span>
+                            }
+                        </button>
+                        @if (_distillLiveInFlight)
+                        {
+                            <button class="btn btn-outline-danger btn-sm"
+                                    @onclick="CancelOperation">
+                                Cancel Distill
+                            </button>
+                            <span class="text-muted small ms-2">Elapsed: @FormatElapsed(_distillStopwatch?.Elapsed ?? TimeSpan.Zero)</span>
+                        }
+                    </div>
+                }
+            }
+            }
+
+            @* Stage B progress log and result *@
+            @if (_distillLiveInFlight || _distillLogLines.Count > 0 && (_distillLiveInFlight || _distillLiveResult is not null || _distillCancelled))
+            {
+                <pre class="bg-light border rounded p-2"
+                     style="height:150px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"
+                     role="log"
+                     aria-live="polite">@string.Join("\n", _distillLogLines)</pre>
+            }
+
+            @* Stage B result *@
+            @if (_distillLiveResult is not null && !_distillLiveInFlight)
+            {
+                @if (!_distillLiveResult.Success && !string.IsNullOrEmpty(_distillLiveResult.AbortedReason))
+                {
+                    <div class="alert alert-danger py-2">
+                        <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                        Distill aborted: @_distillLiveResult.AbortedReason
+                    </div>
+                }
+                else if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
+                {
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h3 class="h6 fw-semibold text-success mb-2">Distill complete</h3>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5">Videos distilled:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.VideosDistilled</dd>
+                                <dt class="col-sm-5">LLM calls:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.LlmCalls</dd>
+                                <dt class="col-sm-5">Actual spend:</dt>
+                                <dd class="col-sm-7">$@_distillLiveResult.LlmSpendUsd.ToString("F4") USD</dd>
+                                <dt class="col-sm-5">Videos filtered:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.VideosFiltered</dd>
+                                <dt class="col-sm-5">Failed:</dt>
+                                <dd class="col-sm-7">@_distillLiveResult.DistillFailed</dd>
+                                <dt class="col-sm-5">Total time:</dt>
+                                <dd class="col-sm-7">@FormatElapsed(_distillTotalElapsed ?? TimeSpan.Zero)</dd>
+                            </dl>
+
+                            @if (_distillLiveResult.DistillFailed > 0)
+                            {
+                                <div class="alert alert-warning py-2 mt-2 mb-0">
+                                    <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                                    Failed video IDs: @string.Join(", ", _distillLiveResult.FailedVideoIds)
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (_distillCancelled && !_distillLiveInFlight && !_distillDryRunInFlight)
+            {
+                <p class="text-muted">Distill cancelled.</p>
+            }
+        </div>
+    </div>
+
+</article>
+
+@code {
+    // ── Injected services ───────────────────────────────────────────────────
+    [Inject]
+    private IYouTubeChannelVideoLister Lister { get; set; } = default!;
+
+    [Inject]
+    private IHarvestOrchestrator HarvestOrchestrator { get; set; } = default!;
+
+    [Inject]
+    private IContentSourceManager SourceManager { get; set; } = default!;
+
+    [Inject]
+    private VideoStatusResolver StatusResolver { get; set; } = default!;
+
+    // Why: Injected now so the inject block is stable; distill wiring lands in Wave 4 (Plan 04).
+    [Inject]
+    private IDistillOrchestrator DistillOrchestrator { get; set; } = default!;
+
+    [Inject]
+    private StudioDistillConfig DistillConfig { get; set; } = default!;
+
+    [Inject]
+    private SessionCapOverride CapOverride { get; set; } = default!;
+
+    [Inject]
+    private ILlmSpendLedger SpendLedger { get; set; } = default!;
+
+    // ── Section 1 state ─────────────────────────────────────────────────────
+    private string _channelInput = string.Empty;
+    private int _browseLimit = 25;
+    private int _browseSkip;
+    private bool _isBrowsingChannel;
+    private bool _channelBrowseDone;
+    private string _channelBrowseError = string.Empty;
+    private List<VideoViewModel> _channelVideos = new();
+    private bool _allChannelSelected;
+    // Why: tracks the last successfully-browsed channel URL so harvest can auto-ensure a source
+    // for it. Empty string means no channel has been browsed yet in this session.
+    private string _lastBrowsedChannel = string.Empty;
+
+    // ── Section 2 state ─────────────────────────────────────────────────────
+    private string _pasteQueueText = string.Empty;
+    private bool _isAddingToQueue;
+    private string _queueAddError = string.Empty;
+    private List<VideoViewModel> _queueVideos = new();
+    private bool _allQueueSelected;
+
+    // ── Section 3 harvest state ──────────────────────────────────────────────
+    private CancellationTokenSource? _cts;
+    private bool _operationInFlight;
+    private List<string> _logLines = new();
+    private HarvestResult? _harvestResult;
+    private bool _harvestCancelled;
+
+    // ── Section 4 distill state ──────────────────────────────────────────────
+    // Cap display (D-02): loaded at page init and refreshed after distill.
+    private decimal _monthlyCap;
+    private decimal _monthlySpent;
+    private string _capRaiseInput = string.Empty;
+
+    // Re-distill double-confirm (T-45-10 / Pitfall 3).
+    // _redistillCheck1: "Re-distill already-distilled videos"
+    // _redistillCheck2: "Yes, I understand — overwrite existing distill output"
+    // redistillConfirmed (computed in markup): _redistillCheck1 && _redistillCheck2
+    private bool _redistillCheck1;
+    private bool _redistillCheck2;
+
+    // Stage A dry-run state.
+    private bool _distillDryRunInFlight;
+    private List<string> _distillLogLines = new();
+    private DistillResult? _distillDryRunResult;
+
+    // Stage B live-distill state.
+    private bool _distillSpendConfirmed;
+    private bool _distillLiveInFlight;
+    private DistillResult? _distillLiveResult;
+    private bool _distillCancelled;
+
+    // Stage B timing (quick task 260615-t7m): live elapsed clock + total time after completion.
+    private Stopwatch? _distillStopwatch;
+    private TimeSpan? _distillTotalElapsed;
+    private CancellationTokenSource? _distillTickerCts;
+
+    // DB-backed pending-distill loader (quick task 260615-p4d): survives an app/circuit
+    // restart so harvested-but-not-distilled videos can be selected without re-browsing.
+    private List<VideoViewModel> _pendingDistillVideos = new();
+    private bool _pendingLoaded;
+    private bool _loadingPending;
+    private bool _allPendingSelected;
+    private string _pendingDistillMessage = string.Empty;
+
+    // ── Section 1: Channel or Playlist Browse (HARV-01) ────────────────────
+    private async Task BrowseChannelAsync()
+    {
+        if (_operationInFlight || _isBrowsingChannel || string.IsNullOrWhiteSpace(_channelInput))
+        {
+            return;
+        }
+
+        _isBrowsingChannel = true;
+        _channelBrowseError = string.Empty;
+        _channelBrowseDone = false;
+        _channelVideos.Clear();
+
+        var input = _channelInput.Trim();
+        // Why: detect a playlist URL by the presence of "list=" or "playlist?" in the input.
+        // Channel URLs and handles never contain these tokens.
+        var isPlaylist = input.Contains("list=", StringComparison.OrdinalIgnoreCase)
+            || input.Contains("playlist?", StringComparison.OrdinalIgnoreCase);
+
+        // Why: CTS created per-operation so cancel-on-dispose works for browse too.
+        using var browseCts = new CancellationTokenSource();
+        try
+        {
+            // Why: Task.Run moves the lister off the Blazor sync context (Pattern 2 — Pitfall 1).
+            // AngleSharp requires serialized access; lister enforces SemaphoreSlim(1) internally.
+            var videos = await Task.Run(
+                () => isPlaylist
+                    ? Lister.ListPlaylistAsync(input, _browseLimit, _browseSkip, browseCts.Token)
+                    : Lister.ListRecentAsync(input, _browseLimit, _browseSkip, browseCts.Token),
+                browseCts.Token);
+
+            // Resolve badges for each video at list-build time (HARV-03).
+            foreach (var v in videos)
+            {
+                var status = await StatusResolver.ResolveStatusAsync(v.VideoId, browseCts.Token);
+                _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status, v.ChannelId, v.ChannelTitle));
+            }
+
+            // Why: record last successfully-browsed channel (not playlist) so it can serve as
+            // a fallback source hint for videos that lack ChannelId. Do NOT overwrite with a
+            // playlist URL — a playlist spans channels and is not a valid channel source URL.
+            if (!isPlaylist)
+            {
+                _lastBrowsedChannel = input;
+            }
+
+            _channelBrowseDone = true;
+        }
+        catch (OperationCanceledException)
+        {
+            _channelBrowseError = "Browse was cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _channelBrowseError = $"Could not fetch — {ex.Message}. Check the URL format and try again.";
+        }
+        finally
+        {
+            _isBrowsingChannel = false;
+            _allChannelSelected = false;
+        }
+    }
+
+    private void ToggleAllChannelSelections()
+    {
+        _allChannelSelected = !_allChannelSelected;
+        foreach (var vm in _channelVideos)
+        {
+            vm.Selected = _allChannelSelected;
+        }
+    }
+
+    // ── Section 2: URL/ID Paste Queue (HARV-02) ─────────────────────────────
+    private async Task AddToQueueAsync()
+    {
+        if (_operationInFlight || _isAddingToQueue || string.IsNullOrWhiteSpace(_pasteQueueText))
+        {
+            return;
+        }
+
+        var rawLines = _pasteQueueText
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToList();
+
+        if (rawLines.Count == 0)
+        {
+            return;
+        }
+
+        _isAddingToQueue = true;
+        _queueAddError = string.Empty;
+
+        using var addCts = new CancellationTokenSource();
+        try
+        {
+            // Why: a pasted playlist URL is expanded via ListPlaylistAsync (bounded by Count); the
+            // remaining lines resolve as individual video ids/urls through GetByIdsAsync. Lister calls
+            // are serialized (no Task.WhenAll) to honor AngleSharp's single-thread constraint (Pitfall 6).
+            var playlistLines = rawLines
+                .Where(l => l.Contains("list=", StringComparison.OrdinalIgnoreCase)
+                    || l.Contains("playlist?", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var idLines = rawLines.Except(playlistLines).ToList();
+            var limit = _browseLimit;
+            var videos = await Task.Run(
+                async () =>
+                {
+                    var collected = new List<YouTubeChannelVideo>();
+                    foreach (var pl in playlistLines)
+                    {
+                        collected.AddRange(await Lister.ListPlaylistAsync(pl, limit, 0, addCts.Token).ConfigureAwait(false));
+                    }
+                    if (idLines.Count > 0)
+                    {
+                        collected.AddRange(await Lister.GetByIdsAsync(idLines.AsReadOnly(), addCts.Token).ConfigureAwait(false));
+                    }
+                    return (IReadOnlyList<YouTubeChannelVideo>)collected;
+                },
+                addCts.Token);
+
+            foreach (var v in videos)
+            {
+                // Skip if already in queue (by VideoId).
+                if (_queueVideos.Any(q => q.VideoId == v.VideoId))
+                {
+                    continue;
+                }
+
+                var status = await StatusResolver.ResolveStatusAsync(v.VideoId, addCts.Token);
+
+                // Why: the paste queue shows Duplicate badge for already-in-DB videos (HARV-02).
+                // Duplicate = Harvested or Distilled — a pre-harvest warning, not auto-exclusion.
+                var displayStatus = (status == VideoStatus.Harvested || status == VideoStatus.Distilled)
+                    ? VideoStatus.Duplicate
+                    : status;
+
+                _queueVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, displayStatus, v.ChannelId, v.ChannelTitle));
+            }
+
+            _pasteQueueText = string.Empty;
+        }
+        catch (ArgumentException ex)
+        {
+            // Why: GetByIdsAsync throws ArgumentException on unparseable input (T-45-06).
+            _queueAddError = $"Could not fetch — {ex.Message}";
+        }
+        catch (OperationCanceledException)
+        {
+            _queueAddError = "Queue add was cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _queueAddError = $"Could not fetch — {ex.Message}";
+        }
+        finally
+        {
+            _isAddingToQueue = false;
+            _allQueueSelected = false;
+        }
+    }
+
+    private void RemoveFromQueue(VideoViewModel vm)
+    {
+        _queueVideos.Remove(vm);
+    }
+
+    private void ToggleAllQueueSelections()
+    {
+        _allQueueSelected = !_allQueueSelected;
+        foreach (var vm in _queueVideos)
+        {
+            vm.Selected = _allQueueSelected;
+        }
+    }
+
+    // ── Section 3: Harvest Trigger (HARV-04) ────────────────────────────────
+    private IReadOnlyList<VideoViewModel> GetAllSelectedVideos()
+    {
+        return _channelVideos.Where(v => v.Selected)
+            .Concat(_queueVideos.Where(v => v.Selected))
+            .ToList();
+    }
+
+    // ── DB-backed pending-distill loader (quick task 260615-p4d) ─────────────
+
+    /// <summary>
+    /// Combines the session-selected videos with the selected DB-backed pending-distill videos,
+    /// de-duplicating by VideoId so a video that is both browsed and pending counts once.
+    /// Used by the Distill section only — the Harvest section keeps <see cref="GetAllSelectedVideos"/>.
+    /// </summary>
+    private IReadOnlyList<VideoViewModel> GetAllSelectedForDistill()
+    {
+        return GetAllSelectedVideos()
+            .Concat(_pendingDistillVideos.Where(v => v.Selected))
+            .GroupBy(v => v.VideoId)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    /// <summary>
+    /// Loads harvested-but-not-yet-distilled videos across all enabled sources from the local DB so
+    /// the operator can distill them after an app/circuit restart without re-browsing a channel.
+    /// </summary>
+    private async Task LoadPendingDistillAsync()
+    {
+        if (_operationInFlight || _loadingPending)
+        {
+            return;
+        }
+
+        _loadingPending = true;
+        _pendingDistillMessage = string.Empty;
+
+        // Why: a short DB read — do NOT reuse an in-flight distill CTS. A fresh local CTS keeps
+        // this load cancel-on-dispose-safe without tying it to a running distill operation.
+        using var pendingCts = new CancellationTokenSource();
+        try
+        {
+            var pending = await Task.Run(
+                () => DistillOrchestrator.ListPendingDistillAsync(pendingCts.Token),
+                pendingCts.Token);
+
+            _pendingDistillVideos = pending
+                .Select(p => new VideoViewModel(p.YoutubeVideoId, p.VideoUrl, p.Title, p.PublishedUtc, VideoStatus.Harvested)
+                {
+                    Selected = false,
+                })
+                .ToList();
+            _pendingLoaded = true;
+            _allPendingSelected = false;
+
+            if (_pendingDistillVideos.Count == 0)
+            {
+                _pendingDistillMessage = "No harvested videos pending distill.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _pendingDistillMessage = "Loading pending-distill videos was cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _pendingDistillMessage = $"Could not load pending-distill videos — {ex.Message}";
+        }
+        finally
+        {
+            _loadingPending = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ToggleAllPendingSelections()
+    {
+        _allPendingSelected = !_allPendingSelected;
+        foreach (var vm in _pendingDistillVideos)
+        {
+            vm.Selected = _allPendingSelected;
+        }
+    }
+
+    private async Task HarvestSelectedAsync()
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        var selectedVideos = GetAllSelectedVideos();
+        if (selectedVideos.Count == 0)
+        {
+            return;
+        }
+
+        // Resolve a channel URL and name for each selected video.
+        // Videos from the explicit-id queue carry ChannelId from YouTube metadata;
+        // browsed videos carry ChannelId from the playlist/channel feed.
+        // _lastBrowsedChannel is a fallback for videos without ChannelId.
+        var resolvable = new List<(string ChannelUrl, string ChannelName, VideoViewModel Video)>();
+        var unresolvedIds = new List<string>();
+
+        foreach (var v in selectedVideos)
+        {
+            string? channelUrl = !string.IsNullOrWhiteSpace(v.ChannelId)
+                ? $"https://www.youtube.com/channel/{v.ChannelId}"
+                : (!string.IsNullOrWhiteSpace(_lastBrowsedChannel) ? _lastBrowsedChannel : null);
+
+            if (channelUrl is null)
+            {
+                unresolvedIds.Add(v.VideoId);
+                continue;
+            }
+
+            var channelName = v.ChannelTitle ?? v.ChannelId ?? _lastBrowsedChannel;
+            resolvable.Add((channelUrl, channelName ?? channelUrl, v));
+        }
+
+        if (resolvable.Count == 0)
+        {
+            // All selected videos are unresolved — abort cleanly without throwing.
+            _logLines.Clear();
+            _logLines.Add("Could not determine a channel for the selected video(s).");
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (unresolvedIds.Count > 0)
+        {
+            _logLines.Add($"Warning: skipping {unresolvedIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", unresolvedIds)}");
+        }
+
+        _operationInFlight = true;
+        _logLines.Clear();
+        _harvestResult = null;
+        _harvestCancelled = false;
+        _cts = new CancellationTokenSource();
+
+        // Why: the progress sink must marshal BOTH _logLines.Add and StateHasChanged through
+        // InvokeAsync so list mutation and render happen on the Blazor sync context together.
+        // The try/catch swallows ObjectDisposedException and InvalidOperationException from a
+        // disposed renderer — a callback arriving after the component is disposed (operator closed
+        // tab mid-run) must drop silently rather than surface an unobserved exception (T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _logLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        // Group resolvable videos by channel URL so each channel gets exactly one
+        // EnsureYoutubeSourceAsync call and one HarvestAsync call.
+        var groups = resolvable
+            .GroupBy(x => x.ChannelUrl)
+            .Select(g => (
+                ChannelUrl: g.Key,
+                ChannelName: g.First().ChannelName,
+                VideoIds: g.Select(x => x.Video.VideoId).ToList().AsReadOnly()))
+            .ToList();
+
+        var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
+
+        try
+        {
+            // Why: Task.Run moves all IO off the Blazor sync context (Pitfall 1).
+            _harvestResult = await Task.Run(
+                async () =>
+                {
+                    int totalCaptions = 0;
+                    int totalWhisper = 0;
+                    int totalSkipped = 0;
+                    bool anyGroupFailed = false;
+                    string? firstFailureMessage = null;
+
+                    foreach (var group in groups)
+                    {
+                        // Why: EnsureYoutubeSourceAsync creates or re-enables the content source
+                        // for each channel so each group's harvest has a valid sourceId.
+                        var src = await SourceManager.EnsureYoutubeSourceAsync(
+                            group.ChannelUrl,
+                            group.ChannelName,
+                            progress,
+                            _cts.Token).ConfigureAwait(false);
+
+                        if (!src.Success || src.Id is null)
+                        {
+                            anyGroupFailed = true;
+                            firstFailureMessage ??= src.Message ?? $"Could not ensure a content source for {group.ChannelUrl}.";
+                            continue;
+                        }
+
+                        var r = await HarvestOrchestrator.HarvestAsync(
+                            limit: group.VideoIds.Count,
+                            videoIds: group.VideoIds,
+                            sourceId: src.Id,
+                            progress: progress,
+                            cancellationToken: _cts.Token).ConfigureAwait(false);
+
+                        if (!r.Success)
+                        {
+                            anyGroupFailed = true;
+                            firstFailureMessage ??= r.Message;
+                        }
+
+                        totalCaptions += r.Captions;
+                        totalWhisper += r.Whisper;
+                        totalSkipped += r.SkippedNoCaptions;
+                    }
+
+                    return new HarvestResult
+                    {
+                        Success = !anyGroupFailed && groups.Count > 0,
+                        Captions = totalCaptions,
+                        Whisper = totalWhisper,
+                        SkippedNoCaptions = totalSkipped,
+                        Message = anyGroupFailed ? firstFailureMessage : null,
+                    };
+                },
+                _cts.Token);
+
+            // Re-resolve badges for harvested videos to reflect new DB state.
+            if (_harvestResult.Success)
+            {
+                await RefreshBadgesAsync(selectedIds);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logLines.Add("Harvest cancelled.");
+            _harvestCancelled = true;
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void CancelOperation()
+    {
+        _cts?.Cancel();
+    }
+
+    // ── Section 4: Distill Spend Gate (HARV-05) ─────────────────────────────
+
+    /// <summary>
+    /// Loads monthly cap and current-month spend at page init (D-02).
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshCapDisplayAsync();
+    }
+
+    private async Task RefreshCapDisplayAsync()
+    {
+        _monthlyCap = SpendLedger.GetMonthlyCapUsd();
+        var monthKey = DateTime.UtcNow.ToString("yyyy-MM");
+        _monthlySpent = await SpendLedger.GetMonthlyTotalAsync(monthKey);
+    }
+
+    /// <summary>
+    /// Validates and applies a session cap override from the operator input (D-03).
+    /// The new value is written to <see cref="SessionCapOverride.OverrideUsd"/>; the singleton
+    /// ledger immediately reflects it (Pitfall 6 mitigated — same singleton seen by orchestrator).
+    /// </summary>
+    private async Task RaiseCapAsync()
+    {
+        if (!decimal.TryParse(_capRaiseInput, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out var newCap)
+            || newCap < 0m)
+        {
+            // Why: V5 input validation — ignore invalid or negative input without throwing.
+            return;
+        }
+
+        // Why: OverrideUsd write propagates to both the page display (GetMonthlyCapUsd) and
+        // the orchestrator's WouldExceedCapAsync call because both resolve the same singleton (D-03).
+        CapOverride.OverrideUsd = newCap;
+        await RefreshCapDisplayAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Stage A: runs a dry-run distill to project spend before any live execution.
+    /// Passes <paramref name="redistillConfirmed"/> as the <c>redistill:</c> named argument so
+    /// re-distill videos are counted in WouldRun only when the operator double-confirmed (HIGH-4).
+    /// </summary>
+    private async Task RunDistillStageAAsync(
+        IReadOnlyList<string> distillIds,
+        bool redistillConfirmed)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _distillDryRunInFlight = true;
+        _distillLogLines.Clear();
+        _distillDryRunResult = null;
+        _distillLiveResult = null;
+        _distillSpendConfirmed = false;
+        _distillCancelled = false;
+        _cts = new CancellationTokenSource();
+
+        // Why: progress sink must marshal _distillLogLines.Add and StateHasChanged through
+        // InvokeAsync — same disposal-safe pattern as harvest (T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _distillLogLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        try
+        {
+            // Why: Task.Run moves DistillAsync off the Blazor sync context (Pitfall 1).
+            // redistill: is passed by name (HIGH-4) — value is the same gate as the dry-run button
+            // enable condition, so re-distill videos enter distillIds and are counted in WouldRun
+            // only when redistillConfirmed is true.
+            _distillDryRunResult = await Task.Run(
+                () => DistillOrchestrator.DistillAsync(
+                    limit: distillIds.Count,
+                    dryRun: true,
+                    isSubscriptionProvider: DistillConfig.IsSubscriptionProvider,
+                    redistill: redistillConfirmed,
+                    videoIds: distillIds,
+                    progress: progress,
+                    cancellationToken: _cts.Token),
+                _cts.Token);
+
+            await RefreshCapDisplayAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _distillLogLines.Add("Distill cancelled.");
+            _distillCancelled = true;
+        }
+        finally
+        {
+            _distillDryRunInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>
+    /// Stage B: runs the live distill after the operator has reviewed the dry-run and
+    /// confirmed spend. Passes the same <paramref name="redistillConfirmed"/> gate so
+    /// already-distilled videos are only re-processed when the double-confirm was given (HIGH-4).
+    /// </summary>
+    private async Task RunDistillStageBAsync(
+        IReadOnlyList<string> distillIds,
+        bool redistillConfirmed)
+    {
+        // Why: the reviewed-spend confirmation is a spend-safety gate (HARV-05). A subscription
+        // ($0) provider has no metered spend, so the dry-run + confirm are skipped and Run Distill
+        // is reachable directly; metered providers still require _distillSpendConfirmed.
+        if (_operationInFlight || (!_distillSpendConfirmed && !DistillConfig.IsSubscriptionProvider))
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _distillLiveInFlight = true;
+        _distillLogLines.Clear();
+        _distillLiveResult = null;
+        _distillCancelled = false;
+        _cts = new CancellationTokenSource();
+
+        // Start elapsed clock and 1-second ticker for live progress display (260615-t7m).
+        _distillStopwatch = Stopwatch.StartNew();
+        _distillTotalElapsed = null;
+        _distillTickerCts = new CancellationTokenSource();
+        // Why: fire-and-forget ticker is display-only; PeriodicTimer + InvokeAsync keeps
+        // re-renders on the Blazor sync context. OperationCanceledException and
+        // ObjectDisposedException are swallowed so a circuit drop never throws from the ticker.
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(_distillTickerCts.Token))
+                {
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
+        });
+
+        // Why: same disposal-safe progress pattern as Stage A and harvest (T-45-18).
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _distillLogLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        try
+        {
+            // Why: dryRun: false executes the live distill. redistill: is the same gate as Stage A
+            // so the re-distill guard is consistent end-to-end (HIGH-4). Named argument form used
+            // to decouple from parameter position.
+            _distillLiveResult = await Task.Run(
+                () => DistillOrchestrator.DistillAsync(
+                    limit: distillIds.Count,
+                    dryRun: false,
+                    isSubscriptionProvider: DistillConfig.IsSubscriptionProvider,
+                    redistill: redistillConfirmed,
+                    videoIds: distillIds,
+                    progress: progress,
+                    cancellationToken: _cts.Token),
+                _cts.Token);
+
+            // Refresh badges for distilled videos and update cap display.
+            if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
+            {
+                await RefreshBadgesAsync(distillIds);
+
+                // Why: reload the DB-backed pending list so just-distilled videos drop off
+                // (quick task 260615-p4d). Only reload if it was previously loaded so an
+                // operator who never used the loader isn't surprised by a new table appearing.
+                if (_pendingLoaded)
+                {
+                    await LoadPendingDistillAsync();
+                }
+            }
+
+            await RefreshCapDisplayAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _distillLogLines.Add("Distill cancelled.");
+            _distillCancelled = true;
+        }
+        finally
+        {
+            // Stop elapsed clock and ticker before the final render so the result card shows
+            // the frozen total time rather than a still-ticking value (260615-t7m).
+            _distillStopwatch?.Stop();
+            _distillTotalElapsed = _distillStopwatch?.Elapsed;
+            _distillTickerCts?.Cancel();
+            _distillTickerCts?.Dispose();
+            _distillTickerCts = null;
+
+            _distillLiveInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RefreshBadgesAsync(IReadOnlyList<string> videoIds)
+    {
+        foreach (var videoId in videoIds)
+        {
+            var newStatus = await StatusResolver.ResolveStatusAsync(videoId);
+
+            var channelVm = _channelVideos.FirstOrDefault(v => v.VideoId == videoId);
+            if (channelVm is not null)
+            {
+                channelVm.Status = newStatus;
+            }
+
+            var queueVm = _queueVideos.FirstOrDefault(v => v.VideoId == videoId);
+            if (queueVm is not null)
+            {
+                // Re-apply duplicate logic for queue items.
+                queueVm.Status = (newStatus == VideoStatus.Harvested || newStatus == VideoStatus.Distilled)
+                    ? VideoStatus.Duplicate
+                    : newStatus;
+            }
+        }
+    }
+
+    // ── Badge rendering (HARV-03) ────────────────────────────────────────────
+    /// <summary>
+    /// Maps <see cref="VideoStatus"/> to the exact Bootstrap badge class + label per UI-SPEC
+    /// Status Badge Vocabulary (45-UI-SPEC.md lines 110-126).
+    /// Badge label text always accompanies color (accessibility — label never sole differentiator).
+    /// </summary>
+    private static RenderFragment RenderBadge(VideoStatus status) => status switch
+    {
+        VideoStatus.NotHarvested => @<span class="badge bg-secondary">Not harvested</span>,
+        VideoStatus.Harvested    => @<span class="badge bg-info text-dark">Harvested</span>,
+        VideoStatus.Distilled    => @<span class="badge bg-success">Distilled</span>,
+        VideoStatus.Blocked      => @<span class="badge bg-danger">Blocked</span>,
+        VideoStatus.Duplicate    => @<span class="badge bg-warning text-dark">Already in DB</span>,
+        _                        => @<span class="badge bg-secondary">Unknown</span>,
+    };
+
+    // ── Elapsed formatting (260615-t7m) ─────────────────────────────────────
+    private static string FormatElapsed(TimeSpan t) =>
+        t.TotalSeconds < 60 ? $"{t.TotalSeconds:F0}s" : $"{(int)t.TotalMinutes}m {t.Seconds}s";
+
+    // ── IDisposable: cancel in-flight op on circuit drop (D-06) ─────────────
+    /// <summary>
+    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
+    /// harvest is stopped when the operator closes the tab or the SignalR circuit drops (D-06).
+    /// </summary>
+    public void Dispose()
+    {
+        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-06).
+        _cts?.Cancel();
+        _cts?.Dispose();
+        // Why: ticker CTS must also be cancelled on disposal so the PeriodicTimer loop exits cleanly
+        // when the operator closes the tab mid-distill (260615-t7m).
+        _distillTickerCts?.Cancel();
+        _distillTickerCts?.Dispose();
+        _distillStopwatch?.Stop();
+    }
+
+    // ── Video view model ─────────────────────────────────────────────────────
+    private sealed class VideoViewModel
+    {
+        public string VideoId { get; }
+        public string Url { get; }
+        public string Title { get; }
+        public DateTimeOffset? PublishedUtc { get; }
+        public VideoStatus Status { get; set; }
+        public bool Selected { get; set; }
+        /// <summary>YouTube channel id for this video's author, when available from the listing source.</summary>
+        public string? ChannelId { get; }
+        /// <summary>Display name of the YouTube channel that published this video, when available.</summary>
+        public string? ChannelTitle { get; }
+
+        public VideoViewModel(
+            string videoId,
+            string url,
+            string title,
+            DateTimeOffset? publishedUtc,
+            VideoStatus status,
+            string? channelId = null,
+            string? channelTitle = null)
+        {
+            VideoId = videoId;
+            Url = url;
+            Title = title;
+            PublishedUtc = publishedUtc;
+            Status = status;
+            ChannelId = channelId;
+            ChannelTitle = channelTitle;
+        }
+    }
+}

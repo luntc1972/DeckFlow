@@ -4,6 +4,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Threading;
+using Dapper;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
@@ -101,9 +102,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;";
-        return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
+        return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;",
+            cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
     /// <inheritdoc/>
@@ -111,10 +112,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;";
-        AddTimestampParameter(command, "@cutoff", cutoffUtc);
-        return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
+        return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+            new { cutoff = cutoffUtc },
+            cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
     /// <inheritdoc/>
@@ -125,21 +126,21 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 
         if (_connectionInfo.IsPostgres)
         {
-            await using var estimateCommand = connection.CreateCommand();
             // Why: reltuples is a planner estimate refreshed by ANALYZE/autovacuum; the
             // schema-qualified to_regclass lookup avoids cross-schema name collisions, and
             // the <= 0 guard handles fresh deploys before planner stats exist.
-            estimateCommand.CommandText = "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass('public.card_category_observations');";
-            var estimate = await ExecuteCountAsync(estimateCommand, cancellationToken).ConfigureAwait(false);
+            var estimate = CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+                "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass('public.card_category_observations');",
+                cancellationToken: cancellationToken)).ConfigureAwait(false));
             if (estimate > 0)
             {
                 return estimate;
             }
         }
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(1) FROM card_category_observations;";
-        return await ExecuteCountAsync(command, cancellationToken).ConfigureAwait(false);
+        return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+            "SELECT COUNT(1) FROM card_category_observations;",
+            cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
     /// <inheritdoc/>
@@ -147,25 +148,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var rows = await connection.QueryAsync<TopCommanderRow>(new CommandDefinition(
+            """
             SELECT commander_name, COUNT(1) AS deck_count
             FROM deck_queue
             WHERE processed = 1 AND commander_name IS NOT NULL
             GROUP BY commander_name
             ORDER BY deck_count DESC
             LIMIT @n;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@n", n);
-
-        var rows = new List<TopCommanderRow>(capacity: Math.Max(n, 0));
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            rows.Add(new TopCommanderRow(reader.GetString(0), reader.GetInt32(1)));
-        }
-
-        return rows;
+            """,
+            new { n },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.ToList();
     }
 
     /// <inheritdoc/>
@@ -198,9 +192,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT pg_database_size(current_database())";
-        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        var result = await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+            "SELECT pg_database_size(current_database())",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
         return result is long bytes ? bytes : null;
     }
 
@@ -333,12 +327,6 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return connection;
     }
 
-    private static async Task<int> ExecuteCountAsync(DbCommand command, CancellationToken cancellationToken)
-    {
-        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return CoerceCount(result);
-    }
-
     internal static int CoerceCount(object? result)
     {
         return result switch
@@ -353,10 +341,4 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 
     private static int ClampCount(long value)
         => value <= 0 ? 0 : value > int.MaxValue ? int.MaxValue : (int)value;
-
-    private static void AddTimestampParameter(DbCommand command, string name, DateTime cutoffUtc)
-    {
-        var iso = DateTime.SpecifyKind(cutoffUtc, DateTimeKind.Utc).ToString("O");
-        RelationalDatabaseConnection.AddParameter(command, name, iso);
-    }
 }

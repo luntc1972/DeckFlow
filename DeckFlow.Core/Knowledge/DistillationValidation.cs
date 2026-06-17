@@ -1,3 +1,5 @@
+using DeckFlow.Core.Content;
+
 namespace DeckFlow.Core.Knowledge;
 
 /// <summary>
@@ -6,9 +8,29 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal static class DistillationValidation
 {
+    // Why: 60s is the conservative YouTube Shorts cutoff - long enough to exclude Shorts,
+    // short enough to keep legitimate brief MTG videos.
+    internal static readonly TimeSpan ShortVideoMaxDuration = TimeSpan.FromSeconds(60);
+    internal const int SummaryMaxOutputTokens = 400;
+    internal const int ClipsMaxOutputTokens = 1200;
+    internal const int TagsMaxOutputTokens = 200;
     internal const int SummaryMaxWords = 200;
     internal const int MinClipCount = 3;
     internal const int MaxClipCount = 8;
+    internal const int MaxTranscriptInputTokens = 120_000;
+    internal const int DistillationCallCount = 3;
+    internal const string DistillStatusDistilled = "distilled";
+    internal const string DistillStatusSkippedOverCap = "skipped_over_cap";
+    internal const string DistillStatusFailed = "failed";
+    internal const string DistillStatusFiltered = "filtered";
+
+    internal static void ValidateTranscriptLength(string transcript)
+    {
+        if (EstimateTokenCount(transcript) > MaxTranscriptInputTokens)
+        {
+            throw new InvalidOperationException("Transcript too long for the distillation context window.");
+        }
+    }
 
     internal static void ValidateSummary(string summary)
     {
@@ -28,6 +50,11 @@ internal static class DistillationValidation
         if (clips.Any(clip => clip.TimestampSeconds < 0))
         {
             throw new InvalidOperationException("Clip timestamps cannot be negative.");
+        }
+
+        if (clips.All(clip => (clip.TimestampSeconds ?? 0) == 0))
+        {
+            throw new InvalidOperationException("Clip extraction cannot return every clip with timestamp 0.");
         }
     }
 
@@ -80,6 +107,17 @@ internal static class DistillationValidation
 
     internal static int CountWords(string text)
         => GetWords(text).Length;
+
+    internal static decimal ComputeProjectedVideoCostUsd(string transcript)
+        => LlmSpendLedger.ComputeCostUsd(
+            EstimateTokenCount(transcript) * DistillationCallCount,
+            SummaryMaxOutputTokens + ClipsMaxOutputTokens + TagsMaxOutputTokens);
+
+    internal static decimal ComputeProjectedCallCostUsd(string transcript, int maxOutputTokens)
+        => LlmSpendLedger.ComputeCostUsd(EstimateTokenCount(transcript), maxOutputTokens);
+
+    internal static int EstimateTokenCount(string transcript)
+        => Math.Max(1, (int)Math.Ceiling(transcript.Length / 4m));
 
     private static string[] GetWords(string text)
     {

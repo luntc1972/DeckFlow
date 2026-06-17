@@ -84,6 +84,9 @@ resharper_csharp_force_indent_style_for_raw_string_literals = LeftAligned
 # Block bodies for if/for/while/etc when crossing lines (codebase pattern).
 resharper_csharp_simple_block_style = NotSet
 resharper_csharp_simple_embedded_statement_style = NotSet
+resharper_align_multiline_binary_expressions_chain = false
+resharper_indent_braces_inside_statement_conditions = false
+resharper_stick_comment = false
 
 # var preferences match the codebase: var for obvious types, explicit otherwise.
 csharp_style_var_for_built_in_types = true:silent

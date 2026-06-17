@@ -42,4 +42,11 @@ public interface ILlmSpendLedger
         decimal projectedCallCostUsd,
         string monthKey,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the configured monthly USD cap for LLM spend, accounting for any
+    /// session-level override registered in the host composition root.
+    /// </summary>
+    /// <returns>Monthly cap in USD (defaults to $15.00 when not configured).</returns>
+    decimal GetMonthlyCapUsd();
 }

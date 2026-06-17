@@ -1,4 +1,5 @@
 using DeckFlow.Core.Storage;
+using Dapper;
 
 namespace DeckFlow.Core.Content;
 
@@ -51,8 +52,8 @@ public sealed class LlmSpendLedger : SpendLedgerBase, ILlmSpendLedger
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             INSERT INTO llm_spend_ledger (
               video_id,
               input_tokens,
@@ -67,14 +68,17 @@ public sealed class LlmSpendLedger : SpendLedgerBase, ILlmSpendLedger
               @costUsd,
               @monthKey,
               @createdUtc);
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@inputTokens", inputTokens);
-        RelationalDatabaseConnection.AddParameter(command, "@outputTokens", outputTokens);
-        RelationalDatabaseConnection.AddParameter(command, "@costUsd", FormatDecimal(costUsd));
-        RelationalDatabaseConnection.AddParameter(command, "@monthKey", monthKey);
-        RelationalDatabaseConnection.AddParameter(command, "@createdUtc", FormatTimestamp(DateTimeOffset.UtcNow));
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new
+            {
+                videoId,
+                inputTokens,
+                outputTokens,
+                costUsd,
+                monthKey,
+                createdUtc = DateTimeOffset.UtcNow
+            },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>

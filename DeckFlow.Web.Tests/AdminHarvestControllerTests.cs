@@ -5,59 +5,148 @@ using DeckFlow.Web.Models.Admin;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.Razor;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.ObjectPool;
+using System.Diagnostics;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Tests for <see cref="AdminHarvestController"/> covering harvested-commander paging and page clamps.
+/// Tests for <see cref="AdminHarvestController"/> covering harvested-commander paging, same-origin guards, and render paths.
 /// </summary>
 public sealed class AdminHarvestControllerTests
 {
     [Fact]
-    public async Task Index_ClampsHugePageToDeckTotalPages()
+    public async Task Commanders_ClampsHugePageToDeckTotalPages()
     {
         var store = NewStore(distinctProcessedCommanderCount: 3);
-        var controller = Build(store);
+        var controller = Build(store, crossOrigin: false);
 
-        var result = await controller.Index(page: 999999);
+        var result = await controller.Commanders(page: 999999);
 
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminHarvestViewModel>(view.Model);
+        var view = Assert.IsType<PartialViewResult>(result);
+        var model = Assert.IsType<CommandersGridViewModel>(view.Model);
         Assert.Equal(model.DeckTotalPages, model.DeckPage);
         Assert.Equal(1, model.DeckPage);
     }
 
     [Fact]
-    public async Task Index_ClampsZeroPageToOne()
+    public async Task Commanders_ClampsZeroPageToOne()
     {
         var store = NewStore(distinctProcessedCommanderCount: 3);
-        var controller = Build(store);
+        var controller = Build(store, crossOrigin: false);
 
-        var result = await controller.Index(page: 0);
+        var result = await controller.Commanders(page: 0);
 
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminHarvestViewModel>(view.Model);
+        var view = Assert.IsType<PartialViewResult>(result);
+        var model = Assert.IsType<CommandersGridViewModel>(view.Model);
         Assert.Equal(1, model.DeckPage);
     }
 
     [Fact]
-    public async Task Index_PassesClampedPageToPagedCommanderStore()
+    public async Task Commanders_PassesClampedPageToPagedCommanderStore()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 125);
+        var controller = Build(store, crossOrigin: false);
+
+        var result = await controller.Commanders(page: 999999);
+
+        var view = Assert.IsType<PartialViewResult>(result);
+        var model = Assert.IsType<CommandersGridViewModel>(view.Model);
+        Assert.Equal(model.DeckTotalPages, store.LastPagedCommanderPage);
+        Assert.Equal(AdminHarvestViewModel.DefaultDeckPageSize, store.LastPagedCommanderPageSize);
+        Assert.NotEqual(999999, store.LastPagedCommanderPage);
+    }
+
+    [Fact]
+    public async Task Index_DoesNotCallCommanderCountOrPagedQuery()
     {
         var store = NewStore(distinctProcessedCommanderCount: 125);
         var controller = Build(store);
 
-        var result = await controller.Index(page: 999999);
+        var result = await controller.Index();
 
         var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<AdminHarvestViewModel>(view.Model);
-        Assert.Equal(model.DeckTotalPages, store.LastPagedCommanderPage);
-        Assert.Equal(AdminHarvestViewModel.DefaultDeckPageSize, store.LastPagedCommanderPageSize);
-        Assert.NotEqual(999999, store.LastPagedCommanderPage);
+        Assert.IsType<AdminHarvestViewModel>(view.Model);
+        Assert.Equal(0, store.LastPagedCommanderPage);
+        Assert.Equal(0, store.GetDistinctProcessedCommanderCountCalls);
+    }
+
+    [Fact]
+    public async Task Commanders_SameOrigin_ReturnsPartialView()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 125);
+        var controller = Build(store, crossOrigin: false);
+
+        var result = await controller.Commanders(page: 1);
+
+        var partial = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("_CommandersGrid", partial.ViewName);
+        var model = Assert.IsType<CommandersGridViewModel>(partial.Model);
+        Assert.Equal(1, model.DeckPage);
+    }
+
+    [Fact]
+    public async Task Commanders_CrossOrigin_Returns403()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 125);
+        var controller = Build(store, crossOrigin: true);
+
+        var result = await controller.Commanders(page: 1);
+
+        AssertForbidden(result);
+    }
+
+    [Fact]
+    public async Task CommandersGrid_EmptyModel_RendersEmptyStateWithoutTable()
+    {
+        var model = new CommandersGridViewModel
+        {
+            DeckPage = 1,
+            DeckPageSize = AdminHarvestViewModel.DefaultDeckPageSize,
+            DeckTotalCount = 0,
+        };
+
+        var html = await RenderPartialViewAsync("_CommandersGrid", model);
+
+        Assert.Contains("class=\"admin-empty\"", html, StringComparison.Ordinal);
+        Assert.Contains("No harvested commanders yet.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<table class=\"admin-table\">", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommandersGrid_MultiPageModel_RendersNumberedPaginationWithCurrentPageStrong()
+    {
+        var model = new CommandersGridViewModel
+        {
+            HarvestedCommanders = new[]
+            {
+                new HarvestedCommanderRow("Commander One", 3, "2026-01-01T00:00:00.0000000Z"),
+            },
+            DeckPage = 2,
+            DeckPageSize = AdminHarvestViewModel.DefaultDeckPageSize,
+            DeckTotalCount = 250,
+        };
+
+        var html = await RenderPartialViewAsync("_CommandersGrid", model);
+
+        Assert.Contains("data-page=\"1\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-page=\"3\"", html, StringComparison.Ordinal);
+        Assert.Contains("<strong aria-current=\"page\">2</strong>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-page=\"2\"", html, StringComparison.Ordinal);
     }
 
     private static FakeCategoryKnowledgeStore NewStore(int distinctProcessedCommanderCount)
@@ -72,9 +161,19 @@ public sealed class AdminHarvestControllerTests
             },
         };
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store)
+    private static void AssertForbidden(IActionResult result)
+    {
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, obj.StatusCode);
+    }
+
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false)
     {
         var httpContext = new DefaultHttpContext();
+        httpContext.Request.Scheme = "https";
+        httpContext.Request.Host = new HostString("deckflow.test");
+        httpContext.Request.Headers.Origin = crossOrigin ? "https://evil.test" : "https://deckflow.test";
+
         return new AdminHarvestController(
             new StubArchidektCacheJobService(),
             new StubHarvestRunStore(),
@@ -88,6 +187,64 @@ public sealed class AdminHarvestControllerTests
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             TempData = new TempDataDictionary(httpContext, new StubTempDataProvider()),
+        };
+    }
+
+    private static async Task<string> RenderPartialViewAsync(string viewName, object model)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
+        services.AddSingleton<DiagnosticListener>(_ => new DiagnosticListener("DeckFlow.Web.Tests"));
+        services.AddSingleton<DiagnosticSource>(serviceProvider => serviceProvider.GetRequiredService<DiagnosticListener>());
+        services.AddSingleton<IWebHostEnvironment>(CreateHostingEnvironment());
+        services.AddSingleton<IHostEnvironment>(serviceProvider => serviceProvider.GetRequiredService<IWebHostEnvironment>());
+        services.AddLogging();
+        services.AddControllersWithViews().AddApplicationPart(typeof(AdminHarvestController).Assembly);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = serviceProvider,
+        };
+
+        var actionContext = new ActionContext(
+            httpContext,
+            new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "AdminHarvest" })),
+            new ActionDescriptor());
+        var viewEngine = serviceProvider.GetRequiredService<IRazorViewEngine>();
+        var viewResult = viewEngine.FindView(actionContext, viewName, isMainPage: false);
+        Assert.True(viewResult.Success, $"View '{viewName}' was not found. Searched: {string.Join(", ", viewResult.SearchedLocations ?? Array.Empty<string>())}");
+
+        var viewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
+        {
+            Model = model,
+        };
+
+        await using var writer = new StringWriter();
+        var viewContext = new ViewContext(
+            actionContext,
+            viewResult.View!,
+            viewData,
+            new TempDataDictionary(httpContext, new StubTempDataProvider()),
+            writer,
+            new HtmlHelperOptions());
+
+        await viewResult.View!.RenderAsync(viewContext);
+        return writer.ToString();
+    }
+
+    private static IWebHostEnvironment CreateHostingEnvironment()
+    {
+        var contentRoot = AppContext.BaseDirectory;
+        var fileProvider = new NullFileProvider();
+        return new TestWebHostEnvironment
+        {
+            ApplicationName = typeof(AdminHarvestController).Assembly.GetName().Name ?? "DeckFlow.Web",
+            ContentRootPath = contentRoot,
+            ContentRootFileProvider = fileProvider,
+            EnvironmentName = Environments.Development,
+            WebRootPath = contentRoot,
+            WebRootFileProvider = fileProvider,
         };
     }
 
@@ -187,5 +344,15 @@ public sealed class AdminHarvestControllerTests
     {
         public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
         public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
+    }
+
+    private sealed class TestWebHostEnvironment : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = string.Empty;
+        public IFileProvider ContentRootFileProvider { get; set; } = null!;
+        public string ContentRootPath { get; set; } = string.Empty;
+        public string EnvironmentName { get; set; } = string.Empty;
+        public IFileProvider WebRootFileProvider { get; set; } = null!;
+        public string WebRootPath { get; set; } = string.Empty;
     }
 }

@@ -1,0 +1,22 @@
+﻿@inherits LayoutComponentBase
+
+<PageTitle>DeckFlow.Studio</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @* TODO (Phase 48 UI audit): replace this leftover Blazor scaffold "About" link —
+               it points at the ASP.NET docs, not a real DeckFlow Studio About/version target.
+               Needs a real value (e.g. a Studio About page or the deckflow.gg site). *@
+            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>

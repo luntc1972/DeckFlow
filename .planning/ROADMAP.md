@@ -9,6 +9,7 @@
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
+- ✅ **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (shipped 2026-06-17) — see `.planning/milestones/v1.7-ROADMAP.md`
 
 ## Phases
 
@@ -123,8 +124,64 @@ Audit archive: `.planning/milestones/v1.4-MILESTONE-AUDIT.md`
 
 </details>
 
+<details>
+<summary>✅ v1.6 Content KB Retrieval Fix + Value Re-Validation (Phases 34-40) — SHIPPED 2026-06-12</summary>
+
+- [x] Phase 34: Content KB Retrieval Fix — KBR-01..04 — completed 2026-06-10
+- [x] Phase 35: Value Re-Validation Gate — KBV-01..04; gate = MARGINAL → Phase 36 skipped — completed 2026-06-10
+- [~] Phase 36: Creator Philosophy-Profile + KB Un-Dark — SKIPPED (gate = MARGINAL; see 35-GATE-VERDICT.md)
+- [x] Phase 37: Retire KB Clip-Injection — RET-01..05 — completed 2026-06-10
+- [x] Phase 37.5: Rebuild KB Corpus — corpus re-distilled high-signal — completed 2026-06-11
+- [x] Phase 37.6: Harvest Video Block + Hard-Delete — VBLK-01..04 — completed 2026-06-11
+- [x] Phase 38: DeckController + CommandRunners SRP Split — SRP-01..03; route-parity + live smoke — completed 2026-06-12
+- [x] Phase 39: Architecture Review Refactor (Finding A) — extract IDeckEntryLoader + IScryfallCardResolver — completed 2026-06-12
+- [x] Phase 40: Core.Tests Health Pass — 320/0 deterministic — completed 2026-06-12
+
+**Stats:** ~122 commits, 2026-06-10 → 2026-06-12. Gate-driven: MARGINAL → retire-pivot. Audit: passed.
+Full archive: `.planning/milestones/v1.6-ROADMAP.md`
+
+</details>
+
 ---
 
+<details>
+<summary>✅ v1.7 Local Harvest & Publish Studio (Phases 41-50) — SHIPPED 2026-06-17</summary>
+
+**Goal:** A standalone local Blazor Server tool to discover YouTube videos, harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push.
+
+- [x] Phase 41: Studio Scaffold + Secrets Wiring (1/1) — completed 2026-06-13
+- [x] Phase 42: Orchestrator Extraction (5/5) — completed 2026-06-13
+- [x] Phase 43: Approval Status + Safe Upsert (2/2) — completed 2026-06-13
+- [x] Phase 44: Admin Grid Lazy Paging (3/3) — completed 2026-06-14
+- [x] Phase 45: Harvest + Distill UI (4/4) — completed 2026-06-15
+- [x] Phase 46: Review Queue + Commit-Publish Path (5/5) — completed 2026-06-16
+- [x] Phase 47: Direct Prod-DB + SCP Publish Path (3/3) — completed 2026-06-16
+- [x] Phase 48: UI Audit + Remediation (3/3) — completed 2026-06-17
+- [x] Phase 49: Dapper Data-Access Adoption (5/5) — completed 2026-06-14
+- [x] Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate (4/4) — completed 2026-06-14
+
+Verification: 10/10 phases verified (4 passed, 6 human_needed = automated PASS, operator smoke deferred). 23/23 requirements satisfied. Audit: tech_debt (integration clean). Full detail: `.planning/milestones/v1.7-ROADMAP.md`.
+
+</details>
+
+---
+
+### Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 41. Studio Scaffold + Secrets Wiring | 1/1 | Complete   | 2026-06-13 |
+| 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
+| 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
+| 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
+| 49. Dapper Data-Access Adoption | 5/5 | Complete   | 2026-06-14 |
+| 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
+| 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
+| 46. Review Queue + Commit-Publish Path | 5/5 | Complete   | 2026-06-16 |
+| 47. Direct Prod-DB + SCP Publish Path | 3/3 | Complete   | 2026-06-16 |
+| 48. UI Audit + Remediation | 3/3 | Complete    | 2026-06-17 |
+
+---
 
 ## Backlog
 
@@ -169,13 +226,13 @@ Plans:
 
 See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` (two independent audits).
 - **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M.
-- **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M.
+- **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M. **NOTE: v1.7 Phase 42 (ORCH-01) addresses Finding C as a side-effect by extracting domain logic to Core.**
 - **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L.
 - **E — Relocate misplaced domain logic to `DeckFlow.Core`** (deck-stat classifiers in DeckComparisonService; distill cost/validation in ContentKbCommandRunners). Effort M / Risk L.
 - **F — Strengthen dual-dialect abstraction** (33 `IsPostgres`/`IsSqlite` branches across 7 stores → dialect render methods; remove Web `Feedback*` SQL from Core `IRelationalDialect`). ⚠ Postgres path has no automated test. Effort M / Risk M.
 - **ADR-note tier:** G packet cache-key `IPacketCacheKeyStrategy` · H `IScryfallThrottle` seam · I `IMemoryCache` SizeLimit doc · J `System.CommandLine` beta4 deliberate-pin ADR · K residual test gaps (middleware-ordering integration test; Polly policy-shape assertion).
 
-### Deferred to v1.6+ (per v1.5 scope decision)
+### Deferred to v1.7+ (per v1.5/v1.6 scope decisions)
 
 - **Gemini paste-limit workaround** (`DECKFLOW_GEMINI_ENABLED` stays flag-gated; needs split-message vs direct-API path decision)
 - **SpellbookCombo ranking fields** (PRM-08 — parser drops `manaValueNeeded`/`popularity`/`uses`; priority ranking degraded)
@@ -183,4 +240,4 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17*

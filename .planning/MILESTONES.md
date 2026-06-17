@@ -1,5 +1,26 @@
 # Milestones
 
+## v1.7 Local Harvest & Publish Studio (Shipped: 2026-06-17)
+
+**Phases completed:** 10 phases (41-50), 35 plans, 36 tasks
+**Requirements:** 23/23 satisfied (STU, ORCH, REVQ, PUB, GRID, HARV, UIR). Audit status: tech_debt — integration clean, deferred operator-UAT tracked (see `.planning/milestones/v1.7-MILESTONE-AUDIT.md`).
+
+**Key accomplishments:**
+
+- **DeckFlow.Studio (new standalone Blazor Server app, Phases 41/45/46/47):** local operator console to harvest YouTube captions → distill to KB entries via LLM (with a spend dry-run gate) → review/approve in a queue → publish to production via TWO paths: git commit-publish of the LF-normalized seed, and direct prod-DB push (SSH.NET SCP of artifacts to Render `/data` then a safe content-columns-only Postgres upsert). Prod connection lives in user-secrets only; StudioConfig is presence-only (never carries the secret).
+- **Orchestrator extraction (Phase 42, ORCH-01/02):** harvest/distill/export domain logic moved DeckFlow.CLI → DeckFlow.Core as `IContentKbOrchestrator` (facade over 5 slice interfaces); CLI reduced to thin adapters; closes the v1.6 god-class backlog item. Pure refactor, golden-fixture pinned.
+- **Approval status + safe upsert (Phase 43, REVQ-01/PUB-01/02):** `approval_status` self-healing migration + `UpsertContentColumnsOnlyAsync` (preserves admin `is_visible`/`is_evergreen`) + approved-only filtered export — the prerequisite both publish paths depend on.
+- **Admin grid lazy paging (Phase 44, GRID-01/02):** `/Admin/Harvest` initial load goes synchronous-count → AJAX on-demand; `LOWER(commander_name)` partial index fixes the slow query at the source.
+- **Dapper data-access adoption (Phase 49):** raw ADO.NET boilerplate in 13 dual-provider stores replaced with Dapper behind the existing `IRelationalDialect`/`RelationalDatabaseConnection` abstraction; 5 provider-aware type handlers preserve Sqlite+Postgres parity; DDL/introspection + unnest-batch stay raw.
+- **Code-style enforcement (Phase 50):** operator ReSharper style reconciled into `.editorconfig` (5 bug-driven carve-outs win); changed-lines-only pre-commit hook + CI `format-gate`; existing files never reflowed; CLAUDE.md made the source of truth. CI behavioral proof both directions.
+- **UI audit remediation (Phase 48, UIR-01/02/03):** 6-pillar visual audit of the deployed deckflow.gg re-scored from v1.0 16/24 → **20/24** — inline-SVG iconography + resting elevation, widened surface/bg delta, darker muted, raised `--fs-xs` floor, typography hierarchy, short-form empty-state panels; every finding browser-verified at mobile + desktop across light/dark/commander-table themes.
+
+**Quality:** DeckFlow.sln builds 0/0 (Studio included); Core.Tests ~346, Web.Tests 622 + DeckFlow.Studio.Tests (bUnit 34); cross-phase integration check clean (0 hard breaks, all 5 E2E flows wired); changed-lines format gate green.
+
+**Known deferred at close (operator-UAT, non-blocking, tracked in v1.7-MILESTONE-AUDIT.md):** Studio runtime render smoke (P41), admin grid no-jump browser smoke (P44), re-distill E2E + cap-persist + cancel-on-dispose (P45), Review/Publish browser + real-git smoke (P46), live SCP+prod-Postgres publish (P47, needs operator secrets), Postgres parity tests (P49, `DECKFLOW_POSTGRES_TESTS=1`). `/gsd-secure-phase` not run for 48 + 50.
+
+---
+
 ## v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (Shipped: 2026-06-10)
 
 **Phases completed:** 6 phases (28-33), 25 plans, 29 tasks

@@ -1,10 +1,10 @@
 :root {
   /* Naya: Red (R) / Green (G) / White (W) */
-  --bg: #f2efe7;
+  --bg: #e6e0d2;
   --panel: #fcfbf8;
   --ink: #2f261c;
-  --muted: #736759;
-  --line: #d8ccb8;
+  --muted: #5d5044;
+  --line: #c0b09c;
   --accent: #b85b38;          /* Naya red / sun-cliff banner */
   --accent-strong: #91482e;
   --naya-green: #6d8c47;      /* Naya green / wildheart canopy */
@@ -35,7 +35,7 @@
   --panel-fallback-bg: #f7f3ed;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -75,6 +76,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
+            // Why: schema creation and constraint migration are intentional raw ADO.NET carve-outs for this phase.
             await using (var create = connection.CreateCommand())
             {
                 create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
@@ -109,28 +111,20 @@ public sealed class HarvestRunStore : IHarvestRunStore
 
         var id = Guid.NewGuid();
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             INSERT INTO harvest_runs (id, kind, state, requested_utc, duration_seconds, url)
             VALUES (@id, @kind, 'Queued', @now, @duration, @url);
-            """;
-
-        // SQLite stores Guid as TEXT; Npgsql accepts Guid directly.
-        RelationalDatabaseConnection.AddParameter(
-            command, "@id",
-            _connectionInfo.IsPostgres ? (object)id : id.ToString());
-        RelationalDatabaseConnection.AddParameter(
-            command, "@kind",
-            kind == HarvestRunKind.Bulk ? "bulk" : "url");
-        RelationalDatabaseConnection.AddParameter(
-            command, "@now",
-            _connectionInfo.IsPostgres
-                ? (object)now.UtcDateTime
-                : now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
-        RelationalDatabaseConnection.AddParameter(command, "@duration", durationSeconds);
-        RelationalDatabaseConnection.AddParameter(command, "@url", (object?)url ?? DBNull.Value);
-
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new
+            {
+                id,
+                kind = kind == HarvestRunKind.Bulk ? "bulk" : "url",
+                now,
+                duration = durationSeconds,
+                url
+            },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         // D-13: explicit invalidation so the stats panel reflects the new queued row.
         InvalidateStats();
@@ -151,8 +145,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             UPDATE harvest_runs
                SET state = @state,
                    started_utc = COALESCE(@startedUtc, started_utc),
@@ -161,21 +155,18 @@ public sealed class HarvestRunStore : IHarvestRunStore
                    additional_decks_found = @additionalDecksFound,
                    error_message = @errorMessage
              WHERE id = @id;
-            """;
-
-        RelationalDatabaseConnection.AddParameter(
-            command, "@id",
-            _connectionInfo.IsPostgres ? (object)id : id.ToString());
-        RelationalDatabaseConnection.AddParameter(command, "@state", state.ToString());
-        RelationalDatabaseConnection.AddParameter(
-            command, "@startedUtc", BindNullableTimestamp(startedUtc));
-        RelationalDatabaseConnection.AddParameter(
-            command, "@completedUtc", BindNullableTimestamp(completedUtc));
-        RelationalDatabaseConnection.AddParameter(command, "@decksProcessed", decksProcessed);
-        RelationalDatabaseConnection.AddParameter(command, "@additionalDecksFound", additionalDecksFound);
-        RelationalDatabaseConnection.AddParameter(command, "@errorMessage", (object?)errorMessage ?? DBNull.Value);
-
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new
+            {
+                id,
+                state = state.ToString(),
+                startedUtc,
+                completedUtc,
+                decksProcessed,
+                additionalDecksFound,
+                errorMessage
+            },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         // D-13: explicit invalidation on every state change.
         InvalidateStats();
@@ -191,21 +182,15 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             UPDATE harvest_runs
                SET decks_processed = @decksProcessed,
                    additional_decks_found = @additionalDecksFound
              WHERE id = @id;
-            """;
-
-        RelationalDatabaseConnection.AddParameter(
-            command, "@id",
-            _connectionInfo.IsPostgres ? (object)id : id.ToString());
-        RelationalDatabaseConnection.AddParameter(command, "@decksProcessed", decksProcessed);
-        RelationalDatabaseConnection.AddParameter(command, "@additionalDecksFound", additionalDecksFound);
-
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new { id, decksProcessed, additionalDecksFound },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
         InvalidateStats();
     }
 
@@ -215,22 +200,17 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
+            """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
                    duration_seconds, decks_processed, additional_decks_found, error_message, url
               FROM harvest_runs
              WHERE state IN ('Queued','Running','Stopping')
              ORDER BY requested_utc DESC
              LIMIT 1;
-            """;
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-        return ReadHarvestRunRow(reader);
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row is null ? null : ToHarvestRunRow(row);
     }
 
     /// <inheritdoc />
@@ -239,28 +219,17 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
+            """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
                    duration_seconds, decks_processed, additional_decks_found, error_message, url
               FROM harvest_runs
              WHERE id = @id
              LIMIT 1;
-            """;
-
-        // SQLite stores Guid as TEXT; Npgsql accepts Guid directly. Mirrors the
-        // bind pattern at InsertQueuedAsync (line 117-119), UpdateStateAsync
-        // (line 164-166), and UpdateProgressAsync (line 200-202).
-        RelationalDatabaseConnection.AddParameter(
-            command, "@id",
-            _connectionInfo.IsPostgres ? (object)id : id.ToString());
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-        return ReadHarvestRunRow(reader);
+            """,
+            new { id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row is null ? null : ToHarvestRunRow(row);
     }
 
     /// <inheritdoc />
@@ -269,24 +238,18 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
         // NULLS LAST works on Postgres natively; SQLite >= 3.30 (shipped with Microsoft.Data.Sqlite 10) supports it too.
-        command.CommandText = """
+        var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
+            """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
                    duration_seconds, decks_processed, additional_decks_found, error_message, url
               FROM harvest_runs
              ORDER BY started_utc DESC NULLS LAST
              LIMIT @n;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@n", n);
-
-        var rows = new List<HarvestRunRow>(capacity: n);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            rows.Add(ReadHarvestRunRow(reader));
-        }
-        return rows;
+            """,
+            new { n },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(ToHarvestRunRow).ToList();
     }
 
     /// <inheritdoc />
@@ -295,30 +258,22 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT MAX(started_utc), MAX(completed_utc), COUNT(1) FROM harvest_runs;";
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRevisionRow>(new CommandDefinition(
+            "SELECT MAX(started_utc) AS started_utc, MAX(completed_utc) AS completed_utc, COUNT(1) AS count FROM harvest_runs;",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (row is null)
         {
             return "||0";
         }
 
-        var startedTicks = reader.IsDBNull(0)
+        var startedTicks = row.StartedUtc is null
             ? string.Empty
-            : ReadTimestamp(reader, 0).ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
-        var completedTicks = reader.IsDBNull(1)
+            : row.StartedUtc.Value.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
+        var completedTicks = row.CompletedUtc is null
             ? string.Empty
-            : ReadTimestamp(reader, 1).ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
-        var countRaw = reader.GetValue(2);
-        var count = countRaw switch
-        {
-            long value => value,
-            int value => value,
-            _ => Convert.ToInt64(countRaw, CultureInfo.InvariantCulture)
-        };
+            : row.CompletedUtc.Value.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
 
-        return $"{startedTicks}|{completedTicks}|{count.ToString(CultureInfo.InvariantCulture)}";
+        return $"{startedTicks}|{completedTicks}|{row.Count.ToString(CultureInfo.InvariantCulture)}";
     }
 
     /// <inheritdoc />
@@ -327,15 +282,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT MAX(completed_utc) FROM harvest_runs WHERE state='Succeeded';";
-
-        var raw = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        if (raw is null || raw is DBNull)
-        {
-            return null;
-        }
-        return ReadTimestampValue(raw);
+        return await connection.ExecuteScalarAsync<DateTimeOffset?>(new CommandDefinition(
+            "SELECT MAX(completed_utc) FROM harvest_runs WHERE state='Succeeded';",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -344,26 +293,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(1) FROM harvest_runs WHERE state='Succeeded';";
-
-        var raw = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return raw switch
-        {
-            null => 0L,
-            DBNull => 0L,
-            long l => l,
-            int i => i,
-            _ => Convert.ToInt64(raw, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private object BindNullableTimestamp(DateTimeOffset? value)
-    {
-        if (value is null) return DBNull.Value;
-        return _connectionInfo.IsPostgres
-            ? (object)value.Value.UtcDateTime
-            : value.Value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            "SELECT COUNT(1) FROM harvest_runs WHERE state='Succeeded';",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private void InvalidateStats()
@@ -378,30 +310,19 @@ public sealed class HarvestRunStore : IHarvestRunStore
         }
     }
 
-    private HarvestRunRow ReadHarvestRunRow(DbDataReader reader)
-    {
-        var idRaw = reader.GetValue(0);
-        var id = idRaw switch
-        {
-            Guid g => g,
-            string s => Guid.Parse(s),
-            _ => Guid.Parse(reader.GetString(0))
-        };
-        var kind = ParseHarvestKind(reader.GetString(1));
-        var state = Enum.Parse<HarvestRunState>(reader.GetString(2), ignoreCase: false);
-        var requestedUtc = ReadTimestamp(reader, 3);
-        var startedUtc = reader.IsDBNull(4) ? (DateTimeOffset?)null : ReadTimestamp(reader, 4);
-        var completedUtc = reader.IsDBNull(5) ? (DateTimeOffset?)null : ReadTimestamp(reader, 5);
-        var durationSeconds = reader.GetInt32(6);
-        var decksProcessed = reader.GetInt32(7);
-        var additionalDecksFound = reader.GetInt32(8);
-        var errorMessage = reader.IsDBNull(9) ? null : reader.GetString(9);
-        var url = reader.IsDBNull(10) ? null : reader.GetString(10);
-
-        return new HarvestRunRow(
-            id, kind, state, requestedUtc, startedUtc, completedUtc,
-            durationSeconds, decksProcessed, additionalDecksFound, errorMessage, url);
-    }
+    private static HarvestRunRow ToHarvestRunRow(HarvestRunRowData row)
+        => new(
+            row.Id,
+            ParseHarvestKind(row.Kind),
+            Enum.Parse<HarvestRunState>(row.State, ignoreCase: false),
+            row.RequestedUtc,
+            row.StartedUtc,
+            row.CompletedUtc,
+            row.DurationSeconds,
+            row.DecksProcessed,
+            row.AdditionalDecksFound,
+            row.ErrorMessage,
+            row.Url);
 
     private static HarvestRunKind ParseHarvestKind(string raw) => raw switch
     {
@@ -409,23 +330,6 @@ public sealed class HarvestRunStore : IHarvestRunStore
         "url" => HarvestRunKind.Url,
         _ => throw new InvalidOperationException($"Unknown harvest_runs.kind value '{raw}'.")
     };
-
-    private static DateTimeOffset ReadTimestamp(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return ReadTimestampValue(raw);
-    }
-
-    private static DateTimeOffset ReadTimestampValue(object raw)
-    {
-        return raw switch
-        {
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
-    }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
@@ -692,4 +596,24 @@ public sealed class HarvestRunStore : IHarvestRunStore
                completed_utc = datetime('now')
          WHERE state IN ('Queued','Running','Stopping');
         """;
+
+    private sealed class HarvestRunRowData
+    {
+        public Guid Id { get; init; }
+        public required string Kind { get; init; }
+        public required string State { get; init; }
+        public DateTimeOffset RequestedUtc { get; init; }
+        public DateTimeOffset? StartedUtc { get; init; }
+        public DateTimeOffset? CompletedUtc { get; init; }
+        public int DurationSeconds { get; init; }
+        public int DecksProcessed { get; init; }
+        public int AdditionalDecksFound { get; init; }
+        public string? ErrorMessage { get; init; }
+        public string? Url { get; init; }
+    }
+
+    private sealed record HarvestRunRevisionRow(
+        DateTimeOffset? StartedUtc,
+        DateTimeOffset? CompletedUtc,
+        long Count);
 }

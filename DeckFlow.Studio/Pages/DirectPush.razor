@@ -1,0 +1,775 @@
+@page "/direct-push"
+@implements IDisposable
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Knowledge
+@using DeckFlow.Core.Orchestration
+@using DeckFlow.Core.Storage
+@using DeckFlow.Studio.Services
+@using Microsoft.Extensions.Configuration
+@using System.Text.Json
+
+<PageTitle>Publish to Production (Direct)</PageTitle>
+
+<h1 class="h4 fw-semibold">Publish to Production (Direct)</h1>
+<p class="text-muted">Push approved entries straight to production — upload artifacts to
+Render /data, then upsert the rows into the prod database. Artifacts first; the DB step
+unlocks only after every file uploads.</p>
+
+<article class="content px-4">
+
+    @if (_initError is not null)
+    {
+        <div class="alert alert-danger py-2 mt-3">@_initError</div>
+    }
+    else if (_initInFlight)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary"
+                  role="status"
+                  aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Resolving configuration...</span>
+        </div>
+    }
+    else
+    {
+        @* ─── Config gate (SC5 / D-07 / D-09): presence-only; never the value ─── *@
+        @if (!Config.IsProdConfigured || !Config.IsScpConfigured)
+        {
+            @if (!Config.IsProdConfigured)
+            {
+                <div class="alert alert-warning py-2 mt-3">
+                    Prod connection: not configured. Set the prod connection string in user-secrets
+                    to enable direct publish.
+                </div>
+            }
+            @if (!Config.IsScpConfigured)
+            {
+                <div class="alert alert-warning py-2 mt-3">
+                    SCP: not configured. Set the Render SSH target in user-secrets to enable
+                    artifact upload.
+                </div>
+            }
+        }
+
+        @* ─── Status header (presence-only pills) ─── *@
+        <p class="mt-3 mb-1">
+            @if (_approvedCount == 0)
+            {
+                <span class="text-muted">No approved entries to publish. Approve entries on the Review page first.</span>
+            }
+            else
+            {
+                <strong>@_approvedCount</strong>
+                <span> @(_approvedCount == 1 ? "entry" : "entries") approved and ready.</span>
+            }
+        </p>
+        <div class="mb-1">
+            <span class="me-2">Prod connection:
+                @if (Config.IsProdConfigured)
+                {
+                    <span class="badge bg-success">configured</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">not configured</span>
+                }
+            </span>
+            <span>SCP:
+                @if (Config.IsScpConfigured)
+                {
+                    <span class="badge bg-success">configured</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">not configured</span>
+                }
+            </span>
+        </div>
+
+        @* ─── TARGET: PRODUCTION danger banner (always shown once configured) ─── *@
+        <div class="alert alert-danger py-2 mt-3">
+            <span class="oi oi-warning" aria-hidden="true"></span>
+            <strong> TARGET: PRODUCTION</strong> — this writes directly to the live site database
+            and the Render /data disk. There is no undo.
+        </div>
+
+        @* ─── Stage 1 — Compute Prod Diff ─── *@
+        <div class="card mt-3">
+            <div class="card-header">
+                <h2 class="h5 fw-semibold mb-0">Stage 1 — Compute Prod Diff</h2>
+            </div>
+            <div class="card-body">
+
+                @if (!string.IsNullOrEmpty(_diffError))
+                {
+                    <div class="alert alert-danger py-2">@_diffError</div>
+                }
+
+                <button class="btn btn-outline-primary"
+                        @onclick="ComputeDiffAsync"
+                        disabled="@(_operationInFlight || _approvedCount == 0
+                                    || !Config.IsProdConfigured || !Config.IsScpConfigured)">
+                    @if (_diffComputeInFlight)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"
+                              role="status"
+                              aria-label="Operation in progress">
+                            <span class="visually-hidden">Loading...</span>
+                        </span>
+                        <span> Comparing against production...</span>
+                    }
+                    else
+                    {
+                        <span>Compute Prod Diff</span>
+                    }
+                </button>
+
+                @if (_approvedCount == 0)
+                {
+                    <p class="text-muted mt-2 mb-0 small">Approve entries on the Review page first.</p>
+                }
+
+                @if (_diffReady)
+                {
+                    <div class="card border-primary mt-3">
+                        <div class="card-body">
+                            <h3 class="h6 fw-semibold text-primary mb-2">Diff Preview</h3>
+
+                            @if (_newCount == 0 && _updatedCount == 0)
+                            {
+                                <p class="text-muted mb-0 small">Production is already up to date — no new or updated rows to publish.</p>
+                            }
+                            else
+                            {
+                                <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+                                    <span class="badge bg-success">New: @_newCount</span>
+                                    <span class="badge bg-primary">Updated: @_updatedCount</span>
+                                </div>
+                                <dl class="row mb-2">
+                                    <dt class="col-sm-4">Target:</dt>
+                                    <dd class="col-sm-8"><span class="text-danger fw-semibold">PRODUCTION</span></dd>
+                                    <dt class="col-sm-4">Remote artifact path:</dt>
+                                    <dd class="col-sm-8">configured</dd>
+                                </dl>
+
+                                @* Per-row table (New + Updated) — mirror Review.razor table style *@
+                                <table class="table table-sm table-hover align-middle mt-2"
+                                       aria-live="polite">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Natural key</th>
+                                            <th>Change</th>
+                                            <th>Artifact file</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in _diffRows)
+                                        {
+                                            <tr>
+                                                <td class="text-truncate" style="max-width:300px">@item.Title</td>
+                                                <td><code>@item.KeyType:@item.KeyValue</code></td>
+                                                <td>
+                                                    @if (item.IsNew)
+                                                    {
+                                                        <span class="badge bg-success">New</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-primary">Updated</span>
+                                                    }
+                                                </td>
+                                                <td><code>@item.ArtifactFile</code></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+
+                                @* Confirmation gate (D-09) *@
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               id="prodReviewed"
+                                               @bind="_prodReviewed" />
+                                        <label class="form-check-label" for="prodReviewed">
+                                            I have reviewed what will be written to PRODUCTION above.
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ─── Stage 2 — Upload Artifacts to Prod /data (SCP) ─── *@
+        @if (_diffReady && (_newCount > 0 || _updatedCount > 0))
+        {
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h2 class="h5 fw-semibold mb-0">Stage 2 — Upload Artifacts to Prod /data (SCP)</h2>
+                </div>
+                <div class="card-body">
+
+                    @if (!string.IsNullOrEmpty(_scpError))
+                    {
+                        <div class="alert alert-danger py-2">@_scpError</div>
+                    }
+
+                    <button class="btn btn-danger"
+                            @onclick="UploadArtifactsAsync"
+                            disabled="@(!_prodReviewed || _operationInFlight || !_diffReady)"
+                            aria-label="@(_prodReviewed ? null : "Check the confirmation box above to enable upload")">
+                        @if (_scpInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Uploading artifacts...</span>
+                        }
+                        else
+                        {
+                            <span>Upload Artifacts to Prod /data (SCP)</span>
+                        }
+                    </button>
+
+                    @* Per-file reconcile list — aria-live so it streams (SC4) *@
+                    @if (_fileResults.Count > 0)
+                    {
+                        <table class="table table-sm table-hover align-middle mt-3"
+                               aria-live="polite">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>File</th>
+                                    <th>Status</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var file in _fileResults)
+                                {
+                                    <tr>
+                                        <td><code>@file.RemoteRelativePath</code></td>
+                                        <td>
+                                            @if (file.Success)
+                                            {
+                                                <span class="badge bg-success">Uploaded</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger">Failed</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!file.Success)
+                                            {
+                                                <span class="text-muted small">@file.FailureReason</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    @if (_scpSuccess)
+                    {
+                        <div class="alert alert-success py-2 mt-3">
+                            All @_fileResults.Count artifact(s) uploaded to production /data.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @* ─── Stage 3 — Write Approved Rows to Prod DB ─── *@
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h2 class="h5 fw-semibold mb-0">Stage 3 — Write Approved Rows to Prod DB</h2>
+                </div>
+                <div class="card-body">
+
+                    @if (!string.IsNullOrEmpty(_dbError))
+                    {
+                        <div class="alert alert-danger py-2">@_dbError</div>
+                    }
+
+                    @if (!_scpSuccess)
+                    {
+                        <p class="text-muted small mb-2">
+                            Locked until every artifact has uploaded successfully.
+                        </p>
+                    }
+
+                    <button class="btn btn-danger"
+                            @onclick="WriteRowsAsync"
+                            disabled="@(!_scpSuccess || _operationInFlight)"
+                            aria-label="@(_scpSuccess ? null : "Locked until every artifact has uploaded successfully")">
+                        @if (_dbInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Writing rows to production...</span>
+                        }
+                        else
+                        {
+                            <span>Write Approved Rows to Prod DB</span>
+                        }
+                    </button>
+
+                    @* Per-row reconcile list *@
+                    @if (_rowResults.Count > 0)
+                    {
+                        <table class="table table-sm table-hover align-middle mt-3"
+                               aria-live="polite">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Natural key</th>
+                                    <th>Status</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var rr in _rowResults)
+                                {
+                                    <tr>
+                                        <td class="text-truncate" style="max-width:300px">@rr.Title</td>
+                                        <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                        <td>
+                                            @if (rr.Success)
+                                            {
+                                                <span class="badge bg-success">Written</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger">Failed</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!rr.Success)
+                                            {
+                                                <span class="text-muted small">@rr.Reason</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    @if (_dbSuccess)
+                    {
+                        <div class="alert alert-success py-2 mt-3">
+                            All @_rowResults.Count approved row(s) written to production.
+                            is_visible and is_evergreen on existing rows were preserved.
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+
+</article>
+
+@code {
+    // ── Injected services ───────────────────────────────────────────────────
+    [Inject]
+    private IContentSiteIndexStore IndexStore { get; set; } = default!;
+
+    [Inject]
+    private ISshArtifactUploader SshUploader { get; set; } = default!;
+
+    [Inject]
+    private IProdStoreFactory ProdStoreFactory { get; set; } = default!;
+
+    [Inject]
+    private StudioConfig Config { get; set; } = default!;
+
+    // Why: IConfiguration injected (not a singleton string holder) so the prod conn
+    // string is ephemeral in the publish action, never materialized into DI state (D-03/D-07).
+    [Inject]
+    private IConfiguration Configuration { get; set; } = default!;
+
+    [Inject]
+    private ContentKbOrchestratorOptions Options { get; set; } = default!;
+
+    // ── Init state ──────────────────────────────────────────────────────────
+    private bool _initInFlight = true;
+    private string? _initError;
+    private int _approvedCount;
+
+    // dataRoot = parent of ArtifactRoot = {studioDataDirectory}
+    // Why: ArtifactPath already carries content-kb/; combining with ArtifactRoot would
+    // double the segment. The data root is the correct base (D-01/D-03/D-10).
+    private string _dataRoot = string.Empty;
+
+    // ── Shared in-flight guard ──────────────────────────────────────────────
+    private bool _operationInFlight;
+
+    // ── CTS for disposal-safe cancellation ─────────────────────────────────
+    private CancellationTokenSource _cts = new();
+
+    // ── Stage 1 — compute diff ──────────────────────────────────────────────
+    private bool _diffComputeInFlight;
+    private string _diffError = string.Empty;
+    private bool _diffReady;
+    private int _newCount;
+    private int _updatedCount;
+
+    // Approved local rows cached for SCP + upsert steps
+    private IReadOnlyList<ContentSiteIndexRow> _approvedRows = Array.Empty<ContentSiteIndexRow>();
+
+    // Per-row diff display rows
+    private List<DiffRow> _diffRows = new();
+
+    // ── Confirmation gate (D-09) ────────────────────────────────────────────
+    private bool _prodReviewed;
+
+    // ── Stage 2 — SCP upload ────────────────────────────────────────────────
+    private bool _scpInFlight;
+    private bool _scpSuccess;
+    private string _scpError = string.Empty;
+    private List<SshUploadResult> _fileResults = new();
+
+    // ── Stage 3 — DB upsert (gated on _scpSuccess) ─────────────────────────
+    private bool _dbInFlight;
+    private bool _dbSuccess;
+    private string _dbError = string.Empty;
+    private List<RowResult> _rowResults = new();
+
+    private sealed record DiffRow(string Title, string KeyType, string KeyValue, bool IsNew, string ArtifactFile);
+
+    private sealed record RowResult(string Title, string KeyType, string KeyValue, bool Success, string? Reason);
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Why: Task.Run moves store calls off the Blazor sync context (Pitfall 7).
+            var (approvedCount, dataRoot) = await Task.Run(async () =>
+            {
+                var rows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+                var dr = Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot;
+                return (rows.Count, dr);
+            }, _cts.Token);
+
+            _approvedCount = approvedCount;
+            _dataRoot = dataRoot;
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed mid-load — swallow.
+        }
+        catch (Exception)
+        {
+            // Why: never include any secret value in the init error (SC5 / D-07).
+            _initError = "Initialization failed — check Studio configuration and retry.";
+        }
+        finally
+        {
+            _initInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Stage 1: Compute Prod Diff ──────────────────────────────────────────
+    private async Task ComputeDiffAsync()
+    {
+        if (_operationInFlight || _approvedCount == 0
+            || !Config.IsProdConfigured || !Config.IsScpConfigured)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _diffComputeInFlight = true;
+        _diffError = string.Empty;
+        _diffReady = false;
+        _prodReviewed = false;
+        _scpSuccess = false;
+        _scpError = string.Empty;
+        _fileResults = new();
+        _dbSuccess = false;
+        _dbError = string.Empty;
+        _rowResults = new();
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                // Read local approved rows
+                var localRows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+
+                // Build on-demand prod store (D-03) — never at DI startup
+                var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
+                var prodStore = ProdStoreFactory.Create(rawConnStr);
+                await prodStore.EnsureSchemaAsync(_cts.Token).ConfigureAwait(false);
+
+                // Read prod rows (all rows regardless of visibility) — diff base
+                var prodRows = await prodStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
+
+                // In-memory natural-key diff (D-04)
+                var prodByKey = new HashSet<string>(
+                    prodRows.Select(r => r.YoutubeVideoId ?? r.RssGuid ?? string.Empty));
+
+                int newCount = 0, updatedCount = 0;
+                var diffRows = new List<DiffRow>();
+                foreach (var row in localRows)
+                {
+                    var key = row.YoutubeVideoId ?? row.RssGuid ?? string.Empty;
+                    var keyType = row.YoutubeVideoId is not null ? "youtube" : "podcast";
+                    var isNew = !prodByKey.Contains(key);
+                    if (isNew)
+                    {
+                        newCount++;
+                    }
+                    else
+                    {
+                        updatedCount++;
+                    }
+
+                    diffRows.Add(new DiffRow(
+                        row.Title,
+                        keyType,
+                        key,
+                        isNew,
+                        Path.GetFileName(row.ArtifactPath)));
+                }
+
+                await InvokeAsync(() =>
+                {
+                    _approvedRows = localRows;
+                    _diffRows = diffRows;
+                    _newCount = newCount;
+                    _updatedCount = updatedCount;
+                    _diffReady = true;
+                    _diffComputeInFlight = false;
+                    _operationInFlight = false;
+                    try { StateHasChanged(); }
+                    catch (ObjectDisposedException) { }
+                    catch (InvalidOperationException) { }
+                });
+            }, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _diffError = "Diff was cancelled.";
+            _diffComputeInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // Why: an Npgsql connection exception can carry host/database/user — NEVER surface
+            // ex.Message here. Use the sanitized literal only (SC5 / D-07 / Codex HIGH-2).
+            _diffError = "Could not read production — check the prod connection configuration and try again. Nothing was written.";
+            _diffComputeInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Stage 2: Upload Artifacts (SCP) ─────────────────────────────────────
+    private async Task UploadArtifactsAsync()
+    {
+        if (!_prodReviewed || _operationInFlight || !_diffReady)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _scpInFlight = true;
+        _scpError = string.Empty;
+        _scpSuccess = false;
+        _fileResults = new();
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                // Why: build a request per approved row pairing the absolute local path with the
+                // row's RELATIVE artifact path; the uploader builds + traversal-validates the
+                // remote target from RemoteRelativePath (Codex HIGH-1).
+                var requests = _approvedRows
+                    .Select(r => new SshUploadRequest(
+                        Path.GetFullPath(Path.Combine(_dataRoot, r.ArtifactPath)),
+                        r.ArtifactPath))
+                    .ToList();
+
+                // Progress streams per-file results into _fileResults via disposal-safe InvokeAsync.
+                var progress = new Progress<SshUploadResult>(result =>
+                {
+                    _ = InvokeAsync(() =>
+                    {
+                        _fileResults.Add(result);
+                        try { StateHasChanged(); }
+                        catch (ObjectDisposedException) { }
+                        catch (InvalidOperationException) { }
+                    });
+                });
+
+                var results = await SshUploader.UploadArtifactsAsync(requests, progress, _cts.Token)
+                    .ConfigureAwait(false);
+
+                var allOk = results.All(r => r.Success);
+
+                await InvokeAsync(() =>
+                {
+                    _fileResults = results.ToList();
+                    _scpSuccess = allOk;
+                    if (!allOk)
+                    {
+                        _scpError = "Artifact upload finished with failures — see the per-file list below. " +
+                                    "The database step stays locked. Fix the failed files and re-run upload.";
+                    }
+
+                    _scpInFlight = false;
+                    _operationInFlight = false;
+                    try { StateHasChanged(); }
+                    catch (ObjectDisposedException) { }
+                    catch (InvalidOperationException) { }
+                });
+            }, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _scpError = "Upload was cancelled.";
+            _scpInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // Why: SshException.Message may contain hostname / remote path (D-07) — use sanitized
+            // copy only, never ex.Message.
+            _scpError = "SSH connection failed — check SCP configuration and Render SSH access.";
+            _scpInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Stage 3: Write Approved Rows to Prod DB (gated on _scpSuccess) ───────
+    private async Task WriteRowsAsync()
+    {
+        // Why: hard-guard before any prod write — a stale render, test invocation, or future
+        // refactor must never reach the upsert before full SCP success (Codex MEDIUM-1). The
+        // disabled button alone is not sufficient.
+        if (!_scpSuccess || _operationInFlight || !_diffReady)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _dbInFlight = true;
+        _dbError = string.Empty;
+        _dbSuccess = false;
+        _rowResults = new();
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
+                var prodStore = ProdStoreFactory.Create(rawConnStr);
+
+                var localResults = new List<RowResult>();
+                foreach (var row in _approvedRows)
+                {
+                    var keyType = row.YoutubeVideoId is not null ? "youtube" : "podcast";
+                    var keyValue = row.YoutubeVideoId ?? row.RssGuid ?? string.Empty;
+                    try
+                    {
+                        // SC3 / D-08: only the content-columns-only upsert may run on prod — never a
+                        // full-row upsert (preserves is_visible / is_evergreen on existing rows).
+                        await prodStore.UpsertContentColumnsOnlyAsync(row, _cts.Token).ConfigureAwait(false);
+                        localResults.Add(new RowResult(row.Title, keyType, keyValue, true, null));
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception)
+                    {
+                        // Why: an Npgsql exception can carry host/database/user — NEVER surface
+                        // ex.Message. Use the sanitized literal only (SC5 / D-07 / Codex HIGH-2).
+                        localResults.Add(new RowResult(row.Title, keyType, keyValue, false,
+                            "Prod upsert failed for this row — see logs."));
+                    }
+
+                    await InvokeAsync(() =>
+                    {
+                        _rowResults = localResults.ToList();
+                        try { StateHasChanged(); }
+                        catch (ObjectDisposedException) { }
+                        catch (InvalidOperationException) { }
+                    });
+                }
+
+                var allOk = localResults.All(r => r.Success);
+                await InvokeAsync(() =>
+                {
+                    _rowResults = localResults;
+                    _dbSuccess = allOk;
+                    if (!allOk)
+                    {
+                        _dbError = "Database upsert finished with failures — see the per-row list below. " +
+                                   "Artifacts already uploaded successfully; reconcile only the failed rows.";
+                    }
+
+                    _dbInFlight = false;
+                    _operationInFlight = false;
+                    try { StateHasChanged(); }
+                    catch (ObjectDisposedException) { }
+                    catch (InvalidOperationException) { }
+                });
+            }, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _dbError = "DB write was cancelled.";
+            _dbInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // Why: never surface ex.Message — an Npgsql exception can carry host/db/user (D-07).
+            _dbError = "Database write failed — check the prod connection configuration and try again.";
+            _dbInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Test seam (Codex MEDIUM-1) ──────────────────────────────────────────
+    // Why: exercises the WriteRowsAsync hard-guard directly. bUnit will not dispatch a click to a
+    // disabled button, so the guard (which protects against a stale render / future refactor
+    // reaching the prod upsert before SCP success) is unreachable through the UI in a test. This
+    // internal method lets the test invoke the handler in the pre-SCP state and assert no upsert
+    // ran. It calls the exact production handler — no behavior is duplicated.
+    internal Task InvokeWriteRowsForTest() => WriteRowsAsync();
+
+    // ── IDisposable: cancel in-flight ops on circuit drop ───────────────────
+    /// <summary>
+    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
+    /// prod read, SCP upload, or DB write is stopped when the operator closes the tab or the
+    /// SignalR circuit drops (D-09).
+    /// </summary>
+    public void Dispose()
+    {
+        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-09).
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

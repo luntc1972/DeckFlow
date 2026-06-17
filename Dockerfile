@@ -26,6 +26,8 @@ COPY DeckFlow.Web/DeckFlow.Web.csproj DeckFlow.Web/
 COPY DeckFlow.CLI/DeckFlow.CLI.csproj DeckFlow.CLI/
 
 # Restore .NET packages
+# SC4: keep restore project-scoped; do not change this to `dotnet restore DeckFlow.sln`.
+# DeckFlow.Studio is local-only and solution restore would pull Blazor into the container build.
 RUN dotnet restore DeckFlow.Web/DeckFlow.Web.csproj
 
 # Copy the rest of the source
