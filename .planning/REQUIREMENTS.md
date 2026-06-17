@@ -47,9 +47,9 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 
 ### UI Review (UIR)
 
-- [ ] **UIR-01**: An updated 6-pillar visual audit of the deployed deckflow.gg public site is produced and scored, with prioritized findings (re-scoring the v1.0 16/24 baseline that has been deferred every milestone since; Color + Typography were the lowest pillars).
+- [x] **UIR-01**: An updated 6-pillar visual audit of the deployed deckflow.gg public site is produced and scored, with prioritized findings (re-scoring the v1.0 16/24 baseline that has been deferred every milestone since; Color + Typography were the lowest pillars).
 - [x] **UIR-02**: High and medium findings from UIR-01 are remediated to reach the ≥20/24 target bar; theme-system constraints honored (layout CSS in `site-common.css`, tokens in each theme `:root`).
-- [ ] **UIR-03**: Remediation is visually verified with browser screenshots at ≥2 viewports (mobile + desktop) before close — grep-only verification is insufficient for CSS/layout changes.
+- [x] **UIR-03**: Remediation is visually verified with browser screenshots at ≥2 viewports (mobile + desktop) before close — grep-only verification is insufficient for CSS/layout changes.
 
 ## Future Requirements (deferred)
 
@@ -97,6 +97,6 @@ A standalone local Blazor Server tool that wraps the existing local-CLI Content 
 | PUB-03 | Phase 46 | Complete |
 | PUB-04 | Phase 47 | Pending |
 | PUB-05 | Phase 47 | Pending |
-| UIR-01 | Phase 48 | Pending |
+| UIR-01 | Phase 48 | Complete |
 | UIR-02 | Phase 48 | Complete |
-| UIR-03 | Phase 48 | Pending |
+| UIR-03 | Phase 48 | Complete |

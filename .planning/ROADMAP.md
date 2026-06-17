@@ -159,7 +159,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator (completed 2026-06-15)
 - [x] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview (completed 2026-06-16)
 - [x] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly (completed 2026-06-16)
-- [ ] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports
+- [x] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports (completed 2026-06-17)
 
 ### Phase Details
 
@@ -296,7 +296,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 **Plans**: 3 plans (2 waves)
 - [x] 48-01-PLAN.md — Token remediation: F3 (--fs-xs), F5 (--muted AA), F2 surface tokens (--panel/--bg/--line) across all 24 themes + accept UIR-01 audit (Wave 1)
 - [x] 48-02-PLAN.md — Layout + markup: F1 (inline-SVG icons + card elevation), F2 shadow, F4 (heading/label typography), F6/F7 (short-form cap + example panel) in site-common.css + views (Wave 1)
-- [ ] 48-03-PLAN.md — Verification: 2-viewport browser re-score to >=20/24 (light+dark themes) + blocking operator confirm on deployed deckflow.gg (Wave 2)
+- [x] 48-03-PLAN.md — Verification: 2-viewport browser re-score to >=20/24 (light+dark themes) + blocking operator confirm on deployed deckflow.gg (Wave 2)
 **UI hint**: yes
 
 ---
@@ -351,7 +351,7 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 | 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
 | 46. Review Queue + Commit-Publish Path | 5/5 | Complete   | 2026-06-16 |
 | 47. Direct Prod-DB + SCP Publish Path | 3/3 | Complete   | 2026-06-16 |
-| 48. UI Audit + Remediation | 2/3 | In Progress|  |
+| 48. UI Audit + Remediation | 3/3 | Complete    | 2026-06-17 |
 
 ---
 
