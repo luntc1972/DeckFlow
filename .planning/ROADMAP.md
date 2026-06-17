@@ -9,7 +9,7 @@
 - ✅ **v1.4 Content Knowledge Base Foundation + Admin Mobile + v1.3 Backlog Cleanup** — Phases 16-27 + 21.1/21.2 (shipped 2026-06-03) — see `.planning/milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
-- 🔵 **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (in progress)
+- ✅ **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (shipped 2026-06-17) — see `.planning/milestones/v1.7-ROADMAP.md`
 
 ## Phases
 
@@ -144,197 +144,25 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 
 ---
 
-## v1.7 Local Harvest & Publish Studio (Phases 41-50) — IN PROGRESS
+<details>
+<summary>✅ v1.7 Local Harvest & Publish Studio (Phases 41-50) — SHIPPED 2026-06-17</summary>
 
 **Goal:** A standalone local Blazor Server tool to discover YouTube videos, harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push.
 
-### Phase Checklist
+- [x] Phase 41: Studio Scaffold + Secrets Wiring (1/1) — completed 2026-06-13
+- [x] Phase 42: Orchestrator Extraction (5/5) — completed 2026-06-13
+- [x] Phase 43: Approval Status + Safe Upsert (2/2) — completed 2026-06-13
+- [x] Phase 44: Admin Grid Lazy Paging (3/3) — completed 2026-06-14
+- [x] Phase 45: Harvest + Distill UI (4/4) — completed 2026-06-15
+- [x] Phase 46: Review Queue + Commit-Publish Path (5/5) — completed 2026-06-16
+- [x] Phase 47: Direct Prod-DB + SCP Publish Path (3/3) — completed 2026-06-16
+- [x] Phase 48: UI Audit + Remediation (3/3) — completed 2026-06-17
+- [x] Phase 49: Dapper Data-Access Adoption (5/5) — completed 2026-06-14
+- [x] Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate (4/4) — completed 2026-06-14
 
-- [x] **Phase 41: Studio Scaffold + Secrets Wiring** — Blazor Server project in solution, user-secrets wired, gitignore hardened; prod connection string has a safe home
-- [x] **Phase 42: Orchestrator Extraction** — Harvest/distill/export domain logic moves from DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator; CLI becomes thin adapters; closes v1.6 god-class backlog item (completed 2026-06-13)
-- [x] **Phase 43: Approval Status + Safe Upsert** — approval_status column (self-healing migration), safe content-only-columns upsert overload (preserves is_visible/is_evergreen), and filtered export prerequisite; unblocks both publish paths (completed 2026-06-13)
-- [x] **Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate** _(runs before Phase 49 — re-sequenced 2026-06-14 at operator request)_ — Export the operator's ReSharper code-style to .editorconfig and reconcile against the existing file (the 5 bug-driven carve-outs override any conflicting RS pref); enforce on new/changed lines only via a pre-commit hook + CI gate; existing files are NOT reflowed; project CLAUDE.md updated so .editorconfig is the enforced source of truth (completed 2026-06-14)
-- [x] **Phase 49: Dapper Data-Access Adoption** _(runs after Phase 50; before remaining DB work 46/47)_ — Replace raw ADO.NET reader/param boilerplate in the dual-provider store classes with Dapper behind the existing IRelationalDialect/RelationalDatabaseConnection abstraction; provider-aware type handlers preserve Sqlite+Postgres parity; DDL/migration + unnest-batch paths stay raw SQL; FeedbackStore spike gates the rest (completed 2026-06-14)
-- [x] **Phase 44: Admin Grid Lazy Paging** — /Admin/Harvest initial load goes from synchronous count+aggregate to AJAX on-demand; LOWER(commander_name) index fixes the slow query at the source (completed 2026-06-14, executed before 49 — see note: re-check on Dapper conversion)
-- [x] **Phase 45: Harvest + Distill UI** — Operator can paste video URLs/IDs, browse channels, trigger harvest+distill with live progress and spend dry-run gate; all wired through IContentKbOrchestrator (completed 2026-06-15)
-- [x] **Phase 46: Review Queue + Commit-Publish Path** — Operator can approve/reject distilled entries in a UI queue; approved seed exports LF-normalized; two-stage commit/push with diff preview (completed 2026-06-16)
-- [x] **Phase 47: Direct Prod-DB + SCP Publish Path** — File-first SCP then Postgres upsert (safe overload); dry-run diff shows exactly what will change; partial-failure surfaces clearly (completed 2026-06-16)
-- [x] **Phase 48: UI Audit + Remediation** — Updated 6-pillar visual audit of deployed deckflow.gg; high/medium findings remediated to reach ≥20/24; browser-verified at mobile + desktop viewports (completed 2026-06-17)
+Verification: 10/10 phases verified (4 passed, 6 human_needed = automated PASS, operator smoke deferred). 23/23 requirements satisfied. Audit: tech_debt (integration clean). Full detail: `.planning/milestones/v1.7-ROADMAP.md`.
 
-### Phase Details
-
-#### Phase 41: Studio Scaffold + Secrets Wiring
-**Goal**: Operator can run `dotnet run` in DeckFlow.Studio and reach a Blazor Server UI in the browser; secrets are routed through user-secrets and no connection string has a safe path into git
-**Depends on**: Nothing (first phase)
-**Requirements**: STU-01, STU-02, STU-03
-**Success Criteria** (what must be TRUE):
-  1. `dotnet run --project DeckFlow.Studio` starts a Blazor Server app reachable at http://localhost:{port} with a first page rendered
-  2. `dotnet user-secrets list --project DeckFlow.Studio` is the only place the prod Postgres connection string can be stored; no appsettings file in the project tree contains it
-  3. `git log --all -- "**/secrets.json"` returns no commits; `grep -r "postgres\|password\|Host=" DeckFlow.Studio/` returns nothing in tracked files
-  4. `dotnet build DeckFlow.sln` succeeds with the Studio project present; `dotnet restore DeckFlow.Web/DeckFlow.Web.csproj` (Dockerfile path) is unchanged and does not pull in Studio
-**Plans**: 1 plan
-- [ ] 41-01-PLAN.md — Scaffold DeckFlow.Studio (net10.0 Blazor Server, Core ref), wire user-secrets, harden .gitignore, lock Dockerfile restore
-
----
-
-#### Phase 42: Orchestrator Extraction
-**Goal**: Harvest, distill, block/unblock, and export domain logic lives in DeckFlow.Core as IContentKbOrchestrator; CLI command behavior is unchanged; Studio can reference Core without referencing CLI
-**Depends on**: Phase 41
-**Requirements**: ORCH-01, ORCH-02
-**Success Criteria** (what must be TRUE):
-  1. DeckFlow.Core contains `IContentKbOrchestrator` and `ContentKbOrchestrator`; all existing CLI `internal static` domain methods have moved to Core
-  2. `ContentKbCommandRunners` public Run*Async methods are thin adapters (construct stores from paths, delegate to orchestrator, convert result to exit code); no domain logic remains in CLI
-  3. All existing CLI tests pass unchanged; `dotnet build DeckFlow.sln` produces 0 errors / 0 new warnings; Core.Tests green
-  4. DeckFlow.Studio can reference Core and call `IContentKbOrchestrator` from a Blazor service with no direct CLI project reference
-**Plans**: 5 plans (4 waves: contracts / impl / adapters + DI + anchor / Studio smoke + parity tests)
-- [x] 42-01-PLAN.md — IContentKbOrchestrator facade + sub-interfaces + null-safe result records + synchronous progress sink (Wave 1)
-- [x] 42-02-PLAN.md — Lift CLI domain bodies into ContentKbOrchestrator + consolidate validators/constants D-07 (Wave 2)
-- [x] 42-03-PLAN.md — CLI thin adapters + AddContentKbOrchestrator() DI ext (forwards all slices) + re-point test anchor + Throwing* doubles D-09 (Wave 3)
-- [x] 42-04-PLAN.md — Studio smoke service resolves IContentMaintenanceOrchestrator slice + full ctor wired with real local SQLite stores, no CLI ref D-08 (Wave 4)
-- [x] 42-05-PLAN.md — CLI exit-code/output parity tests + byte-identical JSON-seed golden-fixture test (Wave 4)
-
----
-
-#### Phase 43: Approval Status + Safe Upsert
-**Goal**: The content_site_index has an approval_status column that drives the review queue; a safe content-only upsert overload exists that never clobbers is_visible or is_evergreen; the export path is filtered to approved rows only
-**Depends on**: Phase 42
-**Requirements**: REVQ-01, PUB-01, PUB-02
-**Success Criteria** (what must be TRUE):
-  1. `approval_status` column exists on `content_site_index` via the self-healing ALTER migration pattern; column is present after `EnsureSchemaAsync` runs on both a fresh SQLite and a fresh Postgres connection
-  2. `UpsertContentColumnsOnlyAsync` exists on `IContentSiteIndexStore`; an integration test sets `is_visible=TRUE`, calls the new overload, and asserts `is_visible` remains TRUE after the call
-  3. `GetApprovedRowsAsync` returns only rows where `approval_status='approved'`; the seed export calls this method (not `GetAllRowsAsync`), so rejected/pending rows never appear in `index-seed.json`
-  4. The distill pipeline sets newly-inserted `content_site_index` rows to `approval_status='pending'`; rows that existed before the migration are treated as pending (no data loss on migration)
-**Plans**: 2 plans (2 waves: store/model/orchestrator changes / integration tests)
-- [x] 43-01-PLAN.md — approval_status column + self-healing migration + grandfather backfill, UpsertContentColumnsOnlyAsync (preserves 4 admin fields), GetApprovedRowsAsync, orchestrator export+distill switches (Wave 1)
-- [x] 43-02-PLAN.md — real-SQLite integration tests: migration/grandfather, safe-upsert preservation, new-row-pending, approved-only filter, DDL default (Wave 2)
-
----
-
-#### Phase 44: Admin Grid Lazy Paging
-**Goal**: Navigating to /Admin/Harvest no longer runs the slow count+aggregate query synchronously on initial page load; all commander grid pagination happens via AJAX partial requests; the underlying slow query is also fixed with an index
-**Depends on**: Phase 49 (Dapper) — re-sequenced 2026-06-14 to run AFTER 49. NOTE: 44 already has 3 reviewed plans that touch `CategoryKnowledgeRepository`; once 49 converts that store to Dapper, re-check the 44 plans against the converted code before executing (the index DDL stays raw, but the surrounding query methods may have moved to Dapper).
-**Requirements**: GRID-01, GRID-02
-**Success Criteria** (what must be TRUE):
-  1. Initial GET /Admin/Harvest returns the page skeleton (stats, recent runs, schedule sections) without executing `GetDistinctProcessedCommanderCountAsync` or `GetPagedProcessedCommandersAsync`; the commander grid section is an empty placeholder on first render
-  2. The commander grid populates automatically after page load via a `GET /Admin/Harvest/commanders?page=1` AJAX request; pagination clicks replace only the grid section without a full-page reload
-  3. A partial expression index on `LOWER(commander_name) WHERE processed=1` exists in `CategoryKnowledgeRepository`; the distinct-count query no longer full-scans the table
-  4. The new partial endpoint is guarded by `SameOriginRequestValidator`; a cross-origin request to `/Admin/Harvest/commanders` returns 403 (SC4 reinterpreted: the validator allows a bare no-header direct-nav GET by design; the security-relevant case is cross-origin → 403)
-**Plans**: 3 plans (2 waves: index + controller/partial in Wave 1, client wiring + UI checkpoint in Wave 2)
-- [x] 44-01-PLAN.md — Consolidate deck_queue commander indexes into one partial expression index `LOWER(commander_name) WHERE processed=1` + EXPLAIN verification (GRID-02)
-- [x] 44-02-PLAN.md — Strip Index slow queries, add same-origin-guarded `GET /Admin/Harvest/commanders` PartialView + slim `CommandersGridViewModel` + `_CommandersGrid` partial + SC1/SC2/SC4 tests (GRID-01)
-- [x] 44-03-PLAN.md — Index.cshtml empty placeholder + `admin-harvest.ts` auto-load/swap/pagination delegation + admin-common.css states + browser-smoke checkpoint (GRID-01)
-**UI hint**: yes
-
----
-
-#### Phase 45: Harvest + Distill UI
-**Goal**: Operator can discover videos (channel browse or URL/ID paste), see harvested/distilled status per video, and trigger harvest + distill from the Studio UI with live progress and a dry-run spend gate before any LLM cost is incurred
-**Depends on**: Phase 41, Phase 42, Phase 43
-**Requirements**: HARV-01, HARV-02, HARV-03, HARV-04, HARV-05
-**Success Criteria** (what must be TRUE):
-  1. Operator can paste a YouTube channel handle/URL and see a list of that channel's recent videos; each video shows a harvested/distilled status badge; already-harvested videos are visually distinguished before selection
-  2. Operator can paste individual YouTube video URLs or IDs to add specific videos to a queue; videos already in the local DB are flagged as duplicates before harvest runs
-  3. Operator can trigger harvest on selected videos and see live progress updates in the UI without the browser tab freezing; cancelling or closing the tab stops the in-flight operation (CancellationToken wired to component disposal)
-  4. Before distill runs, the operator sees an estimated LLM spend projection (dry-run output); already-distilled videos show a "Re-distill" warning with explicit secondary confirmation before re-queuing; the confirm step is required before `dryRun:false` executes
-  5. Actual spend is shown after distill completes; the monthly cap from the existing spend ledger is enforced; already-distilled videos are not silently re-distilled without the explicit Re-distill flow
-**Plans**: 4 plans across 4 waves
-  - [x] 45-01-PLAN.md (wave 1) — Core ledger enabler: GetMonthlyCapUsd() + override-affects-cap tests (HARV-05)
-  - [x] 45-02-PLAN.md (wave 2) — Studio DI: StudioDistillConfig, SessionCapOverride, override-aware ledger, VideoStatusResolver + tests (HARV-03, HARV-05)
-  - [x] 45-03-PLAN.md (wave 3) — Harvest.razor: channel browse, paste queue, badges, live harvest + NavMenu (HARV-01..04)
-  - [x] 45-04-PLAN.md (wave 4) — Distill spend gate: dry-run, re-distill double-confirm, cap + session override, execute (HARV-05)
-**UI hint**: yes
-
----
-
-#### Phase 46: Review Queue + Commit-Publish Path
-**Goal**: Operator can review distilled entries in a queue, approve or reject them, then publish approved entries to deckflow.gg via a git commit with a diff preview and a two-stage commit/push separation that prevents accidental Render auto-deploy
-**Depends on**: Phase 43 (approval_status column + filtered export), Phase 45 (harvest+distill produces entries)
-**Requirements**: REVQ-02, REVQ-03, PUB-03
-**Success Criteria** (what must be TRUE):
-  1. The review queue lists `approval_status='pending'` entries; each entry shows the video summary, timestamped clips, and tags; approving or rejecting an entry immediately updates its status in the queue
-  2. Operator can approve or reject individual entries and batch-approve/reject filtered sets; the queue supports filtering by status (pending/approved/rejected)
-  3. The publish page shows a diff of what will change in `index-seed.json` vs HEAD before any commit is initiated (added/updated/removed row counts from `git diff`)
-  4. Stage 1 (export + diff preview) and Stage 2 (commit) are separate UI actions; Stage 2 requires a checkbox "I have reviewed the diff above" before the Commit button is enabled. **SC4 reinterpreted per CONTEXT D-04:** Studio commits only and never runs `git push`; the manual `git push` is the deliberate out-of-app third step. This honors SC4's intent (prevent accidental auto-deploy; force a diff-reviewed action) more strongly than the literal "commit then push" wording.
-  5. The exported `index-seed.json` contains only `approval_status='approved'` rows and is LF-normalized (running `file index-seed.json` on Linux reports `ASCII text`, not `ASCII text, with CRLF line terminators`)
-**Plans**: 5 plans (3 waves)
-- [x] 46-01-PLAN.md — SetApprovalStatusAsync (single + batch) on IContentSiteIndexStore + real-SQLite tests (REVQ-02/03)
-- [x] 46-02-PLAN.md — IGitRepository git shell-out service + ExportIndexToFileAsync LF seed write + LF/byte-shape tests (PUB-03)
-- [x] 46-03-PLAN.md — Review.razor queue (tabs/badges/expand/optimistic+batch approve-reject) + NavMenu entries (REVQ-02/03)
-- [x] 46-04-PLAN.md — Publish.razor export+diff+gated commit (never pushes) + IGitRepository DI (PUB-03)
-- [x] 46-05-PLAN.md — Full-solution build + phase Core.Tests + format-gate verification + coverage-gap summary
-**UI hint**: yes
-
----
-
-#### Phase 47: Direct Prod-DB + SCP Publish Path
-**Goal**: Operator can publish approved entries straight to prod Render Postgres + /data disk without waiting for a Render deploy cycle; the write is file-first (SCP before DB); partial failure surfaces clearly for manual reconcile
-**Depends on**: Phase 43 (UpsertContentColumnsOnlyAsync safe overload), Phase 46 (commit path proven)
-**Requirements**: PUB-04, PUB-05
-**Success Criteria** (what must be TRUE):
-  1. Before any write, the operator sees a diff of approved local rows vs prod Postgres (new/updated rows from querying prod via the user-secrets connection string); no write occurs until the operator explicitly confirms
-  2. Step 1 (SCP artifacts to Render /data) and Step 2 (Postgres upsert) are sequential and gated: the Step 2 button is unreachable unless Step 1 completed successfully; the UI shows each step's success/failure before advancing
-  3. Prod Postgres upsert uses `UpsertContentColumnsOnlyAsync` exclusively; after a direct push, `is_visible` and `is_evergreen` on pre-existing prod rows are unchanged (operator can verify by querying prod before and after)
-  4. If Step 1 or Step 2 fails, the UI displays which rows/files succeeded and which did not, with enough detail for manual reconcile without re-running the full set
-  5. The prod connection string never appears in any log line, UI text, or error message; Studio logs show "Prod connection: configured" / "not configured" only
-**Plans**: 3 plans (3 waves)
-- [x] 47-01-PLAN.md — Wave-0 seams: ISshArtifactUploader + IProdStoreFactory contracts, StudioConfig+IsScpConfigured, SSH.NET 2025.0.0 (Studio only), test doubles + 8 stub facts (PUB-04, PUB-05)
-- [x] 47-02-PLAN.md — SftpArtifactUploader (SSH.NET SFTP, per-file results, path-safety, secret sanitization) + Program.cs SCP detection/registration/presence-log (PUB-04)
-- [x] 47-03-PLAN.md — DirectPush.razor 3-stage gated PROD-write page + NavMenu + 11 bUnit tests (commits 6026419/ca9d824); Task 3 SSH.NET supply-chain + PROD-write UI blocking-human checkpoint APPROVED by operator 2026-06-16 (SSH.NET bumped 2025.0.0→2025.1.0, commit a5c291c) (PUB-04, PUB-05)
-**UI hint**: yes
-
----
-
-#### Phase 48: UI Audit + Remediation
-**Goal**: The deployed deckflow.gg site reaches ≥20/24 on the 6-pillar visual audit; Color and Typography (the two weakest pillars since v1.0) are improved; all remediation is confirmed in the browser at mobile and desktop viewports before close
-**Depends on**: Nothing (independent of Studio track)
-**Requirements**: UIR-01, UIR-02, UIR-03
-**Success Criteria** (what must be TRUE):
-  1. An updated 6-pillar visual audit document exists with findings scored against the live deployed deckflow.gg site; the v1.0 baseline (16/24) is noted and prioritized findings are labeled HIGH/MEDIUM/LOW
-  2. All HIGH and MEDIUM findings from the audit are remediated; the total audit score reaches ≥20/24
-  3. Each remediated finding is verified with browser screenshots at ≥2 viewports (mobile ≤768px and desktop ≥1024px); no finding is closed on grep or static analysis alone
-  4. Layout CSS changes go into `site-common.css`; new or modified design tokens go into the `:root` block of each guild theme file; no layout rules are added to `site.css`
-**Plans**: 3 plans (2 waves)
-- [x] 48-01-PLAN.md — Token remediation: F3 (--fs-xs), F5 (--muted AA), F2 surface tokens (--panel/--bg/--line) across all 24 themes + accept UIR-01 audit (Wave 1)
-- [x] 48-02-PLAN.md — Layout + markup: F1 (inline-SVG icons + card elevation), F2 shadow, F4 (heading/label typography), F6/F7 (short-form cap + example panel) in site-common.css + views (Wave 1)
-- [x] 48-03-PLAN.md — Verification: 2-viewport browser re-score to >=20/24 (light+dark themes) + blocking operator confirm on deployed deckflow.gg (Wave 2)
-**UI hint**: yes
-
----
-
-#### Phase 49: Dapper Data-Access Adoption
-**Goal**: The dual-provider store classes use Dapper for query/execute mapping instead of hand-written `DbCommand`/reader loops, behind the unchanged `IRelationalDialect`/`RelationalDatabaseConnection` abstraction; Sqlite+Postgres parity is preserved by provider-aware Dapper type handlers; DDL/migration and the `RequestMetricsStore` unnest-batch path remain raw SQL; the `FeedbackStore` spike gates whether the rest proceeds
-**Sequencing**: Runs AFTER Phase 50 (re-sequenced 2026-06-14 at operator request — 50 lands the format gate first so 49's Dapper changes conform to the reconciled style), then before remaining DB work (46, 47). 44 already shipped. Rationale for Dapper-before-46/47: it converts `CategoryKnowledgeRepository`/`CategoryKnowledgeStore` and the content stores those later phases also touch; doing Dapper first avoids reworking the same DB code twice.
-**Depends on**: Nothing (independent of Studio track; touches Core + Web store layer only)
-**Requirements**: DAP-01, DAP-02, DAP-03 (defined in SPEC.md)
-**Success Criteria** (what must be TRUE):
-  1. `Dapper` package is referenced (user-approved) and provider-aware type handlers for DateTime/decimal/bool/Guid round-trip correctly on both Sqlite and Postgres
-  2. `FeedbackStore` is fully converted to Dapper as the spike; `DeckFlow.Web.Tests` for feedback pass per-provider; if the type-handler approach is judged not clean, the phase stops at the spike with a written verdict
-  3. Converted stores produce byte-identical behavior — existing `DeckFlow.Core.Tests` + `DeckFlow.Web.Tests` pass with 0 new failures on both providers; no DDL/migration method is rewritten
-  4. `RequestMetricsStore` unnest-batch and all DDL/schema-init methods remain raw ADO.NET by design (documented as out of scope)
-**Plans**: 5 plans (4 waves; spike-gated via a blocking abort gate)
-- [x] 49-01-PLAN.md — Add Dapper + 4 provider-aware type handlers + idempotent registration + round-trip test + FeedbackStore spike + 49-GATE-VERDICT.md (Wave 1, GATE)
-- [x] 49-01b-PLAN.md — Abort Gate: blocking checkpoint:decision reading 49-GATE-VERDICT.md → writes 49-GATE-ABORT.md (AUTHORIZED proceeds / ABORTED stops); sweep plans depend on this (Wave 1)
-- [x] 49-02-PLAN.md — (on AUTHORIZED) add DateTimeOffset handler + convert 6 simple stores: BlockedVideo, ContentSource, spend ledgers, BruteForce, FeatureFlag, HarvestSchedule (Wave 2)
-- [x] 49-03-PLAN.md — (on PASS) convert 4 mid stores: ContentHarvestRun, HarvestRun (Guid), ContentVideo, ContentSiteIndex (Wave 3)
-- [x] 49-04-PLAN.md — (on PASS) convert CategoryKnowledgeStore + CategoryKnowledgeRepository (transactions); document RequestMetricsStore carve-out; final parity gate (Wave 4)
-
----
-
-#### Phase 50: Code-Style Enforcement — ReSharper Reconciliation + PR Gate
-**Goal**: The operator's ReSharper code-style is reconciled into the committed `.editorconfig` (with the 5 bug-driven carve-outs winning every conflict) and is enforced on new/changed code via a pre-commit hook and a CI gate, without reflowing existing files; the project `CLAUDE.md` no longer forbids reformatting but instead names `.editorconfig` the enforced source of truth
-**Depends on**: Nothing structurally. SHOULD land after Phase 44 (shipped) and BEFORE Phase 49 (re-sequenced 2026-06-14 at operator request — original plan was after-49; reversed so the reconciled `.editorconfig` + changed-lines gate are in place when 49's Dapper refactor lands, making 49's new/changed data-access lines conform from the start). The changed-lines-only scope means 49's edits are gated but untouched legacy code is never reflowed.
-**Requirements**: FMT-01..05 (defined in SPEC.md)
-**Success Criteria** (what must be TRUE):
-  1. An exported ReSharper code-style `.editorconfig` is diffed against the current file; a reconciliation report lists every conflict and its resolution; the 5 carve-outs (init accessors, raw-string indent, attribute placement, switch expressions, xmldoc indent) are preserved regardless of the RS export
-  2. A changed-lines-only formatting gate runs in CI and fails the build when added/modified lines violate `.editorconfig`; untouched legacy lines do not trip it
-  3. A pre-commit hook runs the same changed-lines check locally before commit
-  4. The existing codebase is NOT mass-reflowed — `git diff` for the phase shows no whole-file formatting churn; the carve-out values (e.g. raw-string literals, `{ get; init; }`) are byte-identical
-  5. Project `CLAUDE.md` is updated: the blanket "never reformat" rule is replaced with "`.editorconfig` is the enforced source of truth; the carve-outs remain protected; new/changed code must satisfy it"
-**Plans**: 4 plans across 3 waves
-- [x] 50-01-PLAN.md — Reconcile ReSharper export into .editorconfig (carve-outs win); write 50-RECONCILIATION.md (FMT-01)
-- [x] 50-02-PLAN.md — Shared diff-intersect script + pre-commit hook + parallel CI format-gate job (FMT-03, FMT-04)
-- [x] 50-03-PLAN.md — CarveOutGuardTests: four byte-identity carve-out assertions (FMT-02)
-- [x] 50-04-PLAN.md — Rewrite CLAUDE.md to source-of-truth model + hook-install docs + behavioral FMT-03/04 proof (FMT-05)
+</details>
 
 ---
 
@@ -412,4 +240,4 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 in progress 2026-06-13*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17*

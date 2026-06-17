@@ -10,25 +10,13 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ## Current State
 
-**Shipped:** v1.6 Content KB Retrieval Fix + Value Re-Validation (2026-06-12) — 8 phases (34, 35, 37, 37.5, 37.6, 38, 39, 40; 36 SKIPPED — gate marginal), ~122 commits, 2026-06-10→06-12. Gate-driven: the KB value A/B gate (Phase 35) returned **MARGINAL**, triggering the recorded retire-pivot — whole-channel clip-injection into prompts was removed (Phase 37), the KB kept browse-only and its corpus rebuilt high-signal (37.5) with admin block/hard-delete (37.6). Closed with the long-deferred SRP split: DeckController → 8 focused controllers + CommandRunners → 3 classes (38, route-parity proven + live smoke), an architecture-review refactor extracting `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` from the 4 packet services (39, Finding A), and a Core.Tests health pass (40). Milestone audit: **passed**. Tests green + deterministic: Core 320/0, Web 593/0/5-skip; build 0/0. Content KB remains **dark in prod** (browse-only; injection retired).
+**Shipped:** v1.7 Local Harvest & Publish Studio (2026-06-17) — 10 phases (41-50), 35 plans, 23/23 requirements satisfied. Delivered a standalone **DeckFlow.Studio** Blazor Server operator console (harvest YouTube → LLM-distill with spend gate → review/approve queue → publish via git commit-publish OR direct SSH.NET-SCP + safe Postgres upsert; prod secret in user-secrets only). Plus: orchestrator extraction CLI→Core `IContentKbOrchestrator` (42), approval-status + safe upsert (43), admin grid AJAX lazy paging + index (44), Dapper data-access adoption across 13 stores (49), changed-lines `.editorconfig` format gate (50), and a **6-pillar UI audit remediation of deployed deckflow.gg, 16/24 → 20/24** (48, UIR). Milestone audit: **tech_debt** (cross-phase integration clean — 0 hard breaks, all 5 E2E flows wired; residue is operator-only UAT smokes, tracked in `.planning/milestones/v1.7-MILESTONE-AUDIT.md`). Build 0/0; Core.Tests ~346, Web.Tests 622, Studio.Tests (bUnit) 34.
 
-**Next:** v1.7 Local Harvest & Publish Studio — in planning (see Current Milestone below). Deferred backlog (not this milestone): architecture-review findings B–K (CategoryKnowledgeRepository + ContentKbCommandRunners god-class splits, `Services/` foldering, dual-dialect cleanup) from `.planning/milestones/v1.6-ROADMAP.md` + `39-AUDIT`; Gemini paste-limit + SpellbookCombo ranking (PRM-08) still deferred.
+**Next:** TBD (start with `/gsd-new-milestone`). Carried deferred backlog: v1.7 operator-UAT smokes (Studio runtime render, admin-grid browser, re-distill E2E + cap-persist + cancel-on-dispose, Review/Publish browser+git, **live SCP+prod-Postgres publish — needs operator prod secrets**, Postgres parity `DECKFLOW_POSTGRES_TESTS=1`); `/gsd-secure-phase` not run for 48 + 50; architecture-review findings B–K (CategoryKnowledgeRepository split — note 49 Dapper-converted it; `Services/` foldering, dual-dialect cleanup) from `39-AUDIT` + `.planning/milestones/v1.6-ROADMAP.md`; Gemini paste-limit + SpellbookCombo ranking (PRM-08).
 
-## Current Milestone: v1.7 Local Harvest & Publish Studio
+## Shipped Milestone: v1.7 Local Harvest & Publish Studio (SHIPPED 2026-06-17 — archived, see `.planning/milestones/v1.7-ROADMAP.md`)
 
-**Goal:** A standalone local tool to discover YouTube videos (search/browse by creator + paste URLs/IDs), harvest + distill them, review/approve in a UI, and publish approved entries to deckflow.gg — via repo-commit→Render deploy and/or direct prod-DB push (mechanism chosen after research).
-
-**Target features:**
-
-- Standalone local app, decoupled from the deployed site (host tech TBD by research)
-- YouTube discovery: in-app channel/video search+browse (Data API v3) **and** paste URLs/IDs
-- Harvest + distill pipeline reuse (DeckFlow.Core stores / CLI `ContentKbCommandRunners`)
-- Review/approve queue over distilled content before publish (preview clips/tags, approve/reject)
-- Dual publish paths: commit-then-deploy seed export **and** direct prod-DB write (research recommends primary)
-- Visibility/curation control carried into publish (is_visible / pin / evergreen)
-- Admin `/Admin/Harvest` commander-deck grid perf: on-demand (lazy/AJAX) page loads + fix slow initial load (grid already server-pages via `GetPagedProcessedCommandersAsync`; bottleneck is count/aggregate or render — root-cause in planning)
-
-**Key context:** Builds on the existing local-CLI KB pipeline (harvest→distill→seed export→commit→Render loader). This session manually did the seed re-export+commit (`7a0158f`); this milestone gives that a GUI + a direct-push option. Constraints: public repo (no secrets in commits), Render Postgres + `/data` disk, prod-DB direct write is a NEW authenticated path that does not exist today.
+A standalone local Blazor Server console (DeckFlow.Studio) that discovers YouTube videos (channel browse + paste URLs/IDs), harvests + LLM-distills them with a spend dry-run gate, reviews/approves in a queue, and publishes approved Content-KB entries to deckflow.gg via two paths: git commit-publish of the LF-normalized seed (→ Render deploy) and a direct prod push (SSH.NET SCP of artifacts to the Render `/data` disk + a content-columns-only Postgres upsert that preserves admin fields). Closed alongside internal hardening (orchestrator extraction, Dapper, admin-grid paging, format gate) and the deckflow.gg visual refresh (Phase 48). Requirement outcomes in `.planning/milestones/v1.7-REQUIREMENTS.md`. **Public-app behavior unchanged** except the Phase 48 visual polish; the Studio is operator-local tooling. Prod-DB direct write is a NEW authenticated path; its live end-to-end smoke needs operator prod secrets and is deferred (tracked in the milestone audit).
 
 ## Shipped Milestone: v1.6 Content KB Retrieval Fix + Value Re-Validation (SHIPPED 2026-06-12 — archived, see `.planning/milestones/v1.6-ROADMAP.md`)
 

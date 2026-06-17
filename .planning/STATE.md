@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Local Harvest & Publish Studio
-status: ready_to_plan
-stopped_at: Phase 48 complete (3/3) — ready to discuss Phase 49
-last_updated: 2026-06-17T01:00:08.181Z
-last_activity: 2026-06-16
+status: Awaiting next milestone
+stopped_at: Phase 47 Plan 03 Task 2 complete — awaiting Task 3 blocking-human checkpoint
+last_updated: "2026-06-17T03:06:05.070Z"
+last_activity: 2026-06-17 — Milestone v1.7 completed and archived
 progress:
   total_phases: 10
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 35
   completed_plans: 35
-  percent: 90
+  percent: 100
 ---
 
 # Project State
@@ -25,15 +25,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 49
-Plan: Not started
-Status: Ready to plan
-Execution order: 49 → 44 → 45 → 46 → 47 (48 independent; 50 after 44+49)
-Last activity: 2026-06-17
-
-```
-Progress: [██████████] 97%
-```
+Phase: Milestone v1.7 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-17 — Milestone v1.7 completed and archived
 
 ## Roadmap Summary
 
@@ -174,3 +169,7 @@ Progress: [██████████] 97%
 Last session: 2026-06-16T23:35:00.837Z
 Stopped at: Phase 47 Plan 03 Task 2 complete — awaiting Task 3 blocking-human checkpoint
 Resume: Phase 47 Plan 03 Tasks 1-2 done (DirectPush.razor page + nav at 6026419; 11 bUnit tests at ca9d824; build 0/0, Studio 34/34). Task 3 is a blocking-human checkpoint (SSH.NET 2025.0.0 supply-chain verify + PROD-write UI gate verify) — NOT auto-approvable. The orchestrator must present that checkpoint and collect the operator's "approved" before Phase 47 can close.
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
