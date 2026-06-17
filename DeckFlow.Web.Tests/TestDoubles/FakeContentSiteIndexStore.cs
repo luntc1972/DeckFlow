@@ -23,6 +23,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     /// <summary>Rows passed to <see cref="UpsertRowAsync"/> (should stay empty for the seed path).</summary>
     public List<ContentSiteIndexRow> PlainUpserts { get; } = new();
 
+    /// <summary>Rows passed to <see cref="UpsertContentColumnsOnlyAsync"/>.</summary>
+    public List<ContentSiteIndexRow> ContentColumnsOnlyUpserts { get; } = new();
+
     /// <summary>Ids passed to <see cref="DeleteByIdAsync"/>.</summary>
     public List<long> DeletedIds { get; } = new();
 
@@ -42,6 +45,13 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         return Task.CompletedTask;
     }
 
+    public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+    {
+        ContentColumnsOnlyUpserts.Add(row);
+        Rows.Add(ApplyInvariant(row));
+        return Task.CompletedTask;
+    }
+
     public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(
         string naturalKeyType,
         string naturalKeyValue,
@@ -52,6 +62,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 
     public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(r => r.IsVisible).ToList());
+
+    public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(r => r.ApprovalStatus == "approved").ToList());
 
     public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.ToList());
@@ -148,6 +161,45 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         }
 
         return Task.FromResult(count);
+    }
+
+    public Task<int> SetApprovalStatusAsync(
+        string naturalKeyType,
+        string naturalKeyValue,
+        string status,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(ApplyApprovalStatus(naturalKeyType, naturalKeyValue, status));
+
+    public Task<int> SetApprovalStatusAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        var count = 0;
+        foreach (var (type, value) in keys)
+        {
+            count += ApplyApprovalStatus(type, value, status);
+        }
+
+        return Task.FromResult(count);
+    }
+
+    private int ApplyApprovalStatus(string naturalKeyType, string naturalKeyValue, string status)
+    {
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            var matches =
+                (naturalKeyType == ContentSourceType.Youtube && Rows[i].YoutubeVideoId == naturalKeyValue)
+                || (naturalKeyType == ContentSourceType.Podcast && Rows[i].RssGuid == naturalKeyValue);
+            if (matches)
+            {
+                Rows[i] = Rows[i] with { ApprovalStatus = status };
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static ContentSiteIndexRow ApplyInvariant(ContentSiteIndexRow row)

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Dapper;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Security;
@@ -57,21 +58,21 @@ public sealed class FeedbackStore : IFeedbackStore
         await EnsureSchemaAsync(cancellationToken);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = _connectionInfo.Dialect.FeedbackInsertReturningIdSql;
-
-        RelationalDatabaseConnection.AddParameter(command, "@created", _connectionInfo.IsPostgres ? DateTime.UtcNow : DateTime.UtcNow.ToString("O"));
-        RelationalDatabaseConnection.AddParameter(command, "@type", submission.Type.ToString());
-        RelationalDatabaseConnection.AddParameter(command, "@message", submission.Message);
-        RelationalDatabaseConnection.AddParameter(command, "@email", (object?)submission.Email);
-        RelationalDatabaseConnection.AddParameter(command, "@pageUrl", (object?)Truncate(context.PageUrl, 500));
-        RelationalDatabaseConnection.AddParameter(command, "@userAgent", (object?)Truncate(context.UserAgent, 500));
-        RelationalDatabaseConnection.AddParameter(command, "@ipHash", (object?)HashIpInternal(context.Ip));
-        RelationalDatabaseConnection.AddParameter(command, "@appVersion", (object?)context.AppVersion);
-        RelationalDatabaseConnection.AddParameter(command, "@status", FeedbackStatus.New.ToString());
-
-        var idObj = await command.ExecuteScalarAsync(cancellationToken);
-        return Convert.ToInt64(idObj);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            _connectionInfo.Dialect.FeedbackInsertReturningIdSql,
+            new
+            {
+                created = DateTime.UtcNow,
+                type = submission.Type.ToString(),
+                message = submission.Message,
+                email = submission.Email,
+                pageUrl = Truncate(context.PageUrl, 500),
+                userAgent = Truncate(context.UserAgent, 500),
+                ipHash = HashIpInternal(context.Ip),
+                appVersion = context.AppVersion,
+                status = FeedbackStatus.New.ToString()
+            },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -80,17 +81,10 @@ public sealed class FeedbackStore : IFeedbackStore
         await EnsureSchemaAsync(cancellationToken);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status FROM feedback WHERE id = @id";
-        RelationalDatabaseConnection.AddParameter(command, "@id", id);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
-            return null;
-        }
-
-        return ReadItem(reader);
+        return await connection.QuerySingleOrDefaultAsync<FeedbackItem>(new CommandDefinition(
+            "SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status FROM feedback WHERE id = @id",
+            new { id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -102,27 +96,23 @@ public sealed class FeedbackStore : IFeedbackStore
 
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-
-        var where = BuildWhereClause(query.Status, query.Type, command);
-        command.CommandText = $"""
+        var parameters = BuildQueryParameters(query.Status, query.Type);
+        var where = BuildWhereClause(parameters);
+        var sql = $"""
             SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status
             FROM feedback
             {where}
             ORDER BY {_connectionInfo.Dialect.FeedbackOrderByClause}
             LIMIT @limit OFFSET @offset
             """;
-        RelationalDatabaseConnection.AddParameter(command, "@limit", pageSize);
-        RelationalDatabaseConnection.AddParameter(command, "@offset", (page - 1) * pageSize);
+        parameters.Add("limit", pageSize);
+        parameters.Add("offset", (page - 1) * pageSize);
 
-        var results = new List<FeedbackItem>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            results.Add(ReadItem(reader));
-        }
-
-        return results;
+        var results = await connection.QueryAsync<FeedbackItem>(new CommandDefinition(
+            sql,
+            parameters,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return results.ToList();
     }
 
     /// <inheritdoc/>
@@ -130,11 +120,12 @@ public sealed class FeedbackStore : IFeedbackStore
     {
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        var where = BuildWhereClause(status, type, command);
-        command.CommandText = $"SELECT COUNT(*) FROM feedback {where}";
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        return Convert.ToInt32(result);
+        var parameters = BuildQueryParameters(status, type);
+        var where = BuildWhereClause(parameters);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM feedback {where}",
+            parameters,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -142,8 +133,6 @@ public sealed class FeedbackStore : IFeedbackStore
     {
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT status, COUNT(*) FROM feedback GROUP BY status";
         var map = new Dictionary<FeedbackStatus, int>
         {
             [FeedbackStatus.New] = 0,
@@ -151,12 +140,15 @@ public sealed class FeedbackStore : IFeedbackStore
             [FeedbackStatus.Archived] = 0,
         };
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
+        var rows = await connection.QueryAsync<FeedbackStatusCountRow>(new CommandDefinition(
+            "SELECT status, COUNT(*) AS count FROM feedback GROUP BY status",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        foreach (var row in rows)
         {
-            if (Enum.TryParse<FeedbackStatus>(reader.GetString(0), out var status))
+            if (Enum.TryParse<FeedbackStatus>(row.Status, out var status))
             {
-                map[status] = reader.GetInt32(1);
+                map[status] = checked((int)row.Count);
             }
         }
 
@@ -168,11 +160,10 @@ public sealed class FeedbackStore : IFeedbackStore
     {
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE feedback SET status = @status WHERE id = @id";
-        RelationalDatabaseConnection.AddParameter(command, "@status", status.ToString());
-        RelationalDatabaseConnection.AddParameter(command, "@id", id);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE feedback SET status = @status WHERE id = @id",
+            new { status = status.ToString(), id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -180,10 +171,10 @@ public sealed class FeedbackStore : IFeedbackStore
     {
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM feedback WHERE id = @id";
-        RelationalDatabaseConnection.AddParameter(command, "@id", id);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM feedback WHERE id = @id",
+            new { id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -200,49 +191,40 @@ public sealed class FeedbackStore : IFeedbackStore
         return IpHasher.Hash(ip, salt);
     }
 
-    private static string BuildWhereClause(FeedbackStatus? status, FeedbackType? type, DbCommand command)
+    private static string BuildWhereClause(DynamicParameters parameters)
     {
         var clauses = new List<string>();
-        if (status.HasValue)
+        if (parameters.ParameterNames.Contains("status", StringComparer.Ordinal))
         {
             clauses.Add("status = @status");
-            RelationalDatabaseConnection.AddParameter(command, "@status", status.Value.ToString());
         }
 
-        if (type.HasValue)
+        if (parameters.ParameterNames.Contains("type", StringComparer.Ordinal))
         {
             clauses.Add("type = @type");
-            RelationalDatabaseConnection.AddParameter(command, "@type", type.Value.ToString());
         }
 
         return clauses.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", clauses);
     }
 
+    private static DynamicParameters BuildQueryParameters(FeedbackStatus? status, FeedbackType? type)
+    {
+        var parameters = new DynamicParameters();
+        if (status.HasValue)
+        {
+            parameters.Add("status", status.Value.ToString());
+        }
+
+        if (type.HasValue)
+        {
+            parameters.Add("type", type.Value.ToString());
+        }
+
+        return parameters;
+    }
+
     private static string? Truncate(string? value, int max) =>
         string.IsNullOrEmpty(value) ? value : value.Length <= max ? value : value.Substring(0, max);
-
-    private static FeedbackItem ReadItem(DbDataReader reader)
-    {
-        var createdUtc = reader.GetValue(1) switch
-        {
-            DateTime dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
-            DateTimeOffset dto => dto.UtcDateTime,
-            string text => DateTime.Parse(text, null, System.Globalization.DateTimeStyles.RoundtripKind),
-            var other => Convert.ToDateTime(other)
-        };
-
-        return new FeedbackItem(
-            Id: reader.GetInt64(0),
-            CreatedUtc: createdUtc,
-            Type: Enum.Parse<FeedbackType>(reader.GetString(2)),
-            Message: reader.GetString(3),
-            Email: reader.IsDBNull(4) ? null : reader.GetString(4),
-            PageUrl: reader.IsDBNull(5) ? null : reader.GetString(5),
-            UserAgent: reader.IsDBNull(6) ? null : reader.GetString(6),
-            IpHash: reader.IsDBNull(7) ? null : reader.GetString(7),
-            AppVersion: reader.IsDBNull(8) ? null : reader.GetString(8),
-            Status: Enum.Parse<FeedbackStatus>(reader.GetString(9)));
-    }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
@@ -267,6 +249,7 @@ public sealed class FeedbackStore : IFeedbackStore
             }
 
             await using var connection = await OpenConnectionAsync(cancellationToken);
+            // Why: schema management is an intentional raw ADO.NET carve-out for this phase.
             await using (var create = connection.CreateCommand())
             {
                 create.CommandText = """
@@ -303,4 +286,9 @@ public sealed class FeedbackStore : IFeedbackStore
         }
     }
 
+    private sealed class FeedbackStatusCountRow
+    {
+        public string Status { get; init; } = string.Empty;
+        public long Count { get; init; }
+    }
 }

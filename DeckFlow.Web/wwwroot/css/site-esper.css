@@ -1,10 +1,10 @@
 :root {
   /* Esper: White (W) / Blue (U) / Black (B) */
   --bg: #06080c;
-  --panel: #0f141c;
+  --panel: #182030;
   --ink: #f5f6f8;
-  --muted: #b8c3d3;
-  --line: #31465f;
+  --muted: #8fa4be;
+  --line: #3d5878;
   --accent: #5f9fe3;          /* Esper blue / etherium focus */
   --accent-strong: #86b7ee;
   --esper-obsidian: #05070a;  /* Esper black / polished alloy shadow */
@@ -35,7 +35,7 @@
   --panel-fallback-bg: #10161f;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

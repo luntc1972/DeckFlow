@@ -115,6 +115,8 @@
     </form>
 </section>
 
+@await Html.PartialAsync("_ShortFormFooter", "Try pasting ‘Sol Ring’ into Single Card mode to see Oracle text and rulings. Switch to Card List mode on desktop to look up an entire decklist and download the results.")
+
 @section Scripts {
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/card-lookup.js" asp-append-version="true"></script>

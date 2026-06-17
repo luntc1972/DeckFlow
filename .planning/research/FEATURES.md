@@ -1,254 +1,251 @@
-# Feature Research — v1.6 Content KB Retrieval Fix + Creator Philosophy-Profile
+# Feature Research
 
-**Domain:** Content-grounded expert-lens injection for LLM deck analysis (RAG-style)
-**Researched:** 2026-06-10
-**Confidence:** HIGH (spike evidence + codebase inspection + RAG literature)
-
----
-
-## What Separates a Useful Expert Lens from a Generic-Advice Dump
-
-This is the central question, and Spike 001 gave a concrete answer: the current retriever is a
-generic-advice dump. The distinction matters for every feature decision below.
-
-**Generic-advice dump (what the live retriever currently produces):**
-- Clips from a single high-scoring video that monopolizes all five slots.
-- Content about *other* commanders: 3 of 5 Run 2 clips were about Kaalia and Animar, not Atraxa.
-- Deckbuilding-101 maxims ("focus your deck", "protect your threats") that a capable LLM produces
-  unprompted from its own training data — providing zero marginal lift.
-- No diversity of perspective: one video, one theme, five clips.
-
-**Useful expert lens (the target):**
-- Each injected clip contributes a signal the LLM would NOT produce from training data alone — a
-  creator-specific heuristic, a counterintuitive take, or an observation about this commander's
-  known failure modes.
-- Clips span distinct videos and distinct perspectives (per-video diversity cap).
-- Content is topically matched to the deck being analyzed, not just tag-adjacent.
-- Every injected passage is traceable to a verified source; nothing is synthesized from memory.
-- Contradictory creator opinions are preserved and labeled, not averaged away.
-- Recency is visible so the analyst can contextualize advice from different metagame eras.
-
-**Research evidence for the negative-value risk:**
-Irrelevant context causes measurable LLM degradation. Distracting passages (topically related but
-contextually off) reduced Llama2 answer accuracy from 56% to 18%. GPT-4 flipped correct answers to
-incorrect in 15% of cases even with a small number of irrelevant passages. The "lost in the middle"
-effect means stuffing a context window with generic text actively degrades the LLM's ability to
-find the signal (arxiv 2410.05983, arxiv 2505.18761). Spike 001 Run 2 independently confirmed this:
-the real `ContentKbRelevanceService` scored WORSE than hand-picked generic clips.
+**Domain:** Local content-curation studio for a solo operator (harvest → review → publish pipeline)
+**Researched:** 2026-06-13
+**Confidence:** HIGH — grounded in the existing codebase and well-understood admin-tooling patterns
 
 ---
 
-## Table Stakes (Unconditional — Build Regardless of Gate Outcome)
+## Context: What already exists (do not re-spec)
 
-Features the expert-lens block must have to not actively harm prompt quality. Missing these means
-the block is worse than nothing — the state Spike 001 proved is the current reality.
+The existing pipeline covers: YouTube caption harvest + Whisper fallback via `ContentKbCommandRunners`,
+LLM distillation into summary/clips/tags via `RunDistillAsync`, per-video spend ledger
+(`LlmSpendLedger`, `WhisperSpendLedger`), a `ContentSiteIndexStore` with `is_visible` /
+`is_evergreen` columns, bulk publish/hide per source in the deployed `AdminContentKb` web UI,
+admin block/hard-delete via `RunBlockVideoAsync`, and a seed-export-then-commit publish path via
+`RunContentIndexExportAsync`. The `IYouTubeChannelVideoLister` uses YoutubeExplode (HTML scraping,
+no API key) with serialized metadata lookups due to AngleSharp static-state concurrency bug.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Per-video diversity cap in `SelectTopClips` | Without it, one video monopolizes all slots (Run 2 defect #1). Users expect varied perspectives, not 5 clips from one tangential video. | LOW | Track seen video IDs during selection; max N clips per video (suggested cap: 2). `SelectTopClips` inner loop at line 469 of `ContentKbRelevanceService.cs` — add `videoClipCount` tracking. |
-| Topical relevance scoring that filters commander-specific noise | Tag-overlap rewarded "Glass Cannon Commanders" (broad tags: midrange/combo/ramp/aggro) over directly relevant "Too Much Ramp" (Run 2 defect #2). Tag breadth must not outrank topical fit. | MEDIUM | Apply a commander-name exclusion penalty: if a clip's title/summary names a specific commander that is NOT the current deck's commander, reduce its score (or gate it out). Also weight on-topic signals: summary keyword overlap against the deck's archetypes and commander name. Does not require embeddings at current corpus size. |
-| Harvest date rendered in injected clips prompt block | Users need to know if advice is from 2021 or 2025; Commander format changes (bans, power shifts) affect older clip validity. | LOW | `HarvestDate` is already on `ContentKbExcerpt` and propagated through the service. Verify it appears in the formatted `## Expert Context` prompt block. |
-| Minimum two-dimension AND gate preserved | Already implemented: `MinSelectionScore = 2.0`, `dimensionsHit >= 2`. Single-dimension matches are generic noise. | LOW | Do NOT weaken this gate during the fix. It is the primary guard against purely generic content. |
-| Value re-validation A/B gate | Spike 001 established the contract: clear lift on fixed retriever = proceed; still marginal = pivot or retire. Must re-run `Spike001KbValueAbHarness` `EmitRealRetrievalPrompt` fact against the fixed scorer. External ChatGPT paste confirmation recommended. | LOW | Run the existing harness unchanged; only the retriever implementation changes. Assess against same rubric dimensions: Specificity, Creator-voice, Novel signal, Actionability. |
-| KB un-dark (`content.kb.enabled` ON) after gate passes | The entire reason for v1.6. The flag has been OFF since Phase 30 UAT 2026-06-07. | LOW | Prerequisite: gate passes. SEL-02 expert-pin live-pin re-confirm should happen in the same window (carried from v1.5). |
-
----
-
-## Differentiators — Conditional on Gate Passing [GATED]
-
-These features are worth building only if the fixed retriever proves the expert-context block adds
-net positive value. Every feature in this section is marked **[GATED]** and must not be built if
-the A/B gate returns marginal or negative.
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Per-creator philosophy profile — distilled style-card **[GATED]** | Conditions the LLM to reason through a specific creator's lens: their recurring heuristics, biases, counterintuitive takes. This is the original "creator-as-lens" KB vision. A creator's distinctive deckbuilding philosophy is not in the LLM's training data — it is the only content that could provide genuine marginal lift. | HIGH | Synthesizes principles across the whole channel corpus (not per-video). New `profile-synthesizer` distillation step reading existing clip excerpts + summaries and extracting recurring, non-generic claims. New `creator_profiles` table. Profile injected as a persona block in the analysis prompt. |
-| Provenance per injected principle **[GATED]** | Each principle in the style-card carries its source video ID + publish date. Every stated principle traces to a verified transcript passage, not synthesized from model memory. Prevents "citation-shaped hallucination": an opinion that looks grounded but is invented. | MEDIUM | Schema: `creator_principle(id, creator_slug, principle_text, source_video_id, source_timestamp_s, publish_date)`. Distillation prompt must require verbatim or close-paraphrase evidence per principle; reject unsupported assertions. At query time, inject only principles whose `source_video_id` is in the published corpus. |
-| Contradiction preservation **[GATED]** | Creator contradicts themselves across videos? Surface the tension — "generally favors X, but argued against it for aggro decks (video Y)". Averaging contradictions produces a false consensus that misrepresents what the creator actually argued. A capable LLM handles labeled tension better than a smoothed falsehood. | MEDIUM | Distillation prompt detects conflicting principles on the same topic; stores them as a `conflict_pair` row with both source references. Prompt serializer renders as: "[Creator] generally argues X (v1) but argued against it in [context] (v2)." |
-| Recency weighting in profile refresh **[GATED]** | Principles from 2021 may be obsolete (pre-ban metagame, power-curve shifts). Default: recency-weight so recent videos carry more weight; older principles stay but are dated so the era is visible. | MEDIUM | Weight = `1 / (1 + months_since_publish / 12)` applied during profile synthesis. Stale principles are kept with their `publish_date` visible, not deleted. Incremental: fold new videos into the profile on harvest refresh (reuse the existing 5-day pipeline). |
-| Video-level curation granularity **[GATED]** | Admin can exclude individual videos rather than toggling a whole channel. Needed for creators like trinket-mage whose ~690-video "Ranking All Legends" rating series should be excluded from KB while strategy content is included. | LOW | `content_videos.excluded` boolean column + admin UI toggle. Already implied by the philosophy-profile seed note on trinket-mage. Low implementation cost, high corpus-quality impact. |
-| User-supplied creator sources (on-demand) | Let the user name a YouTube channel or video at analysis time; DeckFlow retrieves and distills it inline. Removes the admin-curated-source dependency. | HIGH | Requires on-demand harvest + distill pipeline inline in a web request. Token budget, rate limit, and latency concerns are significant. **Defer to v1.7+.** Do not build in v1.6. |
+The LOCAL tool in v1.7 wraps all of the above in a UI and adds: in-app video discovery/browse,
+an explicit approve-before-publish queue, and a direct prod-DB push path. Every feature below is
+categorized against those boundaries.
 
 ---
 
-## Anti-Features
+## Feature Landscape
 
-These appear attractive but must be explicitly avoided. The "generic-advice dump" failure mode is
-the through-line: every anti-feature below is a path back to it.
+### Table Stakes (Users Expect These)
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Whole-channel generic content without video-level filtering | More content = more coverage (intuition). Simple to implement. | Produces the Run 2 failure: a broad-topic video with wide tags outscores narrow on-topic videos. "Glass Cannon Commanders" (tags: midrange/combo/ramp/aggro/Upgraded/cEDH) monopolized all 5 slots over "Too Much Ramp" and "5 Most Common Mistakes" which were directly relevant to the Atraxa deck. | Video-level curation: admin marks excluded videos; harvest respects the flag. Per-video diversity cap in `SelectTopClips`. |
-| Embedding-based semantic similarity scoring (pgvector) | Sounds like the "correct" RAG solution; embeddings capture meaning beyond keyword overlap. | At 82 visible rows (Run 2 corpus size), embeddings add infrastructure cost (Render Starter: 512MB RAM — no room for an in-process model) without improving relevance over a well-designed keyword + metadata scorer. Semantic similarity can still return topically adjacent but content-distinct passages. The fundamental problem (broad-tag scoring) is not an embedding problem — it is a feature-engineering problem. | Fix the tag-overlap scorer with content-based signals: commander-name exclusion filter, summary keyword overlap against deck archetypes. Revisit embeddings when corpus exceeds ~500 videos and the simpler fix is validated. |
-| Averaging creator contradictions into a single clean principle | Seems cleaner; contradictions confuse the LLM. | Averaging produces a false consensus that misrepresents what the creator argued in context. A capable model handles labeled tension. A smoothed falsehood that confidently misattributes a position is worse than a hedged contradiction. | Store contradictions as labeled conflict pairs with both source references (see Differentiators section). |
-| Philosophy profile without hallucination gate (provenance) | Profiles are high-value if grounded; easy to synthesize if not gated. | An ungrounded profile is a fabricated persona. The LLM treats injected principles as facts the creator holds. If those principles were synthesized without verified transcript evidence, the analysis is polluted by invented opinions. This is the "citation-shaped hallucination" failure mode: output that looks grounded but is not. | Require provenance per principle at distillation time. Schema enforces `source_video_id` as a non-nullable FK. No principle stored without a specific excerpt anchor. |
-| Evergreen generic deckbuilding advice as a fallback tier | "Some context is better than none." | Spike 001 Run 1 proved generic maxims ("focus your deck", "protect your threats") provide marginal-to-zero lift over what the LLM already knows. If misapplied — the glass-cannon frame was applied to a grindy goodstuff pile — they degrade quality. The tier-4 evergreen slot is a footgun if it admits generic content. | Tier-4 (evergreen) is acceptable only for creator-distinctive, non-generic content. Do not admit generic deckbuilding maxims to the corpus; gate the evergreen flag in admin to creator-specific observations only. |
-| Injecting clips about commanders other than the one being analyzed | Corpus breadth; adjacent commanders share archetypes. | This is exactly defect #3 of Run 2: 3 of 5 clips were about Kaalia and Animar. The LLM either ignores them (wasted budget) or misapplies the frame (quality loss). Evidence: distracting topically-adjacent passages caused GPT-4 to flip correct answers in 15% of cases even in small numbers (arxiv 2505.18761). | Commander-name exclusion filter: if a clip's title or summary names a specific other commander, apply a scoring penalty sufficient to deprioritize it unless no on-topic alternatives exist. |
-| Fine-tuning the LLM on creator content | Theoretically the purest creator-voice solution. | Fine-tuning requires model weight access, is cost-prohibitive, and is irreversible for a specific creator. The philosophy-profile seed explicitly rules this out. Prompt-time persona injection achieves the same goal without those constraints. | Distilled style-card + RAG grounding at inference time. |
+| Feature | Why Expected | Complexity | Pipeline dependency | Notes |
+|---------|--------------|------------|---------------------|-------|
+| Paste URL/ID and trigger harvest+distill | Any curation tool must accept direct input; it's the escape hatch when browse doesn't find what you want | LOW | Thin wrapper — `RunHarvestAsync(videoIds:...)` + `RunDistillAsync(videoIds:...)` exist; new: call them from a UI form | Call existing CLI internals directly; almost pure plumbing |
+| Dedup against already-harvested | Without this, re-submitting a URL silently duplicates or wastes LLM spend | LOW | `ResolveHarvestVideoIdAsync` already checks `GetVideoByYoutubeIdAsync`; skip-if-exists path is in the CLI | Surface "already harvested" status back to the UI — no new store logic needed |
+| Distill-status tracking per video | Operator needs to know whether a video is pending / harvested / distilled / failed | LOW | `distill_status` column + `GetDistillStatusAsync` / `SetDistillStatusAsync` already exist on `IContentVideoStore` | Read existing column; add a status display in the review queue |
+| Per-item preview in the review queue | Operator must see summary + clips + tags before deciding to approve | MEDIUM | Distilled output already stored (summary in `content_videos`, clips in `content_clips`, tags in `content_tags`); need a read-side service to assemble it | New read path but trivially composed from existing stores |
+| Approve / reject individual items | Core action of a review queue; without it the tool is just a batch runner | MEDIUM | `is_visible` column on `content_site_index` covers "published" state; "approved" needs a new status column OR reuse `is_visible=false` with a distinct "reviewed but hidden" interpretation — requires design decision | See Design Notes below |
+| LLM spend shown before distill runs | Operator will not trust a tool that surprises them with cost | LOW | `LlmSpendLedger.WouldExceedCapAsync` + dry-run path already implemented in `RunDistillAsync(dryRun:true)` | Call dry-run first; surface the projected cost before the confirm button is clickable |
+| Post-action spend summary | Operator needs to know what was spent after a distill batch | LOW | `DistillCounts.LlmSpendUsd` is returned from `RunDistillAsync`; `LlmSpendLedger` has monthly totals | Render the returned counts in the UI; query ledger for YTD total |
+| Publish approved entries to prod | Purpose of the whole tool; missing = no value delivered | HIGH | Two paths: (1) existing `RunContentIndexExportAsync` → commit → Render auto-deploy (already works); (2) direct prod-DB write (NEW authenticated path — does not exist today) | High complexity because path 2 requires a new connection management story; path 1 is LOW complexity reuse |
+| "What will change" diff before publish | Publishing without a preview is dangerous; every deploy tool shows a diff | MEDIUM | Export JSON exists; a local diff between current export and prod state requires either a snapshot or a DB query to prod | Medium because prod-DB query is a new capability; commit-path diff is cheap (git diff) |
+| Blocked-video management in UI | Already exists as CLI commands; operator expects UI parity | LOW | `RunBlockVideoAsync` + `RunUnblockVideoAsync` + `RunListBlockedAsync` all exist; thin controller wrapper | New controller action, no new store logic |
+| List existing sources + enable/disable | Source management is a prerequisite to any discovery workflow | LOW | `ContentSourceStore.ListEnabledSourcesAsync` + `SetEnabledAsync` exist | Thin form wrapper; already done via add-source CLI |
+
+### Differentiators (Competitive Advantage)
+
+| Feature | Value Proposition | Complexity | Pipeline dependency | Notes |
+|---------|-------------------|------------|---------------------|-------|
+| Channel browse UI — list N most recent videos with thumbnail + duration + harvested status | Saves the operator from copying video IDs manually; makes discovery faster than the CLI | MEDIUM | `IYouTubeChannelVideoLister.ListRecentAsync` exists (YoutubeExplode, no API key); thumbnails require a direct `img src` to `i.ytimg.com` (no store dependency); harvested-status requires a `GetVideosByYoutubeIdsAsync` batch read | The AngleSharp concurrency bug means discovery calls must stay serialized (MetadataLookupConcurrency = 1). Duration + title + published date already in `YouTubeChannelVideo`. |
+| Multi-select checklist → batch harvest+distill | Reduces N round-trips to one form submit for a set of videos | MEDIUM | Piggybacks on existing `--video-ids` / `ParseVideoIds` path in `RunHarvestAsync` and `RunDistillAsync`; need a multi-select form + progress feedback | Complexity is in progress feedback, not pipeline logic |
+| Creator search by handle/URL (not just pre-configured sources) | Operator discovers new creators without first running `add-source` | MEDIUM | `IYouTubeChannelVideoLister.ListRecentAsync` accepts any channel URL, handle, or ID — no source DB entry required | Differentiator because the CLI requires pre-configured sources; the UI can allow ad-hoc browse |
+| YouTube Data API v3 search by keyword / creator name | Full-text creator search without knowing the handle | HIGH | NEW — YoutubeExplode does not expose search; requires a YouTube Data API v3 key (quota: 10,000 units/day free tier); search = 100 units/call | This is genuinely new build. Quota exhaustion is a real risk on free tier. Scope carefully — keyword search of videos costs 100 units each; channel search costs 100 units. |
+| Real-time progress feedback during harvest+distill | Long-running operations need visible progress; a spinner with no feedback feels broken | HIGH | No progress-push mechanism exists; would need SignalR, SSE, or a polling status endpoint (like the existing `AdminHarvest/Status` polling pattern) | The existing harvest controller uses a 1-second polling endpoint + JS loop — reuse that pattern. SSE is simpler than SignalR for a local single-user tool. |
+| Inline tag editing before publish | Operator can fix incorrect LLM tags before they go to prod | MEDIUM | Tags stored in `content_tags`; `ContentTagVocabulary` exists for validation; need an edit form + `DeleteTagAsync` + `InsertTagAsync` calls | Vocabulary enforcement is already built; UI is new but bounded |
+| Direct prod-DB push path | Skip the commit → wait-for-deploy cycle (typically 2-4 min on Render) | HIGH | NEW — prod write is not an existing capability; requires a separate authenticated connection config, a secrets-safe storage mechanism, and the same `ContentSiteIndexStore` write path pointed at Render Postgres | High complexity + security surface; see Anti-Features for the scheduler variant |
+| Post-publish verification — query prod after push to confirm rows landed | Closes the loop on "did it work?" | MEDIUM | Would reuse the prod-DB connection (if implemented) with a read-only SELECT; or check the deployed `/content-kb` page via HTTP | Medium if prod-DB exists; LOW via HTTP scrape |
+
+### Anti-Features (Explicitly Exclude)
+
+| Feature | Why Requested | Why Exclude | What to Do Instead |
+|---------|---------------|-------------|---------------------|
+| Scheduled / cron harvest from the local UI | "Run automatically while I'm away" | Local tool is not always running; a local cron is fragile and defeats the review-before-publish guarantee. The deployed site already has no scheduler by design (PROJECT.md explicitly deferred it every milestone). | Keep harvest manual-trigger only; the review queue is the value, not automation |
+| YouTube Data API v3 video search (keyword search across all of YouTube) | "Find MTG content I haven't heard of" | 100 quota units per search call; free tier = 10,000 units/day. Full-text across YouTube is a quota bomb. One mistake in testing exhausts the daily budget. | Scope Data API to channel/handle resolution only (cheaper); use creator browse via known handles for discovery |
+| Rebuild or replace the LLM distillation pipeline | "Better prompts / different model" | The distiller (`LlmDistillationProviderFactory`, `RunDistillAsync`) is stable and tested. Re-implementing it inside the local tool creates two code paths to maintain. | Call the existing `RunDistillAsync` internals directly; change prompts in the Core layer if needed |
+| Real-time preview of the LLM distill output as it generates | "See the summary as it streams" | Streaming token-by-token from the LLM through a local UI adds SSE/WebSocket complexity and the existing distillation is a batch of 3 API calls (classify + summarize + extract clips), not a streaming response | Run distill to completion, then show the review queue; the latency (~10-30s per video) is acceptable for a local curation tool |
+| Multi-user / role-based access | "Other team members could use this" | Single operator (Chris Lunt). Adding auth to a local tool adds complexity with zero current value. The deployed admin pages already use BasicAuth for the only multi-user surface. | Keep the local tool unauthenticated (local network only) or reuse BasicAuth if exposed remotely |
+| "Publish to staging first, then prod" | "Test before real publish" | No staging environment exists; Render has one service on main branch. A staging path adds config surface for zero benefit. | Use the dry-run diff as the staging equivalent |
+| Export to formats other than JSON seed | "CSV / spreadsheet export" | No downstream consumer for alternative formats; adds complexity | The existing JSON seed is the canonical format; the deployed site reads it directly |
+| Infinite scroll on the commander grid | "Feels modern" | The existing grid has server-side `GetPagedProcessedCommandersAsync` and a numbered pagination control. Infinite scroll breaks keyboard navigation, makes "go to page N" impossible, and complicates accessibility. | Use "load-page-on-demand" AJAX — numbered pages, load content async on click; see Grid Paging section |
+
+---
+
+## Design Notes
+
+### Approve/reject state model
+
+The existing `content_site_index` has `is_visible` (published to the deployed site) but no
+"reviewed/approved" column. There are two design options:
+
+**Option A — Reuse is_visible as the approve gate.** After distill, new entries start
+`is_visible=false`. The review queue shows all `is_visible=false` entries with distilled status.
+Approve = flip `is_visible=true`. Reject = block + hard-delete (existing `RunBlockVideoAsync`).
+Pros: no schema change. Cons: "hidden intentionally" and "not yet reviewed" are
+indistinguishable.
+
+**Option B — Add an `approval_status` column** (`pending`, `approved`, `rejected`) to
+`content_site_index`. Publish = set `is_visible=true` on approved entries. Pros: explicit state
+machine, queryable. Cons: schema migration + self-healing migration (same pattern as
+`is_evergreen` self-healing ALTER in v1.5).
+
+Recommendation: Option B. The explicit status column is worth the schema migration cost because
+the pipeline now has four meaningful states: harvested-not-distilled, distilled-pending-review,
+approved (ready to publish), and rejected. The self-healing ALTER pattern is established.
+
+### YouTube discovery — YoutubeExplode vs Data API v3
+
+The existing `YouTubeChannelVideoLister` uses YoutubeExplode (HTML scraping, no API key, free).
+It supports: channel URL/handle/ID resolution, listing N most recent, and fetching by explicit
+video IDs. The AngleSharp concurrency bug constrains it to serialized calls.
+
+The Data API v3 adds: keyword search for channels, video search within a channel, quota-metered
+calls (100 units per search). For v1.7's discovery UX, YoutubeExplode browse covers the core
+case (paste a channel handle, list recent videos). Data API v3 is only needed for "find a creator
+by name" search — which is a differentiator, not table stakes. Recommend scoping Data API v3
+to channel-search-by-name only, and protecting it behind a quota guard showing remaining
+units before each call.
+
+### Grid paging — AJAX on-demand vs current full-page-reload
+
+The `AdminHarvestController.Index` loads the entire page including `GetDistinctProcessedCommanderCountAsync`
++ `GetPagedProcessedCommandersAsync` on every request, regardless of which page is requested.
+The slow initial load is likely the count query (cross-join aggregate) running without the
+benefit of pagination on the count itself. Three options:
+
+**Option 1 — Numbered AJAX pages (recommended).** Initial page load skips the grid entirely and
+renders a skeleton/placeholder. A JS call to `GET /Admin/Harvest/commanders?page=N` returns
+a partial HTML table (Razor partial or JSON). Page navigation clicks fire AJAX, replace the
+table body, update the pagination control. Benefits: keyboard-navigable, accessible, no
+position-loss on page reload, works without JS (degrade to full-page query param). This
+matches the existing pattern of `AdminHarvest/Status` polling — the codebase already has AJAX
+fetch + DOM-replace TypeScript.
+
+**Option 2 — "Load more" button.** Appends next page to the bottom. Easier to implement but
+loses the ability to jump to a specific page. Not recommended for a data grid (defeats
+"show me page 5 of alphabetically sorted commanders").
+
+**Option 3 — Infinite scroll.** Anti-feature (see above).
+
+Recommendation: Option 1. A new `GET /Admin/Harvest/commanders` JSON or partial-HTML endpoint;
+existing `GetPagedProcessedCommandersAsync` drives it unchanged; JS replaces the grid section
+on page-click. Low implementation risk.
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Per-video diversity cap in SelectTopClips]  ← unconditional
-    └──required by──> [Value re-validation A/B gate]
+Paste URL / harvest+distill
+    └──requires──> Dedup check (already in pipeline)
+    └──requires──> Distill status tracking (already in store)
 
-[Topical relevance scoring fix]  ← unconditional
-    └──required by──> [Value re-validation A/B gate]
+Channel browse UI
+    └──requires──> IYouTubeChannelVideoLister.ListRecentAsync (exists)
+    └──requires──> Harvested-status lookup by youtube_id (new batch read method needed)
 
-[Value re-validation A/B gate — PASS]
-    └──unlocks──> [KB un-dark (content.kb.enabled ON)]
-    └──unlocks──> [SEL-02 expert-pin live-pin re-confirm]
-    └──unlocks──> all [GATED] features below
+Multi-select batch harvest
+    └──requires──> Channel browse UI (the selection surface)
+    └──requires──> Paste URL/ID path (same CLI internals)
 
-[Video-level curation granularity]  ← GATED, low cost, build before or with gate-pass deploy
-    └──improves quality of──> [Value re-validation A/B gate corpus]
+Review/approve queue
+    └──requires──> Per-item preview read path (new read service, existing store)
+    └──requires──> Approve/reject state model (schema change recommended — Option B)
+    └──requires──> Inline tag editing (optional enhancement, depends on queue)
 
-[Provenance per principle schema]  ← GATED
-    └──required by──> [Philosophy profile distillation]
-    └──required by──> [Hallucination gate: no principle without source]
+Publish approved entries
+    └──requires──> Review/approve queue (approved state)
+    └──requires──> Either: seed-export + commit path (exists) OR direct prod-DB write (new)
 
-[Philosophy profile distillation pipeline]  ← GATED
-    └──requires──> [Provenance per principle schema]
-    └──requires──> [Existing transcript corpus (already built in v1.4)]
-    └──requires──> [Existing harvest/refresh pipeline (already built in v1.4)]
-    └──optional enhances──> [Contradiction preservation]
-    └──optional enhances──> [Recency weighting in profile refresh]
+"What will change" diff
+    └──requires──> Publish path choice (diff shape differs by path)
+    └──requires──> Prod state readable (either from prod-DB or via HTTP check)
 
-[Persona block injection into deck-analysis prompt]  ← GATED
-    └──requires──> [Philosophy profile distillation pipeline]
+Direct prod-DB push
+    └──requires──> Prod connection config (new, secrets-safe)
+    └──requires──> ContentSiteIndexStore write path (exists, just needs Postgres connection)
+
+Post-publish verification
+    └──requires──> Direct prod-DB push OR HTTP scrape of deployed site
+
+YouTube Data API v3 creator search
+    └──requires──> API key config (new)
+    └──requires──> Quota guard UI
+
+Lazy/AJAX grid paging (AdminHarvest commander grid)
+    Independent — no dependency on Content KB pipeline
+    └──requires──> New partial endpoint (GET /Admin/Harvest/commanders)
+    └──requires──> JS page-click handler (new TS, reuses fetch+DOM-replace pattern)
 ```
-
-### Dependency Notes
-
-- **Retrieval fix is an unconditional prerequisite.** No downstream feature is worth building until
-  the retriever selects on-topic, diverse clips. These are the two defects identified in Run 2.
-- **Gate pass is the branch point.** If the fixed retriever still fails the A/B, the correct path
-  is scoping down or retiring the KB — not building the philosophy profile on a broken foundation.
-  The seed explicitly states: "Do NOT green-light Content KB v2 / philosophy-profile on current
-  evidence."
-- **Video-level curation can precede or accompany the gate.** It improves the corpus quality
-  available to the A/B test and is low cost, so building it unconditionally makes the gate signal
-  more meaningful.
-- **Provenance must precede the philosophy profile.** A profile without provenance is a hallucination
-  vector. Build the provenance schema first, then the synthesizer, then prompt injection.
-- **Contradiction preservation and recency weighting layer onto the profile.** They share the
-  provenance schema and can be a single phase with the profile or an immediate follow-on.
-
----
-
-## MVP Definition for v1.6
-
-### Gate-Unconditional (Build Regardless of Gate Outcome)
-
-- [ ] Per-video diversity cap in `SelectTopClips` — defect #1 fix
-- [ ] Topical relevance scoring: commander-name exclusion filter + content-based topical signal — defect #2 fix
-- [ ] Re-run `Spike001KbValueAbHarness` against fixed retriever; external ChatGPT paste for confirmation
-- [ ] KB un-dark (`content.kb.enabled` ON) if gate passes
-- [ ] SEL-02 expert-pin live-pin re-confirm in the KB-enable window (carried from v1.5)
-- [ ] DeckController / CommandRunners SRP split (final phase; long-deferred; independent of KB)
-
-### Gate-Conditional [GATED] — Build Only if Gate Passes
-
-- [ ] Video-level curation admin toggle (`content_videos.excluded` column + UI)
-- [ ] Provenance schema: `creator_principle(id, creator_slug, principle_text, source_video_id, source_timestamp_s, publish_date)` — prerequisite for all profile work
-- [ ] Philosophy profile distillation pipeline (`profile-synthesizer`) — core GATED feature
-- [ ] Persona block injection into deck-analysis prompt
-- [ ] Contradiction preservation (conflict pairs in distillation)
-- [ ] Recency weighting in profile refresh
-
-### Defer to v1.7+
-
-- [ ] User-supplied creator sources (on-demand harvest + distill) — HIGH complexity, unproven value
-- [ ] Embedding-based semantic similarity scorer — premature at current corpus size; revisit at ≥500 videos
-- [ ] Multi-creator profile merge (analyzing a deck against multiple creators simultaneously) — token budget risk
 
 ---
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Gate |
-|---------|------------|---------------------|----------|------|
-| Per-video diversity cap | HIGH | LOW | P1 | Unconditional |
-| Topical relevance scoring fix | HIGH | MEDIUM | P1 | Unconditional |
-| Value re-validation A/B gate | HIGH (decision point) | LOW | P1 | Unconditional |
-| KB un-dark | HIGH | LOW | P1 | Gate pass |
-| Video-level curation granularity | MEDIUM | LOW | P2 | Gate pass (low cost, do early) |
-| Provenance per principle | HIGH | MEDIUM | P2 | Gate pass |
-| Philosophy profile distillation | HIGH | HIGH | P2 | Gate pass |
-| Persona block prompt injection | HIGH | MEDIUM | P2 | Gate pass |
-| Contradiction preservation | MEDIUM | MEDIUM | P3 | Gate pass |
-| Recency weighting refresh | MEDIUM | MEDIUM | P3 | Gate pass |
-| DeckController SRP split | LOW user / HIGH code quality | HIGH | P2 | Unconditional |
-| Embedding similarity scorer | LOW (corpus too small) | HIGH | Deferred | n/a |
-| User-supplied creator sources | MEDIUM | HIGH | Deferred | n/a |
+| Feature | User Value | Implementation Cost | Priority | Reuse vs New Build |
+|---------|------------|---------------------|----------|--------------------|
+| Paste URL/ID → harvest+distill | HIGH | LOW | P1 | ~90% reuse — thin controller wrapping existing CLI internals |
+| Dedup / already-harvested surfacing | HIGH | LOW | P1 | 100% reuse — `ResolveHarvestVideoIdAsync` logic |
+| LLM spend shown before distill | HIGH | LOW | P1 | 95% reuse — `RunDistillAsync(dryRun:true)` exists |
+| Distill status tracking / review queue scaffold | HIGH | MEDIUM | P1 | 70% reuse — store reads exist; UI + approval state is new |
+| Per-item preview (summary/clips/tags) | HIGH | MEDIUM | P1 | 60% reuse — store reads exist; assembly service is new |
+| Approve / reject individual items | HIGH | MEDIUM | P1 | 40% reuse — `is_visible` exists; approval_status column is new |
+| Seed-export + commit publish path | HIGH | LOW | P1 | 100% reuse — `RunContentIndexExportAsync` exists; UI wrapper is new |
+| Blocked-video management in UI | MEDIUM | LOW | P1 | 100% reuse — `RunBlockVideoAsync/Unblock/List` exist |
+| Channel browse UI (by known handle) | HIGH | MEDIUM | P2 | 70% reuse — `ListRecentAsync` exists; thumbnail display + harvested-status badge are new |
+| "What will change" diff before publish | HIGH | MEDIUM | P2 | 50% reuse — export JSON exists; diff vs prod state is new |
+| Post-action spend summary | MEDIUM | LOW | P2 | 100% reuse — `DistillCounts` + ledger query |
+| Multi-select batch harvest | MEDIUM | MEDIUM | P2 | 70% reuse — `--video-ids` path exists; multi-select form + progress feedback are new |
+| Inline tag editing | MEDIUM | MEDIUM | P2 | 60% reuse — vocabulary + store exist; edit form is new |
+| Lazy/AJAX grid paging (AdminHarvest) | MEDIUM | LOW | P2 | 80% reuse — `GetPagedProcessedCommandersAsync` exists; new partial endpoint + JS |
+| Direct prod-DB push path | HIGH | HIGH | P2 | 30% reuse — `ContentSiteIndexStore` write path exists; prod connection config + secrets management are new |
+| Real-time harvest+distill progress | MEDIUM | HIGH | P3 | 20% reuse — polling endpoint pattern exists in AdminHarvest; wiring to Content KB pipeline is new |
+| Creator search by handle/URL (ad-hoc, no pre-config) | MEDIUM | LOW | P3 | 95% reuse — `ListRecentAsync` already accepts any URL/handle/ID |
+| YouTube Data API v3 channel search by name | LOW | HIGH | P3 | New build — quota management, API key, new HTTP client |
+| Post-publish verification | MEDIUM | MEDIUM | P3 | 50% reuse if prod-DB exists; LOW otherwise (HTTP check) |
+
+**Priority key:** P1 = in-scope for v1.7 MVP, P2 = should complete in v1.7 if schedule allows, P3 = defer unless trivial
 
 ---
 
-## Provenance / Contradiction / Recency: Hallucination Gate Detail
+## MVP Definition
 
-These three attributes are the integrity properties of the philosophy profile. Without them the
-profile is a liability, not an asset.
+### Launch With (v1.7 core)
 
-### Provenance (Hallucination Gate — Required for Any Profile Feature)
+- [ ] Paste URL/ID → harvest+distill with spend preview — validates the UI wraps the CLI cleanly
+- [ ] Distill-status tracking visible in queue — operator can see what state each video is in
+- [ ] Per-item review queue (summary + clips + tags preview) — core value of "review before publish"
+- [ ] Approve / reject per item — the gate before publish
+- [ ] Blocked-video management in UI — parity with existing CLI block/unblock/list
+- [ ] Seed-export + commit publish path — the known-good publish mechanism already working in prod
+- [ ] LLM spend shown before distill — prevents surprise cost; uses existing dry-run path
+- [ ] Lazy/AJAX grid paging for AdminHarvest commander grid — independent bug fix, low risk
 
-The failure mode is "citation-shaped hallucination": a principle that looks grounded because it has
-a source label, but the source passage does not actually support the stated claim. Research confirms
-this: AIS (Attributable to Identified Sources) attribution requires sentence-level traceability
-where every factual statement links to a cited snippet that *actually supports* the claim
-(UBOS attribution survey). The `StrictCitations` RAG strategy enforces explicit provenance and
-constrains models to verifiable retrieved evidence.
+### Add After Core Scaffold (v1.7 complete)
 
-Implementation requirements:
-- Distillation prompt must require verbatim or close-paraphrase evidence per principle. No principle
-  without a specific excerpt anchor.
-- Schema: `creator_principle(id, creator_slug, principle_text, source_video_id,
-  source_timestamp_s, publish_date, confidence)`.
-- At query time: inject only principles where `source_video_id` is in the published corpus (no
-  orphaned principles from deleted or hidden videos).
+- [ ] Channel browse UI (known handle/URL) — adds discovery without Data API quota risk
+- [ ] Multi-select batch harvest — quality-of-life once browse works
+- [ ] "What will change" diff before publish — safety for publish operations
+- [ ] Direct prod-DB push path — skip the deploy cycle; only after commit path is proven
+- [ ] Inline tag editing — refinement once queue is working
 
-### Contradiction Preservation
+### Future Consideration (v1.8+)
 
-A creator who argued "minimize mana rocks" in 2022 and "add more rocks for this specific deck" in
-2024 is context-sensitive, not inconsistent. Averaging to "mana rocks: neutral" loses both signals.
-
-Preservation rule:
-- If two principles for the same creator share the same topic keyword and have opposing polarity
-  (detected at distillation time), store as a `conflict_pair` row with both source references.
-- Prompt serializer renders: "[Creator] generally argues X (source A) but argued Y in [context]
-  (source B)."
-
-### Recency
-
-Commander format changes make temporal context essential: bans, power-curve shifts, new staples.
-An injected principle from 2021 about format norms may be stale post-bracket-guidance updates.
-
-Mitigation:
-- `publish_date` on every principle (derivable from the video's published timestamp — already
-  available in `content_videos.published_utc`).
-- Default sort: newer principles surface first within a topic cluster.
-- Profile refresh re-evaluates whether a principle is still supported by recent transcript content
-  (incremental synthesis pass on new videos, not full channel re-distillation). Reuses the
-  existing 5-day harvest refresh pipeline.
+- [ ] Real-time progress feedback (SSE/polling) — high complexity, nice-to-have for long runs
+- [ ] YouTube Data API v3 creator search by name — quota risk, low marginal value given handle browse
+- [ ] Post-publish verification — useful once direct push exists
+- [ ] Source management CRUD in UI — currently CLI-only; low priority since sources change rarely
 
 ---
 
 ## Sources
 
-- Spike 001 A/B verdict: `.planning/spikes/001-kb-value-ab/VERDICT.md`
-- Creator philosophy profile seed: `.planning/seeds/creator-philosophy-profile.md`
-- `ContentKbRelevanceService` implementation: `DeckFlow.Web/Services/ContentKbRelevanceService.cs`
-- RAG diversity / MMR / Vendi-RAG: https://arxiv.org/pdf/2502.11228
-- Irrelevant context degradation (Llama2 56%→18%, GPT-4 15% flip rate): https://arxiv.org/pdf/2505.18761
-- "Lost in the middle" / context flooding: https://arxiv.org/pdf/2410.05983
-- Provenance / AIS attribution in RAG: https://ubos.tech/attribution-techniques-for-mitigating-hallucinated-information-in-rag-systems-a-survey-4/
-- Per-author RAG personalization (author features + contrastive examples): https://arxiv.org/pdf/2504.08745
-- Temporal recency in RAG (freshness priors): https://arxiv.org/pdf/2509.19376
-- Context engineering vs raw RAG (structured injection vs unstructured dump): https://productleadersdayindia.org/blogs/context-engineering-vs-prompt-engineering/context-engineering-vs-rag.html
-- Context poisoning / stale KB content: https://www.elastic.co/search-labs/blog/context-poisoning-llm
+- Codebase: `DeckFlow.CLI/ContentKbCommandRunners.cs` — all harvest/distill/block/export internals
+- Codebase: `DeckFlow.Core/Integration/IYouTubeChannelVideoLister.cs` + `YouTubeChannelVideoLister.cs` — YoutubeExplode-based channel listing, serialized concurrency constraint
+- Codebase: `DeckFlow.Web/Controllers/Admin/AdminHarvestController.cs` — existing paged grid pattern, AJAX status polling pattern
+- Codebase: `DeckFlow.Web/Views/AdminContentKb/Index.cshtml` — existing `is_visible` / bulk-publish UI
+- Codebase: `DeckFlow.Core/Content/ContentSiteIndexStore.cs` — `is_visible`, `is_evergreen` schema; self-healing ALTER migration pattern
+- Codebase: `DeckFlow.Core/Content/IContentVideoStore.cs` — `distill_status` tracking surface
+- PROJECT.md v1.7 target features — "dual publish paths", "review/approve queue", "Data API v3"
+- Admin tooling UX conventions: numbered pagination + AJAX replacement is the established pattern in this codebase (see `AdminHarvest/Status` 1-second polling + DOM-replace)
 
 ---
-
-*Feature research for: DeckFlow v1.6 Content KB Retrieval Fix + Creator Philosophy-Profile*
-*Researched: 2026-06-10*
+*Feature research for: DeckFlow v1.7 Local Harvest & Publish Studio*
+*Researched: 2026-06-13*

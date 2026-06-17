@@ -1,10 +1,10 @@
 :root {
   /* Planeswalker Dark — MTGO/Arena inspired */
   --bg: #1a1e2e;
-  --panel: #232839;
+  --panel: #2e3450;
   --ink: #d8dce6;
   --muted: #8b92a8;
-  --line: #3a4260;
+  --line: #485078;
   --accent: #4d8fcc;          /* mana blue */
   --accent-strong: #6aaae0;
   --warning: #3d3520;
@@ -32,7 +32,7 @@
   --panel-fallback-bg: #1e2430;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

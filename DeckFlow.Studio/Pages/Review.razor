@@ -1,0 +1,694 @@
+@page "/review"
+@implements IDisposable
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Knowledge
+@using DeckFlow.Core.Orchestration
+
+<PageTitle>Review Queue</PageTitle>
+
+<h1 class="h4 fw-semibold">Review Queue</h1>
+<p class="text-muted">Review distilled entries and approve or reject them before publishing.</p>
+
+<article class="content px-4">
+
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary"
+                  role="status"
+                  aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Loading review queue...</span>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_loadError))
+    {
+        <div class="alert alert-danger py-2 mt-3">@_loadError</div>
+    }
+    else
+    {
+        @* ─── Filter Tabs ─── *@
+        <ul class="nav nav-tabs mt-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(_activeTab == "pending" ? "active" : "")"
+                        type="button"
+                        role="tab"
+                        @onclick='() => SwitchTab("pending")'>
+                    Pending
+                    <span class="badge bg-secondary ms-1">@_allRows.Count(r => r.ApprovalStatus == "pending")</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(_activeTab == "approved" ? "active" : "")"
+                        type="button"
+                        role="tab"
+                        @onclick='() => SwitchTab("approved")'>
+                    Approved
+                    <span class="badge bg-success ms-1">@_allRows.Count(r => r.ApprovalStatus == "approved")</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(_activeTab == "rejected" ? "active" : "")"
+                        type="button"
+                        role="tab"
+                        @onclick='() => SwitchTab("rejected")'>
+                    Rejected
+                    <span class="badge bg-danger ms-1">@_allRows.Count(r => r.ApprovalStatus == "rejected")</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(_activeTab == "all" ? "active" : "")"
+                        type="button"
+                        role="tab"
+                        @onclick='() => SwitchTab("all")'>
+                    All
+                    <span class="badge bg-secondary ms-1">@_allRows.Count</span>
+                </button>
+            </li>
+        </ul>
+
+        @* ─── Batch Action Bar (visible when ≥1 checked) ─── *@
+        @RenderBatchBar()
+
+        @* ─── Queue Table ─── *@
+        @if (_filteredRows.Count == 0)
+        {
+            <p class="text-muted mt-3">@EmptyStateMessage</p>
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width:40px">
+                                <input type="checkbox"
+                                       @onclick="ToggleSelectAll"
+                                       checked="@_allSelected"
+                                       aria-label="Select all" />
+                            </th>
+                            <th scope="col">Title</th>
+                            <th scope="col">Tags</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Actions</th>
+                            <th scope="col" style="width:50px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var vm in _filteredRows)
+                        {
+                            var rowClass = vm.ApprovalStatus switch
+                            {
+                                "approved" => "table-success",
+                                "rejected" => "table-danger",
+                                _ => "",
+                            };
+                            var missing = IsArtifactMissing(vm);
+
+                            <tr class="@rowClass">
+                                <td>
+                                    <input type="checkbox"
+                                           checked="@vm.Selected"
+                                           @onchange="() => vm.Selected = !vm.Selected"
+                                           aria-label="Select @vm.Title" />
+                                </td>
+                                <td style="max-width:300px" class="text-truncate">
+                                    <a href="@vm.VideoUrl" target="_blank" rel="noopener noreferrer">@vm.Title</a>
+                                </td>
+                                <td>@RenderTagsSummary(vm)</td>
+                                <td>
+                                    @RenderApprovalBadge(vm.ApprovalStatus)
+                                    @if (missing)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1">Artifact missing</span>
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var approveDisabledForMissing = missing && vm.ApprovalStatus != "approved";
+                                        var approveAriaLabel = approveDisabledForMissing
+                                            ? "Approve Entry disabled — artifact file missing"
+                                            : "Approve Entry";
+                                    }
+                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                            @onclick="() => ApproveRowAsync(vm)"
+                                            disabled="@(vm.ApprovalStatus == "approved" || missing)"
+                                            aria-label="@approveAriaLabel">
+                                        Approve Entry
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => RejectRowAsync(vm)"
+                                            disabled="@(vm.ApprovalStatus == "rejected")"
+                                            aria-label="Reject Entry">
+                                        Reject Entry
+                                    </button>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-link p-0"
+                                            type="button"
+                                            @onclick="() => ToggleExpand(vm)"
+                                            aria-expanded="@vm.Expanded.ToString().ToLowerInvariant()"
+                                            aria-label="@(vm.Expanded ? $"Collapse entry for {vm.Title}" : $"Expand entry for {vm.Title}")">
+                                        <span class="oi @(vm.Expanded ? "oi-chevron-top" : "oi-chevron-bottom")"
+                                              aria-hidden="true"></span>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            @* ─── Inline Expand Row ─── *@
+                            @if (vm.Expanded)
+                            {
+                                <tr class="bg-light">
+                                    <td colspan="6" class="p-3">
+                                        @{
+                                            var cacheKey = vm.NaturalKeyValue;
+                                            var hasCached = _expandCache.TryGetValue(cacheKey, out var cachedText);
+                                        }
+                                        @if (!hasCached)
+                                        {
+                                            <span class="text-muted small">Loading preview...</span>
+                                        }
+                                        else if (cachedText is null)
+                                        {
+                                            <div class="alert alert-warning py-2">
+                                                <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                                                Artifact file not found — cannot display content preview. Reject is still allowed; approve is disabled until the artifact is restored.
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <h3 class="h6 fw-semibold mb-1">Content Preview</h3>
+                                            <pre class="bg-white border rounded p-2"
+                                                 style="max-height:400px; overflow-y:auto; font-size:0.875rem; font-family:monospace">@cachedText</pre>
+                                        }
+
+                                        <dl class="row mb-0 mt-2">
+                                            <dt class="col-sm-3">Archetype tags</dt>
+                                            <dd class="col-sm-9">
+                                                @foreach (var tag in vm.ArchetypeTags)
+                                                {
+                                                    <span class="badge bg-light text-dark border me-1">@tag</span>
+                                                }
+                                                @if (!vm.ArchetypeTags.Any())
+                                                {
+                                                    <span class="text-muted small">None</span>
+                                                }
+                                            </dd>
+                                            <dt class="col-sm-3">Bracket tags</dt>
+                                            <dd class="col-sm-9">
+                                                @foreach (var tag in vm.BracketTags)
+                                                {
+                                                    <span class="badge bg-light text-dark border me-1">@tag</span>
+                                                }
+                                                @if (!vm.BracketTags.Any())
+                                                {
+                                                    <span class="text-muted small">None</span>
+                                                }
+                                            </dd>
+                                            <dt class="col-sm-3">Card-category tags</dt>
+                                            <dd class="col-sm-9">
+                                                @foreach (var tag in vm.CardCategoryTags)
+                                                {
+                                                    <span class="badge bg-light text-dark border me-1">@tag</span>
+                                                }
+                                                @if (!vm.CardCategoryTags.Any())
+                                                {
+                                                    <span class="text-muted small">None</span>
+                                                }
+                                            </dd>
+                                        </dl>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+</article>
+
+@code {
+    // ── Injected services ───────────────────────────────────────────────────
+    [Inject]
+    private IContentSiteIndexStore IndexStore { get; set; } = default!;
+
+    [Inject]
+    private ContentKbOrchestratorOptions Options { get; set; } = default!;
+
+    // ── Page state ──────────────────────────────────────────────────────────
+    private bool _loading = true;
+    private string _loadError = string.Empty;
+    private string _activeTab = "pending";
+    private bool _operationInFlight;
+    private string _batchAction = string.Empty;
+    private bool _allSelected;
+
+    // ── Queue rows (mutable view models) ───────────────────────────────────
+    private List<ReviewViewModel> _allRows = new();
+
+    // ── Artifact expand cache ───────────────────────────────────────────────
+    // Why: stored ArtifactPath already carries the content-kb/ prefix; resolve under the data root
+    // (parent of ArtifactRoot) so the segment isn't doubled — combining with ArtifactRoot directly
+    // resolves every file MISSING. Containment guard rejects rooted/.. paths.
+    private readonly Dictionary<string, string?> _expandCache = new();
+
+    // ── CTS for disposal-safe cancellation ─────────────────────────────────
+    private CancellationTokenSource _cts = new();
+
+    // ── Filtered view ──────────────────────────────────────────────────────
+    private List<ReviewViewModel> _filteredRows =>
+        _activeTab == "all"
+            ? _allRows
+            : _allRows.Where(r => r.ApprovalStatus == _activeTab).ToList();
+
+    // ── Empty state copy ───────────────────────────────────────────────────
+    private string EmptyStateMessage => _activeTab switch
+    {
+        "pending"  => "No entries pending review. All entries have been approved or rejected.",
+        "approved" => "No approved entries yet. Approve entries from the Pending tab.",
+        "rejected" => "No rejected entries.",
+        _          => "No distilled entries in the knowledge base. Run Harvest + Distill first.",
+    };
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Why: Task.Run moves the store calls off the Blazor sync context (Pitfall 1).
+            var rows = await Task.Run(async () =>
+            {
+                await IndexStore.EnsureSchemaAsync(_cts.Token).ConfigureAwait(false);
+                return await IndexStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
+            }, _cts.Token);
+
+            _allRows = rows.Select(r => new ReviewViewModel(r)).ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed mid-load — swallow.
+        }
+        catch (Exception ex)
+        {
+            _loadError = $"Could not load review queue — {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Tab switching ───────────────────────────────────────────────────────
+    private void SwitchTab(string tab)
+    {
+        _activeTab = tab;
+        // Clear all selections when switching tabs.
+        foreach (var vm in _allRows)
+        {
+            vm.Selected = false;
+        }
+        _allSelected = false;
+    }
+
+    // ── Select all ─────────────────────────────────────────────────────────
+    private void ToggleSelectAll()
+    {
+        _allSelected = !_allSelected;
+        foreach (var vm in _filteredRows)
+        {
+            vm.Selected = _allSelected;
+        }
+    }
+
+    // ── Per-row approve/reject (D-05 optimistic, no spinner) ───────────────
+    private async Task ApproveRowAsync(ReviewViewModel vm)
+    {
+        if (vm.ApprovalStatus == "approved" || IsArtifactMissing(vm))
+        {
+            return;
+        }
+
+        try
+        {
+            await IndexStore.SetApprovalStatusAsync(vm.NaturalKeyType, vm.NaturalKeyValue, "approved", _cts.Token);
+            vm.ApprovalStatus = "approved";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            // Why: per-row optimistic write — swallow transient failures gracefully; queue re-load
+            // (page refresh) is the recovery path for persistent errors.
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task RejectRowAsync(ReviewViewModel vm)
+    {
+        if (vm.ApprovalStatus == "rejected")
+        {
+            return;
+        }
+
+        try
+        {
+            await IndexStore.SetApprovalStatusAsync(vm.NaturalKeyType, vm.NaturalKeyValue, "rejected", _cts.Token);
+            vm.ApprovalStatus = "rejected";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { }
+
+        StateHasChanged();
+    }
+
+    // ── Batch approve/reject ────────────────────────────────────────────────
+    private async Task BatchApproveAsync(List<ReviewViewModel> eligible)
+    {
+        if (eligible.Count == 0 || _operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _batchAction = "approve";
+
+        try
+        {
+            var keys = eligible
+                .Select(vm => (vm.NaturalKeyType, vm.NaturalKeyValue))
+                .ToList()
+                .AsReadOnly();
+
+            await Task.Run(
+                () => IndexStore.SetApprovalStatusAsync(keys, "approved", _cts.Token),
+                _cts.Token);
+
+            foreach (var vm in eligible)
+            {
+                vm.ApprovalStatus = "approved";
+                vm.Selected = false;
+            }
+
+            _allSelected = false;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { }
+        finally
+        {
+            _operationInFlight = false;
+            _batchAction = string.Empty;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    private async Task BatchRejectAsync(List<ReviewViewModel> eligible)
+    {
+        if (eligible.Count == 0 || _operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _batchAction = "reject";
+
+        try
+        {
+            var keys = eligible
+                .Select(vm => (vm.NaturalKeyType, vm.NaturalKeyValue))
+                .ToList()
+                .AsReadOnly();
+
+            await Task.Run(
+                () => IndexStore.SetApprovalStatusAsync(keys, "rejected", _cts.Token),
+                _cts.Token);
+
+            foreach (var vm in eligible)
+            {
+                vm.ApprovalStatus = "rejected";
+                vm.Selected = false;
+            }
+
+            _allSelected = false;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { }
+        finally
+        {
+            _operationInFlight = false;
+            _batchAction = string.Empty;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    // ── Expand/collapse with cached artifact read (D-08/D-09) ──────────────
+    private void ToggleExpand(ReviewViewModel vm)
+    {
+        vm.Expanded = !vm.Expanded;
+
+        if (vm.Expanded && !_expandCache.ContainsKey(vm.NaturalKeyValue))
+        {
+            // Fire and forget — load artifact text off sync context, cache result, re-render.
+            _ = LoadArtifactAsync(vm);
+        }
+    }
+
+    private async Task LoadArtifactAsync(ReviewViewModel vm)
+    {
+        string? text;
+        try
+        {
+            // Why: Task.Run moves the file read off the Blazor sync context (Pitfall 1).
+            text = await Task.Run(() => ReadArtifactSafe(vm.ArtifactPath), _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _expandCache[vm.NaturalKeyValue] = text;
+
+        await InvokeAsync(() =>
+        {
+            try { StateHasChanged(); }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+        });
+    }
+
+    /// <summary>
+    /// Resolves the absolute artifact path from the stored relative <paramref name="artifactPath"/>
+    /// and reads the file content. Returns <see langword="null"/> on any IO failure, containment
+    /// rejection, or invalid path — never throws.
+    /// <br/>
+    /// Why: stored ArtifactPath already carries the content-kb/ prefix; resolve under the data root
+    /// (parent of ArtifactRoot) so the segment isn't doubled — combining with ArtifactRoot directly
+    /// resolves every file MISSING. Containment guard rejects rooted/".." paths.
+    /// </summary>
+    private string? ReadArtifactSafe(string artifactPath)
+    {
+        try
+        {
+            // Reject rooted paths and paths that contain ".." traversal segments.
+            if (Path.IsPathRooted(artifactPath))
+            {
+                return null;
+            }
+
+            var normalizedPath = artifactPath.Replace('\\', '/');
+            var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Any(s => s == ".."))
+            {
+                return null;
+            }
+
+            // Resolve against the DATA ROOT = parent of ArtifactRoot.
+            // ArtifactRoot = {studioDataDir}/content-kb; dataRoot = {studioDataDir}.
+            // The stored ArtifactPath already begins with "content-kb/", so combining with
+            // the data root yields {studioDataDir}/content-kb/{sourceSlug}/{id}.md — correct.
+            var dataRoot = Directory.GetParent(Options.ArtifactRoot)?.FullName ?? Options.ArtifactRoot;
+            var artifactAbs = Path.GetFullPath(Path.Combine(dataRoot, artifactPath));
+
+            // CONTAINMENT GUARD: the normalized absolute path must start with the canonical
+            // data root followed by the directory separator to prevent escape to parent directories.
+            var canonicalDataRoot = Path.GetFullPath(dataRoot);
+            if (!artifactAbs.StartsWith(canonicalDataRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            return File.ReadAllText(artifactAbs);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    // ── Artifact missing detection (D-10) ──────────────────────────────────
+    /// <summary>
+    /// Returns <see langword="true"/> when the expand cache has been populated for this row
+    /// and the cached value is <see langword="null"/> (file missing/unreadable).
+    /// Returns <see langword="false"/> when the cache is empty (not yet expanded) or the
+    /// file was read successfully.
+    /// </summary>
+    private bool IsArtifactMissing(ReviewViewModel vm)
+    {
+        return _expandCache.TryGetValue(vm.NaturalKeyValue, out var cached) && cached is null;
+    }
+
+    // ── Batch action bar rendering (keeps @{} scoping inside RenderFragment) ──
+    private RenderFragment RenderBatchBar()
+    {
+        var checkedRows = _filteredRows.Where(r => r.Selected).ToList();
+        var approveEligible = checkedRows.Where(r => r.ApprovalStatus != "approved" && !IsArtifactMissing(r)).ToList();
+        var rejectEligible = checkedRows.Where(r => r.ApprovalStatus != "rejected").ToList();
+
+        if (checkedRows.Count == 0)
+        {
+            return @<text></text>;
+        }
+
+        return @<div class="d-flex gap-2 align-items-center mb-3 mt-2">
+            <button class="btn btn-primary btn-sm"
+                    @onclick="() => BatchApproveAsync(approveEligible)"
+                    disabled="@(approveEligible.Count == 0 || _operationInFlight)">
+                @if (_operationInFlight && _batchAction == "approve")
+                {
+                    <span class="spinner-border spinner-border-sm"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Approving...</span>
+                }
+                else
+                {
+                    <span>Approve Selected (@approveEligible.Count)</span>
+                }
+            </button>
+            <button class="btn btn-outline-danger btn-sm"
+                    @onclick="() => BatchRejectAsync(rejectEligible)"
+                    disabled="@(rejectEligible.Count == 0 || _operationInFlight)">
+                @if (_operationInFlight && _batchAction == "reject")
+                {
+                    <span class="spinner-border spinner-border-sm"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Rejecting...</span>
+                }
+                else
+                {
+                    <span>Reject Selected (@rejectEligible.Count)</span>
+                }
+            </button>
+            <span class="text-muted small">@checkedRows.Count entries selected</span>
+        </div>;
+    }
+
+    // ── Badge and tag rendering ─────────────────────────────────────────────
+    private static RenderFragment RenderApprovalBadge(string status) => status switch
+    {
+        "approved" => @<span class="badge bg-success">Approved</span>,
+        "rejected" => @<span class="badge bg-danger">Rejected</span>,
+        _          => @<span class="badge bg-secondary">Pending</span>,
+    };
+
+    private static RenderFragment RenderTagsSummary(ReviewViewModel vm)
+    {
+        var allTags = vm.ArchetypeTags
+            .Concat(vm.BracketTags)
+            .Concat(vm.CardCategoryTags)
+            .ToList();
+
+        var shown = allTags.Take(3).ToList();
+        var remaining = allTags.Count - shown.Count;
+
+        return @<span>
+            @foreach (var tag in shown)
+            {
+                <span class="badge bg-light text-dark border me-1">@tag</span>
+            }
+            @if (remaining > 0)
+            {
+                <span class="text-muted small">+@remaining more</span>
+            }
+        </span>;
+    }
+
+    // ── IDisposable: cancel in-flight ops on circuit drop ───────────────────
+    /// <summary>
+    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
+    /// store or file read is stopped when the operator closes the tab or the SignalR circuit drops.
+    /// </summary>
+    public void Dispose()
+    {
+        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-06).
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    // ── View model ──────────────────────────────────────────────────────────
+    private sealed class ReviewViewModel
+    {
+        public long Id { get; }
+        public string Title { get; }
+        public string VideoUrl { get; }
+        public string ArtifactPath { get; }
+        public string ApprovalStatus { get; set; }
+        public IReadOnlyList<string> ArchetypeTags { get; }
+        public IReadOnlyList<string> BracketTags { get; }
+        public IReadOnlyList<string> CardCategoryTags { get; }
+
+        // Natural key: YouTube video id → (youtube_channel, videoId); else → (podcast_rss, rssGuid).
+        public string NaturalKeyType { get; }
+        public string NaturalKeyValue { get; }
+
+        // Mutable UI state.
+        public bool Selected { get; set; }
+        public bool Expanded { get; set; }
+
+        public ReviewViewModel(ContentSiteIndexRow row)
+        {
+            Id = row.Id;
+            Title = row.Title;
+            VideoUrl = row.VideoUrl;
+            ArtifactPath = row.ArtifactPath;
+            ApprovalStatus = row.ApprovalStatus;
+            ArchetypeTags = row.ArchetypeTags;
+            BracketTags = row.BracketTags;
+            CardCategoryTags = row.CardCategoryTags;
+
+            // Derive natural key per the store contract.
+            if (!string.IsNullOrWhiteSpace(row.YoutubeVideoId))
+            {
+                NaturalKeyType = ContentSourceType.Youtube;
+                NaturalKeyValue = row.YoutubeVideoId;
+            }
+            else
+            {
+                NaturalKeyType = ContentSourceType.Podcast;
+                NaturalKeyValue = row.RssGuid ?? string.Empty;
+            }
+        }
+    }
+}

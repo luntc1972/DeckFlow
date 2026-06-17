@@ -19,7 +19,7 @@ public sealed class YouTubeChannelVideoListerTests
     {
         string? capturedChannelUrl = null;
         int? capturedLimit = null;
-        var lister = new YouTubeChannelVideoLister((channelUrl, limit, ct) =>
+        var lister = new YouTubeChannelVideoLister((channelUrl, limit, skip, ct) =>
         {
             capturedChannelUrl = channelUrl;
             capturedLimit = limit;
@@ -43,6 +43,31 @@ public sealed class YouTubeChannelVideoListerTests
         var video = Assert.Single(videos);
         Assert.Equal("video-1", video.VideoId);
         Assert.Equal(TimeSpan.FromMinutes(11), video.Duration);
+    }
+
+    [Fact]
+    public async Task ListRecentAsync_PassesSkipToDelegate()
+    {
+        int? capturedSkip = null;
+        var lister = new YouTubeChannelVideoLister((channelUrl, limit, skip, ct) =>
+        {
+            capturedSkip = skip;
+            return Task.FromResult<IReadOnlyList<YouTubeChannelVideo>>([]);
+        });
+
+        await lister.ListRecentAsync("https://www.youtube.com/@MTGGoldfish", limit: 10, skip: 5);
+
+        Assert.Equal(5, capturedSkip);
+    }
+
+    [Fact]
+    public async Task ListRecentAsync_NegativeSkip_ThrowsArgumentOutOfRangeException()
+    {
+        var lister = new YouTubeChannelVideoLister((channelUrl, limit, skip, ct) =>
+            Task.FromResult<IReadOnlyList<YouTubeChannelVideo>>([]));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => lister.ListRecentAsync("https://www.youtube.com/@MTGGoldfish", limit: 10, skip: -1));
     }
 
     [Fact]

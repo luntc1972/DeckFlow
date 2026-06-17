@@ -1,5 +1,5 @@
 using System.Data.Common;
-using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Web.Services.FeatureFlags;
@@ -64,17 +64,15 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT key, enabled FROM feature_flags";
-
         var result = new Dictionary<string, bool>(StringComparer.Ordinal);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        var rows = await connection.QueryAsync<FeatureFlagRow>(new CommandDefinition(
+            "SELECT key, enabled FROM feature_flags",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        foreach (var row in rows)
         {
-            var key = reader.GetString(0);
-            var enabled = ReadBool(reader, 1);
-            result[key] = enabled;
+            result[row.Key] = row.Enabled;
         }
+
         return result;
     }
 
@@ -86,18 +84,10 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
 
         var now = DateTimeOffset.UtcNow;
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = _connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql;
-        RelationalDatabaseConnection.AddParameter(command, "@key", key);
-        RelationalDatabaseConnection.AddParameter(
-            command, "@enabled",
-            _connectionInfo.IsPostgres ? (object)enabled : (enabled ? 1 : 0));
-        RelationalDatabaseConnection.AddParameter(
-            command, "@now",
-            _connectionInfo.IsPostgres
-                ? (object)now.UtcDateTime
-                : now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            _connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql,
+            new { key, enabled, now },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -110,6 +100,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using (var create = connection.CreateCommand())
             {
                 create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
@@ -129,21 +120,6 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
             _schemaGate.Release();
         }
     }
-
-    private static bool ReadBool(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            bool b => b,
-            long l => l != 0,
-            int i => i != 0,
-            short s => s != 0,
-            string str => str == "1" || string.Equals(str, "true", StringComparison.OrdinalIgnoreCase),
-            _ => Convert.ToBoolean(raw, CultureInfo.InvariantCulture)
-        };
-    }
-
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = _connectionInfo.CreateConnection();
@@ -208,4 +184,11 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           enabled    = excluded.enabled,
           updated_at = excluded.updated_at;
         """;
+
+    private sealed class FeatureFlagRow
+    {
+        public required string Key { get; set; }
+
+        public required bool Enabled { get; set; }
+    }
 }

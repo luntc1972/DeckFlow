@@ -1,10 +1,10 @@
 :root {
   /* Grixis: Blue (U) / Black (B) / Red (R) */
   --bg: #181822;
-  --panel: #222532;
+  --panel: #2e3244;
   --ink: #d8d8e2;
   --muted: #91889d;
-  --line: #4a4256;
+  --line: #564e68;
   --accent: #b44a52;          /* Grixis red / cruel command */
   --accent-strong: #d16670;
   --warning: #3f3125;
@@ -34,7 +34,7 @@
   --panel-fallback-bg: #1e212b;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

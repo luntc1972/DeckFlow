@@ -24,3 +24,8 @@ DeckFlow.Web/test-results/
 DeckFlow.Web/playwright-report/
 DeckFlow.Web/blob-report/
 DeckFlow.Web/.playwright/
+
+# DeckFlow.Studio local secret-capable files; appsettings.Development.json stays committed for logging-only config
+DeckFlow.Studio/appsettings*.local.json
+DeckFlow.Studio/appsettings.Local.json
+DeckFlow.Studio/secrets.json

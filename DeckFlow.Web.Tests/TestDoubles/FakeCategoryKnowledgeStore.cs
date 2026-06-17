@@ -31,6 +31,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int DistinctProcessedCommanderCount { get; set; }
 
+    public int GetDistinctProcessedCommanderCountCalls { get; private set; }
+
     public IReadOnlyList<HarvestedCommanderRow> PagedCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
 
     public int LastPagedCommanderPage { get; private set; }
@@ -105,7 +107,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(DistinctProcessedCommanderCount);
+    {
+        GetDistinctProcessedCommanderCountCalls++;
+        return Task.FromResult(DistinctProcessedCommanderCount);
+    }
 
     public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<long?>(null);

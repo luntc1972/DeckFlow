@@ -38,6 +38,15 @@ public interface IContentSourceStore
     Task<ContentSource?> GetSourceAsync(long id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a content source by its canonical URL.
+    /// </summary>
+    /// <param name="url">Canonical source URL.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The source when found; otherwise <see langword="null"/>.</returns>
+    Task<ContentSource?> GetSourceByUrlAsync(string url, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content source store does not support lookup by URL.");
+
+    /// <summary>
     /// Updates whether a content source is eligible for future local content runs.
     /// </summary>
     /// <param name="id">Source identifier.</param>

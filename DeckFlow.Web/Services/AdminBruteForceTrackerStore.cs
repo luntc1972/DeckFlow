@@ -1,6 +1,6 @@
 using System.Data;
 using System.Data.Common;
-using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Web.Services;
@@ -87,25 +87,22 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
         await EnsureSchemaAsync(cancellationToken);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT count, window_start FROM admin_brute_force_buckets WHERE partition_key = @key";
-        RelationalDatabaseConnection.AddParameter(command, "@key", partitionKey);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
+        var bucket = await connection.QuerySingleOrDefaultAsync<AdminBruteForceBucketRow>(new CommandDefinition(
+            "SELECT count, window_start FROM admin_brute_force_buckets WHERE partition_key = @key",
+            new { key = partitionKey },
+            cancellationToken: cancellationToken));
+        if (bucket is null)
         {
             return (false, 0);
         }
 
-        var count = reader.GetInt32(0);
-        var windowStart = ReadTimestamp(reader, 1);
-        var elapsed = now - windowStart;
+        var elapsed = now - bucket.WindowStart;
         if (elapsed >= Window)
         {
             return (false, 0);
         }
 
-        if (count >= PermitLimit)
+        if (bucket.Count >= PermitLimit)
         {
             var remaining = (int)Math.Ceiling((Window - elapsed).TotalSeconds);
             if (remaining < 1) remaining = 1;
@@ -124,27 +121,10 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
         await EnsureSchemaAsync(cancellationToken);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = _connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql;
-        RelationalDatabaseConnection.AddParameter(command, "@key", partitionKey);
-        RelationalDatabaseConnection.AddParameter(
-            command, "@now",
-            _connectionInfo.IsPostgres
-                ? (object)now.UtcDateTime
-                : now.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private static DateTimeOffset ReadTimestamp(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
+        await connection.ExecuteAsync(new CommandDefinition(
+            _connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql,
+            new { key = partitionKey, now },
+            cancellationToken: cancellationToken));
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -162,6 +142,7 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
         {
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken);
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken);
@@ -218,4 +199,11 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
                 ELSE admin_brute_force_buckets.window_start
             END;
         """;
+
+    private sealed class AdminBruteForceBucketRow
+    {
+        public required long Count { get; set; }
+
+        public required DateTimeOffset WindowStart { get; set; }
+    }
 }

@@ -1,191 +1,222 @@
-# Research Summary — DeckFlow v1.6
+# Project Research Summary
 
-**Project:** DeckFlow v1.6 — Content KB Retrieval Fix + Value Re-Validation
-**Domain:** RAG-style expert-lens injection for LLM deck analysis; code quality (SRP)
-**Researched:** 2026-06-10
-**Confidence:** HIGH (retrieval fix, SRP split, gate mechanics); MEDIUM (philosophy-profile — conditional; outcome depends on gate clearing and ~82-video corpus quality)
-
----
+**Project:** DeckFlow v1.7 — Local Harvest & Publish Studio
+**Domain:** Standalone local Blazor Server curation tool + admin grid perf fix
+**Researched:** 2026-06-13
+**Confidence:** HIGH
 
 ## Executive Summary
 
-Spike 001 Run 2 (2026-06-10) proved that the live `ContentKbRelevanceService` is actively harmful: the real scorer selected 5 clips from a single tangential video — 3 of 5 named unrelated commanders — producing rubric scores worse than hand-picked generic maxims (Specificity 1, Novel signal 1, Actionability 0–1, net quality: NEGATIVE). Two structural defects were identified: (1) `SelectTopClips` has no per-video diversity cap, so the highest-scoring video monopolizes all slots; (2) tag-overlap scoring rewards tag breadth over topical fit, letting a broad-tag video ("Glass Cannon Commanders") outscore directly relevant narrow-topic videos. The entire v1.6 milestone is structured around fixing these two defects, re-running the gold A/B gate blind, and only then deciding whether to proceed with the Creator Philosophy-Profile build.
+DeckFlow v1.7 adds a standalone local tool (DeckFlow.Studio) that gives the operator a browser-based UI for the entire content-KB pipeline: discover YouTube videos, harvest+distill them, review and approve in a queue, and publish to deckflow.gg via either a git commit-then-deploy path (primary) or a direct prod-Postgres + SCP write (secondary). The milestone also fixes the admin commander grid's synchronous count+aggregate query with lazy AJAX paging. The most important finding from all four research files is that no new NuGet packages are needed: YoutubeExplode 6.6.0 and Npgsql 10.0.0 are already in DeckFlow.Core, and all other operations use the existing RestSharp/Polly pattern, shell-out git/scp, and dotnet user-secrets.
 
-The recommended approach is zero new dependencies throughout. Both retrieval defects are pure algorithmic fixes inside `ContentKbRelevanceService.cs` — a per-video diversity cap in `SelectTopClips` and a topical-relevance scoring reweight in `ScoreArtifact`. The re-validation is an in-process test execution using the existing `Spike001KbValueAbHarness`. If the gate clears, the Creator Philosophy-Profile follows existing patterns (`IRelationalDialect` for storage, the pluggable LLM-CLI backend for synthesis, optional DI injection into `DeckAnalysisPacketService`). If the gate fails, only the SRP split phase proceeds. The `OpenAI 2.10.0` SDK already present in `DeckFlow.Core.csproj` handles any LLM synthesis calls; no new packages are needed for any path.
+The single biggest architectural decision — and a prerequisite to everything else — is extracting the harvest/distill orchestration out of DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator. This is blocked by the fact that CLI is an executable project; Studio cannot reference it as a library. The extraction simultaneously closes the v1.6 backlog item "ContentKbCommandRunners god-class split." Once IContentKbOrchestrator lives in Core, the CLI's public Run*Async methods become thin path-resolver adapters, and Studio's Blazor services call the same domain logic directly via DI.
 
-The three key risks are: (1) the A/B gate is a binary, unconditional, BLIND decision point that gates ALL philosophy-profile work — building the profile on a broken or unvalidated foundation is explicitly prohibited; (2) provenance and prompt-injection mitigations are mandatory prerequisites before `content.kb.enabled` is flipped ON in production; (3) the ~82-video corpus is snail-heavy and cold-starts for commanders outside that coverage area — the gate itself must be validated across at least 3 distinct archetypes, not just Atraxa. The SRP split (DeckController 1,840 lines + CommandRunners 1,902 lines) is fully independent of KB state and can proceed regardless of the gate outcome.
-
----
+Three pitfalls impose hard ordering constraints on the build sequence. First, a safe content-columns-only upsert overload (UpsertContentColumnsOnlyAsync) must exist before any direct prod-write phase ships, because the two existing overloads both clobber is_visible/is_evergreen on UPDATE — silently erasing admin curation. Second, the approval_status column and filtered export (GetApprovedRowsAsync) must land before the commit-publish phase, otherwise rejected content enters the public repo's seed JSON and prod Postgres. Third, the Studio project scaffold with gitignore entries and user-secrets wiring must be the very first phase, because the prod connection string has no safe home until that foundation exists.
 
 ## Key Findings
 
 ### Recommended Stack
 
-All v1.6 work is deliverable within the existing package set. STACK.md confirms `OpenAI 2.10.0` is already in `DeckFlow.Core.csproj`, the `IRelationalDialect` / `ILlmDistillationService` / `ContentKbArtifactPathResolver` patterns already handle every new component's storage and synthesis requirements, and the internal-ctor test seam pattern in `ContentKbRelevanceService` already isolates scoring logic without new abstractions. Three alternative approaches were explicitly ruled out: BM25/Lucene.NET (IDF adds no signal at 80–200 docs), dense embeddings via ONNX Runtime (90–400MB model blows the 512MB Render Starter RAM cap), and pgvector/Qdrant (schema migration or sidecar for a corpus that fits in a `List<T>`).
+No new NuGet packages are required. YoutubeExplode 6.6.0 (already in DeckFlow.Core) covers all YouTube operations — channel listing, video metadata, and keyword search — with no API key and no quota ceiling. Npgsql 10.0.0 (already in Core) handles prod Postgres writes via the existing RelationalDatabaseConnection pattern. Git automation shells out to the system git binary using the existing ProcessOutput helper from FfmpegAudioChunker.cs; this inherits the developer's SSH auth automatically and avoids LibGit2Sharp's credential-resolution complexity. Secrets live in dotnet user-secrets (UserSecretsId GUID in the csproj; actual values outside the repo tree), consistent with Render's env-var pattern for the deployed app.
 
-**Core technologies (unchanged from existing stack):**
-- `ContentKbRelevanceService.cs` (in-process): retrieval fix target — two surgical changes only, no new abstractions
-- `IRelationalDialect` (SQLite/Postgres): storage for new `creator_philosophy_profiles` table if gate clears
-- `OpenAI 2.10.0` / LLM-CLI backend: style-card synthesis if gate clears — already present, no new package
-- `Spike001KbValueAbHarness` (xUnit): the re-validation gate harness — already built, extended not replaced
-- ASP.NET Core MVC route attributes: mandatory for DeckController SRP split to preserve all URLs
+The Studio UI is ASP.NET Core + Blazor Server running on localhost via dotnet run. Blazor Server's SignalR connection handles real-time progress updates from the long-running harvest/distill pipelines via StateHasChanged(), and the async UI model is familiar from DeckFlow.Web's MVC/Razor skill. The Studio project is added to DeckFlow.sln but excluded from the Dockerfile restore (which stays scoped to DeckFlow.Web/DeckFlow.Web.csproj — do not change this to a solution-level restore).
 
-**Zero new dependencies across all three work areas.** Any dependency addition is a scope violation.
+**Core technologies:**
+- ASP.NET Core + Blazor Server 10.0: Studio UI host — dotnet run on localhost, real-time progress via SignalR, ProjectReference to Core
+- YoutubeExplode 6.6.0 (already in Core): channel listing + video metadata + keyword search — no API key, no quota
+- Npgsql 10.0.0 (already in Core): direct prod Postgres writes via existing RelationalDatabaseConnection
+- git CLI (shelled out): commit-then-deploy publish path — inherits SSH auth, reuses ProcessOutput pattern
+- dotnet user-secrets: prod connection string + Render SSH address — stays outside the public repo tree
+- scp CLI (shelled out): markdown artifact files to Render /data disk — secondary path only; requires one-time SSH key setup in Render dashboard
 
 ### Expected Features
 
-The feature landscape splits cleanly into gate-unconditional and gate-conditional work. The distinction is non-negotiable: FEATURES.md documents that irrelevant context causes measurable LLM degradation (GPT-4 flipped correct answers in 15% of cases from a small number of distracting passages), and Spike 001 Run 2 independently confirmed this on the live system. Building the philosophy-profile on an unfixed retriever is explicitly modeled as the highest-risk anti-feature.
+**Must have (table stakes — v1.7 core):**
+- Paste URL/ID → harvest+distill with LLM spend preview (dry-run gate before every distill)
+- Distill-status tracking and per-item review queue (summary + clips + tags)
+- Approve / reject individual items (approval_status column: pending / approved / rejected)
+- Blocked-video management in UI (parity with existing CLI block/unblock/list)
+- Seed-export + git commit-then-deploy publish path (proven mechanism, primary path)
+- Lazy AJAX numbered paging for AdminHarvestController commander grid (independent, low-risk)
 
-**Must have — gate-unconditional (build regardless of gate outcome):**
-- Per-video diversity cap in `SelectTopClips` — defect #1 fix; without it, one video monopolizes all retrieval slots
-- Topical relevance scoring: commander-name exclusion + content-based signal — defect #2 fix; tag breadth must not outrank topical fit
-- Re-run `Spike001KbValueAbHarness` against fixed retriever, BLIND, across at least 3 test decks — the gate itself
-- DeckController / CommandRunners SRP split — long-deferred code quality; fully independent of KB state
-- Prompt-injection structural wrapper + regex sanitizer in the injected KB block — mandatory before `content.kb.enabled` ON
-- Harvest-date annotation on injected clips — already on `ContentKbExcerpt`; verify it appears in the prompt block
+**Should have (v1.7 complete):**
+- Channel browse UI — list recent videos by known handle/URL with harvested-status badge
+- Multi-select batch harvest from browse results
+- "What will change" diff before publish (git diff for commit path; prod-DB query for direct path)
+- Direct prod-DB + SCP publish path (secondary; only after commit path is proven)
+- Inline tag editing before publish
 
-**Should have — gate-conditional (only if gate clears):**
-- Creator Philosophy-Profile distillation pipeline (`ContentKbPhilosophyDistiller`, `creator_profiles` table, `synthesize-philosophy` CLI command)
-- Provenance per principle (`source_video_id` + `source_timestamp_s` as non-nullable schema fields) — prerequisite for all profile work; without it the profile is a hallucination vector
-- Persona block injection into deck-analysis prompt (`## Creator Heuristics` sub-section under `## Expert Context`)
-- Contradiction preservation (structured `contradictions` array with dual provenance, not narrative smoothing)
-- Recency weighting and `principle_era` date annotation on every injected principle
-- Video-level curation admin toggle (`content_videos.excluded`) — low cost, improves gate corpus quality
-- `content.kb.enabled` ON in production + SEL-02 expert-pin live re-confirm (carried from v1.5)
-
-**Defer to v1.7+:**
-- User-supplied creator sources (on-demand harvest + distill) — HIGH complexity, unproven value, latency risk
-- Embedding-based semantic similarity scorer — premature at current corpus size; revisit at 500+ videos
-- Multi-creator profile merge in a single analysis prompt — token budget risk; validate single-creator first
+**Defer (v1.8+):**
+- Real-time SSE/polling progress during harvest+distill (high complexity)
+- YouTube Data API v3 creator search by name (quota risk — 100 units/call; handle browse covers the core case)
+- Post-publish verification via HTTP scrape or prod-DB read
+- Scheduled/cron harvest (local tool is not always running; defeats review-before-publish guarantee)
 
 ### Architecture Approach
 
-The retrieval fix is entirely in-process: two surgical changes to `ContentKbRelevanceService.cs` with no interface changes, no new service registrations, and no change to the `GetMergedClipsAsync` 4-tier merge structure. The philosophy-profile (if gate clears) follows a strict additive pattern: a new optional `ICreatorPhilosophyProfileService?` dependency on `DeckAnalysisPacketService` mirrors the existing `IContentKbRelevanceService?` optional injection; offline synthesis goes through a new `ContentKbCommandRunners` class that splits from `CommandRunners.cs` in Phase 4 anyway. The SRP split is mechanical extraction: action methods move verbatim, route attributes are added explicitly, no logic changes.
+The solution gains one new project (DeckFlow.Studio) and two new files in DeckFlow.Core (IContentKbOrchestrator, ContentKbOrchestrator). DeckFlow.CLI's ContentKbCommandRunners is thinned to path-resolver adapters. DeckFlow.Web is unchanged except for the lazy-paging partial endpoint on AdminHarvestController. The approval_status column is local-SQLite-only — it is never propagated to prod Postgres by either publish path. Prod Postgres has no concept of it.
 
-**Major components — new or modified:**
-
-1. `ContentKbRelevanceService` (modified) — per-video cap in `SelectTopClips`; topical-fit scorer reweight in `ScoreArtifact`; regex prompt-injection sanitizer added inline
-2. `Spike001KbValueAbHarness` (extended) — add 2 additional test deck facts beyond Atraxa before the re-run gate
-3. `ICreatorPhilosophyProfileStore` + `CreatorPhilosophyProfileStore` (new, Core) — `creator_philosophy_profiles` table via `IRelationalDialect`; only built if gate clears
-4. `ICreatorPhilosophyProfileService` (new, Web) — scores and returns relevant principles; optional DI, flag-gated; only built if gate clears
-5. `DeckToolsController` + `DeckPacketController` + `DeckPrimerController` (new, Web) — mechanical extraction from `DeckController`; all original URLs preserved via explicit `[Route]` attributes
-6. `ContentKbCommandRunners` (new, CLI) — all content KB runners extracted from `CommandRunners.cs`; includes `RunSynthesizePhilosophyAsync` if gate clears
+**Major components:**
+1. IContentKbOrchestrator / ContentKbOrchestrator (Core, NEW) — extracted domain logic for harvest, distill, block/unblock, corpus-reset, export; accepts interfaces, returns result records (not int exit codes); both CLI and Studio call it
+2. DeckFlow.Studio Blazor Server app (NEW) — five Studio services (StudioHarvestService, StudioDistillService, StudioDiscoveryService, StudioReviewService, StudioPublishService) backed by Core interfaces; Blazor pages for Discovery, Queue, Publish, Admin
+3. ContentSiteIndexStore + IContentSiteIndexStore (Core, MODIFIED) — add approval_status self-healing ALTER migration; add GetPendingApprovalAsync, SetApprovalStatusAsync, GetApprovedRowsAsync; add UpsertContentColumnsOnlyAsync overload that preserves is_visible/is_evergreen on UPDATE
+4. ContentKbCommandRunners (CLI, MODIFIED) — public Run*Async become thin adapters; internal static domain methods move to Core
+5. AdminHarvestController (Web, MODIFIED) — add GET /Admin/Harvest/commanders partial endpoint; initial Index renders skeleton, JS replaces grid on DOMContentLoaded
 
 ### Critical Pitfalls
 
-1. **Tag-breadth beats topical fit — one video monopolizes all slots** — fix `SelectTopClips` with a soft per-video cap (recommend 2, not hard-1) plus a relevance floor so forced diversity does not inject noise when only one relevant video exists. Confirm clips span at least 2 distinct video sources with zero commander-name noise for the Atraxa deck after the fix. (PITFALLS P1 + P2)
+1. **Direct prod-write clobbers is_visible/is_evergreen** — UpsertRowAsync overwrites every column including admin curation; UpsertRowPreservingVisibilityAsync hardcodes FALSE on INSERT and ignores visibility on UPDATE. A third overload (UpsertContentColumnsOnlyAsync) whose DO UPDATE SET clause explicitly excludes is_visible, is_evergreen, and approval_status is required before any direct prod-write phase. Add an integration test: upsert a row with is_visible=TRUE, call the new method, assert is_visible remains TRUE.
 
-2. **A/B gate cleared non-blind or on a single deck** — score `baseline.txt` FIRST, record rubric scores before reading `with-context-real.txt`. Run against at least 3 test decks (not just Atraxa). Record blind protocol explicitly in VERDICT.md before unblinding. Any gate clearance based only on "prompt looks correct" (not AI answer quality) is invalid. (PITFALLS P10 + P11 + P12)
+2. **Export includes unapproved entries in seed commit** — RunContentIndexExportAsync calls GetAllRowsAsync() with no filter. When the Studio commits the seed JSON, rejected/pending content enters the public repo and prod Postgres. Prevention: Studio publish must call a filtered GetApprovedRowsAsync() export; add --approved-only flag to CLI export command. The approval_status column must exist before the commit-publish phase ships.
 
-3. **Philosophy-profile hallucination — principles without provenance** — every emitted principle must carry `source_video_id` as a non-nullable FK; no principle stored without a specific excerpt anchor. Add unit test `StyleCardSynthesizer_NoCitableEvidence_EmitsNoPrinciples`. This is a first-class schema requirement, not a post-ship hardening. (PITFALL P4)
+3. **Secret leakage to public repo** — three sub-modes: appsettings file committed, connection string in Serilog structured logs, or secrets.json inside the Studio project directory. Prevention: dotnet user-secrets exclusively; DeckFlow.Studio/appsettings*.local.json and secrets.json added to .gitignore on project creation; never pass the connection string to any ILogger call (log "configured" / "not configured" only).
 
-4. **Prompt injection via untrusted transcript text** — add regex sanitizer for common injection patterns + structural context-boundary wrapper in the injected `## Expert Context` block BEFORE `content.kb.enabled` is flipped ON. The mitigation cost is low; the risk is present every time transcript-derived text reaches the LLM prompt. (PITFALL P7)
+4. **Partial write — DB row written but SCP failed** — direct push path creates a content_site_index row with an artifact_path referencing a file that never arrived on /data. Prevention: implement as two explicit sequential UI steps — Step 1 SCP artifacts, Step 2 push DB rows. Step 2 is blocked if Step 1 fails. File-first ordering must be in the plan's success criteria.
 
-5. **DeckController split silently breaks URLs** — every action method moved to a new controller must carry an explicit `[Route]` attribute preserving the original path. Conventional routing derives URLs from controller class names; without explicit routes, every moved action silently changes its URL. Audit the Bridge extension (`background.js`) for hard-coded paths before splitting. (PITFALL P13)
-
----
+5. **YoutubeExplode AngleSharp concurrency** — concurrent calls to IYouTubeChannelVideoLister corrupt each other's parse output (same bug hit in v1.6, resolved by serializing to concurrency=1). Prevention: SemaphoreSlim(1) in StudioDiscoveryService; no Task.WhenAll across lister invocations.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on research, the recommended build sequence is 8 phases. Phases 1-5 are strictly ordered by dependency. Phase 6 (admin grid fix) is fully independent and can be scheduled anywhere. Phases 7-8 depend on Phase 5 and Phase 4 respectively.
 
-### Phase 1: Retrieval Fix
-**Rationale:** Prerequisite for everything else. The live retriever is worse than nothing (Run 2: NEGATIVE quality). No downstream KB work has any value until the two mechanism defects are corrected. This is also where prompt-injection mitigations must land — before `content.kb.enabled` goes ON.
-**Delivers:** Fixed `SelectTopClips` (per-video soft cap + relevance floor); reweighted `ScoreArtifact` (topical-fit signal, commander-name exclusion penalty); regex sanitizer + structural context-boundary wrapper in the injected block; updated `ContentKbRelevanceServiceTests` calibration suite.
-**Addresses:** Per-video diversity (table stakes), topical relevance (table stakes), prompt-injection mitigation (mandatory security prerequisite), harvest-date annotation verification.
-**Avoids:** P1 (video monopoly), P2 (forced-diversity noise), P7 (prompt injection). Sets up clean inputs for the gate run.
+---
 
-### Phase 2: Re-Validation Gate (BLIND)
-**Rationale:** The gate is an unconditional, binary branch point. It must be evaluated before any philosophy-profile work begins and before `content.kb.enabled` is flipped ON. The gate is not a formality — Spike 001 Run 2 confirmed that a reasonable-looking retriever can produce NEGATIVE quality. The gate must be run BLIND (score baseline first, record scores, then score with-context) and must cover at least 3 test decks.
-**Delivers:** Updated `Spike001KbValueAbHarness` with 2 additional test deck facts (aggro/voltron + cEDH/combo); VERDICT.md addendum with blind rubric scores across all 3 decks; branch decision: PASS (proceed to Phase 3) or FAIL (proceed only to Phase 4; KB scope reduction deferred to v1.7).
-**Addresses:** Value re-validation A/B gate (table stakes), KB un-dark conditional on gate pass.
-**Avoids:** P10 (non-blind scoring), P11 (judging prompt not answer), P12 (single-deck overfit), P3 (corpus cold-start rate measured across 3 archetypes).
-**Gate-PASS exit criteria:** at least 3 of 4 rubric dimensions score 3+; no quality loss vs. baseline; at least one dimension 4+; at least 2 distinct video sources for the Atraxa deck; confirmed blind.
-**Gate-FAIL pivot:** Phase 3 is skipped entirely. SRP split (Phase 4) runs regardless. KB scope reduction or retirement planning deferred to v1.7.
+### Phase 1: Studio Scaffold + Secrets Wiring
+**Rationale:** The prod connection string has no safe home until this project exists with .gitignore entries and user-secrets configured. All subsequent Studio phases depend on this foundation. Must come first — Pitfall 3 (secret leakage) is a permanent risk if any Studio config file is committed before .gitignore is wired.
+**Delivers:** DeckFlow.Studio project in solution; ProjectReference to Core; dotnet user-secrets init; appsettings*.local.json + secrets.json added to .gitignore; Program.cs DI scaffold; first Blazor page renders at http://localhost:<port>; Dockerfile constraint documented (restore stays scoped to Web project)
+**Avoids:** Pitfall 3 (secret leakage via appsettings commit)
+**Research flag:** Standard patterns — Blazor Server scaffold is well-documented; no deeper research needed
 
-### Phase 3: Creator Philosophy-Profile [CONDITIONAL — gate must pass]
-**Rationale:** Only built if Phase 2 confirms the fixed retriever delivers net-positive value. Building the profile on a broken or unvalidated retriever is explicitly the highest-risk failure mode. If built, follows strict additive architecture: new optional service, new table, new CLI command — all following existing patterns. Provenance schema and hallucination gate are non-negotiable first steps within this phase.
-**Delivers:** `ICreatorPhilosophyProfileStore` + `CreatorPhilosophyProfileStore` (Core); `ICreatorPhilosophyProfileService` (Web, optional DI); `CreatorPhilosophyContext` + `PhilosophyPrinciple` sealed records; `ContentKbCommandRunners.RunSynthesizePhilosophyAsync`; `synthesize-philosophy` CLI command; `## Creator Heuristics` prompt sub-section across all 3 AI variants; `content.kb.enabled` ON in production; SEL-02 expert-pin re-confirm; combined KB block cap enforced at 6,000 characters.
-**Addresses:** Philosophy profile distillation (gated), provenance per principle (gated), persona block injection (gated), contradiction preservation (gated), recency weighting (gated), video-level curation toggle (gated, low cost, build early in this phase), prompt budget cap enforcement.
-**Avoids:** P4 (hallucinated principles — provenance schema is the first deliverable in this phase), P5 (stale/contradictory opinions — contradiction array + `principle_era`), P6 (recency drift — 18-month demotion filter at injection), P8 (prompt-size blowup — 6,000-char combined cap), P9 (attribution errors — single-creator-per-prompt constraint in v1.6).
-**Research flags:** Topical-scoring algorithm for principle relevance at query time (keyword overlap vs. LLM re-ranking) is an open question; recommend starting with Option 1 (in-process keyword match) and treating Option 2 (LLM re-ranking) as a follow-on if Option 1 proves insufficient. Corpus feasibility for per-creator profile synthesis from ~82 snail-heavy videos is MEDIUM confidence — the profile may be thinly evidenced for creators with fewer than 10 substantive harvested videos. Ops prerequisite: confirm at least one creator has 10+ substantive non-rating-series videos before the distillation run.
+---
 
-### Phase 4: SRP Split
-**Rationale:** Independent of all KB phases. Long-deferred code quality work. Runs last to minimize blast radius during KB work — the DeckController extraction is high-touch and the routing risk (P13) is best contained in its own phase. CommandRunners split follows the same phase for logical cohesion.
-**Delivers:** `DeckToolsController`, `DeckPacketController`, `DeckPrimerController` extracted from `DeckController.cs` (1,840 lines split into 4 focused controllers); `ContentKbCommandRunners` extracted from `CommandRunners.cs` (1,902 lines split into ~800-line deck-domain class + ~600-line KB class); explicit `[Route]` attributes on all moved actions; pre/post URL diff verification; updated controller test class references.
-**Addresses:** DeckController/CommandRunners SRP split (unconditional).
-**Avoids:** P13 (URL regression — explicit routes mandatory, pre-split URL list required), P14 (`_DeckToolTabs` controller-name coupling — pre-split audit of `_Layout.cshtml` and all shared partials), P15 (shared helper duplication — two-commit discipline: `CommandRunnerHelpers` extraction first, class split second; build + test green after each commit).
-**Research flags:** Standard mechanical refactor; no deeper research needed. Pre-split checklist: grep `RouteData.Values["controller"]` in all shared partials; audit `background.js` for hard-coded `/deck` paths; generate pre-split URL list for post-split diff.
+### Phase 2: Extract IContentKbOrchestrator to Core
+**Rationale:** The architectural blocker. CLI is an executable; Studio cannot reference it. This extraction unlocks all subsequent harvest/distill/export work in Studio. Also closes the v1.6 backlog god-class split. Must precede any phase that invokes pipeline logic from Studio.
+**Delivers:** IContentKbOrchestrator + ContentKbOrchestrator in DeckFlow.Core/Content/; ContentKbCommandRunners public Run*Async thinned to adapters; all existing CLI tests continue to pass (internal test surface moves to Core with InternalsVisibleTo); ILogger dependency changed from Serilog.ILogger to ILogger<ContentKbOrchestrator> (MEL abstraction — Core convention is Microsoft.Extensions.Logging.Abstractions)
+**Avoids:** Anti-pattern of duplicating distill pipeline in Studio; god-class accumulation
+**Research flag:** Standard patterns — the extraction is mechanical (internal static methods move to Core). Open question: confirm whether Core already has a transitive Serilog reference (see Gaps section).
+
+---
+
+### Phase 3: approval_status Column + Safe Upsert Overload
+**Rationale:** Two of the three hard ordering constraints from PITFALLS converge here. The safe UpsertContentColumnsOnlyAsync overload must exist before any direct prod-write phase. The approval_status column + filtered export must exist before the commit-publish phase. Both constraints are satisfied by this single phase. This phase has no Studio UI dependency — it is pure Core + schema work.
+**Delivers:** approval_status column on content_site_index via self-healing ALTER migration (same pattern as is_evergreen); GetPendingApprovalAsync, SetApprovalStatusAsync, GetApprovedRowsAsync on IContentSiteIndexStore; UpsertContentColumnsOnlyAsync overload whose DO UPDATE excludes is_visible, is_evergreen, approval_status; integration test: set is_visible=TRUE, call new overload, assert unchanged; filtered export (Studio calls GetApprovedRowsAsync, not GetAllRowsAsync)
+**Avoids:** Pitfall 1 (is_visible/is_evergreen clobbered on prod write); Pitfall 4 (unapproved entries in seed commit)
+**Research flag:** Standard patterns — self-healing ALTER is established in this codebase; no research needed
+
+---
+
+### Phase 4: Harvest + Distill UI (Studio core pipeline)
+**Rationale:** First Studio phase that delivers end-user value. Depends on Phase 2 (orchestrator in Core) and Phase 1 (Studio scaffold). The distill dry-run gate (Pitfall 5) and Blazor background-task pattern (Pitfall 7) must be requirements in the plan, not enhancements.
+**Delivers:** Paste URL/ID form → harvest via IContentKbOrchestrator.HarvestAsync; LLM spend dry-run shown before distill; distill via IContentKbOrchestrator.DistillAsync; dedup surfacing; background Task.Run + InvokeAsync(StateHasChanged) pattern with CTS tied to component disposal; blocked-video management page (100% reuse of existing CLI block/unblock/list)
+**Avoids:** Pitfall 5 (re-distill LLM spend surprise — dry-run gate required); Pitfall 7 (Blazor circuit blocking — background Task pattern required)
+**Research flag:** Needs plan-time design decision: specify the exact IAsyncDisposable CTS teardown pattern to avoid orphaned operations after circuit close
+
+---
+
+### Phase 5: Review Queue + Commit-Publish Path
+**Rationale:** The review queue (approve/reject) and the commit-publish path are tightly coupled — you cannot publish without approved entries, and the export filter from Phase 3 gates what enters the seed. The two-stage commit/push separation (Pitfall 8) must be a plan requirement.
+**Delivers:** Review queue page showing approval_status='pending' entries with summary + clips + tags preview; approve/reject actions per item; seed export filtered to approval_status='approved' rows; two-stage publish: Stage 1 = git commit (shows diff first, reversible); Stage 2 = git push (separate button, requires checkbox acknowledge); CRLF prevention in exported JSON (LF forced in write step, not relying on gitattributes normalization)
+**Avoids:** Pitfall 4 (unapproved entries in seed commit); Pitfall 8 (accidental push to main without review); Pitfall 10 (CRLF in seed JSON)
+**Research flag:** Standard patterns — git shell-out and two-stage UI are well-understood; no research needed
+
+---
+
+### Phase 6: Admin Commander Grid Lazy AJAX Paging (independent)
+**Rationale:** Fully independent of the Studio pipeline. Can be scheduled at any point. Fixes the existing /Admin/Harvest slow initial load caused by GetDistinctProcessedCommanderCountAsync + GetPagedProcessedCommandersAsync running synchronously on every page request. The missing partial expression index on LOWER(commander_name) WHERE processed=1 should ship with this phase.
+**Delivers:** New GET /Admin/Harvest/commanders partial endpoint on AdminHarvestController; _CommanderGrid.cshtml Razor partial; JS/TS page-click handler (replaces only the grid section via fetch + DOM replace, matching existing AdminHarvest/Status polling pattern); SameOriginRequestValidator on the new endpoint; partial expression index on LOWER(commander_name) WHERE processed=1 in CategoryKnowledgeRepository; initial Index renders skeleton (no count/aggregate queries on first load)
+**Uses:** Existing GetPagedProcessedCommandersAsync and GetDistinctProcessedCommanderCountAsync — no store changes needed
+**Avoids:** Performance trap: count aggregate query on every page load
+**Research flag:** Standard patterns — AJAX partial replacement is established in this codebase; no research needed
+
+---
+
+### Phase 7: Channel Browse UI + Discovery
+**Rationale:** Depends on Phase 4 (Studio pipeline running). Adds the discovery workflow so the operator can browse channels without copy-pasting video IDs. AngleSharp SemaphoreSlim(1) constraint must be in the plan.
+**Delivers:** Channel handle/URL input → IYouTubeChannelVideoLister.ListRecentAsync → video grid with thumbnail (img src to i.ytimg.com), duration, published date, harvested-status badge (batch GetVideoByYoutubeIdAsync overlay); multi-select → batch harvest; SemaphoreSlim(1) in StudioDiscoveryService enforced
+**Avoids:** Pitfall 6 (AngleSharp concurrency — SemaphoreSlim required)
+**Research flag:** Standard patterns — channel listing via existing interface; no research needed
+
+---
+
+### Phase 8: Direct Prod-DB + SCP Publish Path
+**Rationale:** Depends on Phase 3 (safe upsert overload exists) and Phase 5 (commit path proven). Secondary publish path — skips the 2-4 min Render deploy cycle. The file-first ordering (SCP before DB push) and two-stage UI confirmation are non-negotiable requirements from Pitfall 2. Render SSH key setup is a one-time manual gate.
+**Delivers:** StudioPublishService.PublishViaDirectPushAsync() — Step 1: SCP all approved artifact .md files to Render /data (tar bundle for >20 files); Step 2: construct prod Postgres ContentSiteIndexStore from user-secrets connection string, call UpsertContentColumnsOnlyAsync per approved row; StudioPublishService.GetProdDiffAsync() — query prod Postgres for existing natural keys, diff against local approved rows; schema migration runs via EnsureSchemaAsync on first prod connect; post-push verification query for dangling artifact_path rows
+**Avoids:** Pitfall 1 (is_visible clobber — uses safe overload from Phase 3); Pitfall 2 (partial write — SCP before DB push, Step 2 blocked if Step 1 fails); Pitfall 9 (schema drift — EnsureSchemaAsync runs on prod connect)
+**Research flag:** SCP bundling approach (tar + single handshake for large artifact sets) and Render SSH key registration are operationally new — plan should include a manual setup checklist
+
+---
 
 ### Phase Ordering Rationale
 
-- Phase 1 must precede Phase 2: the gate tests the fixed retriever; running it on the broken retriever would produce the same NEGATIVE result as Spike 001 Run 2.
-- Phase 2 must precede Phase 3: the gate outcome is a binary branch; building the profile before the gate is explicitly prohibited by the milestone scope and the seed document.
-- Phase 3 is conditional: if the gate fails, the milestone closes after Phase 4 with KB dark and scope reduction deferred to v1.7.
-- Phase 4 is fully independent: isolates the high-touch DeckController extraction from the KB work; any regression in the SRP split cannot contaminate the gate run or KB deployment.
-- Within Phase 3: `ICreatorPhilosophyProfileStore` (Core) must be built before `ICreatorPhilosophyProfileService` (Web); `CreatorPhilosophyContext` record must exist before `DeckAnalysisPacketService` changes compile; provenance schema must precede the synthesizer implementation.
+- Phase 1 before everything: secrets have no safe home until .gitignore + user-secrets are wired
+- Phase 2 before Phases 4-5-7-8: CLI cannot be referenced as a library; orchestration must be in Core first
+- Phase 3 before Phase 5: export filter blocks on approval_status column; safe upsert blocks on Phase 8
+- Phase 4 before Phase 5: queue cannot show reviewed items until harvest+distill pipeline runs
+- Phase 5 before Phase 8: direct push is secondary; commit path must be proven first
+- Phase 4 before Phase 7: channel browse is a discovery-to-harvest flow; harvest UI must exist first
+- Phase 6 is independent: no dependency on Studio pipeline; schedule at any point (good early win)
 
 ### Research Flags
 
-Phases needing deeper research or judgment calls during planning:
-- **Phase 2 (Re-Validation Gate):** The topical-scoring reweight in `ScoreArtifact` needs design validation — specifically, whether the commander-name exclusion penalty should be a hard gate or a score multiplier, and whether the relevance floor threshold needs calibration against the live corpus. The planner should specify these as named constants with rationale rather than leaving them to implementer judgment.
-- **Phase 3 (Philosophy-Profile, if triggered):** Three open questions require planning-time resolution before execution: (a) topical-scoring algorithm for principle relevance at query time (keyword overlap Option 1 vs. LLM re-ranking Option 2); (b) corpus feasibility — confirm at least one creator has 10+ substantive non-rating-series videos before committing to synthesis; (c) gate-fail-within-Phase-3 pivot definition — what the plan looks like if the gate clears but the profile synthesizer produces thin output on the available corpus.
+Phases needing specific design decisions during planning:
+- **Phase 4:** Blazor Server background-task + IAsyncDisposable CTS teardown pattern — plan must specify the exact lifecycle approach to avoid orphaned operations after circuit close
+- **Phase 8:** Render SSH key setup procedure and SCP tar-bundle strategy for large artifact sets — plan should include a manual ops checklist
 
-Phases with standard patterns (minimal research needed):
-- **Phase 1 (Retrieval Fix):** Pure in-process algorithmic change to a well-understood class. The existing internal-ctor test seam already supports deterministic testing. No new patterns needed.
-- **Phase 4 (SRP Split):** Mechanical extraction. All patterns are established in the codebase. The primary risk is procedural (two-commit discipline, pre-split audit checklist), not technical.
-
----
+Phases with standard, well-documented patterns (no research phase needed):
+- **Phase 1:** Blazor Server scaffold + user-secrets — standard .NET 10 CLI commands
+- **Phase 2:** Mechanical code extraction — internal static methods moved to Core; no new patterns
+- **Phase 3:** Self-healing ALTER migration — established pattern in this codebase (is_evergreen precedent)
+- **Phase 5:** Git shell-out + two-stage commit/push — ProcessOutput pattern already in Core
+- **Phase 6:** AJAX partial replacement — existing pattern in AdminHarvest/Status polling
+- **Phase 7:** Channel browse via IYouTubeChannelVideoLister — existing interface, no new dependencies
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack (zero-new-dependencies verdict) | HIGH | Both retrieval defects are pure algorithmic changes; `OpenAI 2.10.0` confirmed in `DeckFlow.Core.csproj`; all three work areas verified against installed package set |
-| Features (gate-unconditional) | HIGH | Defects confirmed by Spike 001 Run 2 direct codebase execution; table-stakes features are verifiable algorithmic properties |
-| Features (gate-conditional, philosophy-profile) | MEDIUM | Profile value hypothesis is explicitly what the gate tests; confidence is in the approach, not the outcome |
-| Architecture (retrieval fix) | HIGH | `SelectTopClips` and `ScoreArtifact` are `internal static`, directly tested, well-understood; change is surgical |
-| Architecture (philosophy-profile) | MEDIUM | Pattern follows existing `ContentKbRelevanceService` and `ContentSiteIndexStore` exactly; profile synthesis output quality depends on LLM + corpus, neither of which is under code control |
-| Architecture (SRP split) | HIGH | Mechanical extraction with well-understood routing risk; the risk is procedural and has explicit mitigations |
-| Pitfalls (retrieval + gate) | HIGH | All primary pitfalls grounded in Spike 001 Run 2 direct evidence |
-| Pitfalls (philosophy-profile) | MEDIUM | No prior build to inspect; pitfalls derived from RAG literature, seed document requirements, and extrapolation from the retrieval defects |
+| Stack | HIGH | All key deps verified directly in csproj files; Render SCP verified against official docs; LibGit2Sharp tradeoffs verified against NuGet |
+| Features | HIGH | Grounded in existing codebase; every feature traced to a specific existing method or a bounded new addition |
+| Architecture | HIGH | All component boundaries verified by reading the actual files named; no speculative claims |
+| Pitfalls | HIGH | Every pitfall traced to a specific file, SQL statement, or documented incident (MEMORY: harvest_lister_concurrency_crash, Phase 20 CR-01 spend-recording order) |
 
-**Overall confidence:** HIGH for retrieval fix and SRP split phases. MEDIUM for the philosophy-profile path, contingent on gate outcome and corpus composition.
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Topical-scoring algorithm constants:** STACK.md recommends a commander-name bonus multiplier + content-text overlap as the scorer reweight, but threshold constants (penalty multiplier magnitude, relevance floor percentage) need calibration against the live corpus. The planner should specify these as named constants with rationale rather than leaving them to implementer judgment.
-- **Gate-fail pivot definition:** The research documents Options 2 (reconsider KB scope) and 3 (retire clip injection) as post-fail paths but does not specify which to pursue. The Phase 2 plan should include a written gate-fail decision protocol so the gate outcome immediately routes to a defined next step.
-- **Corpus feasibility check:** The ~82-video corpus is snail-heavy. Before Phase 3 planning, confirm via a `content_videos` query how many substantive (non-rating-series, non-excluded) videos exist per creator. If no creator meets the 10-video threshold for profile synthesis, the philosophy-profile deliverable scope must be revised.
-- **RAG grounding algorithm for Phase 3:** STACK.md recommends Option 1 (in-process keyword similarity) as the v1.6 baseline with Option 2 (LLM re-ranking) as a follow-on. The Phase 3 plan should make this explicit so Codex does not default to the more expensive option.
+These are open questions that need a human decision before or during planning — not research gaps:
 
----
+- **Studio in DeckFlow.sln vs separate solution:** Architecture research recommends adding to DeckFlow.sln (one workspace, one build, no cross-solution reference friction). The Dockerfile constraint (restore stays scoped to DeckFlow.Web/DeckFlow.Web.csproj) is already identified and safe. Recommended path unless the user prefers a clean separation. **Decision needed from user before Phase 1 plan.**
+
+- **ILogger abstraction in Core orchestrator:** ContentKbCommandRunners.cs currently passes Serilog.ILogger to its internal methods. Moving them to Core should switch to ILogger<ContentKbOrchestrator> (MEL abstraction — Core convention is Microsoft.Extensions.Logging.Abstractions). Verify whether Core already takes a transitive Serilog reference that would make this a no-op concern. **Confirm during Phase 2 plan.**
+
+- **Prod connection string storage location:** Research recommends dotnet user-secrets. The alternative (env var STUDIO_PROD_CONNECTION_STRING set in terminal before dotnet run) is also valid and avoids the user-secrets init step. Both are safe for the public repo. **Decision needed before Phase 1 plan.**
+
+- **approval_status scope:** Architecture research recommends the column is local-SQLite-only and never propagated to prod. If the admin ever wants to audit which videos were approved vs rejected, the history would be local-only and lost on a DB reset. **Confirm this is acceptable during Phase 3 plan.**
 
 ## Sources
 
-### Primary (HIGH confidence)
-- `.planning/spikes/001-kb-value-ab/VERDICT.md` — Spike 001 Run 1 + Run 2 results; root cause analysis of both retrieval defects; gate NOT cleared
-- `.planning/research/STACK.md` (2026-06-10) — zero-new-dependency verdict across all three work areas; alternatives ruled out with RAM/IDF rationale
-- `.planning/research/FEATURES.md` (2026-06-10) — table stakes vs. gated feature split; anti-features catalog; dependency graph
-- `.planning/research/ARCHITECTURE.md` (2026-06-10) — component map, data flow diagrams, dependency-ordered build sequence
-- `.planning/research/PITFALLS.md` (2026-06-10) — 15 pitfalls ordered by likelihood x impact; pitfall-to-phase mapping table
-- `DeckFlow.Web/Services/ContentKbRelevanceService.cs` — live scorer; `SelectTopClips` defect confirmed by direct inspection
-- `DeckFlow.Web/Controllers/DeckController.cs` — 1,840 lines confirmed; action method groupings confirmed
-- `DeckFlow.CLI/CommandRunners.cs` — 1,902 lines confirmed; shared helper methods confirmed
-- `DeckFlow.Core/DeckFlow.Core.csproj` — `OpenAI 2.10.0` confirmed present
+### Primary (HIGH confidence — verified directly against codebase)
+- DeckFlow.Core/DeckFlow.Core.csproj — YoutubeExplode 6.6.0, Npgsql 10.0.0 confirmed as existing deps
+- DeckFlow.Core/Content/ContentSiteIndexStore.cs — UpsertSql behavior, UpsertPreservingVisibilitySql behavior, self-healing ALTER pattern
+- DeckFlow.CLI/ContentKbCommandRunners.cs — internal static method signatures, GetAllRowsAsync export, video-IDs distill bypass, spend-recording order
+- DeckFlow.Core/Integration/YouTubeChannelVideoLister.cs — AngleSharp concurrency constraint, concurrency=1 fix
+- DeckFlow.Web/Controllers/Admin/AdminHarvestController.cs — synchronous count+page queries on Index; SameOriginRequestValidator pattern
+- DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs — COUNT(DISTINCT LOWER(commander_name)) full table scan; no index on LOWER(commander_name)
+- DeckFlow.Web/Services/ContentKbSeedLoader.cs — UpsertRowPreservingVisibilityAsync upsert behavior on deploy
+- Dockerfile — restore scoped to DeckFlow.Web/DeckFlow.Web.csproj (line 29)
+- render.yaml — autoDeploy:true, /data disk mount, Postgres provider env var
 
-### Secondary (MEDIUM confidence)
-- `.planning/seeds/creator-philosophy-profile.md` — style-card shape, hallucination gate requirement, contradiction-preservation mandate
-- arxiv 2505.18761 — distracting passages caused GPT-4 to flip correct answers in 15% of cases
-- arxiv 2410.05983 — "lost in the middle" context flooding effect
-- arxiv 2502.11228 — RAG diversity / MMR / Vendi-RAG patterns
-- UBOS attribution survey — AIS attribution / sentence-level traceability requirement
+### Primary (HIGH confidence — official docs)
+- Render Persistent Disks docs (https://render.com/docs/disks) — SCP is the only file-write mechanism; no REST API for /data; Starter plan supported
+- Render SSH docs (https://render.com/docs/ssh) — SSH available on Starter+; scp -s supported
+- YouTube Data API v3 quota table (https://developers.google.com/youtube/v3/determine_quota_cost) — search.list = 100 units/call, 100-calls/day dedicated bucket
+- Microsoft user-secrets docs (https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) — works in non-ASP.NET projects via ConfigurationBuilder.AddUserSecrets<Program>()
+- NuGet LibGit2Sharp 0.31.0 (https://www.nuget.org/packages/LibGit2Sharp/) — .NET 10 compatible; SSH credential-resolution complexity documented
 
-### Tertiary (LOW confidence — informational only)
-- arxiv 2504.08745 — per-author RAG personalization; directional evidence for philosophy-profile approach
-- arxiv 2509.19376 — temporal recency in RAG; recency-weighting rationale
+### Secondary (MEDIUM confidence — inference from codebase patterns)
+- ProcessOutput pattern from FfmpegAudioChunker.cs — assumed to generalize to git/scp shell-out; not directly verified for git use case
+- Blazor Server SignalR circuit timeout (~3 minutes default) — standard framework behavior; not verified against a specific .NET 10 changelog entry
 
 ---
-
-*Research completed: 2026-06-10*
+*Research completed: 2026-06-13*
 *Ready for roadmap: yes*

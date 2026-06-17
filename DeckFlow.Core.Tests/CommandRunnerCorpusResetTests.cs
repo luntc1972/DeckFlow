@@ -1,7 +1,6 @@
-using DeckFlow.CLI;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
-using Serilog;
+using DeckFlow.Core.Orchestration;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -14,14 +13,13 @@ public sealed class CommandRunnerCorpusResetTests
         var videoStore = new FakeContentVideoStore();
         var siteIndexStore = new FakeContentSiteIndexStore();
 
-        var exitCode = await ContentKbCommandRunners.RunCorpusResetAsync(
-            videoStore,
-            siteIndexStore,
+        var orchestrator = CreateOrchestrator(videoStore, siteIndexStore);
+        var result = await orchestrator.ResetCorpusAsync(
             dryRun: false,
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None);
+            progress: null,
+            cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(1, videoStore.DeleteAllVideosCalls);
         Assert.Equal(1, siteIndexStore.DeleteAllRowsCalls);
         Assert.Equal(0, videoStore.DeleteVideoCalls);
@@ -35,17 +33,37 @@ public sealed class CommandRunnerCorpusResetTests
         var videoStore = new FakeContentVideoStore();
         var siteIndexStore = new FakeContentSiteIndexStore();
 
-        var exitCode = await ContentKbCommandRunners.RunCorpusResetAsync(
-            videoStore,
-            siteIndexStore,
+        var orchestrator = CreateOrchestrator(videoStore, siteIndexStore);
+        var result = await orchestrator.ResetCorpusAsync(
             dryRun: true,
-            new LoggerConfiguration().CreateLogger(),
-            CancellationToken.None);
+            progress: null,
+            cancellationToken: CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(0, videoStore.DeleteAllVideosCalls);
         Assert.Equal(0, siteIndexStore.DeleteAllRowsCalls);
     }
+
+    private static ContentKbOrchestrator CreateOrchestrator(
+        IContentVideoStore videoStore,
+        IContentSiteIndexStore siteIndexStore)
+        => new(
+            new ThrowingContentSourceStore(),
+            videoStore,
+            siteIndexStore,
+            new ThrowingBlockedVideoStore(),
+            new ThrowingContentHarvestRunStore(),
+            new ThrowingLlmSpendLedger(),
+            new ThrowingWhisperSpendLedger(),
+            new ThrowingLlmDistillationService(),
+            new ThrowingYouTubeChannelVideoLister(),
+            new ThrowingTranscriptSource(),
+            new ThrowingFfmpegAudioChunker(),
+            () => DateTimeOffset.UtcNow,
+            new ContentKbOrchestratorOptions
+            {
+                ArtifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-corpus-reset-tests"),
+            });
 
     private sealed class FakeContentVideoStore : IContentVideoStore
     {
@@ -140,10 +158,16 @@ public sealed class CommandRunnerCorpusResetTests
         public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(string naturalKeyType, string naturalKeyValue, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
@@ -177,6 +201,12 @@ public sealed class CommandRunnerCorpusResetTests
             => throw new NotImplementedException();
 
         public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 }

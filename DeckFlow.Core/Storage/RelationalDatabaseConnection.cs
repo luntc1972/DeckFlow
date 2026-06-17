@@ -20,6 +20,12 @@ public enum RelationalDatabaseProvider
 /// </summary>
 public sealed record RelationalDatabaseConnection(RelationalDatabaseProvider Provider, string ConnectionString)
 {
+    static RelationalDatabaseConnection()
+    {
+        // Why: register handlers at the earliest shared chokepoint before any connection opens.
+        DapperTypeHandlers.EnsureRegistered();
+    }
+
     /// <summary>Gets the SQL dialect helpers for the configured provider.</summary>
     public IRelationalDialect Dialect
         => Provider switch

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# One-time opt-in per clone: git config core.hooksPath .githooks
+repo_root="$(git rev-parse --show-toplevel)"
+
+cd "$repo_root"
+exec bash scripts/format-check-changed.sh staged

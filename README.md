@@ -161,6 +161,11 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - **Controller / CLI SRP split (Phase 38):** the `DeckController` god-class was decomposed into 8 focused feature controllers and `DeckFlow.CLI/CommandRunners` into deck-domain vs content-KB runners — **all routes and CLI commands preserved unchanged** (mechanically proven route-parity + a live render smoke).
 - **Architecture-review refactor (Phase 39):** duplicated deck-loading + Scryfall card-resolution were extracted out of the four prompt-packet services into a shared `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` — behavior byte-identical, guarded by the existing packet-service test suites.
 
+### What's new in v1.7 (shipped 2026-06-17)
+- **Visual refresh — 6-pillar UI audit remediation (Phase 48):** the deployed site was audited against six visual-design pillars and remediated from 16/24 to **20/24** — hub cards and section headers gained inline-SVG iconography and resting elevation, surfaces now lift off the page background, the smallest helper text was raised above the legibility floor, headings/labels got a real type hierarchy, and short tool pages (Card Lookup, Ask a Judge) close with an example panel instead of dead space. All changes are theme-token-scoped, so every guild theme (light, dark, and the Commander Table fork) inherits them; verified at mobile + desktop.
+- **DeckFlow.Studio — local operator console (Phases 41/45/46/47):** a new standalone Blazor Server app (`DeckFlow.Studio`, run locally by the operator) to browse/paste YouTube videos → harvest captions → distill to Content-KB entries via an LLM (with a spend dry-run gate) → review/approve in a queue → publish to production two ways: a git commit-publish of the LF-normalized seed (→ Render deploy), or a direct prod push (SSH.NET SCP of artifacts to the Render disk + a safe content-columns-only Postgres upsert that preserves admin fields). The prod connection string lives in user-secrets only and never enters the repo or logs.
+- **Under the hood:** harvest/distill/export logic moved out of the CLI into `DeckFlow.Core` as `IContentKbOrchestrator` (Phase 42); data access in the dual-provider stores moved to Dapper behind the existing dialect abstraction with Sqlite+Postgres parity preserved (Phase 49); `/Admin/Harvest` got AJAX lazy paging + a `LOWER(commander_name)` index (Phase 44); and a changed-lines `.editorconfig` format gate now runs as a pre-commit hook + CI job (Phase 50).
+
 ## Getting Started
 1. Restore/build: `dotnet build DeckFlow.sln`
 2. Run the web app: `dotnet run --project DeckFlow.Web`
@@ -169,6 +174,26 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 ### Helper scripts
 - `scripts/run-web.sh` — bash wrapper that rebuilds `DeckFlow.Web` and launches it on `http://localhost:5173` with no browser auto-launch.
 - `scripts/run-web.ps1` — PowerShell equivalent for Windows terminals.
+
+### Code formatting gate
+
+DeckFlow's enforced formatting source of truth is the committed `.editorconfig`. Existing files are not mass-reflowed; the format gate checks changed C# lines only.
+
+Install the versioned pre-commit hook once per clone:
+
+WSL / Linux shell:
+```bash
+git config core.hooksPath .githooks
+```
+
+Windows Git-Bash:
+```bash
+git config core.hooksPath .githooks
+```
+
+After that opt-in, `.githooks/pre-commit` runs `bash scripts/format-check-changed.sh staged` on staged C# changes. A bad added line is blocked with a `file:line` failure; a clean staged change succeeds; a one-line edit in a legacy file passes when the violation is off-hunk.
+
+CI is the authoritative enforcer. The `format-gate` job runs `bash scripts/format-check-changed.sh ci`, selects the PR/push diff base, and fails only when formatter-reported violations intersect added or modified C# lines. That means a PR with a mis-formatted added line fails, while a PR that makes a clean one-line edit in a legacy file with unrelated pre-existing quirks still passes the format gate.
 
 ### Local development TypeScript toolchain
 
@@ -577,6 +602,14 @@ dotnet run --project DeckFlow.CLI -- content-index-export
 
 - Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 timestamped clips, and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category).
 - The distill LLM backend is selected by `DECKFLOW_LLM_PROVIDER` (`openai` default with Structured Outputs, or `claude` to shell the Claude Code CLI at $0 subscription cost). Monthly spend caps: `DECKFLOW_LLM_MONTHLY_CAP_USD` and `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15; cap-gating applies to the OpenAI/Whisper paid paths).
+- **`claude` provider on Windows — set `DECKFLOW_LLM_CLI_COMMAND`.** With `DECKFLOW_LLM_PROVIDER=claude`, the distiller shells the `claude` CLI. On Linux/macOS it runs bare `claude` (must be on `PATH`). On **Windows** the bare default is not used — set `DECKFLOW_LLM_CLI_COMMAND` to a JSON array invoking the CLI, with exactly one `{instruction}` placeholder. If your `claude` lives in WSL, call it via `wsl.exe` using the **full path** (wsl.exe uses a non-login shell, so `~/.local/bin` is not on `PATH` — bare `wsl.exe claude` fails):
+
+  ```jsonc
+  // PowerShell user env var, or _run-claude.bat `set` line, or dotnet user-secrets:
+  DECKFLOW_LLM_CLI_COMMAND = ["wsl.exe","/home/<you>/.local/bin/claude","-p","{instruction}","--output-format","json","--allowedTools",""]
+  ```
+
+  A native Windows `claude` install instead uses `["cmd.exe","/c","claude.cmd","-p","{instruction}","--output-format","json","--allowedTools",""]`. Optional `DECKFLOW_LLM_CLI_TIMEOUT_SECONDS` bounds each call. If it is unset/invalid on Windows, distill aborts with a clear "Distiller CLI not configured" message (not silent per-video failures).
 - The public browse/detail pages at `/content-kb` are gated behind the `content.kb.enabled` feature flag (default OFF) and only show entries an admin published via `/Admin/ContentKb` (per-entry or per-source bulk curation; visibility survives seed reloads).
 - `/Admin/YoutubeExport` downloads a channel's upload list (title, views, upload date, URL) as text or CSV — useful for picking `--video-ids` targets.
 

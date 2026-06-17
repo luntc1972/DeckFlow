@@ -34,4 +34,14 @@ public sealed record YouTubeChannelVideo
     /// Public view count from the per-video metadata lookup, when available.
     /// </summary>
     public long? ViewCount { get; init; }
+
+    /// <summary>
+    /// YouTube channel identifier for the video's author, when available from the listing source.
+    /// </summary>
+    public string? ChannelId { get; init; }
+
+    /// <summary>
+    /// Display name of the YouTube channel that published this video, when available.
+    /// </summary>
+    public string? ChannelTitle { get; init; }
 }

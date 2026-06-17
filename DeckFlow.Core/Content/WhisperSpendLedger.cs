@@ -1,4 +1,5 @@
 using DeckFlow.Core.Storage;
+using Dapper;
 
 namespace DeckFlow.Core.Content;
 
@@ -44,8 +45,8 @@ public sealed class WhisperSpendLedger : SpendLedgerBase, IWhisperSpendLedger
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
             INSERT INTO whisper_spend_ledger (
               video_id,
               seconds_billed,
@@ -58,13 +59,16 @@ public sealed class WhisperSpendLedger : SpendLedgerBase, IWhisperSpendLedger
               @costUsd,
               @monthKey,
               @createdUtc);
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@videoId", videoId);
-        RelationalDatabaseConnection.AddParameter(command, "@secondsBilled", secondsBilled);
-        RelationalDatabaseConnection.AddParameter(command, "@costUsd", FormatDecimal(costUsd));
-        RelationalDatabaseConnection.AddParameter(command, "@monthKey", monthKey);
-        RelationalDatabaseConnection.AddParameter(command, "@createdUtc", FormatTimestamp(DateTimeOffset.UtcNow));
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new
+            {
+                videoId,
+                secondsBilled,
+                costUsd,
+                monthKey,
+                createdUtc = DateTimeOffset.UtcNow
+            },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

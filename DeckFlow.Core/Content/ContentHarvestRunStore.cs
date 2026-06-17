@@ -1,5 +1,5 @@
 using System.Data.Common;
-using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 
@@ -48,6 +48,7 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
         {
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -66,17 +67,14 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
             INSERT INTO content_harvest_runs (started_utc, spend_usd)
             VALUES (@startedUtc, @spendUsd)
             RETURNING id;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@startedUtc", FormatTimestamp(DateTimeOffset.UtcNow));
-        RelationalDatabaseConnection.AddParameter(command, "@spendUsd", FormatDecimal(0m));
-
-        var id = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return ContentStoreGeneratedId.Read(id);
+            """,
+            new { startedUtc = DateTimeOffset.UtcNow, spendUsd = 0m },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -99,8 +97,8 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            """
             UPDATE content_harvest_runs
                SET completed_utc = @completedUtc,
                    sources_processed = @sourcesProcessed,
@@ -110,16 +108,19 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
                    spend_usd = @spendUsd,
                    aborted_reason = @abortedReason
              WHERE id = @runId;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@completedUtc", FormatTimestamp(DateTimeOffset.UtcNow));
-        RelationalDatabaseConnection.AddParameter(command, "@sourcesProcessed", sourcesProcessed);
-        RelationalDatabaseConnection.AddParameter(command, "@videosProcessed", videosProcessed);
-        RelationalDatabaseConnection.AddParameter(command, "@transcriptsFetched", transcriptsFetched);
-        RelationalDatabaseConnection.AddParameter(command, "@whisperCalls", whisperCalls);
-        RelationalDatabaseConnection.AddParameter(command, "@spendUsd", FormatDecimal(spendUsd));
-        RelationalDatabaseConnection.AddParameter(command, "@abortedReason", (object?)abortedReason ?? DBNull.Value);
-        RelationalDatabaseConnection.AddParameter(command, "@runId", runId);
-        var affected = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            """,
+            new
+            {
+                completedUtc = DateTimeOffset.UtcNow,
+                sourcesProcessed,
+                videosProcessed,
+                transcriptsFetched,
+                whisperCalls,
+                spendUsd,
+                abortedReason,
+                runId
+            },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (affected == 0)
         {
             throw new InvalidOperationException($"No content harvest run with id {runId} to complete.");
@@ -133,8 +134,8 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        return await connection.QuerySingleOrDefaultAsync<ContentHarvestRun>(new CommandDefinition(
+            """
             SELECT id,
                    started_utc,
                    completed_utc,
@@ -146,67 +147,13 @@ public sealed class ContentHarvestRunStore : IContentHarvestRunStore
                    aborted_reason
               FROM content_harvest_runs
              WHERE id = @runId;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@runId", runId);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        return ReadRun(reader);
+            """,
+            new { runId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-
-    private object FormatDecimal(decimal value)
-        => _connectionInfo.IsPostgres ? value : value.ToString(CultureInfo.InvariantCulture);
-
-    private object FormatTimestamp(DateTimeOffset value)
-        => _connectionInfo.IsPostgres
-            ? value.UtcDateTime
-            : value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
-
-    private static ContentHarvestRun ReadRun(DbDataReader reader)
-        => new()
-        {
-            Id = reader.GetInt64(0),
-            StartedUtc = ReadDateTimeOffset(reader, 1),
-            CompletedUtc = reader.IsDBNull(2) ? null : ReadDateTimeOffset(reader, 2),
-            SourcesProcessed = Convert.ToInt32(reader.GetValue(3), CultureInfo.InvariantCulture),
-            VideosProcessed = Convert.ToInt32(reader.GetValue(4), CultureInfo.InvariantCulture),
-            TranscriptsFetched = Convert.ToInt32(reader.GetValue(5), CultureInfo.InvariantCulture),
-            WhisperCalls = Convert.ToInt32(reader.GetValue(6), CultureInfo.InvariantCulture),
-            SpendUsd = ReadDecimal(reader, 7),
-            AbortedReason = reader.IsDBNull(8) ? null : reader.GetString(8)
-        };
-
-    private static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime(),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
-    }
-
-    private static decimal ReadDecimal(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            decimal d => d,
-            double d => Convert.ToDecimal(d, CultureInfo.InvariantCulture),
-            float f => Convert.ToDecimal(f, CultureInfo.InvariantCulture),
-            string text => decimal.Parse(text, CultureInfo.InvariantCulture),
-            _ => Convert.ToDecimal(raw, CultureInfo.InvariantCulture)
-        };
-    }
 
     private const string PostgresCreateTableSql = """
         CREATE TABLE IF NOT EXISTS content_harvest_runs (

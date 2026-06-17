@@ -1,5 +1,5 @@
 using System.Data.Common;
-using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Core.Content;
@@ -47,6 +47,7 @@ public sealed class BlockedVideoStore : IBlockedVideoStore
         {
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -67,11 +68,10 @@ public sealed class BlockedVideoStore : IBlockedVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = _connectionInfo.IsPostgres ? PostgresInsertSql : SqliteInsertSql;
-        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
-        RelationalDatabaseConnection.AddParameter(command, "@reason", reason);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            _connectionInfo.IsPostgres ? PostgresInsertSql : SqliteInsertSql,
+            new { youtubeVideoId, reason },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -82,13 +82,14 @@ public sealed class BlockedVideoStore : IBlockedVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var rows = await connection.ExecuteAsync(new CommandDefinition(
+            """
             DELETE FROM blocked_videos
              WHERE youtube_video_id = @youtubeVideoId;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
-        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+            """,
+            new { youtubeVideoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows > 0;
     }
 
     /// <inheritdoc />
@@ -99,15 +100,15 @@ public sealed class BlockedVideoStore : IBlockedVideoStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var result = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
             SELECT COUNT(*)
               FROM blocked_videos
              WHERE youtube_video_id = @youtubeVideoId;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@youtubeVideoId", youtubeVideoId);
-        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt64(result, CultureInfo.InvariantCulture) > 0;
+            """,
+            new { youtubeVideoId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return result > 0;
     }
 
     /// <inheritdoc />
@@ -115,50 +116,22 @@ public sealed class BlockedVideoStore : IBlockedVideoStore
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
-        var blocked = new List<BlockedVideo>();
-
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var blocked = await connection.QueryAsync<BlockedVideo>(new CommandDefinition(
+            """
             SELECT youtube_video_id,
                    reason,
                    blocked_utc
               FROM blocked_videos
              ORDER BY blocked_utc ASC,
                       youtube_video_id ASC;
-            """;
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            blocked.Add(new BlockedVideo
-            {
-                YoutubeVideoId = reader.GetString(0),
-                Reason = reader.IsDBNull(1) ? null : reader.GetString(1),
-                BlockedUtc = ReadDateTimeOffset(reader, 2)
-            });
-        }
-
-        return blocked;
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return blocked.ToList();
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-
-    private static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            DateTimeOffset dto => dto.ToUniversalTime(),
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero),
-            string text => DateTimeOffset.Parse(
-                text,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
-            _ => new DateTimeOffset(Convert.ToDateTime(raw, CultureInfo.InvariantCulture), TimeSpan.Zero)
-        };
-    }
 
     // Why: Phase 37.5 resets will purge content_* tables, so the block list must
     // live outside that prefix to remain intact across corpus resets.

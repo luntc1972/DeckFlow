@@ -1,0 +1,56 @@
+[
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "yt-alpha-001",
+    "source": "Play to Win",
+    "title": "Turbo Naus Threat Assessment",
+    "videoUrl": "https://www.youtube.com/watch?v=yt-alpha-001",
+    "artifactPath": "content-kb/play-to-win/yt-alpha-001.md",
+    "publishedUtc": "2026-06-10T14:30:00+00:00",
+    "indexedUtc": "2026-06-12T09:15:00+00:00",
+    "archetypeTags": [
+      "turbo-naus",
+      "midrange"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "fast-mana",
+      "interaction"
+    ]
+  },
+  {
+    "naturalKeyType": "podcast_rss",
+    "naturalKeyValue": "rss-episode-77",
+    "source": "Into the North",
+    "title": "Meta Lessons From Modern cEDH",
+    "videoUrl": "https://intothenorth.podbean.com/e/meta-lessons-77",
+    "artifactPath": "content-kb/into-the-north/rss-episode-77.md",
+    "publishedUtc": null,
+    "indexedUtc": "2026-06-12T10:45:12+00:00",
+    "archetypeTags": [],
+    "bracketTags": [],
+    "cardCategoryTags": [
+      "stax"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "yt-beta-099",
+    "source": "The Mind Sculptors",
+    "title": "When To Pivot Off the Stack",
+    "videoUrl": "https://www.youtube.com/watch?v=yt-beta-099",
+    "artifactPath": "content-kb/the-mind-sculptors/yt-beta-099.md",
+    "publishedUtc": "2026-06-01T08:00:00+00:00",
+    "indexedUtc": "2026-06-12T11:00:00+00:00",
+    "archetypeTags": [
+      "control"
+    ],
+    "bracketTags": [
+      "cEDH",
+      "high-power"
+    ],
+    "cardCategoryTags": []
+  }
+]

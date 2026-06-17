@@ -1,10 +1,10 @@
 :root {
   /* Abzan: White (W) / Black (B) / Green (G) */
   --bg: #080905;
-  --panel: #12150d;
+  --panel: #1a2014;
   --ink: #f4f0e8;
-  --muted: #c2bfb3;
-  --line: #425137;
+  --muted: #a8a89a;
+  --line: #506342;
   --accent: #86a35a;           /* Abzan green / endurance crest */
   --accent-strong: #a3c776;
   --abzan-charcoal: #060704;   /* Abzan black / weathered obsidian */
@@ -35,7 +35,7 @@
   --panel-fallback-bg: #13160f;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

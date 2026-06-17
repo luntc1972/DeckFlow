@@ -177,7 +177,7 @@ public sealed class AdminYoutubeExportControllerTests
 
         public int Calls { get; private set; }
 
-        public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(string channelUrl, int limit, CancellationToken ct = default)
+        public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(string channelUrl, int limit, int skip = 0, CancellationToken ct = default)
         {
             Calls++;
             if (Exception is not null)

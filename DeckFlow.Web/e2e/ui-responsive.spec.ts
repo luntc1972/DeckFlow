@@ -200,9 +200,11 @@ test('content kb search box is not oversized on desktop', async ({ page }) => {
   expect(searchBox!.width).toBeLessThan(barBox!.width * 0.75);
 
   // Vertical: `align-items: flex-start` keeps the search input at its natural
-  // control height rather than stretching to match the tall open filters block.
+  // control height rather than stretching to fill the filter bar. (The Filters
+  // disclosure now lays its selects out as a horizontal grid on an inner wrapper,
+  // so the open block is short — we no longer assert it is taller than the search
+  // box; the search-box height cap is the real regression guard.)
   expect(searchBox!.height).toBeLessThanOrEqual(60);
-  expect(detailsBox!.height).toBeGreaterThan(searchBox!.height + 40);
 });
 
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {

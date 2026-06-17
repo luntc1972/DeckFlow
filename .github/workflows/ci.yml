@@ -12,6 +12,34 @@ on:
   pull_request:
 
 jobs:
+  # If branch protection requires named checks, include `format-gate` there.
+  format-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Fetch origin/main for format gate base resolution
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Restore .NET dependencies
+        run: dotnet restore DeckFlow.sln
+
+      - name: Run changed-lines format gate
+        run: bash scripts/format-check-changed.sh ci
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+
   build-and-test:
     runs-on: ubuntu-latest
 

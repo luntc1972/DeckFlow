@@ -8,7 +8,7 @@
     <span>@Model.Title</span>
 </nav>
 
-<header>
+<header class="kb-artifact-header">
     <h1>@Model.Title</h1>
     <p class="hub-card__description">
         Source:
@@ -46,6 +46,10 @@
         @Model.RenderedHtml
     }
 </article>
+
+<p class="kb-artifact-back">
+    <a class="kb-back-link" href="@Url.Content("~/content-kb")">&larr; Back to Knowledge Base</a>
+</p>
 
 @section Scripts {
     <script src="~/js/content-kb.js" asp-append-version="true"></script>

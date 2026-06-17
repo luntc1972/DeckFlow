@@ -141,6 +141,9 @@ public sealed record ContentSiteIndexRow
     /// <summary>Whether this artifact can fill evergreen advice slots for any deck analysis prompt.</summary>
     public bool IsEvergreen { get; init; }
 
+    /// <summary>Approval workflow status: pending, approved, or rejected.</summary>
+    public string ApprovalStatus { get; init; } = "pending";
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 

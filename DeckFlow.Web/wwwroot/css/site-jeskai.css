@@ -1,10 +1,10 @@
 :root {
   /* Jeskai: Blue (U) / Red (R) / White (W) */
-  --bg: #eceef3;
+  --bg: #e2e5ed;
   --panel: #fafafa;
   --ink: #1a1f2e;
-  --muted: #5c6478;
-  --line: #c4c9d6;
+  --muted: #4a5568;
+  --line: #b0b8c8;
   --accent: #b83a2e;          /* Jeskai red — dragon fire */
   --accent-strong: #922b23;
   --theme-secondary: #b83a2e;      /* Jeskai red — dragon fire */
@@ -32,7 +32,7 @@
   --panel-fallback-bg: #f2f4f8;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

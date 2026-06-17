@@ -2,10 +2,10 @@ using DeckFlow.CLI;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Orchestration;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 using Serilog;
-using Serilog.Core;
-using Serilog.Events;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -16,13 +16,10 @@ namespace DeckFlow.Core.Tests;
 public sealed class RunDistillAsyncTests : IDisposable
 {
     private readonly string _artifactRoot;
-    private readonly CapturingSink _sink = new();
-    private readonly Serilog.ILogger _logger;
 
     public RunDistillAsyncTests()
     {
         _artifactRoot = Path.Combine(Path.GetTempPath(), $"deckflow-distill-{Guid.NewGuid():N}");
-        _logger = new LoggerConfiguration().WriteTo.Sink(_sink).CreateLogger();
     }
 
     public void Dispose()
@@ -48,9 +45,9 @@ public sealed class RunDistillAsyncTests : IDisposable
                 new TokenUsage(30, 3)),
         };
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller);
+        var result = await RunAsync(videoStore, distiller: distiller);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(
             [
                 new TagWrite(1, ContentTagDimension.Archetype, "combo"),
@@ -62,8 +59,8 @@ public sealed class RunDistillAsyncTests : IDisposable
         Assert.Equal(["combo"], row.ArchetypeTags);
         Assert.Equal(["cEDH"], row.BracketTags);
         Assert.Equal(["win-cons"], row.CardCategoryTags);
-        Assert.Equal(3, _sink.Events.Count(logEvent => logEvent.Level == LogEventLevel.Warning
-            && logEvent.MessageTemplate.Text.Contains("dropped out-of-vocab tag", StringComparison.Ordinal)));
+        Assert.Equal(3, LastLogger!.Entries.Count(logEntry => logEntry.Level == LogLevel.Warning
+            && logEntry.Message.Contains("dropped out-of-vocab tag", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -78,9 +75,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         videoStore.AddPending(1, third, "transcript 3");
         var distiller = new FakeLlmDistillationService();
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller, videoIds: ["video-two"]);
+        var result = await RunAsync(videoStore, distiller: distiller, videoIds: ["video-two"]);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(1, distiller.SummaryCalls);
         Assert.Equal([new StatusUpdate(2, "distilled")], videoStore.StatusUpdates);
         var row = Assert.Single(LastRunIndexStore!.Rows);
@@ -101,9 +98,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         videoStore.AddPending(1, missing, "transcript 4");
         var distiller = new FakeLlmDistillationService();
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller);
+        var result = await RunAsync(videoStore, distiller: distiller);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(3, distiller.SummaryCalls);
         Assert.Equal([2, 3, 4], videoStore.ClearCalls);
         Assert.DoesNotContain(videoStore.StatusUpdates, update => update.VideoId == 1);
@@ -128,9 +125,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         distiller.SummaryQueue.Enqueue(new InvalidOperationException("summary failed"));
         distiller.SummaryQueue.Enqueue(FakeLlmDistillationService.CreateSummary());
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller);
+        var result = await RunAsync(videoStore, distiller: distiller);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Contains(new StatusUpdate(1, "failed"), videoStore.StatusUpdates);
         Assert.Contains(new StatusUpdate(2, "distilled"), videoStore.StatusUpdates);
         Assert.DoesNotContain(videoStore.Summaries, summary => summary.VideoId == 1);
@@ -147,9 +144,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         var ledger = new FakeLlmSpendLedger();
         var distiller = new FakeLlmDistillationService();
 
-        var exitCode = await RunAsync(videoStore, ledger, distiller, dryRun: true);
+        var result = await RunAsync(videoStore, ledger, distiller, dryRun: true);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Empty(distiller.Calls);
         Assert.Empty(ledger.Records);
         Assert.Empty(videoStore.ClearCalls);
@@ -161,8 +158,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         Assert.Equal(0, LastRunStore!.StartCalls);
         Assert.Empty(LastRunStore.CompleteCalls);
         Assert.False(Directory.Exists(_artifactRoot));
-        Assert.Contains(_sink.Events, logEvent => logEvent.Properties.TryGetValue("VideoId", out var videoId)
-            && videoId.ToString().Contains("dry-run-video", StringComparison.Ordinal));
+        Assert.Contains(LastProgress!.Messages, message => message.Contains("dry-run-video", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -175,9 +171,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         ledger.WouldExceedResults.Enqueue(true);
         var distiller = new FakeLlmDistillationService();
 
-        var exitCode = await RunAsync(videoStore, ledger, distiller, isSubscriptionProvider: true);
+        var result = await RunAsync(videoStore, ledger, distiller, isSubscriptionProvider: true);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(["classify:transcript body", "summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
         Assert.Empty(ledger.WouldExceedChecks);
         Assert.Equal(3, ledger.Records.Count);
@@ -197,24 +193,12 @@ public sealed class RunDistillAsyncTests : IDisposable
         var ledger = new FakeLlmSpendLedger();
         ledger.WouldExceedResults.Enqueue(true);
         var distiller = new FakeLlmDistillationService();
-        var originalOut = Console.Out;
-        await using var output = new StringWriter();
-        Console.SetOut(output);
-        try
-        {
-            var exitCode = await RunAsync(videoStore, ledger, distiller, dryRun: true, isSubscriptionProvider: true);
+        var result = await RunAsync(videoStore, ledger, distiller, dryRun: true, isSubscriptionProvider: true);
 
-            Assert.Equal(0, exitCode);
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
-
-        var consoleOutput = output.ToString();
-        Assert.Contains("WOULD distill ($0, subscription) subscription-dry-run", consoleOutput);
-        Assert.Contains("projected spend $0 (subscription)", consoleOutput);
-        Assert.DoesNotContain("cap", consoleOutput, StringComparison.OrdinalIgnoreCase);
+        Assert.True(result.Success);
+        Assert.Contains(LastProgress!.Messages, message => message.Contains("WOULD distill ($0, subscription) subscription-dry-run", StringComparison.Ordinal));
+        Assert.Contains(LastProgress.Messages, message => message.Contains("projected spend $0 (subscription)", StringComparison.Ordinal));
+        Assert.DoesNotContain(LastProgress.Messages, message => message.Contains("cap", StringComparison.OrdinalIgnoreCase));
         Assert.Empty(ledger.WouldExceedChecks);
         Assert.Empty(distiller.Calls);
         Assert.Empty(ledger.Records);
@@ -235,9 +219,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         videoStore.AddPending(2, CreateVideo(2, 2, "video-b"), "transcript b");
         videoStore.AddPending(3, CreateVideo(3, 3, "video-c"), "transcript c");
 
-        var exitCode = await RunAsync(videoStore, sourceStore: sourceStore);
+        var result = await RunAsync(videoStore, sourceStore: sourceStore);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal([1, 2], videoStore.PendingSourceIds);
         Assert.DoesNotContain(3, videoStore.PendingSourceIds);
         Assert.Contains(LastRunIndexStore!.Rows, row => row.YoutubeVideoId == "video-a"
@@ -258,9 +242,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         var distiller = new FakeLlmDistillationService();
         distiller.ClassifyQueue.Enqueue(new ClassificationResult("drop", "trivia"));
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: true);
+        var result = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: true);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Contains(new StatusUpdate(1, "filtered"), videoStore.StatusUpdates);
         Assert.Contains(1, videoStore.ClearCalls);
         Assert.Equal(1, distiller.ClassifyCallCount);
@@ -298,13 +282,13 @@ public sealed class RunDistillAsyncTests : IDisposable
         LastRunIndexStore = new FakeContentSiteIndexStore();
         LastRunIndexStore.Rows.Add(staleRow);
 
-        var exitCode = await RunAsync(
+        var result = await RunAsync(
             videoStore,
             distiller: distiller,
             isSubscriptionProvider: true,
             indexStore: LastRunIndexStore);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Contains(new StatusUpdate(1, "filtered"), videoStore.StatusUpdates);
         Assert.Contains(1, videoStore.ClearCalls);
         Assert.Contains(99, LastRunIndexStore.DeleteCalls);
@@ -320,9 +304,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         var distiller = new FakeLlmDistillationService();
         distiller.ClassifyQueue.Enqueue(new ClassificationResult("keep", "advice"));
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: true);
+        var result = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: true);
 
-        Assert.Equal(0, exitCode);
+        Assert.True(result.Success);
         Assert.Equal(1, distiller.ClassifyCallCount);
         Assert.Equal(1, distiller.SummaryCalls);
         Assert.Contains(new StatusUpdate(1, "distilled"), videoStore.StatusUpdates);
@@ -338,9 +322,10 @@ public sealed class RunDistillAsyncTests : IDisposable
         videoStore.AddPending(1, video, "transcript body");
         var distiller = new FakeLlmDistillationService();
 
-        var exitCode = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: false);
+        var result = await RunAsync(videoStore, distiller: distiller, isSubscriptionProvider: false);
 
-        Assert.NotEqual(0, exitCode);
+        Assert.False(result.Success);
+        Assert.Contains("classifier requires the subscription LLM CLI", result.AbortedReason, StringComparison.Ordinal);
         Assert.Equal(0, distiller.ClassifyCallCount);
         Assert.Equal(0, distiller.SummaryCalls);
         Assert.Empty(videoStore.StatusUpdates);
@@ -366,7 +351,7 @@ public sealed class RunDistillAsyncTests : IDisposable
                 sourceId,
                 enabled: false,
                 new FileInfo(dbPath),
-                _logger,
+                new LoggerConfiguration().CreateLogger(),
                 CancellationToken.None);
 
             Assert.Equal(0, disableExitCode);
@@ -377,7 +362,7 @@ public sealed class RunDistillAsyncTests : IDisposable
                 sourceId,
                 enabled: true,
                 new FileInfo(dbPath),
-                _logger,
+                new LoggerConfiguration().CreateLogger(),
                 CancellationToken.None);
 
             Assert.Equal(0, enableExitCode);
@@ -400,7 +385,11 @@ public sealed class RunDistillAsyncTests : IDisposable
 
     private FakeContentHarvestRunStore? LastRunStore { get; set; }
 
-    private async Task<int> RunAsync(
+    private RecordingOrchestratorProgress? LastProgress { get; set; }
+
+    private RecordingLogger<ContentKbOrchestrator>? LastLogger { get; set; }
+
+    private async Task<DistillResult> RunAsync(
         FakeContentVideoStore videoStore,
         FakeLlmSpendLedger? ledger = null,
         FakeLlmDistillationService? distiller = null,
@@ -412,21 +401,33 @@ public sealed class RunDistillAsyncTests : IDisposable
     {
         LastRunIndexStore = indexStore ?? new FakeContentSiteIndexStore();
         LastRunStore = new FakeContentHarvestRunStore();
-        return await ContentKbCommandRunners.RunDistillAsync(
+        LastProgress = new RecordingOrchestratorProgress();
+        LastLogger = new RecordingLogger<ContentKbOrchestrator>();
+        var orchestrator = new ContentKbOrchestrator(
             sourceStore ?? new FakeContentSourceStore([CreateSource(1, "source-one", isEnabled: true)]),
             videoStore,
             LastRunIndexStore,
+            new ThrowingBlockedVideoStore(),
             LastRunStore,
             ledger ?? new FakeLlmSpendLedger(),
+            new ThrowingWhisperSpendLedger(),
             distiller ?? new FakeLlmDistillationService(),
-            _artifactRoot,
+            new ThrowingYouTubeChannelVideoLister(),
+            new ThrowingTranscriptSource(),
+            new ThrowingFfmpegAudioChunker(),
+            () => new DateTimeOffset(2026, 5, 27, 12, 34, 56, TimeSpan.Zero),
+            new ContentKbOrchestratorOptions
+            {
+                ArtifactRoot = _artifactRoot,
+            },
+            LastLogger);
+        return await orchestrator.DistillAsync(
             limit: 10,
-            dryRun,
-            _logger,
-            utcNow: () => new DateTimeOffset(2026, 5, 27, 12, 34, 56, TimeSpan.Zero),
-            CancellationToken.None,
-            isSubscriptionProvider,
-            videoIds);
+            dryRun: dryRun,
+            isSubscriptionProvider: isSubscriptionProvider,
+            videoIds: videoIds,
+            progress: LastProgress,
+            cancellationToken: CancellationToken.None);
     }
 
     private static ContentSource CreateSource(long id, string sourceSlug, bool isEnabled)
@@ -454,14 +455,6 @@ public sealed class RunDistillAsyncTests : IDisposable
             TranscriptStatus = TranscriptStatus.Captions,
             CreatedUtc = DateTimeOffset.Parse("2026-05-27T00:00:00Z"),
         };
-
-    private sealed class CapturingSink : ILogEventSink
-    {
-        public List<LogEvent> Events { get; } = [];
-
-        public void Emit(LogEvent logEvent)
-            => Events.Add(logEvent);
-    }
 
     private sealed class FakeContentSourceStore : IContentSourceStore
     {
@@ -650,6 +643,8 @@ public sealed class RunDistillAsyncTests : IDisposable
     {
         public List<ContentSiteIndexRow> Rows { get; } = [];
 
+        public List<ContentSiteIndexRow> ContentColumnsOnlyUpserts { get; } = [];
+
         public List<long> DeleteCalls { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
@@ -679,6 +674,13 @@ public sealed class RunDistillAsyncTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
+        {
+            ContentColumnsOnlyUpserts.Add(row);
+            Rows.Add(row);
+            return Task.CompletedTask;
+        }
+
         public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(
             string naturalKeyType,
             string naturalKeyValue,
@@ -687,6 +689,9 @@ public sealed class RunDistillAsyncTests : IDisposable
 
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(row => row.IsVisible).ToArray());
+
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows.Where(row => row.ApprovalStatus == "approved").ToArray());
 
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Rows);
@@ -794,6 +799,12 @@ public sealed class RunDistillAsyncTests : IDisposable
             return Task.FromResult(count);
         }
 
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         private static bool MatchesNaturalKey(ContentSiteIndexRow left, ContentSiteIndexRow right)
             => MatchesNaturalKey(left, ContentSourceType.Youtube, right.YoutubeVideoId)
                || MatchesNaturalKey(left, ContentSourceType.Podcast, right.RssGuid);
@@ -888,6 +899,8 @@ public sealed class RunDistillAsyncTests : IDisposable
             WouldExceedChecks.Add(projectedCallCostUsd);
             return Task.FromResult(WouldExceedResults.Count > 0 && WouldExceedResults.Dequeue());
         }
+
+        public decimal GetMonthlyCapUsd() => 15.00m;
     }
 
     private sealed class FakeLlmDistillationService : ILlmDistillationService

@@ -1,10 +1,10 @@
 :root {
   /* Mardu: Red (R) / White (W) / Black (B) */
-  --bg: #f1ece8;
+  --bg: #e6ddd8;
   --panel: #fcfaf7;
   --ink: #2c201e;
-  --muted: #6e625f;
-  --line: #d6c7bf;
+  --muted: #5a4f4c;
+  --line: #c0aea4;
   --accent: #b24633;          /* Mardu red / raid banner */
   --accent-strong: #8f3729;
   --mardu-obsidian: #4e403f; /* Mardu black / soot-forged iron */
@@ -35,7 +35,7 @@
   --panel-fallback-bg: #f6f2ef;
 
   /* type scale (UI-VS-01) — inherited shape, themes can override individual steps */
-  --fs-xs:   0.75rem;
+  --fs-xs:   0.85rem;
   --fs-sm:   0.85rem;
   --fs-base: 0.95rem;
   --fs-lg:   1.05rem;

@@ -2,11 +2,11 @@
 @import url('site.css');
 
 :root {
-  --bg: #eaf0e9;
+  --bg: #d8e4d6;
   --panel: #fafbf8;
   --ink: #1e2b22;
-  --muted: #57655a;
-  --line: #c1cbbf;
+  --muted: #42524a;
+  --line: #a0b4a0;
   --accent: #3a7a52;
   --accent-strong: #285938;
 

@@ -66,12 +66,11 @@ public sealed class AdminHarvestController : Controller
     }
 
     /// <summary>
-    /// Renders harvest status, recent runs, processed commanders, schedule state, and aggregate stats.
+    /// Renders harvest status, recent runs, schedule state, and aggregate stats.
     /// </summary>
-    /// <param name="page">One-based processed-commander page to render.</param>
     /// <param name="cancellationToken">Cancellation token for admin data reads.</param>
     [HttpGet("")]
-    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
     {
         var activeRun = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
         var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
@@ -90,29 +89,49 @@ public sealed class AdminHarvestController : Controller
             _logger.LogError(exception, "Harvest stats aggregation failed for /Admin/Harvest.");
         }
 
-        page = Math.Max(page, 1);
-        const int pageSize = AdminHarvestViewModel.DefaultDeckPageSize;
-        // Why: count and page slice are separate admin-only reads; a concurrent harvest may
-        // shift totals briefly, and the next refresh/pagination click reconciles the view.
-        var deckTotal = await _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
-        var deckTotalPages = (int)Math.Ceiling((double)Math.Max(deckTotal, 1) / Math.Max(pageSize, 1));
-        page = Math.Min(page, deckTotalPages);
-        var pagedCommanders = await _categoryStore.GetPagedProcessedCommandersAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
-
         var viewModel = new AdminHarvestViewModel
         {
             ActiveRun = activeRun,
             RecentRuns = recentRuns,
-            HarvestedCommanders = pagedCommanders,
-            DeckPage = page,
-            DeckPageSize = pageSize,
-            DeckTotalCount = deckTotal,
             Schedule = _scheduleCache.Snapshot(),
             LastBanner = TempData[BannerKey] as string,
             Stats = stats,
         };
 
         return View(viewModel);
+    }
+
+    /// <summary>
+    /// Returns the harvested-commanders partial grid for the requested page.
+    /// </summary>
+    /// <param name="page">One-based processed-commander page to render.</param>
+    /// <param name="cancellationToken">Cancellation token for admin data reads.</param>
+    [HttpGet("commanders")]
+    public async Task<IActionResult> Commanders(int page = 1, CancellationToken cancellationToken = default)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
+        }
+
+        page = Math.Max(page, 1);
+        const int pageSize = AdminHarvestViewModel.DefaultDeckPageSize;
+        var deckTotal = await _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
+        var deckTotalPages = (int)Math.Ceiling((double)Math.Max(deckTotal, 1) / Math.Max(pageSize, 1));
+        page = Math.Min(page, deckTotalPages);
+        var pagedCommanders = await _categoryStore.GetPagedProcessedCommandersAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
+
+        var model = new CommandersGridViewModel
+        {
+            HarvestedCommanders = pagedCommanders,
+            DeckPage = page,
+            DeckPageSize = pageSize,
+            DeckTotalCount = deckTotal,
+        };
+
+        return PartialView("_CommandersGrid", model);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Globalization;
+using Dapper;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Core.Content;
@@ -7,7 +8,7 @@ namespace DeckFlow.Core.Content;
 /// <summary>
 /// Shared persistence skeleton for the per-call spend ledgers (<see cref="WhisperSpendLedger"/> and
 /// <see cref="LlmSpendLedger"/>): schema bootstrap gating, monthly-total aggregation, cap checks,
-/// and the SQLite/Postgres value formatting rules. Derived ledgers supply only their table name,
+/// and the SQLite/Postgres schema bootstrap rules. Derived ledgers supply only their table name,
 /// cap configuration key, DDL, and call-recording column set.
 /// </summary>
 public abstract class SpendLedgerBase
@@ -69,6 +70,7 @@ public abstract class SpendLedgerBase
             await videoStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            // Why: schema creation is an intentional raw ADO.NET carve-out for this phase.
             await using var create = connection.CreateCommand();
             create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
             await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -93,22 +95,15 @@ public abstract class SpendLedgerBase
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = $"""
+        var rows = await connection.QueryAsync<decimal>(new CommandDefinition(
+            $"""
             SELECT cost_usd
               FROM {TableName}
              WHERE month_key = @monthKey;
-            """;
-        RelationalDatabaseConnection.AddParameter(command, "@monthKey", yearMonth);
-
-        var total = 0m;
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            total += ReadDecimal(reader, 0);
-        }
-
-        return total;
+            """,
+            new { monthKey = yearMonth },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Sum();
     }
 
     /// <summary>
@@ -137,21 +132,12 @@ public abstract class SpendLedgerBase
     protected async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
-    /// <summary>Formats a decimal for the active provider (native decimal on Postgres, invariant string on SQLite).</summary>
-    /// <param name="value">Decimal value to format.</param>
-    /// <returns>Provider-appropriate parameter value.</returns>
-    protected object FormatDecimal(decimal value)
-        => _connectionInfo.IsPostgres ? value : value.ToString(CultureInfo.InvariantCulture);
+    /// <inheritdoc />
+    public decimal GetMonthlyCapUsd() => ReadMonthlyCapUsd();
 
-    /// <summary>Formats a timestamp for the active provider (UTC DateTime on Postgres, round-trip string on SQLite).</summary>
-    /// <param name="value">Timestamp to format.</param>
-    /// <returns>Provider-appropriate parameter value.</returns>
-    protected object FormatTimestamp(DateTimeOffset value)
-        => _connectionInfo.IsPostgres
-            ? value.UtcDateTime
-            : value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
-
-    private decimal ReadMonthlyCapUsd()
+    /// <summary>Reads the configured monthly USD cap from the resolver or environment variable.</summary>
+    /// <returns>Configured monthly cap, or $15.00 when not set.</returns>
+    protected decimal ReadMonthlyCapUsd()
     {
         var configured = _configurationValueResolver?.Invoke(MonthlyCapConfigurationKey);
         if (string.IsNullOrWhiteSpace(configured))
@@ -167,18 +153,5 @@ public abstract class SpendLedgerBase
         }
 
         return DefaultMonthlyCapUsd;
-    }
-
-    private static decimal ReadDecimal(DbDataReader reader, int ordinal)
-    {
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            decimal d => d,
-            double d => Convert.ToDecimal(d, CultureInfo.InvariantCulture),
-            float f => Convert.ToDecimal(f, CultureInfo.InvariantCulture),
-            string text => decimal.Parse(text, CultureInfo.InvariantCulture),
-            _ => Convert.ToDecimal(raw, CultureInfo.InvariantCulture)
-        };
     }
 }

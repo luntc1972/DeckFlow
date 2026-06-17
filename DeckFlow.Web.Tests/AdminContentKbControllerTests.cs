@@ -27,7 +27,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: false));
         var controller = Build(store, out _, crossOrigin: true);
 
-        var result = await controller.SetVisibility(1, visible: true, default);
+        var result = await controller.SetVisibility(1, visible: true, default, default);
 
         AssertForbidden(result);
         Assert.False(store.Rows[0].IsVisible);
@@ -40,7 +40,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: false, hidden: true));
         var controller = Build(store, out _, crossOrigin: false);
 
-        var result = await controller.SetVisibility(1, visible: true, default);
+        var result = await controller.SetVisibility(1, visible: true, default, default);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.True(store.Rows[0].IsVisible);
@@ -54,7 +54,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: true));
         var controller = Build(store, out _, crossOrigin: false);
 
-        var result = await controller.Hide(1, default);
+        var result = await controller.Hide(1, default, default);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.False(store.Rows[0].IsVisible);
@@ -68,7 +68,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: true));
         var controller = Build(store, out _, crossOrigin: true);
 
-        var result = await controller.DeleteEntry(1, default);
+        var result = await controller.DeleteEntry(1, default, default);
 
         AssertForbidden(result);
         Assert.Empty(store.DeletedIds);
@@ -81,7 +81,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: true));
         var controller = Build(store, out _, crossOrigin: false);
 
-        var result = await controller.DeleteEntry(1, default);
+        var result = await controller.DeleteEntry(1, default, default);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.Contains(1, store.DeletedIds);
@@ -94,7 +94,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: false));
         var controller = Build(store, out _, crossOrigin: true);
 
-        var result = await controller.BulkSetVisibility("EDHRECast", visible: true, default);
+        var result = await controller.BulkSetVisibility("EDHRECast", visible: true, default, default);
 
         AssertForbidden(result);
         Assert.False(store.Rows[0].IsVisible);
@@ -107,7 +107,7 @@ public sealed class AdminContentKbControllerTests
         store.Rows.Add(Row(1, visible: true));
         var controller = Build(store, out _, crossOrigin: true);
 
-        var result = await controller.BulkHide("EDHRECast", default);
+        var result = await controller.BulkHide("EDHRECast", default, default);
 
         AssertForbidden(result);
         Assert.True(store.Rows[0].IsVisible);
@@ -121,7 +121,7 @@ public sealed class AdminContentKbControllerTests
         var loader = new FakeContentKbSeedLoader(rowCount: 5);
         var controller = Build(store, loader, out _, crossOrigin: true);
 
-        var result = await controller.ReloadSeed(default);
+        var result = await controller.ReloadSeed(default, default);
 
         AssertForbidden(result);
         Assert.Equal(0, loader.LoadCallCount);
@@ -134,7 +134,7 @@ public sealed class AdminContentKbControllerTests
         var loader = new FakeContentKbSeedLoader(rowCount: 5);
         var controller = Build(store, loader, out _, crossOrigin: false);
 
-        var result = await controller.ReloadSeed(default);
+        var result = await controller.ReloadSeed(default, default);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(1, loader.LoadCallCount);

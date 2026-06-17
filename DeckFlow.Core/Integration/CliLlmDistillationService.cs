@@ -140,7 +140,7 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
                 CliEnvelopeKind.ClaudeJson);
         }
 
-        throw new InvalidOperationException(
+        throw new LlmCliConfigurationException(
             $"{CliCommandEnvironmentKey} must be set as a JSON array with one {InstructionPlaceholder} placeholder, "
             + "for example [\"wsl.exe\",\"claude\",\"-p\",\"{instruction}\",\"--output-format\",\"json\",\"--allowedTools\",\"\"] "
             + "or [\"cmd.exe\",\"/c\",\"claude.cmd\",\"-p\",\"{instruction}\",\"--output-format\",\"json\",\"--allowedTools\",\"\"]");
@@ -156,24 +156,24 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         }
         catch (JsonException ex)
         {
-            throw new InvalidOperationException(
+            throw new LlmCliConfigurationException(
                 $"{CliCommandEnvironmentKey} must be a JSON array of string arguments with exactly one {InstructionPlaceholder} placeholder.",
                 ex);
         }
 
         if (parts.Length == 0)
         {
-            throw new InvalidOperationException($"{CliCommandEnvironmentKey} must contain at least one element for the executable name.");
+            throw new LlmCliConfigurationException($"{CliCommandEnvironmentKey} must contain at least one element for the executable name.");
         }
 
         if (parts.Any(part => part is null))
         {
-            throw new InvalidOperationException($"{CliCommandEnvironmentKey} must be a JSON array of strings; null elements are not supported.");
+            throw new LlmCliConfigurationException($"{CliCommandEnvironmentKey} must be a JSON array of strings; null elements are not supported.");
         }
 
         if (string.IsNullOrWhiteSpace(parts[0]))
         {
-            throw new InvalidOperationException($"{CliCommandEnvironmentKey} element 0 must be the executable name.");
+            throw new LlmCliConfigurationException($"{CliCommandEnvironmentKey} element 0 must be the executable name.");
         }
 
         var placeholderIndexes = parts
@@ -183,7 +183,7 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
             .ToArray();
         if (placeholderIndexes.Length != 1 || placeholderIndexes[0] == 0)
         {
-            throw new InvalidOperationException(
+            throw new LlmCliConfigurationException(
                 $"{CliCommandEnvironmentKey} must contain exactly one {InstructionPlaceholder} placeholder in the argument list.");
         }
 

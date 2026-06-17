@@ -97,6 +97,26 @@ input[type="checkbox"]:checked::before {
   transform: rotate(45deg);
 }
 
+/* Why: appearance:none kills the browser's native indeterminate dash, so a
+   tri-state bucket checkbox (some-but-not-all children selected) rendered as a
+   blank empty box. Paint the partial state as a filled box with a horizontal
+   dash to distinguish it from both checked (checkmark) and unchecked (empty). */
+input[type="checkbox"]:indeterminate {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:indeterminate::before {
+  content: "";
+  position: absolute;
+  left: 0.22rem;
+  right: 0.22rem;
+  top: 50%;
+  height: 2px;
+  background: var(--on-accent, #fff);
+  transform: translateY(-50%);
+}
+
 input[type="radio"]:checked {
   border-color: var(--accent);
 }

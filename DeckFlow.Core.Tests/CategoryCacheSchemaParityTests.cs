@@ -76,7 +76,7 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             SELECT COUNT(1)
             FROM sqlite_master
             WHERE type = 'index'
-              AND name = 'ix_deck_queue_processed_commander_lower';
+              AND name = 'ix_deck_queue_commander_lower_processed';
             """);
 
         Assert.Equal(1, indexCount);
