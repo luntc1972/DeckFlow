@@ -104,3 +104,46 @@ Home, Deck Sync, Card Lookup, Deck Comparison, Deck Primer, Ask a Judge, Categor
 All four read as elevated. F3 token (`--fs-xs`) propagation verified across both architectures (13 full-fork files define it incl. commander-table; the 11 `@import` themes inherit from `site.css`).
 
 > **UIR-01 / SC2 status:** Local pre-check ≥ 20/24 achieved. UIR-01 remains OPEN until the deployed-deckflow.gg re-score below is appended after the operator deploys (see Task 2 checkpoint).
+
+---
+
+## Deployed-Site Re-Score (BINDING — closes UIR-01, Plan 48-03 Task 2)
+
+**Date:** 2026-06-16
+**Target audited:** **DEPLOYED public site `https://www.deckflow.gg`** (operator deployed `v1.7` @ `462d62e`).
+**Method:** gstack headless Chromium, closing-path pages × 2 viewports (desktop 1280×720, mobile 375×812). Screenshots in `logs/audit-shots/deployed/`.
+**Themes spot-checked:** Classic (light, `site.css`) · Jeskai (light, `@import`) · site-commander-table (light fork) · planeswalker-dark (dark fork) — `deckflow-theme` cookie verified (`#theme-stylesheet` href per theme).
+
+**Deploy carries the remediations (verified on deckflow.gg, not local):**
+- `--fs-xs` computes `0.85rem` (13.6px) — F3 token live.
+- 12 hub-card icons render with `currentColor`; section-header icons present — F1 live.
+- `.hub-card` resting shadow present — F2 live.
+- Per-theme `--bg`/`--panel`/`.hub-card` shadow on deckflow.gg **match the local pre-check exactly**: Classic `#e2e5ed→#fafafa` (site-common baseline shadow); Jeskai `#e2e5ed→#fafafa` (own `0 10px 28px`); commander-table `#e4dbc8→#faf8f3` (baseline, cream lifts off parchment); planeswalker-dark `#1a1e2e→#2e3450` (own `0 12px 30px`, panel lighter than bg = dark inversion correct).
+
+| Pillar | v1.0 | Deployed now | Δ | Evidence (deckflow.gg) |
+|--------|------|--------------|---|------------------------|
+| Copywriting | 3 | 3 | – | Unchanged |
+| Visuals | 3 | **3** | ▲ | F1 icons + resting elevation render — `deployed/classic-home-desktop.png`, `deployed/planeswalker-dark-home-desktop.png` |
+| Color | 2 | **4** | ▲ | F2 panel/bg delta + F5 muted; panels lift across Classic/Jeskai/commander-table/dark |
+| Typography | 2 | **4** | ▲ | F3 `--fs-xs` 13.6px live; F4 700/+0.08em labels visible |
+| Spacing | 3 | 3 | – | F6 closing panel reduces short-page dead band |
+| Experience Design | 3 | 3 | – | F7 EXAMPLE empty-state panel on Card Lookup / Ask a Judge |
+| **TOTAL** | **16** | **20** | | **≥ 20/24 on the DEPLOYED site ✅** |
+
+### Per-finding deployed verdict (UIR-03 — 2-viewport, no grep-only close)
+
+| Finding | Verdict | Deployed evidence |
+|---------|---------|-------------------|
+| F1 icons + elevation | ✅ | 12 hub-card icons + header icons render (currentColor); both viewports |
+| F2 cards lift off bg | ✅ | Rendered elevation present per theme (light + warm fork + dark inversion) |
+| F3 smallest text ≥ 12.75px | ✅ | `--fs-xs` = 0.85rem = 13.6px live on deckflow.gg |
+| F4 heading/label tiers | ✅ | Eyebrow / display / section-label / body tiers visible on Home |
+| F5 muted legible | ✅ | Muted readable on Classic + commander-table warm + dark |
+| F6 short-page dead space | ✅ (improved) | EXAMPLE panel closes Card Lookup / Ask a Judge — `deployed/classic-lookup-*.png`, `deployed/classic-judge-*.png` |
+| F7 empty-state guidance | ✅ | `.short-form-footer` present on `/card-lookup` + `/judge-questions` |
+
+**Result:** Deployed deckflow.gg re-score = **20/24** (= local pre-check). No regressions across the 4 spot-checked themes at both viewports.
+
+> ✅ **UIR-01 CLOSED** — 6-pillar audit/score produced against the DEPLOYED public site at ≥ 20/24.
+> ✅ **UIR-03 satisfied** — every remediated finding (F1–F7) browser-verified at mobile + desktop.
+> ✅ **SC2 met** — deployed score ≥ 20/24.
