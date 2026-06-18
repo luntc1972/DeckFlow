@@ -445,6 +445,7 @@ While building the prompt, the service also:
 - Resolves submitted-deck and reference-deck card names through Scryfall so alternate print names and reskins are converted to canonical Oracle names where possible.
 - Normalizes split and multi-face names to the base/front name for prompt display.
 - Queries Commander Spellbook for your deck and for each selected reference deck, then injects combo summaries into the prompt.
+- Ranks the injected combo reference by popularity (most-played first), breaking ties by lowest mana value needed to assemble, so the highest-impact combos lead the list; combos lacking ranking data keep their original API order.
 - Caps the reference-deck count at 3 to keep the prompt size reasonable once decklists and combo references are included.
 
 The prompt is structured with clear sections:

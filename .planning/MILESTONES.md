@@ -1,5 +1,27 @@
 # Milestones
 
+## Cycle 8 — Hardening & Backlog Burn-down (Shipped: 2026-06-17, `2026.06.4`)
+
+**Phases completed:** 4 phases (51-54), 11 plans
+**Git range:** 46 commits, 184 files (+7,627/−1,656), all 2026-06-17
+**Requirements:** 8/8 satisfied (FEAT-01 PASS-WITH-NOTES). Audit status: tech-debt — no milestone audit run; every phase individually verified (P51 PASS, P52 PASS, P53 PASS 8/8 + SECURED 4/4, P54 PASS-with-notes). First CalVer release.
+
+**Key accomplishments:**
+
+- **Verified the shipped v1.7 Studio/publish pipeline end-to-end (P51/P52):** deferred non-prod operator-UAT smokes (Studio runtime render, `/Admin/Harvest` no-jump grid, re-distill/cap/cancel, Review/Publish git+LF) plus a **live prod publish run** — DirectPush SCP'd artifacts to the Render `/data` disk and ran a content-columns-only Postgres upsert, proving admin flags (`is_visible`/`is_evergreen`/`is_hidden`/`approval_status`) on all 86 pre-existing rows were preserved while 8 new rows landed `pending`/not-visible.
+- **Fixed F-51-PG-01:** `AddDeckIdsAsync` compared TEXT `last_checked_utc` to a `timestamptz` param → Npgsql `42883` on Postgres (SQLite tolerated). Dialect-guarded `::timestamptz` cast (PG-only, no migration); PG 19/19 + SQLite 20/20. Surfaced by the `DECKFLOW_POSTGRES_TESTS=1` gate (HARD-03).
+- **Burned down the Phase 39 architecture backlog (Phase 53, ARCH-01/02):** facade-then-extract split of the `CategoryKnowledgeRepository` god-file (1272→274 LOC + Schema/DeckQueue/CardCategory collaborators); `Program.cs` DI extracted into `AddDeckFlowXxx()` (553→354 LOC) + finished `Services/` foldering (Scryfall/Persistence/Content); deck-stat classifiers relocated to `DeckFlow.Core.Analysis` (+64 tests); `Feedback*` layering leak removed from the Core `IRelationalDialect`. Zero user-visible change; verifier PASS 8/8; SECURED 4/4. Finding C dropped (already addressed by the Core orchestrator slices); full dialect-branch collapse deferred (PG DDL parity prereq). The DI ValidateOnBuild smoke test caught a latent missing `IFeatureFlagCache` registration.
+- **Resolved feature debt (Phase 54, FEAT-01/02):** captured the `SpellbookCombo` ranking fields (`popularity`/`manaValueNeeded`/`uses`) the parser previously dropped + priority-ranked Deck Primer combos (popularity DESC, manaValueNeeded ASC); verified Gemini artifacts fit the ~30,000-char paste ceiling across all 4 workflows (analysis 24,994 / comparison 23,830 / meta-gap 18,026 / primer 5,553) — flag stays default-off.
+- **Merged v1.7 to `main` + confirmed Render deploys from `main` (Phase 51, OPS-01).**
+
+**Quality:** build 0 errors; Core 447/447, Web 633/644 (11 PG-skip).
+
+**Known carry-forward at close:** `deckflow_admin` credential deletion (P52 — password already rotated, deletion owed by operator); operator live Gemini paste before flipping `DECKFLOW_GEMINI_ENABLED` in prod (P54); full dual-dialect branch collapse (gated on a Postgres DDL parity test); Cycle 9 = Studio/content-pipeline expansion + SEO/growth + SEED-001 (KB add/remove + publish-tracking).
+
+Full archive: `.planning/milestones/cycle8-ROADMAP.md` · `.planning/milestones/cycle8-REQUIREMENTS.md`
+
+---
+
 ## v1.7 Local Harvest & Publish Studio (Shipped: 2026-06-17)
 
 **Phases completed:** 10 phases (41-50), 35 plans, 36 tasks

@@ -200,6 +200,43 @@
 
 ---
 
+## Milestone: v1.7 — Local Harvest & Publish Studio (CalVer `2026.06.3`)
+
+**Shipped:** 2026-06-17 (merged to main, squash) | **Phases:** 10 (41-50) | **Plans:** 35 | **Requirements:** 23/23
+
+### What Was Built
+- **DeckFlow.Studio** — new standalone Blazor Server operator console: browse/paste YouTube → harvest captions → LLM-distill (spend dry-run gate) → review/approve queue → publish two ways (git commit-publish of the LF seed; direct SSH.NET SCP of artifacts to Render `/data` + content-columns-only Postgres upsert preserving admin fields). Prod secret in user-secrets only; presence-only `StudioConfig`.
+- Orchestrator extraction CLI→Core `IContentKbOrchestrator` (42, closed the v1.6 god-class backlog item); approval-status + safe upsert (43); admin-grid AJAX lazy paging + `LOWER(commander_name)` index (44); Dapper across 13 dual-provider stores with Sqlite+Postgres parity (49); changed-lines `.editorconfig` format gate + CI (50).
+- 6-pillar UI audit remediation of deployed deckflow.gg: **16/24 → 20/24** (48).
+
+### What Worked
+- **Inline gstack audit when the subagent couldn't.** The deployed re-score (UIR-01) needed real browser screenshots; the gsd-executor has no gstack, so the orchestrator ran Task 1/2 inline. Right call over forcing a blind subagent.
+- **Backfilling verification caught drift, not bugs.** The milestone audit found 7 phases missing VERIFICATION.md and ~16 stale REQUIREMENTS rows — all tracking-artifact debt, confirmed functional via SUMMARY evidence + integration check (0 hard breaks). Backfilling 7 verifiers + the integration checker turned an honest `gaps_found` into `tech_debt`.
+- **Per-phase security held up.** Retroactive secure-phase on 41/48/50 closed 0-open across all 10; the secrets-wiring phase (41) verified the prod conn-string never reaches logs/UI/DI across all 3 entry points.
+
+### What Was Inefficient
+- **Long-lived branch drift.** `v1.7` ran 286 commits ahead of `main` and was deployed to prod *off the feature branch*. Worse, `main` accumulated 11 hotfixes (deck-analysis, KB admin filters, checkbox/theming) that were never back-merged — surfaced as a merge conflict only at ship time. Cost a merge-reconciliation detour.
+- **Milestone label == branch name == tag name.** `v1.7` as branch AND tag broke `git push origin v1.7` ("matches more than one") and forced explicit refspecs throughout. Directly motivated the CalVer switch.
+- **Tracking artifacts not maintained during execution.** VERIFICATION.md / REQUIREMENTS status were skipped per-phase and had to be reconstructed at close.
+- **API 529 storm** mid-close forced inline code-review + verification for Phase 48 (recovered later for the backfill).
+
+### Patterns Established
+- **CalVer + named milestones (ADR 0002).** Public release = `YYYY.MM`; planning milestones are named cycles, not version numbers; `2.0` reserved for a deliberate identity reset. Retroactive CalVer tags added for v1.0–v1.7 alongside the legacy `v1.x` tags. First named cycle: "Cycle 8 — Hardening & Backlog Burn-down."
+- **Squash-merge milestone PR + re-point release tag onto the squash commit** (the branch-tip tag is unreachable from main otherwise).
+- **Worktrees off when the build needs gitignored deps** — v1.7 phases serialized on the main tree because `dotnet build` runs the tsc target needing `node_modules` (absent in fresh worktrees).
+
+### Key Lessons
+- **Merge each milestone to `main` and deploy *from main* at (or before) ship — never run prod off a long-lived feature branch.** Cycle 8's short hardening phases are the habit reset.
+- **Back-merge `main` hotfixes into the active dev branch promptly** so drift surfaces early, not at the merge gate.
+- **A milestone audit that returns `gaps_found` is often tracking debt, not functional gaps — verify against SUMMARY/SECURITY/integration evidence before treating it as a blocker.**
+- **Decouple the planning-milestone number from the public version** — conflating them manufactured false "approaching 2.0" pressure.
+
+### Cost Observations
+- Build 0/0; Core.Tests ~346, Web.Tests 622, DeckFlow.Studio.Tests (bUnit) 34. All 10 phases verified (4 passed, 6 human_needed operator-UAT) + secured (0 threats open). Audit: `tech_debt`. Squash merge: +50,412 / -4,516 across 446 files, 288 commits collapsed to one.
+- Deferred at ship (operator-UAT, tracked): Studio runtime render, admin-grid browser, re-distill E2E + cap-persist + cancel-on-dispose, Review/Publish browser+git, **live SCP+prod-Postgres publish (needs operator prod secrets)**, Postgres parity (`DECKFLOW_POSTGRES_TESTS=1`) → scoped as Cycle 8.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -209,6 +246,7 @@
 | v1.0 | ~12 | 5 (1 abandoned) | First milestone; established phase-abandonment + post-mortem pattern |
 | v1.2 | ~8 | 2 | Mid-milestone sub-phase insertion (10-05); flag-gated partial-ship pattern for Gemini |
 | v1.3 | ~15 | 13 (5 prod + 8 backlog) | Cross-AI execution split (Codex codes, Claude reviews); cross-AI plan review; `no-ship-failing-tests` rule; backlog-phase numbering 999.x; machine-verified UAT for doc-only phases |
+| v1.7 | ~many | 10 (41-50) | New standalone Blazor app in-solution; CalVer + named-milestone switch (ADR 0002); squash-merge + tag-re-point release flow; verification/security backfilled at close; long-lived-branch drift identified as anti-pattern |
 
 ### Cumulative Quality
 
@@ -217,3 +255,4 @@
 | v1.0 | +1 integration test (Tagger cookie-replay), +N unit tests (TD-04 partition, throttle window) | +20,284 / -5,194 across 136 files | All 15 v1 reqs shipped, 27/27 must-haves verified |
 | v1.2 | +~80 unit tests (63 from initial Phase 10 + 17 across hybrid storage / Archidekt parity / 10-05 round-trip) | ~480 total unit tests pass (Core 57 + Web 407 baseline, +12 from 10-05) | All 5 v1.2 reqs functionally satisfied via manual T1-T8; documentation gaps (no VERIFICATION.md, Phase 9 frontmatter) accepted as tech debt |
 | v1.3 | Test baseline grew to 500 (Web 440 + Core 57 + 3 skipped Postgres integration). Net 9→0 failures resolved in Phase 999.6. New tests: AiPlatformExtensionTests 7 facts (4th-platform OCP proof), ResultContractTests (Claude direct-JSON divergence), AdminEnvCollection serialization scaffolding | +47,724 / -5,385 across 386 files | All 22 REQ-IDs SATISFIED (WDG-01..10, RENAME-01..03, CLASSRENAME-01..03, AUDIT-01..03, AIPLATFORM-01..03). 8/8 security threats CLOSED. First milestone with Failed:0 at ship. Audit re-passed 2026-05-23 after 7 findings closed via 999.7+999.8. |
+| v1.7 | DeckFlow.Studio.Tests (bUnit) 34 added; Core.Tests ~346, Web.Tests 622. Dapper type-handler parity tests (SQLite-gated; PG behind `DECKFLOW_POSTGRES_TESTS`). | +50,412 / -4,516 across 446 files (squash) | 23/23 reqs satisfied; all 10 phases secured (0 threats open). Audit `tech_debt` — integration clean (0 hard breaks, 5 E2E flows wired), residue = operator-UAT. First CalVer-tagged release (`2026.06.3`). |

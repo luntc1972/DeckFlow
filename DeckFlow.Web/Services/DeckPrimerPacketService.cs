@@ -416,14 +416,12 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             IEnumerable<SpellbookCombo> orderedCombos = combos.IncludedCombos;
             if (string.Equals(spikeVerdict, "sufficient", StringComparison.Ordinal))
             {
-                // Known limitation (31-03 scope fence): SpellbookCombo currently exposes only
-                // CardNames/Results/Instructions. Full manaValueNeeded/popularity capture is a
-                // follow-up in CommanderSpellbookService, so this branch ranks with the fields
-                // available today: produces-immediacy text + piece count + API-order tie-break.
+                // Rank popularity DESC (most-played first), manaValueNeeded ASC tiebreak
+                // (cheaper to assemble), then stable API order when both are equal/absent.
                 orderedCombos = combos.IncludedCombos
                     .Select((combo, index) => new { Combo = combo, Index = index })
-                    .OrderBy(item => GetImmediacyRank(item.Combo.Results))
-                    .ThenBy(item => item.Combo.CardNames.Count)
+                    .OrderByDescending(item => item.Combo.Popularity ?? 0)
+                    .ThenBy(item => item.Combo.ManaValueNeeded ?? int.MaxValue)
                     .ThenBy(item => item.Index)
                     .Select(item => item.Combo);
             }
@@ -568,30 +566,6 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         return ramp == 0 && draw == 0 && tutor == 0 && interaction == 0
             ? null
             : new CategoryDistributionSummary(ramp, draw, tutor, interaction);
-    }
-
-    private static int GetImmediacyRank(IReadOnlyList<string> results)
-    {
-        var joined = string.Join(" | ", results);
-        if (joined.Contains("win the game", StringComparison.OrdinalIgnoreCase)
-            || joined.Equals("Win", StringComparison.OrdinalIgnoreCase)
-            || joined.Contains(" win ", StringComparison.OrdinalIgnoreCase))
-        {
-            return 0;
-        }
-
-        if (joined.Contains("infinite", StringComparison.OrdinalIgnoreCase)
-            && joined.Contains("mana", StringComparison.OrdinalIgnoreCase))
-        {
-            return 1;
-        }
-
-        if (joined.Contains("infinite", StringComparison.OrdinalIgnoreCase))
-        {
-            return 2;
-        }
-
-        return 3;
     }
 
     private static string BuildInputSummary(

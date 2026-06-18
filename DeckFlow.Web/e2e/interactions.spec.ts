@@ -102,3 +102,26 @@ test('admin content kb delete requires an arm click before submission', async ({
 
   expect(isArmed || buttonText === 'Confirm delete').toBeTruthy();
 });
+
+test('admin content kb keeps creator + search filter across visibility tab switches', async ({ page }) => {
+  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  expect(response?.ok()).toBeTruthy();
+
+  const creator = page.locator('#kb-creator-filter');
+  const optionCount = await creator.locator('option').count();
+  test.skip(optionCount < 2, 'no creator options seeded');
+
+  // Index 0 is the "All creators" placeholder; pick the first real creator.
+  const chosenCreator = await creator.locator('option').nth(1).getAttribute('value');
+  await creator.selectOption(chosenCreator!);
+  await page.locator('#kb-filter-search').fill('combo');
+
+  // Switching the visibility tab is a full-page <a> navigation (not a form
+  // submit), so the creator + search filter must be restored from sessionStorage
+  // rather than reset.
+  await page.locator('.admin-kb-toggle a', { hasText: 'Published' }).click();
+  await expect(page).toHaveURL(/visibilityFilter=published/);
+
+  await expect(page.locator('#kb-creator-filter')).toHaveValue(chosenCreator!);
+  await expect(page.locator('#kb-filter-search')).toHaveValue('combo');
+});

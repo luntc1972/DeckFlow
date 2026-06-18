@@ -10,6 +10,7 @@ namespace DeckFlow.Web.Services;
 public sealed class FeedbackStore : IFeedbackStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly FeedbackDialect _feedbackDialect;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
     private string? _ipSalt;
@@ -30,6 +31,7 @@ public sealed class FeedbackStore : IFeedbackStore
     public FeedbackStore(RelationalDatabaseConnection connectionInfo)
     {
         _connectionInfo = connectionInfo;
+        _feedbackDialect = FeedbackDialect.For(_connectionInfo);
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
@@ -59,7 +61,7 @@ public sealed class FeedbackStore : IFeedbackStore
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            _connectionInfo.Dialect.FeedbackInsertReturningIdSql,
+            _feedbackDialect.FeedbackInsertReturningIdSql,
             new
             {
                 created = DateTime.UtcNow,
@@ -102,7 +104,7 @@ public sealed class FeedbackStore : IFeedbackStore
             SELECT id, created_utc, type, message, email, page_url, user_agent, ip_hash, app_version, status
             FROM feedback
             {where}
-            ORDER BY {_connectionInfo.Dialect.FeedbackOrderByClause}
+            ORDER BY {_feedbackDialect.FeedbackOrderByClause}
             LIMIT @limit OFFSET @offset
             """;
         parameters.Add("limit", pageSize);
@@ -273,7 +275,7 @@ public sealed class FeedbackStore : IFeedbackStore
                     """;
                 create.CommandText = create.CommandText
                     .Replace("__ID_COLUMN_TYPE__", _connectionInfo.Dialect.SurrogateIdColumnType, StringComparison.Ordinal)
-                    .Replace("__CREATED_UTC_COLUMN_TYPE__", _connectionInfo.Dialect.FeedbackCreatedUtcColumnType, StringComparison.Ordinal);
+                    .Replace("__CREATED_UTC_COLUMN_TYPE__", _feedbackDialect.FeedbackCreatedUtcColumnType, StringComparison.Ordinal);
                 await create.ExecuteNonQueryAsync(cancellationToken);
             }
 

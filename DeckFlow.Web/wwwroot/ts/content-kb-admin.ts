@@ -166,34 +166,39 @@ declare const DeckFlowKbFilter: {
       }
     };
 
+    const persistFilter = (): void => {
+      if (select !== null) {
+        window.sessionStorage.setItem(creatorFilterKey, select.value);
+      }
+
+      window.sessionStorage.setItem(searchFilterKey, input.value);
+    };
+
+    // Restore persisted selections so switching visibility tabs (each an <a> link
+    // that fully reloads the page) keeps the creator + search filter in place.
+    // Why: keys are NOT cleared on restore — the selection must survive every
+    // reload (tab switches AND POST-redirect action reloads) for the session,
+    // and persistence happens on each input/change below rather than only on
+    // form submit (tab links are not form submits, so they never fired it).
     if (select !== null) {
       const savedCreator = window.sessionStorage.getItem(creatorFilterKey);
       if (savedCreator !== null) {
         select.value = savedCreator;
-        window.sessionStorage.removeItem(creatorFilterKey);
       }
     }
 
     const savedSearch = window.sessionStorage.getItem(searchFilterKey);
     if (savedSearch !== null) {
       input.value = savedSearch;
-      window.sessionStorage.removeItem(searchFilterKey);
     }
 
-    input.addEventListener('input', applyFilter);
-    select?.addEventListener('change', applyFilter);
-    document.querySelectorAll<HTMLFormElement>('form.admin-action-form').forEach((form) => {
-      form.addEventListener('submit', (event) => {
-        if (event.defaultPrevented) {
-          return;
-        }
-
-        if (select !== null) {
-          window.sessionStorage.setItem(creatorFilterKey, select.value);
-        }
-
-        window.sessionStorage.setItem(searchFilterKey, input.value);
-      });
+    input.addEventListener('input', () => {
+      persistFilter();
+      applyFilter();
+    });
+    select?.addEventListener('change', () => {
+      persistFilter();
+      applyFilter();
     });
     applyFilter();
   };

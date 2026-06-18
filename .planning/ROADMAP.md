@@ -10,6 +10,7 @@
 - ✅ **v1.5 Deck Primer Generator + Content KB Integration + Housekeeping** — Phases 28-33 (shipped 2026-06-10) — see `.planning/milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
 - ✅ **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (shipped 2026-06-17) — see `.planning/milestones/v1.7-ROADMAP.md`
+- ✅ **Cycle 8 — Hardening & Backlog Burn-down** — Phases 51-54 (shipped 2026-06-17, `2026.06.4`) — see `.planning/milestones/cycle8-ROADMAP.md`
 
 ## Phases
 
@@ -163,23 +164,6 @@ Full archive: `.planning/milestones/v1.6-ROADMAP.md`
 Verification: 10/10 phases verified (4 passed, 6 human_needed = automated PASS, operator smoke deferred). 23/23 requirements satisfied. Audit: tech_debt (integration clean). Full detail: `.planning/milestones/v1.7-ROADMAP.md`.
 
 </details>
-
----
-
-### Progress
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 41. Studio Scaffold + Secrets Wiring | 1/1 | Complete   | 2026-06-13 |
-| 42. Orchestrator Extraction | 5/5 | Complete   | 2026-06-13 |
-| 43. Approval Status + Safe Upsert | 2/2 | Complete   | 2026-06-13 |
-| 50. Code-Style Enforcement | 4/4 | Complete   | 2026-06-14 |
-| 49. Dapper Data-Access Adoption | 5/5 | Complete   | 2026-06-14 |
-| 44. Admin Grid Lazy Paging | 3/3 | Complete | 2026-06-14 |
-| 45. Harvest + Distill UI | 4/4 | Complete   | 2026-06-15 |
-| 46. Review Queue + Commit-Publish Path | 5/5 | Complete   | 2026-06-16 |
-| 47. Direct Prod-DB + SCP Publish Path | 3/3 | Complete   | 2026-06-16 |
-| 48. UI Audit + Remediation | 3/3 | Complete    | 2026-06-17 |
 
 ---
 

@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Local Harvest & Publish Studio
-status: Awaiting next milestone
-stopped_at: Phase 47 Plan 03 Task 2 complete — awaiting Task 3 blocking-human checkpoint
-last_updated: "2026-06-17T03:06:05.070Z"
-last_activity: 2026-06-17 — Milestone v1.7 completed and archived
+milestone: Cycle 8
+milestone_name: Hardening & Backlog Burn-down
+status: milestone-shipped
+stopped_at: Cycle 8 shipped (2026.06.4) — all phases 51-54 complete, verified, archived; awaiting Cycle 9 scoping
+last_updated: "2026-06-18T03:24:00.000Z"
+last_activity: 2026-06-18
 progress:
-  total_phases: 10
-  completed_phases: 10
-  total_plans: 35
-  completed_plans: 35
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -21,36 +21,29 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 49 — dapper data access adoption
+**Current focus:** Cycle 8 shipped — milestone closed (`2026.06.4`); next is Cycle 9 scoping via `/gsd-new-milestone`
 
 ## Current Position
 
-Phase: Milestone v1.7 complete
+Phase: — (Cycle 8 complete; all phases 51-54 shipped + archived)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-17 — Milestone v1.7 completed and archived
+Status: MILESTONE SHIPPED — Cycle 8 archived to `.planning/milestones/cycle8-*`; cycle8 branch ready to squash→main
+Last activity: 2026-06-18
 
 ## Roadmap Summary
 
 | # | Phase | Requirements | Status |
 |---|-------|-------------|--------|
-| 41 | Studio Scaffold + Secrets Wiring | STU-01, STU-02, STU-03 | Complete |
-| 42 | Orchestrator Extraction | ORCH-01, ORCH-02 | Not started |
-| 43 | Approval Status + Safe Upsert | REVQ-01, PUB-01, PUB-02 | Not started |
-| 44 | Admin Grid Lazy Paging | GRID-01, GRID-02 | Not started |
-| 45 | Harvest + Distill UI | HARV-01..05 | Complete |
-| 46 | Review Queue + Commit-Publish Path | REVQ-02, REVQ-03, PUB-03 | Not started |
-| 47 | Direct Prod-DB + SCP Publish Path | PUB-04, PUB-05 | Not started |
-| 48 | UI Audit + Remediation | UIR-01, UIR-02, UIR-03 | Not started |
+| 51 | Verify v1.7 on main + non-prod UAT | HARD-01, HARD-03, OPS-01 | COMPLETE (F-51-PG-01 found + fixed; PG suite 19/19) |
+| 52 | Live prod-publish verification | HARD-02 | COMPLETE (live run; admin fields preserved; 8 inserted) |
+| 53 | Architecture backlog burn-down | ARCH-01, ARCH-02 | COMPLETE (verifier PASS 8/8; SECURED 4/4) |
+| 54 | Feature debt | FEAT-01, FEAT-02 | COMPLETE (combo ranking + Gemini size-verify; flag default-off) |
 
 **Phase ordering notes:**
 
-- 41 before everything: secrets have no safe home until .gitignore + user-secrets are wired
-- 42 before 45/46/47: CLI is an executable; orchestration must be in Core before Studio can call it
-- 43 before 46 (approval_status column + filtered export prerequisite) and before 47 (safe upsert prerequisite)
-- 45 before 46: review queue has nothing to show until harvest+distill pipeline runs
-- 46 before 47: direct push is secondary; commit path must be proven first
-- 44 and 48 are independent: no Studio dependency; can run in any order relative to other phases
+- 51 first: verify the freshly-merged v1.7 base (and flip Render → main) before anything builds on it
+- 52 after 51: live prod-publish needs operator secrets; gated/waivable
+- 53 and 54 independent: refactor (arch) and feature-debt have no cross-dependency; either order after 51
 
 ## Performance Metrics
 
@@ -76,6 +69,7 @@ Last activity: 2026-06-17 — Milestone v1.7 completed and archived
 | Phase 45 P02 | ~25m | 2 tasks | 6 files |
 | Phase 46-review-queue-commit-publish-path P05 | 15 | 2 tasks | 1 files |
 | Phase 47-direct-prod-db-scp-publish-path P02 | ~10m | 2 tasks | 2 files |
+| Phase 53 P04 | 10m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -99,6 +93,7 @@ Last activity: 2026-06-17 — Milestone v1.7 completed and archived
 - **Phase 47-03: DirectPush page + 11 bUnit tests complete; Task 3 checkpoint PENDING (2026-06-16):** Commits 6026419 (Task 1, pre-existing — DirectPush.razor 3-stage gated PROD page @page /direct-push + NavMenu "Direct Push" entry) / ca9d824 (Task 2, this resume — 11 named bUnit tests). The page calls `UpsertContentColumnsOnlyAsync` ONLY (SC3/D-08; no full-row upsert in the write path), the WriteRowsAsync hard-guard `if (!_scpSuccess || _operationInFlight || !_diffReady) return;` (MEDIUM-1), and sanitized-literal catches for diff-read + DB-write (never ex.Message, HIGH-2). Tests: artifact-first gating, safe-upsert-only, SCP/DB partial-failure reconcile, presence-only secrets proven via sentinel-bearing exception messages ("Host=...;Password=hunter2") driven through both failure catches, and the not-configured warning/disabled gate. FakeContentSiteIndexStore gained KeysToFailOnUpsert/UpsertFailureMessage/ReadFailureMessage fault-injection + full-row-upsert throw-guard (MEDIUM-4). One Rule-1 test bug fixed on resume: `DirectPush_NotConfigured_ButtonsDisabled` rendered 3 components in one BunitContext (illegal after first service-resolve) → converted to a `[Theory]` (3 InlineData variants, each its own context). InternalsVisibleTo(DeckFlow.Studio.Tests) + DirectPush.InvokeWriteRowsForTest seam committed with Task 2 (exist solely to enable the MEDIUM-1 hard-guard test). Build 0/0; `--filter DirectPush` 13/13 (11 facts; not-configured expands to 3 theory cases); full Studio suite 34/34. LF-clean; format gate exit 0. **Task 3 (SSH.NET 2025.0.0 supply-chain confirmation + PROD-write UI human-verify) is a `gate="blocking-human"` checkpoint, NOT auto-approvable (workflow.auto_advance ignored, T-47-SC) — left untouched for the orchestrator. Phase 47 is NOT complete until that gate is approved.**
 - **Phase 47-02: SFTP transport + Studio wiring complete (2026-06-16):** Commits 9d45dc4/e85312b. `SftpArtifactUploader` (SSH.NET `SftpClient`) implements the Wave-1 request-based `ISshArtifactUploader` (`IReadOnlyList<SshUploadRequest>` -> `SshUploadResult{LocalPath,RemoteRelativePath,Success,FailureReason}`) — NOT the `IReadOnlyList<string>` shape in 47-PATTERNS/47-RESEARCH. Per-file results, never throws on single-file failure; one client per call + sequential uploads (Pitfall 5); `EnsureRemoteDirectory` walks each `/`-segment under root (Pitfall 6/MEDIUM-3); `TryBuildRemotePath` rejects rooted/`..`/out-of-root paths (T-47-02c/V5); only the sanitized literal `"SSH upload failed — check SCP configuration and Render SSH access."` is ever surfaced — never `ex.Message` (D-07/Pitfall 3). Program.cs: real presence-only `isScpConfigured` (Host+Username+KeyFile+RemoteArtifactRoot; KeyPassphrase excluded), `new StudioConfig(isProdConfigured, isScpConfigured)` replaces the `false`/`TODO(47-02)` stub, registers `ISshArtifactUploader`->`SftpArtifactUploader` + `IProdStoreFactory`->`ProdStoreFactory`, presence-only `"Studio SCP: configured/not configured"` log; prod conn string still on-demand only (D-03, never a DI singleton). Build 0/0 (1 pre-existing Core CS1574, out of scope); --filter DirectPush 8/8 (no regression). Plan 03 (DirectPush.razor page + tests) remains.
 - **Phase 45-03: Harvest page complete + human-verify PASS (2026-06-15):** Playwright smoke on `:5271` — HARV-01..04 + cancel-on-dispose + no-secrets all PASS; 0 ObjectDisposedException, 0 unobserved exceptions; circuit stayed responsive. CAVEAT (non-blocking): full success-stream + mid-flight cancel not exercised (local data dir had 0 enabled YouTube sources → orchestrator "0 sources enabled" guard hit immediately); environment-data condition, not a code defect. Re-exercise full success-stream + mid-flight cancel once a local data dir with an enabled source exists.
+- [Phase ?]: FeedbackDialect (Web-side) holds the 3 feedback SQL fragments; IRelationalDialect exposes only SurrogateIdColumnType; full dialect collapse deferred per ARCH-F decision
 
 ### Key Pitfalls to Watch (from research/PITFALLS.md)
 
@@ -166,7 +161,7 @@ Last activity: 2026-06-17 — Milestone v1.7 completed and archived
 
 ## Session Continuity
 
-Last session: 2026-06-16T23:35:00.837Z
+Last session: 2026-06-18T01:17:24.985Z
 Stopped at: Phase 47 Plan 03 Task 2 complete — awaiting Task 3 blocking-human checkpoint
 Resume: Phase 47 Plan 03 Tasks 1-2 done (DirectPush.razor page + nav at 6026419; 11 bUnit tests at ca9d824; build 0/0, Studio 34/34). Task 3 is a blocking-human checkpoint (SSH.NET 2025.0.0 supply-chain verify + PROD-write UI gate verify) — NOT auto-approvable. The orchestrator must present that checkpoint and collect the operator's "approved" before Phase 47 can close.
 
