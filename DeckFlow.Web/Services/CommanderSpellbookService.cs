@@ -16,7 +16,9 @@ namespace DeckFlow.Web.Services;
 public sealed record SpellbookCombo(
     IReadOnlyList<string> CardNames,
     IReadOnlyList<string> Results,
-    string Instructions);
+    string Instructions,
+    int? Popularity = null,
+    int? ManaValueNeeded = null);
 
 /// <summary>
 /// A combo that is one card away from being complete in the submitted deck.
@@ -195,7 +197,23 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
                 continue;
             }
 
-            yield return new SpellbookCombo(cards, results, instructions);
+            // Top-level ranking scalars (popularity, manaValueNeeded). Use TryGetInt32
+            // (NOT GetInt32) — GetInt32 throws on a decimal or out-of-Int32-range JSON
+            // number even when ValueKind==Number. TryGetInt32 returns false → null, so a
+            // malformed/absent value degrades to null and never fails the whole result.
+            int? popularity = variant.TryGetProperty("popularity", out var pop)
+                && pop.ValueKind == JsonValueKind.Number
+                && pop.TryGetInt32(out var popVal)
+                ? popVal
+                : null;
+
+            int? manaValueNeeded = variant.TryGetProperty("manaValueNeeded", out var mv)
+                && mv.ValueKind == JsonValueKind.Number
+                && mv.TryGetInt32(out var mvVal)
+                ? mvVal
+                : null;
+
+            yield return new SpellbookCombo(cards, results, instructions, popularity, manaValueNeeded);
         }
     }
 

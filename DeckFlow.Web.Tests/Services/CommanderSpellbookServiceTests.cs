@@ -75,6 +75,122 @@ public sealed class CommanderSpellbookServiceTests
     }
 
     [Fact]
+    public async Task ParseVariants_PopularityAndManaValueNeeded_Parsed()
+    {
+        const string json = """
+{
+  "results": {
+    "included": [
+      {
+        "uses": [{"card": {"name": "Thrasios, Triton Hero"}}, {"card": {"name": "Tymna the Weaver"}}],
+        "produces": [{"feature": {"name": "Infinite mana"}}],
+        "description": "Step 1: tap Thrasios.",
+        "popularity": 5000,
+        "manaValueNeeded": 3
+      }
+    ],
+    "almostIncluded": []
+  }
+}
+""";
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        var sut = BuildService(stub);
+        var deck = new List<DeckEntry> { MainboardEntry("Thrasios, Triton Hero"), MainboardEntry("Tymna the Weaver") };
+
+        var result = await sut.FindCombosAsync(deck, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Single(result.IncludedCombos);
+        Assert.Equal(5000, result.IncludedCombos[0].Popularity);
+        Assert.Equal(3, result.IncludedCombos[0].ManaValueNeeded);
+    }
+
+    [Fact]
+    public async Task ParseVariants_MissingRankingFields_DefaultsToNull()
+    {
+        const string json = """
+{
+  "results": {
+    "included": [
+      {
+        "uses": [{"card": {"name": "Thrasios, Triton Hero"}}, {"card": {"name": "Tymna the Weaver"}}],
+        "produces": [{"feature": {"name": "Infinite mana"}}],
+        "description": "Step 1: tap Thrasios."
+      }
+    ],
+    "almostIncluded": []
+  }
+}
+""";
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        var sut = BuildService(stub);
+        var deck = new List<DeckEntry> { MainboardEntry("Thrasios, Triton Hero"), MainboardEntry("Tymna the Weaver") };
+
+        var result = await sut.FindCombosAsync(deck, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Single(result.IncludedCombos);
+        Assert.Null(result.IncludedCombos[0].Popularity);
+        Assert.Null(result.IncludedCombos[0].ManaValueNeeded);
+    }
+
+    [Fact]
+    public async Task ParseVariants_MalformedRankingFields_DegradeToNull()
+    {
+        // popularity is a string, manaValueNeeded is a decimal, and a second combo carries
+        // an out-of-Int32-range integer. All must degrade to null without throwing or
+        // dropping the combos (GetInt32 would have thrown on the decimal/out-of-range cases).
+        const string json = """
+{
+  "results": {
+    "included": [
+      {
+        "uses": [{"card": {"name": "Thrasios, Triton Hero"}}],
+        "produces": [{"feature": {"name": "Infinite mana"}}],
+        "description": "",
+        "popularity": "abc",
+        "manaValueNeeded": 3.5
+      },
+      {
+        "uses": [{"card": {"name": "Tymna the Weaver"}}],
+        "produces": [{"feature": {"name": "Draw engine"}}],
+        "description": "",
+        "popularity": 99999999999,
+        "manaValueNeeded": 99999999999
+      }
+    ],
+    "almostIncluded": []
+  }
+}
+""";
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        var sut = BuildService(stub);
+        var deck = new List<DeckEntry> { MainboardEntry("Thrasios, Triton Hero"), MainboardEntry("Tymna the Weaver") };
+
+        var result = await sut.FindCombosAsync(deck, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.IncludedCombos.Count);
+        Assert.All(result.IncludedCombos, combo => Assert.Null(combo.Popularity));
+        Assert.All(result.IncludedCombos, combo => Assert.Null(combo.ManaValueNeeded));
+    }
+
+    [Fact]
     public async Task FindCombosAsync_MultiCombo_ParsesNestedArrays()
     {
         const string json = """

@@ -169,6 +169,54 @@ public sealed class DeckPrimerPacketServiceTests
         Assert.Contains("Keep the API order above and rank the practical combo lines yourself.", text);
     }
 
+    [Fact]
+    public void RankingBranch_PopularityDESC_HigherPopularityFirst()
+    {
+        var text = DeckPrimerPacketService.BuildComboReferenceText(
+            new CommanderSpellbookResult(
+                [
+                    new SpellbookCombo(["LowPop"], ["Infinite mana"], "Instruction", Popularity: 100, ManaValueNeeded: 1),
+                    new SpellbookCombo(["HighPop"], ["Infinite mana"], "Instruction", Popularity: 9000, ManaValueNeeded: 4)
+                ],
+                []),
+            "sufficient");
+
+        // HighPop (9000) must rank before LowPop (100) despite costing more mana.
+        Assert.True(text.IndexOf("HighPop", StringComparison.Ordinal) < text.IndexOf("LowPop", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RankingBranch_PopularityTie_CheaperManaFirst()
+    {
+        var text = DeckPrimerPacketService.BuildComboReferenceText(
+            new CommanderSpellbookResult(
+                [
+                    new SpellbookCombo(["Pricey"], ["Infinite mana"], "Instruction", Popularity: 500, ManaValueNeeded: 5),
+                    new SpellbookCombo(["Cheap"], ["Infinite mana"], "Instruction", Popularity: 500, ManaValueNeeded: 2)
+                ],
+                []),
+            "sufficient");
+
+        // Equal popularity → lower manaValueNeeded (Cheap=2) ranks before Pricey (5).
+        Assert.True(text.IndexOf("Cheap", StringComparison.Ordinal) < text.IndexOf("Pricey", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RankingBranch_BothFieldsAbsent_PreservesApiOrder()
+    {
+        var text = DeckPrimerPacketService.BuildComboReferenceText(
+            new CommanderSpellbookResult(
+                [
+                    new SpellbookCombo(["FirstApi"], ["Infinite mana"], "Instruction"),
+                    new SpellbookCombo(["SecondApi"], ["Infinite mana"], "Instruction")
+                ],
+                []),
+            "sufficient");
+
+        // Null popularity + null manaValueNeeded for all → stable API order preserved.
+        Assert.True(text.IndexOf("FirstApi", StringComparison.Ordinal) < text.IndexOf("SecondApi", StringComparison.Ordinal));
+    }
+
     private static DeckPrimerRequest CreateRequest(string bracket)
         => new()
         {

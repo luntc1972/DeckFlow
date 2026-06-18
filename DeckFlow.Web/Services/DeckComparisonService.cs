@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
@@ -554,32 +555,32 @@ public sealed class DeckComparisonService : IDeckComparisonService
                 creatures += quantity;
             }
 
-            if (IsRampCard(typeLine, oracleText))
+            if (DeckStatClassifier.IsRampCard(typeLine, oracleText))
             {
                 ramp += quantity;
             }
 
-            if (IsDrawCard(oracleText))
+            if (DeckStatClassifier.IsDrawCard(oracleText))
             {
                 draw += quantity;
             }
 
-            if (IsInteractionCard(typeLine, oracleText))
+            if (DeckStatClassifier.IsInteractionCard(typeLine, oracleText))
             {
                 interaction += quantity;
             }
 
-            if (IsBoardWipeCard(oracleText))
+            if (DeckStatClassifier.IsBoardWipeCard(oracleText))
             {
                 wipes += quantity;
             }
 
-            if (IsRecursionCard(oracleText))
+            if (DeckStatClassifier.IsRecursionCard(oracleText))
             {
                 recursion += quantity;
             }
 
-            if (IsClosingPowerCard(typeLine, oracleText))
+            if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracleText))
             {
                 closingPower += quantity;
             }
@@ -1042,7 +1043,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
             {
                 if (insideToken)
                 {
-                    total += ParseManaToken(tokenBuilder.ToString());
+                    total += DeckStatClassifier.ParseManaToken(tokenBuilder.ToString());
                 }
 
                 insideToken = false;
@@ -1057,68 +1058,6 @@ public sealed class DeckComparisonService : IDeckComparisonService
 
         return total;
     }
-
-    private static int ParseManaToken(string token)
-    {
-        if (int.TryParse(token, out var numeric))
-        {
-            return numeric;
-        }
-
-        if (token.Contains('/', StringComparison.Ordinal))
-        {
-            return 1;
-        }
-
-        return token.Equals("X", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
-    }
-
-    private static bool IsRampCard(string typeLine, string oracleText)
-        => typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("add one mana", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("add two mana", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("search your library for a basic land", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("search your library for up to", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("land", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("Treasure token", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsDrawCard(string oracleText)
-        => oracleText.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("draw two cards", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("draw X cards", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("investigate", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("connive", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsInteractionCard(string typeLine, string oracleText)
-        => typeLine.Contains("Instant", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("destroy target", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("exile target", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("counter target", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("return target spell", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("fight target", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsBoardWipeCard(string oracleText)
-        => oracleText.Contains("destroy all creatures", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("destroy all artifacts", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("destroy all enchantments", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("each creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("exile all", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsRecursionCard(string oracleText)
-        => oracleText.Contains("return target card from your graveyard", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("return all land cards from your graveyard", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("return target permanent card from your graveyard", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("reanimate", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("from your graveyard to your hand", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsClosingPowerCard(string typeLine, string oracleText)
-        => oracleText.Contains("each opponent loses", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("you win the game", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("extra turn", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("double strike", StringComparison.OrdinalIgnoreCase)
-            || typeLine.Contains("Craterhoof", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("combat damage to a player", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("draw", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("whenever this creature attacks", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("+X/+X", StringComparison.OrdinalIgnoreCase);
 
     private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
     {
