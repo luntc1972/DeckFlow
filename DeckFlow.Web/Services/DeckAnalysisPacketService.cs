@@ -58,7 +58,8 @@ public sealed record DeckAnalysisPacketResult(
     SetUpgradeResponse? SetUpgradeResponse = null,
     string? ImportWarning = null,
     string? ResolvedCommanderName = null,
-    string? DecklistText = null);
+    string? DecklistText = null,
+    IReadOnlyDictionary<string, string>? SetUpgradeCardText = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompt packets by hydrating decks via Scryfall, banlist, and Commander Spellbook lookups, then composing the JSON-bound prompt artifacts saved to the session zip.
@@ -376,6 +377,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             var step5InputSummary = savedAnalysisResponse is null
                 ? string.Empty
                 : BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse);
+            var step5CardText = await BuildSetUpgradeCardTextAsync(request, cancellationToken).ConfigureAwait(false);
             var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
             return new DeckAnalysisPacketResult(
                 InputSummary: step5InputSummary,
@@ -388,7 +390,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse,
                 SetUpgradeResponse: savedSetUpgradeResponse,
-                ResolvedCommanderName: savedAnalysisResponse?.Commander);
+                ResolvedCommanderName: savedAnalysisResponse?.Commander,
+                SetUpgradeCardText: step5CardText);
         }
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))
@@ -640,6 +643,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         var suggestedChatTitle = BuildSuggestedChatTitle(request, commanderName);
 
+        var setUpgradeCardText = setUpgradeResponse is null
+            ? null
+            : await BuildSetUpgradeCardTextAsync(request, cancellationToken).ConfigureAwait(false);
+
         var result = new DeckAnalysisPacketResult(
             inputSummary,
             suggestedChatTitle,
@@ -653,7 +660,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             setUpgradeResponse,
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
-            DecklistText: decklistText);
+            DecklistText: decklistText,
+            SetUpgradeCardText: setUpgradeCardText);
 
         // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
         // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
@@ -1101,6 +1109,71 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             generatedSetPacket, bannedCards);
     }
 
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyCardText
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Builds a card-name → exact rules-text map from the generated (or override) set packet so the
+    /// set-upgrade results page can show what each suggested card does using authoritative Scryfall
+    /// text. Card-text display is non-essential, so any failure (no set selected, multiple sets, or a
+    /// Scryfall outage) degrades silently to an empty map, leaving the AI-echoed card_text in place.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>> BuildSetUpgradeCardTextAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Mirror the set-upgrade prompt variants' packet resolution — a pasted override always
+            // wins over the generated packet — so the displayed rules text matches the packet the AI
+            // actually analyzed (and skips a needless Scryfall fetch when an override is present).
+            var packet = !string.IsNullOrWhiteSpace(request.SetPacketText)
+                ? request.SetPacketText
+                : await BuildGeneratedSetPacketAsync(request, cancellationToken).ConfigureAwait(false);
+            return ParseSetPacketCardText(packet);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Why: the suggested-card text is supplementary; never let a packet/Scryfall failure
+            // break Step 5 rendering. The view falls back to the AI-supplied card_text.
+            _logger.LogInformation(exception, "Set-upgrade card-text packet build failed; falling back to AI-supplied card text.");
+            return EmptyCardText;
+        }
+    }
+
+    /// <summary>
+    /// Parses the compact set-packet text into a card-name → rules-text map. Packet card lines use the
+    /// pipe-delimited shape "Name | ManaCost | TypeLine | OracleText"; only the trailing oracle-text
+    /// segment is captured. Lines without at least three pipes (headers, mechanics, notes) are ignored.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> ParseSetPacketCardText(string? setPacketText)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(setPacketText))
+        {
+            return map;
+        }
+
+        foreach (var rawLine in setPacketText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var parts = rawLine.Split('|');
+            if (parts.Length < 4)
+            {
+                continue;
+            }
+
+            var name = parts[0].Trim();
+            var oracleText = string.Join("|", parts.Skip(3)).Trim();
+            if (name.Length == 0 || oracleText.Length == 0)
+            {
+                continue;
+            }
+
+            // First occurrence wins; packets list each card once, but guard against duplicates defensively.
+            map.TryAdd(name, oracleText);
+        }
+
+        return map;
+    }
 
     /// <summary>
     /// Builds a condensed set packet from Scryfall for the selected set codes.

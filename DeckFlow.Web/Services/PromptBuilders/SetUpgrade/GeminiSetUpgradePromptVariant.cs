@@ -120,6 +120,7 @@ internal sealed class GeminiSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("   - optional: cards worth considering but not priority — each entry MUST include a short reason, a suggested card to cut, and the cut reason.");
         builder.AppendLine("   - skip: cards to pass on — bare card names only, no explanation needed.");
         builder.AppendLine("   Every add/cut reason must connect to the deck profile.");
+        builder.AppendLine("   For every top add and every shortlist entry (must_test and optional), set card_text to that card's full rules text, copied verbatim from its line in the SET PACKET below. Do not paraphrase, summarize, or invent card text. Leave card_text empty only when the card is not present in the set packet.");
         builder.AppendLine();
         builder.AppendLine("C. Return a complete set_upgrade_report JSON matching the schema at the end of this prompt. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine();
@@ -160,6 +161,7 @@ internal sealed class GeminiSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("        \"top_adds\": [");
         builder.AppendLine("          {");
         builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"card_text\": \"\",");
         builder.AppendLine("            \"reason\": \"\",");
         builder.AppendLine("            \"suggested_cut\": \"\",");
         builder.AppendLine("            \"cut_reason\": \"\"");
@@ -183,6 +185,7 @@ internal sealed class GeminiSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("      \"must_test\": [");
         builder.AppendLine("        {");
         builder.AppendLine("          \"card\": \"\",");
+        builder.AppendLine("          \"card_text\": \"\",");
         builder.AppendLine("          \"reason\": \"\",");
         builder.AppendLine("          \"suggested_cut\": \"\",");
         builder.AppendLine("          \"cut_reason\": \"\"");
@@ -191,6 +194,7 @@ internal sealed class GeminiSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("      \"optional\": [");
         builder.AppendLine("        {");
         builder.AppendLine("          \"card\": \"\",");
+        builder.AppendLine("          \"card_text\": \"\",");
         builder.AppendLine("          \"reason\": \"\",");
         builder.AppendLine("          \"suggested_cut\": \"\",");
         builder.AppendLine("          \"cut_reason\": \"\"");

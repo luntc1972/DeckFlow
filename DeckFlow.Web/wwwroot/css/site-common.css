@@ -1409,6 +1409,13 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
   padding: 2.5rem 1rem 0.75rem;
 }
 
+/* Suggested-card rules text on the set-upgrade results step (Step 5). Sits just below the
+   card name; slightly tighter than full oracle blocks. Inherits the pre.oracle-text base. */
+.result-panel pre.set-upgrade-card-text {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+
 .card-lookup-mechanics-list {
   display: flex;
   flex-direction: column;

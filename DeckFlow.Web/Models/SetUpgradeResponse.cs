@@ -68,6 +68,14 @@ public sealed class SetUpgradeTopAdd
     public string Card { get; init; } = string.Empty;
 
     /// <summary>
+    /// Full rules (oracle) text of the recommended card, echoed verbatim from the set packet so the
+    /// results page can show what the card does without a second lookup. The page prefers the exact
+    /// packet text when available and falls back to this AI-supplied value. Empty when neither is present.
+    /// </summary>
+    [JsonPropertyName("card_text")]
+    public string CardText { get; init; } = string.Empty;
+
+    /// <summary>
     /// Reason the card earns a recommended slot in the deck.
     /// </summary>
     [JsonPropertyName("reason")]

@@ -16,6 +16,8 @@ namespace DeckFlow.Web.Controllers;
 public sealed class DeckPacketController : DeckToolControllerBase
 {
     private const string CorruptedZipMessage = "The uploaded zip contains an incomplete response payload. Re-export from the originating session or paste a fresh response.";
+    private static readonly IReadOnlyDictionary<string, string> EmptySetUpgradeCardText
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     private readonly IDeckAnalysisPacketService _deckAnalysisPacketService;
     private readonly IDeckComparisonService _deckComparisonService;
     private readonly IMetaGapService _metaGapService;
@@ -110,6 +112,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
+                SetUpgradeCardText = result.SetUpgradeCardText ?? EmptySetUpgradeCardText,
                 ImportWarning = result.ImportWarning,
             });
         }
@@ -265,6 +268,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 SetUpgradeResponse = result.SetUpgradeResponse,
+                SetUpgradeCardText = result.SetUpgradeCardText ?? EmptySetUpgradeCardText,
                 ImportWarning = result.ImportWarning,
             });
         }

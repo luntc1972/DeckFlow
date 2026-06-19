@@ -319,6 +319,8 @@ Paste the fenced `set_upgrade_report` JSON block or raw JSON payload returned fr
 - Per-set panels: top adds with suggested cuts and reasoning, traps, and speculative tests
 - Final shortlist broken into must-test, optional, and skip columns
 
+Each suggested card (top adds and shortlist must-test/optional entries) also shows the card's rules text inline so you can see what it does without a separate lookup. The text is the exact Scryfall oracle text pulled from the generated set packet when that packet is available for the session; otherwise it falls back to the card text echoed by your AI in the `card_text` field.
+
 Like Step 3, this step is local to the returned JSON. You can paste a saved `set_upgrade_report` JSON file here directly without re-running the earlier steps — Step 5 runs standalone when no deck source is present.
 
 ### Prompt output-format rules
