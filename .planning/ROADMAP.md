@@ -230,6 +230,34 @@ Requirements archive: `.planning/milestones/cycle9-REQUIREMENTS.md`
 
 Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19). Promote via `/gsd-review-backlog` when the next cycle opens.
 
+### Studio UI polish pass (BACKLOG — captured 2026-06-19; medium priority)
+
+**Goal:** Give DeckFlow.Studio a real design pass. Today it's the **stock Blazor Server template** — default nav sidebar (`MainLayout`/`NavMenu`), default 64-line `site.css` (stock `#1b6ec2` blue), a 19-line placeholder `Home.razor`, and 6 pages each hand-rolling raw Bootstrap (`Harvest.razor` is 1651 lines). Functional but unbranded and inconsistent. The public site got a UI audit (Phase 48, 16→20/24); Studio never has.
+
+**Scope — three tiers (operator-only desktop tool; no functional/feature changes):**
+
+*P1 — shell + design system:*
+- Shared Studio design tokens (color/spacing/type) in one stylesheet; align with deckflow.gg brand (logo/title, accent, optional dark mode).
+- Replace the stock template chrome: app header/nav, page-title pattern, consistent `.content` layout container.
+- Turn `Home.razor` into a real landing/dashboard — pipeline state at a glance (counts by VideoStatus / PublishState, quick links to Harvest/Review/Publish).
+
+*P2 — per-page consistency:*
+- Unify status/publish-state badges into shared CSS classes driven by `VideoStatus` / `PublishState` (today colors are defined ad-hoc per page in Review/Publish/Harvest/Blocked).
+- Consistent table, form, alert, button-hierarchy, and primary-action patterns across all 6 pages (Home/Harvest/Review/Publish/DirectPush/Blocked).
+- Systematic loading + empty states (some spinners exist; not uniform).
+
+*P2 — channel/source column + filter (concrete, highest-value ask):*
+- **Show the source/channel each video came from in the grids.** `ContentSiteIndexRow.Source` already holds it (e.g. "The Command Zone") but it is **not surfaced** — the Review grid shows only Title/Tags/Status/Publish State/Actions and `ReviewViewModel` doesn't even expose `Source`. Add a **Source/Channel column** to the Review grid (and wherever a per-row list exists).
+- **Filter by channel/source** in those grids — a dropdown/segmented filter populated from the distinct `Source` values (mirror the web `/Admin/ContentKb` creator-filter behavior; that grid is source-grouped). Lets the operator focus one channel at a time (e.g. dedup @salubrioussnail, find Based-Deck-Dept never-published).
+- Low-risk: data + persistence already exist; this is ViewModel field + column + client-side filter state.
+
+*P3 — optional:*
+- Responsive / table-overflow handling, dark mode, keyboard affordances.
+
+**Approach:** run as a `/gsd-ui-phase` (UI-SPEC design contract) → implement → `/gsd-ui-review` audit, same flow as Phase 48 for the public site.
+
+**Explicitly out:** no new features, no behavior change (Pull-from-Prod etc. are separate); Studio stays a local operator tool. Promote via `/gsd-review-backlog`.
+
 ### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
 
 > Investigation 2026-06-04 (codex 0.136.0, Phase 28-03 / `28-DISCOVERY.md`): `--sandbox read-only` documented as "can read files in workspace" (structural evidence from binary). No `--no-tools` flag exists. `deny_read` glob mechanism requires `codex-linux-sandbox` + bubblewrap infrastructure not present, with no documented global read disable. Re-investigable when a future codex version provides documented read-blocking. D-03 re-demote applied; user ratified 2026-06-04.
