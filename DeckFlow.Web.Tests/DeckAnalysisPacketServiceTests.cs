@@ -1581,4 +1581,40 @@ Test Card | 1W | Creature | Survival — Test text.
         Assert.True(DeckAnalysisPacketService.ShouldIncludeOracleText(releasedAt, recencyGateEnabled: true, cutoff));
     }
 
+    /// <summary>
+    /// Parses pipe-delimited card lines into a name → rules-text map and skips non-card lines.
+    /// </summary>
+    [Fact]
+    public void ParseSetPacketCardText_MapsCardLinesAndIgnoresHeaders()
+    {
+        var packet = string.Join("\n",
+            "set_packet:",
+            "set: Duskmourn (DSK)",
+            "cards:",
+            "Atraxa's Fall | {2}{G} | Instant | Destroy target creature with flying or a planeswalker.",
+            "Overlord of the Mistmoors | {4}{W}{W} | Creature | Flying, trample 6/5",
+            "mechanics:",
+            "delirium: Some rules text without a pipe.");
+
+        var map = DeckAnalysisPacketService.ParseSetPacketCardText(packet);
+
+        Assert.Equal(2, map.Count);
+        Assert.Equal("Destroy target creature with flying or a planeswalker.", map["Atraxa's Fall"]);
+        Assert.Equal("Flying, trample 6/5", map["Overlord of the Mistmoors"]);
+        Assert.False(map.ContainsKey("mechanics:"));
+    }
+
+    /// <summary>
+    /// Card-name lookup is case-insensitive and empty/whitespace packets yield an empty map.
+    /// </summary>
+    [Fact]
+    public void ParseSetPacketCardText_IsCaseInsensitiveAndHandlesEmptyInput()
+    {
+        var map = DeckAnalysisPacketService.ParseSetPacketCardText("Sol Ring | {1} | Artifact | {T}: Add {C}{C}.");
+        Assert.Equal("{T}: Add {C}{C}.", map["sol ring"]);
+
+        Assert.Empty(DeckAnalysisPacketService.ParseSetPacketCardText(null));
+        Assert.Empty(DeckAnalysisPacketService.ParseSetPacketCardText("   "));
+    }
+
 }

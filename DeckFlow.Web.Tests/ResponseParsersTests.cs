@@ -155,6 +155,44 @@ public sealed class ResponseParsersTests
     }
 
     [Fact]
+    public void ParseSetUpgradeResponse_DeserializesCardTextForTopAddsAndShortlist()
+    {
+        var payload = """
+            {
+              "set_upgrade_report": {
+                "sets": [
+                  {
+                    "set_code": "duskmourn",
+                    "set_name": "Duskmourn",
+                    "top_adds": [
+                      { "card": "Atraxa's Fall", "card_text": "Destroy target creature with flying. 1/1" }
+                    ]
+                  }
+                ],
+                "final_shortlist": {
+                  "must_test": [
+                    { "card": "Overlord of the Mistmoors", "card_text": "Flying, trample. When this enters, create two 2/1 tokens." }
+                  ]
+                }
+              }
+            }
+            """;
+
+        var response = ResponseParsers.ParseSetUpgradeResponse(payload);
+
+        Assert.Equal("Destroy target creature with flying. 1/1", Assert.Single(response.Sets).TopAdds[0].CardText);
+        Assert.Equal("Flying, trample. When this enters, create two 2/1 tokens.", response.FinalShortlist!.MustTest[0].CardText);
+    }
+
+    [Fact]
+    public void ParseSetUpgradeResponse_DefaultsCardTextToEmptyWhenAbsent()
+    {
+        var response = ResponseParsers.ParseSetUpgradeResponse("""{"sets":[{"set_code":"duskmourn","set_name":"Duskmourn","top_adds":[{"card":"Atraxa's Fall"}]}]}""");
+
+        Assert.Equal(string.Empty, Assert.Single(response.Sets).TopAdds[0].CardText);
+    }
+
+    [Fact]
     public void ParseSetUpgradeResponse_ThrowsForRecognizableButEmptySetUpgradeReport()
     {
         var payload = """

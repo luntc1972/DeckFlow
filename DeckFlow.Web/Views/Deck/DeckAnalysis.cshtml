@@ -35,6 +35,12 @@ Do not omit any fields from the schema.
             .Where(b => b.Questions.Any(q => selectedQuestionSet.Contains(q.Id)))
             .Select(b => b.Id),
         StringComparer.OrdinalIgnoreCase);
+    // Prefer the exact Scryfall rules text from the generated set packet; fall back to the
+    // AI-echoed card_text when the packet was unavailable for this session.
+    Func<DeckFlow.Web.Models.SetUpgradeTopAdd, string> resolveCardText = add =>
+        Model.SetUpgradeCardText.TryGetValue(add.Card, out var packetText) && !string.IsNullOrWhiteSpace(packetText)
+            ? packetText
+            : add.CardText;
 }
 
 <section class="hero">
@@ -807,6 +813,11 @@ Do not omit any fields from the schema.
                                     {
                                         <div class="result-panel nested-panel nested-panel--compact">
                                             <p><strong>@add.Card</strong></p>
+                                            @{ var topAddCardText = resolveCardText(add); }
+                                            @if (!string.IsNullOrWhiteSpace(topAddCardText))
+                                            {
+                                                <pre class="oracle-text set-upgrade-card-text" spellcheck="false">@topAddCardText</pre>
+                                            }
                                             @if (!string.IsNullOrWhiteSpace(add.Reason))
                                             {
                                                 <p>@add.Reason</p>
@@ -868,6 +879,11 @@ Do not omit any fields from the schema.
                                         {
                                             <div class="result-panel nested-panel nested-panel--compact">
                                                 <p><strong>@add.Card</strong></p>
+                                                @{ var shortlistCardText = resolveCardText(add); }
+                                                @if (!string.IsNullOrWhiteSpace(shortlistCardText))
+                                                {
+                                                    <pre class="oracle-text set-upgrade-card-text" spellcheck="false">@shortlistCardText</pre>
+                                                }
                                                 @if (!string.IsNullOrWhiteSpace(add.Reason))
                                                 {
                                                     <p>@add.Reason</p>
@@ -888,6 +904,11 @@ Do not omit any fields from the schema.
                                         {
                                             <div class="result-panel nested-panel nested-panel--compact">
                                                 <p><strong>@add.Card</strong></p>
+                                                @{ var shortlistCardText = resolveCardText(add); }
+                                                @if (!string.IsNullOrWhiteSpace(shortlistCardText))
+                                                {
+                                                    <pre class="oracle-text set-upgrade-card-text" spellcheck="false">@shortlistCardText</pre>
+                                                }
                                                 @if (!string.IsNullOrWhiteSpace(add.Reason))
                                                 {
                                                     <p>@add.Reason</p>

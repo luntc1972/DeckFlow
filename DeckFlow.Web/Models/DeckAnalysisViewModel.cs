@@ -66,6 +66,14 @@ public sealed class DeckAnalysisViewModel
     public SetUpgradeResponse? SetUpgradeResponse { get; init; }
 
     /// <summary>
+    /// Gets exact card rules text keyed by card name, sourced from the generated set packet, used to
+    /// display what each suggested card does. The view prefers these values over the AI-echoed
+    /// <see cref="SetUpgradeTopAdd.CardText"/>; empty when the set packet was unavailable.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> SetUpgradeCardText { get; init; }
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Gets a warning surfaced when the user's deck import succeeded but with caveats worth flagging.
     /// </summary>
     public string? ImportWarning { get; init; }
