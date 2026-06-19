@@ -237,6 +237,37 @@
 
 ---
 
+## Milestone: Cycle 9 — Content Pipeline & Publish-Tracking (CalVer `2026.06.5`)
+
+**Shipped:** 2026-06-19
+**Phases:** 4 (55-58) | **Plans:** 11
+
+### What Was Built
+Publish-state tracking wired end-to-end: a `pushed_to_prod_utc` column + shared `PublishStateDeriver` (four states), Studio per-video status badges + multi-select harvest + Block/Blocked-list/unblock + single-URL add + publish-state on Review/Publish, a `/Admin/ContentKb` publish-state column, and a reworked distill prompt. Validated by a real dogfood run.
+
+### What Worked
+- **Dogfooding caught a real integration gap unit tests couldn't.** Phase 58 ran the actual pipeline on a new video and surfaced that DirectPush never set `is_visible` — Studio stayed Pushed-hidden while prod showed Published. The bug only existed at the cross-surface seam; the fix was clean (keyed `SetVisibilityAsync`, prod-then-local) and went through Claude-code → Codex-review → secure in one session.
+- **Per-phase verify+secure** meant the milestone closed with zero open security threats and no separate audit needed.
+- **CalVer + named-cycle + own-branch** flow held again (cycle9 branched from v1.7, carried cycle8 as commits, squashed to main).
+
+### What Was Inefficient
+- **Pre-close artifact cruft.** 23 "open" audit items, almost all stale (months-old completed quick-tasks the audit mis-parsed by filename/status-field, v1.3-era debug sessions). Resolving them was real time spent on bookkeeping, not product. The audit's quick-task parser keying on bare `SUMMARY.md` vs `<id>-SUMMARY.md` is a recurring false-positive.
+- **Verification format drift:** Phase 57's `human_needed` gate (deferred to Phase 58) lingered as an "open" item until manually closed at milestone time.
+
+### Patterns Established
+- **DirectPush publishes visible** (operator decision): the surgical prod-write path also grants visibility, prod-then-local so local never over-reports prod. Harvest/seed-load stay ships-dark.
+- **Mid-cycle bug-fix under a temp delegation rule** (Claude codes / Codex reviews) — recorded as a dated, expiring project memory.
+
+### Key Lessons
+- A validation/dogfood phase is worth keeping as the last phase of a build cycle — it pays for itself by catching seam bugs.
+- Carry a lightweight `/gsd-cleanup`-style sweep into the milestone-close checklist so quick-task cruft doesn't accumulate across cycles.
+
+### Cost Observations
+- Model mix: ~all Opus (main loop) + 1 Codex gpt-5.4-low review dispatch + 1 sonnet security auditor.
+- Notable: the SC2 fix (find → decide → code → review → secure) all landed in the close session without a separate plan cycle.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

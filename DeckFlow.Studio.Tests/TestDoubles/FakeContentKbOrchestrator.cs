@@ -4,8 +4,9 @@ namespace DeckFlow.Studio.Tests;
 
 /// <summary>
 /// Minimal fake for <see cref="IContentKbOrchestrator"/>.
-/// Only ExportIndexToFileAsync, CopyApprovedArtifactsToRepoAsync, and ExportIndexAsync are
-/// wired to canned returns; all other inherited interface members throw NotImplementedException.
+/// ExportIndexToFileAsync, CopyApprovedArtifactsToRepoAsync, ExportIndexAsync, and the three
+/// content maintenance methods are wired to canned returns; all other inherited interface
+/// members throw NotImplementedException.
 /// </summary>
 internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
 {
@@ -20,9 +21,15 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
     public IReadOnlyList<string> CannedCopiedArtifactPaths { get; set; } =
         new[] { "content-kb/youtube_channel/abc123.md" };
 
+    public BlockedVideoListResult CannedBlockedResult { get; set; } = new();
+
+    public ContentMaintenanceResult CannedMaintenanceResult { get; set; } = new() { Success = true };
+
     // ── Call recording ──────────────────────────────────────────────────────
     public List<string> ExportToFilePaths { get; } = new();
     public int CopyApprovedCallCount { get; private set; }
+    public List<string> UnblockCalls { get; } = new();
+    public List<string> BlockCalls { get; } = new();
 
     // ── Fault injection ─────────────────────────────────────────────────────
     public Exception? ThrowOnCopy { get; set; }
@@ -82,13 +89,19 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
         string? reason,
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
+    {
+        BlockCalls.Add(youtubeVideoId);
+        return Task.FromResult(CannedMaintenanceResult);
+    }
 
     public Task<ContentMaintenanceResult> UnblockVideoAsync(
         string youtubeVideoId,
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
+    {
+        UnblockCalls.Add(youtubeVideoId);
+        return Task.FromResult(CannedMaintenanceResult);
+    }
 
     public Task<ContentMaintenanceResult> ResetCorpusAsync(
         bool dryRun,
@@ -99,7 +112,7 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
     public Task<BlockedVideoListResult> ListBlockedAsync(
         IOrchestratorProgress? progress = null,
         CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
+        => Task.FromResult(CannedBlockedResult);
 
     // ── IContentSourceManager ───────────────────────────────────────────────
     public Task<ContentSourceResult> AddSourceAsync(

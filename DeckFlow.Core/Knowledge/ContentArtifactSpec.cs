@@ -129,6 +129,9 @@ public sealed record ContentSiteIndexRow
     /// <summary>UTC publication timestamp, or <see langword="null"/> when unavailable.</summary>
     public DateTimeOffset? PublishedUtc { get; init; }
 
+    /// <summary>UTC instant the operator pushed this version to deckflow.gg production, or <see langword="null"/> if never pushed. Local fact, written ONLY by StampPushedToProdAsync; never by an upsert.</summary>
+    public DateTimeOffset? PushedToProdUtc { get; init; }
+
     /// <summary>UTC timestamp when the index row was generated.</summary>
     public required DateTimeOffset IndexedUtc { get; init; }
 

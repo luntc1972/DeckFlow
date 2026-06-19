@@ -53,8 +53,10 @@ public static class DistillationSchemas
 
     /// <summary>System prompt for summary extraction.</summary>
     public static string SummarySystemPrompt { get; } = """
-        You extract grounded strategy summaries from Magic: The Gathering video transcripts.
+        You extract paste-ready deckbuilding summaries from Magic: The Gathering video transcripts for a cEDH/Commander player who will paste the result into an AI chatbot for deck advice.
         Output only JSON matching the supplied schema.
+        Emphasize specific card names, deckbuilding decisions, stated principles or heuristics, and notable includes or cuts that matter for future deckbuilding advice.
+        Do not recap plot, host personality, sponsor reads, or channel housekeeping.
         Keep the summary 200 words or fewer, plain prose, and grounded only in the transcript.
         """;
 
@@ -62,7 +64,7 @@ public static class DistillationSchemas
     public static string ClassificationSystemPrompt { get; } = """
         You classify Magic: The Gathering video transcripts for the Content KB.
         Output only JSON matching the supplied schema.
-        KEEP transcripts about deckbuilding decisions: card selection, synergy, slot philosophy, cuts, and deckbuilding philosophy with principles or heuristics applied to a deck context.
+        KEEP any transcript that contains at least one substantial deckbuilding lesson, including named cards with reasoning, slot philosophy, cut decisions, synergy decisions, or deckbuilding principles or heuristics applied to a deck context.
         DROP transcripts that are mostly trivia or quiz content, news or set commentary with no deckbuilding application, meta or format philosophy with no actionable deckbuilding advice, intro or announcement or promotional material, or budget-pool reveals without deckbuilding guidance.
         When in doubt, keep.
         """;
@@ -72,7 +74,9 @@ public static class DistillationSchemas
         You extract 3 to 8 useful key clips from Magic: The Gathering video transcripts.
         Output only JSON matching the supplied schema.
         Every clip must include a non-zero integer timestamp_seconds citing the [mm:ss] marker nearest the advice moment.
-        Select substantive mid-video advice moments, not opening housekeeping, and return only clips with a defensible non-zero timestamp grounded in the transcript.
+        Prefer clips where a specific card is named with a reason, or where a heuristic, principle, or decision is stated; penalize generic advice with no specific application.
+        Prefer clips from the middle roughly 80% of the runtime, and avoid intros, housekeeping, sponsor reads, and closers.
+        Return only clips with a defensible non-zero timestamp grounded in the transcript.
         Excerpts must be grounded only in the transcript.
         """;
 
@@ -81,7 +85,10 @@ public static class DistillationSchemas
     { get; } =
         "You infer candidate Content KB tags from Magic: The Gathering video transcripts. "
         + "Output only JSON matching the supplied schema. "
-        + "Choose only from these allowlists. "
+        + "Choose ONLY from these allowlists; do not invent new values. "
+        + "Tag only the DOMINANT topics; if a category is merely mentioned in passing, do not tag it. "
+        + "Use at most 3 archetype tags, at most 2 bracket tags, and at most 5 card-category tags. "
+        + "If no dominant theme is clear, still output at least 1 tag per dimension. "
         + $"Archetype: {FormatAllowlist(ContentTagVocabulary.Archetypes)}. "
         + $"Bracket: {FormatAllowlist(ContentTagVocabulary.Brackets)}. "
         + $"Card category: {FormatAllowlist(ContentTagVocabulary.CardCategories)}.";

@@ -611,6 +611,13 @@ a:hover { text-decoration: underline; }
   background: rgba(245, 158, 11, 0.10);
 }
 
+/* Why: mirrors Studio's bg-info badge for Local-newer */
+.admin-shell .kb-status--local-newer {
+  color: #000;
+  border-color: #0dcaf0;
+  background: rgba(13, 202, 240, 0.15);
+}
+
 /* KB admin action cells use a fixed 2-column grid so confirm-label relabels do not
    resize buttons or reshuffle neighboring actions mid-confirmation. The 8rem min
    track keeps the widest labels ("Evergreen: Off", "Confirm delete") on one line

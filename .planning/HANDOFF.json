@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-06-19T03:34:08.923Z",
+  "phase": "58",
+  "phase_name": "Dogfood",
+  "phase_dir": ".planning/phases/58-dogfood",
+  "plan": 2,
+  "task": 2,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "58-01", "name": "Scaffolding — verification queries + named baseline", "status": "done", "commit": "f5483a6"},
+    {"id": "58-02-T1", "name": "Harvest + distill new video (real run, SC1)", "status": "done", "progress": "e3qGnuupp8U (Command Zone 743) distilled via subscription claude CLI, $0, llm_calls=3; quality verdict HIGHER than baseline recorded in 58-DOGFOOD-RESULTS.md SC1"}
+  ],
+  "remaining_tasks": [
+    {"id": "58-02-T2", "name": "Approve + publish dogfood entry via DirectPush (operator-only, prod write)", "status": "blocked", "note": "e3qGnuupp8U still approval_status=pending in Studio; not pushed; absent from prod"},
+    {"id": "58-02-T3", "name": "Confirm Published in both Studio + deployed /Admin/ContentKb (SC2)", "status": "not_started"},
+    {"id": "58-03", "name": "No-regression re-check + finalize verdict (SC4)", "status": "not_started", "note": "prod corpus intact at 108 rows, no gutting; SC4 looking good pending final diff"}
+  ],
+  "blockers": [
+    {"description": "Dogfood entry e3qGnuupp8U stuck at approval_status=pending; must be approved in /review then DirectPushed before SC2 can complete", "type": "human_action", "workaround": "operator approves + runs DirectPush in Studio /direct-push"}
+  ],
+  "human_actions_pending": [
+    {"action": "In Studio /review approve e3qGnuupp8U, then /direct-push (Stage 1 shows 1 -> Stage 2 SCP -> Stage 3 prod DB write)", "context": "AI must NEVER write prod; DirectPush is operator-only. Stamps pushed_to_prod_utc -> derives Published", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Codex model = all gpt-5.4 medium this session", "rationale": "gpt-5.5 400s on ChatGPT-account login", "phase": "58"},
+    {"decision": "Skip research + plan directly (no CONTEXT.md)", "rationale": "dogfood executes already-built 55-57 machinery; ROADMAP has 4 precise success criteria", "phase": "58"},
+    {"decision": "Publish path = DirectPush (not git-Publish)", "rationale": "DirectPush is upsert-only/content-columns-only -> cannot gut corpus; git-Publish regenerates whole seed (already gutted 86->22 once, reverted)", "phase": "58"},
+    {"decision": "DeckFlow prod READS go through Render MCP query_render_postgres (read-only by design), NEVER the write-capable Studio:ProdConnectionString", "rationale": "user-established rule 2026-06-18; read-only-transaction tool, no write cred in AI hands", "phase": "58"}
+  ],
+  "uncommitted_files": [
+    ".planning/phases/58-dogfood/58-DOGFOOD-RESULTS.md (SC1+SC3 filled, SC2/SC4 pending)"
+  ],
+  "next_action": "Operator approves e3qGnuupp8U in Studio /review + runs DirectPush. Then AI re-runs read-only prod query (Render MCP, postgresId dpg-d7oj8iugvqtc73fso0g0-a) to confirm dogfood_present=1 + pushed_to_prod_utc stamped; verify Studio + deployed /Admin/ContentKb show Published (SC2); finalize SC4 no-regression + Overall Verdict in 58-DOGFOOD-RESULTS.md.",
+  "context_notes": "Final phase of Cycle 9. SC1 done (distill quality win = tag discipline 3 vs 12). SC3 done ($0 subscription <= $15 cap). SC2/SC4 await operator DirectPush. After verdict: Cycle 9 closeable -> squash to main + CalVer tag. Servers: Studio :5271 (background, WSLENV-launched with provider=claude), Web :5173 (local /Admin/ContentKb returns 503 prod CF-Connecting-IP guard + reads separate db -> SC2 web check is DEPLOYED deckflow.gg only). cycle9 pushed to origin at 4185f6a3."
+}

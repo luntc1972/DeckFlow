@@ -105,6 +105,9 @@ public partial class Program
             });
             builder.Services.AddContentKbOrchestrator();
             builder.Services.AddSingleton<VideoStatusResolver>();
+            // Why: PublishStateDeriver is a pure stateless class; singleton is safe and avoids allocation
+            // per-request. Pages inject it via [Inject] to derive publish state from ContentSiteIndexRow fields.
+            builder.Services.AddSingleton<PublishStateDeriver>();
             builder.Services.AddScoped<ContentKbOrchestratorSmokeService>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();

@@ -45,7 +45,9 @@ public sealed class VideoStatusResolver
     /// Resolution rules (checked in order):
     /// <list type="number">
     ///   <item><description>Blocked wins: <see cref="VideoStatus.Blocked"/> if <see cref="IBlockedVideoStore.IsBlockedAsync"/> returns true.</description></item>
-    ///   <item><description>Distilled: <see cref="VideoStatus.Distilled"/> if a content_site_index row exists for <see cref="ContentSourceType.Youtube"/> / <paramref name="youtubeVideoId"/>.</description></item>
+    ///   <item><description>Published: <see cref="VideoStatus.Published"/> if the index row is pushed to prod and visible.</description></item>
+    ///   <item><description>Approved: <see cref="VideoStatus.Approved"/> if the index row has approval_status "approved" but is not yet published.</description></item>
+    ///   <item><description>Distilled: <see cref="VideoStatus.Distilled"/> if a content_site_index row exists but is not yet approved.</description></item>
     ///   <item><description>Harvested: <see cref="VideoStatus.Harvested"/> if the video exists in any enabled source.</description></item>
     ///   <item><description>Not harvested: <see cref="VideoStatus.NotHarvested"/> otherwise.</description></item>
     /// </list>
@@ -61,7 +63,7 @@ public sealed class VideoStatusResolver
             return VideoStatus.Blocked;
         }
 
-        // 2. Distilled: a content_site_index row exists.
+        // 2. Index row exists — distinguish Approved/Published/Distilled without extra store calls.
         // Why: use ContentSourceType.Youtube constant — never the raw string literal (LOW-1).
         var indexRow = await _indexStore.GetByNaturalKeyAsync(
             ContentSourceType.Youtube,
@@ -70,6 +72,19 @@ public sealed class VideoStatusResolver
 
         if (indexRow is not null)
         {
+            // Published: pushed AND visible (pushed-but-hidden shows Approved per accepted semantic —
+            // mirrors PublishState.PushedHidden; operator considers it still in limbo).
+            if (indexRow.PushedToProdUtc.HasValue && indexRow.IsVisible)
+            {
+                return VideoStatus.Published;
+            }
+
+            // Approved: in KB and admin approved it, but not yet live on prod.
+            if (indexRow.ApprovalStatus == "approved")
+            {
+                return VideoStatus.Approved;
+            }
+
             return VideoStatus.Distilled;
         }
 

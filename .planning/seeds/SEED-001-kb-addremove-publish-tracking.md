@@ -1,8 +1,10 @@
 ---
 id: SEED-001
-status: dormant
+status: fulfilled
 planted: 2026-06-17
 planted_during: Cycle 8
+fulfilled: 2026-06-19
+fulfilled_by: "Cycle 9 (Content Pipeline & Publish-Tracking) — publish-tracking shipped Phases 55-57 (PublishState + PUB-01/02/03 + SITE-01 web-admin column); KB add/remove (ADD-01 single-URL add + Block/Blocked list) shipped Phase 56; validated end-to-end by Phase 58 dogfood."
 trigger_when: Cycle 9 starts (Studio expansion / Content KB workflow milestone)
 scope: large
 ---

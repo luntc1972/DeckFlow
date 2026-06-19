@@ -1,0 +1,165 @@
+@page "/blocked"
+@implements IDisposable
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Orchestration
+
+<PageTitle>Blocked Videos</PageTitle>
+
+<h1 class="h4 fw-semibold">Blocked Videos</h1>
+<p class="text-muted">Videos blocked from harvest. Unblock to allow re-harvest.</p>
+
+<article class="content px-4">
+
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary"
+                  role="status"
+                  aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Loading blocked videos...</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_loadError))
+        {
+            <div class="alert alert-danger py-2 mt-3">Could not load blocked videos — @_loadError</div>
+        }
+
+        @if (_blocked.Count == 0)
+        {
+            @if (string.IsNullOrEmpty(_loadError))
+            {
+                <p class="text-muted mt-3">No blocked videos. Block videos from the Harvest page to prevent re-harvest.</p>
+            }
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Video ID</th>
+                            <th scope="col" style="width:140px">Blocked at</th>
+                            <th scope="col">Reason</th>
+                            <th scope="col" style="width:90px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var video in _blocked)
+                        {
+                            <tr>
+                                <td>
+                                    <a href="https://youtu.be/@video.YoutubeVideoId"
+                                       target="_blank"
+                                       rel="noopener noreferrer">@video.YoutubeVideoId</a>
+                                </td>
+                                <td>@video.BlockedUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td>@(video.Reason ?? "—")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            @onclick="() => UnblockAsync(video.YoutubeVideoId)"
+                                            disabled="@_operationInFlight"
+                                            aria-label="Unblock @video.YoutubeVideoId">
+                                        Unblock Video
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+</article>
+
+@code {
+    [Inject]
+    private IContentMaintenanceOrchestrator MaintenanceOrchestrator { get; set; } = default!;
+
+    private bool _loading = true;
+    private string _loadError = string.Empty;
+    private bool _operationInFlight;
+    private List<BlockedVideoListResult.BlockedVideoListItem> _blocked = new();
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Why: Task.Run moves the store call off the Blazor sync context (Pitfall 4).
+            var result = await Task.Run(
+                () => MaintenanceOrchestrator.ListBlockedAsync(progress: null, _cts.Token),
+                _cts.Token);
+            _blocked = result.Items.ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed mid-load — swallow.
+        }
+        catch (Exception)
+        {
+            // Why: do NOT echo exception.Message (may leak the DB path) — generic operator-safe copy only.
+            _loadError = "Could not load blocked videos. Try again.";
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task UnblockAsync(string videoId)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        try
+        {
+            var result = await Task.Run(
+                () => MaintenanceOrchestrator.UnblockVideoAsync(videoId, progress: null, _cts.Token),
+                _cts.Token);
+            if (result.Success)
+            {
+                _blocked.RemoveAll(b => b.YoutubeVideoId == videoId);
+            }
+            else
+            {
+                _loadError = string.IsNullOrWhiteSpace(result.Message)
+                    ? "Unblock failed. Try again."
+                    : result.Message;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            // Why: do NOT echo exception.Message (may leak paths) — generic operator-safe copy only.
+            _loadError = "Unblock failed. Try again.";
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

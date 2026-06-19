@@ -33,6 +33,24 @@ public sealed class PublishPageTests : BunitContext
             YoutubeVideoId = videoId,
         };
 
+    private static ContentSiteIndexRow MakeApprovedRowWithPublish(long id, string videoId, DateTimeOffset? pushedToProdUtc, bool isVisible)
+        => new ContentSiteIndexRow
+        {
+            Id = id,
+            Source = "test-channel",
+            Title = $"Video {id}",
+            VideoUrl = $"https://youtu.be/{videoId}",
+            ArtifactPath = $"content-kb/test-channel/{videoId}.md",
+            IndexedUtc = DateTimeOffset.UtcNow,
+            ApprovalStatus = "approved",
+            ArchetypeTags = Array.Empty<string>(),
+            BracketTags = Array.Empty<string>(),
+            CardCategoryTags = Array.Empty<string>(),
+            YoutubeVideoId = videoId,
+            PushedToProdUtc = pushedToProdUtc,
+            IsVisible = isVisible,
+        };
+
     private (IRenderedComponent<Publish> Cut, FakeGitRepository Git, FakeContentKbOrchestrator Orchestrator, FakeContentSiteIndexStore Store)
         RenderPublish(IEnumerable<ContentSiteIndexRow>? approvedRows = null, string branch = "v1.7")
     {
@@ -53,6 +71,7 @@ public sealed class PublishPageTests : BunitContext
         Services.AddSingleton<IContentKbOrchestrator>(orchestrator);
         Services.AddSingleton<IContentSiteIndexStore>(store);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
+        Services.AddSingleton<PublishStateDeriver>();
 
         var cut = Render<Publish>();
         return (cut, git, orchestrator, store);
@@ -79,6 +98,25 @@ public sealed class PublishPageTests : BunitContext
         // Assert: approved-count shown
         Assert.Contains("2", cut.Markup);
         Assert.Contains("entries approved", cut.Markup);
+    }
+
+    [Fact]
+    public void PublishPage_PublishStateSummary_RendersCountsForApprovedRows()
+    {
+        var rows = new[]
+        {
+            MakeApprovedRow(1, "vid1"),
+            MakeApprovedRowWithPublish(2, "vid2", DateTimeOffset.UtcNow.AddMinutes(5), isVisible: true),
+        };
+        var (cut, _, _, _) = RenderPublish(rows);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving repository info", cut.Markup));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Never published", cut.Markup);
+            Assert.Contains("Published", cut.Markup);
+        });
     }
 
     // ── PUB-03: "Export & Preview Diff" calls ExportIndexToFileAsync + CopyApprovedArtifactsToRepoAsync + DiffAsync ──
@@ -281,6 +319,54 @@ public sealed class PublishPageTests : BunitContext
             var (repoRoot, paths, msg) = git.CommitCalls[0];
             Assert.Contains("content-kb/seed/index-seed.json", paths);
             Assert.Contains("content-kb/test-channel/vid1.md", paths);
+        });
+    }
+
+    [Fact]
+    public void SuccessfulCommit_StampsApprovedKeys_AfterCommit()
+    {
+        var rows = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, git, orchestrator, store) = RenderPublish(rows);
+        orchestrator.CannedExportResult = new ContentIndexExportResult
+        {
+            Success = true,
+            RowCount = 1,
+            Rows =
+            [
+                new ContentIndexExportRow
+                {
+                    NaturalKeyType = ContentSourceType.Youtube,
+                    NaturalKeyValue = "vid1",
+                    Source = "test-channel",
+                    Title = "Video 1",
+                    VideoUrl = "https://youtu.be/vid1",
+                    ArtifactPath = "content-kb/test-channel/vid1.md",
+                    IndexedUtc = DateTimeOffset.UtcNow,
+                    ArchetypeTags = Array.Empty<string>(),
+                    BracketTags = Array.Empty<string>(),
+                    CardCategoryTags = Array.Empty<string>(),
+                },
+            ],
+        };
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving repository info", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("Stage 2 — Commit"));
+        cut.InvokeAsync(() => cut.Find("input#diffReviewed").Change(true));
+        cut.WaitForAssertion(() => Assert.False(
+            cut.Find("button.btn-primary:not(.btn-outline-primary)").HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.Find("button.btn-primary:not(.btn-outline-primary)").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(git.CommitCalls);
+            Assert.Single(store.StampCalls);
+            var stamp = store.StampCalls[0];
+            var key = Assert.Single(stamp.Keys);
+            Assert.Equal(ContentSourceType.Youtube, key.Type);
+            Assert.Equal("vid1", key.Value);
+            Assert.Equal(stamp.PushedUtc, store.Rows.Single().PushedToProdUtc);
         });
     }
 

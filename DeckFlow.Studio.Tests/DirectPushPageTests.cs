@@ -362,4 +362,64 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.Empty(prodStore.UpsertMethodCalls);
         });
     }
+
+    [Fact]
+    public void DirectPush_Success_StampsLocalAndProd_WithSameInstant()
+    {
+        var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
+        var (cut, localStore, prodStore, _, _) = RenderDirectPush(local);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(localStore.StampCalls);
+            Assert.Single(prodStore.StampCalls);
+
+            var localStamp = localStore.StampCalls[0];
+            var prodStamp = prodStore.StampCalls[0];
+
+            Assert.Equal(localStamp.PushedUtc, prodStamp.PushedUtc);
+            Assert.Equal(2, localStamp.Keys.Count);
+            Assert.Equal(2, prodStamp.Keys.Count);
+            Assert.All(localStore.Rows, row => Assert.Equal(localStamp.PushedUtc, row.PushedToProdUtc));
+            Assert.All(prodStore.Rows, row => Assert.Equal(prodStamp.PushedUtc, row.PushedToProdUtc));
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Success_PublishesRowsVisible_LocalAndProd()
+    {
+        var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
+        var (cut, localStore, prodStore, _, _) = RenderDirectPush(local);
+
+        // Precondition: approved rows start hidden (KB ships dark) — Studio would derive Pushed-hidden
+        // without the publish-visible step.
+        Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            // DirectPush publishes visible: both stores get one keyed SetVisibility(true) and every
+            // pushed row is now visible, so the Studio badge derives Published just like prod /Admin.
+            Assert.Single(localStore.VisibilityKeyCalls);
+            Assert.Single(prodStore.VisibilityKeyCalls);
+            Assert.True(localStore.VisibilityKeyCalls[0].Visible);
+            Assert.True(prodStore.VisibilityKeyCalls[0].Visible);
+            Assert.Equal(2, localStore.VisibilityKeyCalls[0].Keys.Count);
+            Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
+            Assert.All(prodStore.Rows, row => Assert.True(row.IsVisible));
+        });
+    }
 }
