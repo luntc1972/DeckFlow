@@ -94,6 +94,7 @@ public partial class Program
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
+            builder.Services.AddSingleton<DeckFlow.Core.Content.PublishStateDeriver>();
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
             builder.Services.AddDeckFlowHarvest(builder.Environment);

@@ -1,3 +1,5 @@
+using DeckFlow.Core.Content;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>
@@ -83,4 +85,13 @@ public sealed record KbEntryRow
 
     /// <summary>Whether this entry is currently marked as evergreen.</summary>
     public bool IsEvergreen { get; init; }
+
+    /// <summary>UTC instant the operator last pushed this entry to production, or null if never pushed.</summary>
+    public DateTimeOffset? PushedToProdUtc { get; init; }
+
+    /// <summary>UTC timestamp when the local index row was generated (distill time).</summary>
+    public required DateTimeOffset IndexedUtc { get; init; }
+
+    /// <summary>Derived publish state, computed at mapping time from PushedToProdUtc, IsVisible, and IndexedUtc.</summary>
+    public PublishState PublishState { get; init; } = PublishState.NeverPublished;
 }

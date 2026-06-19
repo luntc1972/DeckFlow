@@ -46,6 +46,15 @@
                 <span> @(_approvedCount == 1 ? "entry" : "entries") approved and ready to commit.</span>
             }
         </p>
+        @if (_publishStateSummary.Count > 0)
+        {
+            <div class="d-flex gap-2 flex-wrap mb-2">
+                @foreach (var (state, count) in _publishStateSummary)
+                {
+                    <span>@RenderPublishStateBadge(state) <span class="text-muted small">@count</span></span>
+                }
+            </div>
+        }
 
         @* ─── Section 1: Export, Copy & Preview Diff (Stage 1) ─── *@
         <div class="card mt-3">
@@ -191,6 +200,11 @@
                 <span class="text-muted small">Render auto-deploys when push reaches main. Studio never pushes.</span>
             </div>
         }
+
+        @if (_commitSuccess && !string.IsNullOrEmpty(_stampWarning))
+        {
+            <div class="alert alert-warning py-2">@_stampWarning</div>
+        }
     }
 
 </article>
@@ -209,12 +223,17 @@
     [Inject]
     private ContentKbOrchestratorOptions Options { get; set; } = default!;
 
+    [Inject]
+    private PublishStateDeriver Deriver { get; set; } = default!;
+
     // ── Init state ──────────────────────────────────────────────────────────
     private bool _initInFlight = true;
     private string? _initError;
     private string _repoRoot = string.Empty;
     private string _branch = string.Empty;
     private int _approvedCount;
+    // Phase 56 PUB-03: publish-state summary for approved rows.
+    private List<(PublishState State, int Count)> _publishStateSummary = new();
 
     // dataRoot = parent of ArtifactRoot = {studioDataDirectory}
     // Why: ArtifactPath already carries content-kb/; combining with ArtifactRoot would
@@ -232,6 +251,7 @@
     private int _addedCount;
     private int _updatedCount;
     private int _removedCount;
+    private IReadOnlyList<(string Type, string Value)> _exportedKeys = Array.Empty<(string Type, string Value)>();
 
     // Persisted staged paths for the commit handler ([seedRelative] + copied artifact paths).
     private IReadOnlyList<string> _stagedPaths = Array.Empty<string>();
@@ -242,6 +262,7 @@
     private bool _commitSuccess;
     private string _commitSha = string.Empty;
     private string _commitError = string.Empty;
+    private string _stampWarning = string.Empty;
     private string _commitMessage = string.Empty;
 
     // ── Shared in-flight guard ──────────────────────────────────────────────
@@ -266,19 +287,25 @@
         try
         {
             // Why: Task.Run moves git + store calls off the Blazor sync context (Pitfall 7).
-            var (repoRoot, branch, approvedCount, dataRoot) = await Task.Run(async () =>
+            var (repoRoot, branch, approvedCount, dataRoot, summary) = await Task.Run(async () =>
             {
                 var rr = await Git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), _cts.Token).ConfigureAwait(false);
                 var br = await Git.GetCurrentBranchAsync(rr, _cts.Token).ConfigureAwait(false);
                 var rows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+                var summary = rows
+                    .GroupBy(r => Deriver.Derive(r.PushedToProdUtc, r.IsVisible, r.IndexedUtc))
+                    .Select(g => (State: g.Key, Count: g.Count()))
+                    .OrderBy(x => x.State)
+                    .ToList();
                 var dr = Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot;
-                return (rr, br, rows.Count, dr);
+                return (rr, br, rows.Count, dr, summary);
             }, _cts.Token);
 
             _repoRoot = repoRoot;
             _branch = branch;
             _approvedCount = approvedCount;
             _dataRoot = dataRoot;
+            _publishStateSummary = summary;
             // Placeholder until Export computes the actual delta; commit is disabled until then.
             _commitMessage = "content: publish KB seed";
         }
@@ -286,11 +313,11 @@
         {
             // Component disposed mid-load — swallow.
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Why: ResolveRepoRootAsync throws when Studio is not running from inside a git repo
             // (GitCommandException). Surface a clear message and disable export.
-            _initError = $"Could not compute git diff — {ex.Message}. Check that Studio is running from the repo root.";
+            _initError = "Could not compute git diff — check that Studio is running from the repo root.";
         }
         finally
         {
@@ -298,6 +325,15 @@
             await InvokeAsync(StateHasChanged);
         }
     }
+
+    private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
+    {
+        PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,
+        PublishState.PushedHidden   => @<span class="badge bg-warning text-dark">Pushed-hidden</span>,
+        PublishState.Published      => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
+        PublishState.LocalNewer     => @<span class="badge bg-info text-dark">Local-newer</span>,
+        _                           => @<span class="badge bg-secondary">Unknown</span>,
+    };
 
     // ── Stage 1: Export, Copy Artifacts & Preview Diff ─────────────────────
     private async Task ExportAndDiffAsync()
@@ -315,7 +351,9 @@
         _diffReviewed = false;
         _commitSuccess = false;
         _commitError = string.Empty;
+        _stampWarning = string.Empty;
         _stagedPaths = Array.Empty<string>();
+        _exportedKeys = Array.Empty<(string Type, string Value)>();
 
         // Why: progress sink uses disposal-safe InvokeAsync pattern (Harvest.razor T-45-18).
         var progress = new ActionOrchestratorProgress(msg =>
@@ -368,11 +406,11 @@
                 {
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     await InvokeAsync(() =>
                     {
-                        _exportError = $"Cannot publish — an approved artifact is missing or unreadable: {ex.Message}. Re-distill or remove that entry, then retry.";
+                        _exportError = "Cannot publish — an approved artifact is missing or unreadable. Re-distill or remove that entry, then retry.";
                         _exportInFlight = false;
                         _operationInFlight = false;
                         try { StateHasChanged(); }
@@ -408,6 +446,9 @@
 
                 // Build new rows from the export result (same approved set that was just written).
                 var newRows = exportResult.Rows;
+                var exportedKeys = newRows
+                    .Select(r => (r.NaturalKeyType, r.NaturalKeyValue))
+                    .ToList();
 
                 // Key both sets by (NaturalKeyType, NaturalKeyValue) for comparison.
                 Func<ContentIndexExportRow, string> Canonical =
@@ -451,6 +492,7 @@
                     _addedCount = added;
                     _updatedCount = updated;
                     _removedCount = removed;
+                    _exportedKeys = exportedKeys;
                     _diffReady = true;
                     // Why: report the DELTA (what this commit changes), not the full seed size —
                     // a cumulative "{N} entries" total reads as if N were published when only a few changed.
@@ -470,9 +512,9 @@
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _exportError = $"Export failed — {ex.Message}";
+            _exportError = "Export failed — check the Studio logs and retry.";
             _exportInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
@@ -490,6 +532,7 @@
         _operationInFlight = true;
         _commitInFlight = true;
         _commitError = string.Empty;
+        _stampWarning = string.Empty;
         _commitSuccess = false;
 
         try
@@ -503,6 +546,24 @@
 
             _commitSha = sha;
             _commitSuccess = true;
+
+            if (_exportedKeys.Count > 0)
+            {
+                // Why: PUB-01/HIGH-2 treats commit success as the publish boundary; export/copy only write files.
+                try
+                {
+                    await IndexStore.StampPushedToProdAsync(
+                        _exportedKeys,
+                        DateTimeOffset.UtcNow,
+                        _cts.Token).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // Why: commit already landed; a failed/cancelled local stamp is non-fatal (WR-01/WR-02).
+                    // Do NOT surface raw exception text (WR-03 hygiene); operator just needs to re-publish.
+                    _stampWarning = "Commit succeeded, but the local pushed-to-prod stamp did not complete — re-export and publish again to record it.";
+                }
+            }
 
             // After a successful commit, disable the Commit button until a new export cycle runs.
             _diffReady = false;

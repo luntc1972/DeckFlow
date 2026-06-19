@@ -57,6 +57,8 @@ public sealed class VideoStatusResolverTests
         public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> StampPushedToProdAsync(IReadOnlyList<(string Type, string Value)> keys, DateTimeOffset pushedUtc, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> SetVisibilityAsync(IReadOnlyList<(string Type, string Value)> keys, bool visible, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeSourceStore : IContentSourceStore
@@ -145,7 +147,10 @@ public sealed class VideoStatusResolverTests
             CreatedUtc = DateTimeOffset.UtcNow,
         };
 
-    private static ContentSiteIndexRow MakeIndexRow()
+    private static ContentSiteIndexRow MakeIndexRow(
+        string approvalStatus = "pending",
+        DateTimeOffset? pushedToProdUtc = null,
+        bool isVisible = false)
         => new()
         {
             Id = 1L,
@@ -157,6 +162,9 @@ public sealed class VideoStatusResolverTests
             ArchetypeTags = [],
             BracketTags = [],
             CardCategoryTags = [],
+            ApprovalStatus = approvalStatus,
+            PushedToProdUtc = pushedToProdUtc,
+            IsVisible = isVisible,
         };
 
     // ---------------------------------------------------------------------------
@@ -242,6 +250,73 @@ public sealed class VideoStatusResolverTests
         var status = await resolver.ResolveStatusAsync("vid004");
 
         // Assert
+        Assert.Equal(VideoStatus.NotHarvested, status);
+    }
+
+    [Fact]
+    public async Task ResolveStatusAsync_ApprovedNotPushed_ReturnsApproved()
+    {
+        // Arrange: not blocked + index row with approval_status="approved" + no push.
+        var resolver = new VideoStatusResolver(
+            new FakeBlockedVideoStore(isBlocked: false),
+            new FakeSiteIndexStore(row: MakeIndexRow(approvalStatus: "approved", pushedToProdUtc: null)),
+            new FakeSourceStore([MakeSource(1)]),
+            new FakeVideoStore(hitSourceId: 0, hitYoutubeVideoId: "", hitResult: null));
+
+        var status = await resolver.ResolveStatusAsync("vid001");
+
+        Assert.Equal(VideoStatus.Approved, status);
+    }
+
+    [Fact]
+    public async Task ResolveStatusAsync_PushedAndVisible_ReturnsPublished()
+    {
+        // Arrange: not blocked + index row with push timestamp + is_visible=true.
+        var resolver = new VideoStatusResolver(
+            new FakeBlockedVideoStore(isBlocked: false),
+            new FakeSiteIndexStore(row: MakeIndexRow(
+                approvalStatus: "approved",
+                pushedToProdUtc: DateTimeOffset.UtcNow,
+                isVisible: true)),
+            new FakeSourceStore([MakeSource(1)]),
+            new FakeVideoStore(hitSourceId: 0, hitYoutubeVideoId: "", hitResult: null));
+
+        var status = await resolver.ResolveStatusAsync("vid001");
+
+        Assert.Equal(VideoStatus.Published, status);
+    }
+
+    [Fact]
+    public async Task ResolveStatusAsync_PushedButHidden_ReturnsApproved()
+    {
+        // Arrange: pushed but is_visible=false → shows Approved (limbo semantic).
+        var resolver = new VideoStatusResolver(
+            new FakeBlockedVideoStore(isBlocked: false),
+            new FakeSiteIndexStore(row: MakeIndexRow(
+                approvalStatus: "approved",
+                pushedToProdUtc: DateTimeOffset.UtcNow,
+                isVisible: false)),
+            new FakeSourceStore([MakeSource(1)]),
+            new FakeVideoStore(hitSourceId: 0, hitYoutubeVideoId: "", hitResult: null));
+
+        var status = await resolver.ResolveStatusAsync("vid001");
+
+        Assert.Equal(VideoStatus.Approved, status);
+    }
+
+    [Fact]
+    public async Task ResolveStatusAsync_UnblockedWithNoIndexOrHarvest_ReturnsNotHarvested()
+    {
+        // Arrange: not blocked, no index row, no harvested row across enabled sources.
+        // Pins the SC5 unblock->re-browse loop at the resolver level.
+        var resolver = new VideoStatusResolver(
+            new FakeBlockedVideoStore(isBlocked: false),
+            new FakeSiteIndexStore(row: null),
+            new FakeSourceStore([MakeSource(1), MakeSource(2, "source-two")]),
+            new FakeVideoStore(hitSourceId: 0, hitYoutubeVideoId: "", hitResult: null));
+
+        var status = await resolver.ResolveStatusAsync("vid005");
+
         Assert.Equal(VideoStatus.NotHarvested, status);
     }
 }

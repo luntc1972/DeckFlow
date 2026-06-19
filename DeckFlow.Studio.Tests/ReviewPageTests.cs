@@ -59,6 +59,7 @@ public sealed class ReviewPageTests : BunitContext
         var artifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests", "content-kb");
         Services.AddSingleton<IContentSiteIndexStore>(store);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
+        Services.AddSingleton<PublishStateDeriver>();
 
         var cut = Render<Review>();
         return (cut, store);
@@ -129,6 +130,18 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("No entries pending review", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void ReviewPage_PublishStateColumn_ShowsNeverPublishedForUnpushedRow()
+    {
+        var rows = new[] { MakeYoutubeRow(1, "vid1", "pending") };
+        var (cut, _) = RenderReview(rows);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Never published", cut.Markup);
         });
     }
 

@@ -15,6 +15,18 @@ public enum VideoStatus
     /// <summary>The video has been distilled; a content_site_index row exists for it. Implies harvested.</summary>
     Distilled,
 
+    /// <summary>
+    /// The video has been distilled and approved (approval_status = "approved") but not yet
+    /// pushed to prod (pushed_to_prod_utc is null OR is_visible = false). (Phase 56)
+    /// </summary>
+    Approved,
+
+    /// <summary>
+    /// The video has been pushed to prod (pushed_to_prod_utc not null) AND is visible
+    /// (is_visible = true). Pushed-but-hidden maps to Approved, not Published. (Phase 56)
+    /// </summary>
+    Published,
+
     /// <summary>The video is blocked and will be skipped on future harvest runs.</summary>
     Blocked,
 

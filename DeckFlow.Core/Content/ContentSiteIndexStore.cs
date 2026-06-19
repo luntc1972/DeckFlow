@@ -91,6 +91,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addApprovalStatus.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("pushed_to_prod_utc"))
+            {
+                await using var addPushedToProdUtc = connection.CreateCommand();
+                addPushedToProdUtc.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN pushed_to_prod_utc TIMESTAMPTZ NULL;"
+                    : "ALTER TABLE content_site_index ADD COLUMN pushed_to_prod_utc TEXT NULL;";
+                await addPushedToProdUtc.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             // Why: grandfather the already-published seed to approved and re-run safely after
             // an ALTER-then-crash; only still-pending visible rows are updated on later passes.
             await using (var grandfatherApprovalStatus = connection.CreateCommand())
@@ -245,6 +254,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    video_url,
                    artifact_path,
                    published_utc,
+                   pushed_to_prod_utc,
                    indexed_utc,
                    archetype_tags,
                    bracket_tags,
@@ -278,6 +288,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    video_url,
                    artifact_path,
                    published_utc,
+                   pushed_to_prod_utc,
                    indexed_utc,
                    archetype_tags,
                    bracket_tags,
@@ -311,6 +322,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    video_url,
                    artifact_path,
                    published_utc,
+                   pushed_to_prod_utc,
                    indexed_utc,
                    archetype_tags,
                    bracket_tags,
@@ -343,6 +355,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    video_url,
                    artifact_path,
                    published_utc,
+                   pushed_to_prod_utc,
                    indexed_utc,
                    archetype_tags,
                    bracket_tags,
@@ -374,6 +387,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    video_url,
                    artifact_path,
                    published_utc,
+                   pushed_to_prod_utc,
                    indexed_utc,
                    archetype_tags,
                    bracket_tags,
@@ -574,6 +588,81 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         return total;
     }
 
+    /// <inheritdoc />
+    public async Task<int> StampPushedToProdAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset pushedUtc,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        const string sql = """
+            UPDATE content_site_index
+               SET pushed_to_prod_utc = @pushed
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { pushed = pushedUtc, type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetVisibilityAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        bool visible,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors StampPushedToProdAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        // is_hidden cleared unconditionally, exactly mirroring the single-row SetVisibilityAsync(long, bool).
+        const string sql = """
+            UPDATE content_site_index
+               SET is_visible = @visible,
+                   is_hidden = FALSE
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { visible, type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
     private static readonly string[] AllowedApprovalStatuses = ["pending", "approved", "rejected"];
 
     private static void ValidateApprovalStatus(string status)
@@ -696,6 +785,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             VideoUrl = row.VideoUrl,
             ArtifactPath = row.ArtifactPath,
             PublishedUtc = row.PublishedUtc,
+            PushedToProdUtc = row.PushedToProdUtc,
             IndexedUtc = row.IndexedUtc,
             ArchetypeTags = ContentArtifactSpec.DeserializeTags(row.ArchetypeTags),
             BracketTags = ContentArtifactSpec.DeserializeTags(row.BracketTags),
@@ -846,6 +936,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           video_url          TEXT NOT NULL,
           artifact_path      TEXT NOT NULL,
           published_utc      TIMESTAMPTZ NULL,
+          pushed_to_prod_utc TIMESTAMPTZ NULL,
           indexed_utc        TIMESTAMPTZ NOT NULL DEFAULT now(),
           archetype_tags     TEXT NOT NULL DEFAULT '[]',
           bracket_tags       TEXT NOT NULL DEFAULT '[]',
@@ -868,6 +959,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           video_url          TEXT NOT NULL,
           artifact_path      TEXT NOT NULL,
           published_utc      TEXT NULL,
+          pushed_to_prod_utc TEXT NULL,
           indexed_utc        TEXT NOT NULL DEFAULT (datetime('now')),
           archetype_tags     TEXT NOT NULL DEFAULT '[]',
           bracket_tags       TEXT NOT NULL DEFAULT '[]',
@@ -890,6 +982,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         public required string VideoUrl { get; init; }
         public required string ArtifactPath { get; init; }
         public DateTimeOffset? PublishedUtc { get; init; }
+        public DateTimeOffset? PushedToProdUtc { get; init; }
         public DateTimeOffset IndexedUtc { get; init; }
         public required string ArchetypeTags { get; init; }
         public required string BracketTags { get; init; }

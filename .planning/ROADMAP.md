@@ -11,6 +11,7 @@
 - ✅ **v1.6 Content KB Retrieval Fix + Value Re-Validation** — Phases 34-40 (shipped 2026-06-12) — see `.planning/milestones/v1.6-ROADMAP.md`
 - ✅ **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (shipped 2026-06-17) — see `.planning/milestones/v1.7-ROADMAP.md`
 - ✅ **Cycle 8 — Hardening & Backlog Burn-down** — Phases 51-54 (shipped 2026-06-17, `2026.06.4`) — see `.planning/milestones/cycle8-ROADMAP.md`
+- ✅ **Cycle 9 — Content Pipeline & Publish-Tracking** — Phases 55-58 (shipped 2026-06-19, `2026.06.5`) — see `.planning/milestones/cycle9-ROADMAP.md`
 
 ## Phases
 
@@ -167,7 +168,67 @@ Verification: 10/10 phases verified (4 passed, 6 human_needed = automated PASS, 
 
 ---
 
+<details>
+<summary>✅ Cycle 8 — Hardening & Backlog Burn-down (Phases 51-54) — SHIPPED 2026-06-17, `2026.06.4`</summary>
+
+- [x] Phase 51: Verify v1.7 on main + non-prod UAT (HARD-01, HARD-03, OPS-01) — completed 2026-06-17
+- [x] Phase 52: Live prod-publish verification (HARD-02) — completed 2026-06-17
+- [x] Phase 53: Architecture backlog burn-down (ARCH-01, ARCH-02) — completed 2026-06-17
+- [x] Phase 54: Feature debt — SpellbookCombo ranking + Gemini size-verify (FEAT-01, FEAT-02) — completed 2026-06-17
+
+Full archive: `.planning/milestones/cycle8-ROADMAP.md`
+Requirements archive: `.planning/milestones/cycle8-REQUIREMENTS.md`
+
+</details>
+
+---
+
+<details>
+<summary>✅ Cycle 9 — Content Pipeline & Publish-Tracking (Phases 55-58) — SHIPPED 2026-06-19, `2026.06.5`</summary>
+
+- [x] Phase 55: Publish-State Foundation (PUB-01, PUB-02) — completed 2026-06-18
+- [x] Phase 56: Studio Surfaces (BROWSE-01/02/03, REM-01/02, ADD-01, PUB-03) — completed 2026-06-18
+- [x] Phase 57: Admin Surface + Distill Quality (SITE-01, DIST-01) — completed 2026-06-18
+- [x] Phase 58: Dogfood (DOGFOOD-01) — completed 2026-06-19 (all 4 SCs PASS; SC2 DirectPush publish-visible fix + SECURED 9/9)
+
+Full archive: `.planning/milestones/cycle9-ROADMAP.md`
+Requirements archive: `.planning/milestones/cycle9-REQUIREMENTS.md`
+
+</details>
+
+---
+
 ## Backlog
+
+### Validate Content KB value — A/B ChatGPT output with vs without expert context (BACKLOG — high priority; was todo, moved 2026-06-19 at Cycle-9 close)
+
+**Goal:** Gating experiment — prove the Content KB actually makes ChatGPT's deck analysis *better* before investing further (e.g. the creator philosophy-profile redesign). `content.kb.enabled` is OFF in prod and the subsystem is unproven on end-output quality (Cycle 9 validated the *pipeline* produces cleaner distills, but not that injected context lifts the final ChatGPT answer).
+
+**Experiment:** For a handful of representative decks, generate the analysis prompt twice — with vs without expert-context clips — run both through ChatGPT, compare answer quality (signal beyond ChatGPT's own MTG knowledge, actionable specificity, creator-voice). Judge blind if feasible.
+
+**Decision criteria:** Clear lift → green-light philosophy-profile build + flip `content.kb.enabled` ON. Marginal → reconsider the KB (per-deck targeted retrieval or user-supplied sources instead of whole-channel pre-distill).
+
+**Spike-able** via `/gsd-spike` — lightweight, no production code to start. Origin: Phase 30 UAT (2026-06-09). Promote via `/gsd-review-backlog`.
+
+### Studio "Pull from Prod" — prod→local sync (BACKLOG — captured 2026-06-19 during Phase 58 dogfood; for next cycle)
+
+**Goal:** Make the Studio local store reflect current production data. Today Studio is strictly one-way (DirectPush local→prod); the local `content-kb.db` drifts from prod (prod 109 rows, local only what was harvested + push-stamped). Add a "Pull from Prod" page/action — the inverse of `DirectPush.razor` — so an operator can mirror prod into local.
+
+**Scope (Option B — full pull; Option A read-only "Prod vs Local" drift view was the cheaper alternative, deferred):**
+- Read prod rows via `prodStore.GetAllRowsAsync` (plumbing already exists — DirectPush Stage 1 uses it for the diff).
+- Upsert them into the local `IContentSiteIndexStore` (`UpsertRowAsync` exists).
+- SCP-**download** the artifact `.md` files from prod `/data` into local `content-kb/` — **new**: only SCP upload exists today (`ISshArtifactUploader`); needs a download counterpart.
+- Read-only prod DB connection acceptable for the row read; SCP read for artifacts. AI-never-writes-prod rule unaffected (this only writes LOCAL).
+
+**Open design questions (resolve when planned):**
+- Merge semantics: prod-wins vs local-wins for in-flight local edits.
+- `approval_status` handling (prod defaults `pending`; local may be `approved`) — don't clobber local approvals?
+- `is_visible` / `is_hidden` / `pushed_to_prod_utc` reconciliation.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19). Promote via `/gsd-review-backlog` when the next cycle opens.
 
 ### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
 
@@ -224,4 +285,4 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19*

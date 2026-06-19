@@ -1,4 +1,5 @@
 @model DeckFlow.Web.Models.AdminContentKbViewModel
+@using DeckFlow.Core.Content
 @{
     ViewData["Title"] = "Content KB";
     var allFilterUrl = Url.Action("Index", new
@@ -134,6 +135,7 @@ else
                         <th scope="col">Source</th>
                         <th scope="col">Tags</th>
                         <th scope="col">Status</th>
+                        <th scope="col">Publish State</th>
                         <th scope="col">Action</th>
                     </tr>
                 </thead>
@@ -163,6 +165,15 @@ else
                                 {
                                     <span class="kb-status kb-status--unpublished" aria-label="Unpublished">Unpublished</span>
                                 }
+                            </td>
+                            <td data-label="Publish State">
+                                <span class="kb-status @(entry.PublishState switch
+                                {
+                                    DeckFlow.Core.Content.PublishState.Published => "kb-status--published",
+                                    DeckFlow.Core.Content.PublishState.PushedHidden => "kb-status--hidden",
+                                    DeckFlow.Core.Content.PublishState.LocalNewer => "kb-status--local-newer",
+                                    _ => "kb-status--unpublished",
+                                })">@entry.PublishState.ToDisplayString()</span>
                             </td>
                             <td data-label="Action">
                                 @if (entry.IsVisible)
@@ -238,7 +249,7 @@ else
                         </tr>
                     }
                     <tr class="kb-filter__empty-row hidden" id="kb-filter-empty">
-                        <td colspan="5">No entries match the current filter.</td>
+                        <td colspan="6">No entries match the current filter.</td>
                     </tr>
                 </tbody>
             </table>

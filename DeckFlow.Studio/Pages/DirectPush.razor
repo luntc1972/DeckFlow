@@ -369,8 +369,8 @@ unlocks only after every file uploads.</p>
                     @if (_dbSuccess)
                     {
                         <div class="alert alert-success py-2 mt-3">
-                            All @_rowResults.Count approved row(s) written to production.
-                            is_visible and is_evergreen on existing rows were preserved.
+                            All @_rowResults.Count approved row(s) written to production and published visible.
+                            is_evergreen on existing rows was preserved.
                         </div>
                     }
                 </div>
@@ -717,6 +717,27 @@ unlocks only after every file uploads.</p>
                 }
 
                 var allOk = localResults.All(r => r.Success);
+                if (allOk)
+                {
+                    var keys = _approvedRows
+                        .Select(row => ContentIndexExportRow.From(row))
+                        .Select(row => (
+                            Type: row.NaturalKeyType,
+                            Value: row.NaturalKeyValue))
+                        .ToList();
+                    var pushedUtc = DateTimeOffset.UtcNow;
+
+                    // Why: write PRODUCTION state first (stamp + publish-visible), then advance the
+                    // local store. If a prod write fails, the local row stays behind (un-stamped /
+                    // hidden) rather than deriving Published while prod is not — local must never
+                    // over-report prod (PUB-01/HIGH-3). DirectPush publishes its rows visible so both
+                    // the prod /Admin and Studio surfaces derive Published once local catches up.
+                    await prodStore.StampPushedToProdAsync(keys, pushedUtc, _cts.Token).ConfigureAwait(false);
+                    await prodStore.SetVisibilityAsync(keys, true, _cts.Token).ConfigureAwait(false);
+                    await IndexStore.StampPushedToProdAsync(keys, pushedUtc, _cts.Token).ConfigureAwait(false);
+                    await IndexStore.SetVisibilityAsync(keys, true, _cts.Token).ConfigureAwait(false);
+                }
+
                 await InvokeAsync(() =>
                 {
                     _rowResults = localResults;

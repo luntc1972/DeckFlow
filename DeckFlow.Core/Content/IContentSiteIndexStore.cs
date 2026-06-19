@@ -167,4 +167,32 @@ public interface IContentSiteIndexStore
         IReadOnlyList<(string Type, string Value)> keys,
         string status,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stamps <c>pushed_to_prod_utc</c> = <paramref name="pushedUtc"/> for the given natural keys inside one transaction.
+    /// The ONLY writer of <c>pushed_to_prod_utc</c>; no upsert touches the column. Local fact (PUB-01).
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="pushedUtc">UTC instant to stamp.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> StampPushedToProdAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset pushedUtc,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets <c>is_visible</c> = <paramref name="visible"/> for the given natural keys inside one transaction.
+    /// <c>is_hidden</c> is always cleared to <c>FALSE</c>, exactly mirroring the single-row
+    /// <see cref="SetVisibilityAsync(long, bool, CancellationToken)"/>. Used by DirectPush so an
+    /// operator-confirmed push publishes its rows visible in the same batch (both prod and local stores).
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="visible">Whether the matching rows should be visible.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> SetVisibilityAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        bool visible,
+        CancellationToken cancellationToken = default);
 }

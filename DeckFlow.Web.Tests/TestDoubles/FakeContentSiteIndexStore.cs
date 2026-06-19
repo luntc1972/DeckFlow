@@ -184,6 +184,18 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         return Task.FromResult(count);
     }
 
+    public Task<int> StampPushedToProdAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset pushedUtc,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
+
+    public Task<int> SetVisibilityAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        bool visible,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
+
     private int ApplyApprovalStatus(string naturalKeyType, string naturalKeyValue, string status)
     {
         var count = 0;

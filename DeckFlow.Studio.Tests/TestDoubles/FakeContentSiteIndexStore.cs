@@ -1,5 +1,6 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Orchestration;
 
 namespace DeckFlow.Studio.Tests;
 
@@ -19,6 +20,10 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     // Upsert-method call tracking — lets SC3 (D-08) assert ONLY UpsertContentColumnsOnlyAsync
     // was invoked on the prod store (never the two full-row upserts).
     public List<string> UpsertMethodCalls { get; } = new();
+
+    public List<(IReadOnlyList<(string Type, string Value)> Keys, DateTimeOffset PushedUtc)> StampCalls { get; } = new();
+
+    public List<(IReadOnlyList<(string Type, string Value)> Keys, bool Visible)> VisibilityKeyCalls { get; } = new();
 
     // ── Fault-injection hooks (47-03) ─────────────────────────────────────────
     // Natural keys (YoutubeVideoId ?? RssGuid) that should throw from the content-columns-only
@@ -193,6 +198,56 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         foreach (var (type, value) in keys)
         {
             count += ApplyApprovalStatus(type, value, status);
+        }
+
+        return Task.FromResult(count);
+    }
+
+    public Task<int> StampPushedToProdAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset pushedUtc,
+        CancellationToken cancellationToken = default)
+    {
+        StampCalls.Add((keys, pushedUtc));
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            var naturalKey = ContentIndexExportRow.From(Rows[i]);
+            var match = keys.Any(key =>
+                key.Type == naturalKey.NaturalKeyType
+                && key.Value == naturalKey.NaturalKeyValue);
+            if (!match)
+            {
+                continue;
+            }
+
+            Rows[i] = Rows[i] with { PushedToProdUtc = pushedUtc };
+            count++;
+        }
+
+        return Task.FromResult(count);
+    }
+
+    public Task<int> SetVisibilityAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        bool visible,
+        CancellationToken cancellationToken = default)
+    {
+        VisibilityKeyCalls.Add((keys, visible));
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            var naturalKey = ContentIndexExportRow.From(Rows[i]);
+            var match = keys.Any(key =>
+                key.Type == naturalKey.NaturalKeyType
+                && key.Value == naturalKey.NaturalKeyValue);
+            if (!match)
+            {
+                continue;
+            }
+
+            Rows[i] = Rows[i] with { IsVisible = visible, IsHidden = false };
+            count++;
         }
 
         return Task.FromResult(count);

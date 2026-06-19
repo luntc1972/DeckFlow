@@ -75,6 +75,11 @@
                 <div class="alert alert-danger py-2">@_channelBrowseError</div>
             }
 
+            @if (!string.IsNullOrEmpty(_blockError))
+            {
+                <div class="alert alert-danger py-2">@_blockError</div>
+            }
+
             @if (_channelVideos.Count > 0)
             {
                 <div class="table-responsive">
@@ -91,6 +96,7 @@
                                 <th scope="col">Title</th>
                                 <th scope="col">Published</th>
                                 <th scope="col">Status</th>
+                                <th scope="col" class="col-1">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -114,6 +120,33 @@
                                     </td>
                                     <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
                                     <td>@RenderBadge(vm.Status)</td>
+                                    <td>
+                                        @if (!vm.PendingBlock)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => BeginBlock(vm)"
+                                                    disabled="@(_operationInFlight || vm.Status == VideoStatus.Blocked)"
+                                                    aria-label="Block @vm.Title">
+                                                Block Video
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-danger"
+                                                    @ref="_confirmBlockButton"
+                                                    @onclick="() => ConfirmBlockAsync(vm)"
+                                                    disabled="@_operationInFlight"
+                                                    aria-label="Confirm block @vm.Title">
+                                                Confirm Block
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary ms-1"
+                                                    @onclick="() => vm.PendingBlock = false"
+                                                    aria-label="Keep @vm.Title">
+                                                Keep Video
+                                            </button>
+                                            <span class="text-danger small ms-2">This will delete KB artifacts.</span>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -160,6 +193,13 @@
             @if (!string.IsNullOrEmpty(_queueAddError))
             {
                 <div class="alert alert-danger py-2 mt-2">@_queueAddError</div>
+            }
+
+            @if (_addToQueueDone && _lastAddCount == 0 && !string.IsNullOrWhiteSpace(_lastAddInput))
+            {
+                <div class="alert alert-warning py-2 mt-2">
+                    No videos found for the pasted input. The video may be private, unlisted, or the URL may be invalid.
+                </div>
             }
 
             @if (_queueVideos.Count > 0)
@@ -708,6 +748,9 @@
     [Inject]
     private ILlmSpendLedger SpendLedger { get; set; } = default!;
 
+    [Inject]
+    private IContentMaintenanceOrchestrator MaintenanceOrchestrator { get; set; } = default!;
+
     // ── Section 1 state ─────────────────────────────────────────────────────
     private string _channelInput = string.Empty;
     private int _browseLimit = 25;
@@ -725,6 +768,9 @@
     private string _pasteQueueText = string.Empty;
     private bool _isAddingToQueue;
     private string _queueAddError = string.Empty;
+    private bool _addToQueueDone;
+    private int _lastAddCount;
+    private string _lastAddInput = string.Empty;
     private List<VideoViewModel> _queueVideos = new();
     private bool _allQueueSelected;
 
@@ -732,8 +778,11 @@
     private CancellationTokenSource? _cts;
     private bool _operationInFlight;
     private List<string> _logLines = new();
+    private string _blockError = string.Empty;
     private HarvestResult? _harvestResult;
     private bool _harvestCancelled;
+    private bool _focusConfirmPending;
+    private ElementReference _confirmBlockButton;
 
     // ── Section 4 distill state ──────────────────────────────────────────────
     // Cap display (D-02): loaded at page init and refreshed after distill.
@@ -852,6 +901,11 @@
             return;
         }
 
+        _addToQueueDone = false;
+        _lastAddCount = 0;
+        var pasteAtStart = _pasteQueueText;
+        _lastAddInput = pasteAtStart;
+
         var rawLines = _pasteQueueText
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(l => !string.IsNullOrWhiteSpace(l))
@@ -893,6 +947,7 @@
                 },
                 addCts.Token);
 
+            int added = 0;
             foreach (var v in videos)
             {
                 // Skip if already in queue (by VideoId).
@@ -910,8 +965,10 @@
                     : status;
 
                 _queueVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, displayStatus, v.ChannelId, v.ChannelTitle));
+                added++;
             }
 
+            _lastAddCount = added;
             _pasteQueueText = string.Empty;
         }
         catch (ArgumentException ex)
@@ -929,6 +986,7 @@
         }
         finally
         {
+            _addToQueueDone = true;
             _isAddingToQueue = false;
             _allQueueSelected = false;
         }
@@ -1199,6 +1257,22 @@
         _cts?.Cancel();
     }
 
+    private void BeginBlock(VideoViewModel vm)
+    {
+        vm.PendingBlock = true;
+        _focusConfirmPending = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusConfirmPending)
+        {
+            _focusConfirmPending = false;
+            try { await _confirmBlockButton.FocusAsync(); }
+            catch (Exception) { }
+        }
+    }
+
     // ── Section 4: Distill Spend Gate (HARV-05) ─────────────────────────────
 
     /// <summary>
@@ -1441,6 +1515,67 @@
         }
     }
 
+    private async Task ConfirmBlockAsync(VideoViewModel vm)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _blockError = string.Empty;
+        _cts = new CancellationTokenSource();
+
+        var progress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _logLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        try
+        {
+            // Why: Task.Run moves the destructive orchestrator call off the Blazor sync context.
+            // BlockVideoAsync owns block-first/delete-second ordering — never call a store delete directly.
+            var result = await Task.Run(
+                () => MaintenanceOrchestrator.BlockVideoAsync(vm.VideoId, reason: null, progress, _cts.Token),
+                _cts.Token);
+
+            if (result.Success)
+            {
+                // Re-resolve the badge so the row flips to Blocked.
+                await RefreshBadgesAsync(new[] { vm.VideoId });
+            }
+            else
+            {
+                // Result-based failure (NO exception): surface operator-safe copy, do NOT refresh the badge.
+                _blockError = !string.IsNullOrWhiteSpace(result.Message)
+                    ? result.Message
+                    : "Block failed — the video was not removed.";
+                _logLines.Add(_blockError);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            // Why: do NOT echo exception.Message (may leak paths) — generic operator-safe copy only.
+            _blockError = "Block failed — the video was not removed.";
+            _logLines.Add(_blockError);
+        }
+        finally
+        {
+            // Clear the confirm state on EVERY outcome (success, result-false, throw).
+            vm.PendingBlock = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     // ── Badge rendering (HARV-03) ────────────────────────────────────────────
     /// <summary>
     /// Maps <see cref="VideoStatus"/> to the exact Bootstrap badge class + label per UI-SPEC
@@ -1452,6 +1587,8 @@
         VideoStatus.NotHarvested => @<span class="badge bg-secondary">Not harvested</span>,
         VideoStatus.Harvested    => @<span class="badge bg-info text-dark">Harvested</span>,
         VideoStatus.Distilled    => @<span class="badge bg-success">Distilled</span>,
+        VideoStatus.Approved     => @<span class="badge bg-primary">Approved</span>,
+        VideoStatus.Published    => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
         VideoStatus.Blocked      => @<span class="badge bg-danger">Blocked</span>,
         VideoStatus.Duplicate    => @<span class="badge bg-warning text-dark">Already in DB</span>,
         _                        => @<span class="badge bg-secondary">Unknown</span>,
@@ -1487,6 +1624,7 @@
         public DateTimeOffset? PublishedUtc { get; }
         public VideoStatus Status { get; set; }
         public bool Selected { get; set; }
+        public bool PendingBlock { get; set; }
         /// <summary>YouTube channel id for this video's author, when available from the listing source.</summary>
         public string? ChannelId { get; }
         /// <summary>Display name of the YouTube channel that published this video, when available.</summary>

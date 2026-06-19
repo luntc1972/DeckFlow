@@ -208,5 +208,11 @@ public sealed class CommandRunnerCorpusResetTests
 
         public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
+        public Task<int> StampPushedToProdAsync(IReadOnlyList<(string Type, string Value)> keys, DateTimeOffset pushedUtc, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
+        public Task<int> SetVisibilityAsync(IReadOnlyList<(string Type, string Value)> keys, bool visible, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
     }
 }

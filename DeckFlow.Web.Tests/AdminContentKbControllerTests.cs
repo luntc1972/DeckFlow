@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Controllers.Admin;
 using DeckFlow.Web.Models;
@@ -264,6 +265,107 @@ public sealed class AdminContentKbControllerTests
         Assert.Equal(2, model.Entries.Count);
     }
 
+    [Fact]
+    public async Task Index_RowPublishFields_RoundTripFromStore()
+    {
+        var indexedUtc = new DateTimeOffset(2026, 6, 2, 0, 0, 0, TimeSpan.Zero);
+        var pushedToProdUtc = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true, indexed: indexedUtc, pushedToProdUtc: pushedToProdUtc));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(cancellationToken: default);
+
+        var vm = Assert.IsType<ViewResult>(result).Model as AdminContentKbViewModel;
+        Assert.NotNull(vm);
+        Assert.Equal(pushedToProdUtc, vm.Entries[0].PushedToProdUtc);
+        Assert.Equal(indexedUtc, vm.Entries[0].IndexedUtc);
+    }
+
+    [Fact]
+    public async Task Index_PublishStateNeverPublished_WhenPushedToProdUtcIsNull()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true, pushedToProdUtc: null));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(cancellationToken: default);
+
+        var vm = Assert.IsType<ViewResult>(result).Model as AdminContentKbViewModel;
+        Assert.NotNull(vm);
+        Assert.Equal(PublishState.NeverPublished, vm.Entries[0].PublishState);
+    }
+
+    [Fact]
+    public async Task Index_PublishStatePublished_WhenVisibleAndPushedToProdUtcIsAtOrAfterIndexedUtc()
+    {
+        var indexedUtc = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var pushedToProdUtc = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true, indexed: indexedUtc, pushedToProdUtc: pushedToProdUtc));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(cancellationToken: default);
+
+        var vm = Assert.IsType<ViewResult>(result).Model as AdminContentKbViewModel;
+        Assert.NotNull(vm);
+        Assert.Equal(PublishState.Published, vm.Entries[0].PublishState);
+    }
+
+    [Fact]
+    public async Task Index_PublishStateLocalNewer_WhenIndexedUtcIsAfterPushedToProdUtc()
+    {
+        var indexedUtc = new DateTimeOffset(2026, 6, 2, 0, 0, 0, TimeSpan.Zero);
+        var pushedToProdUtc = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true, indexed: indexedUtc, pushedToProdUtc: pushedToProdUtc));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(cancellationToken: default);
+
+        var vm = Assert.IsType<ViewResult>(result).Model as AdminContentKbViewModel;
+        Assert.NotNull(vm);
+        Assert.Equal(PublishState.LocalNewer, vm.Entries[0].PublishState);
+    }
+
+    [Fact]
+    public async Task Index_PublishStatePushedHidden_WhenPushedButNotVisible()
+    {
+        // Why: PushedHidden is the one derived state whose precedence is non-trivial — the
+        // !isVisible branch must fire BEFORE the timestamp compare. A row pushed to prod but
+        // hidden from the site (visible:false, hidden:false) stays in the default grid and
+        // must read Pushed-hidden, not Published/Local-newer.
+        var indexedUtc = new DateTimeOffset(2026, 6, 2, 0, 0, 0, TimeSpan.Zero);
+        var pushedToProdUtc = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: false, hidden: false, indexed: indexedUtc, pushedToProdUtc: pushedToProdUtc));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(cancellationToken: default);
+
+        var vm = Assert.IsType<ViewResult>(result).Model as AdminContentKbViewModel;
+        Assert.NotNull(vm);
+        Assert.Equal(PublishState.PushedHidden, vm.Entries[0].PublishState);
+    }
+
+    [Fact]
+    public async Task Index_PublishStatePublished_WhenPushedStrictlyAfterIndexedUtc()
+    {
+        // Why: the "AtOrAfter" Published test pins only the == boundary; this pins the strictly
+        // greater case so a future <=/< off-by-one in the deriver precedence is caught.
+        var indexedUtc = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var pushedToProdUtc = new DateTimeOffset(2026, 6, 2, 0, 0, 0, TimeSpan.Zero);
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(Row(1, visible: true, indexed: indexedUtc, pushedToProdUtc: pushedToProdUtc));
+        var controller = Build(store, out _, crossOrigin: false);
+
+        var result = await controller.Index(cancellationToken: default);
+
+        var vm = Assert.IsType<ViewResult>(result).Model as AdminContentKbViewModel;
+        Assert.NotNull(vm);
+        Assert.Equal(PublishState.Published, vm.Entries[0].PublishState);
+    }
+
     private static void AssertForbidden(IActionResult result)
     {
         var obj = Assert.IsType<ObjectResult>(result);
@@ -291,6 +393,7 @@ public sealed class AdminContentKbControllerTests
             store,
             loader,
             flagCache,
+            new DeckFlow.Core.Content.PublishStateDeriver(),
             NullLogger<AdminContentKbController>.Instance);
 
         var httpContext = new DefaultHttpContext();
@@ -303,7 +406,12 @@ public sealed class AdminContentKbControllerTests
         return controller;
     }
 
-    private static ContentSiteIndexRow Row(long id, bool visible, bool hidden = false, DateTimeOffset? indexed = null)
+    private static ContentSiteIndexRow Row(
+        long id,
+        bool visible,
+        bool hidden = false,
+        DateTimeOffset? indexed = null,
+        DateTimeOffset? pushedToProdUtc = null)
         => new()
         {
             Id = id,
@@ -318,6 +426,7 @@ public sealed class AdminContentKbControllerTests
             YoutubeVideoId = "x" + id,
             IsVisible = visible,
             IsHidden = hidden,
+            PushedToProdUtc = pushedToProdUtc,
         };
 
     private sealed class StubTempDataProvider : ITempDataProvider

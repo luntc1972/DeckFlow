@@ -22,26 +22,31 @@ public sealed class AdminContentKbController : Controller
     private readonly IContentSiteIndexStore _store;
     private readonly IContentKbSeedLoader _seedLoader;
     private readonly IFeatureFlagCache _flagCache;
+    private readonly PublishStateDeriver _deriver;
     private readonly ILogger<AdminContentKbController> _logger;
 
     /// <summary>Constructor injecting the index store, seed loader, flag cache, and logger.</summary>
     /// <param name="store">Content site-index store (read all rows + flip visibility).</param>
     /// <param name="seedLoader">Curation-preserving seed loader for the reload action.</param>
     /// <param name="flagCache">Feature-flag cache for the content.kb.enabled status display.</param>
+    /// <param name="deriver">Shared publish-state deriver.</param>
     /// <param name="logger">Logger.</param>
     public AdminContentKbController(
         IContentSiteIndexStore store,
         IContentKbSeedLoader seedLoader,
         IFeatureFlagCache flagCache,
+        PublishStateDeriver deriver,
         ILogger<AdminContentKbController> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(seedLoader);
         ArgumentNullException.ThrowIfNull(flagCache);
+        ArgumentNullException.ThrowIfNull(deriver);
         ArgumentNullException.ThrowIfNull(logger);
         _store = store;
         _seedLoader = seedLoader;
         _flagCache = flagCache;
+        _deriver = deriver;
         _logger = logger;
     }
 
@@ -71,6 +76,9 @@ public sealed class AdminContentKbController : Controller
                 IsVisible = r.IsVisible,
                 IsHidden = r.IsHidden,
                 IsEvergreen = r.IsEvergreen,
+                PushedToProdUtc = r.PushedToProdUtc,
+                IndexedUtc = r.IndexedUtc,
+                PublishState = _deriver.Derive(r.PushedToProdUtc, r.IsVisible, r.IndexedUtc),
             });
 
         entries = normalizedVisibilityFilter switch

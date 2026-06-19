@@ -1,5 +1,23 @@
 # Milestones
 
+## Cycle 9 — Content Pipeline & Publish-Tracking (Shipped: 2026-06-19, `2026.06.5`)
+
+**Phases completed:** 4 phases (55-58), 11 plans
+**Code delta vs `main`:** 20 files (+706/−20) across Core/Web/Studio — pure additive Cycle-9 work (plus planning-doc reorg).
+**Requirements:** 12/12 satisfied. Audit status: tech-debt — no separate milestone audit; every phase individually verified (55 SECURED, 56 verified 7/7, 57 verified + SC2→Phase 58, 58 all 4 SCs PASS + SECURED 9/9).
+
+**Key accomplishments:**
+
+- **Publish-state foundation (P55, PUB-01/02):** new `pushed_to_prod_utc` column (kept distinct from the seed-contract `published_utc`) via an idempotent dual-dialect migration, stamped by both publish paths; a single pure `PublishStateDeriver` in Core returns one of {Never published / Pushed-hidden / Published / Local-newer} — no duplicate status logic.
+- **Studio surfaces (P56, BROWSE/REM/ADD/PUB-03):** 6-state per-video status badges at channel-browse, multi-select harvest, Block (hard-delete + blocklist) and a Blocked-list/unblock page, single-URL add, and the derived publish-state on Review + Publish — all without dropping to the CLI.
+- **Admin surface + distill quality (P57, SITE-01/DIST-01):** publish-state column on `/Admin/ContentKb` reading the shared deriver; reworked the four distill system prompts for paste-ready summaries, on-topic clips, and tag parsimony (JSON contract unchanged).
+- **Dogfooded the whole pipeline on real content (P58, DOGFOOD-01):** harvested + distilled a new video (real spend, $0 subscription), judged higher-quality than the pre-Cycle-9 baseline (tag discipline 3 vs 12), published it to prod, and confirmed `Published` on both surfaces — within the spend cap, no corpus regression (108→109 additive).
+- **Found + fixed a real cross-surface gap (SC2):** dogfood exposed that DirectPush stamped `pushed_to_prod_utc` but never set `is_visible`, so Studio stayed Pushed-hidden while prod /Admin showed Published. Fixed (`4cb333e`): keyed `SetVisibilityAsync` + DirectPush publishes visible (prod-then-local); Codex-reviewed (1 HIGH + 1 MED fixed); secured (T-58-09, 9/9 SECURED).
+
+**Quality:** build 0 errors; Studio 49/49, Core 475/475.
+
+**Known carry-forward at close:** prod harvest green-run not yet observed since the F-51-PG-01 deploy (fix live 2026-06-17 21:19Z on `d0bb913`); `e3qGnuupp8U` durability (in prod DB, not the git seed — a future reset+reseed omits it until a full git-Publish); backlog seeded — Studio "Pull from Prod" (prod→local sync) + Validate-KB-value A/B gating experiment. Carry-forward ops from Cycle 8 still open (`deckflow_admin` deletion, Gemini prod flip).
+
 ## Cycle 8 — Hardening & Backlog Burn-down (Shipped: 2026-06-17, `2026.06.4`)
 
 **Phases completed:** 4 phases (51-54), 11 plans

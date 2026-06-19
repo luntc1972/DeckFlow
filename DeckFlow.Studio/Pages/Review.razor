@@ -1,7 +1,7 @@
 @page "/review"
 @implements IDisposable
-@using DeckFlow.Core.Content
 @using DeckFlow.Core.Knowledge
+@using DeckFlow.Core.Content
 @using DeckFlow.Core.Orchestration
 
 <PageTitle>Review Queue</PageTitle>
@@ -91,6 +91,7 @@
                             <th scope="col">Title</th>
                             <th scope="col">Tags</th>
                             <th scope="col">Status</th>
+                            <th scope="col">Publish State</th>
                             <th scope="col">Actions</th>
                             <th scope="col" style="width:50px"></th>
                         </tr>
@@ -124,6 +125,7 @@
                                         <span class="badge bg-warning text-dark ms-1">Artifact missing</span>
                                     }
                                 </td>
+                                <td>@RenderPublishStateBadge(Deriver.Derive(vm.PushedToProdUtc, vm.IsVisible, vm.IndexedUtc))</td>
                                 <td>
                                     @{
                                         var approveDisabledForMissing = missing && vm.ApprovalStatus != "approved";
@@ -160,7 +162,7 @@
                             @if (vm.Expanded)
                             {
                                 <tr class="bg-light">
-                                    <td colspan="6" class="p-3">
+                                    <td colspan="7" class="p-3">
                                         @{
                                             var cacheKey = vm.NaturalKeyValue;
                                             var hasCached = _expandCache.TryGetValue(cacheKey, out var cachedText);
@@ -180,7 +182,7 @@
                                         {
                                             <h3 class="h6 fw-semibold mb-1">Content Preview</h3>
                                             <pre class="bg-white border rounded p-2"
-                                                 style="max-height:400px; overflow-y:auto; font-size:0.875rem; font-family:monospace">@cachedText</pre>
+                                                 style="max-height:400px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; overflow-wrap:anywhere; font-size:0.875rem; font-family:monospace">@cachedText</pre>
                                         }
 
                                         <dl class="row mb-0 mt-2">
@@ -237,6 +239,9 @@
 
     [Inject]
     private ContentKbOrchestratorOptions Options { get; set; } = default!;
+
+    [Inject]
+    private PublishStateDeriver Deriver { get; set; } = default!;
 
     // ── Page state ──────────────────────────────────────────────────────────
     private bool _loading = true;
@@ -613,6 +618,15 @@
         _          => @<span class="badge bg-secondary">Pending</span>,
     };
 
+    private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
+    {
+        PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,
+        PublishState.PushedHidden   => @<span class="badge bg-warning text-dark">Pushed-hidden</span>,
+        PublishState.Published      => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
+        PublishState.LocalNewer     => @<span class="badge bg-info text-dark">Local-newer</span>,
+        _                           => @<span class="badge bg-secondary">Unknown</span>,
+    };
+
     private static RenderFragment RenderTagsSummary(ReviewViewModel vm)
     {
         var allTags = vm.ArchetypeTags
@@ -655,6 +669,9 @@
         public string VideoUrl { get; }
         public string ArtifactPath { get; }
         public string ApprovalStatus { get; set; }
+        public DateTimeOffset? PushedToProdUtc { get; }
+        public bool IsVisible { get; }
+        public DateTimeOffset IndexedUtc { get; }
         public IReadOnlyList<string> ArchetypeTags { get; }
         public IReadOnlyList<string> BracketTags { get; }
         public IReadOnlyList<string> CardCategoryTags { get; }
@@ -674,6 +691,9 @@
             VideoUrl = row.VideoUrl;
             ArtifactPath = row.ArtifactPath;
             ApprovalStatus = row.ApprovalStatus;
+            PushedToProdUtc = row.PushedToProdUtc;
+            IsVisible = row.IsVisible;
+            IndexedUtc = row.IndexedUtc;
             ArchetypeTags = row.ArchetypeTags;
             BracketTags = row.BracketTags;
             CardCategoryTags = row.CardCategoryTags;

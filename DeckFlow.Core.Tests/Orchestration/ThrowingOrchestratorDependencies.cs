@@ -155,6 +155,12 @@ internal sealed class ThrowingContentSiteIndexStore : IContentSiteIndexStore
 
     public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(SetApprovalStatusAsync)} must not be called by the current path");
+
+    public Task<int> StampPushedToProdAsync(IReadOnlyList<(string Type, string Value)> keys, DateTimeOffset pushedUtc, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(StampPushedToProdAsync)} must not be called by the current path");
+
+    public Task<int> SetVisibilityAsync(IReadOnlyList<(string Type, string Value)> keys, bool visible, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(SetVisibilityAsync)} must not be called by the current path");
 }
 
 internal sealed class ThrowingContentHarvestRunStore : IContentHarvestRunStore
