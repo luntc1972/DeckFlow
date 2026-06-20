@@ -1000,8 +1000,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // inclusion — the most uncertain, highest-stakes cards — and the commander is the single
                 // most important card for the analysis; both always keep full Oracle text regardless of
                 // printing age.
-                var gateApplies = string.Equals(cardReference.Scope, "current_deck", StringComparison.OrdinalIgnoreCase)
-                    && !cardReference.IsCommander;
+                var gateApplies = IsCurrentDeckScope(cardReference.Scope) && !cardReference.IsCommander;
                 var includeOracle = !gateApplies
                     || ShouldIncludeOracleText(cardReference.ReleasedAt, recencyGateEnabled, recencyCutoff);
                 builder.AppendLine(includeOracle
@@ -1053,8 +1052,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // submitted name (alt-art / Universes Beyond), and printing-fallback references carry a
         // composite "submitted_name: X | resolved_card: Y" name that no bare name set would match.
         var inputs = cardReferences
-            .Where(card => string.Equals(card.Scope, "current_deck", StringComparison.OrdinalIgnoreCase)
-                && !card.IsCommander)
+            .Where(card => IsCurrentDeckScope(card.Scope) && !card.IsCommander)
             .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost));
 
         var stats = DeckStatAggregator.Compute(inputs);
@@ -1071,6 +1069,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         builder.Append($"role_counts: ramp={stats.Ramp} draw={stats.Draw} interaction={stats.Interaction} wipes={stats.Wipes} recursion={stats.Recursion} closing_power={stats.ClosingPower}");
         return builder.ToString();
     }
+
+    /// <summary>True when a reference card belongs to the active deck (not a sideboard/maybeboard candidate).</summary>
+    private static bool IsCurrentDeckScope(string scope)
+        => string.Equals(scope, "current_deck", StringComparison.OrdinalIgnoreCase);
 
     internal static bool IsModalDfcLand(ScryfallCard card)
         => card.Layout == "modal_dfc"

@@ -185,20 +185,17 @@ public static class DeckStatAggregator
         }
 
         var total = 0;
-        var depth = 0;
-        var tokenStart = -1;
+        var tokenStart = -1; // -1 = not inside a {...} token
         for (var i = 0; i < manaCost.Length; i++)
         {
             var ch = manaCost[i];
             if (ch == '{')
             {
-                depth = 1;
                 tokenStart = i + 1;
             }
-            else if (ch == '}' && depth == 1)
+            else if (ch == '}' && tokenStart >= 0)
             {
-                depth = 0;
-                if (tokenStart >= 0 && i > tokenStart)
+                if (i > tokenStart)
                 {
                     total += DeckStatClassifier.ParseManaToken(manaCost.Substring(tokenStart, i - tokenStart));
                 }
