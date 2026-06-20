@@ -377,7 +377,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             var step5InputSummary = savedAnalysisResponse is null
                 ? string.Empty
                 : BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse);
-            var step5CardText = await BuildSetUpgradeCardTextAsync(request, cancellationToken).ConfigureAwait(false);
+            // Step 5 has no pre-built packet (no analysis/set-upgrade packet was generated on this path).
+            var step5CardText = await BuildSetUpgradeCardTextAsync(request, prebuiltGeneratedPacket: null, cancellationToken).ConfigureAwait(false);
             var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
             return new DeckAnalysisPacketResult(
                 InputSummary: step5InputSummary,
@@ -540,6 +541,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         // Only fetch banned list and set packet when the analysis or set-upgrade step actually needs them.
+        // Hoisted so the set-upgrade card-text resolution can reuse the already-fetched packet instead of
+        // re-fetching it from Scryfall.
+        string? generatedSetPacket = null;
         if (wantsAnalysisPacket || wantsSetUpgradePacket)
         {
             // Fire banned-list and set-packet fetches in parallel — neither depends on the other.
@@ -550,7 +554,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             timings.Add(("Ban list + set packet", parallelStopwatch.ElapsedMilliseconds, null));
             _logger.LogInformation("Deck Analysis packet banned-list + set-packet fetch completed in {ElapsedMs}ms.", parallelStopwatch.ElapsedMilliseconds);
             var bannedCards = bannedCardsTask.Result;
-            var generatedSetPacket = setPacketTask.Result;
+            generatedSetPacket = setPacketTask.Result;
 
             if (wantsAnalysisPacket)
             {
@@ -653,7 +657,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         var setUpgradeCardText = setUpgradeResponse is null
             ? null
-            : await BuildSetUpgradeCardTextAsync(request, cancellationToken).ConfigureAwait(false);
+            : await BuildSetUpgradeCardTextAsync(request, generatedSetPacket, cancellationToken).ConfigureAwait(false);
 
         var result = new DeckAnalysisPacketResult(
             inputSummary,
@@ -991,12 +995,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // released before the cutoff; keep it for recent/unknown-date printings the model may
                 // not know yet, preserving grounding where it actually changes the answer.
                 //
-                // The gate applies ONLY to current_deck cards. candidate_include (sideboard/maybeboard)
-                // cards are the ones the user is actively asking the AI to evaluate for inclusion — the
-                // most uncertain, highest-stakes cards in the prompt — so they always keep full Oracle
-                // text regardless of printing age.
-                var isCurrentDeck = string.Equals(cardReference.Scope, "current_deck", StringComparison.OrdinalIgnoreCase);
-                var includeOracle = !isCurrentDeck
+                // The gate applies ONLY to non-commander current_deck cards. candidate_include
+                // (sideboard/maybeboard) cards are the ones the user is asking the AI to evaluate for
+                // inclusion — the most uncertain, highest-stakes cards — and the commander is the single
+                // most important card for the analysis; both always keep full Oracle text regardless of
+                // printing age.
+                var gateApplies = string.Equals(cardReference.Scope, "current_deck", StringComparison.OrdinalIgnoreCase)
+                    && !cardReference.IsCommander;
+                var includeOracle = !gateApplies
                     || ShouldIncludeOracleText(cardReference.ReleasedAt, recencyGateEnabled, recencyCutoff);
                 builder.AppendLine(includeOracle
                     ? $"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine} | {cardReference.OracleText}{mdfcMarker}"
@@ -1137,16 +1143,17 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// text. Card-text display is non-essential, so any failure (no set selected, multiple sets, or a
     /// Scryfall outage) degrades silently to an empty map, leaving the AI-echoed card_text in place.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, string>> BuildSetUpgradeCardTextAsync(DeckAnalysisRequest request, CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<string, string>> BuildSetUpgradeCardTextAsync(DeckAnalysisRequest request, string? prebuiltGeneratedPacket, CancellationToken cancellationToken)
     {
         try
         {
             // Mirror the set-upgrade prompt variants' packet resolution — a pasted override always
             // wins over the generated packet — so the displayed rules text matches the packet the AI
             // actually analyzed (and skips a needless Scryfall fetch when an override is present).
+            // When the caller already generated the packet this build, reuse it rather than re-fetching.
             var packet = !string.IsNullOrWhiteSpace(request.SetPacketText)
                 ? request.SetPacketText
-                : await BuildGeneratedSetPacketAsync(request, cancellationToken).ConfigureAwait(false);
+                : prebuiltGeneratedPacket ?? await BuildGeneratedSetPacketAsync(request, cancellationToken).ConfigureAwait(false);
             return ParseSetPacketCardText(packet);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
