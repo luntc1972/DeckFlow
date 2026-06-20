@@ -1058,7 +1058,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         builder.AppendLine($"cards: {stats.Cards} (excludes commander)");
         builder.AppendLine($"lands: {stats.Lands}");
         builder.AppendLine($"creatures: {stats.Creatures}");
-        builder.AppendLine($"average_mana_value: {stats.AverageManaValue:0.00} (nonland)");
+        // Invariant culture so the decimal separator is always '.' regardless of server locale
+        // (a comma-decimal host would otherwise emit "2,00" in this machine-readable block).
+        builder.AppendLine($"average_mana_value: {stats.AverageManaValue.ToString("0.00", CultureInfo.InvariantCulture)} (nonland)");
         builder.AppendLine($"mana_curve: 0-1={stats.ManaCurve["0-1"]} 2={stats.ManaCurve["2"]} 3={stats.ManaCurve["3"]} 4={stats.ManaCurve["4"]} 5+={stats.ManaCurve["5+"]}");
         builder.Append($"role_counts: ramp={stats.Ramp} draw={stats.Draw} interaction={stats.Interaction} wipes={stats.Wipes} recursion={stats.Recursion} closing_power={stats.ClosingPower}");
         return builder.ToString();
