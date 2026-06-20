@@ -594,7 +594,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // state composition facts (lands, creatures, curve, role counts) instead of asking the AI
                 // to tally 100 cards. Empty when the flag is off, in which case the block is omitted.
                 var deckStatsText = (_flagCache?.IsEnabled(ReferenceDeckStatsFlag) ?? false)
-                    ? BuildDeckStatsText(cardReferenceBundle.CardReferences, deckEntries)
+                    ? BuildDeckStatsText(cardReferenceBundle.CardReferences)
                     : string.Empty;
 
                 referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff, deckStatsText);
@@ -982,7 +982,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // parametric knowledge, so their Oracle text is ~token-only noise. Drop it for cards
                 // released before the cutoff; keep it for recent/unknown-date printings the model may
                 // not know yet, preserving grounding where it actually changes the answer.
-                var includeOracle = ShouldIncludeOracleText(cardReference.ReleasedAt, recencyGateEnabled, recencyCutoff);
+                //
+                // The gate applies ONLY to current_deck cards. candidate_include (sideboard/maybeboard)
+                // cards are the ones the user is actively asking the AI to evaluate for inclusion — the
+                // most uncertain, highest-stakes cards in the prompt — so they always keep full Oracle
+                // text regardless of printing age.
+                var isCurrentDeck = string.Equals(cardReference.Scope, "current_deck", StringComparison.OrdinalIgnoreCase);
+                var includeOracle = !isCurrentDeck
+                    || ShouldIncludeOracleText(cardReference.ReleasedAt, recencyGateEnabled, recencyCutoff);
                 builder.AppendLine(includeOracle
                     ? $"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine} | {cardReference.OracleText}{mdfcMarker}"
                     : $"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine}{mdfcMarker}");
@@ -1024,19 +1031,16 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// as facts rather than asking the AI to count a 100-card list.
     /// </summary>
     /// <param name="cardReferences">All resolved reference cards (current deck + candidates).</param>
-    /// <param name="deckEntries">Deck entries (mainboard + commander) used to identify the commander.</param>
     private static string BuildDeckStatsText(
-        IReadOnlyList<CardReference> cardReferences,
-        IReadOnlyList<DeckEntry> deckEntries)
+        IReadOnlyList<CardReference> cardReferences)
     {
-        var commanderNames = deckEntries
-            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .Select(entry => entry.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
+        // Exclude the commander via the IsCommander flag (carried from DeckEntry.Board through the
+        // reference pipeline), NOT by name-matching: the resolved Scryfall name can differ from the
+        // submitted name (alt-art / Universes Beyond), and printing-fallback references carry a
+        // composite "submitted_name: X | resolved_card: Y" name that no bare name set would match.
         var inputs = cardReferences
             .Where(card => string.Equals(card.Scope, "current_deck", StringComparison.OrdinalIgnoreCase)
-                && !commanderNames.Contains(card.Name))
+                && !card.IsCommander)
             .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost));
 
         var stats = DeckStatAggregator.Compute(inputs);
@@ -1064,7 +1068,11 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         requests.AddRange(deckEntries
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => new CardReferenceRequest(entry.Name, "current_deck", entry.Quantity)));
+            .Select(entry => new CardReferenceRequest(
+                entry.Name,
+                "current_deck",
+                entry.Quantity,
+                string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))));
 
         requests.AddRange(analysisPossibleIncludeEntries
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
@@ -1336,7 +1344,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     NormalizeOracleText(card),
                     IsModalDfcLand(card),
                     card.ReleasedAt,
-                    matchingRequest.Quantity);
+                    matchingRequest.Quantity,
+                    matchingRequest.IsCommander);
 
                 foreach (var mechanicName in ExtractMechanicNames(card))
                 {
@@ -1365,7 +1374,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     NormalizeOracleText(fallbackCard),
                     IsModalDfcLand(fallbackCard),
                     fallbackCard.ReleasedAt,
-                    unresolvedRequest.Quantity);
+                    unresolvedRequest.Quantity,
+                    unresolvedRequest.IsCommander);
 
                 foreach (var mechanicName in ExtractMechanicNames(fallbackCard))
                 {
@@ -1676,8 +1686,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private static partial Regex AbilityWordPattern();
 
 
-    private sealed record CardReferenceRequest(string Name, string Scope, int Quantity = 1);
-    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null, int Quantity = 1);
+    private sealed record CardReferenceRequest(string Name, string Scope, int Quantity = 1, bool IsCommander = false);
+    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null, int Quantity = 1, bool IsCommander = false);
 
     private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
 
