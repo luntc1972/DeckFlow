@@ -89,5 +89,16 @@ public sealed class ManabaseController : DeckToolControllerBase
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
         }
+        catch (Exception exception)
+        {
+            // Last-resort boundary so an unexpected parser/runtime fault renders a friendly
+            // error on this public form instead of a raw 500.
+            _logger.LogError(exception, "Mana-base analysis failed unexpectedly.");
+            return View("Manabase", new ManabaseViewModel
+            {
+                Request = request,
+                ErrorMessage = "Something went wrong analyzing that deck. Please try again.",
+            });
+        }
     }
 }

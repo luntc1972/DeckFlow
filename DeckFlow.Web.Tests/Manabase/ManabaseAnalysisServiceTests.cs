@@ -100,6 +100,28 @@ public sealed class ManabaseAnalysisServiceTests
             () => service.AnalyzeAsync("paste", null, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_OversizeDeckSource_Throws()
+    {
+        var service = new ManabaseAnalysisService(new FakeLoader(new List<DeckEntry>()), new FakeResolver(new List<ScryfallCard>()));
+        string huge = new string('x', 100_001);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.AnalyzeAsync(huge, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_TooManyCards_Throws()
+    {
+        var entries = Enumerable.Range(0, 501)
+            .Select(i => Entry($"Card {i}", 1, "mainboard"))
+            .ToList();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(new List<ScryfallCard>()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.AnalyzeAsync("paste", null, CancellationToken.None));
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null) => new()

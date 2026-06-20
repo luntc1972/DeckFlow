@@ -114,6 +114,8 @@ internal static class ManabaseCommandRunner
         {
             BaseUrl = new Uri("https://api.scryfall.com"),
             ThrowOnAnyError = false,
+            // Bound each request so a stalled connection can't hang the CLI indefinitely.
+            Timeout = TimeSpan.FromSeconds(30),
         });
         client.AddDefaultHeader("User-Agent", "DeckFlow.CLI/1.0 (+https://github.com/luntc1972/DeckFlow)");
         client.AddDefaultHeader("Accept", "application/json;q=0.9,*/*;q=0.8");

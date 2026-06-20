@@ -13,12 +13,16 @@ public sealed class ScryfallCardNameIndex
     private const string FaceSeparator = "//";
 
     private readonly Dictionary<string, ScryfallCardData> _byName = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ScryfallCardData> _byFrontFace = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ScryfallCardData> _byPrinting = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Add a resolved card. Indexes it under its printing key (set + collector number, when
     /// both are present), its normalized full name, and — for a multi-faced card — its
-    /// normalized front-face name. Last write wins on a key collision.
+    /// normalized front-face name in a SEPARATE alias map. Keeping aliases apart from exact
+    /// names means a split/DFC front face can never overwrite a different card's exact name;
+    /// resolution always prefers an exact-name match over an alias. Last write wins within a
+    /// single map.
     /// </summary>
     public void Add(ScryfallCardData card)
     {
@@ -35,7 +39,7 @@ public sealed class ScryfallCardNameIndex
         string? front = FrontFace(card.Name);
         if (front is not null)
         {
-            _byName[Normalize(front)] = card;
+            _byFrontFace[Normalize(front)] = card;
         }
     }
 
@@ -71,14 +75,16 @@ public sealed class ScryfallCardNameIndex
     {
         ArgumentNullException.ThrowIfNull(name);
 
-        if (_byName.TryGetValue(Normalize(name), out ScryfallCardData? hit))
-        {
-            card = hit;
-            return true;
-        }
-
+        string normalized = Normalize(name);
         string? front = FrontFace(name);
-        if (front is not null && _byName.TryGetValue(Normalize(front), out hit))
+
+        // Prefer exact full-name matches (the entry's own name, then its front face matching a
+        // card that is itself named that face) before falling back to front-face aliases, so a
+        // split/DFC alias never shadows a real card with that exact name.
+        if (_byName.TryGetValue(normalized, out ScryfallCardData? hit)
+            || (front is not null && _byName.TryGetValue(Normalize(front), out hit))
+            || _byFrontFace.TryGetValue(normalized, out hit)
+            || (front is not null && _byFrontFace.TryGetValue(Normalize(front), out hit)))
         {
             card = hit;
             return true;
