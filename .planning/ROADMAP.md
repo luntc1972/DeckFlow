@@ -200,6 +200,19 @@ Requirements archive: `.planning/milestones/cycle9-REQUIREMENTS.md`
 
 ## Backlog
 
+### Harden deck-source host matching (SSRF/abuse) (BACKLOG — captured 2026-06-20; HIGH priority — address at next milestone START)
+
+**Goal:** Close a host-spoofing hole in deck-URL loading shared by every deck tool. Origin: Codex code review of the mana-base feature (2026-06-20), deferred out of that feature branch because the fix is in shared code touching all deck tools.
+
+**Problem:** Platform detection uses substring host matching — `DeckFlow.Core/Loading/DeckEntryLoader.cs` `LoadFromSourceAsync` (~L121/L127) and `DeckFlow.Core/Integration/MoxfieldApiDeckImporter.cs` (~L105) test `uri.Host.Contains("moxfield.com")` / `Contains("archidekt.com")`. So a hostile URL like `https://moxfield.com.evil.tld/decks/123` is treated as a trusted deck source on anonymous public endpoints (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`, `/manabase`). In the Moxfield-fallback path the original attacker URL is then forwarded to Commander Spellbook as `url=…`, widening the abuse surface.
+
+**Fix:** Require exact host or approved-subdomain matching (`host == "moxfield.com" || host.EndsWith(".moxfield.com")`; same for archidekt.com), and on the Moxfield fallback always reconstruct the canonical `https://moxfield.com/decks/{deckId}` URL instead of forwarding the submitted one. Add regression tests for spoofed hosts (`moxfield.com.evil.tld`, `evilmoxfield.com`, `moxfield.com@evil.tld`).
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Scope note: shared Core code — affects all deck tools, needs its own change + regression tests. Promote via `/gsd-review-backlog` at next cycle open.
+
 ### Validate Content KB value — A/B ChatGPT output with vs without expert context (BACKLOG — high priority; was todo, moved 2026-06-19 at Cycle-9 close)
 
 **Goal:** Gating experiment — prove the Content KB actually makes ChatGPT's deck analysis *better* before investing further (e.g. the creator philosophy-profile redesign). `content.kb.enabled` is OFF in prod and the subsystem is unproven on end-output quality (Cycle 9 validated the *pipeline* produces cleaner distills, but not that injected context lifts the final ChatGPT answer).
