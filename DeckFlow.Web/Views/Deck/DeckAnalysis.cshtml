@@ -57,10 +57,6 @@ Do not omit any fields from the schema.
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<div class="info-banner chatgpt-global-note">
-    Follow the steps in order. Each step tells you what to paste into your AI and what to paste back into this page.
-</div>
-
 @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
 {
     <div class="warning-banner" role="status">@Model.ImportWarning</div>
