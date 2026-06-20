@@ -170,6 +170,7 @@ public partial class Program
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IDeckEntryLoader>()));
             builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
+            builder.Services.AddScoped<DeckFlow.Web.Services.Manabase.IManabaseAnalysisService, DeckFlow.Web.Services.Manabase.ManabaseAnalysisService>();
             builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
             builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
             builder.Services.AddTransient<MoxfieldParser>();
