@@ -23,12 +23,18 @@ public static class ScryfallCardFactMapper
         // Prefer the front face's printed cost for the castable side; fall back to card level.
         string? manaCost = !string.IsNullOrWhiteSpace(front?.ManaCost) ? front!.ManaCost : card.ManaCost;
 
+        // For multi-faced cards (split/aftermath/MDFC), Scryfall's root cmc is the COMBINED
+        // value (Commit // Memory = 10), but we cast the front face ({3}{U} = 4). Derive the
+        // value from the chosen front cost so the on-curve turn is right; single-faced cards
+        // keep Scryfall's authoritative cmc.
+        double manaValue = front is not null ? ManaCostParser.Parse(manaCost).ManaValue : card.Cmc;
+
         return new CardFact
         {
             Name = card.Name,
             Quantity = quantity,
             ManaCost = manaCost,
-            ManaValue = card.Cmc,
+            ManaValue = manaValue,
             TypeLine = typeLine,
             OracleText = JoinOracleText(card),
             ProducedMana = card.ProducedMana ?? Array.Empty<string>(),

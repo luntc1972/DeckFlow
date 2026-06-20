@@ -88,6 +88,30 @@ public sealed class ScryfallCardFactMapperTests
     }
 
     [Fact]
+    public void ToCardFact_SplitCard_UsesFrontFaceManaValueNotCombinedCmc()
+    {
+        // Commit // Memory: Scryfall root cmc = 10 (combined), but the cast front is {3}{U} = 4.
+        var card = new ScryfallCardData
+        {
+            Name = "Commit // Memory",
+            Cmc = 10,
+            Layout = "split",
+            CardFaces = new List<ScryfallFaceData>
+            {
+                new() { Name = "Commit", ManaCost = "{3}{U}", TypeLine = "Instant", OracleText = "Put target..." },
+                new() { Name = "Memory", ManaCost = "{4}{U}{U}", TypeLine = "Sorcery", OracleText = "Each player..." },
+            },
+        };
+
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.Equal("{3}{U}", fact.ManaCost);
+        Assert.Equal("Instant", fact.TypeLine);
+        Assert.Equal(4, fact.ManaValue);     // front face, not the combined 10
+        Assert.False(fact.HasLandFace);
+    }
+
+    [Fact]
     public void ToCardFacts_BatchPairsQuantitiesAndCommander()
     {
         var entries = new List<DeckCardEntry>
