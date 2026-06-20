@@ -203,12 +203,12 @@ Do not omit any fields from the schema.
             <p><strong>Knowledge Base note:</strong> Browse distilled creator advice in the <a href="@Url.Content("~/content-kb")">Knowledge Base</a>, then open any entry to copy a ready-to-paste prompt from its detail page.</p>
         </div>
 
-        <div class="info-banner chatgpt-helper-panel">
-            <strong>How to push back on your AI's conclusions</strong>
+        <details class="info-banner chatgpt-helper-panel">
+            <summary><strong>How to push back on your AI's conclusions</strong></summary>
             <p>If your AI makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
             <p>Examples: "Re-evaluate this as Bracket 2 Core, not Bracket 3 Upgraded." "You overstated the combo finishers; the deck wins primarily through combat." "Card X is not a weak slot because it is part of the recursion engine."</p>
             <p>Best practice: keep the conversation with your AI going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 3.</p>
-        </div>
+        </details>
 
         <details class="result-panel nested-panel">
             <summary>Optional follow-up JSON refresh prompt</summary>
