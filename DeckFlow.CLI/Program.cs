@@ -53,6 +53,9 @@ var categoryFindSecondsOption = new Option<int>("--cache-seconds", () => 20);
 var categoryFindTimeoutOption = new Option<int>("--timeout", () => 600);
 var cardLookupCommand = new Command("card-lookup", "Lookup a single card via Scryfall and show the printed text.");
 var cardLookupNameOption = new Option<string>("--name") { IsRequired = true };
+var manabaseCommand = new Command("manabase", "Fetch a public deck and run the Karsten §6 mana-base analysis.");
+var manabaseArchidektUrlOption = new Option<string?>("--archidekt-url") { Description = "Public Archidekt deck URL." };
+var manabaseMoxfieldUrlOption = new Option<string?>("--moxfield-url") { Description = "Public Moxfield deck URL." };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -120,6 +123,8 @@ categoryFindCommand.AddOption(categoryFindCardOption);
 categoryFindCommand.AddOption(categoryFindSecondsOption);
 categoryFindCommand.AddOption(categoryFindTimeoutOption);
 cardLookupCommand.AddOption(cardLookupNameOption);
+manabaseCommand.AddOption(manabaseArchidektUrlOption);
+manabaseCommand.AddOption(manabaseMoxfieldUrlOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
@@ -195,6 +200,7 @@ rootCommand.AddCommand(archidektHarvestRecentCommand);
 rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
+rootCommand.AddCommand(manabaseCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
 rootCommand.AddCommand(contentSourceSetEnabledCommand);
@@ -246,6 +252,11 @@ cardLookupCommand.SetHandler((string cardName) =>
 {
     Environment.ExitCode = DeckCommandRunners.RunCardLookupAsync(cardName).GetAwaiter().GetResult();
 }, cardLookupNameOption);
+
+manabaseCommand.SetHandler((string? archidektUrl, string? moxfieldUrl) =>
+{
+    Environment.ExitCode = ManabaseCommandRunner.RunAsync(archidektUrl, moxfieldUrl).GetAwaiter().GetResult();
+}, manabaseArchidektUrlOption, manabaseMoxfieldUrlOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
