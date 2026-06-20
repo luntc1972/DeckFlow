@@ -468,26 +468,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
             .Select(item => $"{item.Category}: {item.Count}")
             .ToList();
 
-        var curveBuckets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["0-1"] = 0,
-            ["2"] = 0,
-            ["3"] = 0,
-            ["4"] = 0,
-            ["5+"] = 0
-        };
-
-        var nonlandCardCount = 0;
-        var manaValueTotal = 0m;
         var colorIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var lands = 0;
-        var creatures = 0;
-        var ramp = 0;
-        var draw = 0;
-        var interaction = 0;
-        var wipes = 0;
-        var recursion = 0;
-        var closingPower = 0;
         var includedCombos = comboResult?.IncludedCombos ?? Array.Empty<SpellbookCombo>();
         var almostIncludedCombos = comboResult?.AlmostIncludedCombos ?? Array.Empty<SpellbookAlmostCombo>();
 
@@ -502,6 +483,10 @@ public sealed class DeckComparisonService : IDeckComparisonService
             }
         }
 
+        // Build the stat inputs and gather color identity in one pass, then delegate the lands /
+        // creatures / curve / average-mana-value / role tallies to DeckStatAggregator so the analysis
+        // and comparison prompts share a single source of truth for those rules.
+        var statInputs = new List<DeckStatCardInput>();
         foreach (var entry in mainboardEntries)
         {
             if (!cardLookup.TryGetValue(entry.Name, out var card))
@@ -509,86 +494,22 @@ public sealed class DeckComparisonService : IDeckComparisonService
                 continue;
             }
 
-            var typeLine = card.TypeLine ?? string.Empty;
-            var oracleText = NormalizeOracleText(card);
-            var quantity = entry.Quantity;
-            var manaValue = EstimateManaValue(card.ManaCost);
-
             foreach (var color in card.ColorIdentity ?? Array.Empty<string>())
             {
                 colorIdentity.Add(color);
             }
 
-            if (typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase))
-            {
-                lands += quantity;
-                curveBuckets["0-1"] += quantity;
-                continue;
-            }
-
-            nonlandCardCount += quantity;
-            manaValueTotal += manaValue * quantity;
-
-            if (manaValue <= 1)
-            {
-                curveBuckets["0-1"] += quantity;
-            }
-            else if (manaValue == 2)
-            {
-                curveBuckets["2"] += quantity;
-            }
-            else if (manaValue == 3)
-            {
-                curveBuckets["3"] += quantity;
-            }
-            else if (manaValue == 4)
-            {
-                curveBuckets["4"] += quantity;
-            }
-            else
-            {
-                curveBuckets["5+"] += quantity;
-            }
-
-            if (typeLine.Contains("Creature", StringComparison.OrdinalIgnoreCase))
-            {
-                creatures += quantity;
-            }
-
-            if (DeckStatClassifier.IsRampCard(typeLine, oracleText))
-            {
-                ramp += quantity;
-            }
-
-            if (DeckStatClassifier.IsDrawCard(oracleText))
-            {
-                draw += quantity;
-            }
-
-            if (DeckStatClassifier.IsInteractionCard(typeLine, oracleText))
-            {
-                interaction += quantity;
-            }
-
-            if (DeckStatClassifier.IsBoardWipeCard(oracleText))
-            {
-                wipes += quantity;
-            }
-
-            if (DeckStatClassifier.IsRecursionCard(oracleText))
-            {
-                recursion += quantity;
-            }
-
-            if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracleText))
-            {
-                closingPower += quantity;
-            }
+            statInputs.Add(new DeckStatCardInput(
+                entry.Quantity,
+                card.TypeLine ?? string.Empty,
+                NormalizeOracleText(card),
+                card.ManaCost ?? string.Empty));
         }
 
-        closingPower += includedCombos.Count * 2 + almostIncludedCombos.Count;
+        var stats = DeckStatAggregator.Compute(statInputs);
+        // Comparison-specific: combos contribute to closing power on top of the base role tally.
+        var closingPower = stats.ClosingPower + includedCombos.Count * 2 + almostIncludedCombos.Count;
         IReadOnlyList<string> sharedThemes = categories.Count == 0 ? Array.Empty<string>() : categories;
-        var averageManaValue = nonlandCardCount == 0 ? 0m : Math.Round(manaValueTotal / nonlandCardCount, 2);
         var comboSummaries = includedCombos
             .Select(combo => $"{string.Join(" + ", combo.CardNames)} -> {string.Join(", ", combo.Results)}")
             .Take(5)
@@ -603,17 +524,17 @@ public sealed class DeckComparisonService : IDeckComparisonService
             commanderName,
             bracket,
             totalMainboardCards,
-            lands,
-            creatures,
-            averageManaValue,
-            curveBuckets,
+            stats.Lands,
+            stats.Creatures,
+            stats.AverageManaValue,
+            stats.ManaCurve,
             colorIdentity.OrderBy(color => color, StringComparer.OrdinalIgnoreCase).ToList(),
             categories,
-            ramp,
-            draw,
-            interaction,
-            wipes,
-            recursion,
+            stats.Ramp,
+            stats.Draw,
+            stats.Interaction,
+            stats.Wipes,
+            stats.Recursion,
             closingPower,
             sharedThemes,
             comboSummaries,
@@ -1018,46 +939,6 @@ public sealed class DeckComparisonService : IDeckComparisonService
         => string.Join(" ", value
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-
-    private static int EstimateManaValue(string? manaCost)
-    {
-        if (string.IsNullOrWhiteSpace(manaCost))
-        {
-            return 0;
-        }
-
-        var total = 0;
-        var tokenBuilder = new StringBuilder();
-        var insideToken = false;
-
-        foreach (var character in manaCost)
-        {
-            if (character == '{')
-            {
-                insideToken = true;
-                tokenBuilder.Clear();
-                continue;
-            }
-
-            if (character == '}')
-            {
-                if (insideToken)
-                {
-                    total += DeckStatClassifier.ParseManaToken(tokenBuilder.ToString());
-                }
-
-                insideToken = false;
-                continue;
-            }
-
-            if (insideToken)
-            {
-                tokenBuilder.Append(character);
-            }
-        }
-
-        return total;
-    }
 
     private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
     {
