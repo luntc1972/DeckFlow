@@ -38,6 +38,14 @@ public sealed record ScryfallCardData
     [JsonPropertyName("rarity")]
     public string? Rarity { get; init; }
 
+    /// <summary>Set code of the resolved printing (e.g. "iko"); used for printing-based lookup.</summary>
+    [JsonPropertyName("set")]
+    public string? Set { get; init; }
+
+    /// <summary>Collector number within the set; used for printing-based lookup.</summary>
+    [JsonPropertyName("collector_number")]
+    public string? CollectorNumber { get; init; }
+
     /// <summary>Layout ("normal", "modal_dfc", "transform", "split", "adventure", ...).</summary>
     [JsonPropertyName("layout")]
     public string? Layout { get; init; }
