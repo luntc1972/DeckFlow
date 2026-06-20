@@ -210,16 +210,16 @@ Do not omit any fields from the schema.
             <p>Best practice: keep the conversation with your AI going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 3.</p>
         </div>
 
-        <section class="result-panel nested-panel">
+        <details class="result-panel nested-panel">
+            <summary>Optional follow-up JSON refresh prompt</summary>
             <div class="panel-heading">
                 <div>
-                    <h3>Optional Follow-up JSON Refresh Prompt</h3>
                     <p>Use this later only if you asked additional questions of your AI after the first analysis response and need it to rebuild the updated <code>deck_profile</code> JSON.</p>
                 </div>
                 <button type="button" class="copy-button" data-copy-target="analysis-follow-up-output">Copy</button>
             </div>
             <textarea autocomplete="off" id="analysis-follow-up-output" readonly spellcheck="false">@analysisFollowUpPrompt</textarea>
-        </section>
+        </details>
 
         <div class="bracket-callout">
             <p class="bracket-callout__label">Required before generating</p>
@@ -734,16 +734,16 @@ Do not omit any fields from the schema.
                 <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.SetUpgradePromptText</textarea>
             </section>
         }
-        <section class="result-panel nested-panel">
+        <details class="result-panel nested-panel">
+            <summary>Optional follow-up JSON refresh prompt</summary>
             <div class="panel-heading">
                 <div>
-                    <h3>Optional Follow-up JSON Refresh Prompt</h3>
                     <p>Use this later only if you asked additional questions of your AI after the first set-upgrade response and need it to rebuild the updated <code>set_upgrade_report</code> JSON.</p>
                 </div>
                 <button type="button" class="copy-button" data-copy-target="set-upgrade-follow-up-output">Copy</button>
             </div>
             <textarea autocomplete="off" id="set-upgrade-follow-up-output" readonly spellcheck="false">@setUpgradeFollowUpPrompt</textarea>
-        </section>
+        </details>
         <div class="chatgpt-step-footer">
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back: Analysis Results</button>
             <button type="button" class="run-button" data-chatgpt-next-step="5">Next: Set Upgrade Results</button>
