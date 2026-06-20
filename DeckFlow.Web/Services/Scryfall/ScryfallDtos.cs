@@ -51,7 +51,10 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null,
     [property: JsonPropertyName("id")] string? Id = null,
     [property: JsonPropertyName("layout")] string? Layout = null,
-    [property: JsonPropertyName("released_at")] string? ReleasedAt = null);
+    [property: JsonPropertyName("released_at")] string? ReleasedAt = null,
+    [property: JsonPropertyName("cmc")] double Cmc = 0,
+    [property: JsonPropertyName("produced_mana")] IReadOnlyList<string>? ProducedMana = null,
+    [property: JsonPropertyName("rarity")] string? Rarity = null);
 
 /// <summary>
 /// Container for a Scryfall rulings list response.

@@ -2216,3 +2216,27 @@ label.field > span,
 .result-panel {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
 }
+
+/* Mana-base analysis table (250620). Layout-only; colors use theme tokens so each
+   guild theme inherits its own palette. */
+.manabase-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.manabase-table th,
+.manabase-table td {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+}
+
+.manabase-table th {
+  font-weight: 600;
+}
+
+.manabase-row--short td {
+  color: var(--danger);
+  font-weight: 600;
+}

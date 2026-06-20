@@ -1,0 +1,125 @@
+@model DeckFlow.Web.Models.ManabaseViewModel
+@{
+    ViewData["Title"] = "Mana Base";
+    var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
+    var report = Model.Report;
+}
+
+<section class="hero">
+    <h1>Mana Base Analysis</h1>
+    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve, using Frank Karsten's source-count math. The verdict is computed directly — no AI needed.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="error-banner @(string.IsNullOrWhiteSpace(Model.ErrorMessage) ? "hidden" : string.Empty)" role="alert">
+    @Model.ErrorMessage
+</div>
+
+<form method="post" action="@Url.Content("~/manabase")" class="result-panel">
+    @Html.AntiForgeryToken()
+
+    <div class="toolbar" role="radiogroup" aria-label="Deck input source">
+        <label><input type="radio" name="DeckInputSource" value="PublicUrl" checked="@(isUrl ? "checked" : null)" /> Public URL</label>
+        <label><input type="radio" name="DeckInputSource" value="PasteText" checked="@(!isUrl ? "checked" : null)" /> Paste decklist</label>
+    </div>
+
+    <div class="field-grid">
+        <div class="field">
+            <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
+            <input id="manabase-deck-url" type="text" name="DeckUrl" spellcheck="false" autocomplete="off"
+                   placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
+        </div>
+        <div class="field">
+            <label for="manabase-deck-name">Deck name (optional)</label>
+            <input id="manabase-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
+                   placeholder="e.g. Kinnan Stax" value="@Model.Request.DeckName" />
+        </div>
+    </div>
+
+    <div class="field">
+        <label for="manabase-deck-text">…or paste a decklist (one card per line, with set/collector if you have it)</label>
+        <textarea id="manabase-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
+                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
+    </div>
+
+    <div class="toolbar">
+        <button type="submit" class="run-button">Analyze Mana Base</button>
+    </div>
+</form>
+
+@if (Model.HasResult && report is not null)
+{
+    <section class="result-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Result</h2>
+                @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
+                {
+                    <p>@Model.InputSummary</p>
+                }
+            </div>
+        </div>
+
+        <p>
+            <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
+            (@(report.LandDelta >= -1 ? "land count OK" : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
+            <strong>Health:</strong> @(report.IsHealthy ? "OK" : "needs work").
+        </p>
+
+        <table class="manabase-table">
+            <thead>
+                <tr>
+                    <th scope="col">Color</th>
+                    <th scope="col">Sources</th>
+                    <th scope="col">Needed</th>
+                    <th scope="col">Deficit</th>
+                    <th scope="col">Driving spell</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in report.ColorFindings)
+                {
+                    <tr class="@(f.IsAdequate ? null : "manabase-row--short")">
+                        <td>@f.Color</td>
+                        <td>@f.ActualSources.ToString("F1")</td>
+                        <td>@f.RequiredSources</td>
+                        <td>@f.Deficit.ToString("+0.0;-0.0;0.0")@(f.IsAdequate ? null : " ⚠")</td>
+                        <td>@f.DrivingSpell</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <p class="mode-note">@report.Summary</p>
+
+        @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
+        {
+            <p class="mode-note">@Model.ImportWarning</p>
+        }
+        @if (Model.Unresolved.Count > 0)
+        {
+            <p class="mode-note">Skipped @Model.Unresolved.Count card(s) Scryfall could not resolve: @string.Join(", ", Model.Unresolved)</p>
+        }
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ChatGptSwapPrompt))
+    {
+        <details class="result-panel nested-panel">
+            <summary>Want specific land swaps? Copy this prompt for ChatGPT / Claude</summary>
+            <div class="panel-heading">
+                <div>
+                    <h3>Swap-suggestion prompt</h3>
+                    <p>The math above tells you which colors are short. Paste this to have an AI name specific lands to add and weak cards to cut.</p>
+                </div>
+                <button type="button" class="copy-button" data-copy-target="manabase-chatgpt-output">Copy</button>
+            </div>
+            <textarea id="manabase-chatgpt-output" readonly spellcheck="false">@Model.ChatGptSwapPrompt</textarea>
+        </details>
+    }
+}
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}

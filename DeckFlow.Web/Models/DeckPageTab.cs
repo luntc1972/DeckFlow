@@ -43,4 +43,7 @@ public enum DeckPageTab
 
     /// <summary>Deck-primer artifact generator page.</summary>
     DeckPrimer = 13,
+
+    /// <summary>Mana-base analysis page.</summary>
+    Manabase = 14,
 }
