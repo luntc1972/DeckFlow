@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Globalization;
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
@@ -96,6 +97,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// build time are old enough that the target AI already knows them, so their Oracle text is dropped.
     /// </summary>
     internal const int ReferenceRecencyGateMonths = 12;
+
+    /// <summary>
+    /// Feature-flag key that, when enabled, injects a pre-computed deck_stats block (land/creature
+    /// counts, mana curve, average mana value, role counts) into the analysis reference data so the AI
+    /// states composition facts instead of tallying 100 cards by hand. Default-off (seeded FALSE);
+    /// additive, so a flag-resolution fault that turns it on only adds grounding.
+    /// </summary>
+    internal const string ReferenceDeckStatsFlag = "analysis.reference.deck-stats";
 
     internal DeckAnalysisPacketService(
         IScryfallCardResolver scryfallCardResolver,
@@ -577,7 +586,15 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // (legacy), so a flag-system fault never silently mutates analysis output.
                 var recencyGateEnabled = !(_flagCache?.IsEnabled(ReferenceFullOracleFlag) ?? true);
                 var recencyCutoff = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-ReferenceRecencyGateMonths);
-                referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff);
+
+                // Pre-computed deck_stats (flag-controlled, additive): LLMs miscount long card lists, so
+                // state composition facts (lands, creatures, curve, role counts) instead of asking the AI
+                // to tally 100 cards. Empty when the flag is off, in which case the block is omitted.
+                var deckStatsText = (_flagCache?.IsEnabled(ReferenceDeckStatsFlag) ?? false)
+                    ? BuildDeckStatsText(cardReferenceBundle.CardReferences, deckEntries)
+                    : string.Empty;
+
+                referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff, deckStatsText);
 
                 var comboResult = await comboTask.ConfigureAwait(false);
                 if (AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions))
@@ -910,7 +927,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         IReadOnlyList<CardReference> cardReferences,
         IReadOnlyList<string> bannedCards,
         bool recencyGateEnabled,
-        DateOnly recencyCutoff)
+        DateOnly recencyCutoff,
+        string deckStatsText)
     {
         var builder = new StringBuilder();
         builder.AppendLine("reference_context:");
@@ -918,6 +936,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         builder.AppendLine($"generated_at_utc: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}");
         builder.AppendLine($"format: {NormalizeSingleLine(request.Format, "Commander")}");
         builder.AppendLine();
+        if (!string.IsNullOrEmpty(deckStatsText))
+        {
+            builder.AppendLine(deckStatsText);
+            builder.AppendLine();
+        }
+
         builder.AppendLine($"official_commander_banned_cards: {FormatBannedCardsLine(bannedCards)}");
         builder.AppendLine();
         builder.AppendLine("mechanics:");
@@ -986,6 +1010,40 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         return released >= recencyCutoff;
     }
 
+    /// <summary>
+    /// Formats the pre-computed deck_stats block from the resolved current-deck cards, excluding the
+    /// commander(s). Counts are tallied by <see cref="DeckStatAggregator"/> so the prompt can state them
+    /// as facts rather than asking the AI to count a 100-card list.
+    /// </summary>
+    /// <param name="cardReferences">All resolved reference cards (current deck + candidates).</param>
+    /// <param name="deckEntries">Deck entries (mainboard + commander) used to identify the commander.</param>
+    private static string BuildDeckStatsText(
+        IReadOnlyList<CardReference> cardReferences,
+        IReadOnlyList<DeckEntry> deckEntries)
+    {
+        var commanderNames = deckEntries
+            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var inputs = cardReferences
+            .Where(card => string.Equals(card.Scope, "current_deck", StringComparison.OrdinalIgnoreCase)
+                && !commanderNames.Contains(card.Name))
+            .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost));
+
+        var stats = DeckStatAggregator.Compute(inputs);
+
+        var builder = new StringBuilder();
+        builder.AppendLine("deck_stats (computed from this decklist; treat as authoritative card counts, do not recount):");
+        builder.AppendLine($"cards: {stats.Cards} (excludes commander)");
+        builder.AppendLine($"lands: {stats.Lands}");
+        builder.AppendLine($"creatures: {stats.Creatures}");
+        builder.AppendLine($"average_mana_value: {stats.AverageManaValue:0.00} (nonland)");
+        builder.AppendLine($"mana_curve: 0-1={stats.ManaCurve["0-1"]} 2={stats.ManaCurve["2"]} 3={stats.ManaCurve["3"]} 4={stats.ManaCurve["4"]} 5+={stats.ManaCurve["5+"]}");
+        builder.Append($"role_counts: ramp={stats.Ramp} draw={stats.Draw} interaction={stats.Interaction} wipes={stats.Wipes} recursion={stats.Recursion} closing_power={stats.ClosingPower}");
+        return builder.ToString();
+    }
+
     internal static bool IsModalDfcLand(ScryfallCard card)
         => card.Layout == "modal_dfc"
             && card.CardFaces?.Any(face => face.TypeLine?.Contains("Land", StringComparison.OrdinalIgnoreCase) == true) == true;
@@ -998,7 +1056,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         requests.AddRange(deckEntries
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => new CardReferenceRequest(entry.Name, "current_deck")));
+            .Select(entry => new CardReferenceRequest(entry.Name, "current_deck", entry.Quantity)));
 
         requests.AddRange(analysisPossibleIncludeEntries
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
@@ -1006,7 +1064,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 entry.Name,
                 string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase)
                     ? "candidate_include:sideboard"
-                    : "candidate_include:maybeboard")));
+                    : "candidate_include:maybeboard",
+                entry.Quantity)));
 
         return requests
             .GroupBy(request => request.Name, StringComparer.OrdinalIgnoreCase)
@@ -1203,7 +1262,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     card.TypeLine,
                     NormalizeOracleText(card),
                     IsModalDfcLand(card),
-                    card.ReleasedAt);
+                    card.ReleasedAt,
+                    matchingRequest.Quantity);
 
                 foreach (var mechanicName in ExtractMechanicNames(card))
                 {
@@ -1231,7 +1291,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     fallbackCard.TypeLine,
                     NormalizeOracleText(fallbackCard),
                     IsModalDfcLand(fallbackCard),
-                    fallbackCard.ReleasedAt);
+                    fallbackCard.ReleasedAt,
+                    unresolvedRequest.Quantity);
 
                 foreach (var mechanicName in ExtractMechanicNames(fallbackCard))
                 {
@@ -1542,8 +1603,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private static partial Regex AbilityWordPattern();
 
 
-    private sealed record CardReferenceRequest(string Name, string Scope);
-    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null);
+    private sealed record CardReferenceRequest(string Name, string Scope, int Quantity = 1);
+    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null, int Quantity = 1);
 
     private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
 
