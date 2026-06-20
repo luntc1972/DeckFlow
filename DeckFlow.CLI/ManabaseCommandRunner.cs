@@ -56,19 +56,21 @@ internal static class ManabaseCommandRunner
                 return 2;
             }
 
-            // Resolve each distinct printed name once, then fan the result back out per entry.
-            var distinctNames = deckCards
-                .Select(e => e.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+            // Resolve each distinct card once. Prefer an exact printing (set + collector
+            // number) so alternate / flavor / accented card names still resolve; fall back
+            // to a plain name identifier when the entry carries no printing.
+            var identifiers = deckCards
+                .Select(CardIdentifier.ForEntry)
+                .Distinct()
                 .ToList();
 
-            (var index, var notFound) = await ResolveCardsAsync(distinctNames);
+            (var index, var notFound) = await ResolveCardsAsync(identifiers);
 
             var deckEntries = new List<DeckCardEntry>();
             var unresolved = new List<string>();
             foreach (DeckEntry entry in deckCards)
             {
-                if (index.TryResolve(entry.Name, out ScryfallCardData? card))
+                if (index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? card))
                 {
                     deckEntries.Add(new DeckCardEntry
                     {
@@ -103,10 +105,10 @@ internal static class ManabaseCommandRunner
         }
     }
 
-    // Batch-resolve names through Scryfall's collection endpoint. Returns a name index
-    // (normalized full + front-face keys) and the list of names Scryfall could not find.
+    // Batch-resolve identifiers through Scryfall's collection endpoint. Returns a card index
+    // (keyed by printing + name) and labels for the identifiers Scryfall could not find.
     private static async Task<(ScryfallCardNameIndex Index, List<string> NotFound)> ResolveCardsAsync(
-        IReadOnlyList<string> names)
+        IReadOnlyList<CardIdentifier> identifiers)
     {
         var client = new RestClient(new RestClientOptions
         {
@@ -119,15 +121,15 @@ internal static class ManabaseCommandRunner
         var index = new ScryfallCardNameIndex();
         var notFound = new List<string>();
 
-        for (int offset = 0; offset < names.Count; offset += CollectionBatchSize)
+        for (int offset = 0; offset < identifiers.Count; offset += CollectionBatchSize)
         {
             if (offset > 0)
             {
                 await Task.Delay(BatchDelay);
             }
 
-            var batch = names.Skip(offset).Take(CollectionBatchSize).ToList();
-            var body = new CollectionRequest(batch.Select(n => new NameIdentifier(n)).ToList());
+            var batch = identifiers.Skip(offset).Take(CollectionBatchSize).ToList();
+            var body = new CollectionRequest(batch);
 
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(body);
@@ -144,12 +146,9 @@ internal static class ManabaseCommandRunner
                 index.Add(card);
             }
 
-            foreach (NameIdentifier missing in response.Data.NotFound ?? new List<NameIdentifier>())
+            foreach (CardIdentifier missing in response.Data.NotFound ?? new List<CardIdentifier>())
             {
-                if (!string.IsNullOrWhiteSpace(missing.Name))
-                {
-                    notFound.Add(missing.Name);
-                }
+                notFound.Add(missing.Label);
             }
         }
 
@@ -197,14 +196,30 @@ internal static class ManabaseCommandRunner
 
     /// <summary>Scryfall <c>cards/collection</c> request body.</summary>
     private sealed record CollectionRequest(
-        [property: JsonPropertyName("identifiers")] IReadOnlyList<NameIdentifier> Identifiers);
+        [property: JsonPropertyName("identifiers")] IReadOnlyList<CardIdentifier> Identifiers);
 
-    /// <summary>A single name identifier for a collection lookup (and the not-found echo).</summary>
-    private sealed record NameIdentifier(
-        [property: JsonPropertyName("name")] string Name);
+    /// <summary>
+    /// A Scryfall collection identifier: either a printing (set + collector number) or a
+    /// name. Null members are omitted from the JSON so a printing identifier doesn't carry
+    /// an empty name. Also used to read the not-found echo back.
+    /// </summary>
+    private sealed record CardIdentifier(
+        [property: JsonPropertyName("name")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name = null,
+        [property: JsonPropertyName("set")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Set = null,
+        [property: JsonPropertyName("collector_number")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CollectorNumber = null)
+    {
+        /// <summary>Build the best identifier for a deck entry: printing when known, else name.</summary>
+        public static CardIdentifier ForEntry(DeckEntry entry) =>
+            !string.IsNullOrWhiteSpace(entry.SetCode) && !string.IsNullOrWhiteSpace(entry.CollectorNumber)
+                ? new CardIdentifier(Set: entry.SetCode, CollectorNumber: entry.CollectorNumber)
+                : new CardIdentifier(Name: entry.Name);
+
+        /// <summary>Human-readable label for diagnostics (the not-found list).</summary>
+        public string Label => Name ?? $"{Set} #{CollectorNumber}";
+    }
 
     /// <summary>Scryfall <c>cards/collection</c> response.</summary>
     private sealed record CollectionResponse(
         [property: JsonPropertyName("data")] IReadOnlyList<ScryfallCardData> Data,
-        [property: JsonPropertyName("not_found")] IReadOnlyList<NameIdentifier>? NotFound);
+        [property: JsonPropertyName("not_found")] IReadOnlyList<CardIdentifier>? NotFound);
 }

@@ -96,4 +96,73 @@ public sealed class ScryfallCardNameIndexTests
         Assert.True(index.TryResolve("forest", out ScryfallCardData? hit));
         Assert.Same(second, hit);
     }
+
+    [Fact]
+    public void TryResolve_ByPrinting_ResolvesAlternateName()
+    {
+        // The resolved card carries its canonical name; the deck entry uses a flavor name.
+        // Resolution by set + collector number must still match.
+        var index = new ScryfallCardNameIndex();
+        var zilortha = new ScryfallCardData
+        {
+            Name = "Zilortha, Strength Incarnate",
+            Set = "iko",
+            CollectorNumber = "275",
+        };
+        index.Add(zilortha);
+
+        Assert.True(index.TryResolve("Godzilla, King of the Monsters", "iko", "275", out ScryfallCardData? hit));
+        Assert.Same(zilortha, hit);
+    }
+
+    [Fact]
+    public void TryResolve_PrintingMatch_IsCaseInsensitive()
+    {
+        var index = new ScryfallCardNameIndex();
+        var card = new ScryfallCardData { Name = "Sol Ring", Set = "C21", CollectorNumber = "263" };
+        index.Add(card);
+
+        Assert.True(index.TryResolve("unrelated", "c21", "263", out ScryfallCardData? hit));
+        Assert.Same(card, hit);
+    }
+
+    [Fact]
+    public void TryResolve_NoPrinting_FallsBackToName()
+    {
+        var index = new ScryfallCardNameIndex();
+        ScryfallCardData sol = Card("Sol Ring");
+        index.Add(sol);
+
+        // Entry has no set/collector, so resolution falls back to the name.
+        Assert.True(index.TryResolve("Sol Ring", null, null, out ScryfallCardData? hit));
+        Assert.Same(sol, hit);
+    }
+
+    [Fact]
+    public void TryResolve_PrintingMiss_FallsBackToName()
+    {
+        // Set/collector were supplied but that printing was never indexed; the name still resolves.
+        var index = new ScryfallCardNameIndex();
+        ScryfallCardData sol = Card("Sol Ring");
+        index.Add(sol);
+
+        Assert.True(index.TryResolve("Sol Ring", "xxx", "999", out ScryfallCardData? hit));
+        Assert.Same(sol, hit);
+    }
+
+    [Theory]
+    [InlineData(null, "275")]
+    [InlineData("iko", null)]
+    [InlineData("", "275")]
+    [InlineData("iko", "  ")]
+    public void PrintingKey_MissingPart_IsNull(string? setCode, string? collectorNumber)
+    {
+        Assert.Null(ScryfallCardNameIndex.PrintingKey(setCode, collectorNumber));
+    }
+
+    [Fact]
+    public void PrintingKey_BothPresent_NormalizesToLowerPipe()
+    {
+        Assert.Equal("iko|275", ScryfallCardNameIndex.PrintingKey(" IKO ", "275"));
+    }
 }
