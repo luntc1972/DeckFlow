@@ -36,6 +36,8 @@ Configure the analysis:
 
 Click **Generate Analysis Packet** to build the reference data and analysis prompt. The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to keep long prompts structured.
 
+The REFERENCE DATA block lists every deck card with its mana cost, type, and Oracle text. If the site operator has enabled the reference recency gate, Oracle text is condensed to mana cost and type for cards older than a year — these are already well known to the AI — while recent cards keep their full text. This trims prompt length without changing the analysis; by default the full Oracle text is included for every card.
+
 ## Step 3 — Analysis Results
 
 Paste the fenced `deck_profile` JSON block or raw JSON payload returned from your AI. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
