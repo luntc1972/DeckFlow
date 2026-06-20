@@ -165,4 +165,22 @@ public sealed class ScryfallCardNameIndexTests
     {
         Assert.Equal("iko|275", ScryfallCardNameIndex.PrintingKey(" IKO ", "275"));
     }
+
+    [Fact]
+    public void TryResolve_ExactName_IsNotShadowedByAnotherCardsFrontFace()
+    {
+        // A split card whose front face is "Fire" must not overwrite a real card exactly named
+        // "Fire": an exact-name match always wins over a front-face alias.
+        var index = new ScryfallCardNameIndex();
+        ScryfallCardData split = Card("Fire // Ice");
+        var standalone = new ScryfallCardData { Name = "Fire" };
+        index.Add(split);
+        index.Add(standalone);
+
+        Assert.True(index.TryResolve("Fire", out ScryfallCardData? exact));
+        Assert.Same(standalone, exact); // exact name, not the split's "Fire" alias
+
+        Assert.True(index.TryResolve("Fire // Ice", out ScryfallCardData? full));
+        Assert.Same(split, full);
+    }
 }

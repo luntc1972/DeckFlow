@@ -44,6 +44,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     // Scryfall's collection endpoint accepts at most 75 identifiers per request.
     private const int ScryfallBatchSize = 75;
 
+    // Abuse caps for this anonymous public endpoint: bound the pasted payload and the number
+    // of cards so one request can't force unbounded allocations or upstream Scryfall calls.
+    // A Commander deck is ~100 cards; these leave generous headroom while rejecting abuse.
+    private const int MaxDeckSourceChars = 100_000;
+    private const int MaxDeckCards = 500;
+
     // Only these boards make up the deck under analysis; a sideboard/maybeboard would skew the
     // land target.
     private static readonly HashSet<string> AnalyzedBoards =
@@ -78,6 +84,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             throw new InvalidOperationException("Provide a public deck URL or paste a decklist.");
         }
 
+        if (deckSource.Length > MaxDeckSourceChars)
+        {
+            throw new InvalidOperationException("That deck input is too large to analyze.");
+        }
+
         DeckSourceLoadResult load;
         try
         {
@@ -97,6 +108,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         if (deckCards.Count == 0)
         {
             throw new InvalidOperationException("No mainboard or commander cards were found in that deck.");
+        }
+
+        if (deckCards.Count > MaxDeckCards)
+        {
+            throw new InvalidOperationException($"That deck has too many cards to analyze (limit {MaxDeckCards}).");
         }
 
         ScryfallCardNameIndex index = await ResolveCardsAsync(deckCards, cancellationToken).ConfigureAwait(false);
