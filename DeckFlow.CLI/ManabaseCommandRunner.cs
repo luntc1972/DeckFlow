@@ -62,13 +62,13 @@ internal static class ManabaseCommandRunner
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            (var byName, var notFound) = await ResolveCardsAsync(distinctNames);
+            (var index, var notFound) = await ResolveCardsAsync(distinctNames);
 
             var deckEntries = new List<DeckCardEntry>();
             var unresolved = new List<string>();
             foreach (DeckEntry entry in deckCards)
             {
-                if (TryMatch(byName, entry.Name, out ScryfallCardData? card))
+                if (index.TryResolve(entry.Name, out ScryfallCardData? card))
                 {
                     deckEntries.Add(new DeckCardEntry
                     {
@@ -103,10 +103,9 @@ internal static class ManabaseCommandRunner
         }
     }
 
-    // Batch-resolve names through Scryfall's collection endpoint. Returns a name->card lookup
-    // (keyed by a normalized name plus the front-face name) and the list of names Scryfall
-    // could not find.
-    private static async Task<(Dictionary<string, ScryfallCardData> ByName, List<string> NotFound)> ResolveCardsAsync(
+    // Batch-resolve names through Scryfall's collection endpoint. Returns a name index
+    // (normalized full + front-face keys) and the list of names Scryfall could not find.
+    private static async Task<(ScryfallCardNameIndex Index, List<string> NotFound)> ResolveCardsAsync(
         IReadOnlyList<string> names)
     {
         var client = new RestClient(new RestClientOptions
@@ -117,7 +116,7 @@ internal static class ManabaseCommandRunner
         client.AddDefaultHeader("User-Agent", "DeckFlow.CLI/1.0 (+https://github.com/luntc1972/DeckFlow)");
         client.AddDefaultHeader("Accept", "application/json;q=0.9,*/*;q=0.8");
 
-        var byName = new Dictionary<string, ScryfallCardData>(StringComparer.Ordinal);
+        var index = new ScryfallCardNameIndex();
         var notFound = new List<string>();
 
         for (int offset = 0; offset < names.Count; offset += CollectionBatchSize)
@@ -142,7 +141,7 @@ internal static class ManabaseCommandRunner
 
             foreach (ScryfallCardData card in response.Data.Data)
             {
-                Index(byName, card);
+                index.Add(card);
             }
 
             foreach (NameIdentifier missing in response.Data.NotFound ?? new List<NameIdentifier>())
@@ -154,46 +153,8 @@ internal static class ManabaseCommandRunner
             }
         }
 
-        return (byName, notFound);
+        return (index, notFound);
     }
-
-    // Index a resolved card under its normalized full name and its front-face name so an
-    // entry written as either "A // B" or just "A" resolves.
-    private static void Index(Dictionary<string, ScryfallCardData> byName, ScryfallCardData card)
-    {
-        byName[Normalize(card.Name)] = card;
-
-        int split = card.Name.IndexOf("//", StringComparison.Ordinal);
-        if (split > 0)
-        {
-            byName[Normalize(card.Name[..split])] = card;
-        }
-    }
-
-    private static bool TryMatch(
-        IReadOnlyDictionary<string, ScryfallCardData> byName,
-        string entryName,
-        out ScryfallCardData? card)
-    {
-        if (byName.TryGetValue(Normalize(entryName), out ScryfallCardData? hit))
-        {
-            card = hit;
-            return true;
-        }
-
-        int split = entryName.IndexOf("//", StringComparison.Ordinal);
-        if (split > 0 && byName.TryGetValue(Normalize(entryName[..split]), out hit))
-        {
-            card = hit;
-            return true;
-        }
-
-        card = null;
-        return false;
-    }
-
-    private static string Normalize(string name) =>
-        name.Trim().ToLowerInvariant();
 
     private static void PrintReport(
         ManabaseReport report,
