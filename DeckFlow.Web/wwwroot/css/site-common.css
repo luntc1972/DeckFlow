@@ -1979,6 +1979,40 @@ details.info-tooltip > p {
     max-width: 32rem;
 }
 
+/* === Deck Analysis "How to push back" helper panel — collapsible-but-banner ===
+   The Step 2 helper-panel is best-practice guidance, not an action, so it is a
+   <details> that stays tucked away by default while keeping its info-banner
+   highlight. Layout rules live here (D-07) so every theme fork inherits them;
+   the .chatgpt-helper-panel background/padding still come from each theme. */
+details.chatgpt-helper-panel > summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+details.chatgpt-helper-panel > summary::-webkit-details-marker {
+    display: none;
+}
+details.chatgpt-helper-panel > summary::marker {
+    content: "";
+}
+
+/* Disclosure caret so the summary still reads as expandable. */
+details.chatgpt-helper-panel > summary::after {
+    content: "▸";
+    margin-left: 0.4rem;
+    font-size: var(--fs-xs);
+    color: var(--muted, inherit);
+}
+details.chatgpt-helper-panel[open] > summary::after {
+    content: "▾";
+}
+
+details.chatgpt-helper-panel > summary:focus-visible {
+    outline: 2px solid var(--accent-strong, var(--accent));
+    outline-offset: 2px;
+}
+
 /* === Phase 12 (RENAME-02) — page-lede explainer line ===
    Muted one-line explainer under an H1 on the three AI workflow pages.
    Per CLAUDE.md D-07, cross-cutting rules live in site-common.css. */
