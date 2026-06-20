@@ -74,7 +74,7 @@
                     <th scope="col">Color</th>
                     <th scope="col">Sources</th>
                     <th scope="col">Needed</th>
-                    <th scope="col">Deficit</th>
+                    <th scope="col">Short by</th>
                     <th scope="col">Driving spell</th>
                 </tr>
             </thead>
@@ -85,7 +85,7 @@
                         <td>@f.Color</td>
                         <td>@f.ActualSources.ToString("F1")</td>
                         <td>@f.RequiredSources</td>
-                        <td>@f.Deficit.ToString("+0.0;-0.0;0.0")@(f.IsAdequate ? null : " ⚠")</td>
+                        <td>@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
                         <td>@f.DrivingSpell</td>
                     </tr>
                 }
