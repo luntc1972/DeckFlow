@@ -83,6 +83,73 @@ public sealed class ManabaseAnalyzerTests
         Assert.False(report.WeakestColor.IsAdequate);
     }
 
+    [Fact]
+    public void Analyze_TurnOnePip_CountsOnlyUntappedSources()
+    {
+        // Green one-drop; two green lands but one enters tapped → only 1 untapped source.
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 1.0,
+            Sources = new List<ManaSource>
+            {
+                new() { Name = "Forest", Produces = new[] { ManaColor.Green }, EntersUntapped = true },
+                new() { Name = "Tapped Dual", Produces = new[] { ManaColor.Green }, EntersUntapped = false },
+            },
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Llanowar Elves", ManaValue = 1, Pips = Pip((ManaColor.Green, 1)) },
+            },
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+        ColorSourceFinding green = Assert.Single(report.ColorFindings);
+
+        // Driver is the one-drop, so the tapped land does not count toward its supply.
+        Assert.Equal(1.0, green.ActualSources);
+    }
+
+    [Fact]
+    public void MdfcCountsLowerTheLandTarget()
+    {
+        double withoutMdfc = KarstenManabase.SingletonLandTarget(100, 1, 3.0, 8);
+        double withMdfc = KarstenManabase.SingletonLandTarget(100, 1, 3.0, 8, mdfcCommon: 4);
+
+        // Four common MDFCs shave ~0.74 land each.
+        Assert.True(withMdfc < withoutMdfc - 2.5, $"{withMdfc} should be well below {withoutMdfc}");
+    }
+
+    [Fact]
+    public void Classify_TapsCountsMdfcBackFaces()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
+                Quantity = 1,
+                ManaCost = "{2}{G}",
+                ManaValue = 3,
+                TypeLine = "Sorcery // Land",
+                OracleText = "Return target permanent card... // Bala Ged Sanctuary enters the battlefield tapped.",
+                ProducedMana = new[] { "G" },
+                Rarity = "uncommon",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(1, deck.MdfcCommon);
+        Assert.Equal(0, deck.MdfcMythic);
+        // The land back counts as a partial (0.8) source, not a land slot.
+        ManaSource back = Assert.Single(deck.Sources);
+        Assert.False(back.IsLand);
+        Assert.Equal(0.8, back.Weight, 2);
+    }
+
     /// <summary>
     /// Minimal classified model of the real deck: 36 lands with the actual per-color
     /// supply (G 18 / U 15 / R 15 including tri-lands, duals and fetches), plus the

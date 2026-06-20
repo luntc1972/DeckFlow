@@ -25,10 +25,16 @@ public static class ManabaseAnalyzer
                 deck.TotalCards,
                 Math.Max(1, deck.CommanderCount),
                 deck.AverageManaValue,
-                deck.RampAndDrawUnderThree)
+                deck.RampAndDrawUnderThree,
+                deck.FastMana,
+                deck.MdfcCommon,
+                deck.MdfcMythic)
             : KarstenManabase.SixtyCardLandTarget(
                 deck.AverageManaValue,
-                deck.RampAndDrawUnderThree);
+                deck.RampAndDrawUnderThree,
+                deck.FastMana,
+                deck.MdfcCommon,
+                deck.MdfcMythic);
 
         // Library size excludes commanders (they start in the command zone, not the deck).
         int librarySize = deck.TotalCards - deck.CommanderCount;
@@ -55,11 +61,16 @@ public static class ManabaseAnalyzer
 
         foreach (ManaColor color in EnumerateUsedColors(deck))
         {
-            double actual = EffectiveSources(deck, color);
+            double allSources = EffectiveSources(deck, color, untappedOnly: false);
+            double untappedSources = EffectiveSources(deck, color, untappedOnly: true);
 
-            // The toughest requirement for this color = the spell needing the most sources.
+            // The worst spell for this color = the largest source shortfall. Turn-1 (one-drop)
+            // requirements may only be met by untapped sources; turn-2+ count every source.
             int required = 0;
+            double actualForDriver = allSources;
             string driver = "(none)";
+            double worstDeficit = double.NegativeInfinity;
+
             foreach (SpellRequirement spell in deck.Spells)
             {
                 if (!spell.Pips.TryGetValue(color, out int pips) || pips <= 0)
@@ -67,17 +78,22 @@ public static class ManabaseAnalyzer
                     continue;
                 }
 
+                double available = spell.ManaValue <= 1 ? untappedSources : allSources;
+
                 // Gold cards bump each color's requirement by one (need all colors present).
                 int goldBump = spell.IsGold ? 1 : 0;
                 int need = KarstenManabase.SourcesNeeded(librarySize, totalLands, pips, spell.ManaValue) + goldBump;
-                if (need > required)
+                double deficit = need - available;
+                if (deficit > worstDeficit)
                 {
+                    worstDeficit = deficit;
                     required = need;
+                    actualForDriver = available;
                     driver = spell.Name;
                 }
             }
 
-            if (required == 0)
+            if (driver == "(none)")
             {
                 continue;
             }
@@ -85,7 +101,7 @@ public static class ManabaseAnalyzer
             findings.Add(new ColorSourceFinding
             {
                 Color = color,
-                ActualSources = Math.Round(actual, 1),
+                ActualSources = Math.Round(actualForDriver, 1),
                 RequiredSources = required,
                 DrivingSpell = driver,
             });
@@ -112,18 +128,24 @@ public static class ManabaseAnalyzer
         return colors;
     }
 
-    // Known limitation: counts all sources regardless of ManaSource.EntersUntapped. For a
-    // turn-1 single pip, tapped lands cannot actually cast the one-drop on curve, so this is
-    // slightly optimistic there. Turn-aware (untapped-only) counting is a follow-up.
-    private static double EffectiveSources(ManabaseDeck deck, ManaColor color)
+    // Sum weighted sources of a color. When untappedOnly, exclude tapped lands — a turn-1
+    // one-drop can only be cast off mana available the turn the land is played.
+    private static double EffectiveSources(ManabaseDeck deck, ManaColor color, bool untappedOnly)
     {
         double total = 0.0;
         foreach (ManaSource source in deck.Sources)
         {
-            if (source.Produces.Contains(color))
+            if (!source.Produces.Contains(color))
             {
-                total += source.Weight;
+                continue;
             }
+
+            if (untappedOnly && !source.EntersUntapped)
+            {
+                continue;
+            }
+
+            total += source.Weight;
         }
 
         return total;

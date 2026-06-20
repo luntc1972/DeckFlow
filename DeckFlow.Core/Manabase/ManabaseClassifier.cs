@@ -24,6 +24,9 @@ public static class ManabaseClassifier
         double mvSum = 0;
         int nonlandCount = 0;
         int rampUnderThree = 0;
+        int mdfcCommon = 0;
+        int mdfcMythic = 0;
+        int fastMana = 0;
 
         foreach (CardFact card in cards)
         {
@@ -55,6 +58,23 @@ public static class ManabaseClassifier
                 rampUnderThree += card.Quantity;
             }
 
+            // Tally land-count formula adjustments (MDFC spell-backs, 0-cost fast mana).
+            if (card.HasLandFace)
+            {
+                if (IsMythic(card))
+                {
+                    mdfcMythic += card.Quantity;
+                }
+                else
+                {
+                    mdfcCommon += card.Quantity;
+                }
+            }
+            else if (card.ManaValue == 0 && IsType(card.TypeLine, "Artifact") && ProducesMana(card))
+            {
+                fastMana += card.Quantity;
+            }
+
             AddPartialSources(sources, card);
         }
 
@@ -68,6 +88,9 @@ public static class ManabaseClassifier
             Spells = spells,
             AverageManaValue = Math.Round(avgMv, 2),
             RampAndDrawUnderThree = rampUnderThree,
+            MdfcCommon = mdfcCommon,
+            MdfcMythic = mdfcMythic,
+            FastMana = fastMana,
             IsSingleton = isSingleton,
         };
     }

@@ -70,6 +70,15 @@ public sealed record ManabaseDeck
     /// <summary>Count of ramp/card-draw spells of mana value 2 or less.</summary>
     public int RampAndDrawUnderThree { get; init; }
 
+    /// <summary>Count of non-mythic land/spell MDFCs (each ≈ 0.74 land off the target).</summary>
+    public int MdfcCommon { get; init; }
+
+    /// <summary>Count of mythic land/spell MDFCs (each ≈ 0.38 land off the target).</summary>
+    public int MdfcMythic { get; init; }
+
+    /// <summary>Count of 0-cost mana artifacts (Lotus, Moxen). Each substitutes ~1 land.</summary>
+    public int FastMana { get; init; }
+
     /// <summary>True for a singleton/Commander deck (uses the 99-card formula); false for 60-card.</summary>
     public bool IsSingleton { get; init; } = true;
 }
