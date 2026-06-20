@@ -1539,4 +1539,46 @@ Test Card | 1W | Creature | Survival — Test text.
             => Task.FromResult<CommanderSpellbookResult?>(null);
     }
 
+    /// <summary>
+    /// Recency gate off: Oracle text is always emitted (legacy behavior), regardless of release date.
+    /// </summary>
+    [Theory]
+    [InlineData("2000-01-01")]
+    [InlineData("2099-01-01")]
+    [InlineData(null)]
+    [InlineData("not-a-date")]
+    public void ShouldIncludeOracleText_GateOff_AlwaysIncludes(string? releasedAt)
+    {
+        var cutoff = new DateOnly(2025, 6, 20);
+        Assert.True(DeckAnalysisPacketService.ShouldIncludeOracleText(releasedAt, recencyGateEnabled: false, cutoff));
+    }
+
+    /// <summary>
+    /// Recency gate on: Oracle text is dropped for cards released before the cutoff and kept on/after it.
+    /// </summary>
+    [Theory]
+    [InlineData("2024-06-19", false)] // before cutoff -> drop
+    [InlineData("2025-06-19", false)] // day before cutoff -> drop
+    [InlineData("2025-06-20", true)]  // on cutoff -> keep
+    [InlineData("2026-01-01", true)]  // after cutoff -> keep
+    public void ShouldIncludeOracleText_GateOn_GatesByReleaseDate(string releasedAt, bool expected)
+    {
+        var cutoff = new DateOnly(2025, 6, 20);
+        Assert.Equal(expected, DeckAnalysisPacketService.ShouldIncludeOracleText(releasedAt, recencyGateEnabled: true, cutoff));
+    }
+
+    /// <summary>
+    /// Recency gate on with a missing or unparseable release date fails open — Oracle text is kept so
+    /// grounding is never silently lost for a card we could not date.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("unknown")]
+    public void ShouldIncludeOracleText_GateOn_FailsOpenOnUnparseableDate(string? releasedAt)
+    {
+        var cutoff = new DateOnly(2025, 6, 20);
+        Assert.True(DeckAnalysisPacketService.ShouldIncludeOracleText(releasedAt, recencyGateEnabled: true, cutoff));
+    }
+
 }

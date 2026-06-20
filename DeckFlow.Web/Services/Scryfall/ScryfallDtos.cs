@@ -50,7 +50,8 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("collector_number")] string? CollectorNumber,
     [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null,
     [property: JsonPropertyName("id")] string? Id = null,
-    [property: JsonPropertyName("layout")] string? Layout = null);
+    [property: JsonPropertyName("layout")] string? Layout = null,
+    [property: JsonPropertyName("released_at")] string? ReleasedAt = null);
 
 /// <summary>
 /// Container for a Scryfall rulings list response.
