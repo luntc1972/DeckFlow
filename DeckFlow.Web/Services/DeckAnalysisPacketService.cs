@@ -593,7 +593,15 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // Pre-computed deck_stats (flag-controlled, additive): LLMs miscount long card lists, so
                 // state composition facts (lands, creatures, curve, role counts) instead of asking the AI
                 // to tally 100 cards. Empty when the flag is off, in which case the block is omitted.
-                var deckStatsText = (_flagCache?.IsEnabled(ReferenceDeckStatsFlag) ?? false)
+                //
+                // Fail-safe default-OFF: IsEnabled() returns true for an ABSENT key (default-on store
+                // semantics), so a missing/unseeded row would silently turn the block on. Gate on the
+                // EXPLICIT snapshot value instead — absent key, null cache, or store-read failure all
+                // resolve to off, matching the documented default.
+                var deckStatsEnabled = _flagCache is not null
+                    && _flagCache.Snapshot().TryGetValue(ReferenceDeckStatsFlag, out var deckStatsOn)
+                    && deckStatsOn;
+                var deckStatsText = deckStatsEnabled
                     ? BuildDeckStatsText(cardReferenceBundle.CardReferences)
                     : string.Empty;
 
@@ -1046,7 +1054,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var stats = DeckStatAggregator.Compute(inputs);
 
         var builder = new StringBuilder();
-        builder.AppendLine("deck_stats (computed from this decklist; treat as authoritative card counts, do not recount):");
+        builder.AppendLine("deck_stats (counts computed from this deck's Scryfall-resolved cards, as a counting aid; any card that failed lookup is omitted):");
         builder.AppendLine($"cards: {stats.Cards} (excludes commander)");
         builder.AppendLine($"lands: {stats.Lands}");
         builder.AppendLine($"creatures: {stats.Creatures}");
