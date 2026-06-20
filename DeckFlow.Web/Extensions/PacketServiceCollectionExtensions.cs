@@ -1,6 +1,7 @@
 using DeckFlow.Core.Loading;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
@@ -52,6 +53,7 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                 sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
+                sp.GetService<IFeatureFlagCache>(),
                 sp.GetService<ILogger<DeckAnalysisPacketService>>()));
         services.AddScoped<IDeckComparisonService>(sp =>
             new DeckComparisonService(

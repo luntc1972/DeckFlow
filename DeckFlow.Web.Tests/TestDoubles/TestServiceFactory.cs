@@ -125,7 +125,8 @@ internal static class TestServiceFactory
             BuildAnalysisPromptRegistry(),
             BuildSetUpgradePromptRegistry(),
             new PacketSessionCache(),
-            logger);
+            flagCache: null,
+            logger: logger);
 
     public static DeckComparisonService CreateDeckComparisonService(
         IMoxfieldDeckImporter moxfieldDeckImporter,

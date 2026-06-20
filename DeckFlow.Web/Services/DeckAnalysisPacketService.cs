@@ -3,11 +3,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using System.Globalization;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using Microsoft.Extensions.Logging.Abstractions;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using Polly;
 using Polly.Registry;
@@ -78,6 +80,22 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
     private readonly PacketSessionCache _packetCache;
+    private readonly IFeatureFlagCache? _flagCache;
+
+    /// <summary>
+    /// Feature-flag key controlling reference Oracle text. Enabled (the default-on / absent / store-error
+    /// state) = include full Oracle text for every card (legacy behavior). Only when an operator
+    /// explicitly DISABLES this flag does the recency gate engage and drop Oracle text for older cards.
+    /// The fail-safe direction is intentional: any flag-resolution failure preserves the legacy prompt
+    /// rather than silently changing analysis output.
+    /// </summary>
+    internal const string ReferenceFullOracleFlag = "analysis.reference.full-oracle-text";
+
+    /// <summary>
+    /// Age threshold for the reference recency gate: cards released more than this many months before
+    /// build time are old enough that the target AI already knows them, so their Oracle text is dropped.
+    /// </summary>
+    internal const int ReferenceRecencyGateMonths = 12;
 
     internal DeckAnalysisPacketService(
         IScryfallCardResolver scryfallCardResolver,
@@ -89,6 +107,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         AnalysisPromptVariantRegistry analysisPromptRegistry,
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
+        IFeatureFlagCache? flagCache = null,
         ILogger<DeckAnalysisPacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
@@ -109,6 +128,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _analysisPromptRegistry = analysisPromptRegistry;
         _setUpgradePromptRegistry = setUpgradePromptRegistry;
         _packetCache = packetCache;
+        _flagCache = flagCache;
         _logger = logger ?? NullLogger<DeckAnalysisPacketService>.Instance;
     }
 
@@ -552,7 +572,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     mechanicReferenceStopwatch.ElapsedMilliseconds,
                     mechanicReferences.Count);
 
-                referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards);
+                // Fail-safe: gate engages ONLY when the full-Oracle flag is explicitly disabled. A null
+                // cache, an absent flag, or a store-read failure all resolve to "keep full Oracle"
+                // (legacy), so a flag-system fault never silently mutates analysis output.
+                var recencyGateEnabled = !(_flagCache?.IsEnabled(ReferenceFullOracleFlag) ?? true);
+                var recencyCutoff = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-ReferenceRecencyGateMonths);
+                referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff);
 
                 var comboResult = await comboTask.ConfigureAwait(false);
                 if (AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions))
@@ -883,7 +908,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         DeckAnalysisRequest request,
         IReadOnlyList<MechanicReference> mechanicReferences,
         IReadOnlyList<CardReference> cardReferences,
-        IReadOnlyList<string> bannedCards)
+        IReadOnlyList<string> bannedCards,
+        bool recencyGateEnabled,
+        DateOnly recencyCutoff)
     {
         var builder = new StringBuilder();
         builder.AppendLine("reference_context:");
@@ -918,11 +945,45 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             foreach (var cardReference in cardReferences)
             {
                 var mdfcMarker = cardReference.IsMdfcLand ? " [MDFC-land]" : string.Empty;
-                builder.AppendLine($"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine} | {cardReference.OracleText}{mdfcMarker}");
+
+                // Recency gate (flag-controlled): well-known older cards are already in the model's
+                // parametric knowledge, so their Oracle text is ~token-only noise. Drop it for cards
+                // released before the cutoff; keep it for recent/unknown-date printings the model may
+                // not know yet, preserving grounding where it actually changes the answer.
+                var includeOracle = ShouldIncludeOracleText(cardReference.ReleasedAt, recencyGateEnabled, recencyCutoff);
+                builder.AppendLine(includeOracle
+                    ? $"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine} | {cardReference.OracleText}{mdfcMarker}"
+                    : $"[{cardReference.Scope}] {cardReference.Name} | {cardReference.ManaCost} | {cardReference.TypeLine}{mdfcMarker}");
             }
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Decides whether a reference card's Oracle text should be emitted. With the recency gate off,
+    /// Oracle text is always included (legacy behavior). With the gate on, Oracle text is kept only
+    /// for cards released on or after <paramref name="recencyCutoff"/>; cards with a missing or
+    /// unparseable release date keep their Oracle text (fail open, so grounding is never silently lost).
+    /// </summary>
+    /// <param name="releasedAt">Scryfall <c>released_at</c> date string (yyyy-MM-dd), or null.</param>
+    /// <param name="recencyGateEnabled">Whether the recency gate flag is on.</param>
+    /// <param name="recencyCutoff">Cards older than this date drop their Oracle text when gated.</param>
+    internal static bool ShouldIncludeOracleText(string? releasedAt, bool recencyGateEnabled, DateOnly recencyCutoff)
+    {
+        if (!recencyGateEnabled)
+        {
+            return true;
+        }
+
+        // Fail open: unknown/unparseable release date keeps Oracle text so we never drop grounding
+        // for a card we simply could not date.
+        if (!DateOnly.TryParse(releasedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var released))
+        {
+            return true;
+        }
+
+        return released >= recencyCutoff;
     }
 
     internal static bool IsModalDfcLand(ScryfallCard card)
@@ -1141,7 +1202,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     card.ManaCost ?? string.Empty,
                     card.TypeLine,
                     NormalizeOracleText(card),
-                    IsModalDfcLand(card));
+                    IsModalDfcLand(card),
+                    card.ReleasedAt);
 
                 foreach (var mechanicName in ExtractMechanicNames(card))
                 {
@@ -1168,7 +1230,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     fallbackCard.ManaCost ?? string.Empty,
                     fallbackCard.TypeLine,
                     NormalizeOracleText(fallbackCard),
-                    IsModalDfcLand(fallbackCard));
+                    IsModalDfcLand(fallbackCard),
+                    fallbackCard.ReleasedAt);
 
                 foreach (var mechanicName in ExtractMechanicNames(fallbackCard))
                 {
@@ -1480,7 +1543,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
 
     private sealed record CardReferenceRequest(string Name, string Scope);
-    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand);
+    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null);
 
     private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
 
