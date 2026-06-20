@@ -229,6 +229,10 @@ If `dotnet build DeckFlow.Web` reports a missing `tsc`, run the
 - The old sessionStorage page-snapshot restore path was removed. DeckFlow no longer writes `main.content-shell.innerHTML` into storage or rehydrates raw HTML from storage on load.
 - These checks are meant to reduce cross-site request abuse and avoid re-inserting stale or storage-poisoned markup into the DOM.
 
+### Development-only endpoints
+- `POST /api/analysis-prompt` builds the deck-analysis prompt headlessly (same `BuildAsync` pipeline as the `/deck-analysis` page) so prompts can be generated for A/B testing and automation without driving the Razor UI. It accepts a JSON body (`deckUrl` or `deckText`, plus optional `format`, `deckName`, `targetCommanderBracket`, `targetAiPlatform`, `selectedAnalysisQuestions`) and returns the generated prompt text and supporting artifacts.
+- The endpoint is gated to the Development environment — it returns `404` in Production — and is same-origin guarded like the other JSON APIs.
+
 ### IIS publish
 - Publish the web app with `dotnet publish DeckFlow.Web/DeckFlow.Web.csproj /p:PublishProfile=IIS-LocalFolder`
 - The publish output goes to `DeckFlow.Web/bin/Release/net10.0/publish/iis-local/`
@@ -294,6 +298,8 @@ Click **Generate Analysis Packet** to build the reference data and analysis prom
 - Generates a suggested AI conversation title displayed in the UI with a copy button.
 
 The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to keep long prompts structured.
+
+**Reference Oracle-text recency gate (optional, off by default).** By default every reference card carries its full Oracle text. Because well-known older cards are already in the target AI's training data, that text is mostly redundant tokens. The `analysis.reference.full-oracle-text` feature flag, when an operator **disables** it, drops Oracle text from cards released more than 12 months ago (keeping it for recent or undatable printings the model may not know yet) — roughly a 30% prompt-token reduction with no measured change to analysis verdicts in cEDH testing. The flag is fail-safe: its enabled state (the default, and the state assumed if the flag store is unreachable) always keeps the legacy full-Oracle output, so the gate only ever engages on an explicit operator opt-in.
 
 ### Step 3 — Analysis Results
 Paste the fenced `deck_profile` JSON block or raw JSON payload returned from your AI. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
