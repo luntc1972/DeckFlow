@@ -681,7 +681,7 @@ namespace DeckFlow.Studio.Tests
         }
 
         [Fact]
-        public void HarvestPage_UnskippedVideo_ReappearsOnRebrowse()
+        public async Task HarvestPage_UnskippedVideo_ReappearsOnRebrowse()
         {
             // Codex LOW (HSEL-03 end-to-end): a skipped video is hidden from browse, and after
             // un-skip (as the Skipped page does) it reappears on re-browse.
@@ -697,7 +697,7 @@ namespace DeckFlow.Studio.Tests
             BrowseChannel(cut);
             cut.WaitForAssertion(() => Assert.DoesNotContain("Alpha", cut.Markup));
 
-            skipped.RemoveSkipAsync("vA").GetAwaiter().GetResult();
+            await skipped.RemoveSkipAsync("vA");
 
             BrowseChannel(cut);
             cut.WaitForAssertion(() => Assert.Contains("Alpha", cut.Markup));

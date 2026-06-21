@@ -30,7 +30,12 @@ public static class CreatorNameResolver
         }
 
         // Reject rooted paths (security: never treat as a filesystem path).
-        if (Path.IsPathRooted(artifactPath))
+        // Why: Path.IsPathRooted is OS-dependent — a Windows-rooted path ("C:\..." or "\...")
+        // reads as relative on Linux, so the same input would slip through on CI. Detect roots
+        // explicitly so the guard behaves identically on every runtime: leading '/' or '\',
+        // UNC '\\', or a drive-letter prefix ("X:").
+        var probe = artifactPath.TrimStart();
+        if (probe.StartsWith('/') || probe.StartsWith('\\') || (probe.Length >= 2 && char.IsLetter(probe[0]) && probe[1] == ':'))
         {
             return UnknownCreator;
         }
