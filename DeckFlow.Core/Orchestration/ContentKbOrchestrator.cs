@@ -437,6 +437,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 LlmCalls = counts.LlmCalls,
                 LlmSpendUsd = counts.LlmSpendUsd,
                 FailedVideoIds = counts.FailedVideoIds,
+                DistilledVideos = counts.DistilledVideos,
                 AbortedReason = abortedReason,
                 DryRun = false,
             };
@@ -1334,7 +1335,10 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             await _videoStore.SetDistillStatusAsync(video.Id, DistillationValidation.DistillStatusDistilled, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("distilled {VideoId}", naturalKey);
             progress?.Report($"distilled {naturalKey} ({sw.Elapsed.TotalSeconds:F1}s)");
-            return DistillVideoOutcome.Distilled(llmCalls, llmSpend);
+            // Why: carry the natural key (YouTube OR podcast) + clip count so the Studio host (Plan 03)
+            // can run the auto-approve decision (D-01); clips.Clips.Count is the signal source.
+            var (distilledKeyType, distilledKeyValue) = GetContentNaturalKeyInfo(video);
+            return DistillVideoOutcome.Distilled(llmCalls, llmSpend, distilledKeyType, distilledKeyValue, clips.Clips.Count);
         }
         catch (LlmCliConfigurationException ex)
         {
@@ -1491,6 +1495,8 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
 
         public List<string> FailedVideoIds { get; } = [];
 
+        public List<DistilledVideoResult> DistilledVideos { get; } = [];
+
         public void Add(DistillVideoOutcome outcome)
         {
             LlmCalls += outcome.LlmCalls;
@@ -1498,6 +1504,12 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             if (outcome.IsDistilled)
             {
                 VideosDistilled++;
+                DistilledVideos.Add(new DistilledVideoResult
+                {
+                    NaturalKeyType = outcome.NaturalKeyType!,
+                    NaturalKeyValue = outcome.NaturalKeyValue!,
+                    ClipCount = outcome.ClipCount,
+                });
             }
 
             if (outcome.IsFiltered)
@@ -1519,10 +1531,13 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         int LlmCalls,
         decimal LlmSpendUsd,
         string? FailedVideoId,
-        string? AbortedReason)
+        string? AbortedReason,
+        string? NaturalKeyType = null,
+        string? NaturalKeyValue = null,
+        int ClipCount = 0)
     {
-        public static DistillVideoOutcome Distilled(int llmCalls, decimal llmSpendUsd)
-            => new(true, false, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: null);
+        public static DistillVideoOutcome Distilled(int llmCalls, decimal llmSpendUsd, string naturalKeyType, string naturalKeyValue, int clipCount)
+            => new(true, false, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: null, naturalKeyType, naturalKeyValue, clipCount);
 
         public static DistillVideoOutcome Failed(int llmCalls, decimal llmSpendUsd, string failedVideoId)
             => new(false, false, llmCalls, llmSpendUsd, failedVideoId, AbortedReason: null);

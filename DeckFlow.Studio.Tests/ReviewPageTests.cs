@@ -360,4 +360,101 @@ public sealed class ReviewPageTests : BunitContext
             Assert.All(store.Rows, r => Assert.Equal("approved", r.ApprovalStatus));
         });
     }
+
+    // ── A1 (SUI-02): Go to Publish link ──────────────────────────────────────
+
+    [Fact]
+    public void GoToPublishLink_IsPresent_WhenApprovedCountGreaterThanZero()
+    {
+        // Arrange: at least one approved row
+        var rows = new[]
+        {
+            MakeYoutubeRow(1, "vid1", "approved"),
+            MakeYoutubeRow(2, "vid2", "pending"),
+        };
+
+        var (cut, _) = RenderReview(rows);
+
+        // Assert: link is rendered with the correct href
+        cut.WaitForAssertion(() =>
+        {
+            var link = cut.Find("a[aria-label='Go to Publish page']");
+            Assert.NotNull(link);
+            Assert.Contains("/publish", link.GetAttribute("href") ?? string.Empty);
+        });
+    }
+
+    [Fact]
+    public void GoToPublishLink_IsAbsent_WhenApprovedCountIsZero()
+    {
+        // Arrange: no approved rows
+        var rows = new[]
+        {
+            MakeYoutubeRow(1, "vid1", "pending"),
+            MakeYoutubeRow(2, "vid2", "rejected"),
+        };
+
+        var (cut, _) = RenderReview(rows);
+
+        // Assert: link is not rendered
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
+        Assert.Empty(cut.FindAll("a[aria-label='Go to Publish page']"));
+    }
+
+    [Fact]
+    public void GoToPublishLink_ShowsApprovedCount_InLinkText()
+    {
+        // Arrange: two approved rows
+        var rows = new[]
+        {
+            MakeYoutubeRow(1, "vid1", "approved"),
+            MakeYoutubeRow(2, "vid2", "approved"),
+            MakeYoutubeRow(3, "vid3", "pending"),
+        };
+
+        var (cut, _) = RenderReview(rows);
+
+        cut.WaitForAssertion(() =>
+        {
+            var link = cut.Find("a[aria-label='Go to Publish page']");
+            Assert.Contains("2", link.TextContent);
+        });
+    }
+
+    // ── A2 (SUI-02): Select-All scoped to visible/filtered rows ──────────────
+
+    [Fact]
+    public void SelectAll_OnPendingTab_OnlySelectsVisiblePendingRows()
+    {
+        // Arrange: 2 pending, 1 approved — default tab is "pending"
+        var rows = new[]
+        {
+            MakeYoutubeRow(1, "vid1", "pending"),
+            MakeYoutubeRow(2, "vid2", "pending"),
+            MakeYoutubeRow(3, "vid3", "approved"),
+        };
+
+        var (cut, store) = RenderReview(rows);
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
+
+        // Click select-all
+        cut.Find("input[aria-label='Select all']").Click();
+
+        // Batch approve fires — should only include the 2 pending rows (visible in pending tab)
+        cut.WaitForAssertion(() => Assert.Contains("Approve Selected", cut.Markup));
+        cut.Find("button.btn-primary.btn-sm").Click();
+
+        // Assert: batch approve called with exactly 2 keys (the pending ones)
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(store.BatchApprovalCalls);
+            var (keys, status) = store.BatchApprovalCalls[0];
+            Assert.Equal("approved", status);
+            Assert.Equal(2, keys.Count);
+            Assert.Contains(keys, k => k.Value == "vid1");
+            Assert.Contains(keys, k => k.Value == "vid2");
+            // The approved row (vid3) must NOT appear in the batch
+            Assert.DoesNotContain(keys, k => k.Value == "vid3");
+        });
+    }
 }

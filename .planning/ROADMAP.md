@@ -12,6 +12,7 @@
 - ✅ **v1.7 Local Harvest & Publish Studio** — Phases 41-50 (shipped 2026-06-17) — see `.planning/milestones/v1.7-ROADMAP.md`
 - ✅ **Cycle 8 — Hardening & Backlog Burn-down** — Phases 51-54 (shipped 2026-06-17, `2026.06.4`) — see `.planning/milestones/cycle8-ROADMAP.md`
 - ✅ **Cycle 9 — Content Pipeline & Publish-Tracking** — Phases 55-58 (shipped 2026-06-19, `2026.06.5`) — see `.planning/milestones/cycle9-ROADMAP.md`
+- ✅ **Cycle 10 — Studio Automation, Sync & Polish** — Phases 59-63 (shipped 2026-06-21, `2026.06.6`) — see `.planning/milestones/cycle10-ROADMAP.md`
 
 ## Phases
 
@@ -198,6 +199,108 @@ Requirements archive: `.planning/milestones/cycle9-REQUIREMENTS.md`
 
 ---
 
+## ✅ Cycle 10 — Studio Automation, Sync & Polish — Phases 59-63 (SHIPPED 2026-06-21, `2026.06.6`)
+
+Full detail archived in `.planning/milestones/cycle10-ROADMAP.md`. Shipped phases: 59 Pipeline Automation (AUTO-01/02), 60 Pull-from-Prod Reconcile (SYNC-01/02/03), 61 Creator Sources & Selection (SRC/HSEL), 62 Studio UI Polish (SUI-01..06), 63 Studio Self-Contained Executable (DIST-01).
+
+<details>
+<summary>Phase detail (collapsed — shipped)</summary>
+
+**Goal:** Cut manual steps from the Studio harvest→publish pipeline, give the operator a true prod↔local reconcile view, and make video selection + pipeline state fast and obvious.
+
+**Granularity:** coarse — 4 phases is the natural minimum. The two automation requirements (Core orchestrator slice) and the novel prod-read sync lane each earn their own phase; the eleven Studio-surface requirements split into one selection-mechanics pass (persisted data + behavior) and one presentation-polish pass over the same `Harvest.razor` / Studio shell. No standalone dogfood phase — validation folds into per-phase operator success criteria.
+
+**Coverage:** 16/16 requirements mapped (AUTO, SYNC, SRC, HSEL, SUI).
+
+### Phase Summary
+
+- [x] **Phase 59: Pipeline Automation** — Harvest auto-distills; high-confidence distills auto-approve, low-confidence enter the review queue (AUTO-01, AUTO-02) (✅ COMPLETE 2026-06-20; verified PASS 14/14, SC1-4; operator end-to-end checkpoint approved)
+- [x] **Phase 60: Pull-from-Prod Reconcile** — Operator pulls live prod content down, sees per-entry diffs, and resolves each from Studio (SYNC-01, SYNC-02, SYNC-03)
+- [x] **Phase 61: Creator Sources & Selection** — Saved creator list + dropdown picker; unharvested-only default with skip/ignore + un-skip (SRC-01, SRC-02, HSEL-01, HSEL-02, HSEL-03)
+- [x] **Phase 62: Studio UI Polish** — Consistent status badges, tighter flow, better feedback states, creator filtering, navigation cleanup (SUI-01..06) (completed 2026-06-21)
+
+### Phase Details
+
+#### Phase 59: Pipeline Automation
+**Goal**: The operator harvests a video and gets a distilled, review-ready (often already-approved) entry in one action — no separate manual distill step, no rubber-stamping high-quality distills.
+**Depends on**: Nothing new (builds on the existing Cycle 9 Core orchestrator distill/approve slice)
+**Requirements**: AUTO-01, AUTO-02
+**Success Criteria** (what must be TRUE):
+  1. Operator harvests a video from Studio and a distilled entry appears review-ready in one action, with no separate "Distill" click required.
+  2. A distill whose quality/confidence signal is at or above the configured threshold lands auto-approved (skips the manual review queue); a distill below the threshold remains in the review queue.
+  3. Operator can adjust the auto-approve threshold and can turn auto-approval off entirely; with it off, every distill enters the review queue.
+  4. The harvest action still respects the existing spend dry-run / cap gate — auto-distill does not bypass the spend ceiling, and the existing distill provider is used unchanged (no model / provider swap).
+**Plans**: 3 plans
+  - [x] 59-01-PLAN.md — Core auto-approve signal seam (clip-count, swappable) + per-video clip counts on DistillResult
+  - [x] 59-02-PLAN.md — Persisted auto-approve settings (on/off + cutoff, default ON/5) + Harvest-page Auto-approve panel
+  - [x] 59-03-PLAN.md — One-click harvest→auto-distill→auto-approve flow + per-video outcome summary (manual Distill fallback intact)
+**UI hint**: yes
+**Open risk**: A per-distill quality/confidence signal may not exist yet. This phase owns deriving or adding one from existing distill output (e.g. tag-count / clip-count / summary-completeness heuristics, or a returned model confidence). No distill provider or model swap is permitted to obtain the signal.
+
+#### Phase 60: Pull-from-Prod Reconcile
+**Goal**: Studio reflects what is actually live — the operator can pull prod content down, see exactly what is out of sync per entry, and reconcile each diff without dropping to the CLI or hand-editing the DB.
+**Depends on**: Phase 59 (so reconcile classification accounts for auto-distilled / auto-approved local state); independently plannable. Most novel/risky lane — stays its own phase.
+**Requirements**: SYNC-01, SYNC-02, SYNC-03
+**Success Criteria** (what must be TRUE):
+  1. Operator triggers a "Pull from Prod" action in Studio and the live prod `content_site_index` rows plus their published artifacts are pulled down to local (a read mirror of the existing DirectPush write path: SSH.NET SCP from Render `/data` + a Postgres read of `content_site_index`).
+  2. Studio shows, per entry, a diff classification of prod-newer / missing-locally / local-only / diverged, so the operator can see exactly what is out of sync.
+  3. For each surfaced diff, the operator can pick a resolution (adopt prod / keep local) from Studio and have Studio apply it — no CLI, no manual DB edit.
+  4. The pull path is read-only against prod (no write-back to prod from this lane) and uses the operator-local secret connection convention already established for DirectPush.
+**Plans**: 4 plans
+- [ ] 60-01-PLAN.md — ContentSyncDiffClassifier + SyncDiffEntry/SyncDiffKind in Core + xUnit (SYNC-02)
+- [ ] 60-02-PLAN.md — SCP download pair (ISshArtifactDownloader/SftpArtifactDownloader) + read-only IProdContentReader prod reader (SYNC-01)
+- [ ] 60-03-PLAN.md — PullFromProd.razor 2-stage page + nav + DI + bUnit tests + README (SYNC-01, SYNC-03)
+- [ ] 60-04-PLAN.md — Operator live pull verification checkpoint (SC1 + SC4 read-only invariant)
+**UI hint**: yes
+
+#### Phase 61: Creator Sources & Selection
+**Goal**: The operator manages a curated creator list and picks from it to browse, sees only the videos still worth harvesting by default, and can quietly skip candidates without the heavyweight Block path.
+**Depends on**: Phase 59 (harvested/distilled state drives the unharvested-only filter)
+**Requirements**: SRC-01, SRC-02, HSEL-01, HSEL-02, HSEL-03
+**Success Criteria** (what must be TRUE):
+  1. Operator can add, view, and remove curated creators/channels in Studio, and the list persists across Studio restarts.
+  2. When browsing videos to harvest, operator selects a creator from a dropdown of the saved list instead of pasting a channel URL — with paste-URL still available as a one-off fallback.
+  3. The creator video-selection list defaults to showing only not-yet-harvested videos, with a toggle to show all (including harvested/distilled/published).
+  4. Operator can skip/ignore a candidate so it no longer appears in selection — with no artifact hard-delete and no harvest blocklist entry (distinct from Block).
+  5. Operator can view the skipped/ignored list and un-skip an entry to bring it back into selection (parity with the existing Block/Unblock pair).
+**Plans**: TBD
+**UI hint**: yes
+
+#### Phase 62: Studio UI Polish
+**Goal**: Pipeline state is obvious at a glance and the harvest→review→publish flow is fast, clear, and forgiving — fewer clicks, better feedback, cleaner navigation, and creator-based filtering throughout.
+**Depends on**: Phase 61 (status badges and creator filtering build on the surfaces and creator list settled in 59-61); presentation pass runs over the now-stable Studio surfaces.
+**Requirements**: SUI-01, SUI-02, SUI-03, SUI-04, SUI-05, SUI-06
+**Success Criteria** (what must be TRUE):
+  1. Pipeline status is clear at a glance on the main Studio pages via consistent status badges (harvested / distilled / approved / publish-state), reusing the Cycle 9 `PublishStateDeriver` / `VideoStatusResolver` (no duplicate status logic).
+  2. The harvest → review → publish flow takes fewer clicks (multi-select ergonomics, sensible defaults, less back-and-forth between pages) than before this phase.
+  3. Studio actions show improved loading, error, and success feedback — including harvest/distill spend warnings and clear failure messages. (Operator request 2026-06-21: add a LIVE progress/console view on the Pull from Prod page — stream the existing stage + per-artifact `IProgress` reports into a scrolling UI panel as the pull runs, instead of only spinners + final table, so the operator can watch progress without tailing the Serilog log file.)
+  4. Operator can filter/group video and entry lists by creator to see which videos belong to which creator.
+  5. Studio layout and inter-page navigation read as denser and clearer, and the `MainLayout.razor` "About" link points at a real, relevant target instead of the ASP.NET docs scaffold placeholder.
+**Plans**: TBD
+**UI hint**: yes
+
+### Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 59. Pipeline Automation | 3/3 | ✅ Complete — verified PASS, operator approved | - |
+| 60. Pull-from-Prod Reconcile | 4/4 | ✅ Complete — operator-verified PASS (60-04) | 2026-06-21 |
+| 61. Creator Sources & Selection | 4/4 | ✅ Executed (Claude-coded) | 2026-06-21 |
+| 62. Studio UI Polish | 4/4 | Complete   | 2026-06-21 |
+
+### Phase Ordering Rationale
+
+- **59 first**: Auto-distill / auto-approve sits in the Core orchestrator distill/approve slice and changes the meaning of "harvested" vs "review-ready" vs "approved" state. The selection filter (HSEL-01) and the status badges (SUI-01) both read that state, so it lands first. Carries the AUTO-02 quality-signal open risk — isolating it keeps that risk contained.
+- **60 second, own phase**: Pull-from-Prod is the most novel/risky lane — a NEW authenticated prod READ path mirroring DirectPush. It shares nothing with the Harvest.razor UX work and must not be diluted into a polish phase.
+- **61 third**: Creator-source management + harvest selection (persisted creator list, dropdown picker, unharvested-only default, skip/ignore + un-skip) is the data-and-behavior pass over `Harvest.razor`. Depends on Phase 59's harvested-state definition for the default filter.
+- **62 last**: The presentation pass (status badges, flow tightening, feedback states, layout/nav, creator filtering, the one-line MainLayout About-link fix) runs over the now-settled surfaces so polish isn't redone after 61 reshapes them. SUI-01 reuses the existing status engine; SUI-06 is a one-line fix.
+
+**No separate dogfood phase**: coarse granularity. Validation folds into per-phase operator success criteria — Phases 59 and 60 each carry observable operator gates (one-action harvest+distill, threshold on/off, live prod pull + per-entry diff resolution) that constitute their own end-to-end checks.
+
+</details>
+
+---
+
 ## Backlog
 
 ### Harden deck-source host matching (SSRF/abuse) (BACKLOG — captured 2026-06-20; HIGH priority — address at next milestone START)
@@ -213,6 +316,16 @@ Requirements archive: `.planning/milestones/cycle9-REQUIREMENTS.md`
 
 Scope note: shared Core code — affects all deck tools, needs its own change + regression tests. Promote via `/gsd-review-backlog` at next cycle open.
 
+### Prod artifact gap — 86 of 109 content rows have no .md on Render /data (BACKLOG — high priority; found 2026-06-21 during Phase 60 live verify)
+
+**Problem:** Prod `content_site_index` has 109 rows, but Render's `/data/content-kb` only holds artifacts for **3 creators** (`salubrioussnail`, `the-command-zone`, `based-deck-department` = 23 rows). The other **86 rows** reference `.md` artifact files that are missing from the prod disk entirely (e.g. `content-kb/commander-baumi/*`). Discovered via SFTP probe during Phase 60's Pull-from-Prod operator verify — the Pull page correctly reported "not downloaded" for all 86.
+
+**Impact:** Any feature that needs the artifact body for those 86 rows (Pull-from-Prod artifact adopt; potentially the live content-kb if it serves from `/data` rather than the DB content column) is broken for them. The DB rows exist but the source files don't.
+
+**Likely causes (investigate):** (a) Render `/data` disk was reset/lost while the DB persisted; (b) DirectPush upserted DB rows without uploading artifacts for non-3 creators; (c) those artifacts only ever lived locally and were never pushed. Confirm whether the live site reads content from `/data` files or the DB (decides severity).
+
+**Fix options:** re-upload the missing 86 artifacts from a local source if they exist; OR reconcile the DB down to the 23 rows that have artifacts; OR (if content lives in the DB) downgrade this to cosmetic. Promote via `/gsd-review-backlog`.
+
 ### Validate Content KB value — A/B ChatGPT output with vs without expert context (BACKLOG — high priority; was todo, moved 2026-06-19 at Cycle-9 close)
 
 **Goal:** Gating experiment — prove the Content KB actually makes ChatGPT's deck analysis *better* before investing further (e.g. the creator philosophy-profile redesign). `content.kb.enabled` is OFF in prod and the subsystem is unproven on end-output quality (Cycle 9 validated the *pipeline* produces cleaner distills, but not that injected context lifts the final ChatGPT answer).
@@ -221,13 +334,15 @@ Scope note: shared Core code — affects all deck tools, needs its own change + 
 
 **Decision criteria:** Clear lift → green-light philosophy-profile build + flip `content.kb.enabled` ON. Marginal → reconsider the KB (per-deck targeted retrieval or user-supplied sources instead of whole-channel pre-distill).
 
-**Spike-able** via `/gsd-spike` — lightweight, no production code to start. Origin: Phase 30 UAT (2026-06-09). Promote via `/gsd-review-backlog`.
+**Spike-able** via `/gsd-spike` — lightweight, no production code to start. Origin: Phase 30 UAT (2026-06-09). Promote via `/gsd-review-backlog`. (Deferred again at Cycle 10 scoping — KBVAL-01/02 are Cycle 10 v2.)
 
-### Studio "Pull from Prod" — prod→local sync (BACKLOG — captured 2026-06-19 during Phase 58 dogfood; for next cycle)
+### Studio "Pull from Prod" — prod→local sync (PROMOTED to Cycle 10 Phase 60 — SYNC-01/02/03, 2026-06-20)
 
-**Goal:** Make the Studio local store reflect current production data. Today Studio is strictly one-way (DirectPush local→prod); the local `content-kb.db` drifts from prod (prod 109 rows, local only what was harvested + push-stamped). Add a "Pull from Prod" page/action — the inverse of `DirectPush.razor` — so an operator can mirror prod into local.
+> Promoted into Cycle 10 as Phase 60 (Pull-from-Prod Reconcile). Original backlog note retained below for design context; resolve open design questions during `/gsd-plan-phase 60`.
 
-**Scope (Option B — full pull; Option A read-only "Prod vs Local" drift view was the cheaper alternative, deferred):**
+**Goal:** Make the Studio local store reflect current production data. Today Studio is strictly one-way (DirectPush local→prod); the local `content-kb.db` drifts from prod. Add a "Pull from Prod" page/action — the inverse of `DirectPush.razor` — so an operator can mirror prod into local.
+
+**Scope (Option B — full pull; Option A read-only "Prod vs Local" drift view was the cheaper alternative):**
 - Read prod rows via `prodStore.GetAllRowsAsync` (plumbing already exists — DirectPush Stage 1 uses it for the diff).
 - Upsert them into the local `IContentSiteIndexStore` (`UpsertRowAsync` exists).
 - SCP-**download** the artifact `.md` files from prod `/data` into local `content-kb/` — **new**: only SCP upload exists today (`ISshArtifactUploader`); needs a download counterpart.
@@ -238,12 +353,11 @@ Scope note: shared Core code — affects all deck tools, needs its own change + 
 - `approval_status` handling (prod defaults `pending`; local may be `approved`) — don't clobber local approvals?
 - `is_visible` / `is_hidden` / `pushed_to_prod_utc` reconciliation.
 
-**Requirements:** TBD
-**Plans:** 0 plans
+Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19).
 
-Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19). Promote via `/gsd-review-backlog` when the next cycle opens.
+### Studio UI polish pass (PARTIALLY PROMOTED to Cycle 10 Phase 62 — SUI-01..06, 2026-06-20)
 
-### Studio UI polish pass (BACKLOG — captured 2026-06-19; medium priority)
+> The P2 status-badge/per-page-consistency, channel/source column + filter, and MainLayout cleanup items are promoted into Cycle 10 Phase 62 (Studio UI Polish). The full design-system tier (P1 shell/tokens/dashboard) and P3 responsive/dark-mode remain backlog for a future `/gsd-ui-phase` if demand surfaces. Original note retained for context.
 
 **Goal:** Give DeckFlow.Studio a real design pass. Today it's the **stock Blazor Server template** — default nav sidebar (`MainLayout`/`NavMenu`), default 64-line `site.css` (stock `#1b6ec2` blue), a 19-line placeholder `Home.razor`, and 6 pages each hand-rolling raw Bootstrap (`Harvest.razor` is 1651 lines). Functional but unbranded and inconsistent. The public site got a UI audit (Phase 48, 16→20/24); Studio never has.
 
@@ -261,7 +375,7 @@ Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19). Pro
 
 *P2 — channel/source column + filter (concrete, highest-value ask):*
 - **Show the source/channel each video came from in the grids.** `ContentSiteIndexRow.Source` already holds it (e.g. "The Command Zone") but it is **not surfaced** — the Review grid shows only Title/Tags/Status/Publish State/Actions and `ReviewViewModel` doesn't even expose `Source`. Add a **Source/Channel column** to the Review grid (and wherever a per-row list exists).
-- **Filter by channel/source** in those grids — a dropdown/segmented filter populated from the distinct `Source` values (mirror the web `/Admin/ContentKb` creator-filter behavior; that grid is source-grouped). Lets the operator focus one channel at a time (e.g. dedup @salubrioussnail, find Based-Deck-Dept never-published).
+- **Filter by channel/source** in those grids — a dropdown/segmented filter populated from the distinct `Source` values (mirror the web `/Admin/ContentKb` creator-filter behavior; that grid is source-grouped). Lets the operator focus one channel at a time.
 - Low-risk: data + persistence already exist; this is ViewModel field + column + client-side filter state.
 
 *P3 — optional:*
@@ -269,7 +383,7 @@ Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19). Pro
 
 **Approach:** run as a `/gsd-ui-phase` (UI-SPEC design contract) → implement → `/gsd-ui-review` audit, same flow as Phase 48 for the public site.
 
-**Explicitly out:** no new features, no behavior change (Pull-from-Prod etc. are separate); Studio stays a local operator tool. Promote via `/gsd-review-backlog`.
+**Explicitly out:** no new features, no behavior change; Studio stays a local operator tool. Promote via `/gsd-review-backlog`.
 
 ### Codex Distill Backend (BACKLOG — low priority; was Phase 21.3, demoted 2026-06-01; re-demoted 2026-06-04 after Phase 28 discovery)
 
@@ -311,19 +425,31 @@ Plans:
 ### Phase 39 architecture findings — deferred (ARCH-02 executes Finding A; rest below per SC3)
 
 See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` (two independent audits).
-- **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M.
+- **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M. **DONE — Cycle 8 Phase 53 (ARCH-01).**
 - **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M. **NOTE: v1.7 Phase 42 (ORCH-01) addresses Finding C as a side-effect by extracting domain logic to Core.**
-- **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L.
-- **E — Relocate misplaced domain logic to `DeckFlow.Core`** (deck-stat classifiers in DeckComparisonService; distill cost/validation in ContentKbCommandRunners). Effort M / Risk L.
-- **F — Strengthen dual-dialect abstraction** (33 `IsPostgres`/`IsSqlite` branches across 7 stores → dialect render methods; remove Web `Feedback*` SQL from Core `IRelationalDialect`). ⚠ Postgres path has no automated test. Effort M / Risk M.
+- **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L. **DONE — Cycle 8 Phase 53.**
+- **E — Relocate misplaced domain logic to `DeckFlow.Core`** (deck-stat classifiers in DeckComparisonService; distill cost/validation in ContentKbCommandRunners). Effort M / Risk L. **DONE — Cycle 8 Phase 53.**
+- **F — Strengthen dual-dialect abstraction** (33 `IsPostgres`/`IsSqlite` branches across 7 stores → dialect render methods; remove Web `Feedback*` SQL from Core `IRelationalDialect`). ⚠ Postgres path has no automated test. Effort M / Risk M. **PARTIAL — Cycle 8 Phase 53 (Feedback leak removed; full branch collapse deferred on PG DDL parity test).**
 - **ADR-note tier:** G packet cache-key `IPacketCacheKeyStrategy` · H `IScryfallThrottle` seam · I `IMemoryCache` SizeLimit doc · J `System.CommandLine` beta4 deliberate-pin ADR · K residual test gaps (middleware-ordering integration test; Polly policy-shape assertion).
 
 ### Deferred to v1.7+ (per v1.5/v1.6 scope decisions)
 
 - **Gemini paste-limit workaround** (`DECKFLOW_GEMINI_ENABLED` stays flag-gated; needs split-message vs direct-API path decision)
-- **SpellbookCombo ranking fields** (PRM-08 — parser drops `manaValueNeeded`/`popularity`/`uses`; priority ranking degraded)
 - **Embedding/vector retrieval** (pgvector / ONNX sentence-transformers) — deferred until corpus >~500 videos; RAM-cap risk at current size
+- **Scheduled/cron harvest cadence (AUTO-03)** + **bulk creator-source onboarding (AUTO-04)** — Cycle 10 v2 (operator prefers manual curation this cycle)
+- **KB-value A/B harness + `content.kb.enabled` decision gate (KBVAL-01/02)** — Cycle 10 v2
+
+### Phase 63: Studio Self-Contained Executable — package DeckFlow.Studio as a self-contained single-file win-x64 executable the operator runs without a .NET install; produce the publish profile/script and document build+run steps (DIST-01)
+
+**Goal:** The operator can run DeckFlow.Studio on a clean Windows box (no .NET installed) by launching a single self-contained `win-x64` executable produced by a repeatable, documented publish step.
+**Requirements**: DIST-01
+**Depends on:** Phase 62
+**Status:** ✅ COMPLETE 2026-06-20 — verified PASS 7/7; operator clean-machine smoke passed (+ crash logging + browser auto-open)
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 63-01-PLAN.md — Self-contained win-x64 publish profile + publish scripts (ps1/sh) + Kestrel port pin + standalone-exe docs (DIST-01)
 
 ---
 
-*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19*
+*v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19 | Cycle 10 shipped 2026-06-21 (`2026.06.6`)*

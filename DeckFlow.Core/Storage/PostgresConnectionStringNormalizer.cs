@@ -28,6 +28,16 @@ public static class PostgresConnectionStringNormalizer
             Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'))
         };
 
+        // Why: the URL form is the managed-Postgres (Render) connection string, and Render rejects
+        // non-SSL connections (28000: SSL/TLS required). Default to Require so a string that omits
+        // sslmode still connects; an explicit ?sslmode= in the query below overrides this.
+        // TrustServerCertificate is also defaulted on because Npgsql's Require validates the server
+        // chain and Render's managed-PG endpoint trips that validation (handshake drop /
+        // EndOfStreamException) — the documented Render + Npgsql string pairs Require with trust.
+        // Traffic stays encrypted; only chain validation is skipped (accepted Render norm).
+        builder.SslMode = SslMode.Require;
+        builder.TrustServerCertificate = true;
+
         if (!string.IsNullOrEmpty(uri.UserInfo))
         {
             var separatorIndex = uri.UserInfo.IndexOf(':');

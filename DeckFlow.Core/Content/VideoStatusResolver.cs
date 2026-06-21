@@ -39,6 +39,40 @@ public sealed class VideoStatusResolver
     }
 
     /// <summary>
+    /// Derives the <see cref="VideoStatus"/> for an already-loaded content-site-index row from its
+    /// persisted fields. Extracted as a pure static helper so the same rule lives in one place —
+    /// <see cref="ResolveStatusAsync"/> routes through this for the index-row branch, and
+    /// <c>Review.razor</c> calls it directly for each displayed row without extra store round-trips.
+    /// </summary>
+    /// <param name="approvalStatus">The <c>approval_status</c> column value (e.g. "approved", "pending").</param>
+    /// <param name="pushedToProdUtc">Timestamp when the artifact was pushed to prod, or <see langword="null"/>.</param>
+    /// <param name="isVisible">Whether the artifact is visible on the production site.</param>
+    /// <returns>
+    /// <see cref="VideoStatus.Published"/> when pushed and visible;
+    /// <see cref="VideoStatus.Approved"/> when approved but not yet live (including pushed-but-hidden);
+    /// <see cref="VideoStatus.Distilled"/> otherwise.
+    /// </returns>
+    public static VideoStatus FromContentRow(
+        string approvalStatus,
+        DateTimeOffset? pushedToProdUtc,
+        bool isVisible)
+    {
+        // Published: pushed AND visible (pushed-but-hidden stays Approved — operator limbo semantic).
+        if (pushedToProdUtc.HasValue && isVisible)
+        {
+            return VideoStatus.Published;
+        }
+
+        // Approved: in KB and admin-approved but not yet live.
+        if (approvalStatus == "approved")
+        {
+            return VideoStatus.Approved;
+        }
+
+        return VideoStatus.Distilled;
+    }
+
+    /// <summary>
     /// Resolves the <see cref="VideoStatus"/> badge for a YouTube video using real store queries.
     /// </summary>
     /// <remarks>
@@ -72,20 +106,9 @@ public sealed class VideoStatusResolver
 
         if (indexRow is not null)
         {
-            // Published: pushed AND visible (pushed-but-hidden shows Approved per accepted semantic —
-            // mirrors PublishState.PushedHidden; operator considers it still in limbo).
-            if (indexRow.PushedToProdUtc.HasValue && indexRow.IsVisible)
-            {
-                return VideoStatus.Published;
-            }
-
-            // Approved: in KB and admin approved it, but not yet live on prod.
-            if (indexRow.ApprovalStatus == "approved")
-            {
-                return VideoStatus.Approved;
-            }
-
-            return VideoStatus.Distilled;
+            // Why: route through the shared pure mapper so the Published/Approved/Distilled rule
+            // lives in exactly one place (FromContentRow) — Review.razor uses the same method.
+            return FromContentRow(indexRow.ApprovalStatus, indexRow.PushedToProdUtc, indexRow.IsVisible);
         }
 
         // 3. Harvested: the video exists in at least one enabled source.

@@ -36,6 +36,13 @@ public sealed record DistillResult
     /// <summary>Gets the failed video identifiers, always initialized to a non-null list.</summary>
     public IReadOnlyList<string> FailedVideoIds { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// Gets the per-video distilled outcomes (natural key + clip count) for every successfully
+    /// distilled video, in source/video processing order. Filtered (keep/drop=drop), failed, and
+    /// dry-run videos produce no entry. Always initialized to a non-null list.
+    /// </summary>
+    public IReadOnlyList<DistilledVideoResult> DistilledVideos { get; init; } = Array.Empty<DistilledVideoResult>();
+
     /// <summary>Gets the abort reason for metered-provider refusal or other explicit early termination.</summary>
     public string? AbortedReason { get; init; }
 

@@ -97,3 +97,172 @@ Studio SCP: configured | not configured
   `appsettings*.json`, the repo, commits, or logs. The repo is public.
 - Get the actual prod connection string and SSH key from the Render dashboard / your secret
   store — do not paste them into chat, code, or this file.
+
+---
+
+## Run the standalone Windows executable
+
+Package DeckFlow.Studio as a self-contained `win-x64` executable you can run on a clean
+Windows machine with **no .NET runtime or SDK installed**. This is the DIST-01 packaging
+path.
+
+### Prerequisites
+
+- **Windows x64 machine** (no .NET install required — the runtime is bundled).
+- **Build machine** (where you run the publish step): .NET 10 SDK for Windows at
+  `C:\Program Files\dotnet\dotnet.exe` — this is the machine where you checked out the
+  repo and where `scripts/publish-studio.ps1` runs.
+
+### How to publish
+
+**From Windows PowerShell (primary):**
+
+```powershell
+# From the repo root
+.\scripts\publish-studio.ps1
+```
+
+**From WSL bash:**
+
+```bash
+# From the repo root (or anywhere — the script cds to the repo root)
+bash scripts/publish-studio.sh
+```
+
+Both scripts:
+
+1. Invoke **`C:\Program Files\dotnet\dotnet.exe publish`** with
+   `-p:PublishProfile=win-x64-selfcontained` (selects the
+   `DeckFlow.Studio/Properties/PublishProfiles/win-x64-selfcontained.pubxml` profile).
+2. Clean the output dir first (`artifacts/studio-release/`) so the script is re-runnable
+   with no stale artifacts.
+3. Strip non-distribution files (`*.pdb`, `*.xml`, `web.config`,
+   `appsettings.Development.json`) from the output.
+4. Zip the output folder to **`artifacts/DeckFlowStudio-<date>.zip`**.
+5. Print the exe path + size in MB and the zip path + size.
+
+The publish profile carries all the packaging properties (win-x64, self-contained,
+single-file, native-lib self-extract, trimming off). Nothing in `DeckFlow.Studio.csproj`
+is changed by these scripts, so the default `dotnet build` / `dotnet run` behavior is
+unchanged.
+
+### What the artifact contains — "single file" reality
+
+The deliverable is **not** a literal single file. Blazor Server reads `wwwroot/` from disk
+relative to the exe at startup (it cannot be embedded). The distribution folder contains:
+
+```
+artifacts/studio-release/
+  DeckFlow.Studio.exe              (~116 MB, self-contained win-x64 bundle)
+  wwwroot/                         (~1.6 MB: _framework/blazor.server.js, CSS, etc.)
+  appsettings.json                 (Logging config + Kestrel port pin)
+  DeckFlow.Studio.staticwebassets.endpoints.json
+```
+
+The `wwwroot/` folder **must stay beside the exe**. If it is deleted or separated, the
+Blazor UI freezes (404 on `/_framework/blazor.server.js`, no JS/CSS loaded).
+
+The zip (`artifacts/DeckFlowStudio-<date>.zip`) contains the full folder ready to unzip
+and run.
+
+### How to launch
+
+1. Unzip `DeckFlowStudio-<date>.zip` to any folder on the target Windows machine.
+2. Double-click **`DeckFlow.Studio.exe`** (or run it from a command prompt / PowerShell).
+   - The console window shows startup messages, including any errors (e.g. port already in
+     use — kill whatever is on 5271 or override the port via `ASPNETCORE_URLS`).
+   - The working directory on launch is the exe directory. Studio's local data folder
+     (`artifacts/studio/`) lands beside the exe. Set `MTG_DATA_DIR` to an absolute path
+     if you want a predictable location independent of where you place the exe.
+3. Studio **opens your default browser automatically** at **http://localhost:5271** once it
+   finishes starting. If it doesn't (or you closed the tab), browse there manually.
+   (`appsettings.json` pins Kestrel to this port; you can override it at runtime with
+   `ASPNETCORE_URLS=http://localhost:XXXX` — the auto-open follows the actual bound URL.)
+   To suppress the auto-open, set `DECKFLOW_DISABLE_AUTO_BROWSER=1` before launching.
+
+On first launch Studio creates `content-kb.db` in the data dir. This is expected.
+
+### Troubleshooting — the exe flashes open then closes immediately
+
+A double-clicked exe closes its console window the moment it crashes, so a startup error can
+vanish before you read it. Studio now **writes a log file to disk** so you can see what
+happened after the fact:
+
+- Look in **`<data dir>/logs/studio-<date>.log`** — by default `artifacts/studio/logs/`
+  beside the exe (or under `MTG_DATA_DIR/studio/logs/` if you set that env var). The crash is
+  recorded there as a `[FTL]` (fatal) entry with the full stack trace.
+- **Most common cause: the port is already in use.** The log will show a Kestrel bind failure
+  and a plain-language line: *"Startup bind failure — the configured port (default
+  http://localhost:5271) is likely already in use…"*. Fix it by closing whatever already
+  holds 5271 (another Studio instance, or the dev server), **or** launch on a different port:
+  ```
+  set ASPNETCORE_URLS=http://localhost:5280
+  DeckFlow.Studio.exe
+  ```
+  (then open the port you chose). Environment variables override `appsettings.json`.
+- To keep the window open and watch errors live, launch from an already-open Command Prompt /
+  PowerShell (`DeckFlow.Studio.exe`) rather than double-clicking — the console stays up.
+
+### Basic flow needs no secrets
+
+The **basic harvest → distill → review → approve** workflow works with **no secrets
+configured at all**. Studio boots against local SQLite and local artifact storage.
+
+Only two paths need extra config:
+
+| Path | What you need |
+|------|---------------|
+| DirectPush (SCP + prod Postgres upsert) | `Studio__Scp__*` + `Studio__ProdConnectionString` |
+| Git commit-publish | `git.exe` on `PATH` |
+
+LLM distill uses `DECKFLOW_LLM_PROVIDER=claude` (subscription, $0 spend) or
+`OPENAI_API_KEY` (metered). Not required to just browse and review existing entries.
+
+### Secrets via environment variables (clean machine — no SDK, no user-secrets)
+
+On a machine where the .NET SDK is not installed, supply secrets as **environment
+variables** (configuration key `:` separator → `__` in env vars):
+
+| Config key | Environment variable | Required for |
+|------------|----------------------|--------------|
+| `Studio:ProdConnectionString` | `Studio__ProdConnectionString` | DirectPush Postgres upsert |
+| `Studio:Scp:Host` | `Studio__Scp__Host` | DirectPush SCP upload |
+| `Studio:Scp:Username` | `Studio__Scp__Username` | DirectPush SCP upload |
+| `Studio:Scp:KeyFile` | `Studio__Scp__KeyFile` | DirectPush SCP upload |
+| `Studio:Scp:RemoteArtifactRoot` | `Studio__Scp__RemoteArtifactRoot` | DirectPush SCP upload |
+| `Studio:Scp:Port` | `Studio__Scp__Port` | Optional (default 22) |
+| `Studio:Scp:KeyPassphrase` | `Studio__Scp__KeyPassphrase` | Optional (if key is encrypted) |
+| `DECKFLOW_LLM_PROVIDER` | `DECKFLOW_LLM_PROVIDER` | LLM distill (default=openai) |
+| `OPENAI_API_KEY` | `OPENAI_API_KEY` | OpenAI distill path |
+| (override port) | `ASPNETCORE_URLS` | Only if overriding the pinned 5271 port |
+
+Example `_launch-studio.bat` wrapper that sets secrets then runs the exe:
+
+```bat
+@echo off
+REM ⚠ WARNING: This file holds secrets. DO NOT commit it. DO NOT share it.
+REM            It is listed in .gitignore; keep it in the exe folder only.
+set Studio__ProdConnectionString=postgresql://...
+set Studio__Scp__Host=...
+set Studio__Scp__Username=...
+set Studio__Scp__KeyFile=C:\Users\you\.ssh\render_key
+set Studio__Scp__RemoteArtifactRoot=/data
+set DECKFLOW_LLM_PROVIDER=claude
+DeckFlow.Studio.exe
+```
+
+**The `.bat` file holds secrets and is NOT committed or distributed** (public repo). Keep
+it in the same folder as the exe on the target machine only, and exclude it from any
+file sharing that would expose it.
+
+If you happen to have the .NET SDK installed on the target machine, you can use
+`dotnet user-secrets` instead — see the **User-secrets** section above for those
+commands.
+
+### Optional ReadyToRun (faster cold start)
+
+`PublishReadyToRun=true` is not enabled by default. It pre-compiles native code for
+faster cold startup at the cost of ~15 MB extra executable size. For a single-operator
+tool that starts once, the tradeoff is not worth it. To enable it for your own build,
+add `-p:PublishReadyToRun=true` on the `dotnet publish` command line; do not commit that
+flag to the profile so other operators keep the default-off behavior.

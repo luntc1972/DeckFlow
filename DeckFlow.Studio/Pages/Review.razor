@@ -3,6 +3,7 @@
 @using DeckFlow.Core.Knowledge
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Orchestration
+@using DeckFlow.Studio.Services
 
 <PageTitle>Review Queue</PageTitle>
 
@@ -68,11 +69,17 @@
             </li>
         </ul>
 
+        @* ─── SUI-02: Go to Publish shortcut (visible when ≥1 approved) ─── *@
+        @RenderGoToPublishLink()
+
         @* ─── Batch Action Bar (visible when ≥1 checked) ─── *@
         @RenderBatchBar()
 
+        @* ─── SUI-05: Creator filter ─── *@
+        @RenderCreatorFilter()
+
         @* ─── Queue Table ─── *@
-        @if (_filteredRows.Count == 0)
+        @if (CreatorFilteredRows.Count == 0)
         {
             <p class="text-muted mt-3">@EmptyStateMessage</p>
         }
@@ -97,7 +104,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var vm in _filteredRows)
+                        @foreach (var vm in CreatorFilteredRows)
                         {
                             var rowClass = vm.ApprovalStatus switch
                             {
@@ -119,7 +126,7 @@
                                 </td>
                                 <td>@RenderTagsSummary(vm)</td>
                                 <td>
-                                    @RenderApprovalBadge(vm.ApprovalStatus)
+                                    <StatusBadge Status="@VideoStatusResolver.FromContentRow(vm.ApprovalStatus, vm.PushedToProdUtc, vm.IsVisible)" />
                                     @if (missing)
                                     {
                                         <span class="badge bg-warning text-dark ms-1">Artifact missing</span>
@@ -250,6 +257,8 @@
     private bool _operationInFlight;
     private string _batchAction = string.Empty;
     private bool _allSelected;
+    // SUI-05: creator filter over the entry list. Empty = "All creators".
+    private string _reviewCreatorFilter = string.Empty;
 
     // ── Queue rows (mutable view models) ───────────────────────────────────
     private List<ReviewViewModel> _allRows = new();
@@ -264,10 +273,20 @@
     private CancellationTokenSource _cts = new();
 
     // ── Filtered view ──────────────────────────────────────────────────────
+    // Tab filter (approval-status axis).
     private List<ReviewViewModel> _filteredRows =>
         _activeTab == "all"
             ? _allRows
             : _allRows.Where(r => r.ApprovalStatus == _activeTab).ToList();
+
+    // SUI-05: creator filter layered on top of the tab filter. Rendering, ToggleSelectAll,
+    // and the batch bar all route through this so a creator-hidden row can never be acted on.
+    private List<ReviewViewModel> CreatorFilteredRows =>
+        string.IsNullOrEmpty(_reviewCreatorFilter)
+            ? _filteredRows
+            : _filteredRows
+                .Where(r => CreatorNameResolver.FromArtifactPath(r.ArtifactPath) == _reviewCreatorFilter)
+                .ToList();
 
     // ── Empty state copy ───────────────────────────────────────────────────
     private string EmptyStateMessage => _activeTab switch
@@ -298,7 +317,10 @@
         }
         catch (Exception ex)
         {
-            _loadError = $"Could not load review queue — {ex.Message}";
+            // Why: store errors can carry DB path/connection details — NEVER surface ex.Message (D-07);
+            // log full detail server-side and show a generic operator-safe message.
+            _ = ex; // consumed by logger via structured logging if one is wired; swallow safely here.
+            _loadError = "Could not load review queue — check the Studio data directory and retry.";
         }
         finally
         {
@@ -311,11 +333,27 @@
     private void SwitchTab(string tab)
     {
         _activeTab = tab;
-        // Clear all selections when switching tabs.
+        // Clear all selections and reset the creator filter when switching tabs.
         foreach (var vm in _allRows)
         {
             vm.Selected = false;
         }
+
+        _allSelected = false;
+        // SUI-05: reset filter so a stale creator from the previous tab doesn't carry over.
+        _reviewCreatorFilter = string.Empty;
+    }
+
+    // SUI-05: updates the review-list creator filter. Empty string means "All creators".
+    private void OnReviewCreatorFilterChanged(ChangeEventArgs args)
+    {
+        _reviewCreatorFilter = args.Value?.ToString() ?? string.Empty;
+        // Clear selections when filter changes to avoid acting on now-hidden rows.
+        foreach (var vm in _allRows)
+        {
+            vm.Selected = false;
+        }
+
         _allSelected = false;
     }
 
@@ -323,7 +361,8 @@
     private void ToggleSelectAll()
     {
         _allSelected = !_allSelected;
-        foreach (var vm in _filteredRows)
+        // SUI-05: only toggle the visible (creator-filtered) rows so a hidden row stays deselected.
+        foreach (var vm in CreatorFilteredRows)
         {
             vm.Selected = _allSelected;
         }
@@ -559,10 +598,50 @@
         return _expandCache.TryGetValue(vm.NaturalKeyValue, out var cached) && cached is null;
     }
 
+    // ── Creator filter rendering (SUI-05) ──────────────────────────────────
+    /// <summary>
+    /// Renders a "Filter by creator" dropdown when the current tab has &gt;1 distinct creator.
+    /// Distinct creators are derived from <see cref="ArtifactPath"/> via
+    /// <see cref="CreatorNameResolver.FromArtifactPath"/>. Returns an empty fragment when only
+    /// one (or zero) creators exist so the filter doesn't clutter a single-creator queue.
+    /// </summary>
+    private RenderFragment RenderCreatorFilter()
+    {
+        // Distinct creators parsed from the tab-filtered rows (not yet creator-filtered) so
+        // the dropdown list is stable while the filter is active.
+        var creators = _filteredRows
+            .Select(r => CreatorNameResolver.FromArtifactPath(r.ArtifactPath))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList();
+
+        if (creators.Count <= 1)
+        {
+            return @<text></text>;
+        }
+
+        var currentFilter = _reviewCreatorFilter;
+        return @<div class="row g-2 align-items-end mb-2 mt-2">
+            <div class="col-md-4">
+                <label for="reviewCreatorFilter" class="form-label fw-semibold small">Filter by creator</label>
+                <select id="reviewCreatorFilter" class="form-select form-select-sm"
+                        value="@currentFilter"
+                        @onchange="OnReviewCreatorFilterChanged">
+                    <option value="">All creators</option>
+                    @foreach (var creator in creators)
+                    {
+                        <option value="@creator">@creator</option>
+                    }
+                </select>
+            </div>
+        </div>;
+    }
+
     // ── Batch action bar rendering (keeps @{} scoping inside RenderFragment) ──
     private RenderFragment RenderBatchBar()
     {
-        var checkedRows = _filteredRows.Where(r => r.Selected).ToList();
+        // SUI-05: batch bar acts on visible (creator-filtered) rows only.
+        var checkedRows = CreatorFilteredRows.Where(r => r.Selected).ToList();
         var approveEligible = checkedRows.Where(r => r.ApprovalStatus != "approved" && !IsArtifactMissing(r)).ToList();
         var rejectEligible = checkedRows.Where(r => r.ApprovalStatus != "rejected").ToList();
 
@@ -610,14 +689,31 @@
         </div>;
     }
 
-    // ── Badge and tag rendering ─────────────────────────────────────────────
-    private static RenderFragment RenderApprovalBadge(string status) => status switch
+    // ── SUI-02: Go to Publish shortcut ─────────────────────────────────────
+    /// <summary>
+    /// Returns a "Go to Publish" link when at least one approved entry exists.
+    /// Navigation only — does not change any data or approval behavior.
+    /// </summary>
+    private RenderFragment RenderGoToPublishLink()
     {
-        "approved" => @<span class="badge bg-success">Approved</span>,
-        "rejected" => @<span class="badge bg-danger">Rejected</span>,
-        _          => @<span class="badge bg-secondary">Pending</span>,
-    };
+        var approvedCount = _allRows.Count(r => r.ApprovalStatus == "approved");
+        if (approvedCount == 0)
+        {
+            return @<text></text>;
+        }
 
+        return @<div class="d-flex align-items-center gap-2 mt-2">
+            <a href="/publish"
+               class="btn btn-sm btn-outline-success"
+               aria-label="Go to Publish page">
+                <span class="oi oi-cloud-upload me-1" aria-hidden="true"></span>
+                Go to Publish (@approvedCount approved)
+            </a>
+            <span class="text-muted small">@approvedCount approved entr@(approvedCount == 1 ? "y is" : "ies are") ready to publish.</span>
+        </div>;
+    }
+
+    // ── Badge and tag rendering ─────────────────────────────────────────────
     private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
     {
         PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,

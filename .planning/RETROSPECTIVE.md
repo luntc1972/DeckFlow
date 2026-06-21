@@ -268,6 +268,42 @@ Publish-state tracking wired end-to-end: a `pushed_to_prod_utc` column + shared 
 
 ---
 
+## Milestone: Cycle 10 — Studio Automation, Sync & Polish (CalVer `2026.06.6`)
+
+**Shipped:** 2026-06-21
+**Phases:** 5 (59-63) | **Plans:** 16
+
+### What Was Built
+- One-action harvest → auto-distill → auto-approve in Studio (swappable clip-count signal, default ON/5; spend gate + provider unchanged).
+- Read-only Pull-from-Prod reconcile: SSH.NET SCP download + Postgres read into isolated staging, four-way diff classification, per-entry adopt-prod/keep-local, live sanitized progress panel. Prod never written.
+- Persisted creator list + dropdown picker; unharvested-only default browse + show-all; lightweight skip/un-skip lane distinct from Block.
+- Studio UI polish: shared `StatusBadge` + `VideoStatusResolver.FromContentRow` pure mapper, creator filtering on Harvest + Review, grouped Pipeline/Support nav, Review→Publish shortcut, About-link fix.
+- Self-contained single-file win-x64 `DeckFlow.Studio.exe` (~116 MB) via re-runnable publish scripts — runs with no .NET install.
+
+### What Worked
+- Coarse-granularity phasing (automation / sync / selection / polish / packaging) held — each phase had a clean operator success gate, so no separate dogfood phase was needed.
+- Pure-helper extraction (`VideoStatusResolver.FromContentRow`, `CreatorNameResolver`, `PublishStateDeriver` reuse) kept status/derivation logic in one testable place and out of the Razor views.
+- bUnit + automated verification carried most of the UI proof, so deferring the live operator smoke at close was low-risk.
+
+### What Was Inefficient
+- Branch drift: the manabase public tool shipped on `main` in parallel while Cycle 10 lived on its own `cycle10` worktree, so close required a divergent squash (96 vs 36 commits) — though source overlap turned out to be only README + ROADMAP.
+- A concurrent session briefly hijacked the working tree mid Phase-59, interleaving unrelated commits; resolved by re-homing onto a clean `cycle10` branch.
+- The milestone-complete CLI auto-extracted noisy accomplishment bullets ("Plan:", stray rule text) — hand-rewritten at close.
+
+### Patterns Established
+- Read-only prod lane mirrors the write lane (Pull-from-Prod as the inverse of DirectPush) with the reader exposing no write method at all + sanitized progress copy — a reusable shape for safe prod reflection.
+- Canonical visible projection (`GetVisibleChannelVideos`) as the single source for rendered rows + Select-All + action scope, so a filtered-out row can never be acted on.
+
+### Key Lessons
+- Keep parallel public-app work (manabase) and operator-tool milestone work on branches that rebase onto a shared base often, or accept a divergent squash at close — verify source overlap early to size the merge risk.
+- A CalVer tag on `main` snapshots everything currently shipped (Studio + parallel manabase), which is correct for date-based releases even when the named milestone scopes only one body of work.
+
+### Cost Observations
+- Model mix: ~all Opus (main loop); Claude implemented under the temporary Codex-review-only override.
+- Sessions: multi-session cycle (59-63 executed 2026-06-20→21); close folded UAT + archival + README + squash into one session.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

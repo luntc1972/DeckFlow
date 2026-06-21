@@ -1,5 +1,24 @@
 # Milestones
 
+## Cycle 10 — Studio Automation, Sync & Polish (Shipped: 2026-06-21, `2026.06.6`)
+
+**Phases completed:** 5 phases (59-63), 16 plans, 24 tasks
+**Requirements:** 17/17 satisfied (AUTO, SYNC, SRC, HSEL, SUI, DIST). Audit status: tech-debt — no separate milestone audit; every phase individually verified (59 PASS 14/14, 60 operator-verified PASS, 61 executed, 62 verified 6/6 + secured 0/7, 63 verified 7/7 + operator clean-machine smoke).
+
+**Key accomplishments:**
+
+- **Pipeline automation (P59, AUTO-01/02):** one-action harvest → auto-distill → auto-approve in Studio — no separate Distill click, no rubber-stamping high-confidence distills. A swappable Core auto-approve signal (clip-count threshold, default ON/5) routes low-confidence distills to the review queue; operator can retune the cutoff or turn auto-approval off entirely. The existing spend dry-run/cap gate and distill provider are unchanged (no bypass, no model swap).
+- **Pull-from-Prod reconcile (P60, SYNC-01/02/03):** a read-only inverse of DirectPush — Studio pulls live prod `content_site_index` rows (Postgres read) + their artifacts (SSH.NET SCP **download** from Render `/data`), classifies each entry as prod-newer / missing-locally / local-only / diverged, and lets the operator resolve each diff (adopt prod / keep local) without touching the CLI or DB. Read-only against prod; operator live-verified (60-04). Surfaced the prod-artifact-gap backlog item (86/109 rows missing `.md` on `/data`).
+- **Creator sources & selection (P61, SRC-01/02, HSEL-01/02/03):** a persisted curated creator list + dropdown picker (paste-URL still available as a one-off), an unharvested-only default browse with a show-all toggle, and a lightweight skip/un-skip lane distinct from the heavyweight Block path (no hard-delete, no blocklist entry) — with a viewable skipped list.
+- **Studio UI polish (P62, SUI-01..06):** a single shared `StatusBadge.razor` + `VideoStatusResolver.FromContentRow` pure mapper used on Harvest + Review (one rule, one place); creator filtering on Harvest browse and the Review queue via a pure `CreatorNameResolver` (Select-All/harvest scoped to visible rows); a live streaming **Pull Log** panel on Pull-from-Prod (stage + per-artifact `IProgress` lines, sanitized — no local paths or exception text); grouped Pipeline/Support nav; a Review → "Go to Publish (N approved)" shortcut; and the MainLayout About link fixed to `https://www.deckflow.gg`.
+- **Self-contained Studio executable (P63, DIST-01):** a single-file self-contained `win-x64` `DeckFlow.Studio.exe` (~116 MB) produced by re-runnable publish scripts (ps1/sh) with a pinned Kestrel port, crash logging, and browser auto-open — the operator runs Studio on a clean Windows box with no .NET install. Operator clean-machine smoke passed.
+
+**Quality:** build 0 errors; Studio 140/140, Core 524/524.
+
+**Known deferred items at close:** 3 acknowledged (see STATE.md Deferred Items) — Phase 62 live-UI operator smoke (creator filters, Pull-from-Prod streaming, grouped nav/About — backed by bUnit + automated verification), and two stale Cycle-8 Phase-51 UAT artifacts (0 pending scenarios). Carry-forward backlog: prod-artifact gap (86/109 rows missing `.md`), KB-value A/B gating experiment (KBVAL-01/02, Cycle 10 v2), scheduled/bulk harvest (AUTO-03/04, Cycle 10 v2).
+
+---
+
 ## Cycle 9 — Content Pipeline & Publish-Tracking (Shipped: 2026-06-19, `2026.06.5`)
 
 **Phases completed:** 4 phases (55-58), 11 plans

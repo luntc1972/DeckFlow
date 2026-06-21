@@ -25,6 +25,27 @@
                     Harvest or distill in progress — channel browse unavailable.
                 </div>
             }
+            @if (_creators.Count > 0)
+            {
+                <div class="row g-2 align-items-end mb-2">
+                    <div class="col-md-5">
+                        <label for="creatorSelect" class="form-label fw-semibold small">Creator</label>
+                        <select id="creatorSelect" class="form-select"
+                                value="@_selectedCreatorRef"
+                                @onchange="OnCreatorSelected"
+                                disabled="@_operationInFlight">
+                            <option value="">— paste a URL instead —</option>
+                            @foreach (var creator in _creators)
+                            {
+                                <option value="@creator.ChannelRef">@creator.DisplayName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-7">
+                        <div class="form-text">Pick a saved creator to fill the field below, or leave this on "paste a URL instead" and type a one-off channel. Manage the list on the <a href="creators">Creators</a> page.</div>
+                    </div>
+                </div>
+            }
             <div class="row g-2 align-items-end mb-1">
                 <div class="col-md-5">
                     <label for="channelInput" class="form-label fw-semibold small">YouTube channel URL, handle, ID, or playlist URL</label>
@@ -80,8 +101,50 @@
                 <div class="alert alert-danger py-2">@_blockError</div>
             }
 
+            @{
+                // SUI-05: distinct creators parsed from browsed rows (ChannelTitle fallback).
+                // Computed here (outside the inner @if) so Razor can reference browseCreators
+                // inside the nested @if without triggering RZ1010 (no @{ } inside @if HTML blocks).
+                var browseCreators = _channelVideos
+                    .Select(vm => CreatorNameResolver.FromChannelTitle(vm.ChannelTitle))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(c => c, StringComparer.Ordinal)
+                    .ToList();
+            }
             @if (_channelVideos.Count > 0)
             {
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showAllVideos"
+                           @bind="_showAllVideos"
+                           disabled="@_operationInFlight" />
+                    <label class="form-check-label small" for="showAllVideos">
+                        Show all (including harvested / distilled / published). Default shows only not-yet-harvested videos.
+                    </label>
+                </div>
+                @if (browseCreators.Count > 1)
+                {
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-md-4">
+                            <label for="browseCreatorFilter" class="form-label fw-semibold small">Filter by creator</label>
+                            <select id="browseCreatorFilter" class="form-select form-select-sm"
+                                    value="@_browsCreatorFilter"
+                                    @onchange="OnBrowseCreatorFilterChanged"
+                                    disabled="@_operationInFlight">
+                                <option value="">All creators</option>
+                                @foreach (var creator in browseCreators)
+                                {
+                                    <option value="@creator">@creator</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                }
+                @if (VisibleChannelVideos.Count == 0)
+                {
+                    <p class="text-muted">All browsed videos are already harvested or skipped. Tick "Show all" to see them.</p>
+                }
+                else
+                {
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle">
                         <thead class="table-light">
@@ -100,7 +163,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var vm in _channelVideos)
+                            @foreach (var vm in VisibleChannelVideos)
                             {
                                 <tr class="@(vm.Status == VideoStatus.Harvested || vm.Status == VideoStatus.Distilled ? "table-secondary" : "")">
                                     <td>
@@ -119,10 +182,16 @@
                                         <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
                                     </td>
                                     <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
-                                    <td>@RenderBadge(vm.Status)</td>
+                                    <td><StatusBadge Status="vm.Status" /></td>
                                     <td>
                                         @if (!vm.PendingBlock)
                                         {
+                                            <button class="btn btn-sm btn-outline-secondary me-1"
+                                                    @onclick="() => SkipVideoAsync(vm)"
+                                                    disabled="@_operationInFlight"
+                                                    aria-label="Skip @vm.Title">
+                                                Skip
+                                            </button>
                                             <button class="btn btn-sm btn-outline-danger"
                                                     @onclick="() => BeginBlock(vm)"
                                                     disabled="@(_operationInFlight || vm.Status == VideoStatus.Blocked)"
@@ -152,6 +221,7 @@
                         </tbody>
                     </table>
                 </div>
+                }
             }
             else if (_channelBrowseDone && string.IsNullOrEmpty(_channelBrowseError))
             {
@@ -241,7 +311,7 @@
                                         <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
                                     </td>
                                     <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
-                                    <td>@RenderBadge(vm.Status)</td>
+                                    <td><StatusBadge Status="vm.Status" /></td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-danger"
                                                 @onclick="() => RemoveFromQueue(vm)"
@@ -297,8 +367,15 @@
                 <p class="text-muted">Select at least one video to harvest.</p>
             }
 
-            <div class="d-flex gap-2 align-items-center mb-3">
+            <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
+                @* Default one-click path (AUTO-01): harvest → auto-distill (subscription only) →
+                   auto-approve. The plain "Harvest Selected" stays as a fallback (D-12). *@
                 <button class="btn btn-primary"
+                        @onclick="HarvestAndAutoDistillAsync"
+                        disabled="@(selectedCount == 0 || _operationInFlight)">
+                    Harvest + Auto-distill
+                </button>
+                <button class="btn btn-outline-primary"
                         @onclick="HarvestSelectedAsync"
                         disabled="@(selectedCount == 0 || _operationInFlight)">
                     Harvest Selected
@@ -311,6 +388,48 @@
                     </button>
                 }
             </div>
+
+            @if (!string.IsNullOrEmpty(_oneClickMeteredMessage))
+            {
+                <div class="alert alert-warning py-2">
+                    <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                    @_oneClickMeteredMessage
+                </div>
+            }
+
+            @* ─── Per-video outcome summary (D-11): one card, every count canonical-sourced ─── *@
+            @if (_showOutcomeCard && _oneClickDistillResult is not null)
+            {
+                var oc = _oneClickDistillResult;
+                var leftInReview = Math.Max(0, oc.VideosDistilled - _outcomeAutoApprovedCount);
+                <div class="card border-success mb-3">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold text-success mb-2">Harvest + Auto-distill complete</h3>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Harvested (ready to distill):</dt>
+                            <dd class="col-sm-7">@_outcomeHarvestReadyCount</dd>
+                            <dt class="col-sm-5">Distilled:</dt>
+                            <dd class="col-sm-7">@oc.VideosDistilled</dd>
+                            <dt class="col-sm-5">Auto-approved:</dt>
+                            <dd class="col-sm-7">@_outcomeAutoApprovedCount</dd>
+                            <dt class="col-sm-5">Left in review:</dt>
+                            <dd class="col-sm-7">@leftInReview</dd>
+                            <dt class="col-sm-5">Dropped (keep/drop = drop):</dt>
+                            <dd class="col-sm-7">@oc.VideosFiltered</dd>
+                            <dt class="col-sm-5">Failed:</dt>
+                            <dd class="col-sm-7">@oc.DistillFailed</dd>
+                        </dl>
+
+                        @if (oc.DistillFailed > 0)
+                        {
+                            <div class="alert alert-warning py-2 mt-2 mb-0">
+                                <span class="oi oi-warning me-1" aria-hidden="true"></span>
+                                Failed video IDs: @string.Join(", ", oc.FailedVideoIds)
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
 
             @if (_operationInFlight || _logLines.Count > 0)
             {
@@ -416,7 +535,7 @@
                                         <a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a>
                                     </td>
                                     <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
-                                    <td>@RenderBadge(vm.Status)</td>
+                                    <td><StatusBadge Status="vm.Status" /></td>
                                 </tr>
                             }
                         </tbody>
@@ -477,6 +596,28 @@
                     </button>
                 </div>
                 <p class="text-muted small mt-1">Session-only override — resets to env/default on Studio restart.</p>
+            </div>
+
+            @* ─── Auto-approve panel (D-04 / D-05 / D-06 / D-07) ─── *@
+            <div class="border rounded p-3 mb-3" aria-label="Auto-approve">
+                <h3 class="h6 fw-semibold mb-2">Auto-approve</h3>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="autoApproveEnabled"
+                           checked="@_autoApproveSettings.Enabled"
+                           @onchange="OnAutoApproveEnabledChanged" />
+                    <label class="form-check-label" for="autoApproveEnabled">
+                        Auto-approve distills at/above the clip cutoff
+                    </label>
+                </div>
+                <div class="mb-1" style="max-width:160px">
+                    <label for="autoApproveCutoff" class="form-label small mb-1">Clip cutoff</label>
+                    <input id="autoApproveCutoff" type="number" class="form-control form-control-sm"
+                           min="0" step="1"
+                           value="@_autoApproveSettings.Cutoff"
+                           @onchange="OnAutoApproveCutoffChanged"
+                           disabled="@(!_autoApproveSettings.Enabled)" />
+                </div>
+                <p class="text-muted small mt-1 mb-0">Off → every distill enters the review queue.</p>
             </div>
 
             @* Re-distill warning + double-confirm (Pitfall 3 / T-45-10) *@
@@ -751,7 +892,37 @@
     [Inject]
     private IContentMaintenanceOrchestrator MaintenanceOrchestrator { get; set; } = default!;
 
+    [Inject]
+    private AutoApproveSettingsStore AutoApproveSettingsStore { get; set; } = default!;
+
+    // Why: the swappable auto-approve decision (clip count vs cutoff, D-01/D-02) — the one-click
+    // and manual Stage B paths both resolve this to decide which distilled videos auto-approve.
+    [Inject]
+    private IAutoApproveSignal AutoApproveSignal { get; set; } = default!;
+
+    // Why: batch approval setter (D-09) — the shared auto-approve step flips approval_status to
+    // 'approved' for at/above-cutoff distilled videos; only approval_status is mutated.
+    [Inject]
+    private IContentSiteIndexStore IndexStore { get; set; } = default!;
+
+    [Inject]
+    private ICreatorSourceStore CreatorStore { get; set; } = default!;
+
+    [Inject]
+    private ISkippedVideoStore SkippedStore { get; set; } = default!;
+
     // ── Section 1 state ─────────────────────────────────────────────────────
+    // SRC-02: saved creators for the browse dropdown. Selecting one fills _channelInput; the
+    // URL/handle input remains the one-off fallback when no creator is selected.
+    private List<CreatorSource> _creators = new();
+    private string _selectedCreatorRef = string.Empty;
+    // HSEL-01/02: default to not-yet-harvested only (toggle to show all); skipped ids are always
+    // excluded from selection. Loaded fresh per browse.
+    private bool _showAllVideos;
+    private HashSet<string> _skippedVideoIds = new();
+    // SUI-05: browse-list creator filter. Empty string = "All creators". Folded into
+    // GetVisibleChannelVideos() so Select-All and the harvested set both respect it (T-62-03).
+    private string _browsCreatorFilter = string.Empty;
     private string _channelInput = string.Empty;
     private int _browseLimit = 25;
     private int _browseSkip;
@@ -784,11 +955,32 @@
     private bool _focusConfirmPending;
     private ElementReference _confirmBlockButton;
 
+    // ── One-click harvest→auto-distill→auto-approve outcome (AUTO-01 / D-11) ─────────────────
+    // The single per-video outcome summary card reads these. Every count maps to a canonical source:
+    //   N harvested        = _outcomeHarvestReadyCount (ListPendingDistillAsync ∩ selected)
+    //   M distilled        = DistillResult.VideosDistilled
+    //   K auto-approved    = ApplyAutoApproveAsync return (rows actually flipped to 'approved')
+    //   L left-in-review   = M - K
+    //   D dropped          = DistillResult.VideosFiltered
+    //   F failed (+ ids)   = DistillResult.DistillFailed / FailedVideoIds
+    private bool _oneClickInFlight;
+    private bool _showOutcomeCard;
+    private int _outcomeHarvestReadyCount;
+    private int _outcomeAutoApprovedCount;
+    private DistillResult? _oneClickDistillResult;
+    // Why: subscription-only inline distill (D-08 AMENDED). On a metered provider the one-click
+    // action harvests but does NOT distill — it surfaces this message and points to the manual section.
+    private string _oneClickMeteredMessage = string.Empty;
+
     // ── Section 4 distill state ──────────────────────────────────────────────
     // Cap display (D-02): loaded at page init and refreshed after distill.
     private decimal _monthlyCap;
     private decimal _monthlySpent;
     private string _capRaiseInput = string.Empty;
+
+    // Auto-approve settings (D-04/D-05/D-06/D-07): persisted on/off + clip cutoff. Loaded at page
+    // init from AutoApproveSettingsStore, saved on commit (not keystroke). Default ON/5.
+    private AutoApproveSettings _autoApproveSettings = AutoApproveSettings.Default;
 
     // Re-distill double-confirm (T-45-10 / Pitfall 3).
     // _redistillCheck1: "Re-distill already-distilled videos"
@@ -833,6 +1025,8 @@
         _channelBrowseError = string.Empty;
         _channelBrowseDone = false;
         _channelVideos.Clear();
+        // SUI-05: reset creator filter when browsing a new channel so stale A-filter doesn't carry over.
+        _browsCreatorFilter = string.Empty;
 
         var input = _channelInput.Trim();
         // Why: detect a playlist URL by the presence of "list=" or "playlist?" in the input.
@@ -857,6 +1051,24 @@
             {
                 var status = await StatusResolver.ResolveStatusAsync(v.VideoId, browseCts.Token);
                 _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status, v.ChannelId, v.ChannelTitle));
+            }
+
+            // HSEL-02: load the skip set so skipped candidates are filtered out of selection.
+            // Own try/catch — a store failure must NOT reach the browse catch, whose message
+            // includes ex.Message and could leak the content-kb.db path (D-07). On failure the
+            // filter just doesn't hide skips this round (non-fatal).
+            try
+            {
+                var skipped = await SkippedStore.ListSkippedAsync(browseCts.Token);
+                _skippedVideoIds = skipped.Select(s => s.YoutubeVideoId).ToHashSet(StringComparer.Ordinal);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                _skippedVideoIds = new();
             }
 
             // Why: record last successfully-browsed channel (not playlist) so it can serve as
@@ -884,13 +1096,54 @@
         }
     }
 
+    // HSEL-01/02 (Codex HIGH): the single canonical visible projection. Default shows only
+    // not-yet-harvested videos; "Show all" reveals every status; skipped ids are ALWAYS excluded.
+    // SUI-05: creator filter also folded in here (T-62-03) so Select-All and the harvested set
+    // both respect it — a row hidden by creator filter can never be harvested.
+    // Rendering, Select-All, and the harvested set all route through this so a row hidden by the
+    // filter or by skip can never be harvested even if it was selected before being hidden.
+    private IReadOnlyList<VideoViewModel> GetVisibleChannelVideos()
+        => _channelVideos
+            .Where(vm => !_skippedVideoIds.Contains(vm.VideoId)
+                && (_showAllVideos || vm.Status == VideoStatus.NotHarvested)
+                && (string.IsNullOrEmpty(_browsCreatorFilter)
+                    || CreatorNameResolver.FromChannelTitle(vm.ChannelTitle) == _browsCreatorFilter))
+            .ToList();
+
+    // Markup-facing alias for the canonical visible projection (render loop + empty-state gate).
+    private IReadOnlyList<VideoViewModel> VisibleChannelVideos => GetVisibleChannelVideos();
+
     private void ToggleAllChannelSelections()
     {
         _allChannelSelected = !_allChannelSelected;
-        foreach (var vm in _channelVideos)
+        foreach (var vm in GetVisibleChannelVideos())
         {
             vm.Selected = _allChannelSelected;
         }
+    }
+
+    // HSEL-02: skip a candidate so it no longer surfaces in selection. Distinct from Block —
+    // writes only the skip list (no artifact delete, no blocklist).
+    private async Task SkipVideoAsync(VideoViewModel vm)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        try
+        {
+            await SkippedStore.AddSkipAsync(vm.VideoId, null);
+            _skippedVideoIds.Add(vm.VideoId);
+            vm.Selected = false;
+        }
+        catch (Exception)
+        {
+            // Why: never echo exception.Message (may leak the DB path) — generic operator-safe copy only.
+            _blockError = "Could not skip the video. Try again.";
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     // ── Section 2: URL/ID Paste Queue (HARV-02) ─────────────────────────────
@@ -1009,7 +1262,9 @@
     // ── Section 3: Harvest Trigger (HARV-04) ────────────────────────────────
     private IReadOnlyList<VideoViewModel> GetAllSelectedVideos()
     {
-        return _channelVideos.Where(v => v.Selected)
+        // Codex HIGH: only VISIBLE channel videos count — a row selected then hidden by the
+        // unharvested filter or by skip must not be harvested.
+        return GetVisibleChannelVideos().Where(v => v.Selected)
             .Concat(_queueVideos.Where(v => v.Selected))
             .ToList();
     }
@@ -1104,6 +1359,190 @@
             return;
         }
 
+        _operationInFlight = true;
+        _logLines.Clear();
+        _harvestResult = null;
+        _harvestCancelled = false;
+        // Clear any prior one-click outcome so the plain harvest path shows only its own status.
+        _showOutcomeCard = false;
+        _oneClickMeteredMessage = string.Empty;
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            await RunHarvestCoreAsync(selectedVideos, BuildHarvestProgress());
+        }
+        catch (OperationCanceledException)
+        {
+            _logLines.Add("Harvest cancelled.");
+            _harvestCancelled = true;
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>
+    /// One-click harvest → auto-distill (subscription only) → auto-approve (AUTO-01 / AUTO-02).
+    /// SUBSCRIPTION path: harvest, then distill exactly the harvest-ready ids returned by
+    /// <c>ListPendingDistillAsync</c> ∩ selected (D-10 / HIGH #2), then apply the shared auto-approve
+    /// step. METERED path (D-08 AMENDED): harvest only — Core refuses live metered distill
+    /// (ContentKbOrchestrator.cs:244), so this surfaces a requires-subscription message and points the
+    /// operator to the manual Distill section, with no DistillAsync or approval call (SC4).
+    /// </summary>
+    private async Task HarvestAndAutoDistillAsync()
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        var selectedVideos = GetAllSelectedVideos();
+        if (selectedVideos.Count == 0)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _oneClickInFlight = true;
+        _logLines.Clear();
+        _harvestResult = null;
+        _harvestCancelled = false;
+        _showOutcomeCard = false;
+        _oneClickDistillResult = null;
+        _oneClickMeteredMessage = string.Empty;
+        _outcomeHarvestReadyCount = 0;
+        _outcomeAutoApprovedCount = 0;
+        _cts = new CancellationTokenSource();
+
+        var progress = BuildHarvestProgress();
+        var selectedIds = selectedVideos.Select(v => v.VideoId).ToList();
+
+        try
+        {
+            // (2) Always harvest first — both paths run the harvest body.
+            var harvestOk = await RunHarvestCoreAsync(selectedVideos, progress);
+
+            // (1) D-08 GATE: a metered provider does NOT live-distill (Core refuses at line 244).
+            // Surface the requires-subscription message and stop before distill — no silent spend.
+            if (!DistillConfig.IsSubscriptionProvider)
+            {
+                _oneClickMeteredMessage =
+                    "Live distill requires a subscription provider. Harvest completed; use the Distill section below to preview/confirm.";
+                return;
+            }
+
+            if (!harvestOk)
+            {
+                // Harvest itself failed/partial — the harvest status line already explains; do not distill.
+                return;
+            }
+
+            // (3) Obtain harvest-ready ids: ListPendingDistillAsync ∩ selected (HIGH #2). Excludes
+            // skipped/no-caption and already-distilled videos (which are not pending-distill).
+            var pending = await Task.Run(
+                () => DistillOrchestrator.ListPendingDistillAsync(_cts.Token),
+                _cts.Token);
+            var selectedSet = new HashSet<string>(selectedIds, StringComparer.Ordinal);
+            var harvestReadyIds = pending
+                .Select(p => p.YoutubeVideoId)
+                .Where(selectedSet.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            _outcomeHarvestReadyCount = harvestReadyIds.Count;
+
+            if (harvestReadyIds.Count == 0)
+            {
+                // Nothing distillable — show the outcome card with harvested/0-distilled and stop.
+                _oneClickDistillResult = new DistillResult { Success = true };
+                _showOutcomeCard = true;
+                return;
+            }
+
+            // (4) Distill inline (subscription path; dryRun:false). redistill:false — one-click never
+            // re-distills (the manual fallback owns the re-distill double-confirm, D-12).
+            var distillProgress = new ActionOrchestratorProgress(msg =>
+                InvokeAsync(() =>
+                {
+                    try
+                    {
+                        _logLines.Add(msg);
+                        StateHasChanged();
+                    }
+                    catch (ObjectDisposedException) { }
+                    catch (InvalidOperationException) { }
+                }));
+
+            var ids = harvestReadyIds.AsReadOnly();
+            var result = await Task.Run(
+                () => DistillOrchestrator.DistillAsync(
+                    limit: ids.Count,
+                    dryRun: false,
+                    isSubscriptionProvider: true,
+                    redistill: false,
+                    videoIds: ids,
+                    progress: distillProgress,
+                    cancellationToken: _cts.Token),
+                _cts.Token);
+
+            _oneClickDistillResult = result;
+
+            // (5) Shared auto-approve step (D-09): flip >=cutoff distills to 'approved' when enabled.
+            _outcomeAutoApprovedCount = await ApplyAutoApproveAsync(result);
+
+            _showOutcomeCard = true;
+
+            await RefreshBadgesAsync(ids);
+            if (_pendingLoaded)
+            {
+                await LoadPendingDistillAsync();
+            }
+
+            await RefreshCapDisplayAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _logLines.Add("Harvest + Auto-distill cancelled.");
+            _harvestCancelled = true;
+        }
+        finally
+        {
+            _oneClickInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>
+    /// Builds the disposal-safe harvest progress sink (T-45-18): marshals log append + render through
+    /// InvokeAsync and swallows post-dispose exceptions on a dropped circuit.
+    /// </summary>
+    private ActionOrchestratorProgress BuildHarvestProgress() =>
+        new(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _logLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+    /// <summary>
+    /// Runs the harvest body (resolve channel per video, group, EnsureYoutubeSource + HarvestAsync per
+    /// group, continue-on-failure) for the supplied selected videos, sets <see cref="_harvestResult"/>,
+    /// and refreshes badges on success. Shared by the plain "Harvest Selected" and one-click paths.
+    /// Caller owns the <see cref="_operationInFlight"/> guard, the CTS, and OperationCanceledException.
+    /// </summary>
+    /// <returns><c>true</c> when the harvest completed successfully; otherwise <c>false</c>.</returns>
+    private async Task<bool> RunHarvestCoreAsync(
+        IReadOnlyList<VideoViewModel> selectedVideos,
+        ActionOrchestratorProgress progress)
+    {
         // Resolve a channel URL and name for each selected video.
         // Videos from the explicit-id queue carry ChannelId from YouTube metadata;
         // browsed videos carry ChannelId from the playlist/channel feed.
@@ -1130,39 +1569,15 @@
         if (resolvable.Count == 0)
         {
             // All selected videos are unresolved — abort cleanly without throwing.
-            _logLines.Clear();
             _logLines.Add("Could not determine a channel for the selected video(s).");
             await InvokeAsync(StateHasChanged);
-            return;
+            return false;
         }
 
         if (unresolvedIds.Count > 0)
         {
             _logLines.Add($"Warning: skipping {unresolvedIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", unresolvedIds)}");
         }
-
-        _operationInFlight = true;
-        _logLines.Clear();
-        _harvestResult = null;
-        _harvestCancelled = false;
-        _cts = new CancellationTokenSource();
-
-        // Why: the progress sink must marshal BOTH _logLines.Add and StateHasChanged through
-        // InvokeAsync so list mutation and render happen on the Blazor sync context together.
-        // The try/catch swallows ObjectDisposedException and InvalidOperationException from a
-        // disposed renderer — a callback arriving after the component is disposed (operator closed
-        // tab mid-run) must drop silently rather than surface an unobserved exception (T-45-18).
-        var progress = new ActionOrchestratorProgress(msg =>
-            InvokeAsync(() =>
-            {
-                try
-                {
-                    _logLines.Add(msg);
-                    StateHasChanged();
-                }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            }));
 
         // Group resolvable videos by channel URL so each channel gets exactly one
         // EnsureYoutubeSourceAsync call and one HarvestAsync call.
@@ -1176,80 +1591,98 @@
 
         var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
 
-        try
-        {
-            // Why: Task.Run moves all IO off the Blazor sync context (Pitfall 1).
-            _harvestResult = await Task.Run(
-                async () =>
+        // Why: Task.Run moves all IO off the Blazor sync context (Pitfall 1).
+        _harvestResult = await Task.Run(
+            async () =>
+            {
+                int totalCaptions = 0;
+                int totalWhisper = 0;
+                int totalSkipped = 0;
+                bool anyGroupFailed = false;
+                string? firstFailureMessage = null;
+
+                foreach (var group in groups)
                 {
-                    int totalCaptions = 0;
-                    int totalWhisper = 0;
-                    int totalSkipped = 0;
-                    bool anyGroupFailed = false;
-                    string? firstFailureMessage = null;
+                    // Why: EnsureYoutubeSourceAsync creates or re-enables the content source
+                    // for each channel so each group's harvest has a valid sourceId.
+                    var src = await SourceManager.EnsureYoutubeSourceAsync(
+                        group.ChannelUrl,
+                        group.ChannelName,
+                        progress,
+                        _cts!.Token).ConfigureAwait(false);
 
-                    foreach (var group in groups)
+                    if (!src.Success || src.Id is null)
                     {
-                        // Why: EnsureYoutubeSourceAsync creates or re-enables the content source
-                        // for each channel so each group's harvest has a valid sourceId.
-                        var src = await SourceManager.EnsureYoutubeSourceAsync(
-                            group.ChannelUrl,
-                            group.ChannelName,
-                            progress,
-                            _cts.Token).ConfigureAwait(false);
-
-                        if (!src.Success || src.Id is null)
-                        {
-                            anyGroupFailed = true;
-                            firstFailureMessage ??= src.Message ?? $"Could not ensure a content source for {group.ChannelUrl}.";
-                            continue;
-                        }
-
-                        var r = await HarvestOrchestrator.HarvestAsync(
-                            limit: group.VideoIds.Count,
-                            videoIds: group.VideoIds,
-                            sourceId: src.Id,
-                            progress: progress,
-                            cancellationToken: _cts.Token).ConfigureAwait(false);
-
-                        if (!r.Success)
-                        {
-                            anyGroupFailed = true;
-                            firstFailureMessage ??= r.Message;
-                        }
-
-                        totalCaptions += r.Captions;
-                        totalWhisper += r.Whisper;
-                        totalSkipped += r.SkippedNoCaptions;
+                        anyGroupFailed = true;
+                        firstFailureMessage ??= src.Message ?? $"Could not ensure a content source for {group.ChannelUrl}.";
+                        continue;
                     }
 
-                    return new HarvestResult
-                    {
-                        Success = !anyGroupFailed && groups.Count > 0,
-                        Captions = totalCaptions,
-                        Whisper = totalWhisper,
-                        SkippedNoCaptions = totalSkipped,
-                        Message = anyGroupFailed ? firstFailureMessage : null,
-                    };
-                },
-                _cts.Token);
+                    var r = await HarvestOrchestrator.HarvestAsync(
+                        limit: group.VideoIds.Count,
+                        videoIds: group.VideoIds,
+                        sourceId: src.Id,
+                        progress: progress,
+                        cancellationToken: _cts.Token).ConfigureAwait(false);
 
-            // Re-resolve badges for harvested videos to reflect new DB state.
-            if (_harvestResult.Success)
-            {
-                await RefreshBadgesAsync(selectedIds);
-            }
-        }
-        catch (OperationCanceledException)
+                    if (!r.Success)
+                    {
+                        anyGroupFailed = true;
+                        firstFailureMessage ??= r.Message;
+                    }
+
+                    totalCaptions += r.Captions;
+                    totalWhisper += r.Whisper;
+                    totalSkipped += r.SkippedNoCaptions;
+                }
+
+                return new HarvestResult
+                {
+                    Success = !anyGroupFailed && groups.Count > 0,
+                    Captions = totalCaptions,
+                    Whisper = totalWhisper,
+                    SkippedNoCaptions = totalSkipped,
+                    Message = anyGroupFailed ? firstFailureMessage : null,
+                };
+            },
+            _cts!.Token);
+
+        // Re-resolve badges for harvested videos to reflect new DB state.
+        if (_harvestResult.Success)
         {
-            _logLines.Add("Harvest cancelled.");
-            _harvestCancelled = true;
+            await RefreshBadgesAsync(selectedIds);
         }
-        finally
+
+        return _harvestResult.Success;
+    }
+
+    /// <summary>
+    /// Shared post-distill auto-approve step (D-09): when auto-approve is enabled, selects the
+    /// distilled videos whose clip count is at or above the persisted cutoff (via
+    /// <see cref="IAutoApproveSignal"/>) and batch-flips their <c>approval_status</c> to 'approved'
+    /// (only approval_status is mutated). Returns the number of rows actually flipped (0 when disabled
+    /// or none qualify). Authored as a shared method so a completing subscription distill — one-click
+    /// or the manual Stage B fallback — benefits identically; metered live distill auto-approve is
+    /// DEFERRED (Core refuses metered live distill, so this never runs for metered today).
+    /// </summary>
+    private async Task<int> ApplyAutoApproveAsync(DistillResult result)
+    {
+        if (!_autoApproveSettings.Enabled || result.DistilledVideos.Count == 0)
         {
-            _operationInFlight = false;
-            await InvokeAsync(StateHasChanged);
+            return 0;
         }
+
+        var keys = result.DistilledVideos
+            .Where(v => AutoApproveSignal.ShouldAutoApprove(v.ClipCount, _autoApproveSettings.Cutoff))
+            .Select(v => (v.NaturalKeyType, v.NaturalKeyValue))
+            .ToList();
+
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        return await IndexStore.SetApprovalStatusAsync(keys, "approved", _cts!.Token);
     }
 
     private void CancelOperation()
@@ -1281,6 +1714,82 @@
     protected override async Task OnInitializedAsync()
     {
         await RefreshCapDisplayAsync();
+        // Why: persisted auto-approve settings (D-07) — load once at init so the panel reflects
+        // the operator's last choice across Studio restarts.
+        _autoApproveSettings = AutoApproveSettingsStore.Load();
+        await LoadCreatorsAsync();
+    }
+
+    /// <summary>
+    /// Loads the saved creators for the browse dropdown (SRC-02). Failure is non-fatal — the
+    /// paste-URL fallback always remains usable, so a load error just leaves the dropdown empty.
+    /// </summary>
+    private async Task LoadCreatorsAsync()
+    {
+        try
+        {
+            var creators = await CreatorStore.ListAsync();
+            _creators = creators.ToList();
+        }
+        catch (Exception)
+        {
+            // Why: dropdown is a convenience over the URL fallback; never block browse on a load error.
+            _creators = new();
+        }
+    }
+
+    /// <summary>
+    /// SRC-02: when a creator is picked, fill the browse target with its channel ref. The empty
+    /// option ("paste a URL instead") leaves <see cref="_channelInput"/> for manual entry.
+    /// </summary>
+    private void OnCreatorSelected(ChangeEventArgs args)
+    {
+        _selectedCreatorRef = args.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrEmpty(_selectedCreatorRef))
+        {
+            _channelInput = _selectedCreatorRef;
+        }
+    }
+
+    /// <summary>
+    /// SUI-05: updates the browse-list creator filter. Empty string means "All creators".
+    /// The predicate is folded into <see cref="GetVisibleChannelVideos"/> (T-62-03) so the
+    /// filtered set automatically narrows Select-All and the harvested video set.
+    /// </summary>
+    private void OnBrowseCreatorFilterChanged(ChangeEventArgs args)
+    {
+        _browsCreatorFilter = args.Value?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Persists the current auto-approve on/off + cutoff (D-04/D-05/D-07). Called on toggle change
+    /// and cutoff commit (blur), not per keystroke. The store clamps a bad cutoff before disk (T-59-03).
+    /// </summary>
+    private void SaveAutoApproveSettings()
+    {
+        AutoApproveSettingsStore.Save(_autoApproveSettings);
+    }
+
+    /// <summary>
+    /// Handles the auto-approve on/off toggle: updates the record (records are immutable) and persists.
+    /// </summary>
+    private void OnAutoApproveEnabledChanged(ChangeEventArgs args)
+    {
+        var enabled = args.Value is bool b && b;
+        _autoApproveSettings = _autoApproveSettings with { Enabled = enabled };
+        SaveAutoApproveSettings();
+    }
+
+    /// <summary>
+    /// Handles the cutoff commit (onchange/blur): parses the input, rebuilds the record, and persists.
+    /// </summary>
+    private void OnAutoApproveCutoffChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var cutoff))
+        {
+            _autoApproveSettings = _autoApproveSettings with { Cutoff = cutoff };
+            SaveAutoApproveSettings();
+        }
     }
 
     private async Task RefreshCapDisplayAsync()
@@ -1458,6 +1967,12 @@
             // Refresh badges for distilled videos and update cap display.
             if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
             {
+                // Why: D-09 reuse — a completing SUBSCRIPTION distill via the manual fallback (D-12)
+                // auto-approves >=cutoff videos through the SAME shared step as the one-click path.
+                // Metered live distill never reaches here (Core refuses at line 244), so the shared
+                // step simply never runs for metered — metered auto-approve is DEFERRED.
+                _outcomeAutoApprovedCount = await ApplyAutoApproveAsync(_distillLiveResult);
+
                 await RefreshBadgesAsync(distillIds);
 
                 // Why: reload the DB-backed pending list so just-distilled videos drop off
@@ -1575,24 +2090,6 @@
             await InvokeAsync(StateHasChanged);
         }
     }
-
-    // ── Badge rendering (HARV-03) ────────────────────────────────────────────
-    /// <summary>
-    /// Maps <see cref="VideoStatus"/> to the exact Bootstrap badge class + label per UI-SPEC
-    /// Status Badge Vocabulary (45-UI-SPEC.md lines 110-126).
-    /// Badge label text always accompanies color (accessibility — label never sole differentiator).
-    /// </summary>
-    private static RenderFragment RenderBadge(VideoStatus status) => status switch
-    {
-        VideoStatus.NotHarvested => @<span class="badge bg-secondary">Not harvested</span>,
-        VideoStatus.Harvested    => @<span class="badge bg-info text-dark">Harvested</span>,
-        VideoStatus.Distilled    => @<span class="badge bg-success">Distilled</span>,
-        VideoStatus.Approved     => @<span class="badge bg-primary">Approved</span>,
-        VideoStatus.Published    => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
-        VideoStatus.Blocked      => @<span class="badge bg-danger">Blocked</span>,
-        VideoStatus.Duplicate    => @<span class="badge bg-warning text-dark">Already in DB</span>,
-        _                        => @<span class="badge bg-secondary">Unknown</span>,
-    };
 
     // ── Elapsed formatting (260615-t7m) ─────────────────────────────────────
     private static string FormatElapsed(TimeSpan t) =>
