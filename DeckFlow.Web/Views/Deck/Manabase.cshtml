@@ -94,7 +94,15 @@
             </table>
         </div>
 
-        <p class="mode-note">@report.Summary</p>
+        @* Callout is the single most actionable fix — distinct from the land/health stats line above. *@
+        @if (report.WeakestColor is { } weakest)
+        {
+            <p class="mode-note"><strong>Biggest fix:</strong> add ~@(Math.Ceiling(weakest.Deficit).ToString("F0")) more <strong>@weakest.Color</strong> source(s) — you have @weakest.ActualSources.ToString("F1") vs @weakest.RequiredSources needed for @weakest.DrivingSpell.</p>
+        }
+        else
+        {
+            <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
+        }
 
         @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
         {
