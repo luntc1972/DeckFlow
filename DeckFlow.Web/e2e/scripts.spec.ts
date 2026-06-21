@@ -17,6 +17,7 @@ const routeScripts: Array<{ route: string; scripts: string[] }> = [
   { route: '/deck-analysis', scripts: [...layoutScripts, 'card-lookup.js', 'deck-sync.js'] },
   { route: '/deck-comparison', scripts: [...layoutScripts, 'deck-sync.js'] },
   { route: '/cedh-meta-gap', scripts: [...layoutScripts, 'deck-sync.js'] },
+  { route: '/manabase', scripts: [...layoutScripts, 'deck-sync.js'] },
   { route: '/deck-primer', scripts: [...layoutScripts, 'primer-selection.js'] },
   { route: '/commander-categories', scripts: [...layoutScripts] },
   { route: '/help', scripts: [...layoutScripts] },

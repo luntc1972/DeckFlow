@@ -11,6 +11,7 @@ const routes = [
   '/deck-analysis',
   '/deck-comparison',
   '/cedh-meta-gap',
+  '/manabase',
   '/deck-primer',
   '/commander-categories',
   '/help',

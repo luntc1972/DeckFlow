@@ -19,7 +19,10 @@
             <a class="tool-nav__link @(Model == DeckPageTab.DeckAnalysis ? "is-active" : string.Empty)" href="@Url.Content("~/deck-analysis")">Deck Analysis</a>
             <a class="tool-nav__link @(Model == DeckPageTab.DeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/deck-comparison")">Deck Comparison</a>
             <a class="tool-nav__link @(Model == DeckPageTab.CedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/cedh-meta-gap")">cEDH Meta Gap</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.Manabase ? "is-active" : string.Empty)" href="@Url.Content("~/manabase")">Mana Base</a>
+            @if (FlagCache.IsEnabled("feature.manabase.enabled"))
+            {
+                <a class="tool-nav__link @(Model == DeckPageTab.Manabase ? "is-active" : string.Empty)" href="@Url.Content("~/manabase")">Mana Base</a>
+            }
         </div>
     </div>
     <div class="tool-nav__group @(buildActive ? "is-active" : string.Empty)" data-tool-nav-group>

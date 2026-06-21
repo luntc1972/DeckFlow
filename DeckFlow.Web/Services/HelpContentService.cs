@@ -61,8 +61,11 @@ public sealed class HelpContentService : IHelpContentService
             var title = header.GetValueOrDefault("title", slug);
             var summary = header.GetValueOrDefault("summary", string.Empty);
             var order = int.TryParse(header.GetValueOrDefault("order"), out var o) ? o : int.MaxValue;
+            // Optional: ties this topic to a feature flag so its help hides with the tool.
+            var requiresFlag = header.GetValueOrDefault("requires_flag");
+            requiresFlag = string.IsNullOrWhiteSpace(requiresFlag) ? null : requiresFlag.Trim();
             var html = Markdown.ToHtml(body, Pipeline);
-            var topic = new HelpTopic(slug, title, summary, order, html);
+            var topic = new HelpTopic(slug, title, summary, order, html, requiresFlag);
             topics.Add(topic);
             _bySlug[slug] = topic;
         }

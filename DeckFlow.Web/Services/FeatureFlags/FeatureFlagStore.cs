@@ -154,6 +154,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('harvest.cron.enabled', TRUE),
           ('feature.categories.enabled', TRUE),
           ('content.kb.enabled', TRUE),
+          ('feature.manabase.enabled', TRUE),
           ('analysis.reference.full-oracle-text', TRUE),
           ('analysis.reference.deck-stats', FALSE)
         ON CONFLICT (key) DO NOTHING;
@@ -166,6 +167,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('harvest.cron.enabled', 1),
           ('feature.categories.enabled', 1),
           ('content.kb.enabled', 1),
+          ('feature.manabase.enabled', 1),
           ('analysis.reference.full-oracle-text', 1),
           ('analysis.reference.deck-stats', 0)
         ON CONFLICT (key) DO NOTHING;

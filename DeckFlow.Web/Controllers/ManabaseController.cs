@@ -30,6 +30,9 @@ public sealed class ManabaseController : DeckToolControllerBase
 
     /// <summary>Renders the empty mana-base form.</summary>
     [HttpGet("/manabase")]
+    [FeatureFlagGate("feature.manabase.enabled",
+        Title = "Mana Base analyzer unavailable",
+        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
     public IActionResult Manabase()
     {
         return View("Manabase", new ManabaseViewModel());
@@ -39,6 +42,9 @@ public sealed class ManabaseController : DeckToolControllerBase
     /// <param name="request">The form-bound deck input.</param>
     [HttpPost("/manabase")]
     [ValidateAntiForgeryToken]
+    [FeatureFlagGate("feature.manabase.enabled",
+        Title = "Mana Base analyzer unavailable",
+        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
     public async Task<IActionResult> Manabase(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
