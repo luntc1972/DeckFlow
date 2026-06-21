@@ -43,6 +43,16 @@
             <h3 class="hub-card__title">cEDH Meta Gap</h3>
             <p class="hub-card__description">Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.</p>
         </a>
+        @if (FlagCache.IsEnabled("feature.manabase.enabled"))
+        {
+            <a class="hub-card" href="@Url.Content("~/manabase")">
+                <span class="hub-card__icon">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 3c3 4 4.5 6 4.5 8a4.5 4.5 0 0 1-9 0c0-2 1.5-4 4.5-8z"/></svg>
+                </span>
+                <h3 class="hub-card__title">Mana Base</h3>
+                <p class="hub-card__description">Score a deck's lands and colored sources — Frank Karsten's source-count math, extended to weight rocks, dorks, and MDFCs and to count tapped vs. untapped lands. No AI needed.</p>
+            </a>
+        }
     </div>
 </section>
 

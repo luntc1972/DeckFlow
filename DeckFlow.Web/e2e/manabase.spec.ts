@@ -36,3 +36,12 @@ test('mana base nav link is wired in the Analyze group when the flag is on', asy
   await expect(link).toHaveCount(1);
   await expect(link).toHaveText(/Mana Base/i);
 });
+
+test('home hub shows a Mana Base tile in the Analyze group when the flag is on', async ({ page }) => {
+  await page.goto('/');
+
+  // Flag defaults ON, so a hub-card tile linking to /manabase must render.
+  const tile = page.locator('.hub-card[href$="/manabase"]');
+  await expect(tile).toHaveCount(1);
+  await expect(tile.locator('.hub-card__title')).toHaveText(/Mana Base/i);
+});
