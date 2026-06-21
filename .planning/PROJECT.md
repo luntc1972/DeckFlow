@@ -12,7 +12,23 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** Cycle 10 — Studio Automation, Sync & Polish (2026-06-21, CalVer `2026.06.6`) — 5 phases (59-63), 16 plans, 17/17 requirements satisfied. Cut manual steps from the Studio harvest→publish pipeline and made pipeline state obvious: one-action **harvest → auto-distill → auto-approve** (swappable clip-count signal, default ON/5; spend gate + provider unchanged); a read-only **Pull-from-Prod** reconcile (SSH.NET SCP download + Postgres read, four-way diff classification, per-entry adopt-prod/keep-local — prod never written) with a live sanitized progress panel; a persisted **creator list + dropdown** with unharvested-only default browse and a lightweight skip/un-skip lane (distinct from Block); **Studio UI polish** (shared `StatusBadge` + `VideoStatusResolver.FromContentRow`, creator filtering on Harvest+Review, grouped Pipeline/Support nav, Review→Publish shortcut, About-link fix); and a self-contained single-file **win-x64 `DeckFlow.Studio.exe`** the operator runs with no .NET install. Closed as tech-debt (no milestone audit; every phase individually verified — 59 PASS 14/14, 60 operator-verified, 61 executed, 62 verified 6/6 + secured 0/7, 63 verified 7/7 + clean-machine smoke). Build 0 errors; Studio 140/140, Core 524/524. Prior milestone: **Cycle 9 — Content Pipeline & Publish-Tracking** (2026-06-19, `2026.06.5`, archived).
 
-**Next:** Planning next milestone (`/gsd-new-milestone`). Carry-forward backlog: prod-artifact gap (86/109 content rows missing `.md` on Render `/data`), Validate-KB-value A/B gating experiment (KBVAL-01/02), scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05). Note: the public **mana-base analyzer** (`/manabase`, Frank Karsten methodology) shipped to prod on `main` in parallel with this cycle.
+**Next:** Cycle 11 started 2026-06-21 (`/gsd-new-milestone`). Carry-forward backlog still open after Cycle 11 scoping: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), Deck Primer generator (deferred to Cycle 12). Note: the public **mana-base analyzer** (`/manabase`, Frank Karsten methodology) shipped to prod on `main` in parallel with Cycle 10.
+
+## Current Milestone: Cycle 11 — Security, Visibility Control & Creator-Lens
+
+**Goal:** Close two HIGH-priority security/data holes, give the admin full tool-visibility control over the public site, validate whether the Content KB actually improves AI output, and run a design pass on Studio.
+
+**Target features:**
+- **SSRF / host-spoof fix** — replace substring host matching in `DeckEntryLoader.LoadFromSourceAsync` + `MoxfieldApiDeckImporter` with exact/approved-subdomain matching; reconstruct canonical Moxfield URL on the fallback path; spoof-host regression tests. Shared Core code touching every deck tool (HIGH backlog, captured 2026-06-20 from Codex review).
+- **Prod artifact gap remediation** — 86 of 109 prod `content_site_index` rows have no `.md` on Render `/data`; confirm whether the live site serves content from `/data` or the DB column, then re-upload, reconcile down, or downgrade to cosmetic (HIGH backlog, found Phase 60 live verify).
+- **Admin tool-visibility toggles** — admin can turn off any public tile/page (Analysis, Comparison, etc.); one toggle cascades to the home tile + help entry + nav dropdown link; when every tool in a nav section is off, the section header + dropdown disappear too. Backed by a single tool registry (route, section, label, help-topic, flag-key, tile copy) folding the existing ad-hoc manabase/content.kb/categories flags into one model.
+- **KBVAL A/B gate** — prove the Content KB lifts ChatGPT output (with vs without expert clips, blind-judged where feasible) before further KB investment; decision gates the creator-philosophy phase and the `content.kb.enabled` flip.
+- **Creator-philosophy research** — distilled per-creator style-card + RAG-over-transcript design (provenance, contradiction-preservation, temporal drift); research/design only, and only if KBVAL shows clear lift.
+- **Studio UI design pass (P1 + P3)** — Studio shell/design-tokens/dashboard + responsive/dark-mode, via `/gsd-ui-phase` (P2 per-page consistency already shipped Cycle 10).
+
+**Out of scope this cycle:** Deck Primer generator (→ Cycle 12); scheduled/bulk auto-harvest (AUTO-03/04); SEO/growth lane; the creator-philosophy *build* (research only this cycle — build waits on KBVAL).
+
+**Key context:** CalVer milestone, NAMED not numbered (ADR 0002); phase numbering continues from 63 → 64+. KBVAL→creator-philosophy gate honored (Phase 5 drops if KBVAL marginal). SEED-001 (KB add/remove + publish-tracking) audited closed — shipped Cycle 9. Gating Analysis off is allowed but it is the core workflow; admin UI warns rather than blocks.
 
 ## Shipped Milestone: Cycle 10 — Studio Automation, Sync & Polish (SHIPPED 2026-06-21, `2026.06.6` — archived, see `.planning/milestones/cycle10-ROADMAP.md`)
 
@@ -299,4 +315,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-06-20 — Cycle 10 milestone started (Studio Automation, Sync & Polish)*
+*Last updated: 2026-06-21 — Cycle 11 milestone started (Security, Visibility Control & Creator-Lens)*
