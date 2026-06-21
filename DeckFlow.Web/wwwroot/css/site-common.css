@@ -2219,10 +2219,16 @@ label.field > span,
 
 /* Mana-base analysis table (250620). Layout-only; colors use theme tokens so each
    guild theme inherits its own palette. */
+/* Scroll the table sideways on narrow viewports instead of squeezing columns until
+   they break mid-word; on desktop the table fits and the wrapper never scrolls. */
+.manabase-table-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
 .manabase-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.75rem 0;
 }
 
 .manabase-table th,
@@ -2230,6 +2236,7 @@ label.field > span,
   text-align: left;
   padding: 0.35rem 0.6rem;
   border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  white-space: nowrap;
 }
 
 .manabase-table th {
