@@ -34,4 +34,10 @@ public sealed class ManabaseViewModel
 
     /// <summary>True when a report is present and should be rendered.</summary>
     public bool HasResult => Report is not null;
+
+    /// <summary>
+    /// True when the castability table should render: a report exists, it was run in Casual mode,
+    /// and it carries at least one castability row. cEDH hides the table (v1) and shows a note.
+    /// </summary>
+    public bool ShowCastability => Report is { Mode: ManabaseMode.Casual, Castability.Count: > 0 };
 }

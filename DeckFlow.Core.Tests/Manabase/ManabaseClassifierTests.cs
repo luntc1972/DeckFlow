@@ -211,6 +211,268 @@ public sealed class ManabaseClassifierTests
         Assert.Equal(4.0, deck.AverageManaValue);
     }
 
+    [Fact]
+    public void Classify_ColorlessNonSourcePayoff_IsSpellRow_NotManaSource()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Wurmcoil Engine",
+                Quantity = 1,
+                ManaCost = "{6}",
+                ManaValue = 6,
+                TypeLine = "Artifact Creature — Wurm",
+                OracleText = "Deathtouch, lifelink. When Wurmcoil Engine dies, create tokens.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        SpellRequirement spell = Assert.Single(deck.Spells);
+        Assert.Empty(spell.Pips);                 // colorless → no hard pips
+        Assert.False(spell.IsManaSource);         // not a rock/dork → appears in castability rows
+        Assert.Empty(deck.Sources);               // produces no mana → not a source
+    }
+
+    [Fact]
+    public void Classify_ManaDorkAndRock_AreFlaggedIsManaSource()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Birds of Paradise",
+                Quantity = 1,
+                ManaCost = "{G}",
+                ManaValue = 1,
+                TypeLine = "Creature — Bird",
+                OracleText = "Flying. {T}: Add one mana of any color.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Sol Ring",
+                Quantity = 1,
+                ManaCost = "{1}",
+                ManaValue = 1,
+                TypeLine = "Artifact",
+                OracleText = "{T}: Add {C}{C}.",
+                ProducedMana = new[] { "C" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.All(deck.Spells, s => Assert.True(s.IsManaSource));
+        // Both still contribute to the source pool (dork 0.5, rock 0.75).
+        Assert.Equal(2, deck.Sources.Count);
+    }
+
+    [Fact]
+    public void Classify_GoblinElectromancer_DetectedAsInstantSorceryReducer()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Goblin Electromancer",
+                Quantity = 1,
+                ManaCost = "{U}{R}",
+                ManaValue = 2,
+                TypeLine = "Creature — Goblin Wizard",
+                OracleText = "Instant and sorcery spells you cast cost {1} less to cast.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        CostReducer reducer = Assert.Single(deck.CostReduction);
+        Assert.Equal(1, reducer.GenericReduction);
+        Assert.Equal(ReductionScope.InstantSorcery, reducer.Scope);
+        Assert.Equal(2, reducer.SourceManaValue);
+    }
+
+    [Theory]
+    [InlineData("Spells you cast cost {1} less for each artifact you control.")] // "for each" scaling
+    [InlineData("Spells your opponents cast cost {2} more.")]                    // opponent-facing
+    [InlineData("This spell costs {1} less to cast for each creature you control.")] // not "you cast" + for each
+    public void Classify_FalsePositiveReducerText_IsNotDetected(string oracle)
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Tricky Card",
+                Quantity = 1,
+                ManaCost = "{3}",
+                ManaValue = 3,
+                TypeLine = "Artifact",
+                OracleText = oracle,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Empty(deck.CostReduction);
+    }
+
+    [Fact]
+    public void Classify_CryptolithRite_GrantsAnyColorSourcesToNonDorkCreatures()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Cryptolith Rite",
+                Quantity = 1,
+                ManaCost = "{1}{G}",
+                ManaValue = 2,
+                TypeLine = "Enchantment",
+                OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            // A vanilla creature: becomes an eligible granted source.
+            new()
+            {
+                Name = "Grizzly Bears",
+                Quantity = 1,
+                ManaCost = "{1}{G}",
+                ManaValue = 2,
+                TypeLine = "Creature — Bear",
+                OracleText = "",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            // Already a dork: must NOT be double-counted with a granted source.
+            new()
+            {
+                Name = "Llanowar Elves",
+                Quantity = 1,
+                ManaCost = "{G}",
+                ManaValue = 1,
+                TypeLine = "Creature — Elf Druid",
+                OracleText = "{T}: Add {G}.",
+                ProducedMana = new[] { "G" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        // The dork's own 0.5 source plus exactly one 0.25 granted source for Grizzly Bears.
+        Assert.Single(deck.Sources, s => s.Name == "Grizzly Bears (granted)");
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Llanowar Elves (granted)");
+        ManaSource granted = deck.Sources.Single(s => s.Name == "Grizzly Bears (granted)");
+        Assert.Equal(0.25, granted.Weight);
+        Assert.False(granted.IsLand);
+    }
+
+    [Fact]
+    public void Classify_GranterWithCommander_GrantsAnyColorSourceToEligibleCommander()
+    {
+        // MEDIUM-3: a GRANT-eligible commander (legendary creature that is NOT a rock/dork)
+        // must receive a 0.25-weight any-color granted source when a granter is present.
+        var granter = new CardFact
+        {
+            Name = "Cryptolith Rite",
+            Quantity = 1,
+            ManaCost = "{1}{G}",
+            ManaValue = 2,
+            TypeLine = "Enchantment",
+            OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"",
+            ProducedMana = System.Array.Empty<string>(),
+        };
+        var commander = new CardFact
+        {
+            Name = "Brago, King Eternal",
+            Quantity = 1,
+            ManaCost = "{2}{W}{U}",
+            ManaValue = 4,
+            TypeLine = "Legendary Creature — Spirit Noble",
+            OracleText = "Flying.",
+            ProducedMana = System.Array.Empty<string>(),
+            IsCommander = true,
+        };
+
+        ManabaseDeck withGranter = ManabaseClassifier.Classify(new List<CardFact> { granter, commander });
+        ManabaseDeck withoutGranter = ManabaseClassifier.Classify(new List<CardFact> { commander });
+
+        // Without the granter, the commander contributes no granted source.
+        Assert.DoesNotContain(withoutGranter.Sources, s => s.Name == "Brago, King Eternal (granted)");
+
+        // With the granter, the commander contributes exactly one 0.25 non-land any-color source.
+        ManaSource granted = Assert.Single(
+            withGranter.Sources, s => s.Name == "Brago, King Eternal (granted)");
+        Assert.Equal(0.25, granted.Weight);
+        Assert.False(granted.IsLand);
+    }
+
+    [Fact]
+    public void Classify_EquipGranter_GrantsAnyColorSourcesToEligibleCreatures()
+    {
+        // MEDIUM-5: a Paradise-Mantle-style equip granter must be detected and grant eligible
+        // (non-rock/dork) creatures a 0.25 any-color source.
+        var equip = new CardFact
+        {
+            Name = "Paradise Mantle",
+            Quantity = 1,
+            ManaCost = "{0}",
+            ManaValue = 0,
+            TypeLine = "Artifact — Equipment",
+            OracleText = "Equipped creature has \"{T}: Add one mana of any color.\" Equip {1}",
+            ProducedMana = System.Array.Empty<string>(),
+        };
+        var creature = new CardFact
+        {
+            Name = "Grizzly Bears",
+            Quantity = 1,
+            ManaCost = "{1}{G}",
+            ManaValue = 2,
+            TypeLine = "Creature — Bear",
+            OracleText = "",
+            ProducedMana = System.Array.Empty<string>(),
+        };
+
+        ManabaseDeck withEquip = ManabaseClassifier.Classify(new List<CardFact> { equip, creature });
+        ManabaseDeck withoutEquip = ManabaseClassifier.Classify(new List<CardFact> { creature });
+
+        // No granter → no granted sources at all.
+        Assert.DoesNotContain(withoutEquip.Sources, s => s.Name.EndsWith("(granted)"));
+
+        // Equip granter → the eligible creature gains a 0.25 non-land any-color source.
+        ManaSource granted = Assert.Single(
+            withEquip.Sources, s => s.Name == "Grizzly Bears (granted)");
+        Assert.Equal(0.25, granted.Weight);
+        Assert.False(granted.IsLand);
+    }
+
+    [Fact]
+    public void Classify_Commander_IsFlaggedOnSpellRequirement()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Brago, King Eternal",
+                Quantity = 1,
+                ManaCost = "{2}{W}{U}",
+                ManaValue = 4,
+                TypeLine = "Legendary Creature — Spirit Noble",
+                OracleText = "Flying.",
+                ProducedMana = System.Array.Empty<string>(),
+                IsCommander = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        SpellRequirement spell = Assert.Single(deck.Spells);
+        Assert.True(spell.IsCommander);
+        Assert.True((spell.Kinds & SpellKinds.Creature) != 0);
+    }
+
     private static CardFact Land(string name, int qty, string color) => new()
     {
         Name = name,
@@ -234,4 +496,58 @@ public sealed class ManabaseClassifierTests
         OracleText = string.Empty,
         ProducedMana = System.Array.Empty<string>(),
     };
+
+    private static CardFact Land(string name, string typeLine, string[] produced, string oracle = "") => new()
+    {
+        Name = name,
+        Quantity = 1,
+        TypeLine = typeLine,
+        OracleText = oracle,
+        ProducedMana = produced,
+        ManaValue = 0,
+        HasLandFace = true,
+    };
+
+    [Fact]
+    public void Classify_TypedFetch_EmptyProducedMana_DerivesColorsFromNamedBasics()
+    {
+        // Flooded Strand has empty produced_mana on Scryfall but fetches Plains or Island -> W and U.
+        var cards = new List<CardFact>
+        {
+            Spell("Brago", 4, "{2}{W}{U}"),
+            Land("Plains", "Basic Land — Plains", new[] { "W" }),
+            Land("Island", "Basic Land — Island", new[] { "U" }),
+            Land("Flooded Strand", "Land", System.Array.Empty<string>(),
+                "{T}, Pay 1 life, Sacrifice Flooded Strand: Search your library for a Plains or Island card..."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManaSource fetch = Assert.Single(deck.Sources, s => s.Name == "Flooded Strand");
+        Assert.Contains(ManaColor.White, fetch.Produces);
+        Assert.Contains(ManaColor.Blue, fetch.Produces);
+        Assert.DoesNotContain(ManaColor.Black, fetch.Produces);
+    }
+
+    [Fact]
+    public void Classify_TypedFetch_ReachesOffColorTriomeSharingAType()
+    {
+        // A Plains/Island fetch can grab a Plains-typed triome (W/U/B), so it also supplies black.
+        var cards = new List<CardFact>
+        {
+            Spell("Esper Thing", 5, "{2}{W}{U}{B}"),
+            Land("Plains", "Basic Land — Plains", new[] { "W" }),
+            Land("Raffine's Tower", "Land — Plains Island Swamp", new[] { "W", "U", "B" },
+                "Raffine's Tower enters the battlefield tapped."),
+            Land("Flooded Strand", "Land", System.Array.Empty<string>(),
+                "Search your library for a Plains or Island card..."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManaSource fetch = Assert.Single(deck.Sources, s => s.Name == "Flooded Strand");
+        Assert.Contains(ManaColor.White, fetch.Produces);
+        Assert.Contains(ManaColor.Blue, fetch.Produces);
+        Assert.Contains(ManaColor.Black, fetch.Produces); // reached via the Plains-typed triome
+    }
 }

@@ -2247,3 +2247,184 @@ label.field > span,
   color: var(--danger);
   font-weight: 600;
 }
+
+/* === Mana Base: modes, commander importance, castability (Phase 64) === */
+
+/* Inputs row holding the two segmented controls; wraps to stacked on narrow viewports. */
+.manabase-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.manabase-segmented {
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem 0.75rem;
+  margin: 0;
+  min-width: min(100%, 16rem);
+  flex: 1 1 16rem;
+}
+
+.manabase-segmented > legend {
+  font-weight: 600;
+  font-size: var(--fs-sm, 0.85rem);
+  padding: 0 0.35rem;
+}
+
+/* Segmented pill control: the radio is visually hidden; the label is the hit target. */
+.manabase-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.manabase-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.2));
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  cursor: pointer;
+  background: var(--panel-soft-bg, var(--surface, transparent));
+  user-select: none;
+}
+
+.manabase-pill > input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+
+.manabase-pill.is-selected {
+  background: var(--accent, #3858a6);
+  border-color: var(--accent, #3858a6);
+  /* Text on the accent fill; themes with a light accent can override --on-accent. */
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+}
+
+/* Keyboard focus must be visible even though the native radio is hidden. */
+.manabase-pill > input:focus-visible + span {
+  outline: 2px solid var(--accent-strong, var(--accent, #3858a6));
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.manabase-help {
+  margin: 0.45rem 0 0;
+  font-size: var(--fs-sm, 0.82rem);
+  color: var(--muted, #5a6472);
+}
+
+.manabase-context {
+  margin: 0.25rem 0 0.5rem;
+  color: var(--muted, #5a6472);
+}
+
+/* Commander-identity / pinned-commander glyph — its own gold token so it reads as a
+   distinct commander marker, not generic accent emphasis (theme may override). */
+.manabase-cmd-glyph {
+  color: var(--commander-gold, #d4af37);
+  margin-right: 0.2rem;
+}
+
+/* Weakest color emphasized with a left accent border + danger tint. */
+.manabase-row--weakest td {
+  border-left: 3px solid var(--danger, var(--error, #c53030));
+}
+
+.manabase-row--weakest td:first-child {
+  font-weight: 600;
+}
+
+/* Castability table: cast% conveyed by chip + text label, never color alone. */
+.manabase-castability-heading {
+  margin-top: 1.1rem;
+}
+
+.castability-scroll {
+  overflow-x: auto;
+}
+
+.castability-table .castability-name {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.manabase-row--commander td {
+  background: var(--panel-soft-bg, rgba(127, 127, 127, 0.08));
+  font-weight: 600;
+}
+
+.manabase-chip {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: var(--fs-sm, 0.8rem);
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.manabase-chip--low {
+  background: color-mix(in srgb, var(--danger, var(--error, #c53030)) 18%, transparent);
+  border-color: var(--danger, var(--error, #c53030));
+  color: var(--danger, var(--error, #c53030));
+}
+
+.manabase-chip--ok {
+  background: color-mix(in srgb, var(--warning, #d69e2e) 22%, transparent);
+  border-color: var(--warning, #d69e2e);
+  color: var(--ink, #2d3748);
+}
+
+.manabase-chip--good {
+  background: color-mix(in srgb, var(--success, #2f855a) 18%, transparent);
+  border-color: var(--success, #2f855a);
+  color: var(--success, #2f855a);
+}
+
+/* The two FORMULA-01 disclosure panels. */
+.manabase-formula > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.manabase-formula-body {
+  margin-top: 0.6rem;
+}
+
+.manabase-formula-body p {
+  margin: 0.5rem 0;
+}
+
+.manabase-formula-list {
+  margin: 0.35rem 0 0.6rem 1.1rem;
+  padding: 0;
+}
+
+.manabase-formula-list li {
+  margin: 0.2rem 0;
+}
+
+@media (max-width: 480px) {
+  .manabase-segmented {
+    flex-basis: 100%;
+  }
+
+  .manabase-pills {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .manabase-pill {
+    justify-content: center;
+  }
+}

@@ -69,18 +69,24 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_BuffsByHans_FlagsBlueAsWeakestColor()
+    public void Analyze_BuffsByHans_LandCountOk_ColorLimited_BlueStrained()
     {
         ManabaseDeck deck = BuildBuffsByHans();
 
         ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
 
-        // Snail tool verdict: land count roughly OK, color-limited, weakest color blue.
+        // Land count roughly OK and color-limited (matches the Snail cross-check).
         Assert.Equal(36, report.ActualLands);
         Assert.InRange(report.TargetLands, 36.0, 38.0);
         Assert.NotNull(report.WeakestColor);
-        Assert.Equal(ManaColor.Blue, report.WeakestColor!.Color);
-        Assert.False(report.WeakestColor.IsAdequate);
+        Assert.False(report.WeakestColor!.IsAdequate);
+
+        // COLOR-AGG-01 change: the headline weakest color is now the tail-risk composite, not the
+        // raw deficit. The single hardest card is Sunder Shaman (RRGG gold, ~14% cast), so Red
+        // leads — but Blue is still surfaced as a real deficit (Surrakar/Selkie UU are strained).
+        ColorSourceFinding? blue = report.ColorFindings.FirstOrDefault(f => f.Color == ManaColor.Blue);
+        Assert.NotNull(blue);
+        Assert.False(blue!.IsAdequate);
     }
 
     [Fact]
@@ -106,8 +112,12 @@ public sealed class ManabaseAnalyzerTests
         ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
         ColorSourceFinding green = Assert.Single(report.ColorFindings);
 
-        // Driver is the one-drop, so the tapped land does not count toward its supply.
-        Assert.Equal(1.0, green.ActualSources);
+        // MEDIUM-4: ActualSources is now the color's FULL weighted supply (both green lands = 2.0),
+        // not the driver's turn-specific untapped number. The untapped-only restriction still
+        // drives the one-drop's requirement internally — here it leaves a positive deficit because
+        // only 1 of the 2 sources is available on turn 1.
+        Assert.Equal(2.0, green.ActualSources);
+        Assert.True(green.RequiredSources >= 1);
     }
 
     [Fact]
@@ -148,6 +158,403 @@ public sealed class ManabaseAnalyzerTests
         ManaSource back = Assert.Single(deck.Sources);
         Assert.False(back.IsLand);
         Assert.Equal(0.8, back.Weight, 2);
+    }
+
+    [Fact]
+    public void Analyze_DefaultCasual_KeepsLandTargetIdentical_ToModeOverload()
+    {
+        ManabaseDeck deck = BuildBuffsByHans();
+
+        ManabaseReport casualDefault = ManabaseAnalyzer.Analyze(deck);
+        ManabaseReport casualExplicit = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
+
+        // Default overload == explicit Casual: land target is a pure regression, byte-identical.
+        Assert.Equal(casualDefault.TargetLands, casualExplicit.TargetLands);
+        Assert.Equal(ManabaseMode.Casual, casualDefault.Mode);
+    }
+
+    [Fact]
+    public void Analyze_CedhMode_LowersLandTarget_AndRecordsMode()
+    {
+        ManabaseDeck deck = BuildBuffsByHans();
+
+        ManabaseReport casual = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
+        ManabaseReport cedh = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Cedh);
+
+        Assert.True(cedh.TargetLands < casual.TargetLands, "cEDH target should be lower than casual");
+        Assert.True(cedh.TargetLands >= 28.0, "cEDH target never below the 28 floor");
+        Assert.Equal(ManabaseMode.Cedh, cedh.Mode);
+        Assert.Contains("cEDH", cedh.Summary);
+    }
+
+    [Fact]
+    public void Analyze_CastabilityList_IsNonEmpty_AndSortedAscending_NoRocksOrDorks()
+    {
+        ManabaseDeck deck = BuildBuffsByHans();
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        Assert.NotEmpty(report.Castability);
+        // Every non-source spell produces exactly one row (rocks/dorks are excluded elsewhere).
+        int expected = deck.Spells.Count(s => !s.IsManaSource || s.IsCommander);
+        Assert.Equal(expected, report.Castability.Count);
+        // Non-commander rows ascend by cast %.
+        var nonCommander = report.Castability.Where(c => !c.IsCommander).Select(c => c.CastPercent).ToList();
+        for (int i = 1; i < nonCommander.Count; i++)
+        {
+            Assert.True(nonCommander[i] >= nonCommander[i - 1], "castability rows must ascend by %");
+        }
+    }
+
+    [Fact]
+    public void Analyze_SingleUncastableBomb_StillSurfacesViaWorstSpell_DespiteHealthyMean()
+    {
+        // A color with many easy 1-drops (healthy mean) plus one CCC bomb that is starved.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 40; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+
+        // Only 4 black sources — a BBB bomb is brutal, but the white spells are all fine.
+        for (int i = 0; i < 4; i++)
+        {
+            sources.Add(new ManaSource { Name = "Swamp", Produces = new[] { ManaColor.Black } });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new() { Name = "Bomb BBB", ManaValue = 5, Pips = Pip((ManaColor.Black, 3)) },
+        };
+        for (int i = 0; i < 8; i++)
+        {
+            spells.Add(new SpellRequirement { Name = $"Easy White {i}", ManaValue = 1, Pips = Pip((ManaColor.White, 1)) });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = sources,
+            Spells = spells,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        Assert.NotNull(report.WeakestColor);
+        Assert.Equal(ManaColor.Black, report.WeakestColor!.Color);
+        Assert.True(report.WeakestColor.UnderSupportedCount >= 1);
+        Assert.Equal("Bomb BBB", report.WeakestColor.WorstSpell);
+        Assert.Contains("Bomb BBB", report.Summary);
+    }
+
+    [Fact]
+    public void Analyze_ColorUnderSupportedByComposite_ButNoRawDeficit_StillWeakest_AndUnhealthy()
+    {
+        // HIGH-1 guard: a color with ENOUGH raw sources (deficit <= 0) but whose only spell is a
+        // high-MV double-pip bomb has a low overall CastPercent (mana-quantity risk drags it under
+        // the 80% mode bar). The composite must still flag it as WeakestColor and make IsHealthy
+        // false — the verdict must NOT revert to raw source deficit.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 20; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 6.0,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Big Blue Bomb", ManaValue = 6, Pips = Pip((ManaColor.Blue, 2)) },
+            },
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        ColorSourceFinding blue = Assert.Single(report.ColorFindings);
+        // Raw color sources cover the requirement: no source deficit.
+        Assert.True(blue.Deficit <= 0, $"expected no raw deficit, got {blue.Deficit}");
+        // But the bomb falls below the mode threshold, so the composite flags it.
+        Assert.True(blue.UnderSupportedCount >= 1, "the high-MV bomb must count as under-supported");
+        Assert.True(blue.IsCompositeProblem);
+
+        // The verdict keys off the composite, not the raw deficit.
+        Assert.NotNull(report.WeakestColor);
+        Assert.Equal(ManaColor.Blue, report.WeakestColor!.Color);
+        Assert.False(report.IsHealthy);
+    }
+
+    [Fact]
+    public void Analyze_CostReducer_ShiftsColorFinding_ToReducedOnCurveTurn()
+    {
+        // HIGH-2 guard: a 5-MV instant with a valid {1}-less reducer is evaluated at OnCurveTurn 4
+        // for BOTH its castability row AND its color finding. The color's RequiredSources must be
+        // computed from the reduced turn (4), NOT the printed mana value (5) — matching the table.
+        // (An earlier on-curve turn legitimately needs a DIFFERENT source count: fewer cards seen
+        // by turn 4 at a higher consistency fraction, so the two values diverge — proving the
+        // finding keys off OnCurveTurn rather than ManaValue.)
+        ManabaseDeck withReducer = BuildReducerDeck(withReducer: true);
+
+        ManabaseReport reducedReport = ManabaseAnalyzer.Analyze(withReducer);
+
+        CardCastability reducedRow = reducedReport.Castability.Single(c => c.Name == "Big Spell");
+        Assert.Equal(4, reducedRow.OnCurveTurn);
+
+        ColorSourceFinding reducedBlue = reducedReport.ColorFindings.Single(f => f.Color == ManaColor.Blue);
+        Assert.Equal("Big Spell", reducedBlue.DrivingSpell);
+
+        // 36 Islands → librarySize 99, totalLands 36, single blue pip. RequiredSources must match
+        // SourcesNeeded at the REDUCED turn (4), and differ from the printed-turn (5) value.
+        int needAtReducedTurn = KarstenManabase.SourcesNeeded(deckSize: 99, totalLands: 36, pips: 1, manaValue: 4);
+        int needAtPrintedTurn = KarstenManabase.SourcesNeeded(deckSize: 99, totalLands: 36, pips: 1, manaValue: 5);
+        Assert.Equal(needAtReducedTurn, reducedBlue.RequiredSources);
+        Assert.NotEqual(needAtPrintedTurn, reducedBlue.RequiredSources);
+    }
+
+    [Fact]
+    public void Analyze_CostReducer_ShiftsEffectiveTurnEarlier_AndRaisesCastability()
+    {
+        ManabaseDeck withReducer = BuildReducerDeck(withReducer: true);
+        ManabaseDeck without = BuildReducerDeck(withReducer: false);
+
+        CardCastability reduced = ManabaseAnalyzer.Analyze(withReducer).Castability.Single(c => c.Name == "Big Spell");
+        CardCastability normal = ManabaseAnalyzer.Analyze(without).Castability.Single(c => c.Name == "Big Spell");
+
+        Assert.Equal(5, normal.OnCurveTurn);
+        Assert.Equal(4, reduced.OnCurveTurn);                  // {1} less, capped, MV gate satisfied
+        Assert.True(reduced.CastPercent > normal.CastPercent); // earlier turn → higher cast %
+    }
+
+    [Fact]
+    public void Analyze_Granter_DoesNotFlipWeakestColor_OnDorkHeavyShell()
+    {
+        // Mono-green dork shell + a Cryptolith Rite granter. Weakest color must stay green (the
+        // only demanded color); the any-color grant must not invent a spurious worse color.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Cryptolith Rite", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Enchantment", OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Craterhoof", Quantity = 1, ManaCost = "{5}{G}{G}{G}", ManaValue = 8, TypeLine = "Creature — Beast", OracleText = "Haste.", ProducedMana = System.Array.Empty<string>() },
+        };
+        for (int i = 0; i < 30; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        if (report.WeakestColor is not null)
+        {
+            Assert.Equal(ManaColor.Green, report.WeakestColor.Color);
+        }
+    }
+
+    [Fact]
+    public void Analyze_StandardCommander_DoesNotOverride_AWorseNonCommanderColor()
+    {
+        // Commander is WU and very well supported; an off-commander black bomb is the true worst.
+        ManabaseDeck deck = BuildCommanderVsBombDeck();
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard);
+
+        Assert.NotNull(report.WeakestColor);
+        Assert.Equal(ManaColor.Black, report.WeakestColor!.Color); // non-commander color still wins
+    }
+
+    [Fact]
+    public void Analyze_CentralVsLow_CommanderImportance_ChangesVerdict_NotLandTarget()
+    {
+        // Commander colors are under-supported; Central tightens them, Low relaxes.
+        ManabaseDeck deck = BuildStrainedCommanderDeck();
+
+        ManabaseReport central = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Central);
+        ManabaseReport low = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Low);
+
+        // Importance is orthogonal to mode — land target identical across both.
+        Assert.Equal(central.TargetLands, low.TargetLands);
+
+        // Central holds commander colors to a stricter bar → more under-supported there.
+        ColorSourceFinding? centralBlue = central.ColorFindings.FirstOrDefault(f => f.Color == ManaColor.Blue);
+        ColorSourceFinding? lowBlue = low.ColorFindings.FirstOrDefault(f => f.Color == ManaColor.Blue);
+        Assert.NotNull(centralBlue);
+        Assert.NotNull(lowBlue);
+        Assert.True(centralBlue!.UnderSupportedCount >= lowBlue!.UnderSupportedCount);
+    }
+
+    [Fact]
+    public void Analyze_CasualCentral_vs_CedhStandard_ProduceDistinctVerdicts()
+    {
+        ManabaseDeck deck = BuildStrainedCommanderDeck();
+
+        ManabaseReport casualCentral = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Central);
+        ManabaseReport cedhStandard = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Cedh, CommanderImportance.Standard);
+
+        // Casual+Central keeps the casual land target; cEDH lowers it. Distinct land verdicts.
+        Assert.True(cedhStandard.TargetLands < casualCentral.TargetLands);
+        Assert.Equal(ManabaseMode.Casual, casualCentral.Mode);
+        Assert.Equal(ManabaseMode.Cedh, cedhStandard.Mode);
+    }
+
+    [Fact]
+    public void Analyze_LandTargetBreakdown_PopulatedWithDeckTerms_AndSumsToTarget()
+    {
+        // FORMULA-01 (MEDIUM-2): the additive breakdown carries this deck's real regression inputs
+        // and its terms reproduce TargetLands exactly (no recomputation drift).
+        ManabaseDeck deck = BuildBuffsByHans();
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
+
+        Assert.NotNull(report.LandTarget);
+        ManabaseLandTargetBreakdown lt = report.LandTarget;
+
+        // Inputs echo the deck verbatim.
+        Assert.Equal(2.59, lt.AverageManaValue, 3);
+        Assert.Equal(6, lt.RampAndDrawUnderThree);
+        Assert.Equal(0, lt.FastMana);
+        Assert.Equal(0, lt.MdfcCommon);
+        Assert.Equal(0, lt.MdfcMythic);
+        Assert.Equal(1, lt.CommanderCount);
+        Assert.Equal(99, lt.LibrarySize); // 100 cards − 1 commander
+
+        // Casual: base == final == the reported target, and no cEDH adjustment.
+        Assert.Equal(report.TargetLands, lt.FinalTarget);
+        Assert.Equal(lt.BaseTarget, lt.FinalTarget);
+        Assert.Equal(0.0, lt.CedhAdjustment);
+
+        // The rendered formula reconstructs FinalTarget from the surfaced terms.
+        double scale = lt.LibrarySize / 60.0;
+        double reconstructed = (scale * (19.59 + (1.90 * lt.AverageManaValue) + (0.27 * lt.CommanderCount)))
+            - (0.28 * lt.RampAndDrawUnderThree)
+            - lt.FastMana
+            - (0.74 * lt.MdfcCommon)
+            - (0.38 * lt.MdfcMythic)
+            - 1.35;
+        Assert.Equal(lt.FinalTarget, reconstructed, 6);
+    }
+
+    [Fact]
+    public void Analyze_CedhBreakdown_RecordsFlooredAdjustment_FromBaseToFinal()
+    {
+        // The cEDH adjustment is the signed delta from the singleton base to the floored final
+        // target, so the panel can show "−3.5 (floor 28)" honestly.
+        ManabaseDeck deck = BuildBuffsByHans();
+
+        ManabaseReport casual = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
+        ManabaseReport cedh = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Cedh);
+
+        Assert.NotNull(cedh.LandTarget);
+        ManabaseLandTargetBreakdown lt = cedh.LandTarget;
+
+        // Base equals the casual (singleton) target; final equals the reported cEDH target.
+        Assert.Equal(casual.TargetLands, lt.BaseTarget, 6);
+        Assert.Equal(cedh.TargetLands, lt.FinalTarget, 6);
+        Assert.Equal(lt.FinalTarget - lt.BaseTarget, lt.CedhAdjustment, 6);
+        Assert.True(lt.CedhAdjustment < 0, "cEDH must lower the target");
+    }
+
+    private static ManabaseDeck BuildReducerDeck(bool withReducer)
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 36; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new()
+            {
+                Name = "Big Spell",
+                ManaValue = 5,
+                Pips = Pip((ManaColor.Blue, 1)),
+                Kinds = SpellKinds.Instant,
+            },
+        };
+
+        var reducers = withReducer
+            ? new List<CostReducer> { new() { GenericReduction = 1, Scope = ReductionScope.InstantSorcery, SourceManaValue = 2 } }
+            : new List<CostReducer>();
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 3.0,
+            Sources = sources,
+            Spells = spells,
+            CostReduction = reducers,
+        };
+    }
+
+    private static ManabaseDeck BuildCommanderVsBombDeck()
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 20; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+
+        for (int i = 0; i < 20; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        // Only 3 black sources for a brutal BB bomb.
+        for (int i = 0; i < 3; i++)
+        {
+            sources.Add(new ManaSource { Name = "Swamp", Produces = new[] { ManaColor.Black } });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new() { Name = "Brago", ManaValue = 4, Pips = Pip((ManaColor.White, 1), (ManaColor.Blue, 1)), IsGold = true, IsCommander = true },
+            new() { Name = "Black Bomb", ManaValue = 4, Pips = Pip((ManaColor.Black, 2)) },
+        };
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 3.0,
+            Sources = sources,
+            Spells = spells,
+        };
+    }
+
+    private static ManabaseDeck BuildStrainedCommanderDeck()
+    {
+        // A WU commander with thin blue support so Central vs Low diverges on blue.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 22; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+
+        for (int i = 0; i < 9; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new() { Name = "Brago", ManaValue = 4, Pips = Pip((ManaColor.White, 1), (ManaColor.Blue, 1)), IsGold = true, IsCommander = true },
+            new() { Name = "Blue Spell", ManaValue = 3, Pips = Pip((ManaColor.Blue, 1)) },
+            new() { Name = "White Spell", ManaValue = 2, Pips = Pip((ManaColor.White, 1)) },
+        };
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 3.0,
+            Sources = sources,
+            Spells = spells,
+        };
     }
 
     /// <summary>

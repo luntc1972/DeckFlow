@@ -1,13 +1,17 @@
+@using DeckFlow.Core.Manabase
+@using DeckFlow.Web.Models
 @model DeckFlow.Web.Models.ManabaseViewModel
 @{
     ViewData["Title"] = "Mana Base";
     var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
     var report = Model.Report;
+    var mode = Model.Request.Mode;
+    var importance = Model.Request.CommanderImportance;
 }
 
 <section class="hero">
     <h1>Mana Base Analysis</h1>
-    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve. Built on Frank Karsten's source-count math, then extended — it weights non-land sources (mana rocks, dorks, MDFCs), accounts for tapped vs. untapped lands for turn-one casts, and sizes each color to its hardest spell. The verdict is computed directly — no AI needed.</p>
+    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve. Built on Frank Karsten's source-count math, then extended — it weights non-land sources (mana rocks, dorks, MDFCs), accounts for tapped vs. untapped lands for turn-one casts, sizes each color to its hardest spell, and estimates each spell's chance to be cast on curve. The verdict is computed directly — no AI needed.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -44,6 +48,42 @@
                   placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
     </div>
 
+    <div class="manabase-options">
+        <fieldset class="manabase-segmented" role="radiogroup">
+            <legend>Deck type</legend>
+            <div class="manabase-pills">
+                <label class="manabase-pill @(mode == ManabaseMode.Casual ? "is-selected" : null)">
+                    <input type="radio" name="Mode" value="Casual" checked="@(mode == ManabaseMode.Casual ? "checked" : null)" />
+                    <span>Casual</span>
+                </label>
+                <label class="manabase-pill @(mode == ManabaseMode.Cedh ? "is-selected" : null)">
+                    <input type="radio" name="Mode" value="Cedh" checked="@(mode == ManabaseMode.Cedh ? "checked" : null)" />
+                    <span>cEDH</span>
+                </label>
+            </div>
+            <p class="manabase-help">cEDH = lower land count, fast-mana heavy. Casual also shows a per-card castability table.</p>
+        </fieldset>
+
+        <fieldset class="manabase-segmented" role="radiogroup">
+            <legend>How important is casting your commander?</legend>
+            <div class="manabase-pills">
+                <label class="manabase-pill @(importance == CommanderImportance.Central ? "is-selected" : null)">
+                    <input type="radio" name="CommanderImportance" value="Central" checked="@(importance == CommanderImportance.Central ? "checked" : null)" />
+                    <span>Central</span>
+                </label>
+                <label class="manabase-pill @(importance == CommanderImportance.Standard ? "is-selected" : null)">
+                    <input type="radio" name="CommanderImportance" value="Standard" checked="@(importance == CommanderImportance.Standard ? "checked" : null)" />
+                    <span>Standard</span>
+                </label>
+                <label class="manabase-pill @(importance == CommanderImportance.Low ? "is-selected" : null)">
+                    <input type="radio" name="CommanderImportance" value="Low" checked="@(importance == CommanderImportance.Low ? "checked" : null)" />
+                    <span>Low</span>
+                </label>
+            </div>
+            <p class="manabase-help">Central — must cast ASAP, every game (e.g. Brago). Standard — matters, cast when convenient. Low — optional / late value.</p>
+        </fieldset>
+    </div>
+
     <div class="toolbar">
         <button type="submit" class="run-button">Analyze Mana Base</button>
     </div>
@@ -61,6 +101,11 @@
                 }
             </div>
         </div>
+
+        <p class="manabase-context">
+            Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong> ·
+            Commander: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong>
+        </p>
 
         <p>
             <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
@@ -81,6 +126,7 @@
                         <th scope="col">Color</th>
                         <th scope="col">Sources</th>
                         <th scope="col">Needed</th>
+                        <th scope="col">Population</th>
                         <th scope="col">Short by</th>
                         <th scope="col">Driving spell</th>
                     </tr>
@@ -88,10 +134,20 @@
                 <tbody>
                     @foreach (var f in report.ColorFindings)
                     {
-                        <tr class="@(f.IsAdequate ? null : "manabase-row--short")">
-                            <td>@f.Color</td>
+                        var isWeakest = report.WeakestColor is { } w && w.Color == f.Color;
+                        var isCommanderColor = report.CommanderColors.Contains(f.Color);
+                        var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
+                        <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(isWeakest ? "manabase-row--weakest" : null)">
+                            <td>
+                                @f.Color
+                                @if (isCommanderColor)
+                                {
+                                    <span class="manabase-cmd-glyph" title="commander color" aria-label="commander color">★</span>
+                                }
+                            </td>
                             <td>@f.ActualSources.ToString("F1")</td>
                             <td>@f.RequiredSources</td>
+                            <td>@f.UnderSupportedCount of @total under-supported</td>
                             <td>@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
                             <td>@f.DrivingSpell</td>
                         </tr>
@@ -108,6 +164,49 @@
         else
         {
             <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
+        }
+
+        @if (Model.ShowCastability && report.Castability.Count > 0)
+        {
+            <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
+            <p class="manabase-help">Estimate, on the play, on its mana-value turn. Counts ramp; mana rocks/dorks aren't listed.</p>
+
+            <div class="manabase-table-wrap castability-scroll">
+                <table class="manabase-table castability-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Card</th>
+                            <th scope="col">MV</th>
+                            <th scope="col">Cast on curve</th>
+                            <th scope="col">Limiting</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in report.Castability)
+                        {
+                            var chip = ManabaseDisplay.CastChip(c.CastPercent);
+                            <tr class="@(c.IsCommander ? "manabase-row--commander" : null)">
+                                <td class="castability-name" title="@c.Name">
+                                    @if (c.IsCommander)
+                                    {
+                                        <span class="manabase-cmd-glyph" title="commander" aria-label="commander">★</span>
+                                    }
+                                    @c.Name
+                                </td>
+                                <td>@c.ManaValue</td>
+                                <td>
+                                    <span class="manabase-chip @chip.Css">@c.CastPercent% · @chip.Label</span>
+                                </td>
+                                <td>@ManabaseDisplay.LimitingText(c.LimitingFactor)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (report.Mode == ManabaseMode.Cedh)
+        {
+            <p class="mode-note manabase-castability-note">Castability view is available in Casual mode.</p>
         }
 
         @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
@@ -134,6 +233,62 @@
             <textarea id="manabase-chatgpt-output" readonly spellcheck="false">@Model.ChatGptSwapPrompt</textarea>
         </details>
     }
+}
+
+@* FORMULA-01 — methodology always shown; the per-deck breakdown only with a result. *@
+<details class="result-panel nested-panel manabase-formula" data-manabase-formula="how">
+    <summary>How the analysis works</summary>
+    <div class="manabase-formula-body">
+        <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, fast mana, and double-faced lands, with a credit for each commander. cEDH mode lowers that target into the competitive ~28–32 band (a ~3.5-land cut, floored at 28), crediting fast mana fully.</p>
+        <p>Each spell's <strong>castability</strong> comes from a Monte-Carlo simulation: it draws an opening seven, applies the <strong>London mulligan</strong> (bottoming non-lands first when a hand is land-light), plays on the play turn by turn, deploys ramp as it comes online, credits fetchlands to the colors they can fetch, and applies any always-on cost reducers — then asks, on the spell's on-curve turn, whether there is enough <strong>mana and the right colored pips together</strong> (a joint check, not two independent odds). The reported number is the share of simulated games where the card was castable on curve.</p>
+        <p>Colored-source findings combine a <strong>worst-driver</strong> spell (the hardest single card for a color) with a <strong>population</strong> view (how many of that color's cards are under-supported and their mean castability). The weakest color surfaces tail risk first. The <strong>commander-importance</strong> setting weights the commander's colors more or less heavily — Central holds them to a stricter, cEDH-style threshold.</p>
+        <p class="manabase-help">Credit: Frank Karsten's published source-count work. The castability estimate is our own Monte-Carlo simulation, cross-checked against community mana calculators including <a href="https://www.salubrioussnail.com/manabase-tool" target="_blank" rel="noopener">Salubrious Snail</a>. These figures are an estimate; treat them as a ranking aid, not a guarantee.</p>
+    </div>
+</details>
+
+@if (Model.HasResult && report is not null)
+{
+    <details class="result-panel nested-panel manabase-formula" data-manabase-formula="numbers">
+        <summary>This deck's numbers</summary>
+        <div class="manabase-formula-body">
+            <p><strong>Land target.</strong> Recommended ~@report.TargetLands.ToString("F1") lands vs @report.ActualLands in the deck (@ManabaseDisplay.ModeLabel(report.Mode) profile).</p>
+            @if (report.LandTarget is { } lt)
+            {
+                var scale = lt.LibrarySize / 60.0;
+                <p class="manabase-help">The Karsten land-count regression, with this deck's numbers plugged into every term:</p>
+                <ul class="manabase-formula-list manabase-formula-terms">
+                    <li>scale = library @lt.LibrarySize ÷ 60 = <strong>@scale.ToString("F2")</strong></li>
+                    <li>base interior = 19.59 + 1.90·(avg MV <strong>@lt.AverageManaValue.ToString("F2")</strong>) + 0.27·(commanders <strong>@lt.CommanderCount</strong>) = <strong>@((19.59 + (1.90 * lt.AverageManaValue) + (0.27 * lt.CommanderCount)).ToString("F2"))</strong></li>
+                    <li>− 0.28·(ramp/draw ≤2 MV <strong>@lt.RampAndDrawUnderThree</strong>) = <strong>−@((0.28 * lt.RampAndDrawUnderThree).ToString("F2"))</strong></li>
+                    <li>− fast mana <strong>@lt.FastMana</strong> (1 land each) = <strong>−@lt.FastMana.ToString("F2")</strong></li>
+                    <li>− 0.74·(common MDFCs <strong>@lt.MdfcCommon</strong>) = <strong>−@((0.74 * lt.MdfcCommon).ToString("F2"))</strong></li>
+                    <li>− 0.38·(mythic MDFCs <strong>@lt.MdfcMythic</strong>) = <strong>−@((0.38 * lt.MdfcMythic).ToString("F2"))</strong></li>
+                    <li>− 1.35 fixed offset</li>
+                    @if (report.Mode == ManabaseMode.Cedh)
+                    {
+                        <li>cEDH adjustment (−3.5, floored at 28 lands): <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong> from a base of @lt.BaseTarget.ToString("F1")</li>
+                    }
+                    <li><strong>= target ~@lt.FinalTarget.ToString("F1") lands</strong> vs <strong>@report.ActualLands</strong> actually in the deck.</li>
+                </ul>
+            }
+            <p class="manabase-help">Commander importance applied: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong> (weights the commander's colors; does not move the land target).</p>
+
+            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make):</p>
+            <ul class="manabase-formula-list">
+                @foreach (var f in report.ColorFindings)
+                {
+                    var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
+                    <li>
+                        <strong>@f.Color</strong>: @f.ActualSources.ToString("F1") sources · needs @f.RequiredSources for @f.DrivingSpell ·
+                        @f.UnderSupportedCount of @total card(s) under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
+                    </li>
+                }
+            </ul>
+
+            <p><strong>Simulation parameters.</strong> On the play (skip the first draw); London mulligan to six then five, bottoming non-lands first; ~20,000 trials per spell; each spell measured on its effective on-curve turn after any cost reduction. Cast % above is the share of trials where the card was castable on curve.</p>
+            <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so you can audit why a color or a card was flagged.</p>
+        </div>
+    </details>
 }
 
 @section Scripts {

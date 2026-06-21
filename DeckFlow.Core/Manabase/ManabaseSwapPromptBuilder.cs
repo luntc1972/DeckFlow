@@ -17,7 +17,11 @@ public static class ManabaseSwapPromptBuilder
     /// <param name="report">The computed mana-base report.</param>
     /// <param name="deckName">Optional deck name; blank is fine.</param>
     /// <param name="decklistText">The deck's card list (one "qty name" per line).</param>
-    public static string Build(ManabaseReport report, string? deckName, string? decklistText)
+    /// <param name="mode">
+    /// The analysis mode to state so the LLM optimizes for the right format. Defaults to Casual;
+    /// Wave 2's service passes the report's mode through.
+    /// </param>
+    public static string Build(ManabaseReport report, string? deckName, string? decklistText, ManabaseMode mode = ManabaseMode.Casual)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -27,6 +31,19 @@ public static class ManabaseSwapPromptBuilder
         sb.Append(CultureInfo.InvariantCulture,
             $"I'm tuning the mana base of my Commander deck{named}. Here is the deterministic analysis ");
         sb.AppendLine("from DeckFlow (Frank Karsten's source-count method):");
+        sb.AppendLine();
+
+        if (mode == ManabaseMode.Cedh)
+        {
+            sb.AppendLine(
+                "This is a cEDH deck — favor low land counts and fast mana, and prioritize early "
+                + "(turn 1–3) untapped colored access for cheap interaction.");
+        }
+        else
+        {
+            sb.AppendLine("This is a Casual Commander deck — optimize for a consistent, on-curve mana base.");
+        }
+
         sb.AppendLine();
 
         double delta = report.LandDelta;

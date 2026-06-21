@@ -21,8 +21,27 @@ public interface IManabaseAnalysisService
     /// <summary>Analyze the mana base of the deck identified by <paramref name="deckSource"/>.</summary>
     /// <param name="deckSource">A public deck URL or pasted decklist text.</param>
     /// <param name="deckName">Optional display name for the deck (used in the ChatGPT prompt).</param>
+    /// <param name="options">Mode + commander-importance knobs; defaults to Casual / Standard.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<ManabaseAnalysisResult> AnalyzeAsync(string deckSource, string? deckName, CancellationToken cancellationToken = default);
+    Task<ManabaseAnalysisResult> AnalyzeAsync(
+        string deckSource,
+        string? deckName,
+        ManabaseAnalysisOptions? options = null,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// The user-selected analysis knobs threaded from the form into the Core analyzer. Bundled into
+/// one object so the parameter list does not telescope as more modes are added. Defaults keep the
+/// historic Casual / Standard behavior for any caller that omits them.
+/// </summary>
+public sealed class ManabaseAnalysisOptions
+{
+    /// <summary>The analysis profile (Casual default, cEDH lowers the land target).</summary>
+    public ManabaseMode Mode { get; init; } = ManabaseMode.Casual;
+
+    /// <summary>How heavily to weight the commander's colors (Standard default).</summary>
+    public CommanderImportance CommanderImportance { get; init; } = CommanderImportance.Standard;
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -77,8 +96,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public async Task<ManabaseAnalysisResult> AnalyzeAsync(
         string deckSource,
         string? deckName,
+        ManabaseAnalysisOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        options ??= new ManabaseAnalysisOptions();
+
         if (string.IsNullOrWhiteSpace(deckSource))
         {
             throw new InvalidOperationException("Provide a public deck URL or paste a decklist.");
@@ -143,7 +165,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, options.Mode, options.CommanderImportance);
 
         string decklistText = string.Join(
             "\n",
@@ -154,7 +176,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string inputSummary = $"{cardCount} cards · {landCount} lands"
             + (unresolved.Count > 0 ? $" · {unresolved.Count} unresolved" : string.Empty);
 
-        string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, decklistText);
+        string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, decklistText, options.Mode);
 
         return new ManabaseAnalysisResult(report, inputSummary, unresolved, load.FallbackNotice, swapPrompt);
     }
