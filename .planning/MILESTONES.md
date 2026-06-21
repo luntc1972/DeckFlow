@@ -1,5 +1,22 @@
 # Milestones
 
+## Mana Base — Casual/cEDH Modes & Castability (Shipped: 2026-06-21, `2026.06.7`)
+
+**Phase:** 64 (manabase-modes-castability), 2 waves (Core + Web)
+**Requirements:** MODE-01..04, CAST-01..04, COLOR-AGG-01, REDUCE-01, GRANT-01, COMMANDER-01/02, FORMULA-01 — all satisfied.
+
+**Key accomplishments:**
+
+- **Two analyzer modes + commander importance:** Casual (Karsten singleton target) / cEDH (~28–32 band, floor 28); user-scaled commander importance (Central/Standard/Low), orthogonal to mode — it tightens the commander's color threshold without moving the land target.
+- **Monte-Carlo castability (FINDING-3):** replaced the P_mana×P_color independence product with a seeded simulation — London mulligan, joint mana+color, in-sim ramp with summoning-sickness timing, ETB-tapped lands online next turn, deployable ramp at full value while only enabler-conditional granted sources are discounted. Validated against the Salubrious Snail calculator on a real Brago deck: mean Δ 2.8 pts, same weakest color + card ordering.
+- **Aggregate color findings (COLOR-AGG):** worst-driver preserved (a lone uncastable bomb still surfaces) + a population view (mean cast% + under-supported count); tail-risk-first weakest-color composite.
+- **Cost reducers, mana granters, fetch colors:** static "spells you cast cost {N} less" reducers shift effective turn; Cryptolith/Relic-style granters add conditional sources; fetchlands (empty Scryfall produced_mana) are credited to the colors they can fetch, including duals/triomes sharing a named basic type.
+- **Two "show the work" formula panels (FORMULA-01):** the methodology, and the Karsten regression evaluated term-by-term for the entered deck.
+
+**Quality:** build 0 errors; Core 601, Web 708 (11 PG-skip). 6-pillar UI audit 21/24. Karsten land math + Salubrious Snail cross-check credited in UI/help/README. Codex-reviewed across both waves; one empty-library simulator crash found by the added tests and fixed.
+
+---
+
 ## Cycle 10 — Studio Automation, Sync & Polish (Shipped: 2026-06-21, `2026.06.6`)
 
 **Phases completed:** 5 phases (59-63), 16 plans, 24 tasks

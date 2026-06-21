@@ -1,3 +1,4 @@
+using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
@@ -49,6 +50,16 @@ public sealed class ManabaseController : DeckToolControllerBase
     {
         request ??= new ManabaseRequest();
 
+        // MEDIUM-1: a hand-crafted post can carry an out-of-range enum value (model binding does not
+        // reject unknown ints). Coerce both knobs back to their defaults and write the normalized
+        // values onto the request so the analyzer runs a valid mode AND the view re-renders the
+        // correct radio (an invalid Mode would otherwise leave the report's mode invalid, dropping
+        // the castability table and un-checking both radios).
+        request.Mode = Enum.IsDefined(typeof(ManabaseMode), request.Mode) ? request.Mode : ManabaseMode.Casual;
+        request.CommanderImportance = Enum.IsDefined(typeof(CommanderImportance), request.CommanderImportance)
+            ? request.CommanderImportance
+            : CommanderImportance.Standard;
+
         using var timeoutScope = CreateTimeoutScope(LookupTimeout);
 
         try
@@ -56,6 +67,11 @@ public sealed class ManabaseController : DeckToolControllerBase
             var result = await _manabaseAnalysisService.AnalyzeAsync(
                 request.DeckSource,
                 request.DeckName,
+                new ManabaseAnalysisOptions
+                {
+                    Mode = request.Mode,
+                    CommanderImportance = request.CommanderImportance,
+                },
                 timeoutScope.Token);
 
             return View("Manabase", new ManabaseViewModel
