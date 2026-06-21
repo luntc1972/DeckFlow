@@ -67,4 +67,23 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| _(filled by roadmap)_ | | |
+| SEC-01 | Phase 64 — Deck-Source Host Hardening | Not started |
+| SEC-02 | Phase 64 — Deck-Source Host Hardening | Not started |
+| SEC-03 | Phase 64 — Deck-Source Host Hardening | Not started |
+| DATA-01 | Phase 65 — Prod Content Artifact Reconcile | Not started |
+| DATA-02 | Phase 65 — Prod Content Artifact Reconcile | Not started |
+| TOGGLE-01 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| TOGGLE-02 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| TOGGLE-03 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| TOGGLE-04 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| TOGGLE-05 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| TOGGLE-06 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| TOGGLE-07 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
+| KBVAL-01 | Phase 67 — Content KB Value A/B Validation | Not started |
+| KBVAL-02 | Phase 67 — Content KB Value A/B Validation | Not started |
+| CREATOR-01 | Phase 68 — Creator-Philosophy Research (conditional) | Not started |
+| STUI-01 | Phase 69 — Studio UI Design Pass | Not started |
+| STUI-02 | Phase 69 — Studio UI Design Pass | Not started |
+| STUI-03 | Phase 69 — Studio UI Design Pass | Not started |
+
+**Coverage:** 15/15 requirements mapped to exactly one phase. 6 phases (64-69).

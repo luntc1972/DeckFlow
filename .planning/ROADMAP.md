@@ -13,8 +13,76 @@
 - ✅ **Cycle 8 — Hardening & Backlog Burn-down** — Phases 51-54 (shipped 2026-06-17, `2026.06.4`) — see `.planning/milestones/cycle8-ROADMAP.md`
 - ✅ **Cycle 9 — Content Pipeline & Publish-Tracking** — Phases 55-58 (shipped 2026-06-19, `2026.06.5`) — see `.planning/milestones/cycle9-ROADMAP.md`
 - ✅ **Cycle 10 — Studio Automation, Sync & Polish** — Phases 59-63 (shipped 2026-06-21, `2026.06.6`) — see `.planning/milestones/cycle10-ROADMAP.md`
+- 🔭 **Cycle 11 — Security, Visibility Control & Creator-Lens** — Phases 64-69 (in progress, started 2026-06-21)
 
 ## Phases
+
+### 🔭 Cycle 11 — Security, Visibility Control & Creator-Lens (Phases 64-69) — IN PROGRESS
+
+**Milestone goal:** Close two HIGH-priority security/data holes, give the admin full tool-visibility control over the public site, validate whether the Content KB actually improves AI output, and run a design pass on Studio. 15 requirements across 6 phases. Phase numbering continues from 63.
+
+| # | Phase | Goal | Requirements | SCs |
+|---|-------|------|--------------|-----|
+| 64 | Deck-Source Host Hardening | Close the substring host-spoof hole shared by every deck tool | SEC-01, SEC-02, SEC-03 | 3 |
+| 65 | Prod Content Artifact Reconcile | Make prod content_site_index + artifacts consistent (86 orphaned rows) | DATA-01, DATA-02 | 3 |
+| 66 | Admin Tool-Visibility Toggles + Tool Registry | Admin can kill any tile/page; cascade to tile+help+nav; empty section collapses | TOGGLE-01..07 | 5 |
+| 67 | Content KB Value A/B Validation | Prove (or refute) the KB lifts AI output; gate downstream KB work | KBVAL-01, KBVAL-02 | 3 |
+| 68 | Creator-Philosophy Representation Research | Design per-creator style-card + RAG model — *only if Phase 67 shows lift* | CREATOR-01 | 3 |
+| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | Real Studio shell/tokens/dashboard + responsive/dark (P1+P3) | STUI-01, STUI-02, STUI-03 | 4 |
+
+**Phase ordering rationale:**
+
+- **64 first** — SSRF/host-spoof is HIGH priority and lives in shared Core (`DeckEntryLoader`, `MoxfieldApiDeckImporter`) touching every deck tool; isolate it so the fix + regression tests land clean before other work churns those files.
+- **65 second** — Prod artifact gap is HIGH but largely investigation + an operator-run reconcile (AI stays read-only against prod); independent of the code phases.
+- **66 third** — Largest feature; self-contained (registry + nav/tiles/help/admin). Runs after the security fix so it isn't interleaved with shared-Core edits.
+- **67 gate** — KBVAL must complete before creator-philosophy; its decision determines whether Phase 68 runs at all.
+- **68 conditional** — Drops if KBVAL-02 is marginal. Research/design only (no production build this cycle).
+- **69 last** — Studio UI pass is independent of the public-site work and benefits from running over settled surfaces; presentation polish goes last.
+
+**Phase 64: Deck-Source Host Hardening** — SEC-01/02/03
+Goal: A hostile look-alike deck URL can no longer impersonate Moxfield/Archidekt on any deck tool.
+Success criteria:
+1. `LoadFromSourceAsync` + `MoxfieldApiDeckImporter` accept a host only on exact match or approved-subdomain (`host == "moxfield.com" || host.EndsWith(".moxfield.com")`; same for archidekt.com); `moxfield.com.evil.tld`, `evilmoxfield.com`, `moxfield.com@evil.tld` are all rejected.
+2. The Moxfield fallback forwards only a reconstructed canonical `https://moxfield.com/decks/{deckId}` to Commander Spellbook — the submitted URL is never forwarded.
+3. Regression tests cover each spoof case for both Moxfield and Archidekt and fail if substring matching is reintroduced.
+
+**Phase 65: Prod Content Artifact Reconcile** — DATA-01/02
+Goal: Prod content state is internally consistent — no DB rows silently missing their artifact bodies.
+Success criteria:
+1. It is documented whether the live site serves content-KB body from `/data` `.md` files or the DB content column, with the source confirmed by inspection.
+2. The 86 orphaned rows are resolved: artifacts re-uploaded, or rows reconciled down, or the gap formally downgraded to cosmetic — with the chosen path and reasoning recorded.
+3. A post-reconcile check confirms every remaining prod row's artifact expectation matches reality (no remaining unexplained orphans).
+
+**Phase 66: Admin Tool-Visibility Toggles + Tool Registry** — TOGGLE-01..07
+Goal: The admin can turn any public tool on or off and every surface for that tool appears/disappears together.
+Success criteria:
+1. A single tool registry holds each public tool's route, nav section, label, help topic, flag key, and tile copy; nav, home tiles, and help all derive from it.
+2. From the admin console the admin can toggle any tool; disabling hides its home tile, help entry, and nav link together, and the page route itself becomes unreachable (404/redirect).
+3. When all tools in a nav section are disabled, that section's header/trigger and dropdown are not rendered.
+4. The existing `feature.manabase.enabled`, `content.kb.enabled`, `feature.categories.enabled` flags are unified into the registry with no double-gate; all tool flags default ON so an existing deploy exposes the same tools as before (SQLite + Postgres seed).
+5. Disabling a core-workflow tool (e.g. Deck Analysis) surfaces a warning in the admin UI but is not blocked.
+
+**Phase 67: Content KB Value A/B Validation** — KBVAL-01/02
+Goal: A recorded decision on whether the Content KB measurably improves AI deck analysis.
+Success criteria:
+1. A harness emits the deck-analysis prompt twice (with and without expert-context clips) for a representative set of decks.
+2. Both variants are run through ChatGPT and compared (blind where feasible) on signal-beyond-baseline, actionable specificity, and creator-voice.
+3. A clear lift / marginal verdict is written down and explicitly gates Phase 68 and any `content.kb.enabled` flip.
+
+**Phase 68: Creator-Philosophy Representation Research** — CREATOR-01 *(conditional on Phase 67 lift)*
+Goal: An implementation-ready design for representing a creator's deckbuilding philosophy as a lens over AI analysis.
+Success criteria:
+1. A design doc specifies the hybrid representation — distilled per-creator style-card + RAG-over-transcript grounding (no fine-tuning).
+2. The design handles principle-level provenance (source video + date), contradiction preservation, temporal drift / recency-weighting, and a hallucination gate (every principle traces to a verified passage).
+3. The doc maps the work onto existing assets (transcripts = corpus, clips = RAG layer, harvest/refresh pipeline) and is explicitly skipped/parked if Phase 67 returned marginal.
+
+**Phase 69: Studio UI Design Pass — Shell, Dashboard & Responsive** — STUI-01/02/03
+Goal: DeckFlow.Studio looks like a real branded tool, not the stock Blazor template.
+Success criteria:
+1. A shared Studio stylesheet defines design tokens (color/spacing/type) aligned to the deckflow.gg brand and replaces the stock template chrome (header/nav/content container).
+2. The Studio Home page is a dashboard surfacing pipeline state at a glance (counts by status / publish-state) with quick links to Harvest / Review / Publish.
+3. Studio pages handle table-overflow / responsive layout and dark mode consistently.
+4. No functional/behavior change — the pass is presentation-only over the existing 6 pages.
 
 <details>
 <summary>✅ v1.0 Polish & Quality (Phases 1-5) — SHIPPED 2026-05-02</summary>

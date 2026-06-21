@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-06-21T19:09:34.871Z"
 last_activity: 2026-06-21
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,7 +20,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Planning next milestone (`/gsd-new-milestone`) — Cycle 10 shipped (`2026.06.6`)
+**Current focus:** Cycle 11 — Security, Visibility Control & Creator-Lens (6 phases 64-69; roadmap approved 2026-06-21). On branch `cycle11` in worktree `../deckflow-cycle11`. Next: `/gsd-plan-phase 64`.
 
 ## Current Position
 
@@ -33,19 +33,21 @@ Last activity: 2026-06-21 — Milestone Cycle 11 started
 
 | # | Phase | Requirements | Status |
 |---|-------|-------------|--------|
-| 59 | Pipeline Automation | AUTO-01, AUTO-02 | ✅ Complete |
-| 60 | Pull-from-Prod Reconcile | SYNC-01, SYNC-02, SYNC-03 | ✅ Complete |
-| 61 | Creator Sources & Selection | SRC-01, SRC-02, HSEL-01, HSEL-02, HSEL-03 | ✅ Executed |
-| 62 | Studio UI Polish | SUI-01, SUI-02, SUI-03, SUI-04, SUI-05, SUI-06 | ✅ Complete |
-| 63 | Studio Self-Contained Executable | DIST-01 | ✅ Complete |
+| 64 | Deck-Source Host Hardening | SEC-01, SEC-02, SEC-03 | Not started |
+| 65 | Prod Content Artifact Reconcile | DATA-01, DATA-02 | Not started |
+| 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | Not started |
+| 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | Not started |
+| 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | Not started |
+| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | Not started |
 
 **Phase ordering rationale:**
 
-- **59 first**: Auto-distill/auto-approve lives in the Core orchestrator distill/approve slice and redefines "harvested" vs "review-ready" vs "approved" state. HSEL-01's unharvested-only filter and SUI-01's status badges both read that state. Carries the AUTO-02 quality-signal open risk — isolating it contains that risk.
-- **60 second, own phase**: Pull-from-Prod is the most novel/risky lane — a NEW authenticated prod READ path mirroring DirectPush (SSH.NET SCP from Render `/data` + Postgres read of `content_site_index`). Shares no surface with the Harvest.razor UX work; must not be diluted into a polish phase.
-- **61 third**: Creator-source management + harvest selection (persisted creator list, dropdown picker, unharvested-only default, skip/ignore + un-skip) — the data-and-behavior pass over `Harvest.razor`. Depends on Phase 59's harvested-state definition for the default filter.
-- **62 last**: Presentation pass (status badges, flow tightening, feedback states, layout/nav, creator filtering, the one-line MainLayout About-link fix) runs over the now-settled surfaces so polish isn't redone after 61 reshapes them. SUI-01 reuses the existing status engine; SUI-06 is a one-line fix.
-- **No separate dogfood phase**: coarse granularity. Validation folds into per-phase operator success criteria (Phases 59 and 60 each carry observable operator gates).
+- **64 first**: SSRF/host-spoof is HIGH priority and lives in shared Core (`DeckEntryLoader`, `MoxfieldApiDeckImporter`) touching every deck tool; isolate it so the fix + regression tests land clean before other phases churn those files.
+- **65 second**: Prod artifact gap is HIGH but largely investigation + an operator-run reconcile (AI stays read-only against prod); independent of the code phases.
+- **66 third**: Largest feature (tool registry + nav/tiles/help/admin cascade + empty-section collapse); self-contained. Runs after the security fix so it isn't interleaved with shared-Core edits.
+- **67 gate**: KBVAL must complete before creator-philosophy; its lift/marginal verdict decides whether Phase 68 runs at all and whether `content.kb.enabled` flips.
+- **68 conditional**: Drops if KBVAL-02 is marginal. Research/design only — no production build of the philosophy layer this cycle.
+- **69 last**: Studio UI pass is independent of the public-site work; presentation polish runs over settled surfaces last.
 
 ## Performance Metrics
 
