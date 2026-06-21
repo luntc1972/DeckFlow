@@ -10,9 +10,26 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 ## Current State
 
-**Shipped:** Cycle 9 — Content Pipeline & Publish-Tracking (2026-06-19, CalVer `2026.06.5`) — 4 phases (55-58), 11 plans, 12/12 requirements satisfied. Wired the Studio/Content-KB pipeline end-to-end: a `pushed_to_prod_utc` column + shared `PublishStateDeriver` (Never published / Pushed-hidden / Published / Local-newer); Studio per-video status badges, multi-select harvest, Block (hard-delete + blocklist) + Blocked-list/unblock page, single-URL add, and publish-state on Review/Publish; a publish-state column on `/Admin/ContentKb`; and a reworked distill prompt (paste-ready summaries, on-topic clips, tag parsimony — JSON contract unchanged). Dogfooded on real content (Phase 58, DOGFOOD-01): harvested + distilled a new video ($0 subscription), judged higher-quality than baseline (tags 3 vs 12), published to prod, confirmed `Published` on both surfaces, no corpus regression (108→109 additive). The dogfood exposed + fixed a real gap — DirectPush never set `is_visible`, so Studio stayed Pushed-hidden while prod showed Published; fixed so DirectPush publishes visible (prod-then-local), Codex-reviewed + secured (9/9). Closed as tech-debt (no milestone audit; every phase individually verified + secured). Build 0 errors; Studio 49/49, Core 475/475. Prior milestone: **Cycle 8 — Hardening & Backlog Burn-down** (2026-06-17, `2026.06.4`, archived).
+**Shipped:** Cycle 10 — Studio Automation, Sync & Polish (2026-06-21, CalVer `2026.06.6`) — 5 phases (59-63), 16 plans, 17/17 requirements satisfied. Cut manual steps from the Studio harvest→publish pipeline and made pipeline state obvious: one-action **harvest → auto-distill → auto-approve** (swappable clip-count signal, default ON/5; spend gate + provider unchanged); a read-only **Pull-from-Prod** reconcile (SSH.NET SCP download + Postgres read, four-way diff classification, per-entry adopt-prod/keep-local — prod never written) with a live sanitized progress panel; a persisted **creator list + dropdown** with unharvested-only default browse and a lightweight skip/un-skip lane (distinct from Block); **Studio UI polish** (shared `StatusBadge` + `VideoStatusResolver.FromContentRow`, creator filtering on Harvest+Review, grouped Pipeline/Support nav, Review→Publish shortcut, About-link fix); and a self-contained single-file **win-x64 `DeckFlow.Studio.exe`** the operator runs with no .NET install. Closed as tech-debt (no milestone audit; every phase individually verified — 59 PASS 14/14, 60 operator-verified, 61 executed, 62 verified 6/6 + secured 0/7, 63 verified 7/7 + clean-machine smoke). Build 0 errors; Studio 140/140, Core 524/524. Prior milestone: **Cycle 9 — Content Pipeline & Publish-Tracking** (2026-06-19, `2026.06.5`, archived).
 
-**Next:** Plan the next milestone (`/gsd-new-milestone`). Strong candidates from the deferred/seeded backlog: **SEO/growth/ops lane** (Search Console + Bing + backlinks, analytics + monitoring, Core Web Vitals, on-site SEO/structured data — SEO-01..05), **pipeline automation** (AUTO-01/02 — reduce manual gates, add creator sources at scale), **Studio "Pull from Prod"** (prod→local sync), and the **Validate-KB-value** A/B gating experiment (does injected context actually lift ChatGPT output — gates the philosophy-profile build + `content.kb.enabled` flip).
+**Next:** Planning next milestone (`/gsd-new-milestone`). Carry-forward backlog: prod-artifact gap (86/109 content rows missing `.md` on Render `/data`), Validate-KB-value A/B gating experiment (KBVAL-01/02), scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05). Note: the public **mana-base analyzer** (`/manabase`, Frank Karsten methodology) shipped to prod on `main` in parallel with this cycle.
+
+## Shipped Milestone: Cycle 10 — Studio Automation, Sync & Polish (SHIPPED 2026-06-21, `2026.06.6` — archived, see `.planning/milestones/cycle10-ROADMAP.md`)
+
+**Goal:** Cut manual steps from the Studio harvest→publish pipeline, give the operator a true prod↔local reconcile view, and make video selection + pipeline state fast and obvious.
+
+**Target features:**
+- **Auto-distill** harvested videos — no separate manual distill step
+- **Auto-approve** distills above a quality/confidence threshold; low-confidence still enters the review queue
+- **Pull-from-Prod reconcile/sync** — pull prod `content_site_index` + artifacts and surface diffs (prod-newer / missing-local / diverged) so the operator can reconcile
+- **Saved creator list + dropdown picker** — manage curated creators and pick from a dropdown to browse (replaces paste-channel-URL-each-time; `Harvest.razor` currently has no persisted source list)
+- **Default selection view = unharvested only** — hide already-harvested videos by default with a toggle to show all (today all videos show, harvested ones merely badged)
+- **Skip/ignore candidate** — lightweight "don't show this video in selection again" distinct from Block (Block hard-deletes artifacts + blocklists; too heavy for a never-harvested candidate)
+- **Studio UI polish** — clearer status badges, harvest/review ergonomics, error/feedback states, layout/navigation, creator-based filtering, and the `MainLayout.razor` About-link scaffold fix (points at ASP.NET docs today)
+
+**Out of scope this cycle:** Validate-KB-value A/B experiment (KB stays dark; `content.kb.enabled` flip deferred again); scheduled or bulk/auto creator-source harvest (operator manually curates which videos enter); SEO/growth lane.
+
+**Key context:** Builds on Cycle 9 publish-tracking (`published_utc` + shared `PublishStateDeriver`, `VideoStatusResolver`). CalVer milestone, NAMED not numbered (ADR 0002); phase numbering continues from 58 → 59+. Studio remains operator-local tooling; harvest/block stay Studio-only by design.
 
 ## Shipped Milestone: Cycle 9 — Content Pipeline & Publish-Tracking (SHIPPED 2026-06-19, `2026.06.5` — archived, see `.planning/milestones/cycle9-ROADMAP.md`)
 
@@ -143,7 +160,7 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 
 <!-- Planning next milestone — fresh REQUIREMENTS.md created via /gsd-new-milestone. -->
 
-- v1.7 Local Harvest & Publish Studio — scoping in `.planning/REQUIREMENTS.md` (see Current Milestone above)
+- Cycle 10 Studio Automation, Sync & Polish — scoping in `.planning/REQUIREMENTS.md` (see Current Milestone above)
 
 ### Out of Scope
 
@@ -282,4 +299,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-06-18 — Cycle 9 milestone started (Content Pipeline & Publish-Tracking)*
+*Last updated: 2026-06-20 — Cycle 10 milestone started (Studio Automation, Sync & Polish)*

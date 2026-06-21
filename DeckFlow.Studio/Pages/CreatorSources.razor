@@ -1,0 +1,209 @@
+@page "/creators"
+@implements IDisposable
+@using DeckFlow.Core.Content
+
+<PageTitle>Creators</PageTitle>
+
+<h1 class="h4 fw-semibold">Creators</h1>
+<p class="text-muted">Your curated creators/channels. Add the ones you harvest from so you can pick them from a dropdown on the Harvest page instead of pasting a URL each time.</p>
+
+<article class="content px-4">
+
+    <div class="row g-2 align-items-end mb-3" style="max-width:760px">
+        <div class="col-12 col-md-5">
+            <label for="creatorName" class="form-label fw-semibold small">Display name</label>
+            <input id="creatorName" type="text" class="form-control"
+                   placeholder="e.g. The Command Zone"
+                   @bind="_displayName"
+                   disabled="@_operationInFlight" />
+        </div>
+        <div class="col-12 col-md-5">
+            <label for="creatorRef" class="form-label fw-semibold small">Channel URL, handle, or ID</label>
+            <input id="creatorRef" type="text" class="form-control"
+                   placeholder="e.g. https://youtube.com/@@TheCommandZone"
+                   @bind="_channelRef"
+                   disabled="@_operationInFlight" />
+        </div>
+        <div class="col-12 col-md-2">
+            <button class="btn btn-primary w-100"
+                    @onclick="AddAsync"
+                    disabled="@(_operationInFlight || string.IsNullOrWhiteSpace(_displayName) || string.IsNullOrWhiteSpace(_channelRef))">
+                Add
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-2">@_error</div>
+    }
+
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Loading creators...</span>
+        </div>
+    }
+    else if (_creators.Count == 0)
+    {
+        @if (string.IsNullOrEmpty(_error))
+        {
+            <p class="text-muted mt-3">No creators yet. Add one above to pick it from the Harvest dropdown.</p>
+        }
+    }
+    else
+    {
+        <div class="table-responsive mt-3" style="max-width:760px">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Creator</th>
+                        <th scope="col">Channel</th>
+                        <th scope="col" style="width:90px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var creator in _creators)
+                    {
+                        <tr>
+                            <td>@creator.DisplayName</td>
+                            <td class="text-break">@creator.ChannelRef</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        @onclick="() => RemoveAsync(creator.Id)"
+                                        disabled="@_operationInFlight"
+                                        aria-label="Remove @creator.DisplayName">
+                                    Remove
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+</article>
+
+@code {
+    [Inject]
+    private ICreatorSourceStore CreatorStore { get; set; } = default!;
+
+    private bool _loading = true;
+    private bool _operationInFlight;
+    private string _error = string.Empty;
+    private string _displayName = string.Empty;
+    private string _channelRef = string.Empty;
+    private List<CreatorSource> _creators = new();
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            // Why: Task.Run moves the store call off the Blazor sync context.
+            var creators = await Task.Run(() => CreatorStore.ListAsync(_cts.Token), _cts.Token);
+            _creators = creators.ToList();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            // Why: never echo exception.Message (may leak the DB path) — generic operator-safe copy only.
+            _error = "Could not load creators. Try again.";
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (_operationInFlight || string.IsNullOrWhiteSpace(_displayName) || string.IsNullOrWhiteSpace(_channelRef))
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _error = string.Empty;
+        try
+        {
+            var name = _displayName;
+            var channelRef = _channelRef;
+            await Task.Run(() => CreatorStore.AddAsync(name, channelRef, _cts.Token), _cts.Token);
+            _displayName = string.Empty;
+            _channelRef = string.Empty;
+            await ReloadAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            _error = "Could not add the creator. Try again.";
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    private async Task RemoveAsync(long id)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _error = string.Empty;
+        try
+        {
+            await Task.Run(() => CreatorStore.RemoveAsync(id, _cts.Token), _cts.Token);
+            _creators.RemoveAll(c => c.Id == id);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            _error = "Could not remove the creator. Try again.";
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

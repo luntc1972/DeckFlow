@@ -1,0 +1,161 @@
+@page "/skipped"
+@implements IDisposable
+@using DeckFlow.Core.Content
+
+<PageTitle>Skipped Videos</PageTitle>
+
+<h1 class="h4 fw-semibold">Skipped Videos</h1>
+<p class="text-muted">Candidates you skipped from harvest selection. Un-skip to bring one back into the Harvest browse list. (Skipping never deletes artifacts or blocks re-harvest — that's the separate Blocked list.)</p>
+
+<article class="content px-4">
+
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary"
+                  role="status"
+                  aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Loading skipped videos...</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2 mt-3">@_error</div>
+        }
+
+        @if (_skipped.Count == 0)
+        {
+            @if (string.IsNullOrEmpty(_error))
+            {
+                <p class="text-muted mt-3">No skipped videos. Skip candidates from the Harvest page to hide them from selection.</p>
+            }
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Video ID</th>
+                            <th scope="col" style="width:140px">Skipped at</th>
+                            <th scope="col">Reason</th>
+                            <th scope="col" style="width:90px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var video in _skipped)
+                        {
+                            <tr>
+                                <td>
+                                    <a href="https://youtu.be/@video.YoutubeVideoId"
+                                       target="_blank"
+                                       rel="noopener noreferrer">@video.YoutubeVideoId</a>
+                                </td>
+                                <td>@video.SkippedUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td>@(video.Reason ?? "—")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            @onclick="() => UnskipAsync(video.YoutubeVideoId)"
+                                            disabled="@_operationInFlight"
+                                            aria-label="Un-skip @video.YoutubeVideoId">
+                                        Un-skip
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+</article>
+
+@code {
+    [Inject]
+    private ISkippedVideoStore SkippedStore { get; set; } = default!;
+
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private bool _operationInFlight;
+    private List<SkippedVideo> _skipped = new();
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await SkippedStore.ListSkippedAsync(_cts.Token);
+            _skipped = result.ToList();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            // Why: do NOT echo exception.Message (may leak the DB path) — generic operator-safe copy only.
+            _error = "Could not load skipped videos. Try again.";
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    private async Task UnskipAsync(string videoId)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _error = string.Empty;
+        try
+        {
+            var removed = await SkippedStore.RemoveSkipAsync(videoId, _cts.Token);
+            if (removed)
+            {
+                _skipped.RemoveAll(s => s.YoutubeVideoId == videoId);
+            }
+            else
+            {
+                _error = "Un-skip failed. Try again.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            _error = "Un-skip failed. Try again.";
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(() =>
+            {
+                try { StateHasChanged(); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            });
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

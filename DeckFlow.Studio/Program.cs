@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Globalization;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Services;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -19,6 +22,23 @@ public partial class Program
     /// <param name="args">Command-line arguments.</param>
     public static async Task Main(string[] args)
     {
+        // Why: resolve the data dir + logs dir BEFORE anything can fail so a packaged,
+        // double-clicked exe that crashes on startup (e.g. Kestrel port-in-use) still leaves a
+        // log file on disk after the console window closes. logs/ sits beside content-kb.db.
+        var studioDataDirectory = ResolveStudioDataDirectory();
+        var logDirectory = Path.Combine(studioDataDirectory, "logs");
+        Directory.CreateDirectory(logDirectory);
+        var logFilePath = Path.Combine(logDirectory, "studio-.log");
+
+        // Why: bootstrap logger captures failures that happen before the host is built — the
+        // UseSerilog logger only takes over after builder.Build(). Standard two-stage Serilog init.
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .WriteTo.File(logFilePath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14)
+            .CreateBootstrapLogger();
+
+        Log.Information("DeckFlow Studio starting. Data dir: {DataDir}; logs: {LogDir}", studioDataDirectory, logDirectory);
+
         try
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +51,8 @@ public partial class Program
                     .Enrich.FromLogContext();
 
                 configuration.WriteTo.Console();
+                // Why: file sink so crashes survive the console window closing on a double-clicked exe.
+                configuration.WriteTo.File(logFilePath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14);
             });
 
             builder.Configuration.AddUserSecrets<Program>().AddEnvironmentVariables();
@@ -43,7 +65,6 @@ public partial class Program
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:Username"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:KeyFile"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:RemoteArtifactRoot"]);
-            var studioDataDirectory = ResolveStudioDataDirectory();
             var contentKbDatabasePath = Path.Combine(studioDataDirectory, "content-kb.db");
             var contentKbArtifactRoot = Path.Combine(studioDataDirectory, "content-kb");
 
@@ -52,12 +73,24 @@ public partial class Program
 
             builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
             builder.Services.AddSingleton<ISshArtifactUploader, SftpArtifactUploader>();
+            builder.Services.AddSingleton<ISshArtifactDownloader, SftpArtifactDownloader>();
+            builder.Services.AddSingleton<IProdContentReader, ProdContentReader>();
             builder.Services.AddSingleton<IProdStoreFactory, ProdStoreFactory>();
             builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IBlockedVideoStore>(_ => new BlockedVideoStore(contentKbDatabasePath));
+            // Why: curated creator list (SRC-01) + skipped-candidate list (HSEL-02/03) live in
+            // content-kb.db beside the blocked list; schema is ensured lazily on first use.
+            builder.Services.AddSingleton<ICreatorSourceStore>(_ => new CreatorSourceStore(contentKbDatabasePath));
+            builder.Services.AddSingleton<ISkippedVideoStore>(_ => new SkippedVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentHarvestRunStore>(_ => new ContentHarvestRunStore(contentKbDatabasePath));
+            // Why: persisted auto-approve settings (D-07) live in the studio data dir, beside content-kb.db,
+            // so the operator's on/off + cutoff survive Studio restarts (unlike SessionCapOverride).
+            builder.Services.AddSingleton(_ => new AutoApproveSettingsStore(studioDataDirectory));
+            // Why: the auto-approve decision (clip count >= cutoff, D-01/D-02) lives behind a swappable
+            // seam; the Harvest one-click flow (Plan 03) resolves it to flip approval_status post-distill.
+            builder.Services.AddSingleton<IAutoApproveSignal, ClipCountAutoApproveSignal>();
             // Why: Read DECKFLOW_LLM_PROVIDER ONCE so the factory-resolved distiller and
             // StudioDistillConfig.IsSubscriptionProvider are always derived from the same value
             // and can never disagree (HIGH-1 / D-01).
@@ -133,11 +166,53 @@ public partial class Program
             app.MapBlazorHub();
             app.MapFallbackToPage("/_Host");
 
+            // Why: a packaged double-clicked exe should feel like a desktop app — open the operator's
+            // default browser at the bound URL once Kestrel is listening. Guarded so it never fires in
+            // Development or under the test / no-browser env var (DECKFLOW_DISABLE_AUTO_BROWSER), and
+            // wrapped so a browser-launch failure can never take down the host.
+            var disableAutoBrowser = !string.IsNullOrEmpty(
+                Environment.GetEnvironmentVariable("DECKFLOW_DISABLE_AUTO_BROWSER"));
+            if (!app.Environment.IsDevelopment() && !disableAutoBrowser)
+            {
+                app.Lifetime.ApplicationStarted.Register(() =>
+                {
+                    try
+                    {
+                        var addresses = app.Services.GetRequiredService<IServer>()
+                            .Features.Get<IServerAddressesFeature>()?.Addresses;
+                        var url = addresses?.FirstOrDefault() ?? "http://localhost:5271";
+                        // Normalize wildcard bindings to localhost so the browser gets a usable URL.
+                        url = url.Replace("http://+", "http://localhost", StringComparison.Ordinal)
+                                 .Replace("http://0.0.0.0", "http://localhost", StringComparison.Ordinal)
+                                 .Replace("http://[::]", "http://localhost", StringComparison.Ordinal);
+                        Log.Information("Opening default browser at {Url}", url);
+                        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                    }
+                    catch (Exception browserException)
+                    {
+                        Log.Warning(browserException,
+                            "Could not open the default browser automatically; open the Studio URL manually.");
+                    }
+                });
+            }
+
             await app.RunAsync();
         }
         catch (Exception exception)
         {
             Log.Fatal(exception, "DeckFlow Studio host terminated during startup or run.");
+            // Why: the most common packaged-exe startup crash is a Kestrel bind failure (the pinned
+            // http://localhost:5271 already in use). Surface a plain-language remedy in the log file
+            // so the operator does not have to decode the Kestrel stack trace.
+            var message = exception.Message ?? string.Empty;
+            if (exception.GetType().Name.Contains("AddressInUse", StringComparison.Ordinal)
+                || message.Contains("bind", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("address already in use", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Fatal("Startup bind failure — the configured port (default http://localhost:5271) is likely "
+                    + "already in use. Close the other instance, or set ASPNETCORE_URLS=http://localhost:NNNN to a "
+                    + "free port, then relaunch. Full log: {LogDir}", logDirectory);
+            }
             throw;
         }
         finally

@@ -9,6 +9,7 @@
 
 <div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
     <nav class="flex-column">
+        <div class="nav-section-header px-3 pt-2 pb-1 text-uppercase small fw-semibold text-muted" aria-label="Pipeline">Pipeline</div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="oi oi-home" aria-hidden="true"></span> Home
@@ -17,6 +18,11 @@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="harvest">
                 <span class="oi oi-cloud-download" aria-hidden="true"></span> Harvest
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="creators">
+                <span class="oi oi-people" aria-hidden="true"></span> Creators
             </NavLink>
         </div>
         <div class="nav-item px-3">
@@ -32,6 +38,18 @@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="direct-push">
                 <span class="oi oi-data-transfer-upload" aria-hidden="true"></span> Direct Push
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pull-from-prod">
+                <span class="oi oi-data-transfer-download" aria-hidden="true"></span> Pull from Prod
+            </NavLink>
+        </div>
+        <div class="nav-section-divider mx-3 my-1" aria-hidden="true"></div>
+        <div class="nav-section-header px-3 pt-1 pb-1 text-uppercase small fw-semibold text-muted" aria-label="Support">Support</div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="skipped">
+                <span class="oi oi-minus-circle" aria-hidden="true"></span> Skipped
             </NavLink>
         </div>
         <div class="nav-item px-3">

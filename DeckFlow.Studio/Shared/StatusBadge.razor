@@ -1,0 +1,39 @@
+@using DeckFlow.Core.Content
+
+@* SUI-01: shared status badge component. Renders the exact Bootstrap badge markup that
+   Harvest.razor previously generated inline via RenderBadge(VideoStatus). Badge markup is
+   byte-identical to the original so no visual regression occurs. *@
+
+@switch (Status)
+{
+    case VideoStatus.NotHarvested:
+        <span class="badge bg-secondary">Not harvested</span>
+        break;
+    case VideoStatus.Harvested:
+        <span class="badge bg-info text-dark">Harvested</span>
+        break;
+    case VideoStatus.Distilled:
+        <span class="badge bg-success">Distilled</span>
+        break;
+    case VideoStatus.Approved:
+        <span class="badge bg-primary">Approved</span>
+        break;
+    case VideoStatus.Published:
+        <span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>
+        break;
+    case VideoStatus.Blocked:
+        <span class="badge bg-danger">Blocked</span>
+        break;
+    case VideoStatus.Duplicate:
+        <span class="badge bg-warning text-dark">Already in DB</span>
+        break;
+    default:
+        <span class="badge bg-secondary">Unknown</span>
+        break;
+}
+
+@code {
+    /// <summary>The pipeline status to display as a Bootstrap badge.</summary>
+    [Parameter]
+    public VideoStatus Status { get; set; }
+}

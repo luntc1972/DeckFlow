@@ -48,6 +48,36 @@ public sealed class PostgresConnectionStringNormalizerTests
     }
 
     [Fact]
+    public void Normalize_UrlWithoutSslmode_DefaultsToRequire()
+    {
+        // Render rejects non-SSL connections; a URL string that omits sslmode must still connect.
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host:5433/dbname");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.Equal(SslMode.Require, builder.SslMode);
+    }
+
+    [Fact]
+    public void Normalize_ExplicitSslmode_OverridesRequireDefault()
+    {
+        // An explicit ?sslmode= must still win over the Require default.
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host:5433/dbname?sslmode=disable");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.Equal(SslMode.Disable, builder.SslMode);
+    }
+
+    [Fact]
+    public void Normalize_Url_DefaultsTrustServerCertificate()
+    {
+        // Render's managed-PG endpoint trips Npgsql Require chain validation; trust is defaulted on.
+        var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host:5433/dbname");
+        var builder = new NpgsqlConnectionStringBuilder(result);
+
+        Assert.True(builder.TrustServerCertificate);
+    }
+
+    [Fact]
     public void Normalize_AlreadyKeyValue_ReturnedUnchanged()
     {
         const string input = "Host=h;Username=u;Password=p";
