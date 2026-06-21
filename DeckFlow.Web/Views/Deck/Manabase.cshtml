@@ -24,7 +24,7 @@
 <form method="post" action="@Url.Content("~/manabase")" class="result-panel">
     @Html.AntiForgeryToken()
 
-    <div class="toolbar" role="radiogroup" aria-label="Deck input source">
+    <div class="toolbar manabase-source-toggle" role="radiogroup" aria-label="Deck input source">
         <label><input type="radio" name="DeckInputSource" value="PublicUrl" checked="@(isUrl ? "checked" : null)" /> Public URL</label>
         <label><input type="radio" name="DeckInputSource" value="PasteText" checked="@(!isUrl ? "checked" : null)" /> Paste decklist</label>
     </div>
