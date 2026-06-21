@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
-status: planning
-last_updated: "2026-06-21T19:09:34.871Z"
-last_activity: 2026-06-21
+status: In progress
+stopped_at: Phase 64 Plan 01 complete — DeckSourceHost helper + regression matrix landed on cycle11.
+last_updated: "2026-06-21T22:00:00Z"
+last_activity: 2026-06-21 — Phase 64 Plan 01 (DeckSourceHost) executed
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 10
+  completed_phases: 2
+  total_plans: 17
+  completed_plans: 12
+  percent: 24
 ---
 
 # Project State
@@ -24,10 +25,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-06-21 — Milestone Cycle 11 started
+Phase: 64 — Deck-Source Host Hardening
+Plan: 01 complete (2/3 plans in phase)
+Status: In progress
+Last activity: 2026-06-21 — Phase 64 Plan 01 executed (DeckSourceHost + tests, 16/16 pass)
 
 ## Roadmap Summary
 
@@ -61,6 +62,7 @@ Last activity: 2026-06-21 — Milestone Cycle 11 started
 
 ### Key Decisions
 
+- **Phase 64 Plan 01 (DeckSourceHost predicate, 2026-06-21):** `DeckSourceHost.IsMoxfield(Uri)` / `IsArchidekt(Uri)` use exact-or-approved-subdomain matching (`host == apex || host.EndsWith("." + apex)`). No `TrimEnd('.')` — trimming trailing dot would re-open confusable-domain surface. The `-warnaserror` flag cannot be used as the local gate because pre-existing NU1903/CS0618/CS1574 warnings are present; CI is the authoritative gate. 16/16 acceptance tests pass locally.
 - **Phase 63 added 2026-06-20 (DIST-01):** Package DeckFlow.Studio as a self-contained single-file win-x64 executable runnable without a .NET install; produce publish profile/script + document build/run steps. Last phase of Cycle 10 (after Phase 62 Studio UI Polish). Not planned yet → `/gsd-plan-phase 63`.
 - **Branch rule reaffirmed 2026-06-20:** ALWAYS branch per milestone — Cycle 10 work belongs on its own `cycle10` branch, never piled on local main. ⚠ ANOMALY: a concurrent session switched the tree to `feat/analysis-prompt-recency-gate` mid phase-59 execution and interleaved unrelated manabase/analysis-prompt commits with the 59 commits. Needs operator decision to re-home Cycle 10 onto a clean `cycle10` branch once the concurrent session settles.
 - **Cycle 10 roadmap created 2026-06-20:** 4 phases (59-62), 16/16 requirements mapped (AUTO, SYNC, SRC, HSEL, SUI). Phase numbering continues from 58. (Phase 63 DIST-01 appended 2026-06-20.)
@@ -133,9 +135,9 @@ Last activity: 2026-06-21 — Milestone Cycle 11 started
 
 ## Session Continuity
 
-Last session: 2026-06-21T17:30:00Z
-Stopped at: Cycle 10 closed — archived + tagged 2026.06.6; squash-merge to main staged for operator push.
-Resume: Cycle 10 SHIPPED. Start next milestone with /gsd-new-milestone.
+Last session: 2026-06-21T22:00:00Z
+Stopped at: Phase 64 Plan 01 complete. 64-01-SUMMARY.md committed. Next: /gsd-execute-phase 64 plan 02.
+Resume: Phase 64 Plan 02 (call-site adoption — DeckEntryLoader + MoxfieldApiDeckImporter + PacketArtifactStore).
 
 ## Operator Next Steps
 

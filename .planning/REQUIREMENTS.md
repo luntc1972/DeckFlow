@@ -67,9 +67,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 64 — Deck-Source Host Hardening | Not started |
+| SEC-01 | Phase 64 — Deck-Source Host Hardening | Partial — predicate built (Plan 01); call-site adoption pending (Plan 02) |
 | SEC-02 | Phase 64 — Deck-Source Host Hardening | Not started |
-| SEC-03 | Phase 64 — Deck-Source Host Hardening | Not started |
+| SEC-03 | Phase 64 — Deck-Source Host Hardening | Partial — regression matrix built (Plan 01); call-site tests pending (Plan 02) |
 | DATA-01 | Phase 65 — Prod Content Artifact Reconcile | Not started |
 | DATA-02 | Phase 65 — Prod Content Artifact Reconcile | Not started |
 | TOGGLE-01 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
