@@ -7,7 +7,7 @@
 
 <section class="hero">
     <h1>Mana Base Analysis</h1>
-    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve, using Frank Karsten's source-count math. The verdict is computed directly — no AI needed.</p>
+    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve. Built on Frank Karsten's source-count math, then extended — it weights non-land sources (mana rocks, dorks, MDFCs), accounts for tapped vs. untapped lands for turn-one casts, and sizes each color to its hardest spell. The verdict is computed directly — no AI needed.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -66,6 +66,12 @@
             <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
             (@(report.LandDelta >= -1 ? "land count OK" : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
             <strong>Health:</strong> @(report.IsHealthy ? "OK" : "needs work").
+        </p>
+
+        <p class="mode-note">
+            Built on
+            <a href="https://www.channelfireball.com/articles/how-many-sources-do-you-need-to-consistently-cast-your-spells/" target="_blank" rel="noopener">Frank Karsten's source-count method</a>,
+            extended to weight non-land sources (rocks, dorks, MDFCs), count tapped vs. untapped lands for turn-one casts, and size each color to its hardest spell.
         </p>
 
         <div class="manabase-table-wrap">
