@@ -56,6 +56,33 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_ZeroCostSpell_KeepsManaValueZero()
+    {
+        // Regression: a 0-mana card (Ornithopter, kobolds, Shield Sphere) used to be clamped to
+        // ManaValue 1 in the spell requirement, so the castability table displayed MV 1. The
+        // min-1 cast-turn floor lives downstream; the printed MV must stay 0.
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Ornithopter",
+                Quantity = 1,
+                ManaCost = "{0}",
+                ManaValue = 0,
+                TypeLine = "Artifact Creature — Thopter",
+                OracleText = "Flying",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        SpellRequirement spell = Assert.Single(deck.Spells);
+        Assert.Equal("Ornithopter", spell.Name);
+        Assert.Equal(0, spell.ManaValue);
+    }
+
+    [Fact]
     public void Classify_XSpell_AddsNoStrictRequirement()
     {
         var cards = new List<CardFact>

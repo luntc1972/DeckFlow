@@ -197,7 +197,9 @@ public static class ManabaseClassifier
         spells.Add(new SpellRequirement
         {
             Name = card.Name,
-            ManaValue = Math.Max(1, (int)Math.Round(card.ManaValue)),
+            // True printed mana value (0-cost cards stay 0 for display). The min-1 cast-turn
+            // floor is enforced downstream by EffectiveTurn and the simulator, not here.
+            ManaValue = Math.Max(0, (int)Math.Round(card.ManaValue)),
             Pips = cost.Pips,
             IsGold = cost.DistinctColors >= 2,
             IsManaSource = IsRockOrDork(card),

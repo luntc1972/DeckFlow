@@ -65,6 +65,32 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void MoxfieldParser_StripsEtchedMarkerAndKeepsPrinting()
+    {
+        // Regression: a trailing *E* (etched foil) used to defeat the end-anchored printing
+        // regex, leaving "(P30M) 2 *E*" stuck in the name so both lookups missed.
+        var entries = new MoxfieldParser().ParseText("1 Lotus Petal (P30M) 2 *E*");
+
+        Assert.Single(entries);
+        Assert.Equal("Lotus Petal", entries[0].Name);
+        Assert.Equal("P30M", entries[0].SetCode);
+        Assert.Equal("2", entries[0].CollectorNumber);
+        Assert.True(entries[0].IsFoil);
+    }
+
+    [Fact]
+    public void ArchidektParser_StripsEtchedMarkerAndKeepsPrinting()
+    {
+        var entries = new ArchidektParser().ParseText("1 Mox Opal (SLD) 1072 *E*");
+
+        Assert.Single(entries);
+        Assert.Equal("Mox Opal", entries[0].Name);
+        Assert.Equal("SLD", entries[0].SetCode);
+        Assert.Equal("1072", entries[0].CollectorNumber);
+        Assert.True(entries[0].IsFoil);
+    }
+
+    [Fact]
     public void MoxfieldParser_ParsesSideboardEntries()
     {
         var entries = new MoxfieldParser().ParseText("""
