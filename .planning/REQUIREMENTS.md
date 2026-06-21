@@ -10,9 +10,9 @@
 
 ### Security — deck-source host hardening (SEC)
 
-- [ ] **SEC-01**: Deck-URL loading treats only exact or approved-subdomain Moxfield/Archidekt hosts as trusted; look-alike hosts (`moxfield.com.evil.tld`, `evilmoxfield.com`, `moxfield.com@evil.tld`) are rejected across every deck tool (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`, `/manabase`, sync, convert, primer).
-- [ ] **SEC-02**: On the Moxfield fallback path the app forwards only a canonical reconstructed `https://moxfield.com/decks/{deckId}` URL to Commander Spellbook — never the user-submitted URL.
-- [ ] **SEC-03**: Regression tests lock the spoof-host cases above so the hole cannot silently reopen.
+- [x] **SEC-01**: Deck-URL loading treats only exact or approved-subdomain Moxfield/Archidekt hosts as trusted; look-alike hosts (`moxfield.com.evil.tld`, `evilmoxfield.com`, `moxfield.com@evil.tld`) are rejected across every deck tool (`/deck-analysis`, `/deck-comparison`, `/cedh-meta-gap`, `/manabase`, sync, convert, primer).
+- [x] **SEC-02**: On the Moxfield fallback path the app forwards only a canonical reconstructed `https://moxfield.com/decks/{deckId}` URL to Commander Spellbook — never the user-submitted URL.
+- [x] **SEC-03**: Regression tests lock the spoof-host cases above so the hole cannot silently reopen.
 
 ### Data integrity — prod content artifact gap (DATA)
 

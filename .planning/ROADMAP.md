@@ -23,7 +23,7 @@
 
 | # | Phase | Goal | Requirements | SCs |
 |---|-------|------|--------------|-----|
-| 64 | Deck-Source Host Hardening | Close the substring host-spoof hole shared by every deck tool | SEC-01, SEC-02, SEC-03 | 3 |
+| 64 | Deck-Source Host Hardening | 2/2 | Complete   | 2026-06-21 |
 | 65 | Prod Content Artifact Reconcile | Make prod content_site_index + artifacts consistent (86 orphaned rows) | DATA-01, DATA-02 | 3 |
 | 66 | Admin Tool-Visibility Toggles + Tool Registry | Admin can kill any tile/page; cascade to tile+help+nav; empty section collapses | TOGGLE-01..07 | 5 |
 | 67 | Content KB Value A/B Validation | Prove (or refute) the KB lifts AI output; gate downstream KB work | KBVAL-01, KBVAL-02 | 3 |
@@ -51,7 +51,7 @@
   3. Regression tests cover each spoof case for both Moxfield and Archidekt and fail if substring matching is reintroduced.
 **Plans**: 2 plans
   - [x] 64-01-PLAN.md — DeckSourceHost trust-predicate helper + pure accept/reject matrix (SEC-01, SEC-03) — DONE 2026-06-21
-  - [ ] 64-02-PLAN.md — Adopt helper at all 4 call sites + canonical Spellbook forward + per-site regression (SEC-01, SEC-02, SEC-03)
+  - [x] 64-02-PLAN.md — Adopt helper at all 4 call sites + canonical Spellbook forward + per-site regression (SEC-01, SEC-02, SEC-03)
 **UI hint**: no
 
 #### Phase 65: Prod Content Artifact Reconcile

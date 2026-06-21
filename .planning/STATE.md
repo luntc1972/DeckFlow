@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
-status: In progress
-stopped_at: Phase 64 Plan 01 complete — DeckSourceHost helper + regression matrix landed on cycle11.
-last_updated: "2026-06-21T22:00:00Z"
-last_activity: 2026-06-21 — Phase 64 Plan 01 (DeckSourceHost) executed
+status: executing
+stopped_at: "Phase 64 Plan 02 complete. 64-02-SUMMARY.md committed. Phase 64 all plans done. Next: /gsd-verify-work 64 or /gsd-plan-phase 65."
+last_updated: "2026-06-21T22:35:00.000Z"
+last_activity: 2026-06-21 — Phase 64 Plan 02 executed (4-site host-trust adoption + canonical Spellbook URL fix; 612+677 tests green)
 progress:
   total_phases: 10
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 17
-  completed_plans: 12
-  percent: 24
+  completed_plans: 13
+  percent: 35
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 64 — Deck-Source Host Hardening
-Plan: 01 complete (2/3 plans in phase)
-Status: In progress
-Last activity: 2026-06-21 — Phase 64 Plan 01 executed (DeckSourceHost + tests, 16/16 pass)
+Plan: 02 complete (all plans in phase done)
+Status: Phase 64 complete — awaiting /gsd-verify-work 64
+Last activity: 2026-06-21 — Phase 64 Plan 02 executed (4-site host-trust adoption + Spellbook canonical URL fix; 612+677 green)
 
 ## Roadmap Summary
 
@@ -62,6 +62,7 @@ Last activity: 2026-06-21 — Phase 64 Plan 01 executed (DeckSourceHost + tests,
 
 ### Key Decisions
 
+- **Phase 64 Plan 02 (4-site adoption + SC2 fix, 2026-06-21):** Spoof-URL test asserts null-capture (importer not called), not InvalidOperationException — MoxfieldParser accepts URL strings as implicit-quantity-1 card names, so both parsers succeed and no exception is thrown. Canonical Spellbook URL (`https://moxfield.com/decks/{deckId}`) always reconstructed from the already-parsed deckId, never forwarded from originalUrl. Three commits (aebfd8e8, de6d212a, 934b6789). 612 Core + 677 Web tests green.
 - **Phase 64 Plan 01 (DeckSourceHost predicate, 2026-06-21):** `DeckSourceHost.IsMoxfield(Uri)` / `IsArchidekt(Uri)` use exact-or-approved-subdomain matching (`host == apex || host.EndsWith("." + apex)`). No `TrimEnd('.')` — trimming trailing dot would re-open confusable-domain surface. The `-warnaserror` flag cannot be used as the local gate because pre-existing NU1903/CS0618/CS1574 warnings are present; CI is the authoritative gate. 16/16 acceptance tests pass locally.
 - **Phase 63 added 2026-06-20 (DIST-01):** Package DeckFlow.Studio as a self-contained single-file win-x64 executable runnable without a .NET install; produce publish profile/script + document build/run steps. Last phase of Cycle 10 (after Phase 62 Studio UI Polish). Not planned yet → `/gsd-plan-phase 63`.
 - **Branch rule reaffirmed 2026-06-20:** ALWAYS branch per milestone — Cycle 10 work belongs on its own `cycle10` branch, never piled on local main. ⚠ ANOMALY: a concurrent session switched the tree to `feat/analysis-prompt-recency-gate` mid phase-59 execution and interleaved unrelated manabase/analysis-prompt commits with the 59 commits. Needs operator decision to re-home Cycle 10 onto a clean `cycle10` branch once the concurrent session settles.
@@ -135,9 +136,9 @@ Last activity: 2026-06-21 — Phase 64 Plan 01 executed (DeckSourceHost + tests,
 
 ## Session Continuity
 
-Last session: 2026-06-21T22:00:00Z
-Stopped at: Phase 64 Plan 01 complete. 64-01-SUMMARY.md committed. Next: /gsd-execute-phase 64 plan 02.
-Resume: Phase 64 Plan 02 (call-site adoption — DeckEntryLoader + MoxfieldApiDeckImporter + PacketArtifactStore).
+Last session: 2026-06-21T22:35:00Z
+Stopped at: Phase 64 Plan 02 complete. 64-02-SUMMARY.md committed. All Phase 64 plans done (01+02). Next: /gsd-verify-work 64 or /gsd-plan-phase 65.
+Resume: Phase 64 verification (SEC-01/02/03), then Phase 65 planning.
 
 ## Operator Next Steps
 
