@@ -16,9 +16,6 @@ docs/superpowers/
 # Probe scratch files
 *_probe.json
 
-# Local-only UAT launcher (carries throwaway admin creds — never commit)
-scripts/run-web-uat.sh
-scripts/run-web-uat.ps1
 .gstack/
 DeckFlow.Web/test-results/
 DeckFlow.Web/playwright-report/
