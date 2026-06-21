@@ -49,7 +49,9 @@
   1. `LoadFromSourceAsync` + `MoxfieldApiDeckImporter` accept a host only on exact match or approved-subdomain (`host == "moxfield.com" || host.EndsWith(".moxfield.com")`; same for archidekt.com); `moxfield.com.evil.tld`, `evilmoxfield.com`, `moxfield.com@evil.tld` are all rejected.
   2. The Moxfield fallback forwards only a reconstructed canonical `https://moxfield.com/decks/{deckId}` to Commander Spellbook — the submitted URL is never forwarded.
   3. Regression tests cover each spoof case for both Moxfield and Archidekt and fail if substring matching is reintroduced.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 64-01-PLAN.md — DeckSourceHost trust-predicate helper + pure accept/reject matrix (SEC-01, SEC-03)
+  - [ ] 64-02-PLAN.md — Adopt helper at all 4 call sites + canonical Spellbook forward + per-site regression (SEC-01, SEC-02, SEC-03)
 **UI hint**: no
 
 #### Phase 65: Prod Content Artifact Reconcile
