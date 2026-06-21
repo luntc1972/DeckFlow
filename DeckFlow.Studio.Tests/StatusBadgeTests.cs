@@ -14,12 +14,12 @@ public sealed class StatusBadgeTests : BunitContext
 {
     [Theory]
     [InlineData(VideoStatus.NotHarvested, "Not harvested", "bg-secondary")]
-    [InlineData(VideoStatus.Harvested,    "Harvested",     "bg-info")]
-    [InlineData(VideoStatus.Distilled,    "Distilled",     "bg-success")]
-    [InlineData(VideoStatus.Approved,     "Approved",      "bg-primary")]
-    [InlineData(VideoStatus.Published,    "Published",     "bg-success")]
-    [InlineData(VideoStatus.Blocked,      "Blocked",       "bg-danger")]
-    [InlineData(VideoStatus.Duplicate,    "Already in DB", "bg-warning")]
+    [InlineData(VideoStatus.Harvested, "Harvested", "bg-info")]
+    [InlineData(VideoStatus.Distilled, "Distilled", "bg-success")]
+    [InlineData(VideoStatus.Approved, "Approved", "bg-primary")]
+    [InlineData(VideoStatus.Published, "Published", "bg-success")]
+    [InlineData(VideoStatus.Blocked, "Blocked", "bg-danger")]
+    [InlineData(VideoStatus.Duplicate, "Already in DB", "bg-warning")]
     public void StatusBadge_RendersExpectedLabelAndClass(VideoStatus status, string expectedLabel, string expectedClass)
     {
         // Act

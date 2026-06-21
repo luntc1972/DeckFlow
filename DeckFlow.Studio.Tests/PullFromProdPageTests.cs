@@ -317,10 +317,16 @@ public sealed class PullFromProdPageTests : BunitContext
         Pull(cut);
 
         // Per-artifact progress lines must use RemoteRelativePath — never LocalPath.
-        Assert.Contains("content-kb/test-channel/vid-a.md", cut.Markup);
-        Assert.Contains("content-kb/test-channel/vid-b.md", cut.Markup);
-        // Downloaded artifacts produce "downloaded <path>" lines.
-        Assert.Contains("downloaded content-kb/test-channel/vid-a.md", cut.Markup);
+        // WaitForAssertion: the per-artifact lines render via a fire-and-forget Progress<T> →
+        // InvokeAsync hop, so on a slower runner they may not be flushed the instant the
+        // "Diff Preview" state appears. Poll until they render.
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("content-kb/test-channel/vid-a.md", cut.Markup);
+            Assert.Contains("content-kb/test-channel/vid-b.md", cut.Markup);
+            // Downloaded artifacts produce "downloaded <path>" lines.
+            Assert.Contains("downloaded content-kb/test-channel/vid-a.md", cut.Markup);
+        });
     }
 
     [Fact]
@@ -334,7 +340,9 @@ public sealed class PullFromProdPageTests : BunitContext
         Pull(cut);
 
         // Failed artifact: "not downloaded: <RemoteRelativePath>" — no LocalPath in markup.
-        Assert.Contains("not downloaded: content-kb/test-channel/vid-a.md", cut.Markup);
+        // WaitForAssertion: per-artifact line renders via a fire-and-forget Progress<T> hop.
+        cut.WaitForAssertion(() =>
+            Assert.Contains("not downloaded: content-kb/test-channel/vid-a.md", cut.Markup));
         // LocalPath is empty on failure; regardless, no raw local filesystem path must appear.
         // (The page must never render SshDownloadResult.LocalPath.)
     }
