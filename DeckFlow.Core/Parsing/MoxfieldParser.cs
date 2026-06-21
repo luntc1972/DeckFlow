@@ -125,6 +125,15 @@ public sealed partial class MoxfieldParser : IParser
             remainder = remainder[..^3].TrimEnd();
         }
 
+        // *E* marks an etched-foil finish. Strip it like *F* so the trailing token does not
+        // defeat PrintingRegex (its collector group is end-anchored) and leave the set/collector
+        // junk in the card name — which would make both the printing and name lookups miss.
+        if (remainder.EndsWith("*E*", StringComparison.OrdinalIgnoreCase))
+        {
+            isFoil = true;
+            remainder = remainder[..^3].TrimEnd();
+        }
+
         var setMatch = PrintingRegex().Match(remainder);
         var rawName = remainder;
         string? setCode = null;
@@ -259,6 +268,7 @@ public sealed partial class MoxfieldParser : IParser
         return rawName
             .Replace("★", string.Empty, StringComparison.Ordinal)
             .Replace("*F*", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("*E*", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
     }
 

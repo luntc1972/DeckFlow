@@ -143,11 +143,27 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         var unresolved = new List<string>();
         foreach (DeckEntry entry in deckCards)
         {
-            if (index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? card))
+            ScryfallCardData? card;
+            if (!index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out card))
+            {
+                // The batch lookup missed this card — typically an exact printing Scryfall has no
+                // record of (e.g. an etched/promo collector number). Reuse the shared exact-name
+                // fallback that the comparison/analysis paths already use, then cache it in the
+                // index so duplicate entries don't re-query.
+                ScryfallCard? fallback = await _scryfallCardResolver
+                    .SearchFallbackCardAsync(entry.Name, cancellationToken).ConfigureAwait(false);
+                if (fallback is not null)
+                {
+                    card = ScryfallCardDataMapper.ToCardData(fallback);
+                    index.Add(card);
+                }
+            }
+
+            if (card is not null)
             {
                 deckEntries.Add(new DeckCardEntry
                 {
-                    Card = card!,
+                    Card = card,
                     Quantity = entry.Quantity,
                     IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase),
                 });
