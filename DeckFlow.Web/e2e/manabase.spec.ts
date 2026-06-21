@@ -26,6 +26,48 @@ test('manabase page renders the deck-input form', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('input-source radios sit adjacent, not pushed to opposite page edges', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // Regression: the source toggle shares the .toolbar shell, which themes fork
+  // as justify-content: space-between. Without the .manabase-source-toggle
+  // override the two radios get shoved to opposite edges. Assert they stay
+  // within a tight gap of each other.
+  const labels = page.locator('.manabase-source-toggle label');
+  await expect(labels).toHaveCount(2);
+  const first = await labels.nth(0).boundingBox();
+  const second = await labels.nth(1).boundingBox();
+  expect(first).not.toBeNull();
+  expect(second).not.toBeNull();
+  const gap = second!.x - (first!.x + first!.width);
+  expect(gap).toBeLessThan(60);
+});
+
+test('clicking a deck-type pill moves the selected highlight (exactly one lit)', async ({ page }) => {
+  await page.goto('/manabase');
+
+  const ACCENT_LIT = (handle: string) =>
+    page.locator(handle).evaluate(
+      (el) => getComputedStyle(el as HTMLElement).backgroundColor,
+    );
+
+  const casual = page.locator('.manabase-pill:has(input[value="Casual"])');
+  const cedh = page.locator('.manabase-pill:has(input[value="Cedh"])');
+
+  // Casual is the default selected mode, so it is the only lit pill on load.
+  const casualBg = await ACCENT_LIT('.manabase-pill:has(input[value="Casual"])');
+  const cedhBgBefore = await ACCENT_LIT('.manabase-pill:has(input[value="Cedh"])');
+  expect(casualBg).not.toEqual(cedhBgBefore);
+
+  // Clicking cEDH must move the highlight with no POST roundtrip: cEDH lights,
+  // Casual goes dark. Regression for the stale .is-selected double-highlight.
+  await cedh.click();
+  expect(await ACCENT_LIT('.manabase-pill:has(input[value="Cedh"])')).toEqual(casualBg);
+  expect(await ACCENT_LIT('.manabase-pill:has(input[value="Casual"])')).toEqual(cedhBgBefore);
+  await expect(casual.locator('input')).not.toBeChecked();
+  await expect(cedh.locator('input')).toBeChecked();
+});
+
 test('mana base nav link is wired in the Analyze group when the flag is on', async ({ page }) => {
   await page.goto('/deck-analysis');
 

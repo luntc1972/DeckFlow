@@ -2258,6 +2258,16 @@ label.field > span,
   margin: 0.5rem 0 0.25rem;
 }
 
+/* Input-source radios share the .toolbar shell (themes fork it as
+   justify-content: space-between), which would shove "Public URL" and
+   "Paste decklist" to opposite page edges. Compound selector raises specificity
+   above the theme's plain .toolbar rule (which loads after site-common.css). */
+.toolbar.manabase-source-toggle {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .manabase-segmented {
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   border-radius: 0.6rem;
@@ -2285,6 +2295,8 @@ label.field > span,
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   border: 1px solid var(--line, rgba(0, 0, 0, 0.2));
   border-radius: 999px;
   padding: 0.3rem 0.85rem;
@@ -2301,7 +2313,13 @@ label.field > span,
   margin: 0;
 }
 
-.manabase-pill.is-selected {
+/* Selected state is driven purely by the checked radio via :has(). The server
+   renders `checked` on the selected radio, so the initial SSR paint is covered,
+   and clicking another pill moves the highlight instantly with no JS and no POST
+   roundtrip (fixes "toggles do not work"). The static server-rendered
+   .is-selected class is intentionally NOT used here — it cannot clear on click,
+   which would leave two pills lit per group. */
+.manabase-pill:has(> input:checked) {
   background: var(--accent, #3858a6);
   border-color: var(--accent, #3858a6);
   /* Text on the accent fill; themes with a light accent can override --on-accent. */
