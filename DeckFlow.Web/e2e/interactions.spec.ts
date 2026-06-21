@@ -124,11 +124,12 @@ test('admin content kb keeps creator + search filter across visibility tab switc
 
   // Switching the visibility tab is a full-page <a> navigation (not a form
   // submit), so the creator + search filter must be restored from sessionStorage
-  // rather than reset. Target by href: "Published" as text also substring-matches
-  // the "Unpublished" tab, so a text filter resolves to two elements (strict-mode
-  // violation). The href filter is unambiguous.
-  await page.locator('.admin-kb-toggle a[href*="visibilityFilter=published"]').click();
-  await expect(page).toHaveURL(/visibilityFilter=published/);
+  // rather than reset. Switch to the Unpublished tab: seeded entries default to
+  // unpublished, so that tab is populated and renders the filter bar — the
+  // Published tab can be empty (no entries -> no toggle/filter controls at all).
+  // Target by href; matching on the text "Unpublished" is fine but href is exact.
+  await page.locator('.admin-kb-toggle a[href*="visibilityFilter=unpublished"]').click();
+  await expect(page).toHaveURL(/visibilityFilter=unpublished/);
 
   await expect(page.locator('#kb-creator-filter')).toHaveValue(chosenCreator!);
   await expect(page.locator('#kb-filter-search')).toHaveValue('combo');
