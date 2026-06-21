@@ -68,29 +68,31 @@
             <strong>Health:</strong> @(report.IsHealthy ? "OK" : "needs work").
         </p>
 
-        <table class="manabase-table">
-            <thead>
-                <tr>
-                    <th scope="col">Color</th>
-                    <th scope="col">Sources</th>
-                    <th scope="col">Needed</th>
-                    <th scope="col">Short by</th>
-                    <th scope="col">Driving spell</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var f in report.ColorFindings)
-                {
-                    <tr class="@(f.IsAdequate ? null : "manabase-row--short")">
-                        <td>@f.Color</td>
-                        <td>@f.ActualSources.ToString("F1")</td>
-                        <td>@f.RequiredSources</td>
-                        <td>@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
-                        <td>@f.DrivingSpell</td>
+        <div class="manabase-table-wrap">
+            <table class="manabase-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Color</th>
+                        <th scope="col">Sources</th>
+                        <th scope="col">Needed</th>
+                        <th scope="col">Short by</th>
+                        <th scope="col">Driving spell</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var f in report.ColorFindings)
+                    {
+                        <tr class="@(f.IsAdequate ? null : "manabase-row--short")">
+                            <td>@f.Color</td>
+                            <td>@f.ActualSources.ToString("F1")</td>
+                            <td>@f.RequiredSources</td>
+                            <td>@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
+                            <td>@f.DrivingSpell</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
 
         <p class="mode-note">@report.Summary</p>
 
