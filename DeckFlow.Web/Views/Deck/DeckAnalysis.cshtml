@@ -189,12 +189,11 @@ Do not omit any fields from the schema.
             <strong>What you do:</strong>
             <ol>
                 <li>Choose the target Commander bracket.</li>
-                <li>Select one or more question buckets, individual questions, or both.</li>
-                <li>Optionally include sideboard/maybeboard cards as candidate references.</li>
-                <li>Click <code>Generate Analysis Packet</code>.</li>
-                <li>Copy <code>analysis.txt</code> and paste it into your AI.</li>
-                <li>Ask your AI to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
-                <li>Move to Step 3 to paste the returned JSON and view a formatted analysis summary. Step 4 is optional for set-specific upgrade suggestions.</li>
+                <li>Select question buckets, individual questions, or both.</li>
+                <li>Optional: include sideboard/maybeboard cards as candidate references.</li>
+                <li>Click <code>Generate Analysis Packet</code>, then copy <code>analysis.txt</code> into your AI.</li>
+                <li>Ask your AI to return the <code>deck_profile</code> JSON in a fenced <code>```json</code> block.</li>
+                <li>Paste that JSON in Step 3 for a formatted summary. (Step 4 set upgrades is optional.)</li>
             </ol>
             <p><strong>Knowledge Base note:</strong> Browse distilled creator advice in the <a href="@Url.Content("~/content-kb")">Knowledge Base</a>, then open any entry to copy a ready-to-paste prompt from its detail page.</p>
         </div>
@@ -683,9 +682,8 @@ Do not omit any fields from the schema.
             <strong>What you do:</strong>
             <ol>
                 <li>Select one set, or paste a condensed set packet.</li>
-                <li>Click <code>Generate Set Upgrade Packet</code>.</li>
-                <li>Paste the returned <code>set-upgrade-analysis.txt</code> into @aiPlatform.DisplayName.</li>
-                <li>Have @aiPlatform.DisplayName return both a fenced <code>```json</code> block for the set analysis data and a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with condensed per-set notes, recommendations, and answers.</li>
+                <li>Click <code>Generate Set Upgrade Packet</code>, then paste <code>set-upgrade-analysis.txt</code> into @aiPlatform.DisplayName.</li>
+                <li>Have @aiPlatform.DisplayName return a fenced <code>```json</code> block (set analysis) plus a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with per-set notes, recommendations, and answers.</li>
             </ol>
         </div>
         <label class="field">
