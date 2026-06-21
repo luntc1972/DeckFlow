@@ -28,9 +28,21 @@ const routeScripts: Array<{ route: string; scripts: string[] }> = [
   { route: '/Admin/ContentKb?visibilityFilter=all', scripts: ['admin-modal.js', 'kb-entry-filter.js', 'content-kb-admin.js'] },
 ];
 
+// Re-navigate on a transient non-2xx. Under fullyParallel CI both viewport
+// projects hit the same admin pages at once; the shared SQLite store can throw a
+// momentary "database is locked" (HTTP 500) on a single request while siblings
+// succeed. A real outage still fails after the retries; only a one-off blip recovers.
+async function gotoOk(page: import('@playwright/test').Page, route: string) {
+  let response = await page.goto(route);
+  for (let attempt = 0; attempt < 2 && !response?.ok(); attempt++) {
+    response = await page.goto(route);
+  }
+  return response;
+}
+
 for (const { route, scripts } of routeScripts) {
   test(`script tags present for ${route}`, async ({ page }) => {
-    const response = await page.goto(route);
+    const response = await gotoOk(page, route);
 
     expect(response?.ok()).toBeTruthy();
 

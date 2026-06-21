@@ -104,7 +104,13 @@ test('admin content kb delete requires an arm click before submission', async ({
 });
 
 test('admin content kb keeps creator + search filter across visibility tab switches', async ({ page }) => {
-  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  // Re-navigate on a transient non-2xx: parallel CI workers can momentarily hit a
+  // "database is locked" (500) on the shared SQLite admin store. A real failure
+  // still surfaces after the retries.
+  let response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  for (let attempt = 0; attempt < 2 && !response?.ok(); attempt++) {
+    response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  }
   expect(response?.ok()).toBeTruthy();
 
   const creator = page.locator('#kb-creator-filter');
@@ -118,8 +124,10 @@ test('admin content kb keeps creator + search filter across visibility tab switc
 
   // Switching the visibility tab is a full-page <a> navigation (not a form
   // submit), so the creator + search filter must be restored from sessionStorage
-  // rather than reset.
-  await page.locator('.admin-kb-toggle a', { hasText: 'Published' }).click();
+  // rather than reset. Target by href: "Published" as text also substring-matches
+  // the "Unpublished" tab, so a text filter resolves to two elements (strict-mode
+  // violation). The href filter is unambiguous.
+  await page.locator('.admin-kb-toggle a[href*="visibilityFilter=published"]').click();
   await expect(page).toHaveURL(/visibilityFilter=published/);
 
   await expect(page.locator('#kb-creator-filter')).toHaveValue(chosenCreator!);
