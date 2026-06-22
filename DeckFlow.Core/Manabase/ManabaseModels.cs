@@ -383,6 +383,56 @@ public sealed record DemandingCard
     public required int CastPercent { get; init; }
 }
 
+/// <summary>
+/// Which single action best improves the mana base, chosen so the "biggest fix" callout never
+/// contradicts the land/health line (e.g. recommending you add sources to a color that already
+/// has a surplus). See <see cref="ManabaseReport.PrimaryFix"/>.
+/// </summary>
+public enum ManabaseFixKind
+{
+    /// <summary>Nothing actionable — lands and every color are adequately supported.</summary>
+    None,
+
+    /// <summary>A color has a real raw source deficit; add more sources of that color.</summary>
+    ColorSources,
+
+    /// <summary>No color is raw-short, but the land count itself is below target; add lands.</summary>
+    Lands,
+
+    /// <summary>Lands and colored sources are adequate, but some demanding spells still cast late.</summary>
+    DemandingCards,
+}
+
+/// <summary>
+/// The single most actionable fix for a mana base, derived from <see cref="ManabaseReport"/>. Exists
+/// so the view renders a fix that agrees with the land/health stats: when the weakest color is only
+/// a <i>composite</i> problem (under-supported demanding cards) rather than raw-short, the fix points
+/// at lands or top-end, never at adding sources to an already-oversupplied color.
+/// </summary>
+public sealed record ManabasePrimaryFix
+{
+    /// <summary>Which kind of fix this is; drives which message the view shows.</summary>
+    public required ManabaseFixKind Kind { get; init; }
+
+    /// <summary>The color the fix concerns (ColorSources/DemandingCards), or null.</summary>
+    public ManaColor? Color { get; init; }
+
+    /// <summary>Sources to add (ColorSources) or lands to add (Lands); 0 otherwise.</summary>
+    public int Amount { get; init; }
+
+    /// <summary>Effective sources currently in the deck for <see cref="Color"/> (ColorSources only).</summary>
+    public double ActualSources { get; init; }
+
+    /// <summary>Sources required for <see cref="Color"/> (ColorSources only).</summary>
+    public int RequiredSources { get; init; }
+
+    /// <summary>The spell to cite: the driving spell (ColorSources) or worst spell (DemandingCards).</summary>
+    public string Spell { get; init; } = string.Empty;
+
+    /// <summary>How many demanding cards of <see cref="Color"/> still cast late (DemandingCards only).</summary>
+    public int DemandingCount { get; init; }
+}
+
 /// <summary>The §6 mana-base report: land count, ramp, per-color sources, and a verdict.</summary>
 public sealed record ManabaseReport
 {
@@ -496,4 +546,67 @@ public sealed record ManabaseReport
 
     /// <summary>Short human-readable verdict.</summary>
     public required string Summary { get; init; }
+
+    /// <summary>
+    /// The single most actionable fix, chosen land-and-source-truthfully so the "biggest fix" callout
+    /// never contradicts the land/health line. Priority: a real raw color deficit, else a short land
+    /// count, else demanding cards that cast late, else nothing. A color picked by the composite
+    /// signal (under-supported demanding spells) but holding a source <i>surplus</i> never yields an
+    /// "add ~N sources" message — that produced the negative "add ~-14" the callout used to show.
+    /// </summary>
+    public ManabasePrimaryFix PrimaryFix
+    {
+        get
+        {
+            // 1. A color with a genuine raw source deficit is the most actionable fix.
+            ColorSourceFinding? rawShort = null;
+            foreach (ColorSourceFinding f in ColorFindings)
+            {
+                if (f.Deficit > 0 && (rawShort is null || f.Deficit > rawShort.Deficit))
+                {
+                    rawShort = f;
+                }
+            }
+
+            if (rawShort is not null)
+            {
+                return new ManabasePrimaryFix
+                {
+                    Kind = ManabaseFixKind.ColorSources,
+                    Color = rawShort.Color,
+                    Amount = (int)Math.Ceiling(rawShort.Deficit),
+                    ActualSources = rawShort.ActualSources,
+                    RequiredSources = rawShort.RequiredSources,
+                    Spell = rawShort.DrivingSpell,
+                };
+            }
+
+            // 2. No color is raw-short. A short land count is the real fix — never recommend adding
+            //    sources to an already-oversupplied color (reconciles with the land/health line).
+            if (LandDelta < -1)
+            {
+                return new ManabasePrimaryFix
+                {
+                    Kind = ManabaseFixKind.Lands,
+                    Amount = (int)Math.Ceiling(-LandDelta),
+                };
+            }
+
+            // 3. Lands and sources adequate, but the weakest color still has demanding spells that
+            //    cast late — point at the top end / early ramp rather than raw source count.
+            if (WeakestColor is { } weak && weak.UnderSupportedCount > 0)
+            {
+                return new ManabasePrimaryFix
+                {
+                    Kind = ManabaseFixKind.DemandingCards,
+                    Color = weak.Color,
+                    DemandingCount = weak.UnderSupportedCount,
+                    Spell = weak.WorstSpell,
+                };
+            }
+
+            // 4. Nothing actionable.
+            return new ManabasePrimaryFix { Kind = ManabaseFixKind.None };
+        }
+    }
 }

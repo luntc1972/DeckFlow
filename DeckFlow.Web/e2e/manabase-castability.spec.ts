@@ -201,3 +201,19 @@ test('cedh submit echoes cEDH and replaces the castability table with a note', a
 
   await assertNoHorizontalScroll(page);
 });
+
+test('biggest-fix callout never recommends a negative source count', async ({ page }) => {
+  // Regression: the callout used to do ceil(weakest.Deficit) on a color picked by the composite
+  // (under-supported) signal. When that color held a raw source SURPLUS, the deficit was negative
+  // and it rendered "add ~-14 more Green source(s)" — contradicting the "add lands" health line.
+  // The reconciled selector (ManabaseReport.PrimaryFix) must never emit a negative add amount.
+  const analyzed = await submitDeck(page, 'Casual');
+  test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
+
+  const note = page.locator('.result-panel p.mode-note:has(strong:text-is("Biggest fix:"))');
+  if ((await note.count()) > 0) {
+    await expect(note).not.toContainText('~-');
+  }
+
+  await assertNoHorizontalScroll(page);
+});

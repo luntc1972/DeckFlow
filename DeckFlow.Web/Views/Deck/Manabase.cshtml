@@ -218,14 +218,23 @@
             </table>
         </div>
 
-        @* Callout is the single most actionable fix — distinct from the land/health stats line above. *@
-        @if (report.WeakestColor is { } weakest)
+        @* Callout is the single most actionable fix — chosen so it never contradicts the land/health
+           line above (e.g. it won't tell you to add sources to an oversupplied color). *@
+        @{ var fix = report.PrimaryFix; }
+        @switch (fix.Kind)
         {
-            <p class="mode-note"><strong>Biggest fix:</strong> add ~@(Math.Ceiling(weakest.Deficit).ToString("F0")) more <strong>@weakest.Color</strong> source(s) — you have @weakest.ActualSources.ToString("F1") vs @weakest.RequiredSources needed for @weakest.DrivingSpell.</p>
-        }
-        else
-        {
-            <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
+            case ManabaseFixKind.ColorSources:
+                <p class="mode-note"><strong>Biggest fix:</strong> add ~@fix.Amount more <strong>@fix.Color</strong> source(s) — you have @fix.ActualSources.ToString("F1") vs @fix.RequiredSources needed for @fix.Spell.</p>
+                break;
+            case ManabaseFixKind.Lands:
+                <p class="mode-note"><strong>Biggest fix:</strong> add ~@fix.Amount more <strong>land(s)</strong> — each color is individually well-supported, but the base is ~@fix.Amount land(s) short of the curve.</p>
+                break;
+            case ManabaseFixKind.DemandingCards:
+                <p class="mode-note"><strong>Biggest fix:</strong> lands and colored sources are adequate, but @fix.DemandingCount demanding <strong>@fix.Color</strong> card(s) still cast late (worst: @fix.Spell) — trim the top end or add early ramp.</p>
+                break;
+            default:
+                <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
+                break;
         }
 
         @if (Model.ShowCastability && report.Castability.Count > 0)
