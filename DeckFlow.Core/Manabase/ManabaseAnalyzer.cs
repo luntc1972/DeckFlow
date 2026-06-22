@@ -319,6 +319,12 @@ public static class ManabaseAnalyzer
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
 
+        // Cache the mulligan-aware required-source search by (target color + full effective pip
+        // signature + on-curve turn + threshold). Ranking every candidate spell on the sim figure
+        // (Codex HIGH-2) would otherwise re-run the binary search for identical requirements; most
+        // spells share a handful of signatures, so this keeps the extra sims bounded.
+        var simRequiredCache = new Dictionary<string, int>(StringComparer.Ordinal);
+
         foreach (ManaColor color in EnumerateUsedColors(deck))
         {
             double allSources = EffectiveSources(deck, color, untappedOnly: false);
@@ -326,8 +332,6 @@ public static class ManabaseAnalyzer
 
             int required = 0;
             string driver = "(none)";
-            int driverPips = 0;
-            int driverTurn = 0;
             double worstDeficit = double.NegativeInfinity;
 
             int underSupported = 0;
@@ -361,9 +365,26 @@ public static class ManabaseAnalyzer
 
                 double available = onCurveTurn <= 1 ? untappedSources : allSources;
 
-                // Gold cards bump each color's requirement by one (need all colors present).
-                int goldBump = spell.IsGold ? 1 : 0;
-                int need = KarstenManabase.SourcesNeeded(librarySize, totalLands, pips, onCurveTurn) + goldBump;
+                // Codex HIGH-2: rank the driver on the MULLIGAN-AWARE sim requirement, not the old
+                // mulligan-blind hypergeometric. The mono-color sim isolates this color's access;
+                // cached per (color, target pips, turn, threshold) so identical requirements reuse it.
+                string sig = $"{(int)color}|{pips}|t{onCurveTurn}|th{threshold}";
+                if (!simRequiredCache.TryGetValue(sig, out int simNeed))
+                {
+                    simNeed = SimRequiredSources(
+                        librarySize, totalLands, color, pips, onCurveTurn,
+                        deck.AverageManaValue, deck.IsSingleton, threshold);
+                    simRequiredCache[sig] = simNeed;
+                }
+
+                // Codex HIGH-1: a gold/multicolor card needs a source of each OTHER color at the same
+                // time, so it wants a little more headroom in THIS color than a mono spell. Add a
+                // bounded contention bump (one per other color the spell needs) on top of the isolated
+                // figure — modeling the secondary colors inside a ramp-free synthetic deck instead
+                // over-penalizes high-MV gold cards (it conflates color access with mana quantity).
+                int otherColors = spell.Pips.Count(p => p.Key != color && p.Key != ManaColor.Colorless && p.Value > 0);
+                int need = Math.Min(totalLands, simNeed + otherColors);
+
                 double deficit = need - available;
 
                 // COMMANDER: its colors always use the worst-driver value (never averaged away),
@@ -374,8 +395,6 @@ public static class ManabaseAnalyzer
                     worstDeficit = deficit;
                     required = need;
                     driver = spell.Name;
-                    driverPips = pips;
-                    driverTurn = onCurveTurn;
                 }
 
                 int castPercent = castabilityByName.TryGetValue(spell.Name, out CardCastability? row)
@@ -408,22 +427,17 @@ public static class ManabaseAnalyzer
 
             colorSpellCounts[color] = castCount;
 
-            // The displayed/verdict requirement is the MULLIGAN-AWARE sim figure for the worst driver
-            // (the cheap hypergeometric `required` only ranked the worst spell above). The
-            // hypergeometric is mulligan-blind and over-states double-pip needs (e.g. "30" white for a
-            // turn-2 WW); the sim models Commander's free first mulligan, so the deficit/verdict no
-            // longer trip on a phantom shortfall.
-            int simRequired = SimRequiredSources(
-                librarySize, totalLands, color, driverPips, driverTurn, deck.AverageManaValue,
-                deck.IsSingleton, threshold);
-
+            // `required` is already the MULLIGAN-AWARE sim figure for the worst driver (ranked on the
+            // sim deficit above, full pip map → gold contention modeled). No mulligan-blind
+            // hypergeometric fallback: the sim models Commander's free first mulligan, so the
+            // deficit/verdict no longer trip on a phantom double-pip shortfall.
             findings.Add(new ColorSourceFinding
             {
                 Color = color,
                 // MEDIUM-4: ActualSources is the color's full weighted source count (all sources).
                 // The worst-driver's turn-specific untapped supply lives in the driver/required pair.
                 ActualSources = Math.Round(allSources, 1),
-                RequiredSources = simRequired,
+                RequiredSources = required,
                 DrivingSpell = driver,
                 UnderSupportedCount = underSupported,
                 AverageCastPercent = castCount > 0 ? Math.Round(castSum / castCount, 1) : 0,
@@ -439,11 +453,13 @@ public static class ManabaseAnalyzer
     // sims); lower than the headline DefaultTrials to bound cost, with a full-trial boundary confirm.
     private const int SourceSearchTrials = 5_000;
 
-    // Mulligan-aware "how many sources of this color does the worst driver need": the smallest
-    // on-color land count whose sim cast% (Commander free-mull aware) meets the under-supported
-    // threshold. Binary search over a synthetic deck that isolates this color; the boundary is
-    // confirmed at full trials so reduced-trial noise cannot off-by-one the deficit. Replaces the
-    // mulligan-blind hypergeometric figure that over-stated double-pip needs.
+    // Mulligan-aware "how many sources of this color does this spell need": the smallest on-color land
+    // count whose sim cast% (Commander free-mull aware) meets the threshold. The probe isolates THIS
+    // color (the other colors are abundant) so the search measures the color requirement, not the
+    // deck's mana-quantity — a ramp-free synthetic deck that also demanded the secondary color would
+    // conflate the two and run to the land ceiling for high-MV gold cards. The caller adds a small
+    // gold-contention bump (Codex HIGH-1) on top of this figure. Binary search; the boundary is
+    // confirmed at full trials so reduced-trial noise cannot off-by-one the deficit.
     private static int SimRequiredSources(
         int librarySize, int totalLands, ManaColor color, int pips, int onCurveTurn,
         double averageManaValue, bool isSingleton, int threshold)
@@ -471,6 +487,17 @@ public static class ManabaseAnalyzer
             }
         }
 
+        // If even an all-on-color base cannot reach the bar, THIS color is not the bottleneck — the
+        // spell is mana-/curve-limited (it would need ramp or a lower curve, not more of this color),
+        // and that difficulty already shows up in its castability %. Reporting "needs ~totalLands" here
+        // would resurrect the phantom deficit this phase set out to kill (e.g. a turn-4 commander on a
+        // ramp-free isolation deck), so clamp the requirement to the irreducible minimum (the pips).
+        if (result >= totalLands
+            && SimColorCast(librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, totalLands, CastabilitySimulator.DefaultTrials) < threshold)
+        {
+            return pips;
+        }
+
         // Boundary confirm at full trials (reduced-trial noise can mis-place the crossing by one).
         if (result > pips
             && SimColorCast(librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, result - 1, CastabilitySimulator.DefaultTrials) >= threshold)
@@ -488,8 +515,8 @@ public static class ManabaseAnalyzer
 
     // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
     // on-color lands plus off-color lands to `totalLands`, padded to `librarySize`. Isolates one
-    // color's requirement (other colors fully available), comparable to Karsten's per-color tables
-    // but mulligan-aware.
+    // color's requirement (other colors fully available, so the search measures color access, not
+    // total mana), comparable to Karsten's per-color tables but mulligan-aware.
     private static int SimColorCast(
         int librarySize, int totalLands, ManaColor color, int pips, int onCurveTurn,
         double averageManaValue, bool isSingleton, int onColor, int trials)
