@@ -202,6 +202,30 @@ public sealed record ManabaseDeck
 
     /// <summary>Always-on static cost reducers the deck runs (empty when none).</summary>
     public IReadOnlyList<CostReducer> CostReduction { get; init; } = Array.Empty<CostReducer>();
+
+    /// <summary>
+    /// Auto-detected alternative / reduced-cost suggestions (free/pitch spells, board-scaling
+    /// self-reducers, evoke/suspend). These pre-populate the user's override box; they do NOT
+    /// change the analysis on their own — only an applied override does. Empty when none found.
+    /// </summary>
+    public IReadOnlyList<CostSuggestion> CostSuggestions { get; init; } = Array.Empty<CostSuggestion>();
+}
+
+/// <summary>
+/// A detected alternative / reduced effective cost for a single card — a suggestion the user can
+/// accept or edit in the override box. <see cref="EffectiveCost"/> is a canonical braced mana
+/// cost (e.g. <c>"0"</c>, <c>"{R}"</c>, <c>"{1}{B}"</c>) parseable by <see cref="ManaCostParser"/>.
+/// </summary>
+public sealed record CostSuggestion
+{
+    /// <summary>The card's display name (the override key).</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The suggested effective mana cost, in canonical braced form.</summary>
+    public required string EffectiveCost { get; init; }
+
+    /// <summary>Short human reason for the suggestion (e.g. "free / alternative cost").</summary>
+    public required string Reason { get; init; }
 }
 
 /// <summary>One color's source supply versus its toughest requirement in the deck.</summary>
