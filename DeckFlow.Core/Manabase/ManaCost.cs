@@ -92,6 +92,14 @@ public static class ManaCostParser
         }
 
         string trimmed = cost.Trim();
+
+        // Canonical free cost is the bare token "0" (covers "0", "00", "{0}").
+        string digitsOnly = trimmed.Replace("{", string.Empty).Replace("}", string.Empty).Trim();
+        if (digitsOnly.Length > 0 && digitsOnly.All(c => c == '0'))
+        {
+            return "0";
+        }
+
         if (trimmed.Contains('{'))
         {
             return trimmed.ToUpperInvariant();

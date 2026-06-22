@@ -164,7 +164,8 @@ public sealed class ManabaseControllerModeTests
         {
             LastOptions = options ?? new ManabaseAnalysisOptions();
             return Task.FromResult(new ManabaseAnalysisResult(
-                _report, "1 cards · 36 lands", Array.Empty<string>(), null, "prompt"));
+                _report, "1 cards · 36 lands", Array.Empty<string>(), null, "prompt",
+                Array.Empty<CostSuggestion>()));
         }
     }
 }
