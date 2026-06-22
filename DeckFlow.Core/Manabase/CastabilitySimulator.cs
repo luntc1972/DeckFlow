@@ -214,6 +214,7 @@ public static class CastabilitySimulator
             CastPercent = castPercent,
             LimitingFactor = limiting,
             IsCommander = spell.IsCommander,
+            IsCostOverridden = spell.IsCostOverridden,
         };
     }
 

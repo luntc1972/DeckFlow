@@ -78,6 +78,57 @@ public static class ManaCostParser
         return new ParsedManaCost { ManaValue = manaValue, Pips = pips, HasVariableCost = variable };
     }
 
+    /// <summary>
+    /// Canonicalize a user-entered effective-cost string into fully braced Scryfall form so
+    /// <see cref="Parse"/> (which only recognizes braced symbols) accepts it. Already-braced input
+    /// is upper-cased and returned as-is; bare shorthand is braced (<c>"R"</c>→<c>"{R}"</c>,
+    /// <c>"1R"</c>→<c>"{1}{R}"</c>, <c>"2"</c>→<c>"{2}"</c>); null/empty/"0" yields <c>"0"</c>.
+    /// </summary>
+    public static string NormalizeToBraced(string? cost)
+    {
+        if (string.IsNullOrWhiteSpace(cost))
+        {
+            return "0";
+        }
+
+        string trimmed = cost.Trim();
+        if (trimmed.Contains('{'))
+        {
+            return trimmed.ToUpperInvariant();
+        }
+
+        var sb = new System.Text.StringBuilder();
+        int i = 0;
+        while (i < trimmed.Length)
+        {
+            char c = trimmed[i];
+            if (char.IsWhiteSpace(c))
+            {
+                i++;
+                continue;
+            }
+
+            if (char.IsDigit(c))
+            {
+                int j = i;
+                while (j < trimmed.Length && char.IsDigit(trimmed[j]))
+                {
+                    j++;
+                }
+
+                sb.Append('{').Append(trimmed[i..j]).Append('}');
+                i = j;
+            }
+            else
+            {
+                sb.Append('{').Append(char.ToUpperInvariant(c)).Append('}');
+                i++;
+            }
+        }
+
+        return sb.Length == 0 ? "0" : sb.ToString();
+    }
+
     /// <summary>Map a single Scryfall color/colorless letter to a <see cref="ManaColor"/>.</summary>
     public static ManaColor? MapSymbol(string token) => token switch
     {

@@ -94,6 +94,9 @@ public sealed record SpellRequirement
 
     /// <summary>True when this requirement is the deck's commander (or a partner/background).</summary>
     public bool IsCommander { get; init; }
+
+    /// <summary>True when a user override / detected alt cost replaced this spell's printed cost.</summary>
+    public bool IsCostOverridden { get; init; }
 }
 
 /// <summary>
@@ -127,6 +130,9 @@ public sealed record CardCastability
 
     /// <summary>True when this row is the deck's commander (pinned to the top of the list).</summary>
     public bool IsCommander { get; init; }
+
+    /// <summary>True when a user override / detected alt cost set this row's effective cost.</summary>
+    public bool IsCostOverridden { get; init; }
 }
 
 /// <summary>The kinds of spell an always-on cost reducer applies to.</summary>
