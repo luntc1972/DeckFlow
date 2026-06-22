@@ -28,9 +28,10 @@ public static class ManabaseClassifier
         @"suspend\s+\d+[\s—–-]*((?:\{[^}]+\})+)", RegexOptions.Compiled);
 
     // "This spell costs {N} less to cast for each <thing>" — a board-scaling SELF reduction
-    // (Blasphemous Act). Distinct from the deck-wide StaticReducerRegex (which excludes "for each").
+    // (Blasphemous Act). Self-anchored on "this spell" so it never fires on a card that discounts
+    // OTHER spells with a "for each" rider. Distinct from the deck-wide StaticReducerRegex.
     private static readonly Regex ScalingSelfReducerRegex = new(
-        @"costs \{\d+\} less to cast for each", RegexOptions.Compiled);
+        @"this spell costs \{\d+\} less to cast for each", RegexOptions.Compiled);
 
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
@@ -547,6 +548,9 @@ public static class ManabaseClassifier
     // by itself. Most-specific category first.
     private static (string EffectiveCost, string Reason)? DetectSelfCost(CardFact card)
     {
+        // Known limitation: OracleText is joined across faces, so a multi-face card could inherit a
+        // suggestion from a non-front face. Low harm — a suggestion only pre-fills the editable box
+        // and applying it is opt-in; the user sees and can clear a wrong line.
         string text = (card.OracleText ?? string.Empty).ToLowerInvariant();
         if (text.Length == 0)
         {

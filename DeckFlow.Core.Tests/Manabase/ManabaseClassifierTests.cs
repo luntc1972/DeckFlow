@@ -172,6 +172,18 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void DetectSelfCost_OtherSpellScalingReducer_IsNotSelfCost()
+    {
+        // A card that reduces OTHER spells with a "for each" rider must NOT be read as a self-scaler
+        // (the scaling regex is anchored on "this spell costs ...").
+        ManabaseDeck deck = ClassifyOne(
+            "Hypothetical Reducer", "{3}", 3, "Artifact",
+            "Artifact spells you cast cost {1} less to cast for each artifact you control.");
+
+        Assert.Null(Suggestion(deck, "Hypothetical Reducer"));
+    }
+
+    [Fact]
     public void Classify_XSpell_AddsNoStrictRequirement()
     {
         var cards = new List<CardFact>

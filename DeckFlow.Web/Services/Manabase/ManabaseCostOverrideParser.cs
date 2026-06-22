@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Manabase;
 
 namespace DeckFlow.Web.Services.Manabase;
@@ -10,6 +11,13 @@ namespace DeckFlow.Web.Services.Manabase;
 /// </summary>
 public static class ManabaseCostOverrideParser
 {
+    // A cost is accepted only when it is EITHER a run of complete braced tokens ({1}{R}, {U/R})
+    // OR bare shorthand of digits + single mana letters (0, 1R, WW). This rejects ambiguous mixed
+    // input like "{1}R" (Parse would silently drop the trailing R) and slash shorthand like "U/R"
+    // (would tokenize into bogus pips) — those lines are skipped instead of producing wrong math.
+    private static readonly Regex ValidCost = new(
+        @"^(?:\{[^{}]+\})+$|^[0-9wubrgcsxWUBRGCSX]+$", RegexOptions.Compiled);
+
     /// <summary>Parse the override text. Returns an empty map for null/blank input.</summary>
     public static IReadOnlyDictionary<string, string> Parse(string? text)
     {
@@ -36,7 +44,7 @@ public static class ManabaseCostOverrideParser
 
             string name = line[..colon].Trim();
             string costRaw = line[(colon + 1)..].Trim();
-            if (name.Length == 0)
+            if (name.Length == 0 || !ValidCost.IsMatch(costRaw))
             {
                 continue;
             }

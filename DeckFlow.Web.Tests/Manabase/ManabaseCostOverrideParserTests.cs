@@ -42,6 +42,15 @@ public sealed class ManabaseCostOverrideParserTests
         Assert.Empty(ManabaseCostOverrideParser.Parse("   "));
     }
 
+    [Theory]
+    [InlineData("Slash Card: U/R")]   // hybrid shorthand — ambiguous, rejected
+    [InlineData("Mixed Card: {1}R")]  // braced + trailing bare — Parse would drop the R
+    [InlineData("Junk Card: zzqq")]   // not valid mana symbols
+    public void Parse_RejectsAmbiguousOrJunkCost(string line)
+    {
+        Assert.Empty(ManabaseCostOverrideParser.Parse(line));
+    }
+
     [Fact]
     public void Parse_DuplicateName_LastWins()
     {
