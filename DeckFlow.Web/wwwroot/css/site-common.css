@@ -2268,6 +2268,20 @@ label.field > span,
   gap: 1rem;
 }
 
+/* Analyze + Start over share a .toolbar shell (themes fork it as space-between);
+   keep them grouped left with a gap instead of pushed to opposite edges. */
+.toolbar.manabase-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Start over is an <a> styled as a button — drop the default link underline. */
+.manabase-start-over {
+  text-decoration: none;
+}
+
 /* Reduced/alternative-cost overrides: a collapsible block under the deck input. */
 .manabase-overrides {
   margin: 0.5rem 0 0.25rem;
