@@ -360,23 +360,33 @@ public sealed record ManabaseLandTargetBreakdown
 }
 
 /// <summary>
-/// Graded mana-base health, replacing the old binary OK/needs-work. A single sub-threshold card
-/// no longer flips the whole base to "needs work": a base that is land-adequate and has no real
-/// mulligan-aware source deficit, with only a small ratio of demanding cards, reads Functional.
+/// Graded mana-base health on a four-tier scale (worst to best: NeedsWork, Workable, Functional,
+/// Healthy). The display names the tiers Needs work / Workable / Solid / Excellent (see
+/// <c>ManabaseDisplay.HealthLabel</c>). Only a real, broad mana shortage reads NeedsWork; a single
+/// contained color issue is Workable; minor notes (slightly land-light, curve-limited demanding
+/// cards) are Functional; a clean base is Healthy.
 /// </summary>
 public enum ManabaseHealth
 {
-    /// <summary>Land count within one of target and no color has any under-supported spell.</summary>
+    /// <summary>Display "Excellent" — land-adequate and no color has any shortfall at all.</summary>
     Healthy,
 
     /// <summary>
-    /// Land-adequate, no mulligan-aware source deficit on any color, and each color's
-    /// under-supported count stays within a small ratio of its demanding cards — the base works
-    /// despite a few demanding spells.
+    /// Display "Solid" — the base works with only minor notes: within ~1-2 lands of target, or a few
+    /// demanding cards that are curve-limited (mana, not color). No color the base can fix.
     /// </summary>
     Functional,
 
-    /// <summary>A color is systematically short (real source deficit, over-ratio under-support, or lands short).</summary>
+    /// <summary>
+    /// Display "Workable" — exactly one contained color problem the base can fix: a single color short
+    /// by 1-2 sources, or one color color-starved beyond tolerance. A couple of targeted swaps.
+    /// </summary>
+    Workable,
+
+    /// <summary>
+    /// Display "Needs work" — a real, broad shortage: lands 2+ short, a color short by more than 2
+    /// sources, or two or more colors with a fixable problem.
+    /// </summary>
     NeedsWork,
 }
 
@@ -468,25 +478,27 @@ public sealed record ManabaseReport
         ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
 
     /// <summary>
-    /// Two-tier graded verdict (Codex HIGH-3). Only a REAL mana shortage reads <b>NeedsWork</b>; a
-    /// land surplus, a sub-source rounding deficit, and expensive late-casting (mana-limited) bombs
-    /// never trip it — the verdict measures the mana base, not the curve.
+    /// Four-tier graded verdict. Only a REAL mana shortage the base can fix moves the needle; a land
+    /// surplus, a sub-source rounding deficit, and expensive late-casting (mana-limited) bombs never
+    /// do — the verdict measures the mana base, not the curve. A color "issue" is short by more than a
+    /// whole source (<see cref="ColorSourceFinding.Deficit"/> &gt; 1) OR color-starved beyond
+    /// <c>max(1, ceil(colorCards·0.15))</c> (counting only <see cref="ColorSourceFinding.ColorLimitedUnderSupportedCount"/>).
     /// <list type="bullet">
-    /// <item><b>NeedsWork</b> when <see cref="LandDelta"/> &lt; -2 (lands meaningfully short), OR any
-    /// color is short by more than a whole source (<see cref="ColorSourceFinding.Deficit"/> &gt; 1),
-    /// OR any color's <see cref="ColorSourceFinding.UnderSupportedCount"/> (color-limited cards only)
-    /// exceeds <c>max(1, ceil(colorCards·0.15))</c>.</item>
-    /// <item><b>Healthy</b> when land-adequate (within one of target) and no color has any shortfall.</item>
-    /// <item><b>Functional</b> otherwise (works, but slightly land-light or a few demanding cards).</item>
+    /// <item><b>NeedsWork</b> ("Needs work"): <see cref="LandDelta"/> &lt; -2, OR a color short by more
+    /// than 2 sources, OR two or more colors with an issue.</item>
+    /// <item><b>Workable</b>: exactly one color with an issue (and no NeedsWork condition).</item>
+    /// <item><b>Healthy</b> ("Excellent"): land-adequate (within one of target) and no color has any
+    /// shortfall at all.</item>
+    /// <item><b>Functional</b> ("Solid"): otherwise — works, but slightly land-light or only
+    /// curve-limited demanding cards.</item>
     /// </list>
     /// </summary>
     public ManabaseHealth Health
     {
         get
         {
-            bool landsShort = LandDelta < -2;
-            bool anyRealDeficit = false;
-            bool anyOverTolerance = false;
+            int colorsWithIssue = 0;
+            bool anySevereColorDeficit = false;
             bool everyColorClear = true;
 
             foreach (ColorSourceFinding f in ColorFindings)
@@ -500,22 +512,31 @@ public sealed record ManabaseReport
                 int tolerance = Math.Max(1, (int)Math.Ceiling(colorCards * 0.15));
 
                 // A whole-source-plus deficit is a real shortage; a sub-source one is rounding noise.
-                if (f.Deficit > 1)
+                // Only COLOR-limited under-support counts — mana-limited (curve) cards are not a
+                // mana-base fault. (UnderSupportedCount, all late cards, still gates Excellent below.)
+                bool sourceShort = f.Deficit > 1;
+                bool colorStarved = f.ColorLimitedUnderSupportedCount > tolerance;
+                if (sourceShort || colorStarved)
                 {
-                    anyRealDeficit = true;
+                    colorsWithIssue++;
                 }
 
-                // Only COLOR-limited shortfalls count toward NeedsWork; mana-limited (curve) cards are
-                // not a mana-base fault. UnderSupportedCount (all late cards) still gates Healthy below.
-                if (f.ColorLimitedUnderSupportedCount > tolerance)
+                if (f.Deficit > 2)
                 {
-                    anyOverTolerance = true;
+                    anySevereColorDeficit = true;
                 }
             }
 
-            if (landsShort || anyRealDeficit || anyOverTolerance)
+            // Needs work: a real, broad shortage.
+            if (LandDelta < -2 || anySevereColorDeficit || colorsWithIssue >= 2)
             {
                 return ManabaseHealth.NeedsWork;
+            }
+
+            // Workable: a single contained color problem the base can fix.
+            if (colorsWithIssue == 1)
+            {
+                return ManabaseHealth.Workable;
             }
 
             if (LandDelta >= -1 && everyColorClear)

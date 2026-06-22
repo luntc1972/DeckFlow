@@ -165,7 +165,7 @@
             (@(report.LandDelta >= -1 ? "land count OK" : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
             <strong>Health:</strong>
             <span class="manabase-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
-            @if (report.Health == ManabaseHealth.Functional && report.DemandingCards.Count > 0)
+            @if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
             {
                 var demanding = report.DemandingCards;
                 <span class="manabase-demanding">

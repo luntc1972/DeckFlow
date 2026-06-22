@@ -59,22 +59,24 @@ public static class ManabaseDisplay
         return ("manabase-chip--good", "good");
     }
 
-    /// <summary>Human label for the two-tier health verdict.</summary>
+    /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
     public static string HealthLabel(ManabaseHealth health) => health switch
     {
-        ManabaseHealth.Healthy => "Healthy",
-        ManabaseHealth.Functional => "Functional",
+        ManabaseHealth.Healthy => "Excellent",
+        ManabaseHealth.Functional => "Solid",
+        ManabaseHealth.Workable => "Workable",
         _ => "Needs work",
     };
 
     /// <summary>
-    /// Semantic chip class for the health verdict so it reads by color too (never color alone):
-    /// Healthy → good, Functional → ok, NeedsWork → low.
+    /// Semantic chip class for the health scale so it reads by color too (never color alone):
+    /// Excellent → good (green), Solid → solid (blue), Workable → ok (amber), Needs work → low (red).
     /// </summary>
     public static string HealthCss(ManabaseHealth health) => health switch
     {
         ManabaseHealth.Healthy => "manabase-chip--good",
-        ManabaseHealth.Functional => "manabase-chip--ok",
+        ManabaseHealth.Functional => "manabase-chip--solid",
+        ManabaseHealth.Workable => "manabase-chip--ok",
         _ => "manabase-chip--low",
     };
 
