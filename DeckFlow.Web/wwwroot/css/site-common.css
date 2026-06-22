@@ -2471,10 +2471,33 @@ label.field > span,
   color: var(--ink, #2d3748);
 }
 
-.manabase-chip--solid {
-  background: color-mix(in srgb, var(--info, #3182ce) 16%, transparent);
-  border-color: var(--info, #3182ce);
-  color: var(--info, #3182ce);
+/* Health-verdict chips: fixed, theme-independent filled status colors (WCAG-AA contrast with the
+   baked-in text color) so the four levels stay legible on every guild theme — the per-theme
+   --info/--warning/--success tokens are surface colors, not status colors, and bled into the chip
+   text (e.g. Solid was near-white on the light Orzhov theme). Solid badges read on light AND dark
+   panels because they carry their own background. Distinct from the shared cast-chip --good/ok/low. */
+.manabase-health--excellent {
+  background: #166534;
+  border-color: #166534;
+  color: #ffffff;
+}
+
+.manabase-health--solid {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.manabase-health--workable {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #1c1917;
+}
+
+.manabase-health--needswork {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #ffffff;
 }
 
 .manabase-chip--good {
