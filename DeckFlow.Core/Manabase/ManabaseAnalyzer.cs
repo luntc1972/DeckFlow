@@ -316,6 +316,8 @@ public static class ManabaseAnalyzer
 
             int required = 0;
             string driver = "(none)";
+            int driverPips = 0;
+            int driverTurn = 0;
             double worstDeficit = double.NegativeInfinity;
 
             int underSupported = 0;
@@ -362,6 +364,8 @@ public static class ManabaseAnalyzer
                     worstDeficit = deficit;
                     required = need;
                     driver = spell.Name;
+                    driverPips = pips;
+                    driverTurn = onCurveTurn;
                 }
 
                 int castPercent = castabilityByName.TryGetValue(spell.Name, out CardCastability? row)
@@ -388,13 +392,22 @@ public static class ManabaseAnalyzer
 
             colorSpellCounts[color] = castCount;
 
+            // The displayed/verdict requirement is the MULLIGAN-AWARE sim figure for the worst driver
+            // (the cheap hypergeometric `required` only ranked the worst spell above). The
+            // hypergeometric is mulligan-blind and over-states double-pip needs (e.g. "30" white for a
+            // turn-2 WW); the sim models Commander's free first mulligan, so the deficit/verdict no
+            // longer trip on a phantom shortfall.
+            int simRequired = SimRequiredSources(
+                librarySize, totalLands, color, driverPips, driverTurn, deck.AverageManaValue,
+                deck.IsSingleton, threshold);
+
             findings.Add(new ColorSourceFinding
             {
                 Color = color,
                 // MEDIUM-4: ActualSources is the color's full weighted source count (all sources).
                 // The worst-driver's turn-specific untapped supply lives in the driver/required pair.
                 ActualSources = Math.Round(allSources, 1),
-                RequiredSources = required,
+                RequiredSources = simRequired,
                 DrivingSpell = driver,
                 UnderSupportedCount = underSupported,
                 AverageCastPercent = castCount > 0 ? Math.Round(castSum / castCount, 1) : 0,
@@ -404,6 +417,96 @@ public static class ManabaseAnalyzer
         }
 
         return OrderFindings(findings, deck, mode, importance, commanderColors);
+    }
+
+    // Reduced trial count for the per-color source-requirement search (binary search runs several
+    // sims); lower than the headline DefaultTrials to bound cost, with a full-trial boundary confirm.
+    private const int SourceSearchTrials = 5_000;
+
+    // Mulligan-aware "how many sources of this color does the worst driver need": the smallest
+    // on-color land count whose sim cast% (Commander free-mull aware) meets the under-supported
+    // threshold. Binary search over a synthetic deck that isolates this color; the boundary is
+    // confirmed at full trials so reduced-trial noise cannot off-by-one the deficit. Replaces the
+    // mulligan-blind hypergeometric figure that over-stated double-pip needs.
+    private static int SimRequiredSources(
+        int librarySize, int totalLands, ManaColor color, int pips, int onCurveTurn,
+        double averageManaValue, bool isSingleton, int threshold)
+    {
+        if (pips <= 0 || totalLands <= 0)
+        {
+            return 0;
+        }
+
+        int lo = Math.Min(pips, totalLands);
+        int hi = totalLands;
+        int result = totalLands;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) / 2;
+            int pct = SimColorCast(librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, mid, SourceSearchTrials);
+            if (pct >= threshold)
+            {
+                result = mid;
+                hi = mid - 1;
+            }
+            else
+            {
+                lo = mid + 1;
+            }
+        }
+
+        // Boundary confirm at full trials (reduced-trial noise can mis-place the crossing by one).
+        if (result > pips
+            && SimColorCast(librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, result - 1, CastabilitySimulator.DefaultTrials) >= threshold)
+        {
+            result -= 1;
+        }
+        else if (result < totalLands
+            && SimColorCast(librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, result, CastabilitySimulator.DefaultTrials) < threshold)
+        {
+            result += 1;
+        }
+
+        return result;
+    }
+
+    // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
+    // on-color lands plus off-color lands to `totalLands`, padded to `librarySize`. Isolates one
+    // color's requirement (other colors fully available), comparable to Karsten's per-color tables
+    // but mulligan-aware.
+    private static int SimColorCast(
+        int librarySize, int totalLands, ManaColor color, int pips, int onCurveTurn,
+        double averageManaValue, bool isSingleton, int onColor, int trials)
+    {
+        ManaColor off = color == ManaColor.White ? ManaColor.Blue : ManaColor.White;
+        var sources = new List<ManaSource>(totalLands);
+        for (int i = 0; i < onColor; i++)
+        {
+            sources.Add(new ManaSource { Name = "OnColor", Produces = new[] { color } });
+        }
+        for (int i = onColor; i < totalLands; i++)
+        {
+            sources.Add(new ManaSource { Name = "OffColor", Produces = new[] { off } });
+        }
+
+        var probe = new SpellRequirement
+        {
+            Name = "probe",
+            ManaValue = onCurveTurn,
+            Pips = new Dictionary<ManaColor, int> { [color] = pips },
+        };
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = librarySize,
+            CommanderCount = 0,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { probe },
+            AverageManaValue = averageManaValue,
+            IsSingleton = isSingleton,
+        };
+
+        return CastabilitySimulator.Simulate(deck, librarySize, probe, onCurveTurn, genericReduction: 0, trials).CastPercent;
     }
 
     // WeakestColor / ordering = tail-risk-first composite (NOT mean alone): any under-supported
