@@ -17,6 +17,21 @@ public static class ManabaseClassifier
         @"(?<scope>(?:[a-z]+ )*?)spells you cast cost \{(?<amt>\d+)\} less",
         RegexOptions.Compiled);
 
+    // Self-cost detection (DetectSelfCost). Oracle text is lower-cased before matching.
+    // Evoke / suspend may carry a braced mana cost (Shriekmaw "evoke {1}{B}", Crashing Footfalls
+    // "suspend 1—{g}") or a non-mana cost (Grief "evoke—exile a black card"); capture the braced
+    // cost when present, else treat the alternative as free. Dash variants -/–/— are tolerated.
+    private static readonly Regex EvokeCostRegex = new(
+        @"evoke[\s—–-]*((?:\{[^}]+\})+)", RegexOptions.Compiled);
+
+    private static readonly Regex SuspendCostRegex = new(
+        @"suspend\s+\d+[\s—–-]*((?:\{[^}]+\})+)", RegexOptions.Compiled);
+
+    // "This spell costs {N} less to cast for each <thing>" — a board-scaling SELF reduction
+    // (Blasphemous Act). Distinct from the deck-wide StaticReducerRegex (which excludes "for each").
+    private static readonly Regex ScalingSelfReducerRegex = new(
+        @"costs \{\d+\} less to cast for each", RegexOptions.Compiled);
+
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
@@ -32,6 +47,8 @@ public static class ManabaseClassifier
         var spells = new List<SpellRequirement>();
         var reducers = new List<CostReducer>();
         var granters = new List<GranterScope>();
+        var suggestions = new List<CostSuggestion>();
+        var suggestedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int totalCards = 0;
         int commanderCount = 0;
         double mvSum = 0;
@@ -108,6 +125,19 @@ public static class ManabaseClassifier
                     granters.Add(grant.Value);
                 }
             }
+
+            // Alt/reduced-cost suggestion (free/pitch, board-scaling self-reducer, evoke/suspend).
+            // One per distinct card name — these only pre-populate the override box, they don't
+            // alter the analysis unless the user applies an override.
+            if (suggestedNames.Add(card.Name) && DetectSelfCost(card) is (string effCost, string reason))
+            {
+                suggestions.Add(new CostSuggestion
+                {
+                    Name = card.Name,
+                    EffectiveCost = effCost,
+                    Reason = reason,
+                });
+            }
         }
 
         // Mana-ability granters add conditional weighted any-color sources for the creatures they
@@ -129,6 +159,7 @@ public static class ManabaseClassifier
             FastMana = fastMana,
             IsSingleton = isSingleton,
             CostReduction = reducers,
+            CostSuggestions = suggestions,
         };
     }
 
@@ -508,6 +539,90 @@ public static class ManabaseClassifier
             SourceManaValue = Math.Max(0, (int)Math.Round(card.ManaValue)),
         };
     }
+
+    // Detect a card whose realistic cost is below its printed mana value: free/pitch spells,
+    // board-scaling self-reducers (Blasphemous Act), and evoke/suspend. Returns a canonical braced
+    // effective cost ("0", "{R}", "{1}{B}") plus a short reason, or null when nothing applies.
+    // This is a SUGGESTION only — it pre-populates the override box; it never changes the analysis
+    // by itself. Most-specific category first.
+    private static (string EffectiveCost, string Reason)? DetectSelfCost(CardFact card)
+    {
+        string text = (card.OracleText ?? string.Empty).ToLowerInvariant();
+        if (text.Length == 0)
+        {
+            return null;
+        }
+
+        // 1) Free / pitch — self-anchored wording ("rather than pay this spell's mana cost").
+        //    Not the "without paying its mana cost" wording, which casts OTHER spells for free.
+        if (text.Contains("rather than pay this spell's mana cost", StringComparison.Ordinal))
+        {
+            return ("0", "free / alternative cost");
+        }
+
+        // 2) Board-scaling self-reduction ("this spell costs {1} less to cast for each ..."):
+        //    drop all generic, keep the colored pips — the practical floor when fully online.
+        if (ScalingSelfReducerRegex.IsMatch(text))
+        {
+            string colored = RenderColoredPips(ManaCostParser.Parse(card.ManaCost).Pips);
+            return (colored.Length == 0 ? "0" : colored,
+                "scales down with the board — assuming the reduction is fully online");
+        }
+
+        // 3) Evoke — use its braced mana cost when it has one (Shriekmaw "evoke {1}{B}"); a
+        //    non-mana evoke cost (Grief "exile a black card") is free of mana, so 0.
+        if (text.Contains("evoke", StringComparison.Ordinal))
+        {
+            Match evoke = EvokeCostRegex.Match(text);
+            return evoke.Success
+                ? (NormalizeBracedCost(evoke.Groups[1].Value), "evoke cost")
+                : ("0", "evoke (alternative cost)");
+        }
+
+        // 4) Suspend — the suspend cost is a mana cost (Crashing Footfalls "suspend 1—{g}").
+        Match suspend = SuspendCostRegex.Match(text);
+        if (suspend.Success)
+        {
+            return (NormalizeBracedCost(suspend.Groups[1].Value), "suspend cost");
+        }
+
+        return null;
+    }
+
+    // Render hard colored pips as a canonical braced cost in WUBRG(+C) order (e.g. "{R}", "{U}{U}").
+    private static string RenderColoredPips(IReadOnlyDictionary<ManaColor, int> pips)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (ManaColor color in new[]
+                 {
+                     ManaColor.White, ManaColor.Blue, ManaColor.Black,
+                     ManaColor.Red, ManaColor.Green, ManaColor.Colorless,
+                 })
+        {
+            int count = pips.GetValueOrDefault(color);
+            for (int i = 0; i < count; i++)
+            {
+                sb.Append('{').Append(ColorSymbol(color)).Append('}');
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static char ColorSymbol(ManaColor color) => color switch
+    {
+        ManaColor.White => 'W',
+        ManaColor.Blue => 'U',
+        ManaColor.Black => 'B',
+        ManaColor.Red => 'R',
+        ManaColor.Green => 'G',
+        _ => 'C',
+    };
+
+    // Re-render an already-braced cost (captured from oracle text, lower-cased) into canonical
+    // upper-case braced form so the stored suggestion matches ManaCostParser's expectations.
+    private static string NormalizeBracedCost(string braced) =>
+        braced.ToUpperInvariant();
 
     private static ReductionScope ClassifyReducerScope(string scopePhrase)
     {

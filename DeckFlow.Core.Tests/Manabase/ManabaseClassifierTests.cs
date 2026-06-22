@@ -82,6 +82,95 @@ public sealed class ManabaseClassifierTests
         Assert.Equal(0, spell.ManaValue);
     }
 
+    private static CostSuggestion? Suggestion(ManabaseDeck deck, string name) =>
+        deck.CostSuggestions.FirstOrDefault(s => s.Name == name);
+
+    private static ManabaseDeck ClassifyOne(string name, string? manaCost, int mv, string type, string oracle) =>
+        ManabaseClassifier.Classify(new List<CardFact>
+        {
+            new()
+            {
+                Name = name,
+                Quantity = 1,
+                ManaCost = manaCost,
+                ManaValue = mv,
+                TypeLine = type,
+                OracleText = oracle,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        });
+
+    [Fact]
+    public void DetectSelfCost_FreePitchSpell_SuggestsZero()
+    {
+        ManabaseDeck deck = ClassifyOne(
+            "Force of Will", "{3}{U}{U}", 5, "Instant",
+            "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost. Counter target spell.");
+
+        CostSuggestion? s = Suggestion(deck, "Force of Will");
+        Assert.NotNull(s);
+        Assert.Equal("0", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void DetectSelfCost_BoardScalingSelfReducer_SuggestsColoredRemainder()
+    {
+        ManabaseDeck deck = ClassifyOne(
+            "Blasphemous Act", "{8}{R}", 9, "Sorcery",
+            "This spell costs {1} less to cast for each creature on the battlefield. Destroy all creatures.");
+
+        CostSuggestion? s = Suggestion(deck, "Blasphemous Act");
+        Assert.NotNull(s);
+        Assert.Equal("{R}", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void DetectSelfCost_EvokeWithManaCost_SuggestsThatCost()
+    {
+        ManabaseDeck deck = ClassifyOne(
+            "Shriekmaw", "{4}{B}{B}", 6, "Creature — Elemental",
+            "Evoke {1}{B}. When Shriekmaw enters the battlefield, destroy target nonartifact, nonblack creature.");
+
+        CostSuggestion? s = Suggestion(deck, "Shriekmaw");
+        Assert.NotNull(s);
+        Assert.Equal("{1}{B}", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void DetectSelfCost_EvokeWithNonManaCost_SuggestsZero()
+    {
+        ManabaseDeck deck = ClassifyOne(
+            "Grief", "{2}{B}", 3, "Creature — Elemental Incarnation",
+            "Menace. Evoke—Exile a black card from your hand. When Grief enters, target opponent reveals their hand.");
+
+        CostSuggestion? s = Suggestion(deck, "Grief");
+        Assert.NotNull(s);
+        Assert.Equal("0", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void DetectSelfCost_SuspendWithEmDash_SuggestsSuspendCost()
+    {
+        ManabaseDeck deck = ClassifyOne(
+            "Crashing Footfalls", null, 0, "Sorcery",
+            "Suspend 1—{G}. Create two 4/4 green Rhino creature tokens with trample.");
+
+        CostSuggestion? s = Suggestion(deck, "Crashing Footfalls");
+        Assert.NotNull(s);
+        Assert.Equal("{G}", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void DetectSelfCost_DeckWideReducer_IsNotSelfCost()
+    {
+        // Ruby Medallion discounts OTHER spells; it is a CostReducer, not a self-cost suggestion.
+        ManabaseDeck deck = ClassifyOne(
+            "Ruby Medallion", "{2}", 2, "Artifact",
+            "Red spells you cast cost {1} less to cast.");
+
+        Assert.Null(Suggestion(deck, "Ruby Medallion"));
+    }
+
     [Fact]
     public void Classify_XSpell_AddsNoStrictRequirement()
     {
