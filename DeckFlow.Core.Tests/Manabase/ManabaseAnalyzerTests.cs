@@ -719,6 +719,51 @@ public sealed class ManabaseAnalyzerTests
         Assert.True(row.OnCurveTurn <= 2, $"override base + reducer must not exceed turn 2, got {row.OnCurveTurn}");
     }
 
+    [Fact]
+    public void Mulligan_SingletonFreeMull_RaisesCastability_VsStandardLondon()
+    {
+        // Same deck and spell; only IsSingleton differs. Commander's free first mulligan can only
+        // help a colour-tight card (more chances at a keepable hand without bottoming), so the
+        // singleton cast% must be >= the standard-London cast%.
+        var spell = new SpellRequirement { Name = "WW Two-Drop", ManaValue = 2, Pips = Pip((ManaColor.White, 2)) };
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 18; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+        for (int i = 0; i < 18; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        ManabaseDeck Mk(bool singleton) => new()
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.5,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { spell },
+            IsSingleton = singleton,
+        };
+
+        int singletonPct = ManabaseAnalyzer.Analyze(Mk(true)).Castability.Single(c => c.Name == "WW Two-Drop").CastPercent;
+        int standardPct = ManabaseAnalyzer.Analyze(Mk(false)).Castability.Single(c => c.Name == "WW Two-Drop").CastPercent;
+
+        Assert.True(singletonPct >= standardPct, $"singleton {singletonPct} should be >= standard London {standardPct}");
+    }
+
+    [Fact]
+    public void Mulligan_IsDeterministic_AcrossRuns()
+    {
+        var spell = new SpellRequirement { Name = "WW Two-Drop", ManaValue = 2, Pips = Pip((ManaColor.White, 2)) };
+        ManabaseDeck deck = SingleSpellDeck(spell, ManaColor.White);
+
+        int first = ManabaseAnalyzer.Analyze(deck).Castability.Single(c => c.Name == "WW Two-Drop").CastPercent;
+        int second = ManabaseAnalyzer.Analyze(deck).Castability.Single(c => c.Name == "WW Two-Drop").CastPercent;
+
+        Assert.Equal(first, second);
+    }
+
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
         => pips.ToDictionary(p => p.Color, p => p.Count);
 }

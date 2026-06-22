@@ -183,7 +183,7 @@ public static class CastabilitySimulator
             Array.Copy(deck0, shuffled, library.Count);
             ShufflePrefix(shuffled, prefix, rng);
             // Tiny decks (some unit fixtures) can be smaller than a 7-card opener — clamp the hand.
-            int handCount = Math.Min(library.Count, LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix));
+            int handCount = Math.Min(library.Count, LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton));
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
@@ -720,46 +720,57 @@ public static class CastabilitySimulator
     // non-lands first (London: see all 7, choose what to bottom). Returns the kept hand size, with
     // the kept cards moved to the front of `shuffled`. Bands widen with average mana value so a
     // higher curve tolerates more lands.
-    private static int LondonMulligan(IReadOnlyList<LibraryCard> library, int[] shuffled, bool[] active, Random rng, double avgMv, int prefix)
+    private static int LondonMulligan(IReadOnlyList<LibraryCard> library, int[] shuffled, bool[] active, Random rng, double avgMv, int prefix, bool isSingleton)
     {
         // Acceptable land bands per mulligan depth. Upper bound widens for higher-curve decks.
         int hiCap = avgMv >= 3.0 ? 5 : 4;
 
-        // Mull 0: keep 7 if lands in [2, hiCap]; mull 1: 6 if [2, 4]; mull 2: 5 if [1, 4]; else keep 5.
-        // The prefix is already shuffled by the caller for mull 0; each subsequent mulligan reshuffles
-        // it to draw a genuinely fresh 7.
-        for (int mull = 0; mull <= 2; mull++)
+        // Per-depth (keep, bottom-count, low-land, high-land). Commander grants a FREE first
+        // mulligan, so singleton depth 1 still keeps 7 (bottoms 0) under the same keepable band as a
+        // fresh 7; bottoming only begins at depth 2. Non-singleton is standard London (each mulligan
+        // bottoms one more). Bottom-count is explicit so later depths never bottom the wrong amount.
+        (int Keep, int Bottom, int Lo, int Hi)[] schedule = isSingleton
+            ? new[]
+            {
+                (7, 0, 2, hiCap), // depth 0
+                (7, 0, 2, hiCap), // depth 1 — Commander free mulligan
+                (6, 1, 2, 4),     // depth 2
+                (5, 2, 1, 4),     // depth 3 — forced keep
+            }
+            : new[]
+            {
+                (7, 0, 2, hiCap), // depth 0
+                (6, 1, 2, 4),     // depth 1
+                (5, 2, 1, 4),     // depth 2 — forced keep
+            };
+
+        int last = schedule.Length - 1;
+        for (int depth = 0; depth <= last; depth++)
         {
-            if (mull > 0)
+            // Depth 0's prefix is already shuffled by the caller; each later depth reshuffles to draw
+            // a genuinely fresh 7.
+            if (depth > 0)
             {
                 ShufflePrefix(shuffled, prefix, rng);
             }
 
             int lands = CountLands(library, active, shuffled, 7);
+            (int keep, int bottom, int lo, int hi) = schedule[depth];
 
-            int keep = 7 - mull;
-            bool acceptable = mull switch
+            if ((lands >= lo && lands <= hi) || depth == last)
             {
-                0 => lands >= 2 && lands <= hiCap,
-                1 => lands >= 2 && lands <= 4,
-                _ => lands >= 1 && lands <= 4,
-            };
-
-            if (acceptable || mull == 2)
-            {
-                if (mull == 0)
+                // Bottom `bottom` cards: non-lands first, highest deploy/mana cost first, so we keep
+                // our lands and cheapest spells (London choose-and-bottom). Free-mull depths bottom 0.
+                if (bottom > 0)
                 {
-                    return 7;
+                    BottomCards(library, shuffled, toBottom: bottom);
                 }
 
-                // Bottom (7 - keep) cards: choose non-lands first, highest deploy/mana cost first, so
-                // we keep our lands and cheapest spells (London choose-and-bottom).
-                BottomCards(library, shuffled, toBottom: 7 - keep);
                 return keep;
             }
         }
 
-        return 5;
+        return schedule[last].Keep;
     }
 
     // Fisher-Yates over the first `count` slots. Enough because we only inspect the opening 7 plus
