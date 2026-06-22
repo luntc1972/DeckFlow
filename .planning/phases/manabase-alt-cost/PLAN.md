@@ -1,6 +1,7 @@
 ---
 slug: manabase-alt-cost
 created: 2026-06-21
+revised: 2026-06-21 (after Codex plan review — BLOCK resolved)
 mode: phase
 branch: feature/manabase-alt-cost
 base: main@422dab0e
@@ -12,78 +13,109 @@ reviewer: codex (gpt-5.4)
 
 Castability under-rates cards whose real cost is below printed MV (free/pitch spells,
 board-scaling self-reducers like Blasphemous Act, evoke/suspend). Add hybrid auto-detect +
-a user-editable, pre-populated overrides box, applied through the existing cost-reduction seam.
+a user-editable, pre-populated overrides box, applied as an EFFECTIVE MANA COST threaded
+through every downstream consumer.
 
 Design source: `.planning/captures/manabase-alt-cost-overrides.md`. Decisions locked:
 hybrid · separate pre-populated box · all three categories · on main, in this worktree.
 
+## Codex review resolutions (BLOCK → addressed)
+- **HIGH-1/HIGH-2 (turn-only is insufficient):** the simulator's `effectiveCost` comes from
+  `spell.ManaValue`+`Pips` and `BuildColorFindings` reads original pips — so altering only
+  `EffectiveTurn` would NOT fix cast% or stop a free spell driving its color requirement.
+  Resolution: the override produces an **effective `SpellRequirement`** (effective MV +
+  effective pip map) that REPLACES the original in castability-row generation, the simulator
+  call, AND color-finding aggregation. One substituted requirement, consumed everywhere.
+- **HIGH-3 (evoke changes color, not just MV):** Grief `{2}{B}{B}` → evoke `{B}` keeps a
+  colored pip at lower MV — a bare `name→int MV` model can't represent it. Resolution: the
+  override value is an **effective mana cost string** parsed by the existing `ManaCost` parser
+  → exact MV + pips. Free = `0`/empty (no pips), Blasphemous Act = `R`, Grief evoke = `B`.
+- **MEDIUM (pip-drop heuristic too broad):** REMOVED. No "drop pips when MV<pips" rule —
+  pips come solely from the parsed effective cost, so manual edits never silently strip color.
+- **MEDIUM (name keying collisions, DFC/split):** key overrides by the RESOLVED card display
+  name (post-Scryfall), `CardNormalizer` only as a fallback parse step; handle DFC/split/adventure.
+- **MEDIUM/LOW (regex + tests):** suspend/evoke regexes tolerate `-`/`—`/line breaks and joined
+  face text; add the missing interaction + round-trip + negative tests; result contract carries suggestions.
+
 ## Tasks
 
 ### Task 1 — Core: self-cost detection (Claude impl, Codex review)
-Add `ManabaseClassifier.DetectSelfCost(CardFact) -> (int suggestedMv, string reason)?`,
-sibling to existing `DetectCostReducer`. Three categories from oracle text / type line:
-- Free / alt: "without paying its mana cost", common pitch wording → suggest 0.
-- Scaling self-reduction: "costs {1} less to cast for each …" → suggest floor = colored pip
-  count (Blasphemous Act {8}{R} → 1). Distinct from DetectCostReducer (which discounts OTHER
-  spells).
-- Evoke / suspend: "Evoke {cost}", "Suspend N—{cost}" → suggest that alt cost's MV.
-Return null when nothing matches. Expose detected suggestions on the deck/report so the Web
-layer can pre-fill the box.
-Tests: `ManabaseClassifierTests` — FoW→0, Blasphemous Act→1, an evoke card→alt, a plain card→null.
+Add `ManabaseClassifier.DetectSelfCost(CardFact) -> (string effectiveCost, string reason)?`,
+sibling to `DetectCostReducer`. Returns an effective mana-cost STRING (parseable by `ManaCost`):
+- Free / alt: "without paying its mana cost" / pitch wording → `"0"`.
+- Scaling self-reduction: "costs {1} less to cast for each …" → the colored remainder, i.e.
+  drop all generic, keep colored pips (Blasphemous Act `{8}{R}` → `"{R}"`).
+- Evoke / suspend: parse `Evoke {cost}` / `Suspend N—{cost}` (tolerate `-`/`—`, line breaks,
+  joined face text) → that cost string (Grief → `"{B}"`).
+Null when nothing matches. Surface detected (cardName, effectiveCost, reason) on the report.
+Tests: FoW→"0", Blasphemous Act→"{R}", Grief evoke→"{B}", a suspend card w/ em-dash, a deck-wide
+reducer (Medallion) → null (negative control, must NOT be caught here).
 
-### Task 2 — Core: apply overrides in the analyzer (Claude impl, Codex review)
-Thread `IReadOnlyDictionary<string,int> costOverrides` into `ManabaseAnalyzer.Analyze`.
-In `EffectiveTurn`: when an override exists for the spell, it wins (`min(override, computed)`).
-When target MV < colored pip count, also drop the colored requirement so a free spell routes
-exactly like a true 0-cost colorless card (consistency with the just-shipped 0-cost fix:
-floor stays at "1 mana, turn 1"). Carry the effective MV + an "overridden" flag onto
-`CardCastability` for display.
-Tests: override lowers on-curve turn; MV<pips clears pips (cast% jumps); MV≥pips keeps pip
-(Blasphemous Act→1 still needs {R}); no override = unchanged.
+### Task 2 — Core: effective-requirement substitution (Claude impl, Codex review)
+Build an effective `SpellRequirement` from the override/detected cost (reuse `ManaCost.Parse`):
+effective MV + effective Pips, preserving Name/Kinds/IsCommander/IsManaSource. Override key
+match: resolved display name first, normalized fallback. Substitute it BEFORE the per-spell
+pipeline so ALL three consumers see it:
+- `EffectiveTurn` / `GenericReduction` (existing deck reducers still apply on top; override is the
+  base requirement, deck reducers may lower further — `min`).
+- `CastabilitySimulator.Simulate` — receives the effective MV + pips (effectiveCost/turn now
+  derive from the substituted requirement, fixing HIGH-1).
+- `BuildColorFindings` — iterates effective Pips, so a freed/recolored spell no longer drives
+  its old color requirement (fixing HIGH-2).
+Carry effective MV + an "overridden" flag onto `CardCastability` for display.
+Tests: FoW "0" → ~99% AND drops blue from color findings; Blasphemous Act "{R}" → MV1 keeps {R}
+(still a red driver, turn 1); Grief "{B}" → MV1 one black pip (not {2}{B}{B}); override + existing
+reducer interaction (printed 5-drop + {1} reducer + override 3 → 3; override 4 → not worse than
+reduced turn); no override → byte-identical to today.
 
-### Task 3 — Web: overrides plumbing (Claude impl, Codex review)
-- `ManabaseAnalysisOptions.CostOverrides` (name→MV).
-- `ManabaseRequest` gains a `CostOverridesText` string; parse lines `Card Name: N`
-  (tolerant of spacing/case; normalize names with the existing CardNormalizer).
-- `ManabaseController` → `ManabaseAnalysisService.AnalyzeAsync` passes overrides through.
-- After analysis, surface detected suggestions (Task 1) so the box can pre-populate when the
-  user has not supplied their own. Round-trip the user's text on re-submit.
-Tests (`DeckFlow.Web.Tests`): overrides-text parser; options flow into the analyzer;
-suggestions surfaced; malformed lines ignored, not fatal.
+### Task 3 — Web: overrides plumbing + suggestions contract (Claude impl, Codex review)
+- `ManabaseAnalysisOptions.CostOverrides` = `IReadOnlyDictionary<string,string>` (name→cost string).
+- `ManabaseRequest.CostOverridesText`; parse lines `Card Name: <cost>` (cost = `0`, `{R}`, `1R`,
+  etc.; tolerant spacing/case; reject unparseable cost → ignore that line, never fatal).
+- `ManabaseAnalysisResult` gains `IReadOnlyList<(string Name, string Cost, string Reason)> Suggestions`
+  (the result-contract surface Codex flagged).
+- `ManabaseController` binds text → options; `ManabaseAnalysisService` passes overrides through and
+  returns Suggestions. Pre-populate the box from Suggestions when the user supplied none; preserve
+  the user's text verbatim on re-submit.
+Tests (`DeckFlow.Web.Tests`): cost-text parser (incl. split/DFC name + bad line ignored);
+options→analyzer flow; "no user override ⇒ prepopulate from suggestions; user text present ⇒ preserve".
 
 ### Task 4 — View + UI (Claude impl, Codex review)
-- `Manabase.cshtml`: "Reduced / alternative costs" textarea below the deck input,
-  pre-filled with detected suggestions after a run, editable, re-submit applies. CSS in
-  `site-common.css` only (no theme forks).
-- Castability rows: overridden MV shown with a marker (e.g. `1*`) + an "alt/reduced cost"
-  note — preserves "show the work".
+- `Manabase.cshtml`: "Reduced / alternative costs" textarea below the deck input, pre-filled from
+  Suggestions after a run, editable, re-submit applies. CSS in `site-common.css` only.
+- Castability rows: overridden MV shown with a marker (`1*`) + "alt/reduced cost" note.
 - BUNDLED: verify pill centering (likely already fixed by 88724d84 — confirm at 1280 + 390;
-  only change CSS if a real defect remains; see capture note).
+  CSS-only change if a real defect remains).
 Tests: Playwright `manabase.spec.ts` — box renders + pre-populates + applies (cast% changes);
-overridden marker visible; verify desktop (1280) + mobile (390) across themes, no overflow.
+overridden marker visible; desktop (1280) + mobile (390) across themes, no overflow.
 
 ## Files (ALLOWED SET — fence)
 - `DeckFlow.Core/Manabase/ManabaseClassifier.cs` — DetectSelfCost + surface suggestions
-- `DeckFlow.Core/Manabase/ManabaseAnalyzer.cs` — apply overrides in EffectiveTurn + pip-drop
+- `DeckFlow.Core/Manabase/ManabaseAnalyzer.cs` — effective-requirement substitution across all 3 consumers
+- `DeckFlow.Core/Manabase/CastabilitySimulator.cs` — consume effective requirement (if a signature tweak is needed)
 - `DeckFlow.Core/Manabase/ManabaseModels.cs` — suggestion + overridden-flag fields
+- `DeckFlow.Core/Manabase/ManaCost.cs` — reuse Parse (no change expected; verify it handles "0"/empty)
 - `DeckFlow.Web/Models/ManabaseRequest.cs` — CostOverridesText
 - `DeckFlow.Web/Models/ManabaseViewModel.cs` — suggestions + overrides round-trip
-- `DeckFlow.Web/Services/Manabase/ManabaseAnalysisService.cs` — options plumbing + parser
+- `DeckFlow.Web/Services/Manabase/ManabaseAnalysisService.cs` — options plumbing + parser + Suggestions on result
 - `DeckFlow.Web/Controllers/ManabaseController.cs` — bind + pass overrides
 - `DeckFlow.Web/Views/Deck/Manabase.cshtml` — overrides box + row marker
 - `DeckFlow.Web/wwwroot/css/site-common.css` — box styling + pill-centering (if needed)
 - `DeckFlow.Core.Tests/Manabase/ManabaseClassifierTests.cs`, `ManabaseAnalyzerTests.cs` — Core tests
-- `DeckFlow.Web.Tests/*` — parser + plumbing tests
+- `DeckFlow.Web.Tests/*` — parser + plumbing + suggestions tests
 - `DeckFlow.Web/e2e/manabase.spec.ts` — Playwright
 
 ## Constraints
-- Reuse the existing cost seam (EffectiveTurn/GenericReduction) — do not fork a new free-spell path.
-- Keep MV-override consistent with the shipped 0-cost handling (floor 1 mana / turn 1).
+- Override = effective mana COST (reuse `ManaCost.Parse`), not a bare int — represents pips, not just MV.
+- ONE substituted effective requirement consumed by EffectiveTurn + Simulate + BuildColorFindings.
+- NO pip-drop heuristic; pips come from the parsed cost.
+- Keep MV-0 consistent with shipped 0-cost handling (floor 1 mana / turn 1).
 - Preserve carve-outs (init props, raw strings, switch exprs), LF endings, changed-lines format gate.
 - Layout CSS in site-common.css only; never edit theme forks.
 
 ## Success criteria
-- Force of Will with override 0 → castability rises to ~99% (routes like a 0-cost card).
-- Blasphemous Act detected, suggested 1, box pre-filled; applying → cast% reflects MV 1 ({R}).
-- Overridden rows visibly marked; suggestions pre-populate; user text round-trips.
+- Force of Will override `0` → cast% ~99% AND it stops appearing as a blue source-driver.
+- Blasphemous Act auto-detected → suggested `{R}`, box pre-filled; applying → MV1, keeps {R}.
+- Grief evoke `{B}` → MV1 single black pip (not the printed {2}{B}{B}).
+- Override + deck reducer interact correctly (min); overridden rows marked; user text round-trips.
 - Build clean; Core + Web xUnit green; Playwright green desktop + mobile across themes.
