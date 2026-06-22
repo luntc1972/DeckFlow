@@ -23,6 +23,17 @@ Add an optional **Deck name** to label the report.
 - **Deck type** — *Casual* (default; Karsten's full land target) or **cEDH** (a lower land count in the competitive ~28–32 band, assuming heavy fast mana).
 - **How important is your commander?** — *Central* (must cast as early as possible every game, e.g. Brago), *Standard* (matters, cast when convenient), or *Low* (optional / late value). Central holds the commander's colors to a stricter threshold; it does not change the land target. Both selectors persist when you re-analyze.
 
+### Reduced / alternative costs (optional)
+
+Some cards cost far less than their printed mana value: pitch / free spells (Force of Will), board-scaling self-reducers (Blasphemous Act `{8}{R}` that you usually cast for `{R}`), and evoke / suspend. DeckFlow **auto-detects** these and pre-fills the **"Reduced / alternative costs"** box — one card per line as `Card Name: cost`, for example:
+
+```
+Force of Will: 0
+Blasphemous Act: {R}
+```
+
+Edit or clear any line you disagree with (the cost is what the card *effectively* costs you, not its printed cost). The value is a mana **cost**, so it can change colors, not just lower the number: `0` makes a card behave like a true 0-cost spell (it stops demanding its colors), while `{R}` keeps one red pip. An applied override flows through the whole verdict — the castability simulation, the on-curve turn, and the per-color source findings — and the affected rows are flagged with a `*`. Leave the box empty to score every card at its printed cost.
+
 Then press **Analyze Mana Base**. Cards resolve through Scryfall by exact printing first, so alternate or flavor names still match; anything unresolved is listed separately.
 
 ## Step 2 — Read The Report
@@ -31,7 +42,7 @@ The result panel shows:
 
 - **Land count** — your actual land total vs. the count Karsten's math recommends for your curve (cEDH lowers that target), with an OK / short verdict.
 - **Color findings** — for each color: how many effective sources you run (duals, any-color rocks, and fetchlands are credited to every color they can make), the toughest spell driving the requirement, how many of that color's cards are under-supported, and their mean castability. The weakest color is highlighted; a lone hard-to-cast bomb still surfaces even if the rest of the color is fine.
-- **Castability** (Casual mode) — a table of each real spell's estimated chance to be cast **on its on-curve turn**, worst-first, with a low / ok / good chip and what's limiting it (*mana*, *color: X*, or *mana + color*). Your commander is pinned at the top. Mana rocks, dorks, and lands are counted in the math but not listed as rows. cEDH mode hides this table.
+- **Castability** (Casual mode) — a table of each real spell's estimated chance to be cast **on its on-curve turn**, worst-first, with a low / ok / good chip and what's limiting it (*mana*, *color: X*, or *mana + color*). Your commander is pinned at the top. Mana rocks, dorks, and lands are counted in the math but not listed as rows. A `*` next to a card's mana value means a reduced / alternative cost from your overrides was applied. cEDH mode hides this table.
 
 The castability number comes from a Monte-Carlo simulation (it plays out thousands of games with a London mulligan), so read it as a **ranking aid**, not a guarantee.
 
