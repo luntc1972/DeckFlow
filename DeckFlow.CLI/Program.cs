@@ -96,6 +96,9 @@ var distillVideoIdsOption = new Option<string?>("--video-ids") { Description = "
 var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
 var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(Path.Combine("content-kb", "seed", "index-seed.json"))) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
+var contentKbCheckCommand = new Command("content-kb-check", "Checks content_site_index rows against local artifact files and reports orphans (read-only; exits 1 when a published orphan exists).");
+var contentKbCheckDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var contentKbCheckArtifactRootOption = new Option<DirectoryInfo?>("--artifact-root") { Description = "Artifact directory: either the data-root parent of content-kb/ or the content-kb directory itself (both are normalized). Defaults to the MTG_DATA_DIR/content-kb resolution." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -155,6 +158,8 @@ distillCommand.AddOption(distillDryRunOption);
 distillCommand.AddOption(distillVideoIdsOption);
 contentIndexExportCommand.AddOption(contentIndexExportDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
+contentKbCheckCommand.AddOption(contentKbCheckDbOption);
+contentKbCheckCommand.AddOption(contentKbCheckArtifactRootOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -211,6 +216,7 @@ rootCommand.AddCommand(listBlockedCommand);
 rootCommand.AddCommand(corpusResetCommand);
 rootCommand.AddCommand(distillCommand);
 rootCommand.AddCommand(contentIndexExportCommand);
+rootCommand.AddCommand(contentKbCheckCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -317,6 +323,11 @@ contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
 {
     Environment.ExitCode = ContentKbCommandRunners.RunContentIndexExportAsync(db, output).GetAwaiter().GetResult();
 }, contentIndexExportDbOption, contentIndexExportOutputOption);
+
+contentKbCheckCommand.SetHandler((FileInfo? db, DirectoryInfo? artifactRoot) =>
+{
+    Environment.ExitCode = ContentKbCommandRunners.RunContentKbCheckAsync(db, artifactRoot).GetAwaiter().GetResult();
+}, contentKbCheckDbOption, contentKbCheckArtifactRootOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;
