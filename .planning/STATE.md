@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: Cycle 10
 milestone_name: — Studio Automation, Sync & Polish
-status: Awaiting next milestone
-stopped_at: Cycle 10 SHIPPED (2026.06.6) — all 5 phases (59-63) complete/verified, archived
-last_updated: "2026-06-21T17:30:00.000Z"
-last_activity: 2026-06-21 — Milestone cycle10 completed, archived, and tagged 2026.06.6
+status: "main reconciled — Cycle 10 shipped; ad-hoc Manabase Analyzer shipped to prod off main; official Cycle 11 lives on cycle11 worktree"
+stopped_at: "2026-06-22 — main planning reconciled to reflect post-Cycle-10 Manabase Analyzer work (committed direct to main, deployed to prod)"
+last_updated: "2026-06-22T19:00:00.000Z"
+last_activity: 2026-06-22 — Reconciled main: wrote missing manabase SUMMARYs (64-01/02, accuracy, alt-cost), cleared stale Cycle-10 HANDOFF.json
 progress:
   total_phases: 5
   completed_phases: 5
@@ -21,14 +21,25 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Planning next milestone (`/gsd-new-milestone`) — Cycle 10 shipped (`2026.06.6`)
+**Current focus:** main is reconciled. Official next-milestone track is **Cycle 11** on the `cycle11` worktree (`../deckflow-cycle11`, Phase 64 done → `/gsd-plan-phase 65`). main itself carries the ad-hoc Manabase Analyzer feature, now shipped to prod.
+
+## ⚠ Branch divergence (read first)
+
+Two parallel tracks exist — do not conflate:
+
+- **`main` (this tree):** Cycle 10 shipped (`2026.06.6`). SINCE then a **Manabase Analyzer** feature was built and committed DIRECTLY on main (27 commits past the tag) and **deployed to prod 2026-06-22 ~12:33**. This violated the milestone-branch rule but is already live. Tracked (post-hoc) under `phases/64-manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` — SUMMARYs reconstructed 2026-06-22.
+- **`cycle11` worktree (`../deckflow-cycle11`):** official **Cycle 11 — Security, Visibility Control & Creator-Lens** (phases 64-69; note: that branch's phase 64 = *Deck-Source Host Hardening*, a DIFFERENT phase 64 from main's manabase one). 35% done; Phase 64 complete+verified+secured+pushed; next `/gsd-plan-phase 65`.
+
+> Open decision for the operator: how to reconcile the two branches (e.g. merge main's manabase
+> work into cycle11, or fold it into a future "Cycle 12" milestone). Manabase is NOT in Cycle 11's
+> official scope.
 
 ## Current Position
 
-Phase: Milestone cycle10 complete
+Phase: Cycle 10 complete; ad-hoc Manabase Analyzer shipped to prod off main (post-cycle, unplanned milestone)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-21 — Milestone cycle10 completed and archived
+Status: main reconciled; awaiting operator decision on branch reconciliation + next milestone
+Last activity: 2026-06-22 — Reconciled main planning to reflect shipped manabase work
 
 ## Roadmap Summary
 
@@ -132,10 +143,12 @@ Last activity: 2026-06-21 — Milestone cycle10 completed and archived
 
 ## Session Continuity
 
-Last session: 2026-06-21T17:30:00Z
-Stopped at: Cycle 10 closed — archived + tagged 2026.06.6; squash-merge to main staged for operator push.
-Resume: Cycle 10 SHIPPED. Start next milestone with /gsd-new-milestone.
+Last session: 2026-06-22T19:00:00Z
+Stopped at: Reconciled main planning — wrote reconstructed manabase SUMMARYs (64-01, 64-02, manabase-accuracy, manabase-alt-cost), updated STATE, deleted the stale Cycle-10 phase-60 HANDOFF.json. Untracked at repo root: `.manabase-brago-facts.json` (harness cache — left untracked, candidate for .gitignore).
+Resume: main is honest. Decide branch reconciliation (manabase-on-main vs Cycle 11 worktree), then either resume Cycle 11 (`/gsd-plan-phase 65` in `../deckflow-cycle11`) or start a Cycle 12 to absorb manabase.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Decide how to reconcile main's shipped manabase feature with the Cycle 11 worktree track.
+- To continue Cycle 11: work in `../deckflow-cycle11`, run `/gsd-plan-phase 65`.
+- `.manabase-brago-facts.json` at repo root is a harness cache — add to `.gitignore` (operator: that file is in the do-not-modify list) or `git clean` it.
