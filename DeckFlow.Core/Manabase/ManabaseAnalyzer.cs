@@ -510,7 +510,14 @@ public static class ManabaseAnalyzer
             result += 1;
         }
 
-        return result;
+        // The mulligan-aware sim may only LOWER the requirement below Karsten's mulligan-blind source
+        // count — modeling Commander's free first mulligan can never make a color HARDER than the
+        // draw-without-mulligan table. Yet for a double-pip spell in a 99-card deck the Monte-Carlo
+        // cast% sits depressed enough that the binary search climbs toward totalLands (a Gruul deck
+        // reading "need ~35 of 36 red sources" for an {2}{R}{R} card). Clamp to Karsten's trusted,
+        // Snail-validated figure so the sim's only effect is to shave the requirement, never inflate it.
+        int karstenCeiling = KarstenManabase.SourcesNeeded(librarySize, totalLands, pips, Math.Max(1, onCurveTurn));
+        return Math.Min(result, karstenCeiling);
     }
 
     // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
