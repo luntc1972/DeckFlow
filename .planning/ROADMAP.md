@@ -24,7 +24,7 @@
 | # | Phase | Goal | Requirements | SCs |
 |---|-------|------|--------------|-----|
 | 64 | Deck-Source Host Hardening | 2/2 | Complete   | 2026-06-21 |
-| 65 | Prod Content Artifact Reconcile | Make prod content_site_index + artifacts consistent (86 orphaned rows) | DATA-01, DATA-02 | 3 |
+| 65 | Prod Content Artifact Reconcile | 2/3 | In Progress|  |
 | 66 | Admin Tool-Visibility Toggles + Tool Registry | Admin can kill any tile/page; cascade to tile+help+nav; empty section collapses | TOGGLE-01..07 | 5 |
 | 67 | Content KB Value A/B Validation | Prove (or refute) the KB lifts AI output; gate downstream KB work | KBVAL-01, KBVAL-02 | 3 |
 | 68 | Creator-Philosophy Representation Research | Design per-creator style-card + RAG model — *only if Phase 67 shows lift* | CREATOR-01 | 3 |
@@ -63,8 +63,8 @@
   2. The 86 orphaned rows are resolved: artifacts re-uploaded, or rows reconciled down, or the gap formally downgraded to cosmetic — with the chosen path and reasoning recorded.
   3. A post-reconcile check confirms every remaining prod row's artifact expectation matches reality (no remaining unexplained orphans).
 **Plans**: 3 plans
-  - [ ] 65-01-PLAN.md — DATA-01 serving-path decision doc + read-only prod probe (published-orphan count) [Wave 1]
-  - [ ] 65-03-PLAN.md — content-kb-check CLI command + Core orphan-scanner helper + xUnit tests [Wave 1]
+  - [x] 65-01-PLAN.md — DATA-01 serving-path decision doc + read-only prod probe (published-orphan count) [Wave 1]
+  - [x] 65-03-PLAN.md — content-kb-check CLI command + Core orphan-scanner helper + xUnit tests [Wave 1]
   - [ ] 65-02-PLAN.md — operator-run reconcile execution (path choice + execute + post-reconcile check) [Wave 2]
 **UI hint**: no
 

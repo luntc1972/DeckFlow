@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "main merged into cycle11 (manabase + reconcile integrated). Phase 64 complete. Next: /gsd-verify-work 64 or /gsd-plan-phase 65."
-last_updated: "2026-06-22T19:30:00.000Z"
-last_activity: 2026-06-22 — Merged main → cycle11; cycle11 is now the superset integration branch (manabase + security)
+stopped_at: Branch reconciliation done — main de-numbered manabase out of slot 64; merged main → cycle11 (one STATE.md conflict resolved). cycle11 now superset (manabase + security). Phase 64 complete.
+last_updated: "2026-06-22T22:11:49.013Z"
+last_activity: 2026-06-22 -- Phase 65 execution started
 progress:
   total_phases: 10
   completed_phases: 3
-  total_plans: 17
-  completed_plans: 13
-  percent: 35
+  total_plans: 20
+  completed_plans: 12
+  percent: 30
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Cycle 11 — Security, Visibility Control & Creator-Lens (6 phases 64-69). On branch `cycle11` in worktree `../deckflow-cycle11`, now the **superset integration branch** (carries manabase + security). Next: `/gsd-verify-work 64` then `/gsd-plan-phase 65`.
+**Current focus:** Phase 65 — prod-content-artifact-reconcile
 
 ## Branch reconciliation (resolved 2026-06-22)
 
@@ -30,10 +30,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 64 — Deck-Source Host Hardening (complete)
-Plan: 02 complete (all plans in phase done)
-Status: Phase 64 complete — awaiting /gsd-verify-work 64; main merged in
-Last activity: 2026-06-22 — Merged main → cycle11 (manabase + reconcile integrated)
+Phase: 65 (prod-content-artifact-reconcile) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 65
+Last activity: 2026-06-22 -- Phase 65 execution started
 
 ## Roadmap Summary
 
