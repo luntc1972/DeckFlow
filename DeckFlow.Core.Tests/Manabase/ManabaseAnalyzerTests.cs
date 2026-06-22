@@ -936,6 +936,52 @@ public sealed class ManabaseAnalyzerTests
         Assert.False(report.IsHealthy);
     }
 
+    [Fact]
+    public void Analyze_GoldDriver_RequiresAtLeastAsManySources_AsMonoSinglePip()
+    {
+        // Codex HIGH-1: a gold {W}{U} card needs a white AND a blue source simultaneously, so its
+        // blue requirement must account for that contention — it can never be LOWER than a mono {U}
+        // single-pip on the same base (the old mono-probe ignored the white pip and under-counted).
+        static ManabaseDeck Build(SpellRequirement driver)
+        {
+            var sources = new List<ManaSource>();
+            for (int i = 0; i < 12; i++)
+            {
+                sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+            }
+            for (int i = 0; i < 12; i++)
+            {
+                sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+            }
+
+            return new ManabaseDeck
+            {
+                TotalCards = 100,
+                CommanderCount = 1,
+                AverageManaValue = 2.5,
+                Sources = sources,
+                Spells = new List<SpellRequirement> { driver },
+                IsSingleton = true,
+            };
+        }
+
+        var gold = Build(new SpellRequirement
+        {
+            Name = "Gold WU",
+            ManaValue = 2,
+            Pips = Pip((ManaColor.White, 1), (ManaColor.Blue, 1)),
+            IsGold = true,
+        });
+        var mono = Build(new SpellRequirement { Name = "Mono U", ManaValue = 2, Pips = Pip((ManaColor.Blue, 1)) });
+
+        ColorSourceFinding goldBlue = ManabaseAnalyzer.Analyze(gold).ColorFindings.Single(f => f.Color == ManaColor.Blue);
+        ColorSourceFinding monoBlue = ManabaseAnalyzer.Analyze(mono).ColorFindings.Single(f => f.Color == ManaColor.Blue);
+
+        Assert.True(goldBlue.RequiredSources >= monoBlue.RequiredSources,
+            $"gold blue requirement ({goldBlue.RequiredSources}) must model the white contention and not fall below mono ({monoBlue.RequiredSources})");
+        Assert.True(goldBlue.RequiredSources > 0);
+    }
+
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
         => pips.ToDictionary(p => p.Color, p => p.Count);
 }
