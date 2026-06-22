@@ -982,6 +982,81 @@ public sealed class ManabaseAnalyzerTests
         Assert.True(goldBlue.RequiredSources > 0);
     }
 
+    [Fact]
+    public void Analyze_ManaLimitedHighMvSpell_ColorRequirementClampsToPips_NotLandCeiling()
+    {
+        // Codex review cap-guard: a 7-MV single-pip spell on a ramp-free 30-land/99 deck is limited by
+        // mana QUANTITY (you rarely have 7 lands by turn 7), not blue access — even an all-blue base
+        // can't clear the bar. The per-color requirement must clamp to the pip minimum (1), NOT run up
+        // to the land ceiling and resurrect a phantom deficit. The card's difficulty shows in its cast %.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 30; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 6.0,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Big Blue Seven", ManaValue = 7, Pips = Pip((ManaColor.Blue, 1)) },
+            },
+            IsSingleton = true,
+        };
+
+        ColorSourceFinding blue = ManabaseAnalyzer.Analyze(deck).ColorFindings.Single(f => f.Color == ManaColor.Blue);
+
+        // Clamped to the single pip — not the 30-land ceiling.
+        Assert.Equal(1, blue.RequiredSources);
+    }
+
+    [Fact]
+    public void Analyze_ThreeColorGold_AddsTwoSourceContentionBump_OverMono()
+    {
+        // Codex review: a 3-color {W}{U}{B} card needs a source of BOTH other colors at once, so its
+        // per-color requirement is the isolated mono figure plus exactly two (one per other color),
+        // versus a mono single-pip on the same base. Locks the otherColors == 2 bump against off-by-one.
+        static ManabaseDeck Build(SpellRequirement driver)
+        {
+            var sources = new List<ManaSource>();
+            foreach (ManaColor c in new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black })
+            {
+                for (int i = 0; i < 12; i++)
+                {
+                    sources.Add(new ManaSource { Name = c.ToString(), Produces = new[] { c } });
+                }
+            }
+
+            return new ManabaseDeck
+            {
+                TotalCards = 100,
+                CommanderCount = 1,
+                AverageManaValue = 2.5,
+                Sources = sources,
+                Spells = new List<SpellRequirement> { driver },
+                IsSingleton = true,
+            };
+        }
+
+        var gold = Build(new SpellRequirement
+        {
+            Name = "WUB Gold",
+            ManaValue = 3,
+            Pips = Pip((ManaColor.White, 1), (ManaColor.Blue, 1), (ManaColor.Black, 1)),
+            IsGold = true,
+        });
+        var mono = Build(new SpellRequirement { Name = "Mono U", ManaValue = 3, Pips = Pip((ManaColor.Blue, 1)) });
+
+        ColorSourceFinding goldBlue = ManabaseAnalyzer.Analyze(gold).ColorFindings.Single(f => f.Color == ManaColor.Blue);
+        ColorSourceFinding monoBlue = ManabaseAnalyzer.Analyze(mono).ColorFindings.Single(f => f.Color == ManaColor.Blue);
+
+        Assert.Equal(monoBlue.RequiredSources + 2, goldBlue.RequiredSources);
+    }
+
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
         => pips.ToDictionary(p => p.Color, p => p.Count);
 }
