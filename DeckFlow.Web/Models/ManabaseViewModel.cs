@@ -55,6 +55,12 @@ public sealed class ManabaseViewModel
     public bool HasResult => Report is not null;
 
     /// <summary>
+    /// True after the "Load deck" step resolved the deck and detected cost suggestions, but before a
+    /// full analysis ran. Drives the review-then-analyze hint.
+    /// </summary>
+    public bool Loaded { get; init; }
+
+    /// <summary>
     /// True when the castability table should render: a report exists, it was run in Casual mode,
     /// and it carries at least one castability row. cEDH hides the table (v1) and shows a note.
     /// </summary>
