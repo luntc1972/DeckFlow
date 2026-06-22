@@ -17,6 +17,40 @@ test('deck primer exposes bracket and section controls', async ({ page }) => {
   await expect(page.locator('[data-primer-section-checkbox]').first()).toBeVisible();
 });
 
+for (const view of [
+  { name: 'desktop', width: 1280, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+]) {
+  test(`deck primer step tabs are wired and scroll-navigate (${view.name})`, async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text());
+      }
+    });
+
+    await page.setViewportSize({ width: view.width, height: view.height });
+    const response = await page.goto('/deck-primer');
+    expect(response?.ok()).toBeTruthy();
+
+    const tabs = page.locator('[data-primer-show-step]');
+    await expect(tabs).toHaveCount(3);
+
+    // Every tab's aria-controls target section must exist — the scroll-nav anchors.
+    for (const id of ['primer-step-panel-1', 'primer-step-panel-2', 'primer-step-panel-3']) {
+      await expect(page.locator(`#${id}`)).toHaveCount(1);
+    }
+
+    // Clicking a tab must run the handler: roving selection moves to the clicked tab.
+    const step2 = tabs.nth(1);
+    await step2.click();
+    await expect(step2).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'false');
+
+    expect(consoleErrors).toEqual([]);
+  });
+}
+
 test('admin content kb filter wires without console errors and narrows rows', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
