@@ -74,14 +74,45 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
             new FakeRecentDecksImporter(),
             idlePollDelay: TimeSpan.FromMilliseconds(5));
 
+        // Deterministic stop instead of racing a fixed wall-clock window: the old 300 ms budget made
+        // this flaky under CI load (the per-deck duration check broke the loop after only 2 of 3
+        // decks). RunAsync reports progress synchronously AFTER each deck is fully persisted, so
+        // cancelling when the count reaches 3 means all three are done and the run breaks cleanly out
+        // of the same per-deck check with the complete result (no idle Task.Delay is hit, so no throw).
+        using var cancellation = new CancellationTokenSource();
+        var stopWhenAllProcessed = new SynchronousProgress<int>(processed =>
+        {
+            if (processed >= 3)
+            {
+                cancellation.Cancel();
+            }
+        });
+
+        // The duration is only a safety cap; the progress-driven cancel ends the run as soon as the
+        // three queued decks are processed, regardless of how slow the runner is.
         var result = await session.RunAsync(
-            TimeSpan.FromMilliseconds(300),
+            TimeSpan.FromSeconds(5),
             queueBatchSize: 1,
             fetchBatchSize: 3,
-            cancellationToken: CancellationToken.None);
+            cancellationToken: cancellation.Token,
+            progress: stopWhenAllProcessed);
 
         Assert.Equal(3, result.DecksProcessed);
         Assert.Equal(3, importer.ImportCalls);
+    }
+
+    /// <summary>
+    /// Invokes the handler synchronously on the calling thread (unlike <see cref="Progress{T}"/>,
+    /// which posts asynchronously), so the test can react to each progress tick in-order and stop the
+    /// run deterministically rather than on a wall clock.
+    /// </summary>
+    private sealed class SynchronousProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+
+        public SynchronousProgress(Action<T> handler) => _handler = handler;
+
+        public void Report(T value) => _handler(value);
     }
 
     private sealed class FakeDeckImporter : IArchidektDeckImporter
