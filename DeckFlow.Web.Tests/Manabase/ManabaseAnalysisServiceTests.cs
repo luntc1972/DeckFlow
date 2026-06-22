@@ -236,6 +236,60 @@ public sealed class ManabaseAnalysisServiceTests
             () => service.AnalyzeAsync("paste", null));
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_DetectsSuggestions_AndAppliesOverride()
+    {
+        // Blue is deliberately thin (only 10 Islands in a ~60-card library) so a 5-MV {U}{U}
+        // Force of Will is hard to cast on curve — leaving real room for the free override to lift it.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Commander Guy", 1, "commander"),
+            Land("Island", 10),
+            Spell("Force of Will", "{3}{U}{U}", 5, "Instant").ToEntry(),
+        };
+        for (int i = 0; i < 50; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        var fow = new ScryfallCard(
+            Name: "Force of Will", ManaCost: "{3}{U}{U}", TypeLine: "Instant",
+            OracleText: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost. Counter target spell.",
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 5, ProducedMana: null, Rarity: "rare");
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Commander Guy", "{2}{U}", 3, "Legendary Creature — Human"),
+            fow,
+        };
+        for (int i = 0; i < 50; i++)
+        {
+            cards.Add(Spell($"Filler {i}", "{2}", 3, "Sorcery"));
+        }
+
+        // No override applied: Force of Will is detected as a suggestion but its row is unchanged.
+        var detectOnly = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var detect = await detectOnly.AnalyzeAsync("paste", null);
+        Assert.Contains(detect.Suggestions, s => s.Name == "Force of Will" && s.EffectiveCost == "0");
+        CardCastability before = detect.Report.Castability.Single(c => c.Name == "Force of Will");
+        Assert.False(before.IsCostOverridden);
+
+        // Override applied: effective MV 0, marked overridden, and a higher cast %.
+        var applied = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var withOverride = await applied.AnalyzeAsync(
+            "paste", null,
+            new ManabaseAnalysisOptions
+            {
+                CostOverrides = new Dictionary<string, string> { ["Force of Will"] = "0" },
+            });
+        CardCastability after = withOverride.Report.Castability.Single(c => c.Name == "Force of Will");
+        Assert.True(after.IsCostOverridden);
+        Assert.Equal(0, after.ManaValue);
+        Assert.True(after.CastPercent > before.CastPercent);
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null) => new()

@@ -42,6 +42,12 @@ public sealed class ManabaseAnalysisOptions
 
     /// <summary>How heavily to weight the commander's colors (Standard default).</summary>
     public CommanderImportance CommanderImportance { get; init; } = CommanderImportance.Standard;
+
+    /// <summary>
+    /// Optional per-card effective-cost overrides (card name → canonical braced cost). Replaces the
+    /// printed cost in the castability math for alt/reduced-cost cards. Empty/null = no overrides.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? CostOverrides { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -50,12 +56,14 @@ public sealed class ManabaseAnalysisOptions
 /// <param name="Unresolved">Card names Scryfall could not resolve (excluded from the math).</param>
 /// <param name="ImportWarning">Optional notice from the deck importer (e.g. a fallback path).</param>
 /// <param name="ChatGptSwapPrompt">Paste-ready prompt asking an LLM for specific land swaps.</param>
+/// <param name="Suggestions">Auto-detected alt/reduced-cost suggestions to pre-populate the override box.</param>
 public sealed record ManabaseAnalysisResult(
     ManabaseReport Report,
     string InputSummary,
     IReadOnlyList<string> Unresolved,
     string? ImportWarning,
-    string ChatGptSwapPrompt);
+    string ChatGptSwapPrompt,
+    IReadOnlyList<CostSuggestion> Suggestions);
 
 /// <inheritdoc />
 public sealed class ManabaseAnalysisService : IManabaseAnalysisService
@@ -181,7 +189,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, options.Mode, options.CommanderImportance);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            deck, options.Mode, options.CommanderImportance, options.CostOverrides);
 
         string decklistText = string.Join(
             "\n",
@@ -194,7 +203,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, decklistText, options.Mode);
 
-        return new ManabaseAnalysisResult(report, inputSummary, unresolved, load.FallbackNotice, swapPrompt);
+        return new ManabaseAnalysisResult(
+            report, inputSummary, unresolved, load.FallbackNotice, swapPrompt, deck.CostSuggestions);
     }
 
     // Batch-resolve the deck's cards through Scryfall's collection endpoint, preferring an exact

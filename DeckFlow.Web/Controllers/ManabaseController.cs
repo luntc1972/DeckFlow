@@ -71,6 +71,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 {
                     Mode = request.Mode,
                     CommanderImportance = request.CommanderImportance,
+                    CostOverrides = ManabaseCostOverrideParser.Parse(request.CostOverridesText),
                 },
                 timeoutScope.Token);
 
@@ -82,6 +83,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Unresolved = result.Unresolved,
                 ImportWarning = result.ImportWarning,
                 ChatGptSwapPrompt = result.ChatGptSwapPrompt,
+                Suggestions = result.Suggestions,
             });
         }
         catch (OperationCanceledException) when (timeoutScope.IsCancellationRequested)

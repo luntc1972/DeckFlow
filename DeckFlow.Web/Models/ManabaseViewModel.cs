@@ -32,6 +32,25 @@ public sealed class ManabaseViewModel
     /// <summary>Paste-ready prompt asking an LLM for specific land swaps.</summary>
     public string? ChatGptSwapPrompt { get; init; }
 
+    /// <summary>Auto-detected alt/reduced-cost suggestions used to pre-populate the override box.</summary>
+    public IReadOnlyList<CostSuggestion> Suggestions { get; init; } = Array.Empty<CostSuggestion>();
+
+    /// <summary>The detected suggestions rendered as override-box lines (<c>Name: cost</c>).</summary>
+    public string SuggestedOverridesText =>
+        string.Join("\n", Suggestions.Select(s => $"{s.Name}: {s.EffectiveCost}"));
+
+    /// <summary>
+    /// What to show in the override box: the user's own text when they supplied any, otherwise the
+    /// detected suggestions pre-filled (preserve-vs-prepopulate).
+    /// </summary>
+    public string OverridesBoxText =>
+        string.IsNullOrWhiteSpace(Request.CostOverridesText)
+            ? SuggestedOverridesText
+            : Request.CostOverridesText;
+
+    /// <summary>True when there is at least one detected suggestion to surface to the user.</summary>
+    public bool HasSuggestions => Suggestions.Count > 0;
+
     /// <summary>True when a report is present and should be rendered.</summary>
     public bool HasResult => Report is not null;
 
