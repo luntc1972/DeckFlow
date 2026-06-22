@@ -62,7 +62,10 @@
   1. It is documented whether the live site serves content-KB body from `/data` `.md` files or the DB content column, with the source confirmed by inspection.
   2. The 86 orphaned rows are resolved: artifacts re-uploaded, or rows reconciled down, or the gap formally downgraded to cosmetic — with the chosen path and reasoning recorded.
   3. A post-reconcile check confirms every remaining prod row's artifact expectation matches reality (no remaining unexplained orphans).
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 65-01-PLAN.md — DATA-01 serving-path decision doc + read-only prod probe (published-orphan count) [Wave 1]
+  - [ ] 65-03-PLAN.md — content-kb-check CLI command + Core orphan-scanner helper + xUnit tests [Wave 1]
+  - [ ] 65-02-PLAN.md — operator-run reconcile execution (path choice + execute + post-reconcile check) [Wave 2]
 **UI hint**: no
 
 #### Phase 66: Admin Tool-Visibility Toggles + Tool Registry
