@@ -60,7 +60,15 @@ public static class ManabaseAnalyzer
         IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
-        var findings = BuildColorFindings(deck, librarySize, actualLands, castabilityByName, mode, importance, colorSpellCounts);
+        var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
+        var findings = BuildColorFindings(deck, librarySize, actualLands, castabilityByName, mode, importance, colorSpellCounts, demandingByName);
+
+        // Demanding cards (below their color's bar) worst-first — surfaced by the two-tier verdict.
+        IReadOnlyList<DemandingCard> demandingCards = demandingByName
+            .Select(kvp => new DemandingCard { Name = kvp.Key, CastPercent = kvp.Value })
+            .OrderBy(d => d.CastPercent)
+            .ThenBy(d => d.Name, StringComparer.Ordinal)
+            .ToList();
 
         string summary = BuildSummary(actualLands, targetLands, findings, castability, colorSpellCounts, mode, importance);
 
@@ -74,6 +82,7 @@ public static class ManabaseAnalyzer
             ColorSpellCounts = colorSpellCounts,
             CommanderColors = CommanderColors(deck).ToArray(),
             LandTarget = landTarget,
+            DemandingCards = demandingCards,
             Summary = summary,
         };
     }
@@ -304,7 +313,8 @@ public static class ManabaseAnalyzer
         IReadOnlyDictionary<string, CardCastability> castabilityByName,
         ManabaseMode mode,
         CommanderImportance importance,
-        Dictionary<ManaColor, int> colorSpellCounts)
+        Dictionary<ManaColor, int> colorSpellCounts,
+        Dictionary<string, int> demandingByName)
     {
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
@@ -382,6 +392,12 @@ public static class ManabaseAnalyzer
                 if (castPercent < threshold)
                 {
                     underSupported++;
+                    // Record the demanding card once (a spell may demand several colors); keep the
+                    // lowest cast % seen so the worst-first verdict list is stable.
+                    if (!demandingByName.TryGetValue(spell.Name, out int prior) || castPercent < prior)
+                    {
+                        demandingByName[spell.Name] = castPercent;
+                    }
                 }
             }
 

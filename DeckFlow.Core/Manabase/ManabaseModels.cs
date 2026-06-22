@@ -344,6 +344,37 @@ public sealed record ManabaseLandTargetBreakdown
     public required double FinalTarget { get; init; }
 }
 
+/// <summary>
+/// Graded mana-base health, replacing the old binary OK/needs-work. A single sub-threshold card
+/// no longer flips the whole base to "needs work": a base that is land-adequate and has no real
+/// mulligan-aware source deficit, with only a small ratio of demanding cards, reads Functional.
+/// </summary>
+public enum ManabaseHealth
+{
+    /// <summary>Land count within one of target and no color has any under-supported spell.</summary>
+    Healthy,
+
+    /// <summary>
+    /// Land-adequate, no mulligan-aware source deficit on any color, and each color's
+    /// under-supported count stays within a small ratio of its demanding cards — the base works
+    /// despite a few demanding spells.
+    /// </summary>
+    Functional,
+
+    /// <summary>A color is systematically short (real source deficit, over-ratio under-support, or lands short).</summary>
+    NeedsWork,
+}
+
+/// <summary>A demanding card surfaced by the verdict: a spell below its color's castability bar.</summary>
+public sealed record DemandingCard
+{
+    /// <summary>Display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The spell's estimated on-curve cast chance, 0–100.</summary>
+    public required int CastPercent { get; init; }
+}
+
 /// <summary>The §6 mana-base report: land count, ramp, per-color sources, and a verdict.</summary>
 public sealed record ManabaseReport
 {
@@ -371,8 +402,60 @@ public sealed record ManabaseReport
     public ColorSourceFinding? WeakestColor =>
         ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
 
-    /// <summary>True if land count is within one of target and every color is composite-adequate.</summary>
-    public bool IsHealthy => LandDelta >= -1 && WeakestColor is null;
+    /// <summary>
+    /// Two-tier graded verdict (Codex HIGH-3). EXACT numeric predicates, evaluated land-first:
+    /// <list type="bullet">
+    /// <item><b>NeedsWork</b> when <see cref="LandDelta"/> &lt; -1 (lands short), OR any color has a
+    /// real mulligan-aware <see cref="ColorSourceFinding.Deficit"/> &gt; 0, OR any color's
+    /// <see cref="ColorSourceFinding.UnderSupportedCount"/> exceeds <c>max(1, ceil(colorCards·0.15))</c>.</item>
+    /// <item><b>Healthy</b> when land-adequate and every color's under-supported count is 0.</item>
+    /// <item><b>Functional</b> otherwise (land-adequate, no source deficit, only a few demanding cards).</item>
+    /// </list>
+    /// </summary>
+    public ManabaseHealth Health
+    {
+        get
+        {
+            if (LandDelta < -1)
+            {
+                return ManabaseHealth.NeedsWork;
+            }
+
+            bool everyColorClear = true;
+            bool everyColorFunctional = true;
+            foreach (ColorSourceFinding f in ColorFindings)
+            {
+                if (f.UnderSupportedCount != 0)
+                {
+                    everyColorClear = false;
+                }
+
+                int colorCards = ColorSpellCounts.TryGetValue(f.Color, out int count) ? count : 0;
+                int tolerance = Math.Max(1, (int)Math.Ceiling(colorCards * 0.15));
+                if (f.Deficit > 0 || f.UnderSupportedCount > tolerance)
+                {
+                    everyColorFunctional = false;
+                }
+            }
+
+            if (everyColorClear)
+            {
+                return ManabaseHealth.Healthy;
+            }
+
+            return everyColorFunctional ? ManabaseHealth.Functional : ManabaseHealth.NeedsWork;
+        }
+    }
+
+    /// <summary>True only when fully <see cref="ManabaseHealth.Healthy"/>. Retained for back-compat.</summary>
+    public bool IsHealthy => Health == ManabaseHealth.Healthy;
+
+    /// <summary>
+    /// The demanding cards behind a non-Healthy verdict — spells below their color's castability bar,
+    /// worst-first. Empty when Healthy. Additive; lets the view show "Functional — 1 demanding card:
+    /// Grand Abolisher (77%)".
+    /// </summary>
+    public IReadOnlyList<DemandingCard> DemandingCards { get; init; } = Array.Empty<DemandingCard>();
 
     /// <summary>The analysis mode this report was produced under.</summary>
     public ManabaseMode Mode { get; init; } = ManabaseMode.Casual;
