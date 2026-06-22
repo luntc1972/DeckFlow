@@ -11,7 +11,11 @@
 
 <section class="hero">
     <h1>Mana Base Analysis</h1>
-    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve. Built on Frank Karsten's source-count math, then extended — it weights non-land sources (mana rocks, dorks, MDFCs), accounts for tapped vs. untapped lands for turn-one casts, sizes each color to its hardest spell, and estimates each spell's chance to be cast on curve. The verdict is computed directly — no AI needed.</p>
+    <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve — the verdict is computed directly, no AI needed.</p>
+    <details class="hero-detail">
+        <summary>How it works</summary>
+        <p>Built on Frank Karsten's source-count math, then extended — it weights non-land sources (mana rocks, dorks, MDFCs), accounts for tapped vs. untapped lands for turn-one casts, sizes each color to its hardest spell, and estimates each spell's chance to be cast on curve.</p>
+    </details>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
