@@ -79,6 +79,34 @@ test('mode + commander-importance selectors are present and persist on postback'
   await assertNoHorizontalScroll(page);
 });
 
+test('segmented pill radios stay visually collapsed so labels center', async ({ page }) => {
+  // Regression: the global custom radio render in site-theme-overrides.css
+  // (`input[type="radio"] { appearance:none; width:1.05rem; ... position:relative }`)
+  // loads after site-common.css and tied its specificity, re-inflating the
+  // visually-hidden pill radio into an in-flow ~16px box (opacity:0 but
+  // space-occupying), which shoved each pill's label off-center. The collapse
+  // rule is now `.manabase-pill > input[type="radio"]` (higher specificity) so
+  // the radio must measure ~1px and sit out of flow on every theme.
+  await page.goto('/manabase');
+
+  const pillRadios = page.locator('.manabase-pill > input[type="radio"]');
+  const count = await pillRadios.count();
+  expect(count).toBeGreaterThan(0);
+
+  for (let i = 0; i < count; i++) {
+    const box = await pillRadios.nth(i).evaluate((el) => ({
+      width: (el as HTMLElement).offsetWidth,
+      height: (el as HTMLElement).offsetHeight,
+      position: getComputedStyle(el).position,
+    }));
+    expect(box.width, 'pill radio must stay collapsed (not the 16px custom box)').toBeLessThanOrEqual(2);
+    expect(box.height).toBeLessThanOrEqual(2);
+    expect(box.position, 'pill radio must be out of flow').toBe('absolute');
+  }
+
+  await assertNoHorizontalScroll(page);
+});
+
 test('Mode + CommanderImportance selections survive the postback', async ({ page }) => {
   // The radios re-render from Model.Request on BOTH the success and the error path, so this holds
   // even when Scryfall is unreachable in the sandbox — we assert the form state, not the result.
