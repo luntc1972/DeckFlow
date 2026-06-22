@@ -308,12 +308,11 @@ public sealed class ManabaseAnalyzerTests
         ColorSourceFinding reducedBlue = reducedReport.ColorFindings.Single(f => f.Color == ManaColor.Blue);
         Assert.Equal("Big Spell", reducedBlue.DrivingSpell);
 
-        // 36 Islands → librarySize 99, totalLands 36, single blue pip. RequiredSources must match
-        // SourcesNeeded at the REDUCED turn (4), and differ from the printed-turn (5) value.
-        int needAtReducedTurn = KarstenManabase.SourcesNeeded(deckSize: 99, totalLands: 36, pips: 1, manaValue: 4);
-        int needAtPrintedTurn = KarstenManabase.SourcesNeeded(deckSize: 99, totalLands: 36, pips: 1, manaValue: 5);
-        Assert.Equal(needAtReducedTurn, reducedBlue.RequiredSources);
-        Assert.NotEqual(needAtPrintedTurn, reducedBlue.RequiredSources);
+        // RequiredSources is now the mulligan-aware sim figure for the driver at its REDUCED on-curve
+        // turn (4, asserted above) — a sane positive count, not the old mulligan-blind hypergeometric.
+        // With 36 Islands the single blue pip is comfortably covered, so there is no deficit.
+        Assert.InRange(reducedBlue.RequiredSources, 1, 36);
+        Assert.True(reducedBlue.Deficit <= 0, $"36 blue sources should cover a single blue pip; deficit {reducedBlue.Deficit}");
     }
 
     [Fact]
@@ -762,6 +761,61 @@ public sealed class ManabaseAnalyzerTests
         int second = ManabaseAnalyzer.Analyze(deck).Castability.Single(c => c.Name == "WW Two-Drop").CastPercent;
 
         Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public void RequiredSources_IsMulliganAware_NotInflated_ForTurnTwoDoublePip()
+    {
+        // A turn-2 {W}{W} on a healthy white base. The mulligan-aware requirement must be a realistic
+        // count (the mulligan-blind hypergeometric used to say ~30); 33 white sources cover it.
+        var spell = new SpellRequirement { Name = "WW", ManaValue = 2, Pips = Pip((ManaColor.White, 2)) };
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 33; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.5,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { spell },
+            IsSingleton = true,
+        };
+
+        ColorSourceFinding white = ManabaseAnalyzer.Analyze(deck).ColorFindings.Single(f => f.Color == ManaColor.White);
+        Assert.InRange(white.RequiredSources, 2, 30);
+        Assert.True(white.Deficit <= 0, $"33 white sources should cover WW by turn 2; deficit {white.Deficit}");
+    }
+
+    [Fact]
+    public void RequiredSources_RespondsToSourceCount_DeficitWhenThin()
+    {
+        var spell = new SpellRequirement { Name = "WW", ManaValue = 2, Pips = Pip((ManaColor.White, 2)) };
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 8; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+        for (int i = 0; i < 28; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.5,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { spell },
+            IsSingleton = true,
+        };
+
+        ColorSourceFinding white = ManabaseAnalyzer.Analyze(deck).ColorFindings.Single(f => f.Color == ManaColor.White);
+        Assert.True(white.Deficit > 0, $"8 white sources cannot support WW by turn 2; deficit {white.Deficit}");
     }
 
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
