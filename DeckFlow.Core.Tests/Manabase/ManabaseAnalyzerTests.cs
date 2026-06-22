@@ -818,6 +818,124 @@ public sealed class ManabaseAnalyzerTests
         Assert.True(white.Deficit > 0, $"8 white sources cannot support WW by turn 2; deficit {white.Deficit}");
     }
 
+    [Fact]
+    public void Analyze_CleanLowCurveMonoDeck_IsHealthy()
+    {
+        // Task 3: land-adequate + no color under-supported → Healthy (and IsHealthy true).
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 39; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+
+        var spells = new List<SpellRequirement>();
+        for (int i = 0; i < 12; i++)
+        {
+            spells.Add(new SpellRequirement { Name = $"Easy White {i}", ManaValue = 1, Pips = Pip((ManaColor.White, 1)) });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 1.2,
+            Sources = sources,
+            Spells = spells,
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        Assert.True(report.LandDelta >= -1, $"land count must be adequate, delta {report.LandDelta:F1}");
+        Assert.All(report.ColorFindings, f => Assert.Equal(0, f.UnderSupportedCount));
+        Assert.Equal(ManabaseHealth.Healthy, report.Health);
+        Assert.True(report.IsHealthy);
+        Assert.Empty(report.DemandingCards);
+    }
+
+    [Fact]
+    public void Analyze_LandAdequate_OneDemandingCard_NoColorDeficit_IsFunctional()
+    {
+        // Task 3: land-adequate, no mulligan-aware source deficit on any color, only a single
+        // high-MV demanding card under the bar (within the 15%-of-colorCards tolerance) → Functional,
+        // NOT NeedsWork. The demanding card is surfaced in DemandingCards.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 39; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+
+        var spells = new List<SpellRequirement>();
+        for (int i = 0; i < 10; i++)
+        {
+            spells.Add(new SpellRequirement { Name = $"Easy White {i}", ManaValue = 1, Pips = Pip((ManaColor.White, 1)) });
+        }
+
+        // A 7-MV triple-white bomb: colour is fully covered by 39 white sources (no deficit), but the
+        // mana-quantity risk of needing 7 lands by turn 7 drags its cast % below the 80% bar.
+        spells.Add(new SpellRequirement { Name = "Heavy Bomb", ManaValue = 7, Pips = Pip((ManaColor.White, 3)) });
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = sources,
+            Spells = spells,
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        Assert.True(report.LandDelta >= -1, $"land count must be adequate, delta {report.LandDelta:F1}");
+        ColorSourceFinding white = report.ColorFindings.Single(f => f.Color == ManaColor.White);
+        Assert.True(white.Deficit <= 0, $"39 white sources cover the requirement; deficit {white.Deficit}");
+        Assert.Equal(1, white.UnderSupportedCount);
+        Assert.Equal(ManabaseHealth.Functional, report.Health);
+        Assert.False(report.IsHealthy);
+        Assert.Contains(report.DemandingCards, d => d.Name == "Heavy Bomb");
+    }
+
+    [Fact]
+    public void Analyze_WhiteScrewedDeck_IsNeedsWork()
+    {
+        // Task 3: a color with a real mulligan-aware source deficit forces NeedsWork even when the
+        // land count is adequate.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 8; i++)
+        {
+            sources.Add(new ManaSource { Name = "Plains", Produces = new[] { ManaColor.White } });
+        }
+        for (int i = 0; i < 31; i++)
+        {
+            sources.Add(new ManaSource { Name = "Island", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new() { Name = "Grand Abolisher", ManaValue = 2, Pips = Pip((ManaColor.White, 2)) },
+            new() { Name = "Double White Two", ManaValue = 2, Pips = Pip((ManaColor.White, 2)) },
+        };
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = sources,
+            Spells = spells,
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        Assert.True(report.LandDelta >= -1, $"land count must be adequate, delta {report.LandDelta:F1}");
+        ColorSourceFinding white = report.ColorFindings.Single(f => f.Color == ManaColor.White);
+        Assert.True(white.Deficit > 0, $"8 white sources cannot support WW by turn 2; deficit {white.Deficit}");
+        Assert.Equal(ManabaseHealth.NeedsWork, report.Health);
+        Assert.False(report.IsHealthy);
+    }
+
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
         => pips.ToDictionary(p => p.Color, p => p.Count);
 }

@@ -206,7 +206,11 @@ public sealed class BragoRealDeckHarness
         sb.AppendLine($"## {label}");
         sb.AppendLine();
         sb.AppendLine($"- Lands {report.ActualLands} vs target {report.TargetLands:F1} (delta {report.LandDelta:F1})");
-        sb.AppendLine($"- Healthy: {report.IsHealthy} · Weakest: {report.WeakestColor?.Color.ToString() ?? "none"}");
+        sb.AppendLine($"- Health: {report.Health} · Weakest: {report.WeakestColor?.Color.ToString() ?? "none"}");
+        if (report.DemandingCards.Count > 0)
+        {
+            sb.AppendLine($"- Demanding: {string.Join(", ", report.DemandingCards.Select(d => $"{d.Name} ({d.CastPercent}%)"))}");
+        }
         sb.AppendLine($"- Summary: {report.Summary}");
         sb.AppendLine();
         sb.AppendLine("| Color | Sources | Need | UnderSupp | AvgCast% | WorstCast% | WorstSpell |");
