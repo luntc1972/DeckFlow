@@ -2471,6 +2471,12 @@ label.field > span,
   color: var(--ink, #2d3748);
 }
 
+.manabase-chip--solid {
+  background: color-mix(in srgb, var(--info, #3182ce) 16%, transparent);
+  border-color: var(--info, #3182ce);
+  color: var(--info, #3182ce);
+}
+
 .manabase-chip--good {
   background: color-mix(in srgb, var(--success, #2f855a) 18%, transparent);
   border-color: var(--success, #2f855a);

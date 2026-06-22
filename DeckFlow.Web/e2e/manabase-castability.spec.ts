@@ -217,3 +217,16 @@ test('biggest-fix callout never recommends a negative source count', async ({ pa
 
   await assertNoHorizontalScroll(page);
 });
+
+test('health verdict renders a four-tier scale label', async ({ page }) => {
+  // Health chip must read one of the four scale tiers (Excellent / Solid / Workable / Needs work),
+  // never the old two-tier "Healthy"/"Functional" wording.
+  const analyzed = await submitDeck(page, 'Casual');
+  test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
+
+  const chip = page.locator('.result-panel .manabase-chip').first();
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText(/^(Excellent|Solid|Workable|Needs work)$/);
+
+  await assertNoHorizontalScroll(page);
+});
