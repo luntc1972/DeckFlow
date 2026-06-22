@@ -40,9 +40,15 @@ Then press **Analyze Mana Base**. Cards resolve through Scryfall by exact printi
 
 The result panel shows:
 
-- **Land count** — your actual land total vs. the count Karsten's math recommends for your curve (cEDH lowers that target), with an OK / short verdict.
+- **Health verdict** — a graded read, not a pass/fail:
+  - **Healthy** — land count is within one of target and no color has an under-supported card.
+  - **Functional** — land-adequate with no real source shortfall, but a few demanding cards sit below the consistency bar. The demanding cards are listed (e.g. *Functional — 1 demanding card: Grand Abolisher (77%)*) so you can decide whether they are worth the strain.
+  - **Needs work** — a color is genuinely short (a real source deficit, more under-supported cards than a small ratio of that color, or the deck is short on lands).
+
+  The source requirements are **mulligan-aware** (they account for Commander's free first mulligan), so a tight double-pip like a turn-two `{W}{W}` is no longer flagged against an inflated requirement.
+- **Land count** — your actual land total vs. the count Karsten's math recommends for your curve (cEDH lowers that target), with an OK / short note.
 - **Color findings** — for each color: how many effective sources you run (duals, any-color rocks, and fetchlands are credited to every color they can make), the toughest spell driving the requirement, how many of that color's cards are under-supported, and their mean castability. The weakest color is highlighted; a lone hard-to-cast bomb still surfaces even if the rest of the color is fine.
-- **Castability** (Casual mode) — a table of each real spell's estimated chance to be cast **on its on-curve turn**, worst-first, with a low / ok / good chip and what's limiting it (*mana*, *color: X*, or *mana + color*). Your commander is pinned at the top. Mana rocks, dorks, and lands are counted in the math but not listed as rows. A `*` next to a card's mana value means a reduced / alternative cost from your overrides was applied. cEDH mode hides this table.
+- **Castability** (Casual mode) — a table of each real spell's estimated chance to be cast **on its on-curve turn**, worst-first, with a low / ok / good chip, its **average delay** (how many turns late it typically becomes castable — *on curve* when it lands on time, else *+N.N turns*), and what's limiting it (*mana*, *color: X*, or *mana + color*). Your commander is pinned at the top. Mana rocks, dorks, and lands are counted in the math but not listed as rows. A `*` next to a card's mana value means a reduced / alternative cost from your overrides was applied. cEDH mode hides this table.
 
 The castability number comes from a Monte-Carlo simulation (it plays out thousands of games with a London mulligan), so read it as a **ranking aid**, not a guarantee.
 
