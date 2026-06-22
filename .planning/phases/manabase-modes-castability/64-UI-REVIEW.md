@@ -87,8 +87,8 @@ All six SPEC §5 states confirmed live:
 - `DeckFlow.Web/Models/ManabaseDisplay.cs` (chip / limiting / label presentation helpers)
 - `DeckFlow.Web/Models/ManabaseViewModel.cs` (`ShowCastability` gate)
 - `DeckFlow.Core/Manabase/ManabaseAnalyzer.cs` (commander-first sort, color findings) — referenced for root-cause of Top Fix 1
-- `.planning/phases/64-manabase-modes-castability/64-UI-SPEC.md` (baseline)
-- `.planning/phases/64-manabase-modes-castability/64-02-PLAN.md` (intent)
+- `.planning/phases/manabase-modes-castability/64-UI-SPEC.md` (baseline)
+- `.planning/phases/manabase-modes-castability/64-02-PLAN.md` (intent)
 - Live render: Classic + Azorius themes; empty / Casual-result / cEDH-result; 1280 + 390 viewports
 
 _Registry audit: skipped — no `components.json` / shadcn in this ASP.NET + Razor project._

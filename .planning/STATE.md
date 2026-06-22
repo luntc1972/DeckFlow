@@ -27,12 +27,10 @@ See: .planning/PROJECT.md
 
 Two parallel tracks exist — do not conflate:
 
-- **`main` (this tree):** Cycle 10 shipped (`2026.06.6`). SINCE then a **Manabase Analyzer** feature was built and committed DIRECTLY on main (27 commits past the tag) and **deployed to prod 2026-06-22 ~12:33**. This violated the milestone-branch rule but is already live. Tracked (post-hoc) under `phases/64-manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` — SUMMARYs reconstructed 2026-06-22.
-- **`cycle11` worktree (`../deckflow-cycle11`):** official **Cycle 11 — Security, Visibility Control & Creator-Lens** (phases 64-69; note: that branch's phase 64 = *Deck-Source Host Hardening*, a DIFFERENT phase 64 from main's manabase one). 35% done; Phase 64 complete+verified+secured+pushed; next `/gsd-plan-phase 65`.
+- **`main` (this tree):** Cycle 10 shipped (`2026.06.6`). SINCE then a **Manabase Analyzer** feature was built and committed DIRECTLY on main (27 commits past the tag) and **deployed to prod 2026-06-22 ~12:33**. This violated the milestone-branch rule but is already live. Tracked (post-hoc, as un-numbered ad-hoc trunk features) under `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` — SUMMARYs reconstructed 2026-06-22. De-numbered out of slot 64 on 2026-06-22 so Cycle 11 owns phase 64.
+- **`cycle11` worktree (`../deckflow-cycle11`):** official **Cycle 11 — Security, Visibility Control & Creator-Lens** (phases 64-69; phase 64 = *Deck-Source Host Hardening*). 35% done; Phase 64 complete+verified+secured+pushed; next `/gsd-plan-phase 65`.
 
-> Open decision for the operator: how to reconcile the two branches (e.g. merge main's manabase
-> work into cycle11, or fold it into a future "Cycle 12" milestone). Manabase is NOT in Cycle 11's
-> official scope.
+**Reconciliation decided 2026-06-22:** (1) manabase de-numbered out of slot 64 (no more clash); (2) merge `main` → `cycle11` so cycle11 is the superset integration branch (manabase + security). Code is fully disjoint (no overlapping files). Cycle 11 ships via cycle11→main fast-forward when phases 65-69 are done.
 
 ## Current Position
 
