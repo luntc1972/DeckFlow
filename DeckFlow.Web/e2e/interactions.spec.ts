@@ -70,6 +70,17 @@ test('manabase hero keeps the deck-input tool above the mobile fold', async ({ p
   expect(await detail.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
 });
 
+test('manabase exposes a Load deck step before Analyze', async ({ page }) => {
+  const response = await page.goto('/manabase');
+  expect(response?.ok()).toBeTruthy();
+
+  // Both submit buttons exist; Load posts to the dedicated detect-costs action.
+  const loadButton = page.locator('.manabase-load-button');
+  await expect(loadButton).toBeVisible();
+  await expect(loadButton).toHaveAttribute('formaction', /\/manabase\/load$/);
+  await expect(page.getByRole('button', { name: 'Analyze Mana Base' })).toBeVisible();
+});
+
 test('admin content kb filter wires without console errors and narrows rows', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {

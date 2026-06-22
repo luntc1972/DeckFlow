@@ -56,6 +56,28 @@
                   placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
     </div>
 
+    @if (Model.Loaded && !Model.HasResult)
+    {
+        <p class="manabase-loaded-hint" role="status">
+            @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
+            {
+                <strong>Deck loaded</strong> @:(@Model.InputSummary).
+            }
+            else
+            {
+                <strong>Deck loaded.</strong>
+            }
+            @if (Model.HasSuggestions)
+            {
+                @:Review the detected reduced / alternative costs below — edit or clear any you disagree with — then <strong>Analyze Mana Base</strong>.
+            }
+            else
+            {
+                @:No reduced / alternative costs were detected. Add any manually below if needed, then <strong>Analyze Mana Base</strong>.
+            }
+        </p>
+    }
+
     <details class="manabase-overrides" @(Model.HasSuggestions || !string.IsNullOrWhiteSpace(Model.Request.CostOverridesText) ? "open" : null)>
         <summary>Reduced / alternative costs (optional)</summary>
         <div class="field">
@@ -110,6 +132,11 @@
     </div>
 
     <div class="toolbar manabase-actions">
+        <button type="submit" class="run-button manabase-load-button"
+                formaction="@Url.Content("~/manabase/load")"
+                data-busy-title="Loading deck"
+                data-busy-message="Resolving cards and detecting reduced / alternative costs."
+                data-busy-progress="Loading the deck|Resolving cards via Scryfall|Detecting reduced costs">Load deck &amp; detect costs</button>
         <button type="submit" class="run-button">Analyze Mana Base</button>
         <a href="@Url.Content("~/manabase")" class="clear-cache-button manabase-start-over" role="button" data-no-busy>Start over</a>
     </div>

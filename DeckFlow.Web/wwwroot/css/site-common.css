@@ -2298,6 +2298,15 @@ label.field > span,
   margin-top: 0.4rem;
 }
 
+/* "Deck loaded — review then analyze" hint shown after the Load step. */
+.manabase-loaded-hint {
+  margin: 0.5rem 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  background: var(--panel-muted, rgba(56, 88, 166, 0.08));
+}
+
 /* Reduced/alternative-cost overrides: a collapsible block under the deck input. */
 .manabase-overrides {
   margin: 0.5rem 0 0.25rem;

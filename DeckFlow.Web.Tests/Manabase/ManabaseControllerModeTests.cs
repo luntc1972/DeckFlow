@@ -167,5 +167,11 @@ public sealed class ManabaseControllerModeTests
                 _report, "1 cards · 36 lands", Array.Empty<string>(), null, "prompt",
                 Array.Empty<CostSuggestion>()));
         }
+
+        public Task<ManabaseLoadResult> LoadAsync(
+            string deckSource,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new ManabaseLoadResult(
+                "1 cards · 36 lands", Array.Empty<string>(), null, Array.Empty<CostSuggestion>()));
     }
 }

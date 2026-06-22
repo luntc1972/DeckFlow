@@ -290,6 +290,48 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.True(after.CastPercent > before.CastPercent);
     }
 
+    [Fact]
+    public async Task LoadAsync_DetectsSuggestions_WithoutRunningAnalysis()
+    {
+        // Load mirrors the detect-only half of AnalyzeAsync: it resolves the deck and surfaces the
+        // same cost suggestions (Force of Will → 0) plus a card/land summary, but produces no report.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Commander Guy", 1, "commander"),
+            Land("Island", 10),
+            Spell("Force of Will", "{3}{U}{U}", 5, "Instant").ToEntry(),
+        };
+
+        var fow = new ScryfallCard(
+            Name: "Force of Will", ManaCost: "{3}{U}{U}", TypeLine: "Instant",
+            OracleText: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost. Counter target spell.",
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 5, ProducedMana: null, Rarity: "rare");
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Commander Guy", "{2}{U}", 3, "Legendary Creature — Human"),
+            fow,
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        ManabaseLoadResult result = await service.LoadAsync("paste", CancellationToken.None);
+
+        Assert.Contains(result.Suggestions, s => s.Name == "Force of Will" && s.EffectiveCost == "0");
+        Assert.Contains("10 lands", result.InputSummary);
+        Assert.Empty(result.Unresolved);
+    }
+
+    [Fact]
+    public async Task LoadAsync_BlankSource_Throws()
+    {
+        var service = new ManabaseAnalysisService(new FakeLoader(new List<DeckEntry>()), new FakeResolver(new List<ScryfallCard>()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.LoadAsync("   "));
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null) => new()

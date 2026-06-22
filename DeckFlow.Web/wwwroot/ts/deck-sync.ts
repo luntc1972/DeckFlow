@@ -727,9 +727,13 @@ const registerBusyIndicator = (): void => {
       if (submitter?.hasAttribute('data-no-busy')) {
         return;
       }
-      const title = form.getAttribute('data-busy-title');
-      const message = form.getAttribute('data-busy-message');
-      const stepsAttr = form.getAttribute('data-busy-progress');
+      // A submit button may override the form-level busy copy (e.g. a "Load" button on the same
+      // form that does less work than the primary submit). Fall back to the form's attributes.
+      const attr = (name: string): string | null =>
+        (submitter instanceof HTMLElement ? submitter.getAttribute(name) : null) ?? form.getAttribute(name);
+      const title = attr('data-busy-title');
+      const message = attr('data-busy-message');
+      const stepsAttr = attr('data-busy-progress');
       const steps = stepsAttr
         ? stepsAttr
             .split('|')
