@@ -146,6 +146,7 @@ public static class CastabilitySimulator
         int successes = 0;
         int manaShortFailures = 0; // had wrong/short mana count regardless of colors
         int colorShortFailures = 0; // had enough total mana but couldn't cover the pips
+        long delaySum = 0; // sum of max(0, firstCastableTurn - onCurveTurn) over all trials
 
         // Scratch arrays reused across trials to keep allocations low.
         int[] deck0 = new int[library.Count];
@@ -187,7 +188,11 @@ public static class CastabilitySimulator
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
-                out bool manaShort, out bool colorShort);
+                out bool manaShort, out bool colorShort, out int firstCastableTurn);
+
+            // Delay this trial: how many turns LATE the spell first became castable, floored at 0
+            // (a spell never tests as castable before its on-curve turn, so this is already >= 0).
+            delaySum += Math.Max(0, firstCastableTurn - turn);
 
             if (success)
             {
@@ -205,6 +210,7 @@ public static class CastabilitySimulator
 
         int castPercent = Math.Clamp((int)Math.Round(100.0 * successes / trials), 0, 100);
         string limiting = DeriveLimitingFactor(pipReq.Length == 0, manaShortFailures, colorShortFailures, spell);
+        double averageDelay = trials > 0 ? Math.Round((double)delaySum / trials, 1) : 0;
 
         return new CardCastability
         {
@@ -215,6 +221,7 @@ public static class CastabilitySimulator
             LimitingFactor = limiting,
             IsCommander = spell.IsCommander,
             IsCostOverridden = spell.IsCostOverridden,
+            AverageDelay = averageDelay,
         };
     }
 
@@ -356,7 +363,8 @@ public static class CastabilitySimulator
         List<int> availableColors,
         List<int> onlineLandMasks,
         out bool manaShort,
-        out bool colorShort)
+        out bool colorShort,
+        out int firstCastableTurn)
     {
         manaShort = false;
         colorShort = false;
@@ -366,6 +374,10 @@ public static class CastabilitySimulator
         // window shrinks with the curve so a 6-drop isn't credited for casting on turn 10.
         int grace = GraceWindow(turn);
         int lastTurn = turn + grace;
+
+        // Default: never castable within the grace window → cap the "first castable" at one turn past
+        // the last simulated turn, so the delay metric is bounded (not implementation-dependent).
+        firstCastableTurn = lastTurn + 1;
 
         // Hand = first handCount indices of the shuffled library; library draw pointer follows.
         int drawPtr = handCount;
@@ -460,6 +472,7 @@ public static class CastabilitySimulator
                 continue;
             }
 
+            firstCastableTurn = currentTurn;
             return true;
         }
 

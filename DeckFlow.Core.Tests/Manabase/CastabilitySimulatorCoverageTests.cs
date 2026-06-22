@@ -193,6 +193,49 @@ public sealed class CastabilitySimulatorCoverageTests
 
     // ---- helpers --------------------------------------------------------------------------
 
+    [Fact]
+    public void Simulate_AverageDelay_OnCurveSpell_IsNearZero()
+    {
+        // Task 4: a cheap spell on a rich on-color base casts on its turn almost every game, so the
+        // mean "turns late" is ~0 (a handful of land-light openers add a fraction).
+        ManabaseDeck deck = MonoBlueDeck(islands: 40);
+        var oneU = Spell("Easy Blue", manaValue: 2, (ManaColor.Blue, 1));
+
+        CardCastability row = Simulate(deck, oneU, effectiveTurn: 2);
+
+        Assert.True(row.AverageDelay >= 0, $"delay must never be negative, got {row.AverageDelay}");
+        Assert.True(row.AverageDelay < 0.5, $"on-curve spell should have near-zero delay, got {row.AverageDelay}");
+    }
+
+    [Fact]
+    public void Simulate_AverageDelay_ColorStarvedSpell_IsPositive()
+    {
+        // A double-blue two-drop on a base whose blue is thin slips later in many games, so the
+        // average delay rises above the on-curve baseline (but is not the never-castable cap).
+        ManabaseDeck deck = TwoColorDeck(whiteSingles: 30, blueSingles: 6, duals: 0);
+        var uu = Spell("Double Blue", manaValue: 2, (ManaColor.Blue, 2));
+
+        CardCastability row = Simulate(deck, uu, effectiveTurn: 2);
+
+        Assert.True(row.AverageDelay > 0.3,
+            $"a colour-starved double pip should show a real average delay, got {row.AverageDelay}");
+    }
+
+    [Fact]
+    public void Simulate_AverageDelay_NeverCastable_IsCappedAtHorizon()
+    {
+        // No blue source exists, so a {U}{U} spell is never castable: every trial caps firstCastable
+        // at lastSimulatedTurn + 1. For turn 2 the grace window is 3 (lastTurn 5), so the cap is 6 and
+        // the per-trial delay is exactly 6 - 2 = 4 every game → the mean is exactly 4.0.
+        ManabaseDeck deck = MonoRedDeck(mountains: 36);
+        var uu = Spell("Unfixable Blue", manaValue: 2, (ManaColor.Blue, 2));
+
+        CardCastability row = Simulate(deck, uu, effectiveTurn: 2);
+
+        Assert.Equal(0, row.CastPercent);
+        Assert.Equal(4.0, row.AverageDelay);
+    }
+
     private static CardCastability Simulate(ManabaseDeck deck, SpellRequirement spell, int effectiveTurn)
         => CastabilitySimulator.Simulate(deck, deck.TotalCards - deck.CommanderCount, spell, effectiveTurn, genericReduction: 0);
 
