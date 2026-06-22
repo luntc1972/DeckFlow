@@ -70,15 +70,19 @@ reduced turn); no override → byte-identical to today.
 
 ### Task 3 — Web: overrides plumbing + suggestions contract (Claude impl, Codex review)
 - `ManabaseAnalysisOptions.CostOverrides` = `IReadOnlyDictionary<string,string>` (name→cost string).
-- `ManabaseRequest.CostOverridesText`; parse lines `Card Name: <cost>` (cost = `0`, `{R}`, `1R`,
-  etc.; tolerant spacing/case; reject unparseable cost → ignore that line, never fatal).
+- `ManabaseRequest.CostOverridesText`; parse lines `Card Name: <cost>`. Storage/canonical format
+  is fully BRACED (`0`, `{R}`, `{1}{R}`) because `ManaCost.Parse` only accepts braced symbols
+  (verified — bare `R`/`1R` are NOT recognized). Add a small normalization layer that braces
+  forgiving manual entry (`R`→`{R}`, `1R`→`{1}{R}`, bare integer `2`→`{2}`) BEFORE `ManaCost.Parse`;
+  unparseable cost → ignore that line, never fatal. Detection (Task 1) emits the canonical braced form.
 - `ManabaseAnalysisResult` gains `IReadOnlyList<(string Name, string Cost, string Reason)> Suggestions`
   (the result-contract surface Codex flagged).
 - `ManabaseController` binds text → options; `ManabaseAnalysisService` passes overrides through and
   returns Suggestions. Pre-populate the box from Suggestions when the user supplied none; preserve
   the user's text verbatim on re-submit.
-Tests (`DeckFlow.Web.Tests`): cost-text parser (incl. split/DFC name + bad line ignored);
-options→analyzer flow; "no user override ⇒ prepopulate from suggestions; user text present ⇒ preserve".
+Tests (`DeckFlow.Web.Tests`): cost-text parser incl. braced (`{1}{R}`) AND shorthand-normalized
+(`R`, `1R`, `2`) input, split/DFC name, bad line ignored; options→analyzer flow; "no user override
+⇒ prepopulate from suggestions; user text present ⇒ preserve".
 
 ### Task 4 — View + UI (Claude impl, Codex review)
 - `Manabase.cshtml`: "Reduced / alternative costs" textarea below the deck input, pre-filled from
@@ -106,7 +110,8 @@ overridden marker visible; desktop (1280) + mobile (390) across themes, no overf
 - `DeckFlow.Web/e2e/manabase.spec.ts` — Playwright
 
 ## Constraints
-- Override = effective mana COST (reuse `ManaCost.Parse`), not a bare int — represents pips, not just MV.
+- Override = effective mana COST in canonical BRACED form (`0`, `{R}`, `{1}{R}`); a normalization
+  layer braces shorthand manual entry before `ManaCost.Parse` (which only accepts braced symbols).
 - ONE substituted effective requirement consumed by EffectiveTurn + Simulate + BuildColorFindings.
 - NO pip-drop heuristic; pips come from the parsed cost.
 - Keep MV-0 consistent with shipped 0-cost handling (floor 1 mana / turn 1).
