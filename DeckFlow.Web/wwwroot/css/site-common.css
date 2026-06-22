@@ -2282,6 +2282,22 @@ label.field > span,
   text-decoration: none;
 }
 
+/* Hero "How it works" disclosure: keeps the long methodology copy off the first
+   screen (esp. mobile) so the page purpose + tool are reachable immediately. */
+.hero-detail {
+  margin-top: 0.4rem;
+}
+
+.hero-detail > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent, #3858a6);
+}
+
+.hero-detail > p {
+  margin-top: 0.4rem;
+}
+
 /* Reduced/alternative-cost overrides: a collapsible block under the deck input. */
 .manabase-overrides {
   margin: 0.5rem 0 0.25rem;

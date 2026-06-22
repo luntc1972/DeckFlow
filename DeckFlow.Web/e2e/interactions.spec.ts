@@ -51,6 +51,25 @@ for (const view of [
   });
 }
 
+test('manabase hero keeps the deck-input tool above the mobile fold', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto('/manabase');
+  expect(response?.ok()).toBeTruthy();
+
+  // The long methodology copy is collapsed by default so the purpose + tool are reachable.
+  const detail = page.locator('.hero-detail');
+  await expect(detail).toHaveCount(1);
+  expect(await detail.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(false);
+
+  // The deck-input toggle must sit within the mobile viewport (above the fold).
+  const toolTop = await page.locator('.manabase-source-toggle').evaluate((el) => el.getBoundingClientRect().top);
+  expect(toolTop).toBeLessThan(844);
+
+  // "How it works" expands to reveal the full methodology.
+  await page.locator('.hero-detail > summary').click();
+  expect(await detail.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
+});
+
 test('admin content kb filter wires without console errors and narrows rows', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
