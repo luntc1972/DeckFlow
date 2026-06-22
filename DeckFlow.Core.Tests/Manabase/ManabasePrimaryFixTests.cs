@@ -134,4 +134,31 @@ public sealed class ManabasePrimaryFixTests
 
         Assert.True(report.PrimaryFix.Amount >= 0);
     }
+
+    [Fact]
+    public void NoColorFindings_IsNone()
+    {
+        ManabaseReport report = new()
+        {
+            ActualLands = 38,
+            TargetLands = 37.0,
+            ColorFindings = System.Array.Empty<ColorSourceFinding>(),
+            Summary = "test",
+        };
+
+        Assert.Equal(ManabaseFixKind.None, report.PrimaryFix.Kind);
+    }
+
+    [Fact]
+    public void DeficitExactlyOneSource_DoesNotRecommendAddingSources()
+    {
+        // Deficit of exactly 1 is within tolerance (rule is Deficit > 1) — the callout must not say
+        // "add ~1 source"; with adequate lands and no other issue it falls through to None.
+        ManabaseReport report = Report(
+            actualLands: 38,
+            targetLands: 37.0,
+            Finding(ManaColor.Red, actual: 24, required: 25));
+
+        Assert.NotEqual(ManabaseFixKind.ColorSources, report.PrimaryFix.Kind);
+    }
 }
