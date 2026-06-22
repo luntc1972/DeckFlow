@@ -619,6 +619,106 @@ public sealed class ManabaseAnalyzerTests
         };
     }
 
+    private static ManabaseDeck SingleSpellDeck(SpellRequirement spell, ManaColor sourceColor)
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 20; i++)
+        {
+            sources.Add(new ManaSource { Name = "Src", Produces = new[] { sourceColor } });
+        }
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 3.0,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { spell },
+        };
+    }
+
+    [Fact]
+    public void Analyze_FreeOverride_ZeroesMv_DropsColorDriver_AndMarksRow()
+    {
+        var spell = new SpellRequirement { Name = "Force of Will", ManaValue = 5, Pips = Pip((ManaColor.Blue, 2)) };
+        ManabaseDeck deck = SingleSpellDeck(spell, ManaColor.Blue);
+        var overrides = new Dictionary<string, string> { ["Force of Will"] = "0" };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, overrides);
+
+        CardCastability row = report.Castability.Single(c => c.Name == "Force of Will");
+        Assert.Equal(0, row.ManaValue);
+        Assert.True(row.IsCostOverridden);
+        Assert.True(row.CastPercent >= 95, $"free spell should be ~always castable, got {row.CastPercent}");
+        // HIGH-2: the freed spell must no longer drive any color finding.
+        Assert.All(report.ColorFindings, f => Assert.NotEqual("Force of Will", f.DrivingSpell));
+    }
+
+    [Fact]
+    public void Analyze_ColoredOverride_KeepsColorPip_AndLowersMv()
+    {
+        var spell = new SpellRequirement { Name = "Blasphemous Act", ManaValue = 9, Pips = Pip((ManaColor.Red, 1)) };
+        ManabaseDeck deck = SingleSpellDeck(spell, ManaColor.Red);
+        var overrides = new Dictionary<string, string> { ["Blasphemous Act"] = "{R}" };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, overrides);
+
+        CardCastability row = report.Castability.Single(c => c.Name == "Blasphemous Act");
+        Assert.Equal(1, row.ManaValue);
+        Assert.Equal(1, row.OnCurveTurn);
+        Assert.True(row.IsCostOverridden);
+        // Still demands red (MV 1 >= 1 pip): red remains a finding.
+        Assert.Contains(report.ColorFindings, f => f.Color == ManaColor.Red);
+    }
+
+    [Fact]
+    public void Analyze_NoOverride_IsUnchanged()
+    {
+        var spell = new SpellRequirement { Name = "Counterspell", ManaValue = 2, Pips = Pip((ManaColor.Blue, 2)) };
+        ManabaseDeck deck = SingleSpellDeck(spell, ManaColor.Blue);
+
+        CardCastability baseline = ManabaseAnalyzer.Analyze(deck).Castability.Single(c => c.Name == "Counterspell");
+        CardCastability withNull = ManabaseAnalyzer
+            .Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, null)
+            .Castability.Single(c => c.Name == "Counterspell");
+
+        Assert.Equal(baseline.ManaValue, withNull.ManaValue);
+        Assert.Equal(baseline.CastPercent, withNull.CastPercent);
+        Assert.False(withNull.IsCostOverridden);
+    }
+
+    [Fact]
+    public void Analyze_Override_MatchesCaseInsensitively()
+    {
+        var spell = new SpellRequirement { Name = "Force of Will", ManaValue = 5, Pips = Pip((ManaColor.Blue, 2)) };
+        ManabaseDeck deck = SingleSpellDeck(spell, ManaColor.Blue);
+        var overrides = new Dictionary<string, string> { ["force of will"] = "0" };
+
+        CardCastability row = ManabaseAnalyzer
+            .Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, overrides)
+            .Castability.Single(c => c.Name == "Force of Will");
+
+        Assert.Equal(0, row.ManaValue);
+        Assert.True(row.IsCostOverridden);
+    }
+
+    [Fact]
+    public void Analyze_Override_WinsOnReducerDeck()
+    {
+        // Big Spell is printed MV5 with a deck {1} reducer (→ turn 4 without an override). An
+        // override to MV2 must take over: effective MV 2, and the turn is no worse than 2.
+        ManabaseDeck withReducer = BuildReducerDeck(withReducer: true);
+        var overrides = new Dictionary<string, string> { ["Big Spell"] = "{1}{U}" };
+
+        CardCastability row = ManabaseAnalyzer
+            .Analyze(withReducer, ManabaseMode.Casual, CommanderImportance.Standard, overrides)
+            .Castability.Single(c => c.Name == "Big Spell");
+
+        Assert.True(row.IsCostOverridden);
+        Assert.Equal(2, row.ManaValue);
+        Assert.True(row.OnCurveTurn <= 2, $"override base + reducer must not exceed turn 2, got {row.OnCurveTurn}");
+    }
+
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
         => pips.ToDictionary(p => p.Color, p => p.Count);
 }

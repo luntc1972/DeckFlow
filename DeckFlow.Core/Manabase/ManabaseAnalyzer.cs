@@ -31,9 +31,19 @@ public static class ManabaseAnalyzer
     /// How heavily to weight the commander's colors. Orthogonal to <paramref name="mode"/>: it never
     /// changes the land target, only the commander-color support evaluation and summary weighting.
     /// </param>
-    public static ManabaseReport Analyze(ManabaseDeck deck, ManabaseMode mode, CommanderImportance importance = CommanderImportance.Standard)
+    public static ManabaseReport Analyze(
+        ManabaseDeck deck,
+        ManabaseMode mode,
+        CommanderImportance importance = CommanderImportance.Standard,
+        IReadOnlyDictionary<string, string>? costOverrides = null)
     {
         ArgumentNullException.ThrowIfNull(deck);
+
+        // Apply user cost overrides BEFORE anything reads the spell list: substitute each affected
+        // spell with an effective requirement (new MV + pips from the override cost). Every
+        // downstream consumer — castability rows, the simulator, and the color findings — then
+        // reads the substituted spells, so the table and the color verdict stay consistent.
+        deck = ApplyCostOverrides(deck, costOverrides);
 
         // A source occupies a land slot when flagged IsLand (even discounted fetches);
         // partial sources (dorks, rocks, MDFC backs) count toward color supply only.
@@ -65,6 +75,64 @@ public static class ManabaseAnalyzer
             CommanderColors = CommanderColors(deck).ToArray(),
             LandTarget = landTarget,
             Summary = summary,
+        };
+    }
+
+    // Substitute each overridden spell with an effective requirement built from the override cost.
+    // Keyed by resolved display name (case-insensitive) first, normalized name as a fallback so
+    // punctuation / DFC front-face names still match. Deck-level aggregates (land target, average
+    // mana value) are intentionally untouched — an alt cost changes castability, not the curve.
+    private static ManabaseDeck ApplyCostOverrides(ManabaseDeck deck, IReadOnlyDictionary<string, string>? overrides)
+    {
+        if (overrides is null || overrides.Count == 0)
+        {
+            return deck;
+        }
+
+        var exact = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var byNormalized = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, string> kvp in overrides)
+        {
+            exact[kvp.Key] = kvp.Value;
+            byNormalized[DeckFlow.Core.Normalization.CardNormalizer.Normalize(kvp.Key)] = kvp.Value;
+        }
+
+        var spells = new List<SpellRequirement>(deck.Spells.Count);
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            string? cost = ResolveOverrideCost(spell.Name, exact, byNormalized);
+            spells.Add(cost is null ? spell : ApplyOverride(spell, cost));
+        }
+
+        return deck with { Spells = spells };
+    }
+
+    private static string? ResolveOverrideCost(
+        string name,
+        IReadOnlyDictionary<string, string> exact,
+        IReadOnlyDictionary<string, string> byNormalized)
+    {
+        if (exact.TryGetValue(name, out string? hit))
+        {
+            return hit;
+        }
+
+        return byNormalized.TryGetValue(DeckFlow.Core.Normalization.CardNormalizer.Normalize(name), out string? fallback)
+            ? fallback
+            : null;
+    }
+
+    // Build an effective requirement from a (possibly shorthand) cost string. Pips come solely from
+    // the parsed cost — no heuristic pip-dropping — so a free "0" clears color while "{R}" keeps it.
+    private static SpellRequirement ApplyOverride(SpellRequirement spell, string costString)
+    {
+        ParsedManaCost cost = ManaCostParser.Parse(ManaCostParser.NormalizeToBraced(costString));
+        return spell with
+        {
+            ManaValue = cost.ManaValue,
+            Pips = cost.Pips,
+            IsGold = cost.DistinctColors >= 2,
+            IsCostOverridden = true,
         };
     }
 
