@@ -2365,12 +2365,20 @@ label.field > span,
   user-select: none;
 }
 
-.manabase-pill > input {
+/* The radio is visually hidden; only the span shows. The [type="radio"]
+   qualifier raises specificity to (0,2,1) so this collapse beats the global
+   custom-render in site-theme-overrides.css (`input[type="radio"]`, 0,1,1),
+   which loads after site-common.css and would otherwise re-inflate the radio
+   to a ~1.05rem in-flow box (opacity:0 but space-occupying), knocking the
+   pill label text off-center. border/appearance neutralize that render too. */
+.manabase-pill > input[type="radio"] {
   position: absolute;
   opacity: 0;
   width: 1px;
   height: 1px;
   margin: 0;
+  border: 0;
+  appearance: none;
 }
 
 /* Selected state is driven purely by the checked radio via :has(). The server
