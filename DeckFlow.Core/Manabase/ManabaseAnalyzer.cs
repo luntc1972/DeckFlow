@@ -335,6 +335,7 @@ public static class ManabaseAnalyzer
             double worstDeficit = double.NegativeInfinity;
 
             int underSupported = 0;
+            int colorLimitedUnderSupported = 0;
             double castSum = 0;
             int castCount = 0;
             double worstCast = double.PositiveInfinity;
@@ -411,6 +412,17 @@ public static class ManabaseAnalyzer
                 if (castPercent < threshold)
                 {
                     underSupported++;
+
+                    // A color-limited shortfall (vs a pure mana/curve limit) is the only kind the mana
+                    // base can fix. Tracked separately so the health verdict never reads "needs work"
+                    // for an expensive card the base already supports color-wise — that is a curve
+                    // problem, not a mana-base one. (UnderSupportedCount keeps counting every late
+                    // card for the display "N of M".)
+                    if (IsColorLimited(row?.LimitingFactor))
+                    {
+                        colorLimitedUnderSupported++;
+                    }
+
                     // Record the demanding card once (a spell may demand several colors); keep the
                     // lowest cast % seen so the worst-first verdict list is stable.
                     if (!demandingByName.TryGetValue(spell.Name, out int prior) || castPercent < prior)
@@ -440,6 +452,7 @@ public static class ManabaseAnalyzer
                 RequiredSources = required,
                 DrivingSpell = driver,
                 UnderSupportedCount = underSupported,
+                ColorLimitedUnderSupportedCount = colorLimitedUnderSupported,
                 AverageCastPercent = castCount > 0 ? Math.Round(castSum / castCount, 1) : 0,
                 WorstSpellCastPercent = double.IsPositiveInfinity(worstCast) ? 0 : worstCast,
                 WorstSpell = worstSpell,
@@ -519,6 +532,14 @@ public static class ManabaseAnalyzer
         int karstenCeiling = KarstenManabase.SourcesNeeded(librarySize, totalLands, pips, Math.Max(1, onCurveTurn));
         return Math.Min(result, karstenCeiling);
     }
+
+    // A card's shortfall involves color access when its limiting factor is a color limit ("color:X")
+    // or the combined "both" — as opposed to a pure "mana" (curve/quantity) limit. See
+    // <see cref="CastabilitySimulator"/>'s DeriveLimitingFactor for the three forms.
+    private static bool IsColorLimited(string? limitingFactor) =>
+        !string.IsNullOrEmpty(limitingFactor)
+        && (limitingFactor.StartsWith("color", StringComparison.OrdinalIgnoreCase)
+            || limitingFactor.Equals("both", StringComparison.OrdinalIgnoreCase));
 
     // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
     // on-color lands plus off-color lands to `totalLands`, padded to `librarySize`. Isolates one

@@ -260,6 +260,13 @@ public sealed record ColorSourceFinding
     /// <summary>How many of this color's spells fall below the mode's castability threshold.</summary>
     public int UnderSupportedCount { get; init; }
 
+    /// <summary>
+    /// Subset of <see cref="UnderSupportedCount"/> whose shortfall involves color access (not a pure
+    /// mana/curve limit). Only this count drives the health verdict toward NeedsWork — an expensive
+    /// card the base already supports color-wise is a curve problem the mana base cannot fix.
+    /// </summary>
+    public int ColorLimitedUnderSupportedCount { get; init; }
+
     /// <summary>Mean castability (0–100) across every spell demanding this color.</summary>
     public double AverageCastPercent { get; init; }
 
@@ -461,47 +468,62 @@ public sealed record ManabaseReport
         ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
 
     /// <summary>
-    /// Two-tier graded verdict (Codex HIGH-3). EXACT numeric predicates, evaluated land-first:
+    /// Two-tier graded verdict (Codex HIGH-3). Only a REAL mana shortage reads <b>NeedsWork</b>; a
+    /// land surplus, a sub-source rounding deficit, and expensive late-casting (mana-limited) bombs
+    /// never trip it — the verdict measures the mana base, not the curve.
     /// <list type="bullet">
-    /// <item><b>NeedsWork</b> when <see cref="LandDelta"/> &lt; -1 (lands short), OR any color has a
-    /// real mulligan-aware <see cref="ColorSourceFinding.Deficit"/> &gt; 0, OR any color's
-    /// <see cref="ColorSourceFinding.UnderSupportedCount"/> exceeds <c>max(1, ceil(colorCards·0.15))</c>.</item>
-    /// <item><b>Healthy</b> when land-adequate and every color's under-supported count is 0.</item>
-    /// <item><b>Functional</b> otherwise (land-adequate, no source deficit, only a few demanding cards).</item>
+    /// <item><b>NeedsWork</b> when <see cref="LandDelta"/> &lt; -2 (lands meaningfully short), OR any
+    /// color is short by more than a whole source (<see cref="ColorSourceFinding.Deficit"/> &gt; 1),
+    /// OR any color's <see cref="ColorSourceFinding.UnderSupportedCount"/> (color-limited cards only)
+    /// exceeds <c>max(1, ceil(colorCards·0.15))</c>.</item>
+    /// <item><b>Healthy</b> when land-adequate (within one of target) and no color has any shortfall.</item>
+    /// <item><b>Functional</b> otherwise (works, but slightly land-light or a few demanding cards).</item>
     /// </list>
     /// </summary>
     public ManabaseHealth Health
     {
         get
         {
-            if (LandDelta < -1)
-            {
-                return ManabaseHealth.NeedsWork;
-            }
-
+            bool landsShort = LandDelta < -2;
+            bool anyRealDeficit = false;
+            bool anyOverTolerance = false;
             bool everyColorClear = true;
-            bool everyColorFunctional = true;
+
             foreach (ColorSourceFinding f in ColorFindings)
             {
-                if (f.UnderSupportedCount != 0)
+                if (f.UnderSupportedCount != 0 || f.Deficit > 0)
                 {
                     everyColorClear = false;
                 }
 
                 int colorCards = ColorSpellCounts.TryGetValue(f.Color, out int count) ? count : 0;
                 int tolerance = Math.Max(1, (int)Math.Ceiling(colorCards * 0.15));
-                if (f.Deficit > 0 || f.UnderSupportedCount > tolerance)
+
+                // A whole-source-plus deficit is a real shortage; a sub-source one is rounding noise.
+                if (f.Deficit > 1)
                 {
-                    everyColorFunctional = false;
+                    anyRealDeficit = true;
+                }
+
+                // Only COLOR-limited shortfalls count toward NeedsWork; mana-limited (curve) cards are
+                // not a mana-base fault. UnderSupportedCount (all late cards) still gates Healthy below.
+                if (f.ColorLimitedUnderSupportedCount > tolerance)
+                {
+                    anyOverTolerance = true;
                 }
             }
 
-            if (everyColorClear)
+            if (landsShort || anyRealDeficit || anyOverTolerance)
+            {
+                return ManabaseHealth.NeedsWork;
+            }
+
+            if (LandDelta >= -1 && everyColorClear)
             {
                 return ManabaseHealth.Healthy;
             }
 
-            return everyColorFunctional ? ManabaseHealth.Functional : ManabaseHealth.NeedsWork;
+            return ManabaseHealth.Functional;
         }
     }
 
@@ -558,11 +580,13 @@ public sealed record ManabaseReport
     {
         get
         {
-            // 1. A color with a genuine raw source deficit is the most actionable fix.
+            // 1. A color short by more than a whole source is the most actionable fix. A sub-source
+            //    deficit is rounding noise (it shares the Health verdict's tolerance), so it falls
+            //    through to the land / demanding-card guidance instead of "add ~1 source".
             ColorSourceFinding? rawShort = null;
             foreach (ColorSourceFinding f in ColorFindings)
             {
-                if (f.Deficit > 0 && (rawShort is null || f.Deficit > rawShort.Deficit))
+                if (f.Deficit > 1 && (rawShort is null || f.Deficit > rawShort.Deficit))
                 {
                     rawShort = f;
                 }
