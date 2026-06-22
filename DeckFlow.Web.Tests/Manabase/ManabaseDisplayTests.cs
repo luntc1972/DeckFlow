@@ -63,6 +63,17 @@ public sealed class ManabaseDisplayTests
         Assert.False(string.IsNullOrWhiteSpace(css));
     }
 
+    [Theory]
+    [InlineData(0.0, "on curve")]
+    [InlineData(0.04, "on curve")]   // below the rounding threshold → still "on curve"
+    [InlineData(0.4, "+0.4 turns")]
+    [InlineData(1.0, "+1.0 turns")]
+    [InlineData(2.35, "+2.4 turns")] // one-decimal rounding
+    public void DelayText_FormatsAverageDelay(double delay, string expected)
+    {
+        Assert.Equal(expected, ManabaseDisplay.DelayText(delay));
+    }
+
     [Fact]
     public void ModeAndImportanceLabels_AreHumanReadable()
     {

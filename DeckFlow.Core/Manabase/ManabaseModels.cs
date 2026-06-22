@@ -133,6 +133,14 @@ public sealed record CardCastability
 
     /// <summary>True when a user override / detected alt cost set this row's effective cost.</summary>
     public bool IsCostOverridden { get; init; }
+
+    /// <summary>
+    /// Mean turns LATE the spell first becomes castable, averaged over all trials:
+    /// <c>mean(max(0, firstCastableTurn − onCurveTurn))</c>. 0 when (near-)always on curve; rises as a
+    /// color- or mana-starved spell slips later. A trial that never gets there within the grace window
+    /// is capped at <c>lastSimulatedTurn + 1</c>, so the metric is bounded. Supporting context only.
+    /// </summary>
+    public double AverageDelay { get; init; }
 }
 
 /// <summary>The kinds of spell an always-on cost reducer applies to.</summary>

@@ -78,6 +78,20 @@ public static class ManabaseDisplay
         _ => "manabase-chip--low",
     };
 
+    /// <summary>
+    /// Human label for a spell's average cast delay: "on curve" when ~0, else "+N.N turns" — the
+    /// mean turns late it first becomes castable (supporting context, not a hard metric).
+    /// </summary>
+    public static string DelayText(double averageDelay)
+    {
+        if (averageDelay < 0.05)
+        {
+            return "on curve";
+        }
+
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"+{averageDelay:0.0} turns");
+    }
+
     /// <summary>Human label for an analysis mode (used in the results echo line).</summary>
     public static string ModeLabel(ManabaseMode mode) =>
         mode == ManabaseMode.Cedh ? "cEDH" : "Casual";

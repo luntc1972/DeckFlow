@@ -240,6 +240,7 @@
                             <th scope="col">Card</th>
                             <th scope="col">MV</th>
                             <th scope="col">Cast on curve</th>
+                            <th scope="col">Avg delay</th>
                             <th scope="col">Limiting</th>
                         </tr>
                     </thead>
@@ -262,6 +263,7 @@
                                 <td>
                                     <span class="manabase-chip @chip.Css">@c.CastPercent% · @chip.Label</span>
                                 </td>
+                                <td class="castability-delay">@ManabaseDisplay.DelayText(c.AverageDelay)</td>
                                 <td>@ManabaseDisplay.LimitingText(c.LimitingFactor)</td>
                             </tr>
                         }
