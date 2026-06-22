@@ -69,15 +69,17 @@ public static class ManabaseDisplay
     };
 
     /// <summary>
-    /// Semantic chip class for the health scale so it reads by color too (never color alone):
-    /// Excellent → good (green), Solid → solid (blue), Workable → ok (amber), Needs work → low (red).
+    /// Health-scale chip class. These are health-only (distinct from the shared cast-chip
+    /// --good/--ok/--low) and use fixed, theme-independent filled status colors so the verdict stays
+    /// readable on every guild theme — the theme's --info/--warning tokens are surface colors, not
+    /// status colors, so binding the chip to them made the Solid label invisible on light themes.
     /// </summary>
     public static string HealthCss(ManabaseHealth health) => health switch
     {
-        ManabaseHealth.Healthy => "manabase-chip--good",
-        ManabaseHealth.Functional => "manabase-chip--solid",
-        ManabaseHealth.Workable => "manabase-chip--ok",
-        _ => "manabase-chip--low",
+        ManabaseHealth.Healthy => "manabase-health--excellent",
+        ManabaseHealth.Functional => "manabase-health--solid",
+        ManabaseHealth.Workable => "manabase-health--workable",
+        _ => "manabase-health--needswork",
     };
 
     /// <summary>
