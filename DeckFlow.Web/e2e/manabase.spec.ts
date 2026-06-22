@@ -26,6 +26,20 @@ test('manabase page renders the deck-input form', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('reduced/alternative cost overrides box is present and posts its value', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // The overrides field exists inside its collapsible section and binds to CostOverridesText.
+  const box = page.locator('#manabase-cost-overrides');
+  await expect(box).toHaveAttribute('name', 'CostOverridesText');
+
+  // Expand the section (closed on a fresh load with no detected suggestions), then it is editable.
+  await page.locator('.manabase-overrides > summary').click();
+  await expect(box).toBeVisible();
+  await box.fill('Force of Will: 0');
+  await expect(box).toHaveValue('Force of Will: 0');
+});
+
 test('input-source radios sit adjacent, not pushed to opposite page edges', async ({ page }) => {
   await page.goto('/manabase');
 

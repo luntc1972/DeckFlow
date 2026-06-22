@@ -2268,6 +2268,27 @@ label.field > span,
   gap: 1rem;
 }
 
+/* Reduced/alternative-cost overrides: a collapsible block under the deck input. */
+.manabase-overrides {
+  margin: 0.5rem 0 0.25rem;
+}
+
+.manabase-overrides > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.manabase-overrides .field {
+  margin-top: 0.5rem;
+}
+
+/* The "*" marker on a castability row whose cost was overridden. */
+.manabase-override-mark {
+  color: var(--accent, #3858a6);
+  font-weight: 700;
+  margin-left: 0.1rem;
+}
+
 .manabase-segmented {
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   border-radius: 0.6rem;

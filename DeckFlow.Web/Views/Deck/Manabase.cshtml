@@ -48,6 +48,23 @@
                   placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
     </div>
 
+    <details class="manabase-overrides" @(Model.HasSuggestions || !string.IsNullOrWhiteSpace(Model.Request.CostOverridesText) ? "open" : null)>
+        <summary>Reduced / alternative costs (optional)</summary>
+        <div class="field">
+            <label for="manabase-cost-overrides">
+                One per line as <code>Card Name: cost</code> — e.g. <code>Force of Will: 0</code> or
+                <code>Blasphemous Act: {R}</code>. Use this for pitch/free spells, board-scaling cards
+                (Blasphemous Act), and evoke/suspend, where the real cost is below the printed one.
+            </label>
+            @if (Model.HasSuggestions)
+            {
+                <p class="manabase-help">Auto-detected and pre-filled below — edit or clear any you disagree with.</p>
+            }
+            <textarea id="manabase-cost-overrides" name="CostOverridesText" rows="4" spellcheck="false" autocomplete="off"
+                      placeholder="Force of Will: 0&#10;Blasphemous Act: {R}">@Model.OverridesBoxText</textarea>
+        </div>
+    </details>
+
     <div class="manabase-options">
         <fieldset class="manabase-segmented" role="radiogroup">
             <legend>Deck type</legend>
@@ -193,7 +210,10 @@
                                     }
                                     @c.Name
                                 </td>
-                                <td>@c.ManaValue</td>
+                                <td>
+                                    @c.ManaValue@if (c.IsCostOverridden)
+                                    {<span class="manabase-override-mark" title="reduced / alternative cost applied" aria-label="reduced or alternative cost applied">*</span>}
+                                </td>
                                 <td>
                                     <span class="manabase-chip @chip.Css">@c.CastPercent% · @chip.Label</span>
                                 </td>
@@ -203,6 +223,10 @@
                     </tbody>
                 </table>
             </div>
+            @if (report.Castability.Any(c => c.IsCostOverridden))
+            {
+                <p class="manabase-help"><span class="manabase-override-mark">*</span> reduced / alternative cost applied from your overrides.</p>
+            }
         }
         else if (report.Mode == ManabaseMode.Cedh)
         {
