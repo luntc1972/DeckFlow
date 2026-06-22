@@ -36,7 +36,9 @@ async function submitDeck(
   await page.locator('#manabase-deck-text').fill(PASTE_DECK);
   await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
   await page.locator(`.manabase-pill input[name="CommanderImportance"][value="${importance}"]`).check();
-  await page.locator('button.run-button').click();
+  // Click Analyze specifically — the page now also has a "Load deck" run-button, so a bare
+  // `button.run-button` matches two elements (strict-mode failure / would post the load step).
+  await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   // Either a result panel or an error banner comes back. Treat a visible error (Scryfall
   // unreachable, etc.) as "could not analyze in this environment" and let callers skip.
