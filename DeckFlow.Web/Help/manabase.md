@@ -40,12 +40,14 @@ Then press **Analyze Mana Base**. Cards resolve through Scryfall by exact printi
 
 The result panel shows:
 
-- **Health verdict** — a graded read, not a pass/fail:
-  - **Healthy** — land count is within one of target and no color has an under-supported card.
-  - **Functional** — land-adequate with no real source shortfall, but a few demanding cards sit below the consistency bar. The demanding cards are listed (e.g. *Functional — 1 demanding card: Grand Abolisher (77%)*) so you can decide whether they are worth the strain.
-  - **Needs work** — a color is genuinely short (a real source deficit, more under-supported cards than a small ratio of that color, or the deck is short on lands).
+- **Health verdict** — a four-tier scale that grades the *mana base*, not the curve:
+  - **Excellent** — land count is within one of target and no color has any shortfall.
+  - **Solid** — the base works with only minor notes: within a land or two of target, or a few demanding cards that cast late because they are *expensive* (a curve problem the mana base can't fix). Those demanding cards are still listed by name (e.g. *Solid — 1 demanding card: Grand Abolisher (77%)*) so you can decide whether they're worth the strain.
+  - **Workable** — one contained color problem the base can fix: a single color short by a source or two, or one color with more color-starved cards than a small ratio of that color.
+  - **Needs work** — a real, broad shortage: the deck is two-plus lands short, a color is short by several sources, or two or more colors are short.
 
-  The source requirements are **mulligan-aware** (they account for Commander's free first mulligan), so a tight double-pip like a turn-two `{W}{W}` is no longer flagged against an inflated requirement.
+  Crucially, a card that casts late only because of its **mana cost** (not its colors) never fails the base — that is a curve issue, surfaced in the castability table, not a mana-base fault. The source requirements are **mulligan-aware** (they account for Commander's free first mulligan) and clamped to Karsten's table as a ceiling, so a tight double-pip like a turn-two `{W}{W}` is neither flagged against an inflated requirement nor pushed past the math.
+- **Biggest fix** — one actionable line, chosen so it never contradicts the health/land read: it points at the color that is genuinely short (add ~N sources), else at the land count (add ~N lands), else at trimming the top end — and never tells you to add a negative or "remove" source count.
 - **Land count** — your actual land total vs. the count Karsten's math recommends for your curve (cEDH lowers that target), with an OK / short note.
 - **Color findings** — for each color: how many effective sources you run (duals, any-color rocks, and fetchlands are credited to every color they can make), the toughest spell driving the requirement, how many of that color's cards are under-supported, and their mean castability. The weakest color is highlighted; a lone hard-to-cast bomb still surfaces even if the rest of the color is fine.
 - **Castability** (Casual mode) — a table of each real spell's estimated chance to be cast **on its on-curve turn**, worst-first, with a low / ok / good chip, its **average delay** (how many turns late it typically becomes castable — *on curve* when it lands on time, else *+N.N turns*), and what's limiting it (*mana*, *color: X*, or *mana + color*). Your commander is pinned at the top. Mana rocks, dorks, and lands are counted in the math but not listed as rows. A `*` next to a card's mana value means a reduced / alternative cost from your overrides was applied. cEDH mode hides this table.
