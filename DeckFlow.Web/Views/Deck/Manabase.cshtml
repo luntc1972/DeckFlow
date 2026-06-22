@@ -21,7 +21,11 @@
     @Model.ErrorMessage
 </div>
 
-<form method="post" action="@Url.Content("~/manabase")" class="result-panel">
+<form method="post" action="@Url.Content("~/manabase")" class="result-panel"
+      data-busy-title="Analyzing mana base"
+      data-busy-message="Resolving cards and simulating castability — this can take a few seconds."
+      data-busy-progress="Loading the deck|Resolving cards via Scryfall|Simulating castability|Scoring colors"
+      data-busy-hold-final-step="true">
     @Html.AntiForgeryToken()
 
     <div class="toolbar manabase-source-toggle" role="radiogroup" aria-label="Deck input source">
@@ -101,8 +105,9 @@
         </fieldset>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar manabase-actions">
         <button type="submit" class="run-button">Analyze Mana Base</button>
+        <a href="@Url.Content("~/manabase")" class="clear-cache-button manabase-start-over" role="button" data-no-busy>Start over</a>
     </div>
 </form>
 

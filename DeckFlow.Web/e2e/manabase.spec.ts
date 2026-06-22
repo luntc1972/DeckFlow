@@ -40,6 +40,31 @@ test('reduced/alternative cost overrides box is present and posts its value', as
   await expect(box).toHaveValue('Force of Will: 0');
 });
 
+test('Start over link resets the form to a fresh empty page', async ({ page }) => {
+  await page.goto('/manabase');
+
+  await page.locator('input[name="DeckInputSource"][value="PasteText"]').check();
+  await page.locator('#manabase-deck-text').fill('1 Sol Ring');
+  await expect(page.locator('#manabase-deck-text')).toHaveValue('1 Sol Ring');
+
+  // The Start over control navigates to a clean GET /manabase (no persisted input).
+  const startOver = page.locator('.manabase-start-over');
+  await expect(startOver).toHaveAttribute('href', /\/manabase$/);
+  await startOver.click();
+
+  await expect(page).toHaveURL(/\/manabase$/);
+  await expect(page.locator('#manabase-deck-text')).toHaveValue('');
+});
+
+test('analysis form is wired to the shared busy indicator', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // The submit form carries the data-busy-* contract that deck-sync.js auto-wires on submit,
+  // and the busy-indicator element it drives is present on the page.
+  await expect(page.locator('form[action="/manabase"]')).toHaveAttribute('data-busy-title', /Analyzing mana base/);
+  await expect(page.locator('#busy-indicator')).toBeAttached();
+});
+
 test('input-source radios sit adjacent, not pushed to opposite page edges', async ({ page }) => {
   await page.goto('/manabase');
 
