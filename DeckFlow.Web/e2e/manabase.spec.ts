@@ -26,6 +26,87 @@ test('manabase page renders the deck-input form', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('reduced/alternative cost overrides box is present and posts its value', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // The overrides field exists inside its collapsible section and binds to CostOverridesText.
+  const box = page.locator('#manabase-cost-overrides');
+  await expect(box).toHaveAttribute('name', 'CostOverridesText');
+
+  // Expand the section (closed on a fresh load with no detected suggestions), then it is editable.
+  await page.locator('.manabase-overrides > summary').click();
+  await expect(box).toBeVisible();
+  await box.fill('Force of Will: 0');
+  await expect(box).toHaveValue('Force of Will: 0');
+});
+
+test('Start over link resets the form to a fresh empty page', async ({ page }) => {
+  await page.goto('/manabase');
+
+  await page.locator('input[name="DeckInputSource"][value="PasteText"]').check();
+  await page.locator('#manabase-deck-text').fill('1 Sol Ring');
+  await expect(page.locator('#manabase-deck-text')).toHaveValue('1 Sol Ring');
+
+  // The Start over control navigates to a clean GET /manabase (no persisted input).
+  const startOver = page.locator('.manabase-start-over');
+  await expect(startOver).toHaveAttribute('href', /\/manabase$/);
+  await startOver.click();
+
+  await expect(page).toHaveURL(/\/manabase$/);
+  await expect(page.locator('#manabase-deck-text')).toHaveValue('');
+});
+
+test('analysis form is wired to the shared busy indicator', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // The submit form carries the data-busy-* contract that deck-sync.js auto-wires on submit,
+  // and the busy-indicator element it drives is present on the page.
+  await expect(page.locator('form[action="/manabase"]')).toHaveAttribute('data-busy-title', /Analyzing mana base/);
+  await expect(page.locator('#busy-indicator')).toBeAttached();
+});
+
+test('input-source radios sit adjacent, not pushed to opposite page edges', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // Regression: the source toggle shares the .toolbar shell, which themes fork
+  // as justify-content: space-between. Without the .manabase-source-toggle
+  // override the two radios get shoved to opposite edges. Assert they stay
+  // within a tight gap of each other.
+  const labels = page.locator('.manabase-source-toggle label');
+  await expect(labels).toHaveCount(2);
+  const first = await labels.nth(0).boundingBox();
+  const second = await labels.nth(1).boundingBox();
+  expect(first).not.toBeNull();
+  expect(second).not.toBeNull();
+  const gap = second!.x - (first!.x + first!.width);
+  expect(gap).toBeLessThan(60);
+});
+
+test('clicking a deck-type pill moves the selected highlight (exactly one lit)', async ({ page }) => {
+  await page.goto('/manabase');
+
+  const ACCENT_LIT = (handle: string) =>
+    page.locator(handle).evaluate(
+      (el) => getComputedStyle(el as HTMLElement).backgroundColor,
+    );
+
+  const casual = page.locator('.manabase-pill:has(input[value="Casual"])');
+  const cedh = page.locator('.manabase-pill:has(input[value="Cedh"])');
+
+  // Casual is the default selected mode, so it is the only lit pill on load.
+  const casualBg = await ACCENT_LIT('.manabase-pill:has(input[value="Casual"])');
+  const cedhBgBefore = await ACCENT_LIT('.manabase-pill:has(input[value="Cedh"])');
+  expect(casualBg).not.toEqual(cedhBgBefore);
+
+  // Clicking cEDH must move the highlight with no POST roundtrip: cEDH lights,
+  // Casual goes dark. Regression for the stale .is-selected double-highlight.
+  await cedh.click();
+  expect(await ACCENT_LIT('.manabase-pill:has(input[value="Cedh"])')).toEqual(casualBg);
+  expect(await ACCENT_LIT('.manabase-pill:has(input[value="Casual"])')).toEqual(cedhBgBefore);
+  await expect(casual.locator('input')).not.toBeChecked();
+  await expect(cedh.locator('input')).toBeChecked();
+});
+
 test('mana base nav link is wired in the Analyze group when the flag is on', async ({ page }) => {
   await page.goto('/deck-analysis');
 

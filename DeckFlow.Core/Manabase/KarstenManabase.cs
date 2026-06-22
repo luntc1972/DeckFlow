@@ -44,6 +44,32 @@ public static class KarstenManabase
     }
 
     /// <summary>
+    /// Competitive (cEDH) land target: the singleton regression minus a flat 3.5, clamped to a
+    /// 28 floor. The research band is 28–32; a flat offset is the simplest fit that lands there,
+    /// and the 28 floor matches the lowest real cEDH combo lists. Fast mana / rocks are already
+    /// credited inside <see cref="SingletonLandTarget"/>.
+    /// </summary>
+    public static double CedhLandTarget(
+        int totalCards,
+        int commanderCount,
+        double averageManaValue,
+        double rampAndDrawUnderThree,
+        double fastMana = 0,
+        double mdfcCommon = 0,
+        double mdfcMythic = 0)
+    {
+        double singleton = SingletonLandTarget(
+            totalCards,
+            commanderCount,
+            averageManaValue,
+            rampAndDrawUnderThree,
+            fastMana,
+            mdfcCommon,
+            mdfcMythic);
+        return Math.Max(28.0, singleton - 3.5);
+    }
+
+    /// <summary>
     /// Recommended land count for a 60-card constructed deck (Karsten's regression fit).
     /// </summary>
     public static double SixtyCardLandTarget(
@@ -168,4 +194,5 @@ public static class KarstenManabase
 
         return totalLands;
     }
+
 }

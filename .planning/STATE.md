@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 64 Plan 02 complete. 64-02-SUMMARY.md committed. Phase 64 all plans done. Next: /gsd-verify-work 64 or /gsd-plan-phase 65."
-last_updated: "2026-06-21T22:35:00.000Z"
-last_activity: 2026-06-21 — Phase 64 Plan 02 executed (4-site host-trust adoption + canonical Spellbook URL fix; 612+677 tests green)
+stopped_at: "main merged into cycle11 (manabase + reconcile integrated). Phase 64 complete. Next: /gsd-verify-work 64 or /gsd-plan-phase 65."
+last_updated: "2026-06-22T19:30:00.000Z"
+last_activity: 2026-06-22 — Merged main → cycle11; cycle11 is now the superset integration branch (manabase + security)
 progress:
   total_phases: 10
   completed_phases: 3
@@ -21,14 +21,19 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Cycle 11 — Security, Visibility Control & Creator-Lens (6 phases 64-69; roadmap approved 2026-06-21). On branch `cycle11` in worktree `../deckflow-cycle11`. Next: `/gsd-plan-phase 64`.
+**Current focus:** Cycle 11 — Security, Visibility Control & Creator-Lens (6 phases 64-69). On branch `cycle11` in worktree `../deckflow-cycle11`, now the **superset integration branch** (carries manabase + security). Next: `/gsd-verify-work 64` then `/gsd-plan-phase 65`.
+
+## Branch reconciliation (resolved 2026-06-22)
+
+- The shipped **Manabase Analyzer** feature (built ad-hoc on `main`, deployed to prod 2026-06-22) is now MERGED into `cycle11`. Tracked as un-numbered trunk features: `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` (de-numbered out of slot 64 so Cycle 11 owns phase 64). Code is fully disjoint from Cycle 11's host-hardening — no overlapping files.
+- Going forward: do Cycle 11 work HERE on `cycle11`. main stays as-is (already has manabase). Cycle 11 ships via cycle11→main fast-forward when phases 65-69 are done.
 
 ## Current Position
 
-Phase: 64 — Deck-Source Host Hardening
+Phase: 64 — Deck-Source Host Hardening (complete)
 Plan: 02 complete (all plans in phase done)
-Status: Phase 64 complete — awaiting /gsd-verify-work 64
-Last activity: 2026-06-21 — Phase 64 Plan 02 executed (4-site host-trust adoption + Spellbook canonical URL fix; 612+677 green)
+Status: Phase 64 complete — awaiting /gsd-verify-work 64; main merged in
+Last activity: 2026-06-22 — Merged main → cycle11 (manabase + reconcile integrated)
 
 ## Roadmap Summary
 
@@ -136,10 +141,13 @@ Last activity: 2026-06-21 — Phase 64 Plan 02 executed (4-site host-trust adopt
 
 ## Session Continuity
 
-Last session: 2026-06-21T22:35:00Z
-Stopped at: Phase 64 Plan 02 complete. 64-02-SUMMARY.md committed. All Phase 64 plans done (01+02). Next: /gsd-verify-work 64 or /gsd-plan-phase 65.
-Resume: Phase 64 verification (SEC-01/02/03), then Phase 65 planning.
+Last session: 2026-06-22T19:30:00Z
+Stopped at: Branch reconciliation done — main de-numbered manabase out of slot 64; merged main → cycle11 (one STATE.md conflict resolved). cycle11 now superset (manabase + security). Phase 64 complete.
+Resume: Cycle 11 here on `cycle11`. Next: `/gsd-verify-work 64` then `/gsd-plan-phase 65`.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Cycle 11 work continues HERE in `../deckflow-cycle11` (branch `cycle11`).
+- Next: `/gsd-verify-work 64`, then `/gsd-plan-phase 65`.
+- Push when ready: `cycle11` (this merge) and `main` (de-number commit `64fc72e9`) — AI awaits explicit push confirmation.
+- `.manabase-brago-facts.json` at repo root is a harness cache — `git clean` it or add to `.gitignore` (do-not-modify list → operator).

@@ -21,8 +21,44 @@ public interface IManabaseAnalysisService
     /// <summary>Analyze the mana base of the deck identified by <paramref name="deckSource"/>.</summary>
     /// <param name="deckSource">A public deck URL or pasted decklist text.</param>
     /// <param name="deckName">Optional display name for the deck (used in the ChatGPT prompt).</param>
+    /// <param name="options">Mode + commander-importance knobs; defaults to Casual / Standard.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<ManabaseAnalysisResult> AnalyzeAsync(string deckSource, string? deckName, CancellationToken cancellationToken = default);
+    Task<ManabaseAnalysisResult> AnalyzeAsync(
+        string deckSource,
+        string? deckName,
+        ManabaseAnalysisOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolve the deck and detect its reduced/alternative-cost suggestions WITHOUT running the
+    /// (expensive) castability simulation. Backs the "Load deck" step so the user can review and
+    /// edit the detected overrides before analysis.
+    /// </summary>
+    /// <param name="deckSource">A public deck URL or pasted decklist text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<ManabaseLoadResult> LoadAsync(
+        string deckSource,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// The user-selected analysis knobs threaded from the form into the Core analyzer. Bundled into
+/// one object so the parameter list does not telescope as more modes are added. Defaults keep the
+/// historic Casual / Standard behavior for any caller that omits them.
+/// </summary>
+public sealed class ManabaseAnalysisOptions
+{
+    /// <summary>The analysis profile (Casual default, cEDH lowers the land target).</summary>
+    public ManabaseMode Mode { get; init; } = ManabaseMode.Casual;
+
+    /// <summary>How heavily to weight the commander's colors (Standard default).</summary>
+    public CommanderImportance CommanderImportance { get; init; } = CommanderImportance.Standard;
+
+    /// <summary>
+    /// Optional per-card effective-cost overrides (card name → canonical braced cost). Replaces the
+    /// printed cost in the castability math for alt/reduced-cost cards. Empty/null = no overrides.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? CostOverrides { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -31,12 +67,28 @@ public interface IManabaseAnalysisService
 /// <param name="Unresolved">Card names Scryfall could not resolve (excluded from the math).</param>
 /// <param name="ImportWarning">Optional notice from the deck importer (e.g. a fallback path).</param>
 /// <param name="ChatGptSwapPrompt">Paste-ready prompt asking an LLM for specific land swaps.</param>
+/// <param name="Suggestions">Auto-detected alt/reduced-cost suggestions to pre-populate the override box.</param>
 public sealed record ManabaseAnalysisResult(
     ManabaseReport Report,
     string InputSummary,
     IReadOnlyList<string> Unresolved,
     string? ImportWarning,
-    string ChatGptSwapPrompt);
+    string ChatGptSwapPrompt,
+    IReadOnlyList<CostSuggestion> Suggestions);
+
+/// <summary>
+/// The outcome of the cheap "Load deck" step: the deck resolved and classified, with its detected
+/// cost suggestions, but no simulation/report. Feeds the review-and-edit-then-analyze flow.
+/// </summary>
+/// <param name="InputSummary">Short human summary (card/land counts) of what was loaded.</param>
+/// <param name="Unresolved">Card names Scryfall could not resolve (excluded from the math).</param>
+/// <param name="ImportWarning">Optional notice from the deck importer (e.g. a fallback path).</param>
+/// <param name="Suggestions">Auto-detected alt/reduced-cost suggestions to pre-populate the override box.</param>
+public sealed record ManabaseLoadResult(
+    string InputSummary,
+    IReadOnlyList<string> Unresolved,
+    string? ImportWarning,
+    IReadOnlyList<CostSuggestion> Suggestions);
 
 /// <inheritdoc />
 public sealed class ManabaseAnalysisService : IManabaseAnalysisService
@@ -77,7 +129,43 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public async Task<ManabaseAnalysisResult> AnalyzeAsync(
         string deckSource,
         string? deckName,
+        ManabaseAnalysisOptions? options = null,
         CancellationToken cancellationToken = default)
+    {
+        options ??= new ManabaseAnalysisOptions();
+
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, cancellationToken)
+            .ConfigureAwait(false);
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides);
+
+        string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
+
+        return new ManabaseAnalysisResult(
+            report, resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice,
+            swapPrompt, resolved.Deck.CostSuggestions);
+    }
+
+    /// <inheritdoc />
+    public async Task<ManabaseLoadResult> LoadAsync(
+        string deckSource,
+        CancellationToken cancellationToken = default)
+    {
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, cancellationToken)
+            .ConfigureAwait(false);
+
+        // No simulation here — Load just surfaces the detected cost suggestions for review/edit.
+        return new ManabaseLoadResult(
+            resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice, resolved.Deck.CostSuggestions);
+    }
+
+    // Shared front half of both entry points: validate input, load + board-filter the deck, resolve
+    // every card through Scryfall, and classify it into a ManabaseDeck (which carries the detected
+    // cost suggestions). Stops short of the castability simulation so Load can reuse it cheaply.
+    private async Task<ResolvedManabaseDeck> ResolveAndClassifyAsync(
+        string deckSource,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(deckSource))
         {
@@ -121,11 +209,27 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         var unresolved = new List<string>();
         foreach (DeckEntry entry in deckCards)
         {
-            if (index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? card))
+            ScryfallCardData? card;
+            if (!index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out card))
+            {
+                // The batch lookup missed this card — typically an exact printing Scryfall has no
+                // record of (e.g. an etched/promo collector number). Reuse the shared exact-name
+                // fallback that the comparison/analysis paths already use, then cache it in the
+                // index so duplicate entries don't re-query.
+                ScryfallCard? fallback = await _scryfallCardResolver
+                    .SearchFallbackCardAsync(entry.Name, cancellationToken).ConfigureAwait(false);
+                if (fallback is not null)
+                {
+                    card = ScryfallCardDataMapper.ToCardData(fallback);
+                    index.Add(card);
+                }
+            }
+
+            if (card is not null)
             {
                 deckEntries.Add(new DeckCardEntry
                 {
-                    Card = card!,
+                    Card = card,
                     Quantity = entry.Quantity,
                     IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase),
                 });
@@ -143,21 +247,28 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
 
         string decklistText = string.Join(
             "\n",
             deckCards.Select(e => $"{e.Quantity} {e.Name}"));
 
-        int landCount = report.ActualLands;
+        // Land count matches ManabaseReport.ActualLands (the analyzer counts IsLand sources the
+        // same way), so the loaded summary reads identically to the analyzed one.
+        int landCount = deck.Sources.Count(s => s.IsLand);
         int cardCount = deckCards.Sum(e => e.Quantity);
         string inputSummary = $"{cardCount} cards · {landCount} lands"
             + (unresolved.Count > 0 ? $" · {unresolved.Count} unresolved" : string.Empty);
 
-        string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, decklistText);
-
-        return new ManabaseAnalysisResult(report, inputSummary, unresolved, load.FallbackNotice, swapPrompt);
+        return new ResolvedManabaseDeck(deck, unresolved, load.FallbackNotice, decklistText, inputSummary);
     }
+
+    // Internal carrier for the shared resolve+classify stage (no report yet).
+    private sealed record ResolvedManabaseDeck(
+        ManabaseDeck Deck,
+        IReadOnlyList<string> Unresolved,
+        string? FallbackNotice,
+        string DecklistText,
+        string InputSummary);
 
     // Batch-resolve the deck's cards through Scryfall's collection endpoint, preferring an exact
     // printing (set + collector number) so alternate / flavor names still resolve.

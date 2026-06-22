@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Manabase;
@@ -49,13 +50,126 @@ public sealed class ManabaseAnalysisServiceTests
 
         var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
 
-        var result = await service.AnalyzeAsync("https://archidekt.com/decks/1", "Test Deck", CancellationToken.None);
+        var result = await service.AnalyzeAsync(
+            "https://archidekt.com/decks/1", "Test Deck", options: null, CancellationToken.None);
 
         Assert.NotNull(result.Report);
         Assert.Equal(22, result.Report.ActualLands); // 12 Plains + 10 Island; sideboard excluded.
         Assert.Empty(result.Unresolved); // Godzilla resolved via printing.
         Assert.Contains("Test Deck", result.ChatGptSwapPrompt);
         Assert.NotEmpty(result.Report.ColorFindings);
+        // Default profile is Casual so existing output is unchanged.
+        Assert.Equal(ManabaseMode.Casual, result.Report.Mode);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_DefaultMode_IsCasual()
+    {
+        var (entries, cards) = CurveFixture();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", null);
+
+        Assert.Equal(ManabaseMode.Casual, result.Report.Mode);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhMode_LowersTargetLands_AndEchoesMode()
+    {
+        var (entries, cards) = CurveFixture();
+
+        var casual = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var cedh = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var casualResult = await casual.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var cedhResult = await cedh.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.Equal(ManabaseMode.Cedh, cedhResult.Report.Mode);
+        Assert.True(
+            cedhResult.Report.TargetLands < casualResult.Report.TargetLands,
+            $"cEDH target {cedhResult.Report.TargetLands} should be below casual {casualResult.Report.TargetLands}");
+    }
+
+    // A full ~99-card singleton fixture (so the Karsten regression target sits well above the
+    // cEDH floor of 28 and the two modes genuinely differ). 36 lands + 63 distinct spells across
+    // a normal curve gives a casual target around the mid-30s; cEDH cuts ~3.5 off it.
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) CurveFixture()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Plains", 18),
+            Land("Island", 18),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Plains", "W"),
+            BasicLand("Island", "U"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+        };
+
+        // 63 single-copy spells on a mid curve (avg MV ~3) so the regression is realistic.
+        for (int i = 0; i < 63; i++)
+        {
+            int mv = 2 + (i % 4); // 2,3,4,5 repeating
+            string name = $"Filler Spell {i}";
+            entries.Add(Entry(name, 1, "mainboard"));
+            cards.Add(Spell(name, $"{{{mv - 1}}}{{U}}", mv, "Sorcery"));
+        }
+
+        return (entries, cards);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CommanderImportance_ThreadsThroughToTheReport()
+    {
+        // The service must forward options.CommanderImportance to the analyzer. A WU commander on a
+        // blue-thin base diverges: Central tightens the commander's blue bar (more under-supported)
+        // versus Low. Same deck, only the importance knob differs.
+        var (entries, cards) = StrainedCommanderFixture();
+
+        var central = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var low = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var centralResult = await central.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { CommanderImportance = CommanderImportance.Central });
+        var lowResult = await low.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { CommanderImportance = CommanderImportance.Low });
+
+        // Land target is importance-orthogonal — identical regardless of the knob.
+        Assert.Equal(centralResult.Report.TargetLands, lowResult.Report.TargetLands);
+
+        var centralBlue = centralResult.Report.ColorFindings.FirstOrDefault(f => f.Color == ManaColor.Blue);
+        var lowBlue = lowResult.Report.ColorFindings.FirstOrDefault(f => f.Color == ManaColor.Blue);
+        Assert.NotNull(centralBlue);
+        Assert.NotNull(lowBlue);
+        Assert.True(centralBlue!.UnderSupportedCount >= lowBlue!.UnderSupportedCount,
+            "Central must hold the commander's blue to at least as strict a bar as Low");
+    }
+
+    // A WU commander with thin blue support so Central vs Low diverges on the blue finding.
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) StrainedCommanderFixture()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Brago, King Eternal", 1, "commander"),
+            Land("Plains", 24),
+            Land("Island", 9),
+            Spell("Blue Spell", "{2}{U}", 3, "Sorcery").ToEntry(),
+            Spell("White Spell", "{1}{W}", 2, "Sorcery").ToEntry(),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Plains", "W"),
+            BasicLand("Island", "U"),
+            Spell("Brago, King Eternal", "{2}{W}{U}", 4, "Legendary Creature — Spirit Noble"),
+            Spell("Blue Spell", "{2}{U}", 3, "Sorcery"),
+            Spell("White Spell", "{1}{W}", 2, "Sorcery"),
+        };
+
+        return (entries, cards);
     }
 
     [Fact]
@@ -75,7 +189,7 @@ public sealed class ManabaseAnalysisServiceTests
 
         var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
 
-        var result = await service.AnalyzeAsync("paste", null, CancellationToken.None);
+        var result = await service.AnalyzeAsync("paste", null);
 
         Assert.Contains("Totally Made Up Card", result.Unresolved);
         Assert.NotNull(result.Report);
@@ -87,7 +201,7 @@ public sealed class ManabaseAnalysisServiceTests
         var service = new ManabaseAnalysisService(new FakeLoader(new List<DeckEntry>()), new FakeResolver(new List<ScryfallCard>()));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.AnalyzeAsync("   ", null, CancellationToken.None));
+            () => service.AnalyzeAsync("   ", null));
     }
 
     [Fact]
@@ -97,7 +211,7 @@ public sealed class ManabaseAnalysisServiceTests
         var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(new List<ScryfallCard>()));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.AnalyzeAsync("paste", null, CancellationToken.None));
+            () => service.AnalyzeAsync("paste", null));
     }
 
     [Fact]
@@ -107,7 +221,7 @@ public sealed class ManabaseAnalysisServiceTests
         string huge = new string('x', 100_001);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.AnalyzeAsync(huge, null, CancellationToken.None));
+            () => service.AnalyzeAsync(huge, null));
     }
 
     [Fact]
@@ -119,7 +233,103 @@ public sealed class ManabaseAnalysisServiceTests
         var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(new List<ScryfallCard>()));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.AnalyzeAsync("paste", null, CancellationToken.None));
+            () => service.AnalyzeAsync("paste", null));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_DetectsSuggestions_AndAppliesOverride()
+    {
+        // Blue is deliberately thin (only 10 Islands in a ~60-card library) so a 5-MV {U}{U}
+        // Force of Will is hard to cast on curve — leaving real room for the free override to lift it.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Commander Guy", 1, "commander"),
+            Land("Island", 10),
+            Spell("Force of Will", "{3}{U}{U}", 5, "Instant").ToEntry(),
+        };
+        for (int i = 0; i < 50; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        var fow = new ScryfallCard(
+            Name: "Force of Will", ManaCost: "{3}{U}{U}", TypeLine: "Instant",
+            OracleText: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost. Counter target spell.",
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 5, ProducedMana: null, Rarity: "rare");
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Commander Guy", "{2}{U}", 3, "Legendary Creature — Human"),
+            fow,
+        };
+        for (int i = 0; i < 50; i++)
+        {
+            cards.Add(Spell($"Filler {i}", "{2}", 3, "Sorcery"));
+        }
+
+        // No override applied: Force of Will is detected as a suggestion but its row is unchanged.
+        var detectOnly = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var detect = await detectOnly.AnalyzeAsync("paste", null);
+        Assert.Contains(detect.Suggestions, s => s.Name == "Force of Will" && s.EffectiveCost == "0");
+        CardCastability before = detect.Report.Castability.Single(c => c.Name == "Force of Will");
+        Assert.False(before.IsCostOverridden);
+
+        // Override applied: effective MV 0, marked overridden, and a higher cast %.
+        var applied = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var withOverride = await applied.AnalyzeAsync(
+            "paste", null,
+            new ManabaseAnalysisOptions
+            {
+                CostOverrides = new Dictionary<string, string> { ["Force of Will"] = "0" },
+            });
+        CardCastability after = withOverride.Report.Castability.Single(c => c.Name == "Force of Will");
+        Assert.True(after.IsCostOverridden);
+        Assert.Equal(0, after.ManaValue);
+        Assert.True(after.CastPercent > before.CastPercent);
+    }
+
+    [Fact]
+    public async Task LoadAsync_DetectsSuggestions_WithoutRunningAnalysis()
+    {
+        // Load mirrors the detect-only half of AnalyzeAsync: it resolves the deck and surfaces the
+        // same cost suggestions (Force of Will → 0) plus a card/land summary, but produces no report.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Commander Guy", 1, "commander"),
+            Land("Island", 10),
+            Spell("Force of Will", "{3}{U}{U}", 5, "Instant").ToEntry(),
+        };
+
+        var fow = new ScryfallCard(
+            Name: "Force of Will", ManaCost: "{3}{U}{U}", TypeLine: "Instant",
+            OracleText: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost. Counter target spell.",
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 5, ProducedMana: null, Rarity: "rare");
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Commander Guy", "{2}{U}", 3, "Legendary Creature — Human"),
+            fow,
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        ManabaseLoadResult result = await service.LoadAsync("paste", CancellationToken.None);
+
+        Assert.Contains(result.Suggestions, s => s.Name == "Force of Will" && s.EffectiveCost == "0");
+        Assert.Contains("10 lands", result.InputSummary);
+        Assert.Empty(result.Unresolved);
+    }
+
+    [Fact]
+    public async Task LoadAsync_BlankSource_Throws()
+    {
+        var service = new ManabaseAnalysisService(new FakeLoader(new List<DeckEntry>()), new FakeResolver(new List<ScryfallCard>()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.LoadAsync("   "));
     }
 
     // --- helpers -------------------------------------------------------------

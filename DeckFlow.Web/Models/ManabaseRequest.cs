@@ -1,3 +1,5 @@
+using DeckFlow.Core.Manabase;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>
@@ -9,9 +11,23 @@ public sealed class ManabaseRequest
     private string _deckUrl = string.Empty;
     private string _deckText = string.Empty;
     private string _deckName = string.Empty;
+    private string _costOverridesText = string.Empty;
 
     /// <summary>Selects whether the deck is supplied via a public URL or pasted export text.</summary>
     public DeckInputSource DeckInputSource { get; set; } = DeckInputSource.PublicUrl;
+
+    /// <summary>
+    /// The analysis profile. <see cref="ManabaseMode.Casual"/> is the default (Karsten land
+    /// target, castability table shown); <see cref="ManabaseMode.Cedh"/> lowers the land target.
+    /// </summary>
+    public ManabaseMode Mode { get; set; } = ManabaseMode.Casual;
+
+    /// <summary>
+    /// How heavily to weight the commander's colors. Defaults to
+    /// <see cref="CommanderImportance.Standard"/>; <see cref="CommanderImportance.Central"/>
+    /// holds the commander's colors to a stricter threshold.
+    /// </summary>
+    public CommanderImportance CommanderImportance { get; set; } = CommanderImportance.Standard;
 
     /// <summary>Public deck URL used when <see cref="DeckInputSource"/> is <see cref="DeckInputSource.PublicUrl"/>.</summary>
     public string DeckUrl
@@ -32,6 +48,17 @@ public sealed class ManabaseRequest
     {
         get => _deckName;
         set => _deckName = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Optional reduced / alternative cost overrides, one per line as <c>Card Name: cost</c>
+    /// (e.g. <c>Force of Will: 0</c>, <c>Blasphemous Act: {R}</c>). Pre-populated from auto-detected
+    /// suggestions; the user may edit. Parsed by <c>ManabaseCostOverrideParser</c>.
+    /// </summary>
+    public string CostOverridesText
+    {
+        get => _costOverridesText;
+        set => _costOverridesText = value ?? string.Empty;
     }
 
     /// <summary>

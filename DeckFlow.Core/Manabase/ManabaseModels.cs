@@ -25,6 +25,44 @@ public sealed record ManaSource
 
     /// <summary>True if it can produce mana the turn it is played (matters only for turn-1 pips).</summary>
     public bool EntersUntapped { get; init; } = true;
+
+    /// <summary>
+    /// True only for ENABLER-CONDITIONAL sources whose production depends on a separate permanent
+    /// staying alive — the any-color sources granted by Cryptolith Rite / Relic of Legends et al.
+    /// (see <c>AddGrantedSources</c>). These are genuinely speculative (the granter must resolve AND
+    /// the granted creature must survive), so the simulator keeps a per-trial Bernoulli activation at
+    /// <see cref="Weight"/> for them. Deployable ramp (rocks, dorks, MDFC backs, fast mana) is NOT
+    /// conditional: it is a card you draw and play, and the simulator already models that friction
+    /// explicitly via deploy cost + summoning-sickness timing, so its analytic weight must NOT be
+    /// re-applied as activation (that double-discounts). Defaults to <see langword="false"/>.
+    /// </summary>
+    public bool IsConditional { get; init; }
+}
+
+/// <summary>
+/// Broad spell categories used to match type-scoped cost reducers (e.g. "instant and
+/// sorcery spells you cast cost {1} less"). A card may carry more than one kind.
+/// </summary>
+[Flags]
+public enum SpellKinds
+{
+    /// <summary>No recognized kind.</summary>
+    None = 0,
+
+    /// <summary>Creature spell.</summary>
+    Creature = 1,
+
+    /// <summary>Artifact spell.</summary>
+    Artifact = 2,
+
+    /// <summary>Instant spell.</summary>
+    Instant = 4,
+
+    /// <summary>Sorcery spell.</summary>
+    Sorcery = 8,
+
+    /// <summary>Any other spell type (enchantment, planeswalker, battle, ...).</summary>
+    Other = 16,
 }
 
 /// <summary>
@@ -44,6 +82,100 @@ public sealed record SpellRequirement
 
     /// <summary>True if the card needs more than one color (gold) and both colors are consistency-critical.</summary>
     public bool IsGold { get; init; }
+
+    /// <summary>
+    /// True when the card is itself a mana rock / dork (a non-land partial source). Such cards are
+    /// excluded from the castability rows but still feed the mana and color probability pools.
+    /// </summary>
+    public bool IsManaSource { get; init; }
+
+    /// <summary>The card's broad spell kinds, used to match type-scoped cost reducers.</summary>
+    public SpellKinds Kinds { get; init; } = SpellKinds.None;
+
+    /// <summary>True when this requirement is the deck's commander (or a partner/background).</summary>
+    public bool IsCommander { get; init; }
+
+    /// <summary>True when a user override / detected alt cost replaced this spell's printed cost.</summary>
+    public bool IsCostOverridden { get; init; }
+}
+
+/// <summary>
+/// A single spell's on-curve castability estimate: the chance it can be cast on its
+/// effective turn, on the play, with a 7-card opener. The product of P(enough mana) and
+/// P(enough colored sources) — an approximate ranking metric (see <see cref="LimitingFactor"/>),
+/// biased slightly optimistic because both factors draw on the same physical sources.
+/// </summary>
+public sealed record CardCastability
+{
+    /// <summary>Display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The spell's printed mana value.</summary>
+    public required int ManaValue { get; init; }
+
+    /// <summary>
+    /// The effective on-curve turn after any applicable cost reducers. Equal to
+    /// <see cref="ManaValue"/> when no reducer applies.
+    /// </summary>
+    public required int OnCurveTurn { get; init; }
+
+    /// <summary>Estimated cast chance on the effective turn, 0–100.</summary>
+    public required int CastPercent { get; init; }
+
+    /// <summary>
+    /// The bottleneck: <c>"mana"</c>, <c>"color:&lt;X&gt;"</c>, or <c>"both"</c> when the
+    /// mana-quantity and color-access probabilities are within a few points.
+    /// </summary>
+    public required string LimitingFactor { get; init; }
+
+    /// <summary>True when this row is the deck's commander (pinned to the top of the list).</summary>
+    public bool IsCommander { get; init; }
+
+    /// <summary>True when a user override / detected alt cost set this row's effective cost.</summary>
+    public bool IsCostOverridden { get; init; }
+
+    /// <summary>
+    /// Mean turns LATE the spell first becomes castable, averaged over all trials:
+    /// <c>mean(max(0, firstCastableTurn − onCurveTurn))</c>. 0 when (near-)always on curve; rises as a
+    /// color- or mana-starved spell slips later. A trial that never gets there within the grace window
+    /// is capped at <c>lastSimulatedTurn + 1</c>, so the metric is bounded. Supporting context only.
+    /// </summary>
+    public double AverageDelay { get; init; }
+}
+
+/// <summary>The kinds of spell an always-on cost reducer applies to.</summary>
+public enum ReductionScope
+{
+    /// <summary>Reduces the cost of every spell ("spells you cast cost {N} less").</summary>
+    All,
+
+    /// <summary>Reduces instant and sorcery spells (e.g. Goblin Electromancer).</summary>
+    InstantSorcery,
+
+    /// <summary>Reduces creature spells.</summary>
+    Creature,
+
+    /// <summary>Reduces artifact spells.</summary>
+    Artifact,
+}
+
+/// <summary>
+/// An always-on static generic cost reducer the deck runs ("&lt;Type&gt;? spells you cast cost
+/// {N} less"). Shifts a matching spell's effective cast turn earlier in the castability math.
+/// </summary>
+public sealed record CostReducer
+{
+    /// <summary>Generic mana removed from a matching spell's cost.</summary>
+    public required int GenericReduction { get; init; }
+
+    /// <summary>Which spells the reduction applies to.</summary>
+    public required ReductionScope Scope { get; init; }
+
+    /// <summary>
+    /// The reducer's own mana value. A reducer only counts against a spell whose mana value
+    /// exceeds this (the reducer must be deployable first).
+    /// </summary>
+    public int SourceManaValue { get; init; }
 }
 
 /// <summary>
@@ -81,6 +213,33 @@ public sealed record ManabaseDeck
 
     /// <summary>True for a singleton/Commander deck (uses the 99-card formula); false for 60-card.</summary>
     public bool IsSingleton { get; init; } = true;
+
+    /// <summary>Always-on static cost reducers the deck runs (empty when none).</summary>
+    public IReadOnlyList<CostReducer> CostReduction { get; init; } = Array.Empty<CostReducer>();
+
+    /// <summary>
+    /// Auto-detected alternative / reduced-cost suggestions (free/pitch spells, board-scaling
+    /// self-reducers, evoke/suspend). These pre-populate the user's override box; they do NOT
+    /// change the analysis on their own — only an applied override does. Empty when none found.
+    /// </summary>
+    public IReadOnlyList<CostSuggestion> CostSuggestions { get; init; } = Array.Empty<CostSuggestion>();
+}
+
+/// <summary>
+/// A detected alternative / reduced effective cost for a single card — a suggestion the user can
+/// accept or edit in the override box. <see cref="EffectiveCost"/> is a canonical braced mana
+/// cost (e.g. <c>"0"</c>, <c>"{R}"</c>, <c>"{1}{B}"</c>) parseable by <see cref="ManaCostParser"/>.
+/// </summary>
+public sealed record CostSuggestion
+{
+    /// <summary>The card's display name (the override key).</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The suggested effective mana cost, in canonical braced form.</summary>
+    public required string EffectiveCost { get; init; }
+
+    /// <summary>Short human reason for the suggestion (e.g. "free / alternative cost").</summary>
+    public required string Reason { get; init; }
 }
 
 /// <summary>One color's source supply versus its toughest requirement in the deck.</summary>
@@ -95,14 +254,133 @@ public sealed record ColorSourceFinding
     /// <summary>Sources required by the most demanding spell of this color (Karsten threshold).</summary>
     public required int RequiredSources { get; init; }
 
-    /// <summary>The spell that drove the requirement.</summary>
+    /// <summary>The spell that drove the requirement (the worst single-spell deficit).</summary>
     public required string DrivingSpell { get; init; }
+
+    /// <summary>How many of this color's spells fall below the mode's castability threshold.</summary>
+    public int UnderSupportedCount { get; init; }
+
+    /// <summary>Mean castability (0–100) across every spell demanding this color.</summary>
+    public double AverageCastPercent { get; init; }
+
+    /// <summary>The lowest single-spell castability (0–100) among this color's spells.</summary>
+    public double WorstSpellCastPercent { get; init; }
+
+    /// <summary>The name of the spell with the lowest castability for this color.</summary>
+    public string WorstSpell { get; init; } = string.Empty;
 
     /// <summary>Required minus actual; positive means under-supported.</summary>
     public double Deficit => RequiredSources - ActualSources;
 
     /// <summary>True if the deck meets the requirement for this color.</summary>
     public bool IsAdequate => Deficit <= 0;
+
+    /// <summary>
+    /// True when this color is under-supported by the tail-risk composite (the same signal that
+    /// orders <see cref="ManabaseReport.ColorFindings"/>): any spell below its mode threshold
+    /// (<see cref="UnderSupportedCount"/> &gt; 0) OR a raw source deficit. Used by
+    /// <see cref="ManabaseReport.WeakestColor"/> / <see cref="ManabaseReport.IsHealthy"/> so the
+    /// verdict never reverts to raw deficit and drops a composite-worst color.
+    /// </summary>
+    public bool IsCompositeProblem => UnderSupportedCount > 0 || Deficit > 0;
+}
+
+/// <summary>
+/// How heavily to weight the commander's colors in the analysis. Orthogonal to
+/// <see cref="ManabaseMode"/>: it only tightens (or relaxes) the commander-color support
+/// evaluation and summary weighting; it never changes the land target.
+/// </summary>
+public enum CommanderImportance
+{
+    /// <summary>
+    /// "Must cast ASAP, every game" — commander colors are held to a stricter (cEDH-style)
+    /// threshold, prefer untapped early sources, and may override the weakest-color ranking
+    /// when below their commander-specific threshold.
+    /// </summary>
+    Central,
+
+    /// <summary>Default — elevated worst-driver candidate and pinned in the list, but a worse non-commander color can still win.</summary>
+    Standard,
+
+    /// <summary>"Optional / situational / late value" — commander treated as a normal spell (still pinned for visibility).</summary>
+    Low,
+}
+
+/// <summary>
+/// FORMULA-01: the additive term-by-term breakdown of the Karsten land-target regression for THIS
+/// deck, so the view can "show the work" — each input value and the contribution it makes to the
+/// final target. All contributions sum (with their signs) to <see cref="FinalTarget"/>; the view
+/// renders them as <c>scale·(19.59 + 1.90·avgMV + 0.27·cmdrs) − 0.28·ramp − fastMana −
+/// 0.74·mdfcCommon − 0.38·mdfcMythic − 1.35</c>, plus the cEDH adjustment when applicable.
+/// </summary>
+public sealed record ManabaseLandTargetBreakdown
+{
+    /// <summary>The deck's mean non-land mana value (the <c>1.90·avgMV</c> regression input).</summary>
+    public required double AverageManaValue { get; init; }
+
+    /// <summary>Count of ramp/card-draw spells of mana value 2 or less (the <c>−0.28·ramp</c> input).</summary>
+    public required int RampAndDrawUnderThree { get; init; }
+
+    /// <summary>Count of 0-cost mana artifacts credited 1 land each (the <c>−fastMana</c> input).</summary>
+    public required int FastMana { get; init; }
+
+    /// <summary>Count of non-mythic land/spell MDFCs (the <c>−0.74·mdfcCommon</c> input).</summary>
+    public required int MdfcCommon { get; init; }
+
+    /// <summary>Count of mythic land/spell MDFCs (the <c>−0.38·mdfcMythic</c> input).</summary>
+    public required int MdfcMythic { get; init; }
+
+    /// <summary>Number of commanders credited (the <c>0.27·cmdrs</c> input).</summary>
+    public required int CommanderCount { get; init; }
+
+    /// <summary>Library size (deck minus commanders); drives the <c>scale = librarySize / 60</c> factor.</summary>
+    public required int LibrarySize { get; init; }
+
+    /// <summary>
+    /// The singleton regression result BEFORE any cEDH adjustment — equal to
+    /// <see cref="FinalTarget"/> in Casual mode.
+    /// </summary>
+    public required double BaseTarget { get; init; }
+
+    /// <summary>
+    /// The cEDH adjustment actually applied (the signed delta from <see cref="BaseTarget"/> to
+    /// <see cref="FinalTarget"/>, after the 28-land floor). 0 in Casual mode.
+    /// </summary>
+    public required double CedhAdjustment { get; init; }
+
+    /// <summary>The land target the report reports (equal to <see cref="ManabaseReport.TargetLands"/>).</summary>
+    public required double FinalTarget { get; init; }
+}
+
+/// <summary>
+/// Graded mana-base health, replacing the old binary OK/needs-work. A single sub-threshold card
+/// no longer flips the whole base to "needs work": a base that is land-adequate and has no real
+/// mulligan-aware source deficit, with only a small ratio of demanding cards, reads Functional.
+/// </summary>
+public enum ManabaseHealth
+{
+    /// <summary>Land count within one of target and no color has any under-supported spell.</summary>
+    Healthy,
+
+    /// <summary>
+    /// Land-adequate, no mulligan-aware source deficit on any color, and each color's
+    /// under-supported count stays within a small ratio of its demanding cards — the base works
+    /// despite a few demanding spells.
+    /// </summary>
+    Functional,
+
+    /// <summary>A color is systematically short (real source deficit, over-ratio under-support, or lands short).</summary>
+    NeedsWork,
+}
+
+/// <summary>A demanding card surfaced by the verdict: a spell below its color's castability bar.</summary>
+public sealed record DemandingCard
+{
+    /// <summary>Display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The spell's estimated on-curve cast chance, 0–100.</summary>
+    public required int CastPercent { get; init; }
 }
 
 /// <summary>The §6 mana-base report: land count, ramp, per-color sources, and a verdict.</summary>
@@ -117,15 +395,104 @@ public sealed record ManabaseReport
     /// <summary>Actual minus target; negative means too few lands.</summary>
     public double LandDelta => ActualLands - TargetLands;
 
-    /// <summary>Per-color source findings, ordered worst-deficit first.</summary>
+    /// <summary>
+    /// Per-color source findings, ordered by the tail-risk composite: under-supported colors
+    /// first, then ascending worst-spell castability, then ascending mean castability, then
+    /// descending raw deficit. So <c>ColorFindings[0]</c> is the deck's most fragile color.
+    /// </summary>
     public required IReadOnlyList<ColorSourceFinding> ColorFindings { get; init; }
 
-    /// <summary>The color with the largest source deficit, or null if every color is adequate.</summary>
+    /// <summary>
+    /// The weakest color by the tail-risk composite, or null if every color is adequately
+    /// supported. Keys off <see cref="ColorSourceFinding.IsCompositeProblem"/> (NOT raw deficit)
+    /// so a composite-worst color is never dropped from the verdict.
+    /// </summary>
     public ColorSourceFinding? WeakestColor =>
-        ColorFindings.Count > 0 && ColorFindings[0].Deficit > 0 ? ColorFindings[0] : null;
+        ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
 
-    /// <summary>True if land count is within one of target and every color is adequate.</summary>
-    public bool IsHealthy => LandDelta >= -1 && WeakestColor is null;
+    /// <summary>
+    /// Two-tier graded verdict (Codex HIGH-3). EXACT numeric predicates, evaluated land-first:
+    /// <list type="bullet">
+    /// <item><b>NeedsWork</b> when <see cref="LandDelta"/> &lt; -1 (lands short), OR any color has a
+    /// real mulligan-aware <see cref="ColorSourceFinding.Deficit"/> &gt; 0, OR any color's
+    /// <see cref="ColorSourceFinding.UnderSupportedCount"/> exceeds <c>max(1, ceil(colorCards·0.15))</c>.</item>
+    /// <item><b>Healthy</b> when land-adequate and every color's under-supported count is 0.</item>
+    /// <item><b>Functional</b> otherwise (land-adequate, no source deficit, only a few demanding cards).</item>
+    /// </list>
+    /// </summary>
+    public ManabaseHealth Health
+    {
+        get
+        {
+            if (LandDelta < -1)
+            {
+                return ManabaseHealth.NeedsWork;
+            }
+
+            bool everyColorClear = true;
+            bool everyColorFunctional = true;
+            foreach (ColorSourceFinding f in ColorFindings)
+            {
+                if (f.UnderSupportedCount != 0)
+                {
+                    everyColorClear = false;
+                }
+
+                int colorCards = ColorSpellCounts.TryGetValue(f.Color, out int count) ? count : 0;
+                int tolerance = Math.Max(1, (int)Math.Ceiling(colorCards * 0.15));
+                if (f.Deficit > 0 || f.UnderSupportedCount > tolerance)
+                {
+                    everyColorFunctional = false;
+                }
+            }
+
+            if (everyColorClear)
+            {
+                return ManabaseHealth.Healthy;
+            }
+
+            return everyColorFunctional ? ManabaseHealth.Functional : ManabaseHealth.NeedsWork;
+        }
+    }
+
+    /// <summary>True only when fully <see cref="ManabaseHealth.Healthy"/>. Retained for back-compat.</summary>
+    public bool IsHealthy => Health == ManabaseHealth.Healthy;
+
+    /// <summary>
+    /// The demanding cards behind a non-Healthy verdict — spells below their color's castability bar,
+    /// worst-first. Empty when Healthy. Additive; lets the view show "Functional — 1 demanding card:
+    /// Grand Abolisher (77%)".
+    /// </summary>
+    public IReadOnlyList<DemandingCard> DemandingCards { get; init; } = Array.Empty<DemandingCard>();
+
+    /// <summary>The analysis mode this report was produced under.</summary>
+    public ManabaseMode Mode { get; init; } = ManabaseMode.Casual;
+
+    /// <summary>
+    /// Per-spell castability rows, commander(s) pinned first then ascending by cast %. Excludes
+    /// rocks/dorks (they feed the probability pools but are not real payoff spells).
+    /// </summary>
+    public IReadOnlyList<CardCastability> Castability { get; init; } = Array.Empty<CardCastability>();
+
+    /// <summary>
+    /// How many spells demand each color (the population denominator behind COLOR-AGG's
+    /// "N of M under-supported"). Additive display aid; empty when not computed.
+    /// </summary>
+    public IReadOnlyDictionary<ManaColor, int> ColorSpellCounts { get; init; } =
+        new Dictionary<ManaColor, int>();
+
+    /// <summary>
+    /// The deck's commander color identity (union across all commanders/backgrounds), so the view
+    /// can flag which color findings are the deck's identity. Additive; empty when no commander.
+    /// </summary>
+    public IReadOnlyList<ManaColor> CommanderColors { get; init; } = Array.Empty<ManaColor>();
+
+    /// <summary>
+    /// FORMULA-01: the additive term-by-term breakdown of the land-target regression for this deck,
+    /// or null when not computed. Additive — defaults null so existing serialization/tests are
+    /// unaffected. Populated by <see cref="ManabaseAnalyzer"/>.
+    /// </summary>
+    public ManabaseLandTargetBreakdown? LandTarget { get; init; }
 
     /// <summary>Short human-readable verdict.</summary>
     public required string Summary { get; init; }

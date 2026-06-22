@@ -126,6 +126,15 @@ public sealed partial class ArchidektParser : IParser
             remainder = remainder[..^3].TrimEnd();
         }
 
+        // *E* marks an etched-foil finish. Strip it like *F* so the trailing token does not
+        // defeat PrintingRegex (its collector group is end-anchored) and leave set/collector
+        // junk in the card name — which would make both the printing and name lookups miss.
+        if (remainder.EndsWith("*E*", StringComparison.OrdinalIgnoreCase))
+        {
+            isFoil = true;
+            remainder = remainder[..^3].TrimEnd();
+        }
+
         var printingMatch = PrintingRegex().Match(remainder);
         string cardName;
         string? setCode = null;
