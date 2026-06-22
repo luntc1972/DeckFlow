@@ -2,7 +2,7 @@
 
 Re-ran the captured Brago WU deck through the Core analyzer via `BragoRealDeckHarness`
 (`DECKFLOW_MANABASE_HARNESS` / `.manabase-harness-on` sentinel) after Tasks 1–4.
-Full dump: `.planning/phases/64-manabase-modes-castability/64-harness-brago-output.md`.
+Full dump: `.planning/phases/manabase-modes-castability/64-harness-brago-output.md`.
 
 Deck: 100 cards · 84 distinct · **33 lands** · avg MV 2.89 · ramp/draw≤2 = 14.
 
