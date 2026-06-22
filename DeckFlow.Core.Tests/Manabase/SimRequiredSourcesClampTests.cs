@@ -87,4 +87,42 @@ public sealed class SimRequiredSourcesClampTests
 
         Assert.InRange(needed, 14, 24);
     }
+
+    [Fact]
+    public void SinglePipRequirement_RespondsToPipCountAndOnCurveTurn()
+    {
+        // Guards that the requirement (and its Karsten clamp) keys off the spell's PIP COUNT and its
+        // on-curve TURN — not a fixed double-pip figure. A 1-pip 1-drop in the same red-poor shell
+        // needs far fewer sources than the {2}{R}{R} bomb, and stays within Karsten for 1 pip.
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 30; i++)
+        {
+            sources.Add(Land(ManaColor.Green));
+        }
+
+        for (int i = 0; i < 6; i++)
+        {
+            sources.Add(Land(ManaColor.Red));
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 99,
+            CommanderCount = 0,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "R One-Drop", ManaValue = 1, Pips = new Dictionary<ManaColor, int> { [ManaColor.Red] = 1 } },
+            },
+            AverageManaValue = 2.0,
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard);
+        ColorSourceFinding red = report.ColorFindings.Single(f => f.Color == ManaColor.Red);
+        int turn = report.Castability.Single(c => c.Name == "R One-Drop").OnCurveTurn;
+
+        Assert.True(red.RequiredSources <= KarstenManabase.SourcesNeeded(99, 36, pips: 1, manaValue: System.Math.Max(1, turn)),
+            $"required {red.RequiredSources} must not exceed the 1-pip Karsten ceiling at turn {turn}");
+    }
 }

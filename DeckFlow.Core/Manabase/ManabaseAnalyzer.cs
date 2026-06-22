@@ -418,7 +418,7 @@ public static class ManabaseAnalyzer
                     // for an expensive card the base already supports color-wise — that is a curve
                     // problem, not a mana-base one. (UnderSupportedCount keeps counting every late
                     // card for the display "N of M".)
-                    if (IsColorLimited(row?.LimitingFactor))
+                    if (IsColorLimited(row?.LimitingFactor, color))
                     {
                         colorLimitedUnderSupported++;
                     }
@@ -533,13 +533,25 @@ public static class ManabaseAnalyzer
         return Math.Min(result, karstenCeiling);
     }
 
-    // A card's shortfall involves color access when its limiting factor is a color limit ("color:X")
-    // or the combined "both" — as opposed to a pure "mana" (curve/quantity) limit. See
-    // <see cref="CastabilitySimulator"/>'s DeriveLimitingFactor for the three forms.
-    private static bool IsColorLimited(string? limitingFactor) =>
-        !string.IsNullOrEmpty(limitingFactor)
-        && (limitingFactor.StartsWith("color", StringComparison.OrdinalIgnoreCase)
-            || limitingFactor.Equals("both", StringComparison.OrdinalIgnoreCase));
+    // True when THIS color is part of why the card casts late. LimitingFactor (from
+    // CastabilitySimulator.DeriveLimitingFactor) is one of: "mana" (pure curve — never color),
+    // "both" (mana + color, so every demanded color is stressed), or "color:X" where X is the single
+    // most-missing color. For "color:X" we only credit the matching color — otherwise a gold card
+    // short on its OTHER color would wrongly mark this one color-starved (Codex review HIGH).
+    private static bool IsColorLimited(string? limitingFactor, ManaColor color)
+    {
+        if (string.IsNullOrEmpty(limitingFactor))
+        {
+            return false;
+        }
+
+        if (limitingFactor.Equals("both", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return limitingFactor.Equals("color:" + color, StringComparison.OrdinalIgnoreCase);
+    }
 
     // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
     // on-color lands plus off-color lands to `totalLands`, padded to `librarySize`. Isolates one

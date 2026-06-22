@@ -484,8 +484,8 @@ public sealed record ManabaseReport
     /// whole source (<see cref="ColorSourceFinding.Deficit"/> &gt; 1) OR color-starved beyond
     /// <c>max(1, ceil(colorCards·0.15))</c> (counting only <see cref="ColorSourceFinding.ColorLimitedUnderSupportedCount"/>).
     /// <list type="bullet">
-    /// <item><b>NeedsWork</b> ("Needs work"): <see cref="LandDelta"/> &lt; -2, OR a color short by more
-    /// than 2 sources, OR two or more colors with an issue.</item>
+    /// <item><b>NeedsWork</b> ("Needs work"): <see cref="LandDelta"/> &lt;= -2 (lands 2+ short), OR a
+    /// color short by more than 2 sources, OR two or more colors with an issue.</item>
     /// <item><b>Workable</b>: exactly one color with an issue (and no NeedsWork condition).</item>
     /// <item><b>Healthy</b> ("Excellent"): land-adequate (within one of target) and no color has any
     /// shortfall at all.</item>
@@ -528,7 +528,7 @@ public sealed record ManabaseReport
             }
 
             // Needs work: a real, broad shortage.
-            if (LandDelta < -2 || anySevereColorDeficit || colorsWithIssue >= 2)
+            if (LandDelta <= -2 || anySevereColorDeficit || colorsWithIssue >= 2)
             {
                 return ManabaseHealth.NeedsWork;
             }

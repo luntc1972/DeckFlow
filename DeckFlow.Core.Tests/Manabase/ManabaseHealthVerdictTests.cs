@@ -138,4 +138,53 @@ public sealed class ManabaseHealthVerdictTests
 
         Assert.Equal(ManabaseHealth.Healthy, report.Health);
     }
+
+    // ---- Boundary cases (Codex review) ----
+
+    [Fact]
+    public void DeficitExactlyOneSource_IsNotAnIssue()
+    {
+        // Short by exactly one whole source is within tolerance (rule is Deficit > 1) → not Workable.
+        ManabaseReport report = Report(38, 37.0, Finding(ManaColor.Red, actual: 24, required: 25));
+
+        Assert.Equal(ManabaseHealth.Functional, report.Health);
+    }
+
+    [Fact]
+    public void DeficitExactlyTwoSources_SingleColor_IsWorkable()
+    {
+        // Short by 2 (but not MORE than 2) on one color → a contained issue, not NeedsWork.
+        ManabaseReport report = Report(38, 37.0, Finding(ManaColor.Red, actual: 23, required: 25));
+
+        Assert.Equal(ManabaseHealth.Workable, report.Health);
+    }
+
+    [Fact]
+    public void LandDeltaExactlyMinusTwo_IsNeedsWork()
+    {
+        // 35 vs 37 = exactly 2 lands short → NeedsWork (rule is LandDelta <= -2).
+        ManabaseReport report = Report(35, 37.0, Finding(ManaColor.Green, actual: 28, required: 14));
+
+        Assert.Equal(ManabaseHealth.NeedsWork, report.Health);
+    }
+
+    [Fact]
+    public void LandDeltaExactlyMinusOne_Clean_IsHealthy()
+    {
+        // 37 vs 38 = exactly 1 land short with clean colors → still Excellent (within one of target).
+        ManabaseReport report = Report(37, 38.0, Finding(ManaColor.Green, actual: 28, required: 14));
+
+        Assert.Equal(ManabaseHealth.Healthy, report.Health);
+    }
+
+    [Fact]
+    public void SameColorSourceShortAndColorStarved_CountsOnce_IsWorkable()
+    {
+        // One color that is BOTH source-short (1.5) and color-starved over tolerance must count as a
+        // single issue (Workable), not two (which would read NeedsWork via colorsWithIssue >= 2).
+        ManabaseReport report = Report(38, 37.0,
+            Finding(ManaColor.Green, actual: 23.5, required: 25, underSupported: 8, colorLimitedUnderSupported: 8));
+
+        Assert.Equal(ManabaseHealth.Workable, report.Health);
+    }
 }
