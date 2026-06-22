@@ -283,8 +283,64 @@
     }, 120);
   };
 
+  // The primer page is a single stacked form (not one-panel-at-a-time like the other deck tools),
+  // so its workflow step tabs act as jump-nav: clicking a tab smooth-scrolls to that step's section
+  // (referenced by aria-controls = primer-step-panel-N). Without this the role="tab" buttons render
+  // but do nothing on every device. Keeps the ARIA tablist honest with roving tabindex + arrow keys.
+  const attachPrimerStepNav = (): void => {
+    const tabs = Array.from(document.querySelectorAll<HTMLElement>('[data-primer-show-step]'));
+    if (tabs.length === 0) {
+      return;
+    }
+
+    const select = (tab: HTMLElement, moveFocus: boolean): void => {
+      const targetId = tab.getAttribute('aria-controls');
+      const target = targetId ? document.getElementById(targetId) : null;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      tabs.forEach(t => {
+        const isSelected = t === tab;
+        t.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        t.tabIndex = isSelected ? 0 : -1;
+      });
+
+      if (moveFocus) {
+        tab.focus();
+      }
+    };
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => select(tab, false));
+      tab.addEventListener('keydown', event => {
+        let next = -1;
+        switch (event.key) {
+          case 'ArrowRight':
+          case 'ArrowDown':
+            next = (index + 1) % tabs.length;
+            break;
+          case 'ArrowLeft':
+          case 'ArrowUp':
+            next = (index - 1 + tabs.length) % tabs.length;
+            break;
+          case 'Home':
+            next = 0;
+            break;
+          case 'End':
+            next = tabs.length - 1;
+            break;
+          default:
+            return;
+        }
+
+        event.preventDefault();
+        select(tabs[next], true);
+      });
+    });
+  };
+
   const initPrimerSelection = (): void => {
     attachPrimerCopyButtons();
+    attachPrimerStepNav();
     scrollToPrimerResult();
 
     const form = document.querySelector<HTMLFormElement>('[data-primer-form]');
