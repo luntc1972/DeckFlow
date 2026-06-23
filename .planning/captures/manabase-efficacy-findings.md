@@ -6,6 +6,21 @@
 **Overall grade:** **C-** — trustworthy as a rough heuristic for normal 2-color / midrange
 shells; NOT sound enough to fully trust on the mana patterns that define many Commander decks.
 
+**Research validation (2026-06-22):** all six findings independently verified in code (file:line
+below) and cross-checked against Frank Karsten's published source-count method. **6/6 confirmed.**
+Three refinements the research added are folded into the findings below:
+- **#1** — counting a source as **1 source of a color** is *correct* Karsten (the color question);
+  the bug is purely on the **quantity/affordability** side. Fix applies mana amount to the curve
+  side only, leaving color-source counting at 1.
+- **#2** — actually **two stacked bugs**: the sim never sees the mana AND the Karsten regression
+  over-credits **one-shot** rituals/Treasures (its rampAndDraw term is meant for *repeatable* ramp).
+- **#6** — mostly **defensible** (Karsten treats hybrid/Phyrexian as payable either way → not a hard
+  pip, so excluding is correct); the real gap is **silent** non-disclosure, not wrong math.
+
+Sources: [Karsten 2022 (CFB)](https://x.com/karsten_frank/status/1554791077609148420) ·
+[Community Karsten guide](https://gist.github.com/teryror/881d60e08480a56043895d3bbb83c374) ·
+[Karsten-math calculator](https://scrollvault.net/tools/manabase/).
+
 Shipped same session (context for the audit):
 - Verdict: a raw land-count shortfall (`LandDelta <= -2`) only escalates to *Needs work* when
   the sim corroborates it (color issue or broad under-support). Commit `4fcb8bdf`.
@@ -57,17 +72,22 @@ before shipping. **Do #3 first** (cheap, independent).
 
 ---
 
-## Finding #2 — Ramp-credit inconsistency  *(High)*
+## Finding #2 — Ramp-credit inconsistency  *(High — two stacked bugs)*
 
-`RampAndDrawUnderThree` (`ManabaseClassifier.cs:87,475` — matches "Add ", land-search, or
+`RampAndDrawUnderThree` (`ManabaseClassifier.cs:87,475-484` — matches "Add ", land-search, or
 "create a Treasure") lowers the Karsten land TARGET, but rituals / Treasures / land-ramp
 sorceries are NOT added to `deck.Sources` (`:109,288` add only rocks/dorks/MDFC-backs/granted).
-So the deck gets land-target credit for mana the source model and sim never represent as
-persistent access. Produces "land count OK / softer verdict" on Treasure/ritual decks.
 
-**Fix direction:** either model those effects as (transient) sources, or stop crediting them in
-the regression. Tie to #1 — "if a card cuts the land target it must have a modeled mana path."
-**Effort:** medium. **Coupled with #1.**
+Two distinct defects:
+1. **Sim never sees it** — the deck gets land-target credit for mana the source model and sim never
+   represent as persistent access. "Land count OK / softer verdict" on Treasure/ritual decks.
+2. **Over-credit in the regression itself** (research finding) — Karsten's rampAndDraw term is for
+   *repeatable* cheap ramp + cantrips. Crediting **one-shot** rituals (Rite of Flame) and
+   Treasure-makers at −0.28 each over-reduces the land target independently of defect 1.
+
+**Fix direction:** narrow `IsRampOrDraw` to repeatable ramp + true card-draw (drop one-shot rituals
+/ Treasure-only from the −0.28 credit), AND give whatever stays credited a modeled mana path so the
+sim and regression agree. **Effort:** medium. **Coupled with #1.**
 
 ---
 
@@ -128,11 +148,16 @@ access / commander dependence / early fixing. Biases absolute cast% and weakens 
 ## Finding #6 — Silent coverage gaps  *(Med)*
 
 Mostly folded into normal-looking output instead of flagged:
-- Hybrid / Phyrexian / twobrid pips dropped from hard requirements (`ManaCost.cs:21`).
+- Hybrid / Phyrexian / twobrid pips dropped from hard requirements (`ManaCost.cs:11,47-54`).
 - Variable-cost (X) spells skipped from spell requirements (`ManabaseClassifier.cs:217`).
 - Not modeled: snow, devotion, "spend mana only to…", channel lands as sinks, one-shot mana,
   Treasure stockpiling, sac-for-mana engines, cost increasers, convoke/delve/improvise/affinity,
   commander tax.
+
+**Research note:** the hybrid/Phyrexian exclusion is **methodologically correct** — Karsten treats
+them as payable either way, so they are not a hard single-color requirement. The defect is that the
+analysis then carries **no** color requirement for those cards AND tells the user nothing. So #6 is
+a **disclosure** problem, not a math problem.
 
 **Cheap partial fix:** surface an "unsupported interactions on N cards" note rather than silently
 absorbing them. **Effort:** low for the disclosure; high to actually model.

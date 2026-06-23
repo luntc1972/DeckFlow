@@ -450,6 +450,25 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 Plans:
 - [x] 63-01-PLAN.md — Self-contained win-x64 publish profile + publish scripts (ps1/sh) + Kestrel port pin + standalone-exe docs (DIST-01)
 
+### Phase 70: Manabase Accuracy — Mana Quantity & Source Fidelity (ad-hoc trunk / main)
+
+**Goal:** Raise the mana-base analysis from "rough heuristic" toward "trustworthy across real
+Commander mana patterns" by fixing the verified Codex-audit accuracy defects — biggest win is
+modeling how MUCH mana a source makes, not just which colors.
+**Requirements:** MQ-01 (commander not drawable) · MQ-02 (per-source mana quantity) · MQ-03
+(ramp-credit consistency) · MQ-04 (unsupported-interaction disclosure) · MQ-05 (color-aware
+mulligan). **#4 joint-multicolor deficit deferred.**
+**Source:** `.planning/captures/manabase-efficacy-findings.md` (Codex efficacy audit + research).
+**Status:** 🚧 IN PROGRESS 2026-06-22 — **PRIORITY over Cycle 11** (operator 2026-06-22; Cycle 11 paused). Executing 70-01.
+**Context:** `.planning/phases/70-manabase-accuracy-mana-quantity/70-CONTEXT.md`
+
+Plans:
+- [ ] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (low risk, first)
+- [ ] 70-02 — MQ-02 per-source mana quantity (high risk; baseline-diff + golden-deck)
+- [ ] 70-03 — MQ-03 ramp-credit consistency (one-shot over-credit + modeled mana path)
+- [ ] 70-04 — MQ-04 unsupported-interaction disclosure
+- [ ] 70-05 — MQ-05 color-aware London-mulligan keep heuristic
+
 ---
 
 *v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19 | Cycle 10 shipped 2026-06-21 (`2026.06.6`)*
