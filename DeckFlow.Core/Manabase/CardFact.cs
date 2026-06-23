@@ -39,4 +39,11 @@ public sealed record CardFact
 
     /// <summary>True when in the command zone (commander) rather than the library.</summary>
     public bool IsCommander { get; init; }
+
+    /// <summary>
+    /// Mana produced per activation when this card is a mana source (MQ-02): Sol Ring / Ancient
+    /// Tomb = 2, Gilded Lotus = 3, a normal land/dork = 1. Defaults to 1. Parsed from oracle text by
+    /// <see cref="ManaProductionAmount"/>; unused for non-source cards.
+    /// </summary>
+    public int ManaAmount { get; init; } = 1;
 }

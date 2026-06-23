@@ -42,6 +42,7 @@ public static class ScryfallCardFactMapper
             Layout = card.Layout,
             HasLandFace = HasLandFace(card),
             IsCommander = isCommander,
+            ManaAmount = ManaProductionAmount.Parse(JoinOracleText(card)),
         };
     }
 
