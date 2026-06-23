@@ -31,11 +31,19 @@ public static class ManabaseAnalyzer
     /// How heavily to weight the commander's colors. Orthogonal to <paramref name="mode"/>: it never
     /// changes the land target, only the commander-color support evaluation and summary weighting.
     /// </param>
+    /// <param name="costOverrides">User effective-cost overrides by card name, applied before analysis.</param>
+    /// <param name="useManaQuantity">
+    /// MQ-02 flag. When true, the castability ROWS credit each source its full mana amount (Sol
+    /// Ring = 2, etc.). It is threaded ONLY into the display castability path — the per-color source
+    /// REQUIREMENT measurement stays mana-amount-blind, so the Karsten color counts
+    /// (EffectiveSources / SimRequiredSources / deficit) are identical whether the flag is on or off.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
         CommanderImportance importance = CommanderImportance.Standard,
-        IReadOnlyDictionary<string, string>? costOverrides = null)
+        IReadOnlyDictionary<string, string>? costOverrides = null,
+        bool useManaQuantity = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -57,7 +65,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -224,7 +232,8 @@ public static class ManabaseAnalyzer
         ManabaseDeck deck,
         int librarySize,
         int totalLands,
-        Dictionary<string, CardCastability> byName)
+        Dictionary<string, CardCastability> byName,
+        bool useManaQuantity)
     {
         var rows = new List<CardCastability>();
 
@@ -244,7 +253,7 @@ public static class ManabaseAnalyzer
             int onCurveTurn = EffectiveTurn(spell, deck.CostReduction);
 
             CardCastability row = CastabilitySimulator.Simulate(
-                deck, librarySize, spell, onCurveTurn, genericReduction);
+                deck, librarySize, spell, onCurveTurn, genericReduction, useManaQuantity: useManaQuantity);
             rows.Add(row);
             byName[spell.Name] = row;
         }
