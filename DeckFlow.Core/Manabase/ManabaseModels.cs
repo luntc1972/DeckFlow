@@ -587,6 +587,12 @@ public sealed record ManabaseReport
     /// </summary>
     public ManabaseLandTargetBreakdown? LandTarget { get; init; }
 
+    /// <summary>
+    /// Count of non-land mana sources in the deck — mana rocks and dorks (artifacts/creatures that
+    /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
+    /// </summary>
+    public int RampSourceCount { get; init; }
+
     /// <summary>Short human-readable verdict.</summary>
     public required string Summary { get; init; }
 
