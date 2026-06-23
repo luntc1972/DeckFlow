@@ -44,13 +44,14 @@ public static class CastabilitySimulator
 
     private readonly struct LibraryCard
     {
-        public LibraryCard(CardKind kind, int colorMask, int deployCost, bool isLand, double activationWeight = 1.0)
+        public LibraryCard(CardKind kind, int colorMask, int deployCost, bool isLand, double activationWeight = 1.0, int manaAmount = 1)
         {
             Kind = kind;
             ColorMask = colorMask;
             DeployCost = deployCost;
             IsLand = isLand;
             ActivationWeight = activationWeight;
+            ManaAmount = manaAmount;
         }
 
         public CardKind Kind { get; }
@@ -62,6 +63,14 @@ public static class CastabilitySimulator
         public int DeployCost { get; }
 
         public bool IsLand { get; }
+
+        /// <summary>
+        /// MQ-02: how much mana this source makes per activation, all of ONE chosen color (Sol Ring /
+        /// Ancient Tomb = 2 colorless, Gilded Lotus = 3 of one color). 1 unless the mana-quantity flag
+        /// is on. The simulator caps a single source at covering <see cref="ManaAmount"/> pips and locks
+        /// them to one color, so a multi-color source can never pay two DIFFERENT colored pips.
+        /// </summary>
+        public int ManaAmount { get; }
 
         /// <summary>
         /// Probability this source is "live" in any given game, in (0,1]. 1.0 for a whole source.
@@ -109,18 +118,24 @@ public static class CastabilitySimulator
     /// <param name="effectiveTurn">The turn the spell is cast on curve, after cost reduction.</param>
     /// <param name="genericReduction">Generic mana shaved off the spell's cost by reducers (capped upstream).</param>
     /// <param name="trials">Trial count (default <see cref="DefaultTrials"/>).</param>
+    /// <param name="useManaQuantity">
+    /// MQ-02 flag (snapshotted once by the caller). When false (default) every source is worth exactly
+    /// 1 mana — byte-identical to the pre-MQ-02 behavior. When true, a source pays its
+    /// <see cref="ManaSource.ManaAmount"/> in mana (all of one chosen color).
+    /// </param>
     public static CardCastability Simulate(
         ManabaseDeck deck,
         int librarySize,
         SpellRequirement spell,
         int effectiveTurn,
         int genericReduction,
-        int trials = DefaultTrials)
+        int trials = DefaultTrials,
+        bool useManaQuantity = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(spell);
 
-        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize);
+        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity);
 
         // The spell's effective cost: colored pips (immutable) plus generic. Reducers only shave
         // generic mana, and never below the pip count — the floor is enforced by the caller via
@@ -156,8 +171,8 @@ public static class CastabilitySimulator
         }
 
         int[] shuffled = new int[library.Count];
-        var availableColors = new List<int>(20); // color masks of online mana sources
-        var onlineLandMasks = new List<int>(20); // scratch: lands whose online-turn <= currentTurn
+        var availableColors = new List<(int Mask, int Amount)>(20); // online sources as (mask, mana amount)
+        var onlineLandMasks = new List<int>(20); // scratch: lands whose online-turn <= currentTurn (masks only)
 
         // Partial sources (FINDING-2 MEDIUM): indices of sub-1 cards needing a per-trial Bernoulli roll.
         // `active[i]` is true when card i is live this trial; full cards are always active, partials are
@@ -227,7 +242,7 @@ public static class CastabilitySimulator
 
     // ---- library construction -------------------------------------------------------------
 
-    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize)
+    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity)
     {
         var cards = new List<LibraryCard>(librarySize);
 
@@ -251,7 +266,7 @@ public static class CastabilitySimulator
         //    enabler fully is out of scope. Their whole part becomes full copies and any leftover fraction
         //    becomes ONE partial card carrying that fraction as its activation probability, so a 0.25
         //    source produces mana in ~25% of games (E[copies] = weight).
-        AddSourcesAsCards(deck, cards, rampCostByName);
+        AddSourcesAsCards(deck, cards, rampCostByName, useManaQuantity);
 
         // Pad/truncate to the real library size with filler so draw probabilities match the deck.
         int sourceCards = cards.Count;
@@ -271,7 +286,8 @@ public static class CastabilitySimulator
     private static void AddSourcesAsCards(
         ManabaseDeck deck,
         List<LibraryCard> cards,
-        IReadOnlyDictionary<string, int> rampCostByName)
+        IReadOnlyDictionary<string, int> rampCostByName,
+        bool useManaQuantity)
     {
         foreach (ManaSource source in deck.Sources)
         {
@@ -286,11 +302,16 @@ public static class CastabilitySimulator
 
             int mask = ColorsToMask(source.Produces);
 
+            // MQ-02: how much mana the source makes per activation. Off → 1 (byte-identical to the
+            // pre-MQ-02 sim). Conditional/granted sources always stay 1 (the Bernoulli roll gates a
+            // single speculative unit).
+            int amount = useManaQuantity && !source.IsConditional ? Math.Max(1, source.ManaAmount) : 1;
+
             if (source.IsLand)
             {
                 CardKind kind = source.EntersUntapped ? CardKind.UntappedLand : CardKind.TappedLand;
                 // Lands are never conditional; a discounted basic-fetch is still a full card you draw.
-                AddWeighted(cards, kind, mask, deployCost: 0, source.Weight, source.IsConditional);
+                AddWeighted(cards, kind, mask, deployCost: 0, source.Weight, source.IsConditional, amount);
                 continue;
             }
 
@@ -300,7 +321,7 @@ public static class CastabilitySimulator
                 ? source.Name[..^" (granted)".Length]
                 : source.Name;
             int deployCost = rampCostByName.TryGetValue(baseName, out int mv) ? mv : 2;
-            AddWeighted(cards, CardKind.Ramp, mask, deployCost, source.Weight, source.IsConditional);
+            AddWeighted(cards, CardKind.Ramp, mask, deployCost, source.Weight, source.IsConditional, amount);
         }
     }
 
@@ -310,7 +331,8 @@ public static class CastabilitySimulator
         int mask,
         int deployCost,
         double weight,
-        bool isConditional)
+        bool isConditional,
+        int amount = 1)
     {
         bool isLand = kind is CardKind.UntappedLand or CardKind.TappedLand;
 
@@ -321,8 +343,9 @@ public static class CastabilitySimulator
             // 0.67, MDFC back 0.8) is a PROXY for deploy-cost + summoning-sickness friction that the sim
             // ALREADY models explicitly (DeployCost from MV, online-next-turn). Re-applying the weight as
             // a Bernoulli activation here would double-discount and pull cast % ~5-7 pts under Snail. A
-            // drawn-and-cast Sol Ring is a full mana source. (Each card is one physical copy.)
-            cards.Add(new LibraryCard(kind, mask, deployCost, isLand));
+            // drawn-and-cast Sol Ring is a full mana source. (Each card is one physical copy; MQ-02
+            // gives it amount mana, all of one chosen color.)
+            cards.Add(new LibraryCard(kind, mask, deployCost, isLand, manaAmount: amount));
             return;
         }
 
@@ -369,7 +392,7 @@ public static class CastabilitySimulator
         int turn,
         int effectiveCost,
         (int Bit, int Count)[] pipReq,
-        List<int> availableColors,
+        List<(int Mask, int Amount)> availableColors,
         List<int> onlineLandMasks,
         out bool manaShort,
         out bool colorShort,
@@ -396,7 +419,7 @@ public static class CastabilitySimulator
         // count toward this turn's mana or color access. We model this exactly like ramp's OnlineTurn
         // (FINDING-1 HIGH): tapped lands previously inflated both the mana count and color coverage the
         // turn they entered.
-        var landsOnBoard = new List<(int Mask, int OnlineTurn)>(turn + 2);
+        var landsOnBoard = new List<(int Mask, int OnlineTurn, int Amount)>(turn + 2);
 
         // Working hand as a list of library indices.
         var hand = new List<int>(handCount + turn);
@@ -405,12 +428,10 @@ public static class CastabilitySimulator
             hand.Add(shuffled[i]);
         }
 
-        // Online ramp: each entry is the color mask it taps for; it contributes +1 mana once online.
-        var onlineRamp = new List<int>(8);
-
         // Ramp deployed this turn that comes online NEXT turn (cost > 0); 0-cost is same-turn.
-        // We just re-scan the board each turn for simplicity (turn counts are tiny).
-        var rampOnBoard = new List<(int Mask, int Cost, int OnlineTurn)>(8);
+        // We just re-scan the board each turn for simplicity (turn counts are tiny). Amount is the
+        // mana it makes once online (MQ-02): 1 unless the mana-quantity flag is on.
+        var rampOnBoard = new List<(int Mask, int Cost, int OnlineTurn, int Amount)>(8);
 
         for (int currentTurn = 1; currentTurn <= lastTurn; currentTurn++)
         {
@@ -426,9 +447,10 @@ public static class CastabilitySimulator
             // nothing until next turn (FINDING-1 HIGH).
             PlayOneLand(library, active, hand, landsOnBoard, onlineLandMasks, currentTurn, pipReq);
 
-            // Online lands for this turn: only those whose online-turn has arrived.
+            // Online lands for this turn: only those whose online-turn has arrived (masks only, for
+            // the "still-missing color" check; mana quantity is summed separately below).
             onlineLandMasks.Clear();
-            foreach ((int Mask, int OnlineTurn) land in landsOnBoard)
+            foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
             {
                 if (land.OnlineTurn <= currentTurn)
                 {
@@ -438,21 +460,12 @@ public static class CastabilitySimulator
 
             // Deploy one affordable ramp piece if we still need more mana to reach the spell's cost.
             // Stopping once we can already make the cost prevents runaway over-ramping. 0-cost ramp is
-            // same-turn; else next turn. Affordability counts only mana online THIS turn.
-            int availableNow = onlineLandMasks.Count + onlineRamp.Count;
+            // same-turn; else next turn. Affordability counts only mana online THIS turn — summing each
+            // source's amount (MQ-02): a Sol Ring online contributes 2 toward the cost, not 1.
+            int availableNow = OnlineMana(landsOnBoard, rampOnBoard, currentTurn);
             if (availableNow < effectiveCost)
             {
                 TryDeployRamp(library, active, hand, rampOnBoard, availableNow, currentTurn);
-            }
-
-            // Refresh online ramp for this turn.
-            onlineRamp.Clear();
-            foreach ((int Mask, int Cost, int OnlineTurn) r in rampOnBoard)
-            {
-                if (r.OnlineTurn <= currentTurn)
-                {
-                    onlineRamp.Add(r.Mask);
-                }
             }
 
             // From the effective turn onward, test castability; succeed on the first turn it lands.
@@ -461,19 +474,34 @@ public static class CastabilitySimulator
                 continue;
             }
 
+            // Rebuild the online sources as (mask, amount) capacity records — lands plus ramp that is
+            // online this turn (re-read AFTER the ramp deploy so 0-cost same-turn ramp counts).
             availableColors.Clear();
-            availableColors.AddRange(onlineLandMasks);
-            availableColors.AddRange(onlineRamp);
+            foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+            {
+                if (land.OnlineTurn <= currentTurn)
+                {
+                    availableColors.Add((land.Mask, land.Amount));
+                }
+            }
 
-            if (availableColors.Count < effectiveCost)
+            foreach ((int Mask, int Cost, int OnlineTurn, int Amount) r in rampOnBoard)
+            {
+                if (r.OnlineTurn <= currentTurn)
+                {
+                    availableColors.Add((r.Mask, r.Amount));
+                }
+            }
+
+            if (TotalMana(availableColors) < effectiveCost)
             {
                 manaShort = true;
                 colorShort = false;
                 continue;
             }
 
-            // Color coverage: assign distinct online sources to cover every colored pip; a pip is
-            // paid by any source whose mask includes it, generic by anything.
+            // Color coverage: assign online sources to cover every colored pip; a source pays up to its
+            // amount in pips, all of ONE chosen color (so a multi-color source can't pay two colors).
             if (!ColorsCoverable(availableColors, pipReq, effectiveCost))
             {
                 manaShort = false;
@@ -501,7 +529,7 @@ public static class CastabilitySimulator
         IReadOnlyList<LibraryCard> library,
         bool[] active,
         List<int> hand,
-        List<(int Mask, int OnlineTurn)> landsOnBoard,
+        List<(int Mask, int OnlineTurn, int Amount)> landsOnBoard,
         List<int> scratchOnlineMasks,
         int currentTurn,
         (int Bit, int Count)[] pipReq)
@@ -510,7 +538,7 @@ public static class CastabilitySimulator
         // entered tapped last turn but is online now counts; one that enters tapped THIS turn does not
         // help this turn, so picking it to "complete a missing color" would be a lie — FINDING-1 HIGH).
         scratchOnlineMasks.Clear();
-        foreach ((int Mask, int OnlineTurn) land in landsOnBoard)
+        foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
         {
             if (land.OnlineTurn <= currentTurn)
             {
@@ -564,7 +592,7 @@ public static class CastabilitySimulator
 
         // Untapped: online this turn. Tapped: online next turn — contributes nothing until then.
         int onlineTurn = played.Kind == CardKind.TappedLand ? currentTurn + 1 : currentTurn;
-        landsOnBoard.Add((played.ColorMask, onlineTurn));
+        landsOnBoard.Add((played.ColorMask, onlineTurn, played.ManaAmount));
         hand.RemoveAt(pick);
     }
 
@@ -572,7 +600,7 @@ public static class CastabilitySimulator
         IReadOnlyList<LibraryCard> library,
         bool[] active,
         List<int> hand,
-        List<(int Mask, int Cost, int OnlineTurn)> rampOnBoard,
+        List<(int Mask, int Cost, int OnlineTurn, int Amount)> rampOnBoard,
         int availableNow,
         int currentTurn)
     {
@@ -608,7 +636,7 @@ public static class CastabilitySimulator
         LibraryCard ramp = library[hand[bestHandIdx]];
         // 0-cost fast mana is online the same turn; everything else next turn.
         int onlineTurn = ramp.DeployCost == 0 ? currentTurn : currentTurn + 1;
-        rampOnBoard.Add((ramp.ColorMask, ramp.DeployCost, onlineTurn));
+        rampOnBoard.Add((ramp.ColorMask, ramp.DeployCost, onlineTurn, ramp.ManaAmount));
         hand.RemoveAt(bestHandIdx);
     }
 
@@ -633,24 +661,61 @@ public static class CastabilitySimulator
         return missing;
     }
 
-    // Greedy/exhaustive color assignment: can the online sources cover every colored pip
-    // simultaneously (each source used once), leaving enough leftover sources for generic mana?
-    private static bool ColorsCoverable(List<int> sources, (int Bit, int Count)[] pipReq, int effectiveCost)
+    // Total mana online this turn (MQ-02): each source contributes its Amount, not 1.
+    private static int OnlineMana(
+        List<(int Mask, int OnlineTurn, int Amount)> lands,
+        List<(int Mask, int Cost, int OnlineTurn, int Amount)> ramp,
+        int currentTurn)
+    {
+        int mana = 0;
+        foreach ((int Mask, int OnlineTurn, int Amount) l in lands)
+        {
+            if (l.OnlineTurn <= currentTurn)
+            {
+                mana += l.Amount;
+            }
+        }
+
+        foreach ((int Mask, int Cost, int OnlineTurn, int Amount) r in ramp)
+        {
+            if (r.OnlineTurn <= currentTurn)
+            {
+                mana += r.Amount;
+            }
+        }
+
+        return mana;
+    }
+
+    private static int TotalMana(List<(int Mask, int Amount)> sources)
+    {
+        int mana = 0;
+        foreach ((int Mask, int Amount) s in sources)
+        {
+            mana += s.Amount;
+        }
+
+        return mana;
+    }
+
+    // Capacity-aware color assignment (MQ-02): can the online sources cover every colored pip, where a
+    // single source pays up to its Amount in pips but ALL of ONE chosen color (locked on first use)?
+    // A multi-color source can therefore never pay two DIFFERENT colored pips. With every Amount == 1
+    // this reduces EXACTLY to the prior one-source-per-pip behavior (the flag-off byte-identical path).
+    private static bool ColorsCoverable(List<(int Mask, int Amount)> sources, (int Bit, int Count)[] pipReq, int effectiveCost)
     {
         if (pipReq.Length == 0)
         {
-            return sources.Count >= effectiveCost; // colorless: pure mana count
+            return TotalMana(sources) >= effectiveCost; // colorless: pure mana count
         }
 
-        // Expand the pip requirement into a flat list of single-color demands, hardest-constrained
-        // first (rarest color among the sources). Then greedily assign the most-restrictive source.
         int totalPips = 0;
         foreach ((int Bit, int Count) p in pipReq)
         {
             totalPips += p.Count;
         }
 
-        if (sources.Count < effectiveCost)
+        if (TotalMana(sources) < effectiveCost)
         {
             return false;
         }
@@ -666,24 +731,28 @@ public static class CastabilitySimulator
             }
         }
 
-        // Track which sources are consumed.
-        Span<bool> used = sources.Count <= 64 ? stackalloc bool[sources.Count] : new bool[sources.Count];
+        // Per-source remaining mana capacity and the single color it is locked to (0 = not yet used).
+        int n = sources.Count;
+        Span<int> remaining = n <= 64 ? stackalloc int[n] : new int[n];
+        Span<int> locked = n <= 64 ? stackalloc int[n] : new int[n];
+        for (int s = 0; s < n; s++)
+        {
+            remaining[s] = sources[s].Amount;
+            locked[s] = 0;
+        }
 
-        // Assign each demand to a source that can produce it, choosing the source with the FEWEST
-        // alternative colors (most constrained) to avoid wasting flexible duals — a standard greedy
-        // that is optimal for this interval-like structure in practice and far cheaper than full
-        // bipartite matching for the tiny sizes here.
-        // Order demands by color rarity (fewest matching sources first).
+        // Order demands by current rarity (fewest sources able to serve them) and assign greedily.
         for (int d = 0; d < totalPips; d++)
         {
             int rarest = -1;
             int rarestCount = int.MaxValue;
             for (int j = d; j < totalPips; j++)
             {
+                int c = demands[j];
                 int count = 0;
-                for (int s = 0; s < sources.Count; s++)
+                for (int s = 0; s < n; s++)
                 {
-                    if (!used[s] && (sources[s] & demands[j]) != 0)
+                    if (remaining[s] > 0 && (sources[s].Mask & c) != 0 && (locked[s] == 0 || locked[s] == c))
                     {
                         count++;
                     }
@@ -702,18 +771,26 @@ public static class CastabilitySimulator
             }
 
             (demands[d], demands[rarest]) = (demands[rarest], demands[d]);
+            int color = demands[d];
 
-            // Assign the most-constrained available source (fewest colors) to this demand.
+            // Prefer reusing a source ALREADY locked to this color (its capacity is committed anyway);
+            // otherwise take the most-constrained fresh source (fewest colors) able to produce it.
             int pick = -1;
             int pickColors = int.MaxValue;
-            for (int s = 0; s < sources.Count; s++)
+            for (int s = 0; s < n; s++)
             {
-                if (used[s] || (sources[s] & demands[d]) == 0)
+                if (remaining[s] <= 0 || (sources[s].Mask & color) == 0 || (locked[s] != 0 && locked[s] != color))
                 {
                     continue;
                 }
 
-                int colorCount = PopCount(sources[s]);
+                if (locked[s] == color)
+                {
+                    pick = s; // free reuse — its mana is already dedicated to this color
+                    break;
+                }
+
+                int colorCount = PopCount(sources[s].Mask);
                 if (colorCount < pickColors)
                 {
                     pickColors = colorCount;
@@ -726,11 +803,12 @@ public static class CastabilitySimulator
                 return false;
             }
 
-            used[pick] = true;
+            locked[pick] = color;
+            remaining[pick]--;
         }
 
-        // All pips covered; we already checked total mana >= effectiveCost, so the generic part is
-        // satisfied by the remaining sources (generic accepts any source).
+        // All pips covered; total mana >= effectiveCost was checked, so leftover capacity (any color or
+        // colorless) covers the generic part.
         return true;
     }
 
