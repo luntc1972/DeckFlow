@@ -37,6 +37,9 @@ public static class ScryfallCardFactMapper
             ManaValue = manaValue,
             TypeLine = typeLine,
             OracleText = JoinOracleText(card),
+            // Front-face text only — so a front-face permanent with a one-shot mana adventure/back
+            // face does not read as repeatable ramp (MQ-03). Falls back to card-level for single-face.
+            FrontFaceOracleText = front?.OracleText ?? card.OracleText,
             ProducedMana = card.ProducedMana ?? Array.Empty<string>(),
             Rarity = card.Rarity,
             Layout = card.Layout,
