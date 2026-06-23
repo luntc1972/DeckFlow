@@ -2533,6 +2533,97 @@ label.field > span,
   color: var(--success, #2f855a);
 }
 
+/* Two-lens result header (70-06): Karsten source check + simulated cast rate, side by side. */
+.manabase-twolens {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.manabase-lens {
+  background: var(--panel-soft-bg, var(--surface, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.manabase-lens-label {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--line, rgba(0, 0, 0, 0.12));
+}
+
+.manabase-lens-row:last-of-type {
+  border-bottom: 0;
+}
+
+.manabase-lens-color {
+  font-weight: 600;
+}
+
+.manabase-lens-muted {
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-met {
+  color: var(--success, #2f855a);
+  font-weight: 600;
+}
+
+.manabase-lens-short {
+  color: var(--gold-warning, var(--warning, #c8a040));
+  font-weight: 600;
+}
+
+.manabase-lens-big {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.manabase-lens-big > span {
+  margin-left: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-pill {
+  display: inline-block;
+  margin-top: 0.55rem;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  background: var(--info, var(--panel-soft-bg, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  color: var(--accent-strong, var(--muted, inherit));
+}
+
+@media (max-width: 640px) {
+  .manabase-twolens {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The two FORMULA-01 disclosure panels. */
 .manabase-formula > summary {
   cursor: pointer;
