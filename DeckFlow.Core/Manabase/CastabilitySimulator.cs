@@ -700,8 +700,7 @@ public static class CastabilitySimulator
 
     // Capacity-aware color assignment (MQ-02): can the online sources cover every colored pip, where a
     // single source pays up to its Amount in pips but ALL of ONE chosen color (locked on first use)?
-    // A multi-color source can therefore never pay two DIFFERENT colored pips. With every Amount == 1
-    // this reduces EXACTLY to the prior one-source-per-pip behavior (the flag-off byte-identical path).
+    // A multi-color source can therefore never pay two DIFFERENT colored pips.
     private static bool ColorsCoverable(List<(int Mask, int Amount)> sources, (int Bit, int Count)[] pipReq, int effectiveCost)
     {
         if (pipReq.Length == 0)
@@ -709,18 +708,119 @@ public static class CastabilitySimulator
             return TotalMana(sources) >= effectiveCost; // colorless: pure mana count
         }
 
+        if (TotalMana(sources) < effectiveCost)
+        {
+            return false;
+        }
+
+        // FLAG-OFF FAST PATH: with every source worth 1 mana there is no capacity to share, so the
+        // problem is the classic one-source-per-pip matching. Run the EXACT prior greedy unchanged on
+        // the flat mask list (built lands-then-ramp, same order as before) so behavior is byte-identical.
+        bool hasMulti = false;
+        foreach ((int Mask, int Amount) s in sources)
+        {
+            if (s.Amount > 1)
+            {
+                hasMulti = true;
+                break;
+            }
+        }
+
+        if (!hasMulti)
+        {
+            var masks = new List<int>(sources.Count);
+            foreach ((int Mask, int Amount) s in sources)
+            {
+                masks.Add(s.Mask);
+            }
+
+            return ColorsCoverableUnit(masks, pipReq, effectiveCost);
+        }
+
+        // MQ-02 path: at least one source makes >1 mana. The greedy above is unsound here (it can waste
+        // a low-capacity source on a color a high-capacity one should cover), so solve exactly. Sizes
+        // are tiny (a handful of pips, a handful of online sources), so DFS with capacity + single-color
+        // lock per source is cheap and correct. Total mana >= effectiveCost is already checked, so
+        // covering every colored pip guarantees the generic part too.
         int totalPips = 0;
         foreach ((int Bit, int Count) p in pipReq)
         {
             totalPips += p.Count;
         }
 
-        if (TotalMana(sources) < effectiveCost)
+        var demands = new int[totalPips];
+        int di = 0;
+        foreach ((int Bit, int Count) p in pipReq)
+        {
+            for (int k = 0; k < p.Count; k++)
+            {
+                demands[di++] = p.Bit;
+            }
+        }
+
+        // Group identical colors together so the DFS tries lock-reuse before consuming a fresh source.
+        System.Array.Sort(demands);
+
+        int[] remaining = new int[sources.Count];
+        int[] locked = new int[sources.Count];
+        for (int s = 0; s < sources.Count; s++)
+        {
+            remaining[s] = sources[s].Amount;
+        }
+
+        return CoverPips(sources, demands, 0, remaining, locked);
+    }
+
+    // Exact backtracking: assign demand[d..] to sources, each source paying up to its remaining capacity
+    // in pips of ONE locked color. Returns true iff every demand can be covered simultaneously.
+    private static bool CoverPips(List<(int Mask, int Amount)> sources, int[] demands, int d, int[] remaining, int[] locked)
+    {
+        if (d >= demands.Length)
+        {
+            return true;
+        }
+
+        int color = demands[d];
+        for (int s = 0; s < sources.Count; s++)
+        {
+            if (remaining[s] <= 0 || (sources[s].Mask & color) == 0 || (locked[s] != 0 && locked[s] != color))
+            {
+                continue;
+            }
+
+            int prevLocked = locked[s];
+            locked[s] = color;
+            remaining[s]--;
+
+            if (CoverPips(sources, demands, d + 1, remaining, locked))
+            {
+                return true;
+            }
+
+            remaining[s]++;
+            locked[s] = prevLocked;
+        }
+
+        return false;
+    }
+
+    // The original (pre-MQ-02) greedy matching, operating on a flat mask list with each source used at
+    // most once. Preserved verbatim so the flag-off path stays byte-identical to historic behavior.
+    private static bool ColorsCoverableUnit(List<int> sources, (int Bit, int Count)[] pipReq, int effectiveCost)
+    {
+        // Expand the pip requirement into a flat list of single-color demands, hardest-constrained
+        // first (rarest color among the sources). Then greedily assign the most-restrictive source.
+        int totalPips = 0;
+        foreach ((int Bit, int Count) p in pipReq)
+        {
+            totalPips += p.Count;
+        }
+
+        if (sources.Count < effectiveCost)
         {
             return false;
         }
 
-        // Build demand list (one entry per required pip).
         Span<int> demands = totalPips <= 16 ? stackalloc int[totalPips] : new int[totalPips];
         int di = 0;
         foreach ((int Bit, int Count) p in pipReq)
@@ -731,28 +831,18 @@ public static class CastabilitySimulator
             }
         }
 
-        // Per-source remaining mana capacity and the single color it is locked to (0 = not yet used).
-        int n = sources.Count;
-        Span<int> remaining = n <= 64 ? stackalloc int[n] : new int[n];
-        Span<int> locked = n <= 64 ? stackalloc int[n] : new int[n];
-        for (int s = 0; s < n; s++)
-        {
-            remaining[s] = sources[s].Amount;
-            locked[s] = 0;
-        }
+        Span<bool> used = sources.Count <= 64 ? stackalloc bool[sources.Count] : new bool[sources.Count];
 
-        // Order demands by current rarity (fewest sources able to serve them) and assign greedily.
         for (int d = 0; d < totalPips; d++)
         {
             int rarest = -1;
             int rarestCount = int.MaxValue;
             for (int j = d; j < totalPips; j++)
             {
-                int c = demands[j];
                 int count = 0;
-                for (int s = 0; s < n; s++)
+                for (int s = 0; s < sources.Count; s++)
                 {
-                    if (remaining[s] > 0 && (sources[s].Mask & c) != 0 && (locked[s] == 0 || locked[s] == c))
+                    if (!used[s] && (sources[s] & demands[j]) != 0)
                     {
                         count++;
                     }
@@ -771,26 +861,17 @@ public static class CastabilitySimulator
             }
 
             (demands[d], demands[rarest]) = (demands[rarest], demands[d]);
-            int color = demands[d];
 
-            // Prefer reusing a source ALREADY locked to this color (its capacity is committed anyway);
-            // otherwise take the most-constrained fresh source (fewest colors) able to produce it.
             int pick = -1;
             int pickColors = int.MaxValue;
-            for (int s = 0; s < n; s++)
+            for (int s = 0; s < sources.Count; s++)
             {
-                if (remaining[s] <= 0 || (sources[s].Mask & color) == 0 || (locked[s] != 0 && locked[s] != color))
+                if (used[s] || (sources[s] & demands[d]) == 0)
                 {
                     continue;
                 }
 
-                if (locked[s] == color)
-                {
-                    pick = s; // free reuse — its mana is already dedicated to this color
-                    break;
-                }
-
-                int colorCount = PopCount(sources[s].Mask);
+                int colorCount = PopCount(sources[s]);
                 if (colorCount < pickColors)
                 {
                     pickColors = colorCount;
@@ -803,12 +884,11 @@ public static class CastabilitySimulator
                 return false;
             }
 
-            locked[pick] = color;
-            remaining[pick]--;
+            used[pick] = true;
         }
 
-        // All pips covered; total mana >= effectiveCost was checked, so leftover capacity (any color or
-        // colorless) covers the generic part.
+        // All pips covered; we already checked total mana >= effectiveCost, so the generic part is
+        // satisfied by the remaining sources (generic accepts any source).
         return true;
     }
 
