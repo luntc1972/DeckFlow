@@ -814,6 +814,21 @@ public static class CastabilitySimulator
 
     private static int PopCount(int mask) => System.Numerics.BitOperations.PopCount((uint)mask);
 
+    /// <summary>
+    /// MQ-02 test seam: drive the capacity-aware color assignment directly with domain types, so the
+    /// single-color-lock payment rule can be unit-tested deterministically (no Monte-Carlo). Each
+    /// source is (its colors, mana amount); a source pays up to its amount in pips of ONE chosen color.
+    /// </summary>
+    internal static bool ColorsCoverableForTest(
+        IReadOnlyList<(IReadOnlyList<ManaColor> Colors, int Amount)> sources,
+        IReadOnlyList<(ManaColor Color, int Count)> pips,
+        int effectiveCost)
+    {
+        var src = sources.Select(s => (ColorsToMask(s.Colors), s.Amount)).ToList();
+        (int Bit, int Count)[] pipReq = pips.Select(p => (ColorBit(p.Color), p.Count)).ToArray();
+        return ColorsCoverable(src, pipReq, effectiveCost);
+    }
+
     // ---- London mulligan ------------------------------------------------------------------
 
     // Draws 7, keeps on a land-count band; otherwise mulligans to 6 then 5, bottoming highest-cost
