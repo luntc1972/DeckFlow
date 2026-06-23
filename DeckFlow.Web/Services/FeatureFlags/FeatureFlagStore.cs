@@ -156,7 +156,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('content.kb.enabled', TRUE),
           ('feature.manabase.enabled', TRUE),
           ('analysis.reference.full-oracle-text', TRUE),
-          ('analysis.reference.deck-stats', FALSE)
+          ('analysis.reference.deck-stats', FALSE),
+          ('manabase.source-mana-quantity', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -169,7 +170,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('content.kb.enabled', 1),
           ('feature.manabase.enabled', 1),
           ('analysis.reference.full-oracle-text', 1),
-          ('analysis.reference.deck-stats', 0)
+          ('analysis.reference.deck-stats', 0),
+          ('manabase.source-mana-quantity', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 

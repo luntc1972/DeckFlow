@@ -4,6 +4,7 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -107,14 +108,22 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     private static readonly HashSet<string> AnalyzedBoards =
         new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander" };
 
+    /// <summary>
+    /// MQ-02 flag key: when enabled, the castability rows credit each source its full mana amount
+    /// (Sol Ring = 2, etc.). Seeded OFF until the baseline diff vs Salubrious Snail is reviewed.
+    /// </summary>
+    public const string ManaQuantityFlagKey = "manabase.source-mana-quantity";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly IFeatureFlagCache? _featureFlags;
     private readonly ILogger<ManabaseAnalysisService> _logger;
 
     /// <summary>Creates the analysis service.</summary>
     public ManabaseAnalysisService(
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver scryfallCardResolver,
+        IFeatureFlagCache? featureFlags = null,
         ILogger<ManabaseAnalysisService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -122,6 +131,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         _deckEntryLoader = deckEntryLoader;
         _scryfallCardResolver = scryfallCardResolver;
+        _featureFlags = featureFlags;
         _logger = logger ?? NullLogger<ManabaseAnalysisService>.Instance;
     }
 
@@ -137,8 +147,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, cancellationToken)
             .ConfigureAwait(false);
 
+        // MQ-02: read the flag ONCE here and pass it down, so the simulator stays a pure function of
+        // its arguments (clean A/B + byte-identical-when-off proof). The flag is seeded OFF.
+        bool useManaQuantity = _featureFlags?.IsEnabled(ManaQuantityFlagKey) ?? false;
+
         ManabaseReport report = ManabaseAnalyzer.Analyze(
-            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides);
+            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides, useManaQuantity);
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
 
