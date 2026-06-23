@@ -230,3 +230,15 @@ test('health verdict renders a four-tier scale label', async ({ page }) => {
 
   await assertNoHorizontalScroll(page);
 });
+
+test('analyzing scrolls the result into view, not stuck at the top', async ({ page }) => {
+  // A full-page POST lands at the top; deck-sync.js scrolls the [data-scroll-on-load] result section
+  // into view so the user sees the verdict instead of an empty top of page.
+  const analyzed = await submitDeck(page, 'Casual');
+  test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
+
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY)), {
+    message: 'page should scroll down to the result after analyzing',
+    timeout: 5000,
+  }).toBeGreaterThan(0);
+});

@@ -29,7 +29,8 @@
       data-busy-title="Analyzing mana base"
       data-busy-message="Resolving cards and simulating castability — this can take a few seconds."
       data-busy-progress="Loading the deck|Resolving cards via Scryfall|Simulating castability|Scoring colors"
-      data-busy-hold-final-step="true">
+      data-busy-hold-final-step="true"
+      data-busy-min-ms="500">
     @Html.AntiForgeryToken()
 
     <div class="toolbar manabase-source-toggle" role="radiogroup" aria-label="Deck input source">
@@ -58,7 +59,7 @@
 
     @if (Model.Loaded && !Model.HasResult)
     {
-        <p class="manabase-loaded-hint" role="status">
+        <p class="manabase-loaded-hint" role="status" data-scroll-on-load>
             @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
             {
                 <strong>Deck loaded</strong> @:(@Model.InputSummary).
@@ -144,7 +145,7 @@
 
 @if (Model.HasResult && report is not null)
 {
-    <section class="result-panel">
+    <section class="result-panel" data-scroll-on-load>
         <div class="panel-heading">
             <div>
                 <h2>Result</h2>
