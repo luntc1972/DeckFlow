@@ -7,7 +7,9 @@ namespace DeckFlow.Core.Tests;
 /// <summary>
 /// Deterministic tests of <see cref="ManabaseReport.Health"/> built from synthetic findings (no sim
 /// noise). Pins the rule that only a REAL mana shortage reads NeedsWork: a land surplus, a sub-source
-/// rounding deficit, a small land shortfall, and mana-limited (curve) cards never trip it.
+/// rounding deficit, a small land shortfall, and mana-limited (curve) cards never trip it. A raw
+/// land-count shortfall only escalates to NeedsWork when the sim corroborates it (a color issue or
+/// broad under-support) — a ramp-saturated deck the sim casts cleanly stays out of the red.
 /// </summary>
 public sealed class ManabaseHealthVerdictTests
 {
@@ -114,12 +116,25 @@ public sealed class ManabaseHealthVerdictTests
     }
 
     [Fact]
-    public void MeaningfulLandShortfall_IsNeedsWork()
+    public void MeaningfulLandShortfall_SimCorroborates_IsNeedsWork()
     {
-        // 35 vs 38 = 3 lands short — a real shortage.
-        ManabaseReport report = Report(35, 38.0, Finding(ManaColor.Green, actual: 28, required: 14));
+        // 35 vs 38 = 3 lands short AND the sim shows broad under-support (9 of 40 cards miss on
+        // curve, over tolerance 6) — a genuinely thin base, NeedsWork.
+        ManabaseReport report = Report(35, 38.0,
+            Finding(ManaColor.Green, actual: 28, required: 14, underSupported: 9));
 
         Assert.Equal(ManabaseHealth.NeedsWork, report.Health);
+    }
+
+    [Fact]
+    public void MeaningfulLandShortfall_CleanSim_IsFunctional_NotNeedsWork()
+    {
+        // The Bello case: 3 lands short on paper but ramp-saturated, so the sim casts every spell
+        // cleanly (no under-support, colors oversupplied). A raw land-count deficit must NOT force
+        // NeedsWork when the simulation proves the base works.
+        ManabaseReport report = Report(35, 38.0, Finding(ManaColor.Green, actual: 28, required: 14));
+
+        Assert.Equal(ManabaseHealth.Functional, report.Health);
     }
 
     [Fact]
@@ -160,10 +175,21 @@ public sealed class ManabaseHealthVerdictTests
     }
 
     [Fact]
-    public void LandDeltaExactlyMinusTwo_IsNeedsWork()
+    public void LandDeltaMinusTwo_CleanSim_IsFunctional()
     {
-        // 35 vs 37 = exactly 2 lands short → NeedsWork (rule is LandDelta <= -2).
+        // 35 vs 37 = exactly 2 lands short, but clean colors and no under-support → Functional. A
+        // land-count shortfall alone never reds the verdict; the sim must corroborate.
         ManabaseReport report = Report(35, 37.0, Finding(ManaColor.Green, actual: 28, required: 14));
+
+        Assert.Equal(ManabaseHealth.Functional, report.Health);
+    }
+
+    [Fact]
+    public void LandDeltaMinusTwo_WithColorIssue_IsNeedsWork()
+    {
+        // 35 vs 37 = 2 lands short AND a real single-color deficit (23 vs 25) riding alongside —
+        // the land delta now corroborated, so the contained issue escalates to NeedsWork.
+        ManabaseReport report = Report(35, 37.0, Finding(ManaColor.Red, actual: 23, required: 25));
 
         Assert.Equal(ManabaseHealth.NeedsWork, report.Health);
     }
