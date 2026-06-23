@@ -50,6 +50,8 @@ public static class ManabaseClassifier
         var granters = new List<GranterScope>();
         var suggestions = new List<CostSuggestion>();
         var suggestedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var unsupported = new List<UnsupportedInteraction>();
+        var unsupportedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int totalCards = 0;
         int commanderCount = 0;
         double mvSum = 0;
@@ -83,6 +85,20 @@ public static class ManabaseClassifier
 
             ParsedManaCost cost = ManaCostParser.Parse(card.ManaCost);
             AddSpellRequirement(spells, card, cost);
+
+            // MQ-04: disclose what the analysis cannot fully model rather than silently absorbing it.
+            // X/variable spells are dropped from castability entirely; hybrid/Phyrexian pips are
+            // flexible so they carry no hard color requirement (Karsten-correct, but then the color
+            // need is approximated). One entry per card, X taking priority over hybrid.
+            string? unsupportedReason = cost.HasVariableCost
+                ? "Variable (X) cost — castability not simulated"
+                : (card.ManaCost?.Contains('/', StringComparison.Ordinal) ?? false)
+                    ? "Hybrid/Phyrexian pips — color requirement approximated"
+                    : null;
+            if (unsupportedReason is not null && unsupportedNames.Add(card.Name))
+            {
+                unsupported.Add(new UnsupportedInteraction { Name = card.Name, Reason = unsupportedReason });
+            }
 
             if (card.ManaValue <= 2 && IsRampOrDraw(card))
             {
@@ -161,6 +177,7 @@ public static class ManabaseClassifier
             IsSingleton = isSingleton,
             CostReduction = reducers,
             CostSuggestions = suggestions,
+            UnsupportedInteractions = unsupported,
         };
     }
 

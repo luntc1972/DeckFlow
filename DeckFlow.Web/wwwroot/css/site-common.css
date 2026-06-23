@@ -2430,6 +2430,23 @@ label.field > span,
   line-height: 1.2;
 }
 
+/* Disclosure for cards the analysis can't fully model (X / hybrid / Phyrexian). Muted, collapsed
+   by default so it informs without alarming. */
+.manabase-unsupported {
+  margin: 0.5rem 0 0;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.manabase-unsupported > summary {
+  cursor: pointer;
+}
+
+.manabase-unsupported ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
 /* Weakest color emphasized with a left accent border + danger tint. */
 .manabase-row--weakest td {
   border-left: 3px solid var(--danger, var(--error, #c53030));

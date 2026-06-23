@@ -444,6 +444,33 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_UnsupportedInteractions_SurfacesXAndHybridCards()
+    {
+        // X/variable spells are skipped from castability; hybrid/Phyrexian pips carry no hard color
+        // requirement. Both must be DISCLOSED (MQ-04), not silently absorbed. A plain card is not.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Hydra X", Quantity = 1, ManaCost = "{X}{G}{G}", ManaValue = 2, TypeLine = "Creature — Hydra", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Hybrid Bolt", Quantity = 1, ManaCost = "{R/G}", ManaValue = 1, TypeLine = "Instant", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Phyrexian Card", Quantity = 1, ManaCost = "{1}{G/P}", ManaValue = 2, TypeLine = "Instant", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Plain Bear", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Creature — Bear", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+        };
+        for (int i = 0; i < 36; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(ManabaseClassifier.Classify(cards));
+        var names = report.UnsupportedInteractions.Select(u => u.Name).ToList();
+
+        Assert.Contains("Hydra X", names);          // X cost
+        Assert.Contains("Hybrid Bolt", names);      // hybrid pip
+        Assert.Contains("Phyrexian Card", names);   // Phyrexian pip
+        Assert.DoesNotContain("Plain Bear", names); // fully modeled — not disclosed
+        Assert.DoesNotContain("Forest", names);
+    }
+
+    [Fact]
     public void Analyze_StandardCommander_DoesNotOverride_AWorseNonCommanderColor()
     {
         // Commander is WU and very well supported; an off-commander black bomb is the true worst.
