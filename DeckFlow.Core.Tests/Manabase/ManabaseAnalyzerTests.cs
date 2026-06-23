@@ -381,6 +381,37 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_SourceBreakdown_SplitsDirectSharedConditional_AndSumsToActual()
+    {
+        // Green sources of three kinds: a mono Forest (direct), an any-color Mox (shared, weight
+        // 0.75), and a granted creature via Cryptolith Rite (conditional, weight 0.25). The
+        // breakdown must bucket each correctly and sum (within rounding) to ActualSources, which
+        // itself is unchanged.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Mox Opal", Quantity = 1, ManaCost = "{0}", ManaValue = 0, TypeLine = "Artifact", OracleText = "{T}: Add one mana of any color.", ProducedMana = new[] { "W", "U", "B", "R", "G" } },
+            new() { Name = "Cryptolith Rite", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Enchantment", OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Vanilla Bear", Quantity = 1, ManaCost = "{2}{G}", ManaValue = 3, TypeLine = "Creature — Bear", OracleText = "Vanilla.", ProducedMana = System.Array.Empty<string>() },
+        };
+        for (int i = 0; i < 30; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+        ColorSourceFinding green = report.ColorFindings.Single(f => f.Color == ManaColor.Green);
+
+        Assert.Equal(30.0, green.DirectSources, 1);                 // 30 Forests, weight 1.0 each
+        Assert.Equal(0.75, green.SharedSources, 2);                 // Mox Opal (any-color rock)
+        Assert.Equal(0.25, green.ConditionalSources, 2);           // Vanilla Bear granted by the Rite
+        Assert.Equal(
+            green.ActualSources,
+            Math.Round(green.DirectSources + green.SharedSources + green.ConditionalSources, 1),
+            1);
+    }
+
+    [Fact]
     public void Analyze_StandardCommander_DoesNotOverride_AWorseNonCommanderColor()
     {
         // Commander is WU and very well supported; an off-commander black bomb is the true worst.

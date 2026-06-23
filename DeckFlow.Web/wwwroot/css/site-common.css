@@ -2420,6 +2420,16 @@ label.field > span,
   margin-right: 0.2rem;
 }
 
+/* Muted sub-line under the per-color Sources figure: explains the number's makeup
+   (direct + shared + conditional) without competing with the headline value. */
+.manabase-source-breakdown {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78em;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
 /* Weakest color emphasized with a left accent border + danger tint. */
 .manabase-row--weakest td {
   border-left: 3px solid var(--danger, var(--error, #c53030));

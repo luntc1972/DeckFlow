@@ -276,6 +276,27 @@ public sealed record ColorSourceFinding
     /// <summary>The name of the spell with the lowest castability for this color.</summary>
     public string WorstSpell { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Display-only composition of <see cref="ActualSources"/>: weight from sources that make ONLY
+    /// this color (basics, mono dorks/rocks, mono lands). The reliable, dedicated core.
+    /// </summary>
+    public double DirectSources { get; init; }
+
+    /// <summary>
+    /// Display-only composition of <see cref="ActualSources"/>: weight from non-conditional sources
+    /// that make this color AND at least one other (dual/triome lands, any-color Moxen, Birds). Real,
+    /// but shared with the deck's other colors — one such card makes one mana per turn.
+    /// </summary>
+    public double SharedSources { get; init; }
+
+    /// <summary>
+    /// Display-only composition of <see cref="ActualSources"/>: weight from conditional "granted"
+    /// sources (a creature handed a mana ability by Cryptolith Rite / Elven Chorus). Speculative —
+    /// the simulator only fires these in ~weight of games (needs the granter online and the creature
+    /// alive). The three breakdown fields sum (within rounding) to <see cref="ActualSources"/>.
+    /// </summary>
+    public double ConditionalSources { get; init; }
+
     /// <summary>Required minus actual; positive means under-supported.</summary>
     public double Deficit => RequiredSources - ActualSources;
 
