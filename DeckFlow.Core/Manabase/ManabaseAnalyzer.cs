@@ -89,6 +89,7 @@ public static class ManabaseAnalyzer
             // land-backs (weight 0.8+, which are lands, not ramp pieces) so the at-a-glance count
             // matches its label instead of over-reporting every non-land source.
             RampSourceCount = deck.Sources.Count(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75),
+            UnsupportedInteractions = deck.UnsupportedInteractions,
             Summary = summary,
         };
     }

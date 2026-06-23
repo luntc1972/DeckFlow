@@ -231,6 +231,26 @@ public sealed record ManabaseDeck
     /// change the analysis on their own — only an applied override does. Empty when none found.
     /// </summary>
     public IReadOnlyList<CostSuggestion> CostSuggestions { get; init; } = Array.Empty<CostSuggestion>();
+
+    /// <summary>
+    /// Cards whose mana requirement the analysis cannot fully model (X/variable costs that are
+    /// skipped from castability; hybrid/Phyrexian pips that are approximated). Surfaced so the
+    /// verdict discloses what it approximates instead of silently absorbing it. Empty when none.
+    /// </summary>
+    public IReadOnlyList<UnsupportedInteraction> UnsupportedInteractions { get; init; } = Array.Empty<UnsupportedInteraction>();
+}
+
+/// <summary>
+/// A card the mana-base analysis cannot fully model — surfaced to the user so the verdict is honest
+/// about what it approximates or skips rather than silently absorbing it.
+/// </summary>
+public sealed record UnsupportedInteraction
+{
+    /// <summary>Card name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Short human-readable reason (e.g. "Variable (X) cost", "Hybrid/Phyrexian pips").</summary>
+    public required string Reason { get; init; }
 }
 
 /// <summary>
@@ -642,6 +662,13 @@ public sealed record ManabaseReport
     /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
     /// </summary>
     public int RampSourceCount { get; init; }
+
+    /// <summary>
+    /// Cards the analysis cannot fully model (X/variable costs skipped from castability;
+    /// hybrid/Phyrexian pips approximated). Surfaced as a disclosure so the verdict is honest about
+    /// what it skips. Empty when none.
+    /// </summary>
+    public IReadOnlyList<UnsupportedInteraction> UnsupportedInteractions { get; init; } = Array.Empty<UnsupportedInteraction>();
 
     /// <summary>Short human-readable verdict.</summary>
     public required string Summary { get; init; }

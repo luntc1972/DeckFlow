@@ -254,6 +254,21 @@
                 break;
         }
 
+        @* MQ-04: disclose cards the analysis can't fully model (X costs, hybrid/Phyrexian pips)
+           instead of silently folding them into a clean-looking verdict. *@
+        @if (report.UnsupportedInteractions.Count > 0)
+        {
+            <details class="manabase-unsupported">
+                <summary>⚠ @report.UnsupportedInteractions.Count card(s) use interactions this analysis approximates or skips</summary>
+                <ul>
+                    @foreach (var u in report.UnsupportedInteractions)
+                    {
+                        <li><strong>@u.Name</strong> — @u.Reason</li>
+                    }
+                </ul>
+            </details>
+        }
+
         @if (Model.ShowCastability && report.Castability.Count > 0)
         {
             <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
