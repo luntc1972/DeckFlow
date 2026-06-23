@@ -96,6 +96,44 @@ public static class ManabaseDisplay
         return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"+{averageDelay:0.0} turns");
     }
 
+    /// <summary>
+    /// Deck-level "avg on-curve" cast rate for the two-lens result header: the mean
+    /// <see cref="CardCastability.CastPercent"/> across the tracked castability rows (these already
+    /// exclude mana rocks/dorks; the commander is a normal row and order does not affect a mean).
+    /// Returns 0 for an empty set (the right lens is hidden in that case) — never divides by zero.
+    /// </summary>
+    public static int AvgOnCurve(IReadOnlyList<CardCastability> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
+        long sum = 0;
+        foreach (CardCastability row in rows)
+        {
+            sum += row.CastPercent;
+        }
+
+        return (int)Math.Round((double)sum / rows.Count);
+    }
+
+    /// <summary>
+    /// Karsten source-check for the left lens of the two-lens header. <c>Met</c> uses the raw
+    /// (weighted, fractional) <see cref="ColorSourceFinding.ActualSources"/> against the integer
+    /// requirement; <c>Deficit</c> is the whole sources still needed when short, clamped to at least
+    /// 1 so an unmet color never renders "−0". The view shows <c>ActualSources</c> to one decimal so
+    /// the displayed number and the ✓/⚠ marker can never contradict each other.
+    /// </summary>
+    public static (bool Met, int Deficit) KarstenMet(ColorSourceFinding finding)
+    {
+        ArgumentNullException.ThrowIfNull(finding);
+        bool met = finding.ActualSources >= finding.RequiredSources;
+        int deficit = met ? 0 : Math.Max(1, (int)Math.Ceiling(finding.RequiredSources - finding.ActualSources));
+        return (met, deficit);
+    }
+
     /// <summary>Human label for an analysis mode (used in the results echo line).</summary>
     public static string ModeLabel(ManabaseMode mode) =>
         mode == ManabaseMode.Cedh ? "cEDH" : "Casual";

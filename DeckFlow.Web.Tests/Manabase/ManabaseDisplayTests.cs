@@ -113,6 +113,49 @@ public sealed class ManabaseDisplayTests
         Assert.True(ViewModel(ManabaseMode.Casual, Array.Empty<CardCastability>()).HasResult);
     }
 
+    [Fact]
+    public void AvgOnCurve_EmptyRows_IsZero_NoDivideByZero()
+    {
+        Assert.Equal(0, ManabaseDisplay.AvgOnCurve(Array.Empty<CardCastability>()));
+    }
+
+    [Fact]
+    public void AvgOnCurve_MeansCastPercentAndRounds()
+    {
+        var rows = new[]
+        {
+            new CardCastability { Name = "A", ManaValue = 2, OnCurveTurn = 2, CastPercent = 80, LimitingFactor = "mana" },
+            new CardCastability { Name = "B", ManaValue = 3, OnCurveTurn = 3, CastPercent = 81, LimitingFactor = "mana" },
+        };
+
+        // (80 + 81) / 2 = 80.5 → rounds to 80 (banker's rounding to even).
+        Assert.Equal(80, ManabaseDisplay.AvgOnCurve(rows));
+    }
+
+    [Theory]
+    // ActualSources >= RequiredSources → met, deficit 0.
+    [InlineData(18.0, 17, true, 0)]
+    [InlineData(17.0, 17, true, 0)]
+    // Short: deficit is whole sources needed, clamped to >= 1 so it never shows "-0".
+    [InlineData(15.0, 16, false, 1)]
+    [InlineData(16.6, 17, false, 1)] // would round to "17" for display, but raw 16.6 < 17 → still ⚠ −1
+    [InlineData(12.2, 16, false, 4)]
+    public void KarstenMet_UsesRawValue_AndClampsDeficit(double actual, int required, bool met, int deficit)
+    {
+        var finding = new ColorSourceFinding
+        {
+            Color = ManaColor.Blue,
+            ActualSources = actual,
+            RequiredSources = required,
+            DrivingSpell = "Test",
+        };
+
+        (bool Met, int Deficit) result = ManabaseDisplay.KarstenMet(finding);
+
+        Assert.Equal(met, result.Met);
+        Assert.Equal(deficit, result.Deficit);
+    }
+
     private static ManabaseViewModel ViewModel(ManabaseMode mode, System.Collections.Generic.IReadOnlyList<CardCastability> rows) => new()
     {
         Report = new ManabaseReport

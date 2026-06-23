@@ -156,6 +156,52 @@
             </div>
         </div>
 
+        @{
+            var castRows = report.Castability;
+            var showRightLens = Model.ShowCastability && castRows.Count > 0;
+            var showLeftLens = report.ColorFindings.Count > 0;
+        }
+        @if (showLeftLens || showRightLens)
+        {
+            <div class="manabase-twolens">
+                @if (showLeftLens)
+                {
+                    <div class="manabase-lens">
+                        <p class="manabase-lens-label">Karsten source check</p>
+                        @foreach (var f in report.ColorFindings)
+                        {
+                            var km = ManabaseDisplay.KarstenMet(f);
+                            <div class="manabase-lens-row">
+                                <span class="manabase-lens-color">@f.Color</span>
+                                <span>
+                                    <strong>@f.ActualSources.ToString("F1")</strong>
+                                    <span class="manabase-lens-muted">/ @f.RequiredSources need</span>
+                                    @if (km.Met)
+                                    {
+                                        <span class="manabase-lens-met">✓</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="manabase-lens-short">⚠ −@km.Deficit</span>
+                                    }
+                                </span>
+                            </div>
+                        }
+                        <p class="manabase-lens-note">The validated colored-source target (Frank Karsten's math) — are there enough sources of each color?</p>
+                    </div>
+                }
+                @if (showRightLens)
+                {
+                    <div class="manabase-lens">
+                        <p class="manabase-lens-label">Simulated cast rate</p>
+                        <div class="manabase-lens-big">@ManabaseDisplay.AvgOnCurve(castRows)%<span>avg on-curve</span></div>
+                        <p class="manabase-lens-note">Joint mana + color, with London mulligan, tapped-land timing, and ramp — our Monte-Carlo models the real game, not just color odds.</p>
+                        <span class="manabase-lens-pill">avg across @castRows.Count tracked spells</span>
+                    </div>
+                }
+            </div>
+        }
+
         <p class="manabase-context">
             Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong> ·
             Commander: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong>
