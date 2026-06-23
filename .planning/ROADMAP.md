@@ -465,7 +465,8 @@ mulligan). **#4 joint-multicolor deficit deferred.**
 Plans:
 - [x] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (done, `043a9157`)
 - [x] 70-02-PLAN.md — MQ-02 per-source mana quantity — implemented behind `manabase.source-mana-quantity` flag (seeded OFF); Codex-approved; 155 Core tests green. Baseline diff run on real Brago deck (Sol Ring only → +1/+2 top-end, color/land/verdict unchanged). NOTE: Salubrious Snail / ScrollVault is a color-source-only tool and **cannot** validate the mana-quantity dimension — MQ-02 rests on golden-deck unit tests + magnitude sanity instead. Flag-default decision (keep OFF vs flip ON) is a judgment call, no longer gated on an external cross-check.
-- [ ] 70-03-PLAN.md — MQ-03 ramp-credit consistency: narrow IsRampOrDraw (drop one-shot rituals/Treasure from the −0.28 credit) + model credited land-ramp in the sim; behind `manabase.ramp-credit-v2` flag (off), baseline-diffed. Planned 2026-06-23.
+- [x] 70-03-PLAN.md — MQ-03 ramp-credit consistency (defect 2): narrowed `IsRampOrDraw` → repeatable ramp + draw only, behind `manabase.ramp-credit-v2` flag (seeded OFF); Codex-approved plan; `93afdbdf`, Core 164 + Web 75 green. ⏳ baseline-diff before flag defaults ON. Defect 1 (model land-ramp in sim) → 70-03b.
+- [ ] 70-03b — MQ-03 defect 1: model credited land-ramp on the ramp-spell deploy event (quantity-only/colorless) so sim ↔ regression agree. Not started.
 - [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
 - [ ] 70-05 — MQ-05 color-aware London-mulligan keep heuristic
 - [ ] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Mockup approved 2026-06-23.
