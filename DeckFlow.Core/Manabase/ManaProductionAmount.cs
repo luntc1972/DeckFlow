@@ -23,9 +23,11 @@ public static class ManaProductionAmount
 
     private static readonly Regex Symbol = new(@"\{([^}]+)\}", RegexOptions.Compiled);
 
-    // Word form, e.g. "Add three mana of any one color" (Gilded Lotus).
+    // Word form, restricted to the ONE-chosen-color shape MQ-02 supports, e.g. "Add three mana of any
+    // one color" (Gilded Lotus). "Add five mana in any combination of colors" (Chromatic Orrery) is
+    // deliberately NOT matched — that is genuinely multi-color and must stay at the safe default of 1.
     private static readonly Regex WordForm = new(
-        @"Add\s+(one|two|three|four|five|six)\s+mana",
+        @"Add\s+(one|two|three|four|five|six)\s+mana\s+of\s+any\s+one\s+color",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>

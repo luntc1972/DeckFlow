@@ -31,6 +31,7 @@ public sealed class ManaQuantityTests
     [InlineData("{T}: Add {G}.", 1)] // normal dork
     [InlineData("({T}: Add {G}.)", 1)] // basic land reminder text
     [InlineData("{T}: Add {W}{U}.", 1)] // fixed split across colors → safe default
+    [InlineData("{T}: Add five mana in any combination of colors.", 1)] // Chromatic Orrery → not one-color
     [InlineData("{T}: Add {C} for each Swamp you control.", 1)] // scaling → not credited
     [InlineData("{T}: Add {W/U}{W/U}.", 1)] // hybrid pips → out of scope
     [InlineData("Whenever this attacks, draw a card.", 1)] // no mana clause
@@ -87,6 +88,21 @@ public sealed class ManaQuantityTests
             new[] { (AnyColor, 3), (AnyColor, 3) },
             new[] { (ManaColor.Blue, 1), (ManaColor.Red, 1) },
             effectiveCost: 2);
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void CapacityMatching_IsExact_NotGreedy()
+    {
+        // Codex counterexample: a greedy that wastes the 1-capacity source on W (then can't cover U)
+        // false-rejects. The exact solver locks the 2-capacity WU source to W (covers {W}{W}) and the
+        // 1-capacity WU source to U → castable.
+        var wu = new[] { ManaColor.White, ManaColor.Blue } as IReadOnlyList<ManaColor>;
+        bool ok = CastabilitySimulator.ColorsCoverableForTest(
+            new[] { (wu, 1), (wu, 2) },
+            new[] { (ManaColor.White, 2), (ManaColor.Blue, 1) },
+            effectiveCost: 3);
 
         Assert.True(ok);
     }
