@@ -36,7 +36,16 @@ public static class ManabaseClassifier
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true)
+    /// <param name="cards">The per-card facts to classify.</param>
+    /// <param name="isSingleton">True for a 99-card singleton (Commander) deck.</param>
+    /// <param name="rampCreditV2">
+    /// MQ-03 flag. When false (default), the ramp/draw land-target credit uses the historic broad
+    /// <see cref="IsRampOrDraw"/> predicate (byte-identical). When true, it uses the narrowed
+    /// <see cref="IsRepeatableRampOrDraw"/> — only repeatable ramp (mana permanents incl. enchantment
+    /// ramp, land-ramp onto the battlefield) and true card draw earn the −0.28 credit; one-shot
+    /// rituals and Treasure-makers no longer do. Affects only <see cref="ManabaseDeck.RampAndDrawUnderThree"/>.
+    /// </param>
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -100,7 +109,7 @@ public static class ManabaseClassifier
                 unsupported.Add(new UnsupportedInteraction { Name = card.Name, Reason = unsupportedReason });
             }
 
-            if (card.ManaValue <= 2 && IsRampOrDraw(card))
+            if (card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
             {
                 rampUnderThree += card.Quantity;
             }
@@ -501,6 +510,39 @@ public static class ManabaseClassifier
         bool draw = text.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
             || text.Contains("draw two cards", StringComparison.OrdinalIgnoreCase);
         return ramp || draw;
+    }
+
+    // MQ-03 (rampCreditV2): narrowed land-target credit. Only REPEATABLE ramp and true card draw earn
+    // the Karsten −0.28 credit; one-shot rituals ("Add" on an instant/sorcery) and Treasure-makers do
+    // NOT, because they give the regression credit for mana the source model / sim never represents as
+    // persistent access. Positive keep-rules (not a broad "is a permanent" filter):
+    //   * true card draw (Karsten's draw term; deck-thinning, no mana path needed), OR
+    //   * land-ramp that puts a land ONTO THE BATTLEFIELD (Cultivate/Rampant Growth — persistent;
+    //     land-search-to-hand does not count), OR
+    //   * a mana-producing PERMANENT — ProducesMana on a non-Instant/Sorcery: rocks, dorks, AND
+    //     enchantment ramp (Utopia Sprawl, Wild Growth). The type-gate is what drops one-shot rituals.
+    private static bool IsRepeatableRampOrDraw(CardFact card)
+    {
+        string text = card.OracleText ?? string.Empty;
+
+        bool draw = text.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("draw two cards", StringComparison.OrdinalIgnoreCase);
+        if (draw)
+        {
+            return true;
+        }
+
+        bool landToBattlefield = text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("land", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
+        if (landToBattlefield)
+        {
+            return true;
+        }
+
+        string typeLine = card.TypeLine ?? string.Empty;
+        bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
+        return permanent && ProducesMana(card);
     }
 
     private static bool IsMythic(CardFact card) =>
