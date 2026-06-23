@@ -468,6 +468,7 @@ Plans:
 - [ ] 70-03 — MQ-03 ramp-credit consistency (one-shot over-credit + modeled mana path)
 - [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
 - [ ] 70-05 — MQ-05 color-aware London-mulligan keep heuristic
+- [ ] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Mockup approved 2026-06-23.
 
 ---
 
