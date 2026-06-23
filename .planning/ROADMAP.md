@@ -464,7 +464,7 @@ mulligan). **#4 joint-multicolor deficit deferred.**
 
 Plans:
 - [x] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (done, `043a9157`)
-- [x] 70-02-PLAN.md — MQ-02 per-source mana quantity — implemented behind `manabase.source-mana-quantity` flag (seeded OFF); Codex-approved; 155 Core tests green. ⏳ baseline-diff vs Salubrious Snail required before the flag defaults ON.
+- [x] 70-02-PLAN.md — MQ-02 per-source mana quantity — implemented behind `manabase.source-mana-quantity` flag (seeded OFF); Codex-approved; 155 Core tests green. Baseline diff run on real Brago deck (Sol Ring only → +1/+2 top-end, color/land/verdict unchanged). NOTE: Salubrious Snail / ScrollVault is a color-source-only tool and **cannot** validate the mana-quantity dimension — MQ-02 rests on golden-deck unit tests + magnitude sanity instead. Flag-default decision (keep OFF vs flip ON) is a judgment call, no longer gated on an external cross-check.
 - [ ] 70-03 — MQ-03 ramp-credit consistency (one-shot over-credit + modeled mana path)
 - [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
 - [ ] 70-05 — MQ-05 color-aware London-mulligan keep heuristic
