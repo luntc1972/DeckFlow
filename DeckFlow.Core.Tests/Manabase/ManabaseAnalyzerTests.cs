@@ -354,6 +354,33 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_RampSourceCount_CountsOnlyRocksAndDorks_NotGrantedOrMdfcBacks()
+    {
+        // The at-a-glance "N mana rock(s)/dork(s)" count must count only genuine rocks/dorks — not
+        // a vanilla creature handed a mana ability by a granter (Cryptolith Rite), and not an MDFC
+        // land-back (a land, not a ramp piece). Here: Sol Ring + Llanowar Elves = 2.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Sol Ring", Quantity = 1, ManaCost = "{1}", ManaValue = 1, TypeLine = "Artifact", OracleText = "{T}: Add {C}{C}.", ProducedMana = new[] { "C" } },
+            new() { Name = "Llanowar Elves", Quantity = 1, ManaCost = "{G}", ManaValue = 1, TypeLine = "Creature — Elf Druid", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" } },
+            new() { Name = "Cryptolith Rite", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Enchantment", OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Craterhoof Behemoth", Quantity = 1, ManaCost = "{5}{G}{G}{G}", ManaValue = 8, TypeLine = "Creature — Beast", OracleText = "Haste.", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Boseiju, Who Endures", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Sorcery // Legendary Land", OracleText = "Destroy target artifact.\n{T}: Add {G}.", ProducedMana = new[] { "G" }, HasLandFace = true },
+        };
+        for (int i = 0; i < 30; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        // Sol Ring (rock) + Llanowar Elves (dork) only — Craterhoof gets a granted source but is not
+        // itself a rock/dork; Boseiju's spell face has a land-back and is not a ramp piece.
+        Assert.Equal(2, report.RampSourceCount);
+    }
+
+    [Fact]
     public void Analyze_StandardCommander_DoesNotOverride_AWorseNonCommanderColor()
     {
         // Commander is WU and very well supported; an off-commander black bomb is the true worst.
