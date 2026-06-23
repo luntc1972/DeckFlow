@@ -21,7 +21,11 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** main is reconciled. Official next-milestone track is **Cycle 11** on the `cycle11` worktree (`../deckflow-cycle11`, Phase 64 done → `/gsd-plan-phase 65`). main itself carries the ad-hoc Manabase Analyzer feature, now shipped to prod.
+**Current focus:** **Phase 70 — Manabase Accuracy (Mana Quantity & Source Fidelity)** on `main`,
+PRIORITY over Cycle 11 (operator decision 2026-06-22). **Cycle 11 is PAUSED** on its `cycle11`
+worktree (was Phase 64 done → next 65; resume after Phase 70 ships). Phase 70 fixes the verified
+Codex efficacy-audit defects — see `.planning/phases/70-manabase-accuracy-mana-quantity/` and
+`.planning/captures/manabase-efficacy-findings.md`. Executing 70-01 (commander-not-drawable) first.
 
 ## ⚠ Branch divergence (read first)
 
