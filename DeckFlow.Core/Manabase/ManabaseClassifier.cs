@@ -93,7 +93,7 @@ public static class ManabaseClassifier
             string? unsupportedReason = cost.HasVariableCost
                 ? "Variable (X) cost — castability not simulated"
                 : (card.ManaCost?.Contains('/', StringComparison.Ordinal) ?? false)
-                    ? "Hybrid/Phyrexian pips — color requirement approximated"
+                    ? "Flexible split pips (hybrid / Phyrexian / twobrid) — color requirement approximated"
                     : null;
             if (unsupportedReason is not null && unsupportedNames.Add(card.Name))
             {
