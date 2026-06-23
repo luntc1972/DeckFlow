@@ -218,7 +218,13 @@
                                     <span class="manabase-cmd-glyph" title="commander color" aria-label="commander color">★</span>
                                 }
                             </td>
-                            <td>@f.ActualSources.ToString("F1")</td>
+                            <td>
+                                @f.ActualSources.ToString("F1")
+                                @if (f.SharedSources > 0 || f.ConditionalSources > 0)
+                                {
+                                    <span class="manabase-source-breakdown">@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared@(f.ConditionalSources > 0 ? $" + {f.ConditionalSources.ToString("F1")} conditional" : string.Empty)</span>
+                                }
+                            </td>
                             <td>@f.RequiredSources</td>
                             <td>@f.UnderSupportedCount of @total under-supported</td>
                             <td>@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
@@ -366,13 +372,15 @@
             }
             <p class="manabase-help">Commander importance applied: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong> (weights the commander's colors; does not move the land target).</p>
 
-            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make):</p>
+            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding your other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
             <ul class="manabase-formula-list">
                 @foreach (var f in report.ColorFindings)
                 {
                     var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
                     <li>
-                        <strong>@f.Color</strong>: @f.ActualSources.ToString("F1") sources · needs @f.RequiredSources for @f.DrivingSpell ·
+                        <strong>@f.Color</strong>: @f.ActualSources.ToString("F1") sources
+                        (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·
+                        needs @f.RequiredSources for @f.DrivingSpell ·
                         @f.UnderSupportedCount of @total card(s) under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
                     </li>
                 }

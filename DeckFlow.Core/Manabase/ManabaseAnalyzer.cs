@@ -449,6 +449,8 @@ public static class ManabaseAnalyzer
             // sim deficit above, full pip map → gold contention modeled). No mulligan-blind
             // hypergeometric fallback: the sim models Commander's free first mulligan, so the
             // deficit/verdict no longer trip on a phantom double-pip shortfall.
+            (double direct, double shared, double conditional) = SourceBreakdown(deck, color);
+
             findings.Add(new ColorSourceFinding
             {
                 Color = color,
@@ -462,6 +464,9 @@ public static class ManabaseAnalyzer
                 AverageCastPercent = castCount > 0 ? Math.Round(castSum / castCount, 1) : 0,
                 WorstSpellCastPercent = double.IsPositiveInfinity(worstCast) ? 0 : worstCast,
                 WorstSpell = worstSpell,
+                DirectSources = direct,
+                SharedSources = shared,
+                ConditionalSources = conditional,
             });
         }
 
@@ -696,6 +701,46 @@ public static class ManabaseAnalyzer
         }
 
         return total;
+    }
+
+    // Display-only: split a color's total weighted sources into direct (mono-color, the dedicated
+    // core), shared (non-conditional multi-color fixers — duals, any-color rocks — real but spread
+    // across the deck's colors), and conditional (granted any-color sources the sim only fires
+    // ~weight of games). The canonical ActualSources is unchanged; this only explains its makeup so
+    // a green-heavy deck's big number reads honestly instead of looking inflated. The three sum to
+    // ActualSources within rounding.
+    private static (double Direct, double Shared, double Conditional) SourceBreakdown(
+        ManabaseDeck deck, ManaColor color)
+    {
+        double direct = 0.0, shared = 0.0, conditional = 0.0;
+        foreach (ManaSource source in deck.Sources)
+        {
+            if (!source.Produces.Contains(color))
+            {
+                continue;
+            }
+
+            if (source.IsConditional)
+            {
+                conditional += source.Weight;
+                continue;
+            }
+
+            // Colorless does not make a source "multi-color"; a Green+Colorless land is still mono.
+            int coloredCount = source.Produces.Count(c => c != ManaColor.Colorless);
+            if (coloredCount <= 1)
+            {
+                direct += source.Weight;
+            }
+            else
+            {
+                shared += source.Weight;
+            }
+        }
+
+        // Raw (unrounded) so the parts sum exactly to the unrounded source total; the view rounds
+        // each for display. Rounding here would drift (e.g. Math.Round(0.75,1) == 0.8, banker's).
+        return (direct, shared, conditional);
     }
 
     private static string BuildSummary(
