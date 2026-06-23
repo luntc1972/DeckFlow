@@ -114,6 +114,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string ManaQuantityFlagKey = "manabase.source-mana-quantity";
 
+    /// <summary>
+    /// MQ-03 flag key: when enabled, the Karsten ramp/draw land-target credit is narrowed to
+    /// repeatable ramp + true draw (one-shot rituals / Treasure-makers no longer lower the target).
+    /// Seeded OFF until baseline-diff reviewed. Read BEFORE classification (the credit is computed in
+    /// the classifier, not the analyzer).
+    /// </summary>
+    public const string RampCreditV2FlagKey = "manabase.ramp-credit-v2";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -144,18 +152,18 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     {
         options ??= new ManabaseAnalysisOptions();
 
-        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, cancellationToken)
+        // MQ-03: read BEFORE classification — the ramp/draw land-target credit is computed in the
+        // classifier, so reading it after Resolve would be too late.
+        bool rampCreditV2 = IsFlagOn(RampCreditV2FlagKey);
+
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2, cancellationToken)
             .ConfigureAwait(false);
 
-        // MQ-02: read the flag ONCE here and pass it down, so the simulator stays a pure function of
-        // its arguments (clean A/B + byte-identical-when-off proof). Read via Snapshot with an explicit
-        // FALSE default — IFeatureFlagCache.IsEnabled returns true for a MISSING key (default-on
-        // contract), which would silently turn this safety-gated experiment ON if the seed row were
-        // ever absent. A missing/unseeded key must fail SAFE (off).
-        bool useManaQuantity =
-            _featureFlags is { } flags
-            && flags.Snapshot().TryGetValue(ManaQuantityFlagKey, out bool enabled)
-            && enabled;
+        // MQ-02: read the flag and pass it down, so the simulator stays a pure function of its
+        // arguments. Both flags read fail-safe OFF (a missing/unseeded key must NOT turn a
+        // safety-gated experiment on — IFeatureFlagCache.IsEnabled defaults missing keys ON, so use
+        // Snapshot().TryGetValue via IsFlagOn instead).
+        bool useManaQuantity = IsFlagOn(ManaQuantityFlagKey);
 
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides, useManaQuantity);
@@ -172,7 +180,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string deckSource,
         CancellationToken cancellationToken = default)
     {
-        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, cancellationToken)
+        // Load surfaces cost suggestions only; the ramp-credit land target is not used here, so the
+        // flag value is immaterial — pass false.
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2: false, cancellationToken)
             .ConfigureAwait(false);
 
         // No simulation here — Load just surfaces the detected cost suggestions for review/edit.
@@ -183,8 +193,16 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     // Shared front half of both entry points: validate input, load + board-filter the deck, resolve
     // every card through Scryfall, and classify it into a ManabaseDeck (which carries the detected
     // cost suggestions). Stops short of the castability simulation so Load can reuse it cheaply.
+    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
+    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
+    private bool IsFlagOn(string key)
+        => _featureFlags is { } flags
+            && flags.Snapshot().TryGetValue(key, out bool enabled)
+            && enabled;
+
     private async Task<ResolvedManabaseDeck> ResolveAndClassifyAsync(
         string deckSource,
+        bool rampCreditV2,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(deckSource))
@@ -266,7 +284,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2);
 
         string decklistText = string.Join(
             "\n",
