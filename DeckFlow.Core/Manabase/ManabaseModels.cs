@@ -27,6 +27,14 @@ public sealed record ManaSource
     public bool EntersUntapped { get; init; } = true;
 
     /// <summary>
+    /// How much mana this source makes per activation (MQ-02): Sol Ring / Ancient Tomb = 2,
+    /// Gilded Lotus = 3, a normal land = 1. Defaults to 1. Feeds ONLY the castability simulator's
+    /// affordability/curve math — it never changes the Karsten color-SOURCE count (a 2-mana rock is
+    /// still ONE source of its color). Conditional/granted sources stay 1.
+    /// </summary>
+    public int ManaAmount { get; init; } = 1;
+
+    /// <summary>
     /// True only for ENABLER-CONDITIONAL sources whose production depends on a separate permanent
     /// staying alive — the any-color sources granted by Cryptolith Rite / Relic of Legends et al.
     /// (see <c>AddGrantedSources</c>). These are genuinely speculative (the granter must resolve AND

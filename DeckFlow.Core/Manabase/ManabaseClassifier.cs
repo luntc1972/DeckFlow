@@ -228,6 +228,7 @@ public static class ManabaseClassifier
                 Weight = weight,
                 EntersUntapped = untapped,
                 IsCommander = card.IsCommander,
+                ManaAmount = card.ManaAmount, // MQ-02: e.g. Ancient Tomb (a land) makes 2.
             });
         }
     }
@@ -339,7 +340,7 @@ public static class ManabaseClassifier
 
         for (int i = 0; i < card.Quantity; i++)
         {
-            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false, IsCommander = card.IsCommander });
+            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false, IsCommander = card.IsCommander, ManaAmount = card.ManaAmount });
         }
     }
 
@@ -775,6 +776,10 @@ public static class ManabaseClassifier
                     Weight = 0.25,
                     IsLand = false,
                     IsCommander = card.IsCommander,
+
+                    // MQ-02: conditional/granted sources stay at 1 mana — the Bernoulli activation
+                    // gates a single speculative unit; multi-unit granted bundles are out of scope.
+                    ManaAmount = 1,
 
                     // Enabler-conditional: this source only produces if the granter (Cryptolith Rite,
                     // Relic of Legends, ...) is on the battlefield AND this creature survives. That is
