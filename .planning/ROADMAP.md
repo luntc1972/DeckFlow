@@ -463,10 +463,10 @@ mulligan). **#4 joint-multicolor deficit deferred.**
 **Context:** `.planning/phases/70-manabase-accuracy-mana-quantity/70-CONTEXT.md`
 
 Plans:
-- [ ] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (low risk, first)
-- [ ] 70-02 — MQ-02 per-source mana quantity (high risk; baseline-diff + golden-deck)
+- [x] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (done, `043a9157`)
+- [x] 70-02-PLAN.md — MQ-02 per-source mana quantity — implemented behind `manabase.source-mana-quantity` flag (seeded OFF); Codex-approved; 155 Core tests green. ⏳ baseline-diff vs Salubrious Snail required before the flag defaults ON.
 - [ ] 70-03 — MQ-03 ramp-credit consistency (one-shot over-credit + modeled mana path)
-- [ ] 70-04 — MQ-04 unsupported-interaction disclosure
+- [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
 - [ ] 70-05 — MQ-05 color-aware London-mulligan keep heuristic
 
 ---
