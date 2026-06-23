@@ -83,6 +83,7 @@ public static class ManabaseAnalyzer
             CommanderColors = CommanderColors(deck).ToArray(),
             LandTarget = landTarget,
             DemandingCards = demandingCards,
+            RampSourceCount = deck.Sources.Count(s => !s.IsLand),
             Summary = summary,
         };
     }

@@ -176,12 +176,13 @@
             }
         </p>
 
-        @if (report.LandTarget is { } rampInfo
-            && rampInfo.RampAndDrawUnderThree + rampInfo.FastMana + rampInfo.MdfcCommon + rampInfo.MdfcMythic > 0)
+        @{
+            var rampDraw = report.LandTarget?.RampAndDrawUnderThree ?? 0;
+        }
+        @if (report.RampSourceCount > 0 || rampDraw > 0)
         {
-            var mdfcLands = rampInfo.MdfcCommon + rampInfo.MdfcMythic;
             <p class="manabase-help">
-                <strong>Ramp:</strong> @rampInfo.RampAndDrawUnderThree ramp/card-draw at ≤2 MV@(rampInfo.FastMana > 0 ? $" · {rampInfo.FastMana} fast-mana (0-cost)" : string.Empty)@(mdfcLands > 0 ? $" · {mdfcLands} land MDFC(s)" : string.Empty) — counted toward a lower recommended land count.
+                <strong>Ramp:</strong> @report.RampSourceCount mana rock(s)/dork(s)@(rampDraw > 0 ? $" · {rampDraw} ramp/draw piece(s) at ≤2 MV credited toward a lower land count" : string.Empty).
             </p>
         }
 

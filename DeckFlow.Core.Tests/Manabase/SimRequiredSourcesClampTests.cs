@@ -125,4 +125,35 @@ public sealed class SimRequiredSourcesClampTests
         Assert.True(red.RequiredSources <= KarstenManabase.SourcesNeeded(99, 36, pips: 1, manaValue: System.Math.Max(1, turn)),
             $"required {red.RequiredSources} must not exceed the 1-pip Karsten ceiling at turn {turn}");
     }
+
+    [Fact]
+    public void RampSourceCount_CountsNonLandManaSources()
+    {
+        // Mana rocks/dorks (non-land sources) are counted; lands are not.
+        var sources = new System.Collections.Generic.List<ManaSource>
+        {
+            Land(ManaColor.Green),
+            Land(ManaColor.Red),
+            new() { Name = "Sol Ring", Produces = new[] { ManaColor.Red }, IsLand = false },
+            new() { Name = "Birds of Paradise", Produces = new[] { ManaColor.Green }, IsLand = false },
+        };
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 99,
+            CommanderCount = 0,
+            Sources = sources,
+            Spells = new System.Collections.Generic.List<SpellRequirement>
+            {
+                new() { Name = "G Spell", ManaValue = 2, Pips = new System.Collections.Generic.Dictionary<ManaColor, int> { [ManaColor.Green] = 1 } },
+            },
+            AverageManaValue = 2.0,
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard);
+
+        Assert.Equal(2, report.RampSourceCount);
+    }
 }
+
