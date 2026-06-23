@@ -36,8 +36,6 @@ public static class ManabaseClassifier
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
-    /// <param name="cards">The per-card facts to classify.</param>
-    /// <param name="isSingleton">True for a 99-card singleton (Commander) deck.</param>
     /// <param name="rampCreditV2">
     /// MQ-03 flag. When false (default), the ramp/draw land-target credit uses the historic broad
     /// <see cref="IsRampOrDraw"/> predicate (byte-identical). When true, it uses the narrowed
@@ -540,9 +538,14 @@ public static class ManabaseClassifier
             return true;
         }
 
+        // Repeatable mana permanent (rock/dork/enchantment ramp). Check the FRONT face only: joined
+        // oracle text would leak a one-shot mana adventure/back face into this front-face permanent
+        // test (a creature with a "{...} Add" adventure is NOT repeatable ramp). Front "Add " is the
+        // precise signal — card-level produced_mana is intentionally NOT used here (also leaky).
         string typeLine = card.TypeLine ?? string.Empty;
+        string frontText = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
         bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
-        return permanent && ProducesMana(card);
+        return permanent && frontText.Contains("Add ", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsMythic(CardFact card) =>

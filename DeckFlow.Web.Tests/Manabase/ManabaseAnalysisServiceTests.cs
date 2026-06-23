@@ -63,6 +63,48 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_RampCreditV2Flag_DropsOneShotRitualFromLandTarget()
+    {
+        // MQ-03 plumbing: the flag is read BEFORE classification → narrows the ramp/draw credit. A
+        // one-shot ritual (Dark Ritual, an Instant) loses the credit under v2; a mana rock (Sol Ring)
+        // keeps it. Confirms the bool reaches ManabaseClassifier and fails safe OFF without the cache.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Swamp", 33),
+            Entry("Dark Ritual", 1, "mainboard"),
+            Entry("Sol Ring", 1, "mainboard"),
+        };
+        static List<ScryfallCard> Cards() => new()
+        {
+            BasicLand("Swamp", "B"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Oracle("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}."),
+            Oracle("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}."),
+        };
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.ramp-credit-v2"] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        // Off (no cache → fail-safe off): broad predicate counts ritual + rock.
+        Assert.Equal(2, rOff.Report.LandTarget!.RampAndDrawUnderThree);
+        // On: the one-shot ritual is dropped, the rock is kept.
+        Assert.Equal(1, rOn.Report.LandTarget!.RampAndDrawUnderThree);
+        Assert.True(rOn.Report.TargetLands >= rOff.Report.TargetLands); // less ramp credit → higher target
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DefaultMode_IsCasual()
     {
         var (entries, cards) = CurveFixture();

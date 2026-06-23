@@ -25,6 +25,14 @@ public sealed record CardFact
     /// <summary>Scryfall oracle text (joined across faces), used for ramp/dork/rock heuristics.</summary>
     public string? OracleText { get; init; }
 
+    /// <summary>
+    /// FRONT-face oracle text only (the permanent/castable face). Falls back to <see cref="OracleText"/>
+    /// for single-face cards. Used where joined text would leak a back/adventure face's mana into a
+    /// front-face permanent check (MQ-03): a creature with a one-shot mana adventure must NOT read as
+    /// repeatable ramp. Null is treated as "use OracleText".
+    /// </summary>
+    public string? FrontFaceOracleText { get; init; }
+
     /// <summary>Scryfall <c>produced_mana</c> letters (e.g. ["U","R","G"]); empty if none.</summary>
     public IReadOnlyList<string> ProducedMana { get; init; } = Array.Empty<string>();
 

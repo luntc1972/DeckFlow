@@ -48,6 +48,25 @@ public sealed class ManaRampCreditTests
     }
 
     [Fact]
+    public void MultiFacePermanent_WithOneShotManaBack_NotCreditedInV2()
+    {
+        // Adventure/MDFC: front face is a permanent with no mana, the back/adventure adds one-shot
+        // mana. Joined oracle leaks "Add" (broad keeps it), but the FRONT face is not repeatable ramp.
+        var card = new CardFact
+        {
+            Name = "Adventure Creature",
+            Quantity = 1,
+            ManaValue = 2,
+            TypeLine = "Creature — Giant",
+            FrontFaceOracleText = "Trample",                 // front: no mana production
+            OracleText = "Trample\nStomp {1}{R} — Add {R}{R}.", // joined: leaks one-shot mana
+        };
+
+        Assert.Equal(0, Credit(card, v2: true));   // front-face has no "Add" → dropped in v2
+        Assert.Equal(1, Credit(card, v2: false));  // broad reads joined "Add" → credited
+    }
+
+    [Fact]
     public void RampCreditV2_Off_MatchesBroadPredicate_OnMixedDeck()
     {
         var deck = new[]
