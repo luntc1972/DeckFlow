@@ -62,7 +62,21 @@ test('analysis form is wired to the shared busy indicator', async ({ page }) => 
   // The submit form carries the data-busy-* contract that deck-sync.js auto-wires on submit,
   // and the busy-indicator element it drives is present on the page.
   await expect(page.locator('form[action="/manabase"]')).toHaveAttribute('data-busy-title', /Analyzing mana base/);
+  await expect(page.locator('form[action="/manabase"]')).toHaveAttribute('data-busy-min-ms', '500');
   await expect(page.locator('#busy-indicator')).toBeAttached();
+});
+
+test('clicking Analyze shows the busy overlay (min-display floor)', async ({ page }) => {
+  await page.goto('/manabase');
+  await page.locator('input[name="DeckInputSource"][value="PasteText"]').check();
+  await page.locator('#manabase-deck-text').fill('1 Sol Ring');
+
+  // The data-busy-min-ms floor holds the navigation briefly, so the overlay is reliably visible right
+  // after the click instead of flashing past on a fast response. (No Scryfall needed: the overlay is
+  // shown before the request is even sent.)
+  await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
+  await expect(page.locator('#busy-indicator')).toBeVisible();
+  await expect(page.locator('#busy-indicator-title')).toHaveText(/Analyzing mana base/);
 });
 
 test('input-source radios sit adjacent, not pushed to opposite page edges', async ({ page }) => {
