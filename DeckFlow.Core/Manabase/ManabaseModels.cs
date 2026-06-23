@@ -484,8 +484,11 @@ public sealed record ManabaseReport
     /// whole source (<see cref="ColorSourceFinding.Deficit"/> &gt; 1) OR color-starved beyond
     /// <c>max(1, ceil(colorCards·0.15))</c> (counting only <see cref="ColorSourceFinding.ColorLimitedUnderSupportedCount"/>).
     /// <list type="bullet">
-    /// <item><b>NeedsWork</b> ("Needs work"): <see cref="LandDelta"/> &lt;= -2 (lands 2+ short), OR a
-    /// color short by more than 2 sources, OR two or more colors with an issue.</item>
+    /// <item><b>NeedsWork</b> ("Needs work"): a color short by more than 2 sources, OR two or more
+    /// colors with an issue, OR <see cref="LandDelta"/> &lt;= -2 (lands 2+ short) <i>and</i> the sim
+    /// corroborates it (a color issue or broad under-support). A raw land-count shortfall alone never
+    /// forces this tier — the regression under-credits cheap ramp, so a ramp-saturated deck that the
+    /// sim casts cleanly stays out of "needs work" despite a paper land deficit.</item>
     /// <item><b>Workable</b>: exactly one color with an issue (and no NeedsWork condition).</item>
     /// <item><b>Healthy</b> ("Excellent"): land-adequate (within one of target) and no color has any
     /// shortfall at all.</item>
@@ -500,6 +503,7 @@ public sealed record ManabaseReport
             int colorsWithIssue = 0;
             bool anySevereColorDeficit = false;
             bool everyColorClear = true;
+            bool broadUnderSupport = false;
 
             foreach (ColorSourceFinding f in ColorFindings)
             {
@@ -521,14 +525,31 @@ public sealed record ManabaseReport
                     colorsWithIssue++;
                 }
 
+                // The simulation's verdict that the base actually fails a meaningful slice of the
+                // deck — counting ALL under-supported cards (mana- or color-limited), since a base
+                // genuinely too thin shows up as widespread mana-limited misses. Used only to
+                // corroborate a raw land-count shortfall below.
+                if (f.UnderSupportedCount > tolerance)
+                {
+                    broadUnderSupport = true;
+                }
+
                 if (f.Deficit > 2)
                 {
                     anySevereColorDeficit = true;
                 }
             }
 
-            // Needs work: a real, broad shortage.
-            if (LandDelta <= -2 || anySevereColorDeficit || colorsWithIssue >= 2)
+            // Needs work: a real, broad shortage the base can fix. A raw Karsten land-count
+            // shortfall NEVER forces the worst tier on its own — the regression's ramp credit
+            // under-weights cheap explosive ramp (Sol Ring, rituals, Spirit Guides), so a
+            // ramp-saturated deck can read 2+ lands "short" while the castability sim shows every
+            // spell casting fine. The land delta only escalates to "needs work" when the sim
+            // corroborates it: a real color issue or broad under-support rides alongside.
+            bool landShort = LandDelta <= -2;
+            if (anySevereColorDeficit
+                || colorsWithIssue >= 2
+                || (landShort && (colorsWithIssue >= 1 || broadUnderSupport)))
             {
                 return ManabaseHealth.NeedsWork;
             }
