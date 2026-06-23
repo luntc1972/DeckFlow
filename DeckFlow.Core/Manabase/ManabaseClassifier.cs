@@ -210,6 +210,7 @@ public static class ManabaseClassifier
                 Produces = produces,
                 Weight = weight,
                 EntersUntapped = untapped,
+                IsCommander = card.IsCommander,
             });
         }
     }
@@ -321,7 +322,7 @@ public static class ManabaseClassifier
 
         for (int i = 0; i < card.Quantity; i++)
         {
-            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false });
+            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false, IsCommander = card.IsCommander });
         }
     }
 
@@ -756,6 +757,7 @@ public static class ManabaseClassifier
                     Produces = deckColors,
                     Weight = 0.25,
                     IsLand = false,
+                    IsCommander = card.IsCommander,
 
                     // Enabler-conditional: this source only produces if the granter (Cryptolith Rite,
                     // Relic of Legends, ...) is on the battlefield AND this creature survives. That is
