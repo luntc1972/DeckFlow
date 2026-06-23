@@ -412,6 +412,38 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_CommanderOnlyColorSource_NotDrawnIntoLibrary_ButCountedInSupply()
+    {
+        // The commander is the deck's ONLY red source (a red dork). It starts in the command zone,
+        // so the simulator must NOT draw it — meaning a red spell can never be cast in the sim and
+        // its cast% is exactly 0 (the teeth: if the commander leaked into the library, red would be
+        // drawable some games and cast% would be > 0). It MUST still count toward red supply, since
+        // a commander mana source is reliably castable in real play.
+        // Normal-sized ~99 deck so the mulligan doesn't pathologically bottom the lone dork, and a
+        // {4}{R} target so raw mana stays short on the ramp-up turns — meaning if the commander dork
+        // leaked into the library and were drawn, the sim WOULD deploy it (TryDeployRamp fires while
+        // availableNow < cost) and red would become castable. With the fix it never enters the
+        // library, so red is unreachable and cast% is exactly 0. (Teeth verified: disabling the fix
+        // flips this to > 0.)
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Red Cmdr", Quantity = 1, IsCommander = true, ManaCost = "{G}", ManaValue = 1, TypeLine = "Legendary Creature — Elf Druid", OracleText = "{T}: Add {R}.", ProducedMana = new[] { "R" } },
+            new() { Name = "Red Spell", Quantity = 1, ManaCost = "{4}{R}", ManaValue = 5, TypeLine = "Sorcery", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Forest", Quantity = 36, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true },
+            new() { Name = "Filler", Quantity = 61, ManaCost = "{2}{G}", ManaValue = 3, TypeLine = "Creature — Bear", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(ManabaseClassifier.Classify(cards));
+
+        // Commander red source never drawn → no red in the simulated library → red spell uncastable.
+        Assert.Equal(0, report.Castability.Single(c => c.Name == "Red Spell").CastPercent);
+
+        // ...but red supply still counts the commander dork (0.5) — kept in the color count.
+        ColorSourceFinding red = report.ColorFindings.Single(f => f.Color == ManaColor.Red);
+        Assert.Equal(0.5, red.ActualSources, 1);
+    }
+
+    [Fact]
     public void Analyze_StandardCommander_DoesNotOverride_AWorseNonCommanderColor()
     {
         // Commander is WU and very well supported; an off-commander black bomb is the true worst.

@@ -37,6 +37,14 @@ public sealed record ManaSource
     /// re-applied as activation (that double-discounts). Defaults to <see langword="false"/>.
     /// </summary>
     public bool IsConditional { get; init; }
+
+    /// <summary>
+    /// True for a source contributed by a command-zone card (a mana-producing commander, or the
+    /// commander as a granted any-color source). Such a source still counts toward color supply
+    /// (a commander mana source is reliably castable) but is NOT drawn into the simulated library —
+    /// the commander starts in the command zone, not the 99. Defaults to <see langword="false"/>.
+    /// </summary>
+    public bool IsCommander { get; init; }
 }
 
 /// <summary>

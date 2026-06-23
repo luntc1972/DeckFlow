@@ -275,6 +275,15 @@ public static class CastabilitySimulator
     {
         foreach (ManaSource source in deck.Sources)
         {
+            // Command-zone sources (a mana-producing commander, or the commander as a granted
+            // any-color source) are NOT in the 99 — they must never be drawn into the library.
+            // librarySize already excludes the commander count; including its source here would
+            // both let the sim "draw" the commander and truncate a real card to make room.
+            if (source.IsCommander)
+            {
+                continue;
+            }
+
             int mask = ColorsToMask(source.Produces);
 
             if (source.IsLand)
