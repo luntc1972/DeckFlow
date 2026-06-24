@@ -26,3 +26,9 @@ DeckFlow.Web/.playwright/
 DeckFlow.Studio/appsettings*.local.json
 DeckFlow.Studio/appsettings.Local.json
 DeckFlow.Studio/secrets.json
+
+# Manabase baseline harness local artifacts (cached CardFacts, the gating sentinel, harvested decks).
+# The harness is manual + gated; these must never be committed (else CI would run it and hit Scryfall).
+.manabase-*.json
+.manabase-harness-on
+archidekt-baseline-decks.json
