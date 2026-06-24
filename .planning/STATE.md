@@ -41,7 +41,7 @@ Two parallel tracks exist — do not conflate:
 Phase: 70
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-24
+Last activity: 2026-06-24 - Completed quick task 260624-kpg: Fix DFC/transform cards excluded from set-packet top-60
 
 ## Roadmap Summary
 
@@ -101,6 +101,12 @@ Last activity: 2026-06-24
 ### Blockers/Concerns
 
 - **AUTO-02 quality/confidence signal may not exist yet** — flagged as Phase 59 open risk; resolution (derive vs add heuristic) decided at plan-phase.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260624-kpg | Fix DFC/transform cards excluded from set-packet top-60 via face-aware scoring | 2026-06-24 | a01473cc | [260624-kpg-fix-dfc-transform-cards-excluded-from-se](./quick/260624-kpg-fix-dfc-transform-cards-excluded-from-se/) |
 
 ### Carry-Forward (still open from prior cycles)
 
