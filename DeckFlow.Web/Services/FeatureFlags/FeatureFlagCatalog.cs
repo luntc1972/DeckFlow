@@ -38,6 +38,8 @@ public static class FeatureFlagCatalog
                 "MQ-05: the castability simulation's London mulligan also mulligans color-screwed hands (a 2+ color deck wants 2 colors in its opening lands). Mono-color decks are unchanged.",
             ["manabase.land-ramp-sim"] =
                 "MQ-03 (70-03b): repeatable land-ramp (Cultivate, Rampant Growth) puts its fetched land into the simulation as persistent colorless mana, so payoffs in ramp decks are not under-rated.",
+            ["manabase.health-band-castability"] =
+                "MQ-health-band: the composite-weakest color's worst-spell cast % feeds the health-band verdict. A color that is composite-worst and casts its worst spell below the mode threshold (80% Casual / 88% cEDH) counts as a color issue, tipping Solid→Workable. Seeded OFF; promote after regression-guard passes.",
         };
 
     /// <summary>

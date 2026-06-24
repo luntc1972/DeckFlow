@@ -50,6 +50,13 @@ public static class ManabaseAnalyzer
     /// Threaded ONLY into the display castability path — the per-color source requirement probe builds
     /// ramp-free synthetic decks, so it is unaffected.
     /// </param>
+    /// <param name="useHealthBandCastability">
+    /// MQ-health-band flag. When true, the composite-weakest color's worst-spell cast % feeds the
+    /// health-band verdict: a color that is composite-worst AND casts its worst spell below the mode
+    /// threshold (80 Casual / 88 cEDH) counts as a color issue, tipping Functional→Workable. Threaded
+    /// into <see cref="ManabaseReport.UseHealthBandCastability"/>; <see cref="ManabaseReport.Health"/>
+    /// reads it in <c>ComputeColorSignals</c>. When false (default), behavior is byte-identical.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -57,7 +64,8 @@ public static class ManabaseAnalyzer
         IReadOnlyDictionary<string, string>? costOverrides = null,
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
-        bool gateRampOnCastable = false)
+        bool gateRampOnCastable = false,
+        bool useHealthBandCastability = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -100,6 +108,7 @@ public static class ManabaseAnalyzer
             TargetLands = targetLands,
             ColorFindings = findings,
             Mode = mode,
+            UseHealthBandCastability = useHealthBandCastability,
             Castability = castability,
             ColorSpellCounts = colorSpellCounts,
             CommanderColors = CommanderColors(deck).ToArray(),
