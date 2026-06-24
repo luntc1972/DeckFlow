@@ -118,15 +118,36 @@ public static class ManabaseClassifier
 
             ParsedManaCost cost = ManaCostParser.Parse(card.ManaCost);
 
+            // Detect a below-printed effective cost once; reused for the auto-apply decision AND the
+            // visible suggestion entry below (so the two never disagree).
+            (string EffectiveCost, string Reason)? selfCost = DetectSelfCost(card, maxCreaturePower);
+
             // Intrinsic, always-on "costs {X} less, where X is the greatest power among creatures you
             // control" reducer (The Skullspore Nexus): unlike evoke/pitch (opt-in alternative casts),
             // this discount is automatic, so apply it to the default analysis using the deck's
             // greatest fixed creature power. User overrides (the cost box) still take precedence later.
             string? intrinsicReduced = GreatestPowerEffectiveCost(card, maxCreaturePower);
+
+            // P3 free-cost auto-apply: a SELF-ANCHORED free cast ("rather than pay this spell's mana
+            // cost" / "cast this spell without paying its mana cost" — Force of Negation, Fierce
+            // Guardianship, Deflecting Swat, Flawless Maneuver) is realistically cast for free in the
+            // decks that run it (the commander is on the battlefield / a pitch card is in hand). Apply
+            // it to the default analysis like the greatest-power reducer, so these stop reading as false
+            // "demanding" cards at their printed colored cost. The visible suggestion below still shows
+            // it (now noted as auto-applied) and a user override still wins. Only the FREE category
+            // (effective "0") auto-applies — evoke/suspend stay opt-in suggestions (a player may choose
+            // not to evoke), and the greatest-power case is handled by intrinsicReduced above.
+            bool freeAutoApplied = false;
             if (intrinsicReduced is not null)
             {
                 ParsedManaCost reduced = ManaCostParser.Parse(ManaCostParser.NormalizeToBraced(intrinsicReduced));
                 AddSpellRequirement(spells, card, reduced, costOverridden: true);
+            }
+            else if (selfCost is (string freeCost, "free / alternative cost"))
+            {
+                ParsedManaCost reduced = ManaCostParser.Parse(ManaCostParser.NormalizeToBraced(freeCost));
+                AddSpellRequirement(spells, card, reduced, costOverridden: true);
+                freeAutoApplied = true;
             }
             else
             {
@@ -210,15 +231,16 @@ public static class ManabaseClassifier
             }
 
             // Alt/reduced-cost suggestion (free/pitch, board-scaling self-reducer, evoke/suspend).
-            // One per distinct card name — these only pre-populate the override box, they don't
-            // alter the analysis unless the user applies an override.
-            if (suggestedNames.Add(card.Name) && DetectSelfCost(card, maxCreaturePower) is (string effCost, string reason))
+            // One per distinct card name. Most stay suggestion-only (pre-fill the override box); the
+            // free/alt-cost category is now AUTO-APPLIED above (P3), so we annotate its reason to say so
+            // — the entry stays in the list for visibility, no longer a false "demanding" flag.
+            if (suggestedNames.Add(card.Name) && selfCost is (string effCost, string reason))
             {
                 suggestions.Add(new CostSuggestion
                 {
                     Name = card.Name,
                     EffectiveCost = effCost,
-                    Reason = reason,
+                    Reason = freeAutoApplied ? reason + " — auto-applied" : reason,
                 });
             }
         }
@@ -723,9 +745,16 @@ public static class ManabaseClassifier
             return null;
         }
 
-        // 1) Free / pitch — self-anchored wording ("rather than pay this spell's mana cost").
-        //    Not the "without paying its mana cost" wording, which casts OTHER spells for free.
-        if (text.Contains("rather than pay this spell's mana cost", StringComparison.Ordinal))
+        // 1) Free / pitch — SELF-ANCHORED free-cast wording. Two forms, both referring to THIS spell:
+        //      a) "... rather than pay this spell's mana cost"      (Force of Negation, the pitch cycle)
+        //      b) "cast this spell without paying its mana cost"    (Fierce Guardianship / Deflecting
+        //         Swat / Flawless Maneuver — the commander-conditional free cycle)
+        //    Both name "this spell ... its mana cost", so they are unambiguously self-anchored. We must
+        //    NOT match the OTHER-spell forms ("cast that spell / cast spells ... without paying their/its
+        //    mana cost", e.g. Omniscience, cascade), which free a DIFFERENT spell — those say "that
+        //    spell" / "spells" / "their", never "this spell ... its".
+        if (text.Contains("rather than pay this spell's mana cost", StringComparison.Ordinal)
+            || text.Contains("cast this spell without paying its mana cost", StringComparison.Ordinal))
         {
             return ("0", "free / alternative cost");
         }
