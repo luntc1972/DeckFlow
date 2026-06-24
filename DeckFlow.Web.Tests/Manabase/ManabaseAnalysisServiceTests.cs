@@ -234,6 +234,98 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_SourceManaQuantityFlag_RaisesAffordability_FailsSafeOff()
+    {
+        // MQ-02 plumbing: the flag "manabase.source-mana-quantity" is read via IsFlagOn (fail-safe OFF)
+        // and threaded as useManaQuantity into ManabaseAnalyzer.Analyze → CastabilitySimulator. When ON
+        // each colorless burst source (oracle "{T}: Add {C}{C}.") contributes ManaAmount=2 so a big
+        // colorless payoff casts more often. Without a cache the key is absent → IsFlagOn returns false
+        // → same result as explicit OFF. Mirrors the Core ManaQuantityTests.ManaQuantity_RaisesAffordability
+        // deck shape: many burst rocks + thin land base + expensive colorless payoff.
+        //
+        // Rocks MUST carry ProducedMana: ["C"] — the classifier's IsRockOrDork gate short-circuits when
+        // ProducedMana.Count == 0, so rocks without it are never added to deck.Sources and ManaAmount
+        // never reaches the simulator.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        static ScryfallCard ColorlessRock(string name) => new(
+            Name: name, ManaCost: "{1}", TypeLine: "Artifact", OracleText: "{T}: Add {C}{C}.",
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 1,
+            // "C" in ProducedMana is required: IsRockOrDork checks ProducedMana.Count > 0 as a gate.
+            // ManaProductionAmount.Parse("{T}: Add {C}{C}.") == 2 → ManaAmount=2 when flag ON.
+            ProducedMana: new[] { "C" }, Rarity: "rare");
+
+        // 30 Islands + 20 burst colorless rocks + 1 expensive payoff = 51 cards; pad to ~99.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Commander Guy", 1, "commander"),
+            Land("Island", 30),
+            Entry("Big Colorless", 1, "mainboard"),
+        };
+        // 20 distinct rock names so the Scryfall resolver returns each; all produce {C}{C}.
+        for (int i = 0; i < 20; i++)
+        {
+            entries.Add(Entry($"Burst Rock {i}", 1, "mainboard"));
+        }
+        for (int i = 0; i < 47; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        List<ScryfallCard> Cards()
+        {
+            var cards = new List<ScryfallCard>
+            {
+                BasicLand("Island", "U"),
+                Spell("Commander Guy", "{2}{U}", 3, "Legendary Creature — Human"),
+                // MV=6 pure generic payoff — the sim must scrape together 6 mana on turn 6.
+                Oracle("Big Colorless", "{6}", 6, "Artifact", "Does nothing."),
+            };
+            // 20 burst rocks with ProducedMana=["C"] so they reach deck.Sources and ManaAmount wires in.
+            for (int i = 0; i < 20; i++)
+            {
+                cards.Add(ColorlessRock($"Burst Rock {i}"));
+            }
+            for (int i = 0; i < 47; i++)
+            {
+                cards.Add(Oracle($"Filler {i}", "{3}", 3, "Artifact", "Does nothing."));
+            }
+
+            return cards;
+        }
+
+        // OFF path: no cache at all → IsFlagOn("manabase.source-mana-quantity") returns false.
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+
+        // ON path: cache present with the flag enabled.
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.ManaQuantityFlagKey] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        int castOff = rOff.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
+        int castOn = rOn.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
+
+        // Fail-safe OFF: absent cache must behave identically to explicit false.
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.ManaQuantityFlagKey] = false }));
+        var rExplicitOff = await explicitOff.AnalyzeAsync("x", null);
+        int castExplicitOff = rExplicitOff.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
+
+        Assert.Equal(castExplicitOff, castOff); // absent key == explicit false (fail-safe off)
+        Assert.True(castOn > castOff, $"source-mana-quantity ON should raise payoff cast% (off={castOff}, on={castOn})");
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DefaultMode_IsCasual()
     {
         var (entries, cards) = CurveFixture();
