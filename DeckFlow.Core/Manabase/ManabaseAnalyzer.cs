@@ -43,13 +43,21 @@ public static class ManabaseAnalyzer
     /// show enough distinct colors (threaded ONLY into the display castability path). The per-color
     /// source REQUIREMENT probe stays count-only, so the Karsten color counts are unchanged.
     /// </param>
+    /// <param name="gateRampOnCastable">
+    /// P4 gated-ramp flag (tied to land-ramp-sim). When true the castability ROWS only credit a drawn
+    /// ramp piece once the board can pay the ramp's OWN colored cost (mirrors 17Lands); when false
+    /// (default) ramp deploys as soon as its generic deploy cost is affordable (legacy, byte-identical).
+    /// Threaded ONLY into the display castability path — the per-color source requirement probe builds
+    /// ramp-free synthetic decks, so it is unaffected.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
         CommanderImportance importance = CommanderImportance.Standard,
         IReadOnlyDictionary<string, string>? costOverrides = null,
         bool useManaQuantity = false,
-        bool colorAwareMulligan = false)
+        bool colorAwareMulligan = false,
+        bool gateRampOnCastable = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -71,7 +79,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -240,7 +248,8 @@ public static class ManabaseAnalyzer
         int totalLands,
         Dictionary<string, CardCastability> byName,
         bool useManaQuantity,
-        bool colorAwareMulligan)
+        bool colorAwareMulligan,
+        bool gateRampOnCastable)
     {
         var rows = new List<CardCastability>();
 
@@ -260,7 +269,8 @@ public static class ManabaseAnalyzer
             int onCurveTurn = EffectiveTurn(spell, deck.CostReduction);
 
             CardCastability row = CastabilitySimulator.Simulate(
-                deck, librarySize, spell, onCurveTurn, genericReduction, useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan);
+                deck, librarySize, spell, onCurveTurn, genericReduction,
+                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable);
             rows.Add(row);
             byName[spell.Name] = row;
         }
