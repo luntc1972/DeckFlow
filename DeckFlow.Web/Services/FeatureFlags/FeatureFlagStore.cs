@@ -158,7 +158,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.reference.full-oracle-text', TRUE),
           ('analysis.reference.deck-stats', FALSE),
           ('manabase.source-mana-quantity', FALSE),
-          ('manabase.ramp-credit-v2', FALSE)
+          ('manabase.ramp-credit-v2', FALSE),
+          ('manabase.color-aware-mulligan', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -173,7 +174,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.reference.full-oracle-text', 1),
           ('analysis.reference.deck-stats', 0),
           ('manabase.source-mana-quantity', 0),
-          ('manabase.ramp-credit-v2', 0)
+          ('manabase.ramp-credit-v2', 0),
+          ('manabase.color-aware-mulligan', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 

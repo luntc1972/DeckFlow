@@ -468,7 +468,7 @@ Plans:
 - [x] 70-03-PLAN.md — MQ-03 ramp-credit consistency (defect 2): narrowed `IsRampOrDraw` → repeatable ramp + draw only, behind `manabase.ramp-credit-v2` flag (seeded OFF); Codex-approved plan; `93afdbdf`, Core 164 + Web 75 green. ⏳ baseline-diff before flag defaults ON. Defect 1 (model land-ramp in sim) → 70-03b.
 - [ ] 70-03b — MQ-03 defect 1: model credited land-ramp on the ramp-spell deploy event (quantity-only/colorless) so sim ↔ regression agree. Not started.
 - [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
-- [ ] 70-05 — MQ-05 color-aware London-mulligan keep heuristic
+- [x] 70-05-PLAN.md — MQ-05 color-aware London mulligan: a non-forced keep of a 2+ color deck also requires the opening lands to show >=2 distinct colors (KCap=2), behind `manabase.color-aware-mulligan` flag (seeded OFF). Cast%-affecting on multi-color decks only; mono decks byte-identical even flag-ON; verdict/color-count math untouched (probe path stays count-only). Codex-approved plan + diff; Core 10 + Web 2 tests green, full Core/Web suites clean. ⏳ baseline-diff before flag defaults ON; README/help update deferred until flip.
 - [ ] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Mockup approved 2026-06-23.
 
 ---

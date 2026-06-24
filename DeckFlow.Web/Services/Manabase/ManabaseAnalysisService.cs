@@ -122,6 +122,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string RampCreditV2FlagKey = "manabase.ramp-credit-v2";
 
+    /// <summary>
+    /// MQ-05 flag key: when enabled, the castability rows' London mulligan keeps multi-color hands
+    /// only when the opening lands show enough distinct colors (count-only otherwise). Cast%-affecting
+    /// on 2+ color decks; mono decks are unchanged. Seeded OFF until the baseline diff is reviewed.
+    /// </summary>
+    public const string ColorAwareMulliganFlagKey = "manabase.color-aware-mulligan";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -165,8 +172,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // Snapshot().TryGetValue via IsFlagOn instead).
         bool useManaQuantity = IsFlagOn(ManaQuantityFlagKey);
 
+        // MQ-05: read the color-aware-mulligan flag and pass it down. Fail-safe OFF, same as the others.
+        bool colorAwareMulligan = IsFlagOn(ColorAwareMulliganFlagKey);
+
         ManabaseReport report = ManabaseAnalyzer.Analyze(
-            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides, useManaQuantity);
+            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides, useManaQuantity, colorAwareMulligan);
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
 
