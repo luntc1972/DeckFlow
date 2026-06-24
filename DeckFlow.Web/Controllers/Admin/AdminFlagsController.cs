@@ -15,10 +15,11 @@ public sealed class AdminFlagsListViewModel
     public IReadOnlyList<FlagRow> Flags { get; init; } = Array.Empty<FlagRow>();
 }
 
-/// <summary>Single flag row: dotted key + current enabled state.</summary>
+/// <summary>Single flag row: dotted key + current enabled state + operator description.</summary>
 /// <param name="Key">Dotted-namespace flag key (e.g. "scryfall.tagger.enabled").</param>
 /// <param name="Enabled">Current enabled state from the cache snapshot.</param>
-public sealed record FlagRow(string Key, bool Enabled);
+/// <param name="Description">Human-readable explanation of what the flag does (may be empty).</param>
+public sealed record FlagRow(string Key, bool Enabled, string Description);
 
 /// <summary>
 /// Operator UI for runtime feature flags (Phase 6, ADMIN-05 + FLAG-03).
@@ -53,7 +54,7 @@ public sealed class AdminFlagsController : Controller
         var snapshot = _cache.Snapshot();
         var rows = snapshot
             .OrderBy(kv => kv.Key, StringComparer.Ordinal)
-            .Select(kv => new FlagRow(kv.Key, kv.Value))
+            .Select(kv => new FlagRow(kv.Key, kv.Value, FeatureFlagCatalog.Describe(kv.Key)))
             .ToArray();
         var vm = new AdminFlagsListViewModel { Flags = rows };
         return View(vm);
