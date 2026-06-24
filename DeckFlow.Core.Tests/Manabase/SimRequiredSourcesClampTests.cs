@@ -129,13 +129,15 @@ public sealed class SimRequiredSourcesClampTests
     [Fact]
     public void RampSourceCount_CountsNonLandManaSources()
     {
-        // Mana rocks/dorks (non-land sources) are counted; lands are not.
+        // Mana rocks/dorks (non-land sources) are counted; lands are not. RampSourceCount keys on the
+        // classifier's source weights — rocks at 0.75, dorks at 0.5 — so the fixture must use those
+        // (a default-weight 1.0 source looks like an MDFC land-back and is deliberately excluded).
         var sources = new System.Collections.Generic.List<ManaSource>
         {
             Land(ManaColor.Green),
             Land(ManaColor.Red),
-            new() { Name = "Sol Ring", Produces = new[] { ManaColor.Red }, IsLand = false },
-            new() { Name = "Birds of Paradise", Produces = new[] { ManaColor.Green }, IsLand = false },
+            new() { Name = "Sol Ring", Produces = new[] { ManaColor.Red }, IsLand = false, Weight = 0.75 },
+            new() { Name = "Birds of Paradise", Produces = new[] { ManaColor.Green }, IsLand = false, Weight = 0.5 },
         };
 
         var deck = new ManabaseDeck
