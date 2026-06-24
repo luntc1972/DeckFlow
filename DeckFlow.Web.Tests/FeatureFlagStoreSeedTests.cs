@@ -8,9 +8,10 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Guards the seed contract for the manabase feature flags: a freshly-initialized store must seed the
-/// gated keys FALSE in SQLite. IsFlagOn fails safe OFF, which can hide a missing seed in dev, so the
-/// seed is asserted explicitly (Codex LOW on the MQ-05 plan).
+/// Guards the seed contract for the manabase accuracy feature flags. After the Phase-70 flag baseline
+/// (8 decks, no verdict flips), MQ-02/03/05 ship ON by default for fresh databases, so the seed must
+/// set these keys TRUE in SQLite. (Existing databases keep their stored value — the seed is
+/// ON CONFLICT DO NOTHING — so production is flipped by an operator toggle, not by this seed.)
 /// </summary>
 public sealed class FeatureFlagStoreSeedTests : IDisposable
 {
@@ -31,7 +32,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("manabase.color-aware-mulligan")] // MQ-05
     [InlineData("manabase.source-mana-quantity")] // MQ-02
     [InlineData("manabase.ramp-credit-v2")]       // MQ-03
-    public async Task EnsureSchema_SeedsManabaseGateFlags_False(string key)
+    public async Task EnsureSchema_SeedsManabaseAccuracyFlags_On(string key)
     {
         var store = new FeatureFlagStore(_dbPath);
         await store.EnsureSchemaAsync();
@@ -39,6 +40,6 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
         var flags = await store.GetAllAsync();
 
         Assert.True(flags.ContainsKey(key), $"seed missing for '{key}'");
-        Assert.False(flags[key], $"'{key}' must be seeded OFF");
+        Assert.True(flags[key], $"'{key}' must be seeded ON");
     }
 }

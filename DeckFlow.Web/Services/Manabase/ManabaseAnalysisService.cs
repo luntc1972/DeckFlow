@@ -110,22 +110,22 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
     /// <summary>
     /// MQ-02 flag key: when enabled, the castability rows credit each source its full mana amount
-    /// (Sol Ring = 2, etc.). Seeded OFF until the baseline diff vs Salubrious Snail is reviewed.
+    /// (Sol Ring = 2, etc.). Seeded ON after the Phase-70 flag baseline (8 decks, no verdict flips).
     /// </summary>
     public const string ManaQuantityFlagKey = "manabase.source-mana-quantity";
 
     /// <summary>
     /// MQ-03 flag key: when enabled, the Karsten ramp/draw land-target credit is narrowed to
     /// repeatable ramp + true draw (one-shot rituals / Treasure-makers no longer lower the target).
-    /// Seeded OFF until baseline-diff reviewed. Read BEFORE classification (the credit is computed in
-    /// the classifier, not the analyzer).
+    /// Seeded ON after the Phase-70 flag baseline. Read BEFORE classification (the credit is computed
+    /// in the classifier, not the analyzer).
     /// </summary>
     public const string RampCreditV2FlagKey = "manabase.ramp-credit-v2";
 
     /// <summary>
     /// MQ-05 flag key: when enabled, the castability rows' London mulligan keeps multi-color hands
     /// only when the opening lands show enough distinct colors (count-only otherwise). Cast%-affecting
-    /// on 2+ color decks; mono decks are unchanged. Seeded OFF until the baseline diff is reviewed.
+    /// on 2+ color decks; mono decks are unchanged. Seeded ON after the Phase-70 flag baseline.
     /// </summary>
     public const string ColorAwareMulliganFlagKey = "manabase.color-aware-mulligan";
 
