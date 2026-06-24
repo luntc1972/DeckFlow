@@ -346,6 +346,109 @@ public sealed class ScryfallSetServiceTests
         Assert.Contains("Commander/precon sets are filtered to first-print cards only (reprints excluded).", packet);
     }
 
+    [Fact]
+    public async Task BuildSetPacketAsync_TransformCard_IncludedWithFrontFaceCostAndText()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("mar", "Marvel", "2025-01-01", "expansion", 2, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard(
+                            "Monica Rambeau // Photon, Living Light",
+                            "",
+                            "Legendary Creature — Hero // Legendary Creature — Hero",
+                            null,
+                            null,
+                            null,
+                            [],
+                            ["W"],
+                            "mar",
+                            "Marvel",
+                            "1",
+                            CardFaces:
+                            [
+                                new ScryfallCardFace(
+                                    "Monica Rambeau",
+                                    "{2}{W}",
+                                    "Legendary Creature — Hero",
+                                    "Flying, prowess\nWhenever this attacks, put a +1/+1 counter on it.",
+                                    "2",
+                                    "2"),
+                                new ScryfallCardFace(
+                                    "Photon, Living Light",
+                                    null,
+                                    "Legendary Creature — Hero",
+                                    "Flying\nWhenever you cast a noncreature spell, this deals 2 damage to any target.",
+                                    "3",
+                                    "3")
+                            ]),
+                        new ScryfallCard("Plain Soldier", "{1}{W}", "Creature — Soldier", "When this creature enters, draw a card.", "2", "2", [], ["W"], "mar", "Marvel", "2")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["mar"], ["W"]);
+
+        Assert.Contains("Monica Rambeau", packet);
+        var transformLine = packet
+            .Split('\n')
+            .Single(line => line.StartsWith("Monica Rambeau", StringComparison.Ordinal));
+        Assert.Contains("{2}{W}", transformLine);
+        Assert.Contains("prowess", transformLine);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_SingleFaceCard_LineUnchanged()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 1, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Sage Scribe", "{1}{G}", "Creature — Elf", "Draw a card.", "2", "2", [], ["G"], "tst", "Test Set", "1")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["G"]);
+
+        var cardLine = packet
+            .Split('\n')
+            .Single(line => line.StartsWith("Sage Scribe", StringComparison.Ordinal));
+        Assert.Equal("Sage Scribe | {1}{G} | Creature — Elf | Draw a card. 2/2", cardLine);
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
