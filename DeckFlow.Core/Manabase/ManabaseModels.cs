@@ -642,6 +642,18 @@ public sealed record ManabaseReport
         bool everyColorClear = true;
         bool broadUnderSupport = false;
 
+        // Mirror ManabaseAnalyzer's support thresholds: Casual = 80, cEDH = 88.
+        // Why: the health-band castability path (UseHealthBandCastability) must gate on the same
+        // per-mode bar that BuildColorFindings uses, so the sim verdict and the band agree.
+        int supportThreshold = Mode == ManabaseMode.Cedh ? 88 : 80;
+
+        // The composite-weakest color is ColorFindings[0] when it IsCompositeProblem. Only that
+        // color is eligible for the sim-weakest path — a good color that just happens to have a
+        // low worst-spell % is not a mana-base problem; the weakest IS because the sim already
+        // ranked it composite-worst.
+        ColorSourceFinding? compositeProblemWorst =
+            ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
+
         foreach (ColorSourceFinding f in ColorFindings)
         {
             if (f.UnderSupportedCount != 0 || f.Deficit > 0)
@@ -657,7 +669,22 @@ public sealed record ManabaseReport
             // mana-base fault. (UnderSupportedCount, all late cards, still gates Excellent below.)
             bool sourceShort = f.Deficit > 1;
             bool colorStarved = f.ColorLimitedUnderSupportedCount > tolerance;
-            if (sourceShort || colorStarved)
+
+            // MQ-health-band: the sim's composite-worst color counts as an issue when its
+            // worst spell casts below the mode threshold AND at least one of those slow spells
+            // is genuinely COLOR-access-limited (not merely a mana-cost curve bomb that the
+            // base can't ramp into). The ColorLimitedUnderSupportedCount >= 1 guard is the
+            // key: it separates Avatar/White (Suki color:White → 1) from Meren/Green or
+            // graveyard-fungus/Green (Old Gnawbone/Protean Hulk are mana-limited curve
+            // bombs → ColorLimitedUnderSupportedCount = 0) so those decks stay Solid.
+            // Only the composite-weakest color (ColorFindings[0] when IsCompositeProblem)
+            // can trigger this, so a merely sub-par color never inflates the count.
+            bool simWeakestProblem = UseHealthBandCastability
+                && f.Color == compositeProblemWorst?.Color
+                && f.ColorLimitedUnderSupportedCount >= 1
+                && f.WorstSpellCastPercent < supportThreshold;
+
+            if (sourceShort || colorStarved || simWeakestProblem)
             {
                 colorsWithIssue++;
             }
@@ -699,6 +726,16 @@ public sealed record ManabaseReport
 
     /// <summary>The analysis mode this report was produced under.</summary>
     public ManabaseMode Mode { get; init; } = ManabaseMode.Casual;
+
+    /// <summary>
+    /// MQ-health-band flag. When true, the composite-weakest color's worst-spell cast % feeds
+    /// <see cref="Health"/>: a color that is the deck's composite-worst AND casts its worst spell
+    /// below the mode's support threshold counts as a color issue, tipping the band from Functional
+    /// ("Solid") to Workable. Only the composite-weakest color can trigger this path
+    /// (<see cref="ColorSourceFinding.IsCompositeProblem"/> must be true and it must be
+    /// <c>ColorFindings[0]</c>). When false (default), behavior is byte-identical to before.
+    /// </summary>
+    public bool UseHealthBandCastability { get; init; }
 
     /// <summary>
     /// Per-spell castability rows, commander(s) pinned first then ascending by cast %. Excludes

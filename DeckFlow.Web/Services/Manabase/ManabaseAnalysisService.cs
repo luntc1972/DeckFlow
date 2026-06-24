@@ -136,6 +136,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string LandRampSimFlagKey = "manabase.land-ramp-sim";
 
+    /// <summary>
+    /// MQ-health-band flag key: when enabled, the composite-weakest color's worst-spell cast %
+    /// feeds the health-band verdict (Functional→Workable when below the mode's support threshold).
+    /// Seeded OFF — promoted to ON after a full 9-deck calibration regression guard passes.
+    /// </summary>
+    public const string HealthBandCastabilityFlagKey = "manabase.health-band-castability";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -185,9 +192,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         // P4 gated-ramp shares the land-ramp-sim flag: when ramp is modeled in the sim, also gate its
         // credit on the ramp's own colored cost being payable (mirrors 17Lands; corrects the optimism).
+        // MQ-health-band: couple the verdict tier to the sim's composite-worst-color cast %. Fail-safe
+        // OFF — seeded OFF; promoted to ON once the 9-deck calibration regression guard confirms no
+        // Solid/Excellent deck regresses.
+        bool useHealthBandCastability = IsFlagOn(HealthBandCastabilityFlagKey);
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
-            useManaQuantity, colorAwareMulligan, gateRampOnCastable: landRampSim);
+            useManaQuantity, colorAwareMulligan, gateRampOnCastable: landRampSim,
+            useHealthBandCastability: useHealthBandCastability);
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
 
