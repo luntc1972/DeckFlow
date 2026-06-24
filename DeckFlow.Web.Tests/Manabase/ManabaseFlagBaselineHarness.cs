@@ -231,6 +231,12 @@ public sealed class ManabaseFlagBaselineHarness
             ManabaseDeck deckV2 = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: true);
             ManabaseReport mq03 = ManabaseAnalyzer.Analyze(deckV2, mode, CommanderImportance.Standard);
             AppendFlagDelta(sb, $"{mode} · MQ-03 ramp-credit-v2", baseOff, mq03, targetMoved: true);
+
+            // 70-03b re-classifies too (the land-ramp sim source is added at classify time). Sim-only /
+            // colorless → the land target does not move.
+            ManabaseDeck deckLandRamp = ManabaseClassifier.Classify(facts, isSingleton: true, landRampSim: true);
+            ManabaseReport mqLandRamp = ManabaseAnalyzer.Analyze(deckLandRamp, mode, CommanderImportance.Standard);
+            AppendFlagDelta(sb, $"{mode} · 70-03b land-ramp-sim", baseOff, mqLandRamp, targetMoved: false);
         }
 
         // Karsten closed-form cross-check (Casual): the same hypergeometric Salubrious Snail uses, per
