@@ -161,6 +161,16 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - **Controller / CLI SRP split (Phase 38):** the `DeckController` god-class was decomposed into 8 focused feature controllers and `DeckFlow.CLI/CommandRunners` into deck-domain vs content-KB runners — **all routes and CLI commands preserved unchanged** (mechanically proven route-parity + a live render smoke).
 - **Architecture-review refactor (Phase 39):** duplicated deck-loading + Scryfall card-resolution were extracted out of the four prompt-packet services into a shared `IDeckEntryLoader.LoadFromSourceAsync` + `IScryfallCardResolver` — behavior byte-identical, guarded by the existing packet-service test suites.
 
+### What's new — Mana Base accuracy: mana quantity, ramp credit & color-aware mulligan (Phase 70)
+
+Three accuracy fixes are now **on by default** after a baseline across 8 real decks (no verdict flips, modest cast% deltas):
+
+- **Per-source mana quantity:** burst sources now pay their real output (Sol Ring / Ancient Tomb = 2, Gilded Lotus = 3 of one color) on the affordability side, so expensive payoffs read correctly. The Karsten color counts are untouched.
+- **Tighter ramp credit:** the land-target reduction for cheap ramp/draw is narrowed to **repeatable** ramp and true card draw — one-shot rituals and Treasure-makers no longer soften the land target.
+- **Color-aware mulligan:** the castability simulation's London mulligan now ships hands that are land-count-fine but color-screwed (a 2+ color deck wants 2 colors in its opening lands), lifting cast% toward what real play achieves. Mono-color decks are unchanged.
+
+These are toggleable feature flags (`manabase.source-mana-quantity`, `manabase.ramp-credit-v2`, `manabase.color-aware-mulligan`) for safe rollback.
+
 ### What's new — Mana Base accuracy: four-tier scale, curve-aware verdict & cast delay
 - **Mulligan-aware source requirements:** the per-color "sources needed" figure now comes from the simulation itself (binary search for the smallest on-color count whose simulated cast % clears the bar) instead of the mulligan-blind hypergeometric. It models **Commander's free first mulligan**, so a tight turn-two `{W}{W}` no longer reads against an inflated requirement (e.g. a real Brago list dropped from a phantom "needs 30 white" to a sane "needs ~21"). The figure is **clamped to Karsten's published table** as a ceiling, so the simulation can only *lower* a requirement, never inflate a double-pip past what the math allows.
 - **Four-tier health scale:** the verdict reads on a graded **Excellent / Solid / Workable / Needs work** scale that measures the *mana base*, not the curve. A high-mana-value bomb that casts late because it is expensive (a curve problem the base can't fix) no longer drags the verdict down — only a genuine, fixable color or land shortage does. *Needs work* is reserved for a real, broad shortage (a color short by several sources, two-plus colors short, or lands 2+ short *and* the simulation corroborates the shortage) — a paper land deficit alone never reds the verdict, so a ramp-saturated deck whose cards all cast fine stays out of the red; a single contained color issue is *Workable*; minor notes are *Solid*; a clean base is *Excellent*. Demanding cards are still surfaced by name.
