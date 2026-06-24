@@ -2422,19 +2422,28 @@ label.field > span,
 
 /* Disclosure for cards the analysis can't fully model (X / hybrid / Phyrexian). Muted, collapsed
    by default so it informs without alarming. */
-.manabase-unsupported {
+.manabase-unsupported,
+.manabase-ramp {
   margin: 0.5rem 0 0;
   font-size: 0.85em;
   opacity: 0.85;
 }
 
-.manabase-unsupported > summary {
+.manabase-unsupported > summary,
+.manabase-ramp > summary {
   cursor: pointer;
 }
 
-.manabase-unsupported ul {
+.manabase-unsupported ul,
+.manabase-ramp ul {
   margin: 0.35rem 0 0;
   padding-left: 1.2rem;
+}
+
+/* Group labels separating the rock/dork list from the ≤2 MV ramp/draw list. */
+.manabase-ramp-group-label {
+  margin: 0.35rem 0 0.1rem;
+  font-weight: 600;
 }
 
 /* Weakest color emphasized with a left accent border + danger tint. */

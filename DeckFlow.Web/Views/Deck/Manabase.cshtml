@@ -233,9 +233,39 @@
         }
         @if (report.RampSourceCount > 0 || rampDraw > 0)
         {
-            <p class="manabase-help">
-                <strong>Ramp:</strong> @report.RampSourceCount mana rock(s)/dork(s)@(rampDraw > 0 ? $" · {rampDraw} ramp/draw piece(s) at ≤2 MV credited toward a lower land count" : string.Empty).
-            </p>
+            var rampSummary = $"{report.RampSourceCount} mana rock(s)/dork(s)" + (rampDraw > 0 ? $" · {rampDraw} ramp/draw piece(s) at ≤2 MV credited toward a lower land count" : string.Empty);
+            if (report.RampSourceNames.Count > 0 || report.RampAndDrawNames.Count > 0)
+            {
+                <details class="manabase-ramp">
+                    <summary><strong>Ramp:</strong> @rampSummary.</summary>
+                    @if (report.RampSourceNames.Count > 0)
+                    {
+                        <p class="manabase-ramp-group-label">Mana rocks/dorks</p>
+                        <ul>
+                            @foreach (var name in report.RampSourceNames)
+                            {
+                                <li>@name</li>
+                            }
+                        </ul>
+                    }
+                    @if (report.RampAndDrawNames.Count > 0)
+                    {
+                        <p class="manabase-ramp-group-label">Ramp/draw ≤2 MV</p>
+                        <ul>
+                            @foreach (var name in report.RampAndDrawNames)
+                            {
+                                <li>@name</li>
+                            }
+                        </ul>
+                    }
+                </details>
+            }
+            else
+            {
+                <p class="manabase-help">
+                    <strong>Ramp:</strong> @rampSummary.
+                </p>
+            }
         }
 
         <p class="mode-note">
@@ -327,7 +357,7 @@
         @if (Model.ShowCastability && report.Castability.Count > 0)
         {
             <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
-            <p class="manabase-help">Estimate on the play (going first, so the turn-one draw is skipped), on each card's mana-value turn. Counts ramp; mana rocks/dorks aren't listed. See <em>How the analysis works</em> below for the mulligan and on-the-play details.</p>
+            <p class="manabase-help">Estimate on the play (going first, so the turn-one draw is skipped), on each card's mana-value turn. Counts ramp; the credited mana rocks/dorks are listed in the expandable Ramp line above. See <em>How the analysis works</em> below for the mulligan and on-the-play details.</p>
 
             <div class="manabase-table-wrap castability-scroll">
                 <table class="manabase-table castability-table">
