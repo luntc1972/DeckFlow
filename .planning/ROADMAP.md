@@ -459,7 +459,7 @@ modeling how MUCH mana a source makes, not just which colors.
 (ramp-credit consistency) · MQ-04 (unsupported-interaction disclosure) · MQ-05 (color-aware
 mulligan). **#4 joint-multicolor deficit deferred.**
 **Source:** `.planning/captures/manabase-efficacy-findings.md` (Codex efficacy audit + research).
-**Status:** 🚧 IN PROGRESS 2026-06-22 — **PRIORITY over Cycle 11** (operator 2026-06-22; Cycle 11 paused). Executing 70-01.
+**Status:** ✅ COMPLETE 2026-06-24 — all MQ-01..05 + two-lens header shipped (flags ON by default). Follow-up UAT on a real Disa deck surfaced + fixed 4 accuracy/UX defects (Skullspore creature-power discount, ramp-aware land advice, actionable weakest color, red-bar gating); committed `eec118df` + pushed `feature/manabase-accuracy`. 138 manabase Core tests green, Codex APPROVE, SECURED 11/11.
 **Context:** `.planning/phases/70-manabase-accuracy-mana-quantity/70-CONTEXT.md`
 
 Plans:
@@ -469,7 +469,7 @@ Plans:
 - [x] 70-03b-PLAN.md — MQ-03 defect 1: model land-ramp in the sim. Repeatable land-ramp-to-battlefield spells (Cultivate/Rampant Growth) are added as colorless non-land ramp sources (`DeployCost = MV`, new `ManaSource.DeployCost`), so the fetched land's mana is credited — closing the sim↔regression gap. Self-excluded from the card's own row; colorless+non-land → color counts/land total/RampSourceCount untouched. Behind `manabase.land-ramp-sim` flag (seeded OFF). Codex plan + diff APPROVE (1 BLOCK each round, resolved); Core 7 + Web 1 + seed tests green; full Core 763/Web 746. ⏳ baseline-diff before flag default ON (harness has a landRampSim pass to add).
 - [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
 - [x] 70-05-PLAN.md — MQ-05 color-aware London mulligan: a non-forced keep of a 2+ color deck also requires the opening lands to show >=2 distinct colors (KCap=2), behind `manabase.color-aware-mulligan` flag (seeded OFF). Cast%-affecting on multi-color decks only; mono decks byte-identical even flag-ON; verdict/color-count math untouched (probe path stays count-only). Codex-approved plan + diff; Core 10 + Web 2 tests green, full Core/Web suites clean. ⏳ baseline-diff before flag defaults ON; README/help update deferred until flip.
-- [ ] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Mockup approved 2026-06-23.
+- [x] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Live on `feature/manabase-accuracy` (both lenses render side-by-side).
 
 ---
 

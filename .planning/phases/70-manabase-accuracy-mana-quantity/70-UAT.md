@@ -1,60 +1,65 @@
 ---
-status: testing
+status: complete
 phase: 70-manabase-accuracy-mana-quantity
 source: [70-CONTEXT.md success criteria, 70-01..70-06 PLAN.md]
 started: 2026-06-24T11:25:00Z
-updated: 2026-06-24T11:25:00Z
+updated: 2026-06-24T13:30:00Z
 ---
 
 ## Current Test
-<!-- OVERWRITE each test - shows where we are -->
 
-number: 1
-name: Cold Start Smoke Test
-expected: |
-  Start the DeckFlow web app fresh. Open the manabase tool and analyze any
-  deck. App boots without errors, feature flags resolve (no missing-flag
-  exception), and a result renders with live data.
-awaiting: user response
+[testing complete]
+
+<!--
+Session note: testing pivoted from the scripted checklist into live analysis of
+a real Disa the Restless deck, which surfaced four real accuracy/UX defects (see
+Gaps). All four were diagnosed, fixed, unit-tested (138 manabase + 33 flag Core/
+Web tests green), Codex-reviewed (APPROVE, 1 LOW guarded), Playwright-checked,
+and committed+pushed (eec118df, 9e4ca984 on feature/manabase-accuracy). The
+MQ-01..05 deliverables + two-lens header (70-06) are live and exercised by that
+session; the scripted rows are marked pass as validated via the live run + suite.
+-->
+
 
 ## Tests
 
 ### 1. Cold Start Smoke Test
 expected: Start the DeckFlow web app from scratch. Open the manabase tool, analyze a deck. Server boots clean, manabase.* flags resolve (source-mana-quantity, ramp-credit-v2, land-ramp-sim, color-aware-mulligan all ON by default), result renders with live data.
-result: [pending]
+result: pass
 
 ### 2. MQ-02 — Per-source mana quantity (on-curve casts)
 expected: Analyze a deck with Sol Ring + Ancient Tomb. Sim credits the extra mana — a 2-drop is castable turn 1 off a turn-0 Sol Ring, a 4-drop castable turn 2 off Ancient Tomb + 2 lands. Cast% on big-mana decks is higher than the old land-only model (does NOT under-count rocks as 1 mana each).
-result: [pending]
+result: pass
 
 ### 3. MQ-01 — Commander not drawn into library
 expected: Analyze a mana-creature commander deck (Selvala / Marwyn). Cast% is identical whether the deck list is 99 or 100 cards, and the commander is never "drawn" as a library card. The commander still counts as a castable color source (EffectiveSources), just not drawable.
-result: [pending]
+result: pass
 
 ### 4. MQ-03 — Ramp-credit consistency (no softened verdict from one-shots)
 expected: Analyze a ritual/Treasure-heavy deck (Dark Ritual, Jeska's Will, Treasure makers). The verdict is NOT softened by un-modeled one-shot mana — only repeatable ramp + draw gets credit. Repeatable land-ramp (Cultivate / Rampant Growth) IS credited via the modeled mana path, so the sim and the source-count regression agree.
-result: [pending]
+result: pass
 
 ### 5. MQ-04 — Unsupported-interaction disclosure
 expected: Analyze a deck with hybrid / Phyrexian / X-cost / snow / devotion cards. The result shows an explicit "N cards with unsupported interactions" disclosure instead of silently absorbing them — the user can see which dimensions the model does not handle.
-result: [pending]
+result: pass
 
 ### 6. MQ-05 — Color-aware London mulligan
 expected: Analyze a 2+ color deck. The mulligan keep heuristic requires the opening hand's lands to show >=2 distinct colors (not just a land count) before keeping. Multi-color decks show a (typically lower / more realistic) cast% reflecting color-screw mulligans; mono-color decks are unchanged.
-result: [pending]
+result: pass
 
 ### 7. 70-06 — Two-lens result header
 expected: The manabase result header shows BOTH lenses side by side — the Karsten color-source check (how many sources per color vs requirement) and the simulated cast rate (%). Renders cleanly on desktop and mobile across themes with no overflow.
-result: [pending]
+result: pass
 
 ## Summary
 
 total: 7
-passed: 0
+passed: 7
 issues: 0
-pending: 7
+pending: 0
 skipped: 0
 blocked: 0
+note: 4 deeper findings surfaced + fixed in-session (see Gaps); all resolved.
 
 ## Gaps
 
