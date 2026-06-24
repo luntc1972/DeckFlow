@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace DeckFlow.Core.Manabase;
 
@@ -31,6 +32,12 @@ public static class CastabilitySimulator
 {
     /// <summary>Trials per spell. 20k keeps the Monte-Carlo error well under ~0.5 points.</summary>
     public const int DefaultTrials = 20_000;
+
+    // MQ-05: max distinct colors the opening lands must show before a multi-color hand is kept. Capped
+    // at 2 (user decision 2026-06-23): want >=2 colors in a 2+ color deck, never demand all of a 3-5c
+    // deck's colors in the opener (real play keeps WU in a WUBRG deck). Only consulted when the
+    // color-aware-mulligan flag is on AND the deck plays 2+ colors.
+    private const int ColorKeepCap = 2;
 
     // Reusable category for a single library card. Lands carry their color set; ramp carries a deploy
     // cost (its mana value) plus the color set it taps for; filler is everything else.
@@ -123,6 +130,12 @@ public static class CastabilitySimulator
     /// 1 mana — byte-identical to the pre-MQ-02 behavior. When true, a source pays its
     /// <see cref="ManaSource.ManaAmount"/> in mana (all of one chosen color).
     /// </param>
+    /// <param name="colorAwareMulligan">
+    /// MQ-05 flag (snapshotted once by the caller). When false (default) the London mulligan keeps on
+    /// land COUNT only — byte-identical to the pre-MQ-05 behavior. When true AND the deck plays 2+
+    /// colors, a non-forced keep also requires the opening lands to show enough distinct colors (see
+    /// <see cref="ColorKeepCap"/>). Mono-color decks are byte-identical even when this is true.
+    /// </param>
     public static CardCastability Simulate(
         ManabaseDeck deck,
         int librarySize,
@@ -130,12 +143,17 @@ public static class CastabilitySimulator
         int effectiveTurn,
         int genericReduction,
         int trials = DefaultTrials,
-        bool useManaQuantity = false)
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(spell);
 
         IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity);
+
+        // MQ-05: distinct colors the deck actually demands across all spell pips (capped at 5). Only
+        // computed when the flag is on; <=1 makes the color gate a no-op (mono decks stay identical).
+        int deckColorCount = colorAwareMulligan ? DeckColorCount(deck) : 0;
 
         // The spell's effective cost: colored pips (immutable) plus generic. Reducers only shave
         // generic mana, and never below the pip count — the floor is enforced by the caller via
@@ -199,7 +217,7 @@ public static class CastabilitySimulator
             Array.Copy(deck0, shuffled, library.Count);
             ShufflePrefix(shuffled, prefix, rng);
             // Tiny decks (some unit fixtures) can be smaller than a 7-card opener — clamp the hand.
-            int handCount = Math.Min(library.Count, LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton));
+            int handCount = Math.Min(library.Count, LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount));
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
@@ -915,7 +933,7 @@ public static class CastabilitySimulator
     // non-lands first (London: see all 7, choose what to bottom). Returns the kept hand size, with
     // the kept cards moved to the front of `shuffled`. Bands widen with average mana value so a
     // higher curve tolerates more lands.
-    private static int LondonMulligan(IReadOnlyList<LibraryCard> library, int[] shuffled, bool[] active, Random rng, double avgMv, int prefix, bool isSingleton)
+    private static int LondonMulligan(IReadOnlyList<LibraryCard> library, int[] shuffled, bool[] active, Random rng, double avgMv, int prefix, bool isSingleton, bool colorAware, int deckColorCount)
     {
         // Acceptable land bands per mulligan depth. Upper bound widens for higher-curve decks.
         int hiCap = avgMv >= 3.0 ? 5 : 4;
@@ -952,7 +970,16 @@ public static class CastabilitySimulator
             int lands = CountLands(library, active, shuffled, 7);
             (int keep, int bottom, int lo, int hi) = schedule[depth];
 
-            if ((lands >= lo && lands <= hi) || depth == last)
+            bool forced = depth == last;
+
+            // MQ-05: a non-forced keep also needs the opening lands to show enough distinct colors.
+            // Gate is a no-op when the flag is off or this is the forced final keep — in those cases the
+            // land-count band alone decides, byte-identical to pre-MQ-05. (ColorKeepSatisfied also
+            // no-ops mono decks internally.)
+            bool colorOk = !colorAware || forced
+                || ColorKeepSatisfied(OpeningLandColorMask(library, active, shuffled, 7), lands, deckColorCount);
+
+            if (((lands >= lo && lands <= hi) && colorOk) || forced)
             {
                 // Bottom `bottom` cards: non-lands first, highest deploy/mana cost first, so we keep
                 // our lands and cheapest spells (London choose-and-bottom). Free-mull depths bottom 0.
@@ -996,6 +1023,60 @@ public static class CastabilitySimulator
 
         return lands;
     }
+
+    // MQ-05: distinct colors the deck demands across all spell pips (low 5 bits), capped at 5.
+    private static int DeckColorCount(ManabaseDeck deck)
+    {
+        int mask = 0;
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            foreach (KeyValuePair<ManaColor, int> pip in spell.Pips)
+            {
+                if (pip.Key != ManaColor.Colorless && pip.Value > 0)
+                {
+                    mask |= ColorBit(pip.Key);
+                }
+            }
+        }
+
+        return CountColors(mask);
+    }
+
+    // MQ-05: union of the color masks of the active LANDS in the opening `top` cards. Ramp is excluded
+    // (it must be cast before it makes color) — mirrors the land-only basis of the count band.
+    private static int OpeningLandColorMask(IReadOnlyList<LibraryCard> library, bool[] active, int[] shuffled, int top)
+    {
+        int n = Math.Min(top, shuffled.Length);
+        int mask = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (active[shuffled[i]] && library[shuffled[i]].IsLand)
+            {
+                mask |= library[shuffled[i]].ColorMask;
+            }
+        }
+
+        return mask;
+    }
+
+    // Popcount over the five color bits.
+    private static int CountColors(int mask) => BitOperations.PopCount((uint)(mask & 0b11111));
+
+    // MQ-05 color gate (flag-on, non-forced case only). True ⇒ this opener's lands show enough distinct
+    // colors to keep. Mono decks (deckColorCount <= 1) always pass — the gate is a no-op for them.
+    // Threshold = min(deckColorCount, lands, ColorKeepCap): never demand more colors than the deck
+    // plays, than the hand could physically show, or than the cap (2).
+    private static bool ColorKeepSatisfied(int openingLandColorMask, int lands, int deckColorCount)
+        => deckColorCount <= 1
+            || CountColors(openingLandColorMask) >= Math.Min(Math.Min(deckColorCount, lands), ColorKeepCap);
+
+    /// <summary>
+    /// Test seam for the MQ-05 color-keep gate: exposes <c>ColorKeepSatisfied</c> over the colors the
+    /// opening lands can tap, so the threshold logic is unit-testable without driving the Monte-Carlo
+    /// loop. <paramref name="openingLandColors"/> is the UNION of colors across the kept lands.
+    /// </summary>
+    internal static bool ColorKeepSatisfiedForTest(IReadOnlyList<ManaColor> openingLandColors, int lands, int deckColorCount)
+        => ColorKeepSatisfied(ColorsToMask(openingLandColors), lands, deckColorCount);
 
     // Move `toBottom` cards from the 7-card look to the bottom: non-lands first, highest cost first.
     // After this, the first (7 - toBottom) slots are the kept hand.

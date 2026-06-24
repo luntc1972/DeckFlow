@@ -38,12 +38,18 @@ public static class ManabaseAnalyzer
     /// REQUIREMENT measurement stays mana-amount-blind, so the Karsten color counts
     /// (EffectiveSources / SimRequiredSources / deficit) are identical whether the flag is on or off.
     /// </param>
+    /// <param name="colorAwareMulligan">
+    /// MQ-05 flag. When true the castability ROWS mulligan multi-color hands whose opening lands do not
+    /// show enough distinct colors (threaded ONLY into the display castability path). The per-color
+    /// source REQUIREMENT probe stays count-only, so the Karsten color counts are unchanged.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
         CommanderImportance importance = CommanderImportance.Standard,
         IReadOnlyDictionary<string, string>? costOverrides = null,
-        bool useManaQuantity = false)
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -65,7 +71,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -233,7 +239,8 @@ public static class ManabaseAnalyzer
         int librarySize,
         int totalLands,
         Dictionary<string, CardCastability> byName,
-        bool useManaQuantity)
+        bool useManaQuantity,
+        bool colorAwareMulligan)
     {
         var rows = new List<CardCastability>();
 
@@ -253,7 +260,7 @@ public static class ManabaseAnalyzer
             int onCurveTurn = EffectiveTurn(spell, deck.CostReduction);
 
             CardCastability row = CastabilitySimulator.Simulate(
-                deck, librarySize, spell, onCurveTurn, genericReduction, useManaQuantity: useManaQuantity);
+                deck, librarySize, spell, onCurveTurn, genericReduction, useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan);
             rows.Add(row);
             byName[spell.Name] = row;
         }

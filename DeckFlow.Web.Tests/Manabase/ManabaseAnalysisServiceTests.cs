@@ -105,6 +105,68 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_ColorAwareMulliganFlag_ChangesCast_FailsSafeOff()
+    {
+        // MQ-05 plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into the analyzer
+        // → the castability rows' London mulligan becomes color-aware. On a White-skewed WU deck (blue
+        // scarce) the color-aware keep guarantees an Island in every kept opener, so the {U} spell
+        // casts more often when the flag is on; without a cache it stays count-only.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Plains", 29),
+            Land("Island", 5),
+            Entry("Blue One", 1, "mainboard"),
+            Entry("White One", 1, "mainboard"),
+        };
+        // Pad to a realistic ~96-card deck: ~35% lands so 7-card openers land in the count band
+        // (an all-land deck busts the band every time and force-mulligans past the color gate).
+        for (int i = 0; i < 60; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        List<ScryfallCard> Cards()
+        {
+            var cards = new List<ScryfallCard>
+            {
+                BasicLand("Plains", "W"),
+                BasicLand("Island", "U"),
+                Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+                Oracle("Blue One", "{U}", 1, "Instant", "Draw a card."),
+                Oracle("White One", "{W}", 1, "Instant", "Gain 1 life."),
+            };
+            for (int i = 0; i < 60; i++)
+            {
+                cards.Add(Oracle($"Filler {i}", "{3}", 3, "Artifact", "Does nothing."));
+            }
+
+            return cards;
+        }
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.color-aware-mulligan"] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        int castOff = rOff.Report.Castability.First(c => c.Name == "Blue One").CastPercent;
+        int castOn = rOn.Report.Castability.First(c => c.Name == "Blue One").CastPercent;
+
+        Assert.True(castOn > castOff, $"color-aware mulligan should raise scarce-color cast% (off={castOff}, on={castOn})");
+        // Color counts must not move with the flag (verdict probe path stays count-only).
+        Assert.Equal(rOff.Report.TargetLands, rOn.Report.TargetLands);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DefaultMode_IsCasual()
     {
         var (entries, cards) = CurveFixture();
