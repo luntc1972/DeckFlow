@@ -54,4 +54,12 @@ public sealed record CardFact
     /// <see cref="ManaProductionAmount"/>; unused for non-source cards.
     /// </summary>
     public int ManaAmount { get; init; } = 1;
+
+    /// <summary>
+    /// Fixed printed power of the front face when this card is a creature with a numeric power
+    /// (e.g. 5). Null for non-creatures and for variable power ("*", as on *goyf cards). Used to
+    /// resolve board-scaling self cost reducers that read "costs {X} less, where X is the greatest
+    /// power among creatures you control" (e.g. The Skullspore Nexus).
+    /// </summary>
+    public int? Power { get; init; }
 }

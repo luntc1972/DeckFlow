@@ -48,6 +48,45 @@ public sealed class ScryfallCardFactMapperTests
         Assert.Equal("{2}{W}{W}", fact.ManaCost);
         Assert.Equal(4, fact.ManaValue);
         Assert.False(fact.HasLandFace);
+        Assert.Null(fact.Power);
+    }
+
+    [Fact]
+    public void ToCardFact_Creature_MapsFixedPower()
+    {
+        var card = new ScryfallCardData
+        {
+            Name = "Perennial Behemoth",
+            ManaCost = "{5}",
+            Cmc = 5,
+            TypeLine = "Artifact Creature — Construct",
+            OracleText = "Reconfigure {5}.",
+            Power = "5",
+        };
+
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.Equal(5, fact.Power);
+    }
+
+    [Fact]
+    public void ToCardFact_VariablePower_MapsToNull()
+    {
+        // *goyf power ("*") is variable — not a fixed value, so it must not feed the greatest-power
+        // cost reducer.
+        var card = new ScryfallCardData
+        {
+            Name = "Tarmogoyf",
+            ManaCost = "{1}{G}",
+            Cmc = 2,
+            TypeLine = "Creature — Lhurgoyf",
+            OracleText = "Tarmogoyf's power is equal to the number of card types among cards in all graveyards.",
+            Power = "*",
+        };
+
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.Null(fact.Power);
     }
 
     [Fact]

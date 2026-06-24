@@ -209,7 +209,11 @@
 
         <p>
             <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
-            (@(report.LandDelta >= -1 ? "land count OK" : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
+            (@(report.LandDelta >= -1
+                ? "land count OK"
+                : report.LandShortfallCoveredByRamp
+                    ? $"~{Math.Ceiling(-report.LandDelta):F0} under the Karsten count, but ramp covers it"
+                    : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
             <strong>Health:</strong>
             <span class="manabase-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
             @if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
@@ -254,9 +258,12 @@
                     @foreach (var f in report.ColorFindings)
                     {
                         var isWeakest = report.WeakestColor is { } w && w.Color == f.Color;
+                        // Red "weakest" accent only when the lead color genuinely needs sources
+                        // (domain rule lives on the model, see ColorSourceFinding.NeedsMoreSources).
+                        var weakestNeedsSources = isWeakest && f.NeedsMoreSources;
                         var isCommanderColor = report.CommanderColors.Contains(f.Color);
                         var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
-                        <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(isWeakest ? "manabase-row--weakest" : null)">
+                        <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(weakestNeedsSources ? "manabase-row--weakest" : null)">
                             <td>
                                 @f.Color
                                 @if (isCommanderColor)

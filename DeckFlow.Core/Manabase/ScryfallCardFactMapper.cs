@@ -46,8 +46,18 @@ public static class ScryfallCardFactMapper
             HasLandFace = HasLandFace(card),
             IsCommander = isCommander,
             ManaAmount = ManaProductionAmount.Parse(JoinOracleText(card)),
+            Power = ParseFixedPower(front?.Power ?? card.Power),
         };
     }
+
+    // Parse a Scryfall printed power into a fixed int, or null when absent or variable ("*", "1+*",
+    // "X"). Only fixed numeric power feeds the "greatest power among creatures" cost reducer; a
+    // variable-power creature (a *goyf) contributes nothing, which is the conservative read.
+    private static int? ParseFixedPower(string? power) =>
+        int.TryParse(power, System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out int value)
+            ? value
+            : null;
 
     /// <summary>Map a deck's worth of cards, pairing each payload with its quantity.</summary>
     public static IReadOnlyList<CardFact> ToCardFacts(IEnumerable<DeckCardEntry> entries)

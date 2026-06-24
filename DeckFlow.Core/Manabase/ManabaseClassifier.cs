@@ -33,6 +33,13 @@ public static class ManabaseClassifier
     private static readonly Regex ScalingSelfReducerRegex = new(
         @"this spell costs \{\d+\} less to cast for each", RegexOptions.Compiled);
 
+    // "This spell costs {X} less to cast, where X is the greatest power among creatures you control"
+    // (The Skullspore Nexus). The reduction is board-dependent, so it is resolved against the deck's
+    // greatest FIXED creature power as the optimistic on-board value (see DetectSelfCost).
+    private static readonly Regex GreatestPowerReducerRegex = new(
+        @"this spell costs \{x\} less to cast,? where x is the greatest power among creatures you control",
+        RegexOptions.Compiled);
+
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
@@ -75,6 +82,18 @@ public static class ManabaseClassifier
         int mdfcMythic = 0;
         int fastMana = 0;
 
+        // Greatest FIXED creature power in the deck — the optimistic on-board value for board-scaling
+        // self reducers keyed on "the greatest power among creatures you control" (The Skullspore
+        // Nexus). Variable-power creatures (*goyf, Power == null) contribute nothing.
+        int maxCreaturePower = 0;
+        foreach (CardFact c in cards)
+        {
+            if (c.Power is int p && p > maxCreaturePower && IsType(c.TypeLine, "Creature"))
+            {
+                maxCreaturePower = p;
+            }
+        }
+
         foreach (CardFact card in cards)
         {
             totalCards += card.Quantity;
@@ -98,7 +117,21 @@ public static class ManabaseClassifier
             }
 
             ParsedManaCost cost = ManaCostParser.Parse(card.ManaCost);
-            AddSpellRequirement(spells, card, cost);
+
+            // Intrinsic, always-on "costs {X} less, where X is the greatest power among creatures you
+            // control" reducer (The Skullspore Nexus): unlike evoke/pitch (opt-in alternative casts),
+            // this discount is automatic, so apply it to the default analysis using the deck's
+            // greatest fixed creature power. User overrides (the cost box) still take precedence later.
+            string? intrinsicReduced = GreatestPowerEffectiveCost(card, maxCreaturePower);
+            if (intrinsicReduced is not null)
+            {
+                ParsedManaCost reduced = ManaCostParser.Parse(ManaCostParser.NormalizeToBraced(intrinsicReduced));
+                AddSpellRequirement(spells, card, reduced, costOverridden: true);
+            }
+            else
+            {
+                AddSpellRequirement(spells, card, cost);
+            }
 
             // MQ-04: disclose what the analysis cannot fully model rather than silently absorbing it.
             // X/variable spells are dropped from castability entirely; hybrid/Phyrexian pips are
@@ -179,7 +212,7 @@ public static class ManabaseClassifier
             // Alt/reduced-cost suggestion (free/pitch, board-scaling self-reducer, evoke/suspend).
             // One per distinct card name — these only pre-populate the override box, they don't
             // alter the analysis unless the user applies an override.
-            if (suggestedNames.Add(card.Name) && DetectSelfCost(card) is (string effCost, string reason))
+            if (suggestedNames.Add(card.Name) && DetectSelfCost(card, maxCreaturePower) is (string effCost, string reason))
             {
                 suggestions.Add(new CostSuggestion
                 {
@@ -266,7 +299,7 @@ public static class ManabaseClassifier
         }
     }
 
-    private static void AddSpellRequirement(List<SpellRequirement> spells, CardFact card, ParsedManaCost cost)
+    private static void AddSpellRequirement(List<SpellRequirement> spells, CardFact card, ParsedManaCost cost, bool costOverridden = false)
     {
         // X/Y/Z spells: printed mana value is not the real cast turn, so an on-curve source
         // check at that turn is meaningless. Skip them rather than strain colors at a bogus turn.
@@ -282,14 +315,49 @@ public static class ManabaseClassifier
         {
             Name = card.Name,
             // True printed mana value (0-cost cards stay 0 for display). The min-1 cast-turn
-            // floor is enforced downstream by EffectiveTurn and the simulator, not here.
-            ManaValue = Math.Max(0, (int)Math.Round(card.ManaValue)),
+            // floor is enforced downstream by EffectiveTurn and the simulator, not here. When the
+            // cost is an applied intrinsic reduction, use the reduced value so the cast turn drops.
+            ManaValue = costOverridden ? cost.ManaValue : Math.Max(0, (int)Math.Round(card.ManaValue)),
             Pips = cost.Pips,
             IsGold = cost.DistinctColors >= 2,
             IsManaSource = IsRockOrDork(card),
             Kinds = ClassifyKinds(card.TypeLine),
             IsCommander = card.IsCommander,
+            IsCostOverridden = costOverridden,
         });
+    }
+
+    // The intrinsic, always-on effective cost for a "costs {X} less, where X is the greatest power
+    // among creatures you control" reducer (The Skullspore Nexus). Resolves X against the deck's
+    // greatest FIXED creature power (the optimistic on-board value); falls back to the colored-pip
+    // floor when there is no fixed-power creature to measure. Returns null when the card has no such
+    // reducer. Shared by the spell-cost auto-apply path and the DetectSelfCost suggestion.
+    private static string? GreatestPowerEffectiveCost(CardFact card, int maxCreaturePower)
+    {
+        string text = (card.OracleText ?? string.Empty).ToLowerInvariant();
+        if (text.Length == 0 || !GreatestPowerReducerRegex.IsMatch(text))
+        {
+            return null;
+        }
+
+        // Guard: ManaCostParser keeps hybrid / Phyrexian / twobrid symbols OUT of Pips (they have no
+        // hard color), so the generic = ManaValue − pip-count math below would mistake them for
+        // reducible generic mana and could collapse a cost like {2}{G/U}{G/U} below its real floor.
+        // No printed greatest-power card has such a cost today; if one appears, score it at full cost
+        // (no auto-discount) rather than over-reduce. Revisit when ParsedManaCost tracks flexible pips.
+        if (card.ManaCost?.Contains('/', StringComparison.Ordinal) ?? false)
+        {
+            return null;
+        }
+
+        ParsedManaCost parsed = ManaCostParser.Parse(card.ManaCost);
+        if (maxCreaturePower > 0)
+        {
+            return ReduceGenericCost(parsed, maxCreaturePower);
+        }
+
+        string colored = RenderColoredPips(parsed.Pips);
+        return colored.Length == 0 ? "0" : colored;
     }
 
     // The exact rock/dork test AddPartialSources uses, factored out so the row-exclusion set ==
@@ -644,7 +712,7 @@ public static class ManabaseClassifier
     // effective cost ("0", "{R}", "{1}{B}") plus a short reason, or null when nothing applies.
     // This is a SUGGESTION only — it pre-populates the override box; it never changes the analysis
     // by itself. Most-specific category first.
-    private static (string EffectiveCost, string Reason)? DetectSelfCost(CardFact card)
+    private static (string EffectiveCost, string Reason)? DetectSelfCost(CardFact card, int maxCreaturePower)
     {
         // Known limitation: OracleText is joined across faces, so a multi-face card could inherit a
         // suggestion from a non-front face. Low harm — a suggestion only pre-fills the editable box
@@ -662,7 +730,23 @@ public static class ManabaseClassifier
             return ("0", "free / alternative cost");
         }
 
-        // 2) Board-scaling self-reduction ("this spell costs {1} less to cast for each ..."):
+        // 2) "Costs {X} less, where X is the greatest power among creatures you control" (The
+        //    Skullspore Nexus). X is board-dependent; resolve it against the deck's greatest fixed
+        //    creature power as the optimistic on-board value and reduce the generic cost by it
+        //    (floored at the colored pips). Falls back to the colored-pip floor when the deck has no
+        //    fixed-power creature (all *goyf / no creatures) — the same practical floor as case 3.
+        // Greatest-power reducer (The Skullspore Nexus). This one is AUTO-APPLIED to the default
+        // analysis (see the spell-cost path); the suggestion just surfaces the value in the editable
+        // box so the user can see it and override to a different on-board assumption.
+        if (GreatestPowerEffectiveCost(card, maxCreaturePower) is string powerCost)
+        {
+            string reason = maxCreaturePower > 0
+                ? $"costs {{X}} less, X = greatest creature power (~{maxCreaturePower} here) — auto-applied, editable"
+                : "costs {X} less, X = greatest creature power — auto-applied (assumed fully online), editable";
+            return (powerCost, reason);
+        }
+
+        // 3) Board-scaling self-reduction ("this spell costs {1} less to cast for each ..."):
         //    drop all generic, keep the colored pips — the practical floor when fully online.
         if (ScalingSelfReducerRegex.IsMatch(text))
         {
@@ -671,7 +755,7 @@ public static class ManabaseClassifier
                 "scales down with the board — assuming the reduction is fully online");
         }
 
-        // 3) Evoke — use its braced mana cost when it has one (Shriekmaw "evoke {1}{B}"); a
+        // 4) Evoke — use its braced mana cost when it has one (Shriekmaw "evoke {1}{B}"); a
         //    non-mana evoke cost (Grief "exile a black card") is free of mana, so 0.
         if (text.Contains("evoke", StringComparison.Ordinal))
         {
@@ -681,7 +765,7 @@ public static class ManabaseClassifier
                 : ("0", "evoke (alternative cost)");
         }
 
-        // 4) Suspend — the suspend cost is a mana cost (Crashing Footfalls "suspend 1—{g}").
+        // 5) Suspend — the suspend cost is a mana cost (Crashing Footfalls "suspend 1—{g}").
         Match suspend = SuspendCostRegex.Match(text);
         if (suspend.Success)
         {
@@ -689,6 +773,25 @@ public static class ManabaseClassifier
         }
 
         return null;
+    }
+
+    // Reduce a parsed cost's GENERIC portion by `reduction`, keeping all colored (and {C}) pips, and
+    // render the canonical braced result. Generic = ManaValue − colored-pip count (ManaCostParser
+    // tracks generic only in the value, not in Pips). Floors at the colored pips; "0" when nothing
+    // is left. e.g. {4}{G}{G} reduced by 5 → "{G}{G}"; reduced by 2 → "{2}{G}{G}".
+    private static string ReduceGenericCost(ParsedManaCost cost, int reduction)
+    {
+        int coloredCount = cost.Pips.Values.Sum();
+        int generic = Math.Max(0, cost.ManaValue - coloredCount);
+        int newGeneric = Math.Max(0, generic - reduction);
+        string colored = RenderColoredPips(cost.Pips);
+
+        if (newGeneric > 0)
+        {
+            return colored.Length > 0 ? $"{{{newGeneric}}}{colored}" : $"{{{newGeneric}}}";
+        }
+
+        return colored.Length > 0 ? colored : "0";
     }
 
     // Render hard colored pips as a canonical braced cost in WUBRG(+C) order (e.g. "{R}", "{U}{U}").
