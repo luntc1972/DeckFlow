@@ -55,6 +55,26 @@ Monte-Carlo display value; the verdict probe path is unaffected by MQ-02/MQ-05.
 - Weakest color: Blue → Blue
 - Cast%: 0/58 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: NeedsWork → Functional
+- Land target: 35.8 (unchanged by this flag)
+- Weakest color: Blue → Blue
+- Cast%: 10/58 cards changed · mean |Δ| 0.3 pts · range -1..+3
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Sun Titan | 6 | 53 | 56 | +3 |
+| Aang, Airbending Master | 5 | 77 | 79 | +2 |
+| Deadeye Navigator | 6 | 53 | 55 | +2 |
+| Peregrine Drake | 5 | 78 | 80 | +2 |
+| Venser, the Sojourner | 5 | 78 | 80 | +2 |
+| Y'shtola Rhul | 6 | 53 | 55 | +2 |
+| Charming Prince | 2 | 96 | 95 | -1 |
+| Eldrazi Displacer | 3 | 95 | 94 | -1 |
+| Gossip's Talent | 2 | 96 | 95 | -1 |
+| Quantum Riddler | 5 | 75 | 76 | +1 |
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: NeedsWork → NeedsWork
@@ -103,6 +123,26 @@ Monte-Carlo display value; the verdict probe path is unaffected by MQ-02/MQ-05.
 - Land target: 32.3 → 32.6 (ramp/draw<=2 14 → 13)
 - Weakest color: Blue → Blue
 - Cast%: 0/58 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: NeedsWork → NeedsWork
+- Land target: 32.3 (unchanged by this flag)
+- Weakest color: Blue → Blue
+- Cast%: 10/58 cards changed · mean |Δ| 0.3 pts · range -1..+3
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Sun Titan | 6 | 53 | 56 | +3 |
+| Aang, Airbending Master | 5 | 77 | 79 | +2 |
+| Deadeye Navigator | 6 | 53 | 55 | +2 |
+| Peregrine Drake | 5 | 78 | 80 | +2 |
+| Venser, the Sojourner | 5 | 78 | 80 | +2 |
+| Y'shtola Rhul | 6 | 53 | 55 | +2 |
+| Charming Prince | 2 | 96 | 95 | -1 |
+| Eldrazi Displacer | 3 | 95 | 94 | -1 |
+| Gossip's Talent | 2 | 96 | 95 | -1 |
+| Quantum Riddler | 5 | 75 | 76 | +1 |
 
 ### Karsten closed-form cross-check (Casual)
 
@@ -155,6 +195,13 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: none → none
 - Cast%: 0/16 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: Healthy → Healthy
+- Land target: 22.8 (unchanged by this flag)
+- Weakest color: none → none
+- Cast%: 0/16 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: Healthy → Healthy
@@ -178,6 +225,13 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 
 - Health: Healthy → Healthy
 - Land target: 28.0 → 28.0 (ramp/draw<=2 20 → 20)
+- Weakest color: none → none
+- Cast%: 0/16 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: Healthy → Healthy
+- Land target: 28.0 (unchanged by this flag)
 - Weakest color: none → none
 - Cast%: 0/16 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
@@ -250,6 +304,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: Green → Green
 - Cast%: 0/39 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: Functional → Healthy
+- Land target: 28.2 (unchanged by this flag)
+- Weakest color: Green → none
+- Cast%: 15/39 cards changed · mean |Δ| 1.3 pts · range +0..+14
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Old Gnawbone | 7 | 71 | 85 | +14 |
+| Grave Titan | 6 | 80 | 89 | +9 |
+| Casualties of War | 6 | 80 | 87 | +7 |
+| Massacre Wurm | 6 | 76 | 82 | +6 |
+| Sidisi, Undead Vizier | 5 | 92 | 95 | +3 |
+| Deadly Rollick | 4 | 97 | 99 | +2 |
+| Abrupt Decay | 2 | 97 | 98 | +1 |
+| Beast Within | 3 | 98 | 99 | +1 |
+| Cultivate | 3 | 98 | 99 | +1 |
+| Grim Haruspex | 3 | 98 | 99 | +1 |
+| Kodama's Reach | 3 | 98 | 99 | +1 |
+| Meren of Clan Nel Toth | 4 | 97 | 98 | +1 |
+| Sheoldred, the Apocalypse | 4 | 94 | 95 | +1 |
+| Victimize | 3 | 98 | 99 | +1 |
+| Wood Elves | 3 | 98 | 99 | +1 |
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: Functional → Functional
@@ -293,6 +372,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Land target: 28.0 → 28.0 (ramp/draw<=2 15 → 11)
 - Weakest color: Green → Green
 - Cast%: 0/39 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: Functional → Functional
+- Land target: 28.0 (unchanged by this flag)
+- Weakest color: Green → Black
+- Cast%: 15/39 cards changed · mean |Δ| 1.3 pts · range +0..+14
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Old Gnawbone | 7 | 71 | 85 | +14 |
+| Grave Titan | 6 | 80 | 89 | +9 |
+| Casualties of War | 6 | 80 | 87 | +7 |
+| Massacre Wurm | 6 | 76 | 82 | +6 |
+| Sidisi, Undead Vizier | 5 | 92 | 95 | +3 |
+| Deadly Rollick | 4 | 97 | 99 | +2 |
+| Abrupt Decay | 2 | 97 | 98 | +1 |
+| Beast Within | 3 | 98 | 99 | +1 |
+| Cultivate | 3 | 98 | 99 | +1 |
+| Grim Haruspex | 3 | 98 | 99 | +1 |
+| Kodama's Reach | 3 | 98 | 99 | +1 |
+| Meren of Clan Nel Toth | 4 | 97 | 98 | +1 |
+| Sheoldred, the Apocalypse | 4 | 94 | 95 | +1 |
+| Victimize | 3 | 98 | 99 | +1 |
+| Wood Elves | 3 | 98 | 99 | +1 |
 
 ### Karsten closed-form cross-check (Casual)
 
@@ -348,6 +452,13 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: Red → Red
 - Cast%: 0/60 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: Workable → Workable
+- Land target: 38.4 (unchanged by this flag)
+- Weakest color: Red → Red
+- Cast%: 0/60 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: NeedsWork → NeedsWork
@@ -374,6 +485,13 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 
 - Health: NeedsWork → NeedsWork
 - Land target: 34.9 → 34.9 (ramp/draw<=2 1 → 1)
+- Weakest color: Red → Red
+- Cast%: 0/60 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: NeedsWork → NeedsWork
+- Land target: 34.9 (unchanged by this flag)
 - Weakest color: Red → Red
 - Cast%: 0/60 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
@@ -443,6 +561,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: Red → Red
 - Cast%: 0/52 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: Functional → Functional
+- Land target: 36.1 (unchanged by this flag)
+- Weakest color: Red → Red
+- Cast%: 27/52 cards changed · mean |Δ| 1.9 pts · range -1..+10
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Archon of Cruelty | 8 | 47 | 57 | +10 |
+| Blasphemous Act | 9 | 36 | 46 | +10 |
+| Colossal Grave-Reaver | 8 | 47 | 57 | +10 |
+| Butcher of Malakir | 7 | 60 | 69 | +9 |
+| Protean Hulk | 7 | 59 | 68 | +9 |
+| Flayer of the Hatebound | 6 | 72 | 79 | +7 |
+| Ziatora, the Incinerator | 6 | 73 | 80 | +7 |
+| Massacre Wurm | 6 | 72 | 78 | +6 |
+| Korvold, Fae-Cursed King | 5 | 89 | 93 | +4 |
+| Tendershoot Dryad | 5 | 89 | 93 | +4 |
+| Living Death | 5 | 89 | 92 | +3 |
+| Mycoloth | 5 | 89 | 92 | +3 |
+| Syr Konrad, the Grim | 5 | 89 | 92 | +3 |
+| Anger | 4 | 94 | 96 | +2 |
+| Chainer, Nightmare Adept | 4 | 94 | 96 | +2 |
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: Functional → Functional
@@ -483,6 +626,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Land target: 32.6 → 32.6 (ramp/draw<=2 18 → 18)
 - Weakest color: Red → Red
 - Cast%: 0/52 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: Functional → Functional
+- Land target: 32.6 (unchanged by this flag)
+- Weakest color: Red → Red
+- Cast%: 27/52 cards changed · mean |Δ| 1.9 pts · range -1..+10
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Archon of Cruelty | 8 | 47 | 57 | +10 |
+| Blasphemous Act | 9 | 36 | 46 | +10 |
+| Colossal Grave-Reaver | 8 | 47 | 57 | +10 |
+| Butcher of Malakir | 7 | 60 | 69 | +9 |
+| Protean Hulk | 7 | 59 | 68 | +9 |
+| Flayer of the Hatebound | 6 | 72 | 79 | +7 |
+| Ziatora, the Incinerator | 6 | 73 | 80 | +7 |
+| Massacre Wurm | 6 | 72 | 78 | +6 |
+| Korvold, Fae-Cursed King | 5 | 89 | 93 | +4 |
+| Tendershoot Dryad | 5 | 89 | 93 | +4 |
+| Living Death | 5 | 89 | 92 | +3 |
+| Mycoloth | 5 | 89 | 92 | +3 |
+| Syr Konrad, the Grim | 5 | 89 | 92 | +3 |
+| Anger | 4 | 94 | 96 | +2 |
+| Chainer, Nightmare Adept | 4 | 94 | 96 | +2 |
 
 ### Karsten closed-form cross-check (Casual)
 
@@ -544,6 +712,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: none → none
 - Cast%: 0/42 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: Healthy → Healthy
+- Land target: 35.1 (unchanged by this flag)
+- Weakest color: none → none
+- Cast%: 15/42 cards changed · mean |Δ| 0.9 pts · range +0..+5
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Angel of the Ruins | 7 | 84 | 89 | +5 |
+| Darksteel Splicer | 7 | 84 | 89 | +5 |
+| Thought Monitor | 7 | 84 | 89 | +5 |
+| Wurmcoil Engine | 6 | 90 | 94 | +4 |
+| Saheeli's Artistry | 6 | 90 | 93 | +3 |
+| Sharuum the Hegemon | 6 | 90 | 93 | +3 |
+| Sun Titan | 6 | 90 | 93 | +3 |
+| Eloise, Nephalia Sleuth | 5 | 97 | 98 | +1 |
+| Fatestitcher | 4 | 98 | 99 | +1 |
+| Karmic Guide | 5 | 96 | 97 | +1 |
+| Mirrorworks | 5 | 97 | 98 | +1 |
+| Padeem, Consul of Innovation | 4 | 98 | 99 | +1 |
+| Phyrexian Delver | 5 | 96 | 97 | +1 |
+| Solemn Simulacrum | 4 | 98 | 99 | +1 |
+| Tezzeret the Seeker | 5 | 96 | 97 | +1 |
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: Functional → Healthy
@@ -578,6 +771,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Land target: 31.6 → 31.6 (ramp/draw<=2 17 → 17)
 - Weakest color: White → White
 - Cast%: 0/42 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: Functional → Healthy
+- Land target: 31.6 (unchanged by this flag)
+- Weakest color: White → none
+- Cast%: 15/42 cards changed · mean |Δ| 0.9 pts · range +0..+5
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Angel of the Ruins | 7 | 84 | 89 | +5 |
+| Darksteel Splicer | 7 | 84 | 89 | +5 |
+| Thought Monitor | 7 | 84 | 89 | +5 |
+| Wurmcoil Engine | 6 | 90 | 94 | +4 |
+| Saheeli's Artistry | 6 | 90 | 93 | +3 |
+| Sharuum the Hegemon | 6 | 90 | 93 | +3 |
+| Sun Titan | 6 | 90 | 93 | +3 |
+| Eloise, Nephalia Sleuth | 5 | 97 | 98 | +1 |
+| Fatestitcher | 4 | 98 | 99 | +1 |
+| Karmic Guide | 5 | 96 | 97 | +1 |
+| Mirrorworks | 5 | 97 | 98 | +1 |
+| Padeem, Consul of Innovation | 4 | 98 | 99 | +1 |
+| Phyrexian Delver | 5 | 96 | 97 | +1 |
+| Solemn Simulacrum | 4 | 98 | 99 | +1 |
+| Tezzeret the Seeker | 5 | 96 | 97 | +1 |
 
 ### Karsten closed-form cross-check (Casual)
 
@@ -661,6 +879,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: White → White
 - Cast%: 0/61 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: NeedsWork → NeedsWork
+- Land target: 34.1 (unchanged by this flag)
+- Weakest color: White → White
+- Cast%: 31/61 cards changed · mean |Δ| 2.4 pts · range -1..+23
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Avenger of Zendikar | 7 | 39 | 62 | +23 |
+| Ancient Greenwarden | 6 | 52 | 70 | +18 |
+| Doubling Season | 5 | 77 | 90 | +13 |
+| The Gitrog Monster | 5 | 76 | 87 | +11 |
+| Ojer Taq, Deepest Foundation // Temple of Civilization | 6 | 37 | 46 | +9 |
+| Titania, Protector of Argoth | 5 | 72 | 81 | +9 |
+| Mirkwood Bats | 4 | 85 | 91 | +6 |
+| Oracle of Mul Daya | 4 | 87 | 93 | +6 |
+| Skyshroud Claim | 4 | 87 | 93 | +6 |
+| Splendid Reclamation | 4 | 87 | 93 | +6 |
+| World Shaper | 4 | 88 | 93 | +5 |
+| Felidar Retreat | 4 | 76 | 79 | +3 |
+| Azusa, Lost but Seeking | 3 | 92 | 94 | +2 |
+| Bala Ged Recovery // Bala Ged Sanctuary | 3 | 92 | 94 | +2 |
+| Conduit of Worlds | 4 | 77 | 79 | +2 |
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: NeedsWork → NeedsWork
@@ -717,6 +960,31 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Land target: 30.6 → 31.2 (ramp/draw<=2 11 → 9)
 - Weakest color: White → White
 - Cast%: 0/61 cards changed · mean |Δ| 0.0 pts · range +0..+0
+
+### Cedh · 70-03b land-ramp-sim
+
+- Health: NeedsWork → NeedsWork
+- Land target: 30.6 (unchanged by this flag)
+- Weakest color: White → White
+- Cast%: 31/61 cards changed · mean |Δ| 2.4 pts · range -1..+23
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Avenger of Zendikar | 7 | 39 | 62 | +23 |
+| Ancient Greenwarden | 6 | 52 | 70 | +18 |
+| Doubling Season | 5 | 77 | 90 | +13 |
+| The Gitrog Monster | 5 | 76 | 87 | +11 |
+| Ojer Taq, Deepest Foundation // Temple of Civilization | 6 | 37 | 46 | +9 |
+| Titania, Protector of Argoth | 5 | 72 | 81 | +9 |
+| Mirkwood Bats | 4 | 85 | 91 | +6 |
+| Oracle of Mul Daya | 4 | 87 | 93 | +6 |
+| Skyshroud Claim | 4 | 87 | 93 | +6 |
+| Splendid Reclamation | 4 | 87 | 93 | +6 |
+| World Shaper | 4 | 88 | 93 | +5 |
+| Felidar Retreat | 4 | 76 | 79 | +3 |
+| Azusa, Lost but Seeking | 3 | 92 | 94 | +2 |
+| Bala Ged Recovery // Bala Ged Sanctuary | 3 | 92 | 94 | +2 |
+| Conduit of Worlds | 4 | 77 | 79 | +2 |
 
 ### Karsten closed-form cross-check (Casual)
 
@@ -782,6 +1050,27 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: White → White
 - Cast%: 0/61 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Casual · 70-03b land-ramp-sim
+
+- Health: Functional → Functional
+- Land target: 39.9 (unchanged by this flag)
+- Weakest color: White → White
+- Cast%: 11/61 cards changed · mean |Δ| 0.4 pts · range -1..+4
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Akroma, Vision of Ixidor | 7 | 37 | 41 | +4 |
+| Sun Titan | 6 | 38 | 42 | +4 |
+| Chronicle of Victory | 6 | 38 | 41 | +3 |
+| Farewell | 6 | 38 | 41 | +3 |
+| The Immortal Sun | 6 | 38 | 41 | +3 |
+| Elspeth Conquers Death | 5 | 64 | 66 | +2 |
+| Elspeth Resplendent | 5 | 65 | 67 | +2 |
+| Armageddon | 4 | 82 | 81 | -1 |
+| Consul's Lieutenant | 2 | 97 | 96 | -1 |
+| Field Marshal | 3 | 93 | 92 | -1 |
+| Savior of Ollenbock | 3 | 93 | 92 | -1 |
+
 ### Cedh · MQ-02 source-mana-quantity
 
 - Health: Functional → Functional
@@ -821,6 +1110,27 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 - Weakest color: White → White
 - Cast%: 0/61 cards changed · mean |Δ| 0.0 pts · range +0..+0
 
+### Cedh · 70-03b land-ramp-sim
+
+- Health: Functional → Functional
+- Land target: 36.4 (unchanged by this flag)
+- Weakest color: White → White
+- Cast%: 11/61 cards changed · mean |Δ| 0.4 pts · range -1..+4
+
+| Card | MV | Off | On | Δ |
+|---|---|---|---|---|
+| Akroma, Vision of Ixidor | 7 | 37 | 41 | +4 |
+| Sun Titan | 6 | 38 | 42 | +4 |
+| Chronicle of Victory | 6 | 38 | 41 | +3 |
+| Farewell | 6 | 38 | 41 | +3 |
+| The Immortal Sun | 6 | 38 | 41 | +3 |
+| Elspeth Conquers Death | 5 | 64 | 66 | +2 |
+| Elspeth Resplendent | 5 | 65 | 67 | +2 |
+| Armageddon | 4 | 82 | 81 | -1 |
+| Consul's Lieutenant | 2 | 97 | 96 | -1 |
+| Field Marshal | 3 | 93 | 92 | -1 |
+| Savior of Ollenbock | 3 | 93 | 92 | -1 |
+
 ### Karsten closed-form cross-check (Casual)
 
 Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metric). Multi-color cards: our sim requires ALL colors jointly, so sim ≤ Karsten-hardest-single is expected.
@@ -844,3 +1154,32 @@ Karsten = P(≥T lands) × hardest-color CastConsistency (the Snail/Karsten metr
 | Teshar, Ancestor's Apostle | 4 | 56 | 82 | 83 | +27 |
 | The One Ring | 4 | 56 | 81 | 83 | +27 |
 
+
+---
+
+## 70-03b land-ramp-sim baseline (added 2026-06-24)
+
+Each flag is isolated vs the all-off baseline. `land-ramp-sim` is the **most impactful** of the four —
+it models the fetched-land mana the sim previously ignored, so cast% rises on ramp decks and, unlike
+MQ-02/03/05, the **Health verdict moves** (always *upward* — previously under-rated decks improve):
+
+| Deck | Health Δ | Cast% |
+|---|---|---|
+| Brago (WU, Solemn etc.) | NeedsWork → **Functional** | 10/58, mean 0.3, −1..+3 |
+| Kenrith 5c | Healthy → Healthy | 0/16 |
+| Meren Golgari ramp | Functional → **Healthy** | 15/39, mean 1.3, 0..+14 |
+| Marchesa | Workable → Workable | 0/60 |
+| graveyard fungus | Functional → Functional | 27/52, mean 1.9, −1..+10 |
+| Town(os) | Healthy → Healthy | 15/42, mean 0.9, 0..+5 |
+| Necrobloom | NeedsWork → NeedsWork | 31/61, mean 2.4, −1..+23 |
+| army-now | Functional → Functional | 11/61, mean 0.4, −1..+4 |
+
+**Read:** the two Health flips are *corrections* — those decks were under-rated because the sim
+credited the regression's land-ramp on the target side but modeled no extra mana, so expensive
+payoffs read too low. Large single-card swings (+14 / +23) are on the very payoffs the ramp exists to
+cast. No deck got *worse*. (Baseline is vs all-off; prod already runs MQ-02/03/05 ON, but the
+land-ramp source is orthogonal to those, so the marginal effect is the same.)
+
+**Recommendation: flip `manabase.land-ramp-sim` ON** — it is the accuracy fix the sim was missing, and
+it only ever improves (never inflates beyond what the ramp casts). It is the only flag that shifts the
+verdict, so it is the most consequential call.
