@@ -212,7 +212,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             builder.AppendLine("cards:");
             foreach (var card in item.Cards)
             {
-                builder.AppendLine($"{card.Name} | {card.ManaCost ?? string.Empty} | {card.TypeLine} | {NormalizeOracleText(card)}");
+                builder.AppendLine($"{card.Name} | {ResolveManaCost(card) ?? string.Empty} | {card.TypeLine} | {NormalizeOracleText(card)}");
             }
         }
 
@@ -300,13 +300,50 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         {
             parts.Add(CollapseWhitespace(card.OracleText));
         }
-
-        if (!string.IsNullOrWhiteSpace(card.Power) && !string.IsNullOrWhiteSpace(card.Toughness))
+        else if (card.CardFaces is { Count: > 0 })
         {
-            parts.Add($"{card.Power}/{card.Toughness}");
+            // Why: transform/MDFC cards leave parent oracle_text null; the real text
+            // (often the back-face payoff) lives only in card_faces[].
+            foreach (var face in card.CardFaces)
+            {
+                if (!string.IsNullOrWhiteSpace(face.OracleText))
+                {
+                    parts.Add(CollapseWhitespace(face.OracleText));
+                }
+            }
+        }
+
+        var power = card.Power;
+        var toughness = card.Toughness;
+        if ((string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness)) && card.CardFaces is { Count: > 0 })
+        {
+            // Why: parent P/T are empty on DFCs; fall back to the front (cast) face.
+            power = card.CardFaces[0].Power;
+            toughness = card.CardFaces[0].Toughness;
+        }
+
+        if (!string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness))
+        {
+            parts.Add($"{power}/{toughness}");
         }
 
         return string.Join(" ", parts);
+    }
+
+    private static string? ResolveManaCost(ScryfallCard card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.ManaCost))
+        {
+            return card.ManaCost;
+        }
+
+        // Why: transform/MDFC parent mana_cost is empty; the castable cost is on the front face.
+        if (card.CardFaces is { Count: > 0 })
+        {
+            return card.CardFaces[0].ManaCost;
+        }
+
+        return card.ManaCost;
     }
 
     private static string CollapseWhitespace(string value)
@@ -318,7 +355,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             .Select(card => new { Card = card, Score = ScoreSetCard(card) })
             .Where(entry => entry.Score > 0)
             .OrderByDescending(entry => entry.Score)
-            .ThenBy(entry => ParseManaValue(entry.Card.ManaCost))
+            .ThenBy(entry => ParseManaValue(ResolveManaCost(entry.Card)))
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Take(MaxCardsPerSetPacket)
             .Select(entry => entry.Card)
@@ -365,7 +402,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
 
         score += ScoreTextSignals(oracleText);
 
-        var manaValue = ParseManaValue(card.ManaCost);
+        var manaValue = ParseManaValue(ResolveManaCost(card));
         if (manaValue <= 2)
         {
             score += 3;
