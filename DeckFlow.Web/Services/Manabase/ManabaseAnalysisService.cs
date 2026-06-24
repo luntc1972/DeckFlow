@@ -183,8 +183,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // MQ-05: read the color-aware-mulligan flag and pass it down. Fail-safe OFF, same as the others.
         bool colorAwareMulligan = IsFlagOn(ColorAwareMulliganFlagKey);
 
+        // P4 gated-ramp shares the land-ramp-sim flag: when ramp is modeled in the sim, also gate its
+        // credit on the ramp's own colored cost being payable (mirrors 17Lands; corrects the optimism).
         ManabaseReport report = ManabaseAnalyzer.Analyze(
-            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides, useManaQuantity, colorAwareMulligan);
+            resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
+            useManaQuantity, colorAwareMulligan, gateRampOnCastable: landRampSim);
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
 
