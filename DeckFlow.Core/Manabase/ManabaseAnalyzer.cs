@@ -620,9 +620,14 @@ public static class ManabaseAnalyzer
         return CastabilitySimulator.Simulate(deck, librarySize, probe, onCurveTurn, genericReduction: 0, trials).CastPercent;
     }
 
-    // WeakestColor / ordering = tail-risk-first composite (NOT mean alone): any under-supported
-    // first, then worst single-spell cast %, then mean cast %, then deficit. A Central commander
-    // color below its threshold is promoted ahead of the composite.
+    // WeakestColor / ordering = MOST-ACTIONABLE-first: the color whose mana a deck-builder can most
+    // usefully shore up leads. We rank color-FIXABLE shortfall ahead of raw tail risk so a single
+    // curve-limited bomb (short on mana, not color — e.g. The Skullspore Nexus) never crowns an
+    // otherwise over-supported color "weakest". Order: a below-threshold Central commander color,
+    // then color-limited under-support breadth (adding a source actually helps), then a raw source
+    // deficit, then worst single-spell cast % (tail risk), then mean cast %. This mirrors a
+    // marginal-value read (which color's extra source removes the most delay) rather than
+    // worst-single-card alone.
     private static IReadOnlyList<ColorSourceFinding> OrderFindings(
         List<ColorSourceFinding> findings,
         ManabaseDeck deck,
@@ -634,10 +639,10 @@ public static class ManabaseAnalyzer
         return findings
             .OrderByDescending(f => central && commanderColors.Contains(f.Color)
                 && f.WorstSpellCastPercent < ColorThreshold(f.Color, mode, importance, commanderColors))
-            .ThenByDescending(f => f.UnderSupportedCount > 0)
+            .ThenByDescending(f => f.ColorLimitedUnderSupportedCount)
+            .ThenByDescending(f => f.Deficit)
             .ThenBy(f => f.WorstSpellCastPercent)
             .ThenBy(f => f.AverageCastPercent)
-            .ThenByDescending(f => f.Deficit)
             .ToList();
     }
 

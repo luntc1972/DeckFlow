@@ -62,18 +62,66 @@ public sealed class ManabasePrimaryFixTests
     public void NoColorShortButLandsShort_RecommendsAddingLands()
     {
         // The reported bug's shape: both colors raw-adequate (surplus) but under-supported, and the
-        // land count is short. Must point at lands, never "add ~-14 sources".
+        // land count is short. Must point at lands, never "add ~-14 sources". Green's 12/44
+        // under-supported (> tolerance ceil(44·0.15)=7) is broad enough that the sim CORROBORATES the
+        // land shortfall — so the land advice is genuine and survives the ramp-cover gate.
         ManabaseReport report = Report(
             actualLands: 36,
             targetLands: 37.4,
-            Finding(ManaColor.Green, actual: 28.5, required: 14, underSupported: 7),
+            Finding(ManaColor.Green, actual: 28.5, required: 14, underSupported: 12),
             Finding(ManaColor.Red, actual: 23.5, required: 14, underSupported: 2));
 
         ManabasePrimaryFix fix = report.PrimaryFix;
 
+        Assert.False(report.LandShortfallCoveredByRamp);
         Assert.Equal(ManabaseFixKind.Lands, fix.Kind);
         Assert.Equal(2, fix.Amount); // ceil(37.4 - 36) = ceil(1.4) = 2
         Assert.Null(fix.Color);
+    }
+
+    [Fact]
+    public void LandShortButSimClean_DoesNotRecommendLands()
+    {
+        // Disa-the-Restless shape: land-light on the Karsten count (36 vs 37.4) but every color is
+        // over-supported and only a hair under-supported (1/44 green, 0/10 red, both within
+        // tolerance). Cheap ramp covers the paper gap, so "add lands" would contradict the Solid
+        // verdict — the callout must fall through to demanding-card / no-op guidance, never Lands.
+        ManabaseReport report = Report(
+            actualLands: 36,
+            targetLands: 37.4,
+            Finding(ManaColor.Green, actual: 28.5, required: 14, underSupported: 1, worst: "Eldritch Evolution"),
+            Finding(ManaColor.Red, actual: 23.5, required: 14, underSupported: 0));
+
+        Assert.True(report.LandShortfallCoveredByRamp);
+        Assert.NotEqual(ManabaseFixKind.Lands, report.PrimaryFix.Kind);
+    }
+
+    [Fact]
+    public void LandShortfallCoveredByRamp_FalseWhenLandsAdequate()
+    {
+        // Land count fine (within one of target) — the property only ever fires on a real paper
+        // shortfall, so an adequate base is never "covered by ramp".
+        ManabaseReport report = Report(
+            actualLands: 38,
+            targetLands: 37.4,
+            Finding(ManaColor.Green, actual: 28.5, required: 14, underSupported: 0),
+            Finding(ManaColor.Red, actual: 23.5, required: 14, underSupported: 0));
+
+        Assert.False(report.LandShortfallCoveredByRamp);
+    }
+
+    [Fact]
+    public void LandShortfallCoveredByRamp_FalseWhenColorRawShort()
+    {
+        // Land-light AND a color is genuinely raw-short (Green 10 vs 15) — a real problem the base
+        // can fix, so the shortfall is NOT covered and land/color advice still applies.
+        ManabaseReport report = Report(
+            actualLands: 36,
+            targetLands: 37.4,
+            Finding(ManaColor.Green, actual: 10.0, required: 15, underSupported: 5, driving: "Craterhoof"),
+            Finding(ManaColor.Red, actual: 23.5, required: 14, underSupported: 0));
+
+        Assert.False(report.LandShortfallCoveredByRamp);
     }
 
     [Fact]
