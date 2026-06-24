@@ -129,6 +129,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string ColorAwareMulliganFlagKey = "manabase.color-aware-mulligan";
 
+    /// <summary>
+    /// MQ-03 70-03b flag key: when enabled, repeatable land-ramp spells (Cultivate / Rampant Growth)
+    /// are modeled in the castability simulator as colorless ramp sources so the fetched land's mana is
+    /// credited (closing the sim ↔ regression gap). Seeded OFF until its baseline diff is reviewed.
+    /// </summary>
+    public const string LandRampSimFlagKey = "manabase.land-ramp-sim";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -159,11 +166,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     {
         options ??= new ManabaseAnalysisOptions();
 
-        // MQ-03: read BEFORE classification — the ramp/draw land-target credit is computed in the
-        // classifier, so reading it after Resolve would be too late.
+        // MQ-03: read BEFORE classification — the ramp/draw land-target credit AND the 70-03b land-ramp
+        // sim source are both built in the classifier, so reading them after Resolve would be too late.
         bool rampCreditV2 = IsFlagOn(RampCreditV2FlagKey);
+        bool landRampSim = IsFlagOn(LandRampSimFlagKey);
 
-        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2, cancellationToken)
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2, landRampSim, cancellationToken)
             .ConfigureAwait(false);
 
         // MQ-02: read the flag and pass it down, so the simulator stays a pure function of its
@@ -190,9 +198,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string deckSource,
         CancellationToken cancellationToken = default)
     {
-        // Load surfaces cost suggestions only; the ramp-credit land target is not used here, so the
-        // flag value is immaterial — pass false.
-        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2: false, cancellationToken)
+        // Load surfaces cost suggestions only; neither the ramp-credit land target nor the land-ramp sim
+        // source is used here, so the flag values are immaterial — pass false.
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2: false, landRampSim: false, cancellationToken)
             .ConfigureAwait(false);
 
         // No simulation here — Load just surfaces the detected cost suggestions for review/edit.
@@ -213,6 +221,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     private async Task<ResolvedManabaseDeck> ResolveAndClassifyAsync(
         string deckSource,
         bool rampCreditV2,
+        bool landRampSim,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(deckSource))
@@ -294,7 +303,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim);
 
         string decklistText = string.Join(
             "\n",

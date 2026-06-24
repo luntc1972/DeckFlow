@@ -9,9 +9,9 @@ namespace DeckFlow.Web.Tests;
 
 /// <summary>
 /// Guards the seed contract for the manabase accuracy feature flags. After the Phase-70 flag baseline
-/// (8 decks, no verdict flips), MQ-02/03/05 ship ON by default for fresh databases, so the seed must
-/// set these keys TRUE in SQLite. (Existing databases keep their stored value — the seed is
-/// ON CONFLICT DO NOTHING — so production is flipped by an operator toggle, not by this seed.)
+/// (8 decks, no verdict flips), MQ-02/03/05 ship ON by default for fresh databases; the 70-03b
+/// land-ramp-sim flag ships OFF (pending its own baseline). The seed is ON CONFLICT DO NOTHING, so
+/// existing databases keep their stored value — production is flipped by an operator toggle, not here.
 /// </summary>
 public sealed class FeatureFlagStoreSeedTests : IDisposable
 {
@@ -29,10 +29,11 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     }
 
     [Theory]
-    [InlineData("manabase.color-aware-mulligan")] // MQ-05
-    [InlineData("manabase.source-mana-quantity")] // MQ-02
-    [InlineData("manabase.ramp-credit-v2")]       // MQ-03
-    public async Task EnsureSchema_SeedsManabaseAccuracyFlags_On(string key)
+    [InlineData("manabase.color-aware-mulligan", true)] // MQ-05
+    [InlineData("manabase.source-mana-quantity", true)] // MQ-02
+    [InlineData("manabase.ramp-credit-v2", true)]       // MQ-03
+    [InlineData("manabase.land-ramp-sim", false)]       // MQ-03 70-03b (pending baseline)
+    public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);
         await store.EnsureSchemaAsync();
@@ -40,6 +41,6 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
         var flags = await store.GetAllAsync();
 
         Assert.True(flags.ContainsKey(key), $"seed missing for '{key}'");
-        Assert.True(flags[key], $"'{key}' must be seeded ON");
+        Assert.Equal(expectedOn, flags[key]);
     }
 }
