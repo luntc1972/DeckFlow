@@ -416,6 +416,23 @@
         }
     </section>
 
+    @* Download mini-form: re-posts the same deck inputs to /manabase/download so the server
+       can re-run the analysis and return the report as a text file. This form is a separate
+       <form> element because the result panel is rendered outside the main analyze <form>
+       and cannot use a formaction= button inside it. All hidden inputs mirror the analyze
+       form's field names exactly so model-binding produces an identical ManabaseRequest. *@
+    <form method="post" action="@Url.Content("~/manabase/download")" class="toolbar manabase-download">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="DeckInputSource" value="@Model.Request.DeckInputSource" />
+        <input type="hidden" name="DeckUrl" value="@Model.Request.DeckUrl" />
+        <input type="hidden" name="DeckText" value="@Model.Request.DeckText" />
+        <input type="hidden" name="DeckName" value="@Model.Request.DeckName" />
+        <input type="hidden" name="Mode" value="@Model.Request.Mode" />
+        <input type="hidden" name="CommanderImportance" value="@Model.Request.CommanderImportance" />
+        <input type="hidden" name="CostOverridesText" value="@Model.Request.CostOverridesText" />
+        <button type="submit" class="run-button manabase-download-button" data-no-busy>Download analysis (.txt)</button>
+    </form>
+
     @if (!string.IsNullOrWhiteSpace(Model.ChatGptSwapPrompt))
     {
         <details class="result-panel nested-panel">
