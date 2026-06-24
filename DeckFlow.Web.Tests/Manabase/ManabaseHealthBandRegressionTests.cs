@@ -13,15 +13,17 @@ namespace DeckFlow.Web.Tests.Manabase;
 /// because Suki, Courageous Rescuer is color:White-limited below the 80% threshold AND
 /// ColorLimitedUnderSupportedCount >= 1 (Gate C condition).
 ///
-/// The test reads the Avatar facts cache directly — no HTTP — so it runs in CI without
-/// any network dependency.
+/// The test reads a committed Avatar facts fixture directly — no HTTP — so it runs in CI
+/// without any network dependency.
 /// </summary>
 public sealed class ManabaseHealthBandRegressionTests
 {
-    // Path to the committed Avatar facts cache. Re-derives ManaAmount from OracleText on
-    // load (same as the baseline harness) to survive older cache formats.
+    // Path to the committed Avatar facts fixture (copied next to the test assembly via the
+    // csproj Content item, so it is present in CI with no network dependency). Re-derives
+    // ManaAmount from OracleText on load (same as the baseline harness) to survive older
+    // cache formats.
     private static readonly string FactsCachePath =
-        Path.Combine(RepoRoot(), ".manabase-avatar-facts.json");
+        Path.Combine(AppContext.BaseDirectory, "Manabase", "avatar-facts.json");
 
     [Fact]
     public async Task Avatar_FlagOff_BandIsSolid()
@@ -64,16 +66,5 @@ public sealed class ManabaseHealthBandRegressionTests
 
         // Re-derive ManaAmount from oracle text: older caches may predate this field.
         return facts.Select(f => f with { ManaAmount = ManaProductionAmount.Parse(f.OracleText) }).ToList();
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeckFlow.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
     }
 }
