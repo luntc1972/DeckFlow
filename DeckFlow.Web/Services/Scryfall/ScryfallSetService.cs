@@ -315,9 +315,14 @@ public sealed partial class ScryfallSetService : IScryfallSetService
 
         var power = card.Power;
         var toughness = card.Toughness;
-        if ((string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness)) && card.CardFaces is { Count: > 0 })
+        if (string.IsNullOrWhiteSpace(card.OracleText)
+            && (string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness))
+            && card.CardFaces is { Count: > 0 })
         {
-            // Why: parent P/T are empty on DFCs; fall back to the front (cast) face.
+            // Why: only fall back to the front (cast) face P/T for genuine transform/MDFC
+            // cards (parent oracle_text empty). Gating on the same parent-empty condition as
+            // the text fallback avoids P/T drift on split/adventure cards that carry parent
+            // oracle text but no parent P/T.
             power = card.CardFaces[0].Power;
             toughness = card.CardFaces[0].Toughness;
         }
