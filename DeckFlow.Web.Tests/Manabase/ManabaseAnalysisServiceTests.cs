@@ -105,6 +105,73 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_LandRampSimFlag_RaisesPayoffCast_FailsSafeOff()
+    {
+        // 70-03b plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into Classify, so
+        // repeatable land-ramp is modeled as colorless ramp in the sim. On a Forest + Cultivate deck the
+        // expensive {6}{G} payoff casts more often when the flag is on; without a cache it does not.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+        const string ramp = "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.";
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Azusa, Lost but Seeking", 1, "commander", set: "chk", cn: "212"),
+            Land("Forest", 33),
+            Entry("Rampant Growth", 1, "mainboard"),
+            Entry("Nature's Lore", 1, "mainboard"),
+            Entry("Three Visits", 1, "mainboard"),
+            Entry("Cultivate", 1, "mainboard"),
+            Entry("Kodama's Reach", 1, "mainboard"),
+            Entry("Big Green", 1, "mainboard"),
+        };
+        for (int i = 0; i < 55; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        List<ScryfallCard> Cards()
+        {
+            var cards = new List<ScryfallCard>
+            {
+                BasicLand("Forest", "G"),
+                Spell("Azusa, Lost but Seeking", "{2}{G}", 3, "Legendary Creature — Human Monk"),
+                Oracle("Rampant Growth", "{1}{G}", 2, "Sorcery", ramp),
+                Oracle("Nature's Lore", "{1}{G}", 2, "Sorcery", ramp),
+                Oracle("Three Visits", "{1}{G}", 2, "Sorcery", ramp),
+                Oracle("Cultivate", "{2}{G}", 3, "Sorcery", ramp),
+                Oracle("Kodama's Reach", "{2}{G}", 3, "Sorcery", ramp),
+                Oracle("Big Green", "{6}{G}", 7, "Creature — Hydra", "Trample."),
+            };
+            for (int i = 0; i < 55; i++)
+            {
+                cards.Add(Oracle($"Filler {i}", "{3}", 3, "Artifact", "Does nothing."));
+            }
+
+            return cards;
+        }
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.land-ramp-sim"] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        int castOff = rOff.Report.Castability.First(c => c.Name == "Big Green").CastPercent;
+        int castOn = rOn.Report.Castability.First(c => c.Name == "Big Green").CastPercent;
+
+        Assert.True(castOn > castOff, $"land-ramp sim should raise the payoff's cast% (off={castOff}, on={castOn})");
+        // Colorless ramp source → land total + color verdict unchanged.
+        Assert.Equal(rOff.Report.TargetLands, rOn.Report.TargetLands);
+        Assert.Equal(rOff.Report.ActualLands, rOn.Report.ActualLands);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_ColorAwareMulliganFlag_ChangesCast_FailsSafeOff()
     {
         // MQ-05 plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into the analyzer

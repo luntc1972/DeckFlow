@@ -149,7 +149,9 @@ public static class CastabilitySimulator
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(spell);
 
-        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity);
+        // 70-03b: exclude one same-name land-ramp source when scoring this spell's own row (a card
+        // cannot ramp itself out). No-op unless this spell is a modeled land-ramp source.
+        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity, excludeSourceName: spell.Name);
 
         // MQ-05: distinct colors the deck actually demands across all spell pips (capped at 5). Only
         // computed when the flag is on; <=1 makes the color gate a no-op (mono decks stay identical).
@@ -260,7 +262,7 @@ public static class CastabilitySimulator
 
     // ---- library construction -------------------------------------------------------------
 
-    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity)
+    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity, string? excludeSourceName)
     {
         var cards = new List<LibraryCard>(librarySize);
 
@@ -284,7 +286,7 @@ public static class CastabilitySimulator
         //    enabler fully is out of scope. Their whole part becomes full copies and any leftover fraction
         //    becomes ONE partial card carrying that fraction as its activation probability, so a 0.25
         //    source produces mana in ~25% of games (E[copies] = weight).
-        AddSourcesAsCards(deck, cards, rampCostByName, useManaQuantity);
+        AddSourcesAsCards(deck, cards, rampCostByName, useManaQuantity, excludeSourceName);
 
         // Pad/truncate to the real library size with filler so draw probabilities match the deck.
         int sourceCards = cards.Count;
@@ -305,8 +307,15 @@ public static class CastabilitySimulator
         ManabaseDeck deck,
         List<LibraryCard> cards,
         IReadOnlyDictionary<string, int> rampCostByName,
-        bool useManaQuantity)
+        bool useManaQuantity,
+        string? excludeSourceName)
     {
+        // 70-03b self-exclusion: when scoring a land-ramp spell's OWN row, the single physical copy is
+        // the spell being cast, so it must not ALSO be drawable as a ramp source in the same game. Skip
+        // ONE matching MODELED LAND-RAMP source (DeployCost set is the unique marker — rocks/dorks and
+        // MDFC spell-back sources leave it null, so they are never excluded; off-path is byte-identical).
+        bool excludedOne = false;
+
         foreach (ManaSource source in deck.Sources)
         {
             // Command-zone sources (a mana-producing commander, or the commander as a granted
@@ -315,6 +324,14 @@ public static class CastabilitySimulator
             // both let the sim "draw" the commander and truncate a real card to make room.
             if (source.IsCommander)
             {
+                continue;
+            }
+
+            if (!excludedOne && !source.IsLand && source.DeployCost is not null
+                && excludeSourceName is not null
+                && string.Equals(source.Name, excludeSourceName, StringComparison.Ordinal))
+            {
+                excludedOne = true;
                 continue;
             }
 
@@ -338,7 +355,10 @@ public static class CastabilitySimulator
             string baseName = source.Name.EndsWith(" (granted)", StringComparison.Ordinal)
                 ? source.Name[..^" (granted)".Length]
                 : source.Name;
-            int deployCost = rampCostByName.TryGetValue(baseName, out int mv) ? mv : 2;
+            // 70-03b: an explicit DeployCost wins (modeled land-ramp, which has no IsManaSource spell
+            // row to key off); otherwise resolve from the matching mana-source spell, default turn-2.
+            int deployCost = source.DeployCost
+                ?? (rampCostByName.TryGetValue(baseName, out int mv) ? mv : 2);
             AddWeighted(cards, CardKind.Ramp, mask, deployCost, source.Weight, source.IsConditional, amount);
         }
     }

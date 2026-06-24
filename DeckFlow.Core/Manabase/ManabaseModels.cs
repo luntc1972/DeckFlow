@@ -35,6 +35,15 @@ public sealed record ManaSource
     public int ManaAmount { get; init; } = 1;
 
     /// <summary>
+    /// MQ-03 (70-03b): explicit ramp deploy cost (the turn-cost to bring this non-land source online).
+    /// <see langword="null"/> (default) means "resolve it the old way" — the simulator looks the cost up
+    /// from the matching mana-source spell. Set only for sources that have no <c>IsManaSource</c> spell
+    /// row to key off, namely modeled land-ramp spells (Cultivate etc.), where it is the spell's mana
+    /// value. Lands ignore it.
+    /// </summary>
+    public int? DeployCost { get; init; }
+
+    /// <summary>
     /// True only for ENABLER-CONDITIONAL sources whose production depends on a separate permanent
     /// staying alive — the any-color sources granted by Cryptolith Rite / Relic of Legends et al.
     /// (see <c>AddGrantedSources</c>). These are genuinely speculative (the granter must resolve AND

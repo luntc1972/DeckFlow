@@ -43,7 +43,14 @@ public static class ManabaseClassifier
     /// ramp, land-ramp onto the battlefield) and true card draw earn the −0.28 credit; one-shot
     /// rituals and Treasure-makers no longer do. Affects only <see cref="ManabaseDeck.RampAndDrawUnderThree"/>.
     /// </param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false)
+    /// <param name="landRampSim">
+    /// MQ-03 70-03b flag. When true, repeatable land-ramp-to-battlefield spells (Cultivate / Rampant
+    /// Growth) are added to <see cref="ManabaseDeck.Sources"/> as colorless, non-land ramp sources
+    /// (deploy cost = the spell's mana value) so the castability simulator models the fetched land's
+    /// mana. Colorless + non-land → never changes color counts or the land total. When false (default),
+    /// no such source is added (byte-identical sim).
+    /// </param>
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -130,6 +137,25 @@ public static class ManabaseClassifier
             }
 
             AddPartialSources(sources, card);
+
+            // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
+            // the simulator credits the fetched land's mana. Colorless (Produces empty) → no color-count
+            // change; non-land → no land-count / mulligan inflation; deploy cost = the spell's MV.
+            if (landRampSim && IsLandRampToBattlefield(card))
+            {
+                for (int i = 0; i < card.Quantity; i++)
+                {
+                    sources.Add(new ManaSource
+                    {
+                        Name = card.Name,
+                        Produces = System.Array.Empty<ManaColor>(),
+                        IsLand = false,
+                        Weight = 1.0,
+                        ManaAmount = 1,
+                        DeployCost = Math.Max(1, (int)Math.Round(card.ManaValue, MidpointRounding.AwayFromZero)),
+                    });
+                }
+            }
 
             // Detect always-on static cost reducers and mana-ability granters (one per copy).
             CostReducer? reducer = DetectCostReducer(card);
@@ -530,10 +556,7 @@ public static class ManabaseClassifier
             return true;
         }
 
-        bool landToBattlefield = text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
-            && text.Contains("land", StringComparison.OrdinalIgnoreCase)
-            && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
-        if (landToBattlefield)
+        if (IsLandRampToBattlefield(card))
         {
             return true;
         }
@@ -546,6 +569,17 @@ public static class ManabaseClassifier
         string frontText = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
         bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
         return permanent && frontText.Contains("Add ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 70-03b: repeatable land-ramp that puts a land ONTO THE BATTLEFIELD (Cultivate / Rampant Growth /
+    // Nature's Lore) — persistent mana access. Land-search-to-HAND does not count. Shared by the MQ-03
+    // land-target credit (IsRepeatableRampOrDraw) and the land-ramp sim source, so the two never drift.
+    private static bool IsLandRampToBattlefield(CardFact card)
+    {
+        string text = card.OracleText ?? string.Empty;
+        return text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("land", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsMythic(CardFact card) =>
