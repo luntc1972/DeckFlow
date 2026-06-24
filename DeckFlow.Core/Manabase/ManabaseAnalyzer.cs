@@ -120,6 +120,10 @@ public static class ManabaseAnalyzer
             // land-backs (weight 0.8+, which are lands, not ramp pieces) so the at-a-glance count
             // matches its label instead of over-reporting every non-land source.
             RampSourceCount = deck.Sources.Count(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75),
+            // Project the SAME rock/dork predicate to names so the disclosure lists exactly what the
+            // count credited; de-dup by name preserving first-seen (deck) order.
+            RampSourceNames = deck.Sources.Where(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75).Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            RampAndDrawNames = deck.RampAndDrawNames,
             UnsupportedInteractions = deck.UnsupportedInteractions,
             Summary = summary,
         };

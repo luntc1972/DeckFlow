@@ -227,6 +227,9 @@ public sealed record ManabaseDeck
     /// <summary>Count of ramp/card-draw spells of mana value 2 or less.</summary>
     public int RampAndDrawUnderThree { get; init; }
 
+    /// <summary>Names of the ≤2 MV ramp/draw cards credited above, de-duplicated, in deck order.</summary>
+    public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
+
     /// <summary>Count of non-mythic land/spell MDFCs (each ≈ 0.74 land off the target).</summary>
     public int MdfcCommon { get; init; }
 
@@ -768,6 +771,19 @@ public sealed record ManabaseReport
     /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
     /// </summary>
     public int RampSourceCount { get; init; }
+
+    /// <summary>
+    /// Names of the mana rocks/dorks counted by <see cref="RampSourceCount"/> (the exact
+    /// <c>!IsLand &amp;&amp; !IsConditional &amp;&amp; Weight &lt;= 0.75</c> predicate), de-duplicated by name in
+    /// deck order. Surfaced in the Ramp disclosure so the user can verify what was credited.
+    /// </summary>
+    public IReadOnlyList<string> RampSourceNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Names of the ≤2 MV ramp/draw cards counted by <see cref="ManabaseLandTargetBreakdown.RampAndDrawUnderThree"/>,
+    /// de-duplicated by name in deck order. Surfaced in the Ramp disclosure.
+    /// </summary>
+    public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
 
     /// <summary>
     /// Cards the analysis cannot fully model (X/variable costs skipped from castability;

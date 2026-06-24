@@ -78,6 +78,7 @@ public static class ManabaseClassifier
         double mvSum = 0;
         int nonlandCount = 0;
         int rampUnderThree = 0;
+        var rampNames = new List<string>();
         int mdfcCommon = 0;
         int mdfcMythic = 0;
         int fastMana = 0;
@@ -171,6 +172,7 @@ public static class ManabaseClassifier
             if (card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
             {
                 rampUnderThree += card.Quantity;
+                rampNames.Add(card.Name);
             }
 
             // Tally land-count formula adjustments (MDFC spell-backs, 0-cost fast mana).
@@ -259,6 +261,7 @@ public static class ManabaseClassifier
             Spells = spells,
             AverageManaValue = Math.Round(avgMv, 2),
             RampAndDrawUnderThree = rampUnderThree,
+            RampAndDrawNames = rampNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             MdfcCommon = mdfcCommon,
             MdfcMythic = mdfcMythic,
             FastMana = fastMana,
