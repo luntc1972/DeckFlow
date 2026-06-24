@@ -2272,6 +2272,15 @@ label.field > span,
   text-decoration: none;
 }
 
+/* Download analysis mini-form: left-aligned single-button toolbar matching manabase-actions
+   spacing so it sits flush with the result panel content below the result section. */
+.toolbar.manabase-download {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 /* Hero "How it works" disclosure: keeps the long methodology copy off the first
    screen (esp. mobile) so the page purpose + tool are reachable immediately. */
 .hero-detail {

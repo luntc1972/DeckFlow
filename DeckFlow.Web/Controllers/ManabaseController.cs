@@ -1,3 +1,4 @@
+using System.Text;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
@@ -192,6 +193,91 @@ public sealed class ManabaseController : DeckToolControllerBase
             // Last-resort boundary so an unexpected parser/runtime fault renders a friendly
             // error on this public form instead of a raw 500.
             _logger.LogError(exception, "Mana-base analysis failed unexpectedly.");
+            return View("Manabase", new ManabaseViewModel
+            {
+                Request = request,
+                ErrorMessage = "Something went wrong analyzing that deck. Please try again.",
+            });
+        }
+    }
+
+    /// <summary>
+    /// Re-runs the mana-base analysis for the submitted deck and returns the full report as a
+    /// paste-ready text file attachment (<c>manabase-analysis-{timestamp}.txt</c>). Mirrors the
+    /// analyze action body exactly so the download and the on-page verdict are always consistent.
+    /// Failures re-render the Manabase view with a friendly error rather than returning a 500.
+    /// </summary>
+    /// <param name="request">The form-bound deck input (re-posted by the mini download form).</param>
+    [HttpPost("/manabase/download")]
+    [ValidateAntiForgeryToken]
+    [FeatureFlagGate("feature.manabase.enabled",
+        Title = "Mana Base analyzer unavailable",
+        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
+    public async Task<IActionResult> Download(ManabaseRequest request)
+    {
+        request ??= new ManabaseRequest();
+
+        // Mirror the analyze action's MEDIUM-1 guard: coerce out-of-range enum values so a
+        // hand-crafted POST cannot reach the service with an invalid mode or importance.
+        request.Mode = Enum.IsDefined(typeof(ManabaseMode), request.Mode) ? request.Mode : ManabaseMode.Casual;
+        request.CommanderImportance = Enum.IsDefined(typeof(CommanderImportance), request.CommanderImportance)
+            ? request.CommanderImportance
+            : CommanderImportance.Standard;
+
+        using var timeoutScope = CreateTimeoutScope(LookupTimeout);
+
+        try
+        {
+            var result = await _manabaseAnalysisService.AnalyzeAsync(
+                request.DeckSource,
+                request.DeckName,
+                new ManabaseAnalysisOptions
+                {
+                    Mode = request.Mode,
+                    CommanderImportance = request.CommanderImportance,
+                    CostOverrides = ManabaseCostOverrideParser.Parse(request.CostOverridesText),
+                },
+                timeoutScope.Token);
+
+            string text = ManabaseReportTextBuilder.Build(
+                result.Report, request.DeckName, decklistText: null, request.Mode);
+            string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+
+            return File(
+                Encoding.UTF8.GetBytes(text),
+                "text/plain; charset=utf-8",
+                $"manabase-analysis-{timestamp}.txt");
+        }
+        catch (OperationCanceledException) when (timeoutScope.IsCancellationRequested)
+        {
+            _logger.LogInformation("Mana-base download timed out.");
+            return View("Manabase", new ManabaseViewModel
+            {
+                Request = request,
+                ErrorMessage = "The deck took too long to load. Try again in a moment.",
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "Mana-base download failed validation.");
+            return View("Manabase", new ManabaseViewModel
+            {
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Mana-base download hit an upstream dependency.");
+            return View("Manabase", new ManabaseViewModel
+            {
+                Request = request,
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Mana-base download failed unexpectedly.");
             return View("Manabase", new ManabaseViewModel
             {
                 Request = request,
