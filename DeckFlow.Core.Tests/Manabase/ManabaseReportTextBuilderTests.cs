@@ -118,6 +118,10 @@ public sealed class ManabaseReportTextBuilderTests
                 ActualSources = 20.0,
                 RequiredSources = 18,
                 DrivingSpell = "Lightning Bolt",
+                // One under-supported card so LandShortfallCoveredByRamp stays false
+                // (broadUnderSupport requires UnderSupportedCount > tolerance).
+                // Instead, give it a ColorLimitedUnderSupportedCount so BroadUnderSupport fires.
+                UnderSupportedCount = 10,
             },
         },
         Mode = ManabaseMode.Casual,
