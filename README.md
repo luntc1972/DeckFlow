@@ -163,13 +163,14 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 
 ### What's new — Mana Base accuracy: mana quantity, ramp credit & color-aware mulligan (Phase 70)
 
-Three accuracy fixes are now **on by default** after a baseline across 8 real decks (no verdict flips, modest cast% deltas):
+Four accuracy fixes are now **on by default** after a baseline across 8 real decks:
 
 - **Per-source mana quantity:** burst sources now pay their real output (Sol Ring / Ancient Tomb = 2, Gilded Lotus = 3 of one color) on the affordability side, so expensive payoffs read correctly. The Karsten color counts are untouched.
 - **Tighter ramp credit:** the land-target reduction for cheap ramp/draw is narrowed to **repeatable** ramp and true card draw — one-shot rituals and Treasure-makers no longer soften the land target.
 - **Color-aware mulligan:** the castability simulation's London mulligan now ships hands that are land-count-fine but color-screwed (a 2+ color deck wants 2 colors in its opening lands), lifting cast% toward what real play achieves. Mono-color decks are unchanged.
+- **Land-ramp in the simulation:** repeatable land-ramp (Cultivate, Rampant Growth) now puts its fetched land into the simulation as persistent colorless mana, so expensive payoffs in ramp decks read correctly instead of being under-rated. This is the only fix that can improve the overall verdict (never worsen it).
 
-These are toggleable feature flags (`manabase.source-mana-quantity`, `manabase.ramp-credit-v2`, `manabase.color-aware-mulligan`) for safe rollback.
+These are toggleable feature flags (`manabase.source-mana-quantity`, `manabase.ramp-credit-v2`, `manabase.color-aware-mulligan`, `manabase.land-ramp-sim`) for safe rollback.
 
 ### What's new — Mana Base accuracy: four-tier scale, curve-aware verdict & cast delay
 - **Mulligan-aware source requirements:** the per-color "sources needed" figure now comes from the simulation itself (binary search for the smallest on-color count whose simulated cast % clears the bar) instead of the mulligan-blind hypergeometric. It models **Commander's free first mulligan**, so a tight turn-two `{W}{W}` no longer reads against an inflated requirement (e.g. a real Brago list dropped from a phantom "needs 30 white" to a sane "needs ~21"). The figure is **clamped to Karsten's published table** as a ceiling, so the simulation can only *lower* a requirement, never inflate a double-pip past what the math allows.

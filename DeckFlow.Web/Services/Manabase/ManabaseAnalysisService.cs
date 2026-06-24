@@ -132,7 +132,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// <summary>
     /// MQ-03 70-03b flag key: when enabled, repeatable land-ramp spells (Cultivate / Rampant Growth)
     /// are modeled in the castability simulator as colorless ramp sources so the fetched land's mana is
-    /// credited (closing the sim ↔ regression gap). Seeded OFF until its baseline diff is reviewed.
+    /// credited (closing the sim ↔ regression gap). Seeded ON after the Phase-70 land-ramp baseline.
     /// </summary>
     public const string LandRampSimFlagKey = "manabase.land-ramp-sim";
 

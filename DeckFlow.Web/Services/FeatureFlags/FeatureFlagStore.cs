@@ -160,7 +160,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('manabase.source-mana-quantity', TRUE),
           ('manabase.ramp-credit-v2', TRUE),
           ('manabase.color-aware-mulligan', TRUE),
-          ('manabase.land-ramp-sim', FALSE)
+          ('manabase.land-ramp-sim', TRUE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -177,7 +177,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('manabase.source-mana-quantity', 1),
           ('manabase.ramp-credit-v2', 1),
           ('manabase.color-aware-mulligan', 1),
-          ('manabase.land-ramp-sim', 0)
+          ('manabase.land-ramp-sim', 1)
         ON CONFLICT (key) DO NOTHING;
         """;
 
