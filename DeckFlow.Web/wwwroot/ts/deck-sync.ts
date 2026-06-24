@@ -71,6 +71,14 @@ const panelConfigs: PanelConfig[] = [
     urlSelector: '[data-sync-panel="chatgpt-deck-url"]',
     textSelector: '[data-sync-panel="chatgpt-deck-text"]',
   },
+  {
+    // Manabase reuses the DeckInputSource select; on the deck-analysis page these
+    // manabase panels are absent so this config no-ops (togglePanel ignores missing
+    // selectors), and vice versa on the manabase page.
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="manabase-deck-url"]',
+    textSelector: '[data-sync-panel="manabase-deck-text"]',
+  },
 ];
 
 type MoxfieldImportTask = {

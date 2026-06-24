@@ -61,8 +61,8 @@ test('manabase hero keeps the deck-input tool above the mobile fold', async ({ p
   await expect(detail).toHaveCount(1);
   expect(await detail.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(false);
 
-  // The deck-input toggle must sit within the mobile viewport (above the fold).
-  const toolTop = await page.locator('.manabase-source-toggle').evaluate((el) => el.getBoundingClientRect().top);
+  // The deck-input method selector must sit within the mobile viewport (above the fold).
+  const toolTop = await page.locator('#manabase-input-source').evaluate((el) => el.getBoundingClientRect().top);
   expect(toolTop).toBeLessThan(844);
 
   // "How it works" expands to reveal the full methodology.

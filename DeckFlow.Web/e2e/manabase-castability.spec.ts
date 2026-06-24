@@ -32,7 +32,7 @@ async function submitDeck(
   importance: 'Central' | 'Standard' | 'Low' = 'Standard',
 ): Promise<boolean> {
   await page.goto('/manabase');
-  await page.locator('input[name="DeckInputSource"][value="PasteText"]').check();
+  await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(PASTE_DECK);
   await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
   await page.locator(`.manabase-pill input[name="CommanderImportance"][value="${importance}"]`).check();

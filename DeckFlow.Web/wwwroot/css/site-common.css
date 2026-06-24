@@ -2258,16 +2258,6 @@ label.field > span,
   margin: 0.5rem 0 0.25rem;
 }
 
-/* Input-source radios share the .toolbar shell (themes fork it as
-   justify-content: space-between), which would shove "Public URL" and
-   "Paste decklist" to opposite page edges. Compound selector raises specificity
-   above the theme's plain .toolbar rule (which loads after site-common.css). */
-.toolbar.manabase-source-toggle {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
 /* Analyze + Start over share a .toolbar shell (themes fork it as space-between);
    keep them grouped left with a gap instead of pushed to opposite edges. */
 .toolbar.manabase-actions {

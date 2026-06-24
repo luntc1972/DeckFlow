@@ -33,28 +33,30 @@
       data-busy-min-ms="500">
     @Html.AntiForgeryToken()
 
-    <div class="toolbar manabase-source-toggle" role="radiogroup" aria-label="Deck input source">
-        <label><input type="radio" name="DeckInputSource" value="PublicUrl" checked="@(isUrl ? "checked" : null)" /> Public URL</label>
-        <label><input type="radio" name="DeckInputSource" value="PasteText" checked="@(!isUrl ? "checked" : null)" /> Paste decklist</label>
+    <div class="field">
+        <label for="manabase-input-source">Input method</label>
+        <select id="manabase-input-source" name="DeckInputSource" data-df-select>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
+        </select>
     </div>
 
-    <div class="field-grid">
-        <div class="field">
-            <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
-            <input id="manabase-deck-url" type="text" name="DeckUrl" spellcheck="false" autocomplete="off"
-                   placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
-        </div>
-        <div class="field">
-            <label for="manabase-deck-name">Deck name (optional)</label>
-            <input id="manabase-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
-                   placeholder="e.g. Kinnan Stax" value="@Model.Request.DeckName" />
-        </div>
+    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="manabase-deck-url">
+        <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
+        <input id="manabase-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
+               placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
+    </div>
+
+    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="manabase-deck-text">
+        <label for="manabase-deck-text">Paste a decklist (one card per line, with set/collector if you have it)</label>
+        <textarea id="manabase-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
+                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
     </div>
 
     <div class="field">
-        <label for="manabase-deck-text">…or paste a decklist (one card per line, with set/collector if you have it)</label>
-        <textarea id="manabase-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
-                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
+        <label for="manabase-deck-name">Deck name (optional)</label>
+        <input id="manabase-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
+               placeholder="e.g. Kinnan Stax" value="@Model.Request.DeckName" />
     </div>
 
     @if (Model.Loaded && !Model.HasResult)
