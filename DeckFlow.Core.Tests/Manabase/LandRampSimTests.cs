@@ -174,6 +174,37 @@ public sealed class LandRampSimTests
     }
 
     [Fact]
+    public void DeployFriction_RampStillHelps_ButDoesNotPushPayoffToNearCertain()
+    {
+        // DEPLOY-FRICTION guard (debug session manabase-too-optimistic): drawn ramp must come online
+        // with real cost — playing a rock consumes that turn's mana, so it cannot both pay for itself
+        // AND power the payoff the same turn (only its OUTPUT lands, next turn). A green deck whose ONLY
+        // way to reach a {6}{G} payoff "on curve" leans on land-ramp must therefore still leave the
+        // payoff well short of near-certain on-curve casts — the pre-fix free-deploy model inflated it.
+        var deck = new List<CardFact>
+        {
+            Land("Forest", 30, "G"),
+            Spell("Rampant Growth", 2, "Sorcery", RampantGrowthOracle, "{1}{G}", qty: 4),
+            Spell("Cultivate", 3, "Sorcery", CultivateOracle, "{2}{G}", qty: 4),
+            Spell("Big Green", 7, "Creature — Hydra", "Trample", "{6}{G}"),
+            Spell("Filler", 3, "Creature — Bear", "Vanilla.", "{3}", qty: 57),
+        };
+
+        int off = Cast(
+            ManabaseAnalyzer.Analyze(ManabaseClassifier.Classify(deck, landRampSim: false), ManabaseMode.Casual),
+            "Big Green");
+        int on = Cast(
+            ManabaseAnalyzer.Analyze(ManabaseClassifier.Classify(deck, landRampSim: true), ManabaseMode.Casual),
+            "Big Green");
+
+        // Ramp still helps the expensive payoff (the source is real)...
+        Assert.True(on > off, $"land-ramp must still help the {{6}}{{G}} payoff (off={off}, on={on})");
+        // ...but deploy friction keeps it honest: a turn-7 payoff reached largely via ramp is NOT a
+        // near-certain on-curve cast. The pre-fix free-deploy model pushed cases like this far higher.
+        Assert.True(on <= 90, $"deploy friction should keep the ramp-reliant payoff realistic, got on={on}%");
+    }
+
+    [Fact]
     public void ColorCountsAndLandTotal_Invariant()
     {
         ManabaseReport off = Analyze(landRampSim: false);

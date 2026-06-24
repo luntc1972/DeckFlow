@@ -225,15 +225,16 @@ public sealed class CastabilitySimulatorCoverageTests
     public void Simulate_AverageDelay_NeverCastable_IsCappedAtHorizon()
     {
         // No blue source exists, so a {U}{U} spell is never castable: every trial caps firstCastable
-        // at lastSimulatedTurn + 1. For turn 2 the grace window is 3 (lastTurn 5), so the cap is 6 and
-        // the per-trial delay is exactly 6 - 2 = 4 every game → the mean is exactly 4.0.
+        // at lastSimulatedTurn + 1. The grace window is now a uniform +1 (debug session
+        // manabase-too-optimistic), so for turn 2 lastTurn = 3, the cap is 4, and the per-trial delay is
+        // exactly 4 - 2 = 2 every game → the mean is exactly 2.0 (was 4.0 under the old 3/2/1 grace).
         ManabaseDeck deck = MonoRedDeck(mountains: 36);
         var uu = Spell("Unfixable Blue", manaValue: 2, (ManaColor.Blue, 2));
 
         CardCastability row = Simulate(deck, uu, effectiveTurn: 2);
 
         Assert.Equal(0, row.CastPercent);
-        Assert.Equal(4.0, row.AverageDelay);
+        Assert.Equal(2.0, row.AverageDelay);
     }
 
     private static CardCastability Simulate(ManabaseDeck deck, SpellRequirement spell, int effectiveTurn)
