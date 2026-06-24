@@ -532,14 +532,19 @@ public sealed class ManabaseAnalysisServiceTests
             cards.Add(Spell($"Filler {i}", "{2}", 3, "Sorcery"));
         }
 
-        // No override applied: Force of Will is detected as a suggestion but its row is unchanged.
+        // P3 auto-apply (debug session manabase-too-optimistic): a SELF-ANCHORED free cast ("rather
+        // than pay this spell's mana cost") is now auto-applied to the default analysis, so the
+        // detect-only path already casts Force of Will at effective MV 0 and marks it overridden — it is
+        // surfaced as a suggestion AND applied, no longer a false "demanding" {U}{U} row.
         var detectOnly = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
         var detect = await detectOnly.AnalyzeAsync("paste", null);
         Assert.Contains(detect.Suggestions, s => s.Name == "Force of Will" && s.EffectiveCost == "0");
         CardCastability before = detect.Report.Castability.Single(c => c.Name == "Force of Will");
-        Assert.False(before.IsCostOverridden);
+        Assert.True(before.IsCostOverridden);   // auto-applied free cost (was: not overridden pre-P3)
+        Assert.Equal(0, before.ManaValue);
 
-        // Override applied: effective MV 0, marked overridden, and a higher cast %.
+        // An explicit override to the same "0" is consistent with the auto-applied state: still
+        // overridden, still MV 0, and at least as castable (it cannot be made harder).
         var applied = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
         var withOverride = await applied.AnalyzeAsync(
             "paste", null,
@@ -550,7 +555,7 @@ public sealed class ManabaseAnalysisServiceTests
         CardCastability after = withOverride.Report.Castability.Single(c => c.Name == "Force of Will");
         Assert.True(after.IsCostOverridden);
         Assert.Equal(0, after.ManaValue);
-        Assert.True(after.CastPercent > before.CastPercent);
+        Assert.True(after.CastPercent >= before.CastPercent);
     }
 
     [Fact]
