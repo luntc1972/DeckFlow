@@ -471,6 +471,20 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             "counter target",
             "target player sacrifices"
         ];
+        // Why: the other buckets are blind to the entire spell-payoff / cast-matters class
+        // (prowess, magecraft, noncreature-cast triggers). These are powerful, common
+        // build-arounds — and were the reason on-theme spellslinger payoffs like the
+        // transform card Monica Rambeau // Photon previously scored only on incidental
+        // "attack"/"counter" matches rather than their actual text.
+        string[] spellPayoffSignals =
+        [
+            "prowess",
+            "magecraft",
+            "whenever you cast",
+            "noncreature spell",
+            "instant or sorcery",
+            "instant and sorcery"
+        ];
 
         if (graveyardSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
         {
@@ -483,6 +497,11 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         }
 
         if (selectionSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 3;
+        }
+
+        if (spellPayoffSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
         {
             score += 3;
         }

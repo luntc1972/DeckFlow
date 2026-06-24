@@ -594,6 +594,48 @@ public sealed class ScryfallSetServiceTests
         Assert.Equal("Sage Scribe | {1}{G} | Creature — Elf | Draw a card. 2/2", cardLine);
     }
 
+    [Fact]
+    public async Task BuildSetPacketAsync_SpellPayoffCard_OutranksVanillaViaCastMattersSignal()
+    {
+        // The spell-payoff / cast-matters bucket must lift an on-theme prowess/cast card above a
+        // vanilla creature of identical type and cost. Both score Creature +5 and the MV2 curve
+        // bonus +3; only the new bucket (+3 for "Prowess") breaks the tie, so the payoff card
+        // must render first. Without the bucket they tie and sort alphabetically (filler first).
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 2, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Aardvark Vanilla", "{1}{U}", "Creature — Wizard", "A quiet scholar.", "2", "2", [], ["U"], "tst", "Test Set", "1"),
+                        new ScryfallCard("Zealous Prodigy", "{1}{U}", "Creature — Wizard", "Prowess.", "2", "2", [], ["U"], "tst", "Test Set", "2")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["U"]);
+
+        var lines = packet.Split('\n');
+        var payoffIndex = Array.FindIndex(lines, line => line.StartsWith("Zealous Prodigy", StringComparison.Ordinal));
+        var vanillaIndex = Array.FindIndex(lines, line => line.StartsWith("Aardvark Vanilla", StringComparison.Ordinal));
+        Assert.True(payoffIndex >= 0 && vanillaIndex >= 0);
+        Assert.True(payoffIndex < vanillaIndex, "Spell-payoff card should outrank the vanilla creature via the cast-matters signal.");
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
