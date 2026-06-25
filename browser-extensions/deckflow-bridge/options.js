@@ -3,6 +3,8 @@
 
   const allowedOriginsStorageKey = 'deckflowAllowedOrigins';
   const defaultAllowedOrigins = [
+    'https://deckflow.gg',
+    'https://www.deckflow.gg',
     'http://localhost',
     'https://localhost',
     'http://127.0.0.1',

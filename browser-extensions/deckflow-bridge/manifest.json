@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DeckFlow Bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lets DeckFlow fetch Moxfield decks from your logged-in browser session when the server can't reach them.",
   "permissions": [
     "storage"
@@ -17,8 +17,12 @@
   "content_scripts": [
     {
       "matches": [
-        "http://*/*",
-        "https://*/*"
+        "https://deckflow.gg/*",
+        "https://*.deckflow.gg/*",
+        "http://localhost/*",
+        "https://localhost/*",
+        "http://127.0.0.1/*",
+        "https://127.0.0.1/*"
       ],
       "js": [
         "deckflow-bridge.js"
