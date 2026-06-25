@@ -57,6 +57,13 @@ public static class ManabaseAnalyzer
     /// into <see cref="ManabaseReport.UseHealthBandCastability"/>; <see cref="ManabaseReport.Health"/>
     /// reads it in <c>ComputeColorSignals</c>. When false (default), behavior is byte-identical.
     /// </param>
+    /// <param name="useHealthBandHeadlineFloor">
+    /// MQ-health-band headline-floor flag. When true, a deck with a strong headline average and no
+    /// catastrophic color can promote from NeedsWork to Workable when the only red signal is one soft
+    /// color issue plus a land shortfall. Threaded into
+    /// <see cref="ManabaseReport.UseHealthBandHeadlineFloor"/>. When false (default), behavior is
+    /// byte-identical.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -65,7 +72,8 @@ public static class ManabaseAnalyzer
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
-        bool useHealthBandCastability = false)
+        bool useHealthBandCastability = false,
+        bool useHealthBandHeadlineFloor = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -109,6 +117,7 @@ public static class ManabaseAnalyzer
             ColorFindings = findings,
             Mode = mode,
             UseHealthBandCastability = useHealthBandCastability,
+            UseHealthBandHeadlineFloor = useHealthBandHeadlineFloor,
             Castability = castability,
             ColorSpellCounts = colorSpellCounts,
             CommanderColors = CommanderColors(deck).ToArray(),

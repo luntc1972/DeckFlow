@@ -40,6 +40,8 @@ public static class FeatureFlagCatalog
                 "MQ-03 (70-03b): repeatable land-ramp (Cultivate, Rampant Growth) puts its fetched land into the simulation as persistent colorless mana, so payoffs in ramp decks are not under-rated.",
             ["manabase.health-band-castability"] =
                 "MQ-health-band: the composite-weakest color's worst-spell cast % feeds the health-band verdict. A color that is composite-worst and casts its worst spell below the mode threshold (80% Casual / 88% cEDH) counts as a color issue, tipping Solid→Workable. Seeded OFF; promote after regression-guard passes.",
+            ["manabase.health-band-headline-floor"] =
+                "MQ-health-band headline floor: a strong avg-on-curve result can narrowly promote a land-short Needs work verdict to Workable when exactly one soft color issue exists, worst-color castability clears the floor, and no hard-fail color/broad under-support signal is present. Seeded ON.",
         };
 
     /// <summary>

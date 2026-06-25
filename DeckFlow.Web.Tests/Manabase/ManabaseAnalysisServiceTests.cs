@@ -105,6 +105,37 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_HealthBandHeadlineFloorFlag_ThreadsToReport()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Plains", 30),
+            Entry("Swords to Plowshares", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Plains", "W"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Spell("Swords to Plowshares", "{W}", 1, "Instant"),
+        };
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.HealthBandHeadlineFloorFlagKey] = true,
+            }));
+
+        ManabaseAnalysisResult offResult = await off.AnalyzeAsync("x", null);
+        ManabaseAnalysisResult onResult = await on.AnalyzeAsync("x", null);
+
+        Assert.False(offResult.Report.UseHealthBandHeadlineFloor);
+        Assert.True(onResult.Report.UseHealthBandHeadlineFloor);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_LandRampSimFlag_RaisesPayoffCast_FailsSafeOff()
     {
         // 70-03b plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into Classify, so

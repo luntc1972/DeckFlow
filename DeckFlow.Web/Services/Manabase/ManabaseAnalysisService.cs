@@ -143,6 +143,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string HealthBandCastabilityFlagKey = "manabase.health-band-castability";
 
+    /// <summary>
+    /// MQ-health-band headline-floor flag key: when enabled, a strong headline castability result
+    /// can narrowly promote a land-short NeedsWork verdict to Workable. Seeded OFF.
+    /// </summary>
+    public const string HealthBandHeadlineFloorFlagKey = "manabase.health-band-headline-floor";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -196,10 +202,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // OFF — seeded OFF; promoted to ON once the 9-deck calibration regression guard confirms no
         // Solid/Excellent deck regresses.
         bool useHealthBandCastability = IsFlagOn(HealthBandCastabilityFlagKey);
+        bool useHealthBandHeadlineFloor = IsFlagOn(HealthBandHeadlineFloorFlagKey);
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: landRampSim,
-            useHealthBandCastability: useHealthBandCastability);
+            useHealthBandCastability: useHealthBandCastability,
+            useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
 
