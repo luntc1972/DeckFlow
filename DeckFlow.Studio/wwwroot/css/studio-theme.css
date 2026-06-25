@@ -1,0 +1,146 @@
+:root {
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 16px;
+    --sp-4: 24px;
+    --sp-5: 32px;
+    --sp-6: 48px;
+    --sp-7: 64px;
+    --studio-font: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    --fs-meta: 0.875rem;
+    --fs-body: 1rem;
+    --fs-title: 1.25rem;
+    --fs-display: 1.75rem;
+    --fw-regular: 400;
+    --fw-semibold: 600;
+    --fw-brand: 700;
+    --studio-bg: #e9edf3;
+    --studio-surface: #fafafa;
+    --studio-input: #ffffff;
+    --studio-accent: #2b6cb0;
+    --studio-accent-strong: #1e4f82;
+    --studio-danger: #c53030;
+    --studio-text: #1a202c;
+    --studio-muted: #5a6573;
+    --studio-border: #d6dae2;
+    --studio-link: var(--studio-accent);
+    --studio-focus: var(--studio-accent);
+    --touch-floor: 44px;
+    --studio-content-max: 1200px;
+    color-scheme: light dark;
+}
+
+.studio-page-title {
+    font-size: var(--fs-title);
+    font-weight: var(--fw-semibold);
+    line-height: 1.25;
+}
+
+button,
+.btn,
+.form-control,
+.form-select {
+    min-height: var(--touch-floor);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --studio-bg: #0f172a;
+        --studio-surface: #1e293b;
+        --studio-input: #1e293b;
+        --studio-accent: #3b82f6;
+        --studio-accent-strong: #2563eb;
+        --studio-danger: #dc2626;
+        --studio-text: #e2e8f0;
+        --studio-muted: #94a3b8;
+        --studio-border: #334155;
+        --bs-body-bg: var(--studio-bg);
+        --bs-body-color: var(--studio-text);
+        --bs-table-bg: var(--studio-surface);
+    }
+
+    .table {
+        color: var(--studio-text);
+        border-color: var(--studio-border);
+        --bs-table-color: var(--studio-text);
+        --bs-table-striped-color: var(--studio-text);
+        --bs-table-active-color: var(--studio-text);
+        --bs-table-hover-color: var(--studio-text);
+        --bs-table-striped-bg: rgba(255, 255, 255, 0.05);
+        --bs-table-active-bg: rgba(255, 255, 255, 0.10);
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.075);
+    }
+
+    .table-light {
+        color: var(--studio-text);
+        --bs-table-bg: var(--studio-surface);
+        --bs-table-striped-color: var(--studio-text);
+        --bs-table-active-color: var(--studio-text);
+        --bs-table-hover-color: var(--studio-text);
+        --bs-table-striped-bg: rgba(255, 255, 255, 0.05);
+        --bs-table-active-bg: rgba(255, 255, 255, 0.10);
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.075);
+    }
+
+    .card,
+    .list-group-item {
+        background-color: var(--studio-surface);
+        color: var(--studio-text);
+        border-color: var(--studio-border);
+    }
+
+    .form-control,
+    .form-select {
+        background-color: var(--studio-input);
+        color: var(--studio-text);
+        border-color: var(--studio-border);
+    }
+
+    .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23cbd5e1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    }
+
+    .nav-tabs {
+        border-bottom-color: var(--studio-border);
+    }
+
+    .form-check-input {
+        background-color: var(--studio-surface);
+        border-color: var(--studio-border);
+    }
+
+    .form-check-input:checked {
+        background-color: var(--studio-accent);
+        border-color: var(--studio-accent);
+    }
+
+    .bg-light,
+    .bg-white {
+        background-color: var(--studio-surface) !important;
+    }
+
+    .bg-light.text-dark,
+    .bg-white.text-dark {
+        color: var(--studio-text) !important;
+    }
+
+    .bg-light.border,
+    .bg-white.border {
+        border-color: var(--studio-border) !important;
+    }
+
+    pre.bg-light,
+    pre.bg-white {
+        color: var(--studio-text);
+    }
+}
