@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: Cycle 10
 milestone_name: — Studio Automation, Sync & Polish
-status: milestone_complete
-stopped_at: Milestone complete (Phase 70 was final phase)
-last_updated: 2026-06-24T19:42:37.555Z
-last_activity: 2026-06-22 — Reconciled main: wrote missing manabase SUMMARYs (64-01/02, accuracy, alt-cost), cleared stale Cycle-10 HANDOFF.json
+status: phase_70_in_progress
+stopped_at: Phase 70 health-band coupling shipped LOCAL (3 commits unpushed); Cycle 10 (59-63) shipped separately as 2026.06.6
+last_updated: 2026-06-25T17:50:00.000Z
+last_activity: 2026-06-25 — Health-band headline-floor done (bd26ac4b); tracked the 9 offline calibration fixtures the regression suite needs (were gitignored → CI/clone would fail) + committed manabase debug/nsm planning artifacts. main ahead 3, unpushed.
 progress:
   total_phases: 5
   completed_phases: 5
@@ -21,11 +21,13 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Milestone complete
-PRIORITY over Cycle 11 (operator decision 2026-06-22). **Cycle 11 is PAUSED** on its `cycle11`
-worktree (was Phase 64 done → next 65; resume after Phase 70 ships). Phase 70 fixes the verified
-Codex efficacy-audit defects — see `.planning/phases/70-manabase-accuracy-mana-quantity/` and
-`.planning/captures/manabase-efficacy-findings.md`. Executing 70-01 (commander-not-drawable) first.
+**Current focus:** Phase 70 — Manabase Accuracy (ad-hoc trunk on `main`, NOT part of Cycle 10).
+Health-band headline-floor coupling (the deferred 6th efficacy-audit defect) is DONE + committed
+LOCAL (`bd26ac4b` + 2 docs commits, default ON, flag `manabase.health-band-headline-floor`); main
+ahead 3, UNPUSHED. PRIORITY over Cycle 11 (operator decision 2026-06-22). **Cycle 11 is PAUSED** on
+its `cycle11` worktree (was Phase 64 done → next 65; resume after Phase 70 ships). Phase 70 fixes the
+verified Codex efficacy-audit defects — see `.planning/phases/70-manabase-accuracy-mana-quantity/`
+and `.planning/captures/manabase-efficacy-findings.md`.
 
 ## ⚠ Branch divergence (read first)
 
@@ -38,10 +40,10 @@ Two parallel tracks exist — do not conflate:
 
 ## Current Position
 
-Phase: 70
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-06-24 - Completed quick task 260624-opb: Download manabase analysis as paste-ready .txt
+Phase: 70 (Manabase Accuracy — ad-hoc trunk on main; Cycle 10 phases 59-63 shipped 2026.06.6)
+Plan: Health-band headline-floor coupling — DONE, committed local, unpushed
+Status: Phase 70 work shipped LOCAL — main ahead 3 of origin, awaiting operator push (Render deploy gated on checksPass)
+Last activity: 2026-06-25 - Health-band floor (bd26ac4b) + tracked 9 calibration fixtures (gitignore negation) + committed debug/nsm planning artifacts
 
 ## Roadmap Summary
 
