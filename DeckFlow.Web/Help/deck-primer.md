@@ -2,6 +2,7 @@
 title: Deck Primer
 summary: Build a grounded AI prompt that turns your decklist into a pilot-facing deck primer.
 order: 15
+requires_flag: tool.deck-primer.enabled
 ---
 
 # Deck Primer

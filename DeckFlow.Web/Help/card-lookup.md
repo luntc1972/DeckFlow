@@ -2,6 +2,7 @@
 title: Card Lookup
 summary: Look up one card or batch-download Scryfall data for a list of cards.
 order: 50
+requires_flag: tool.card-lookup.enabled
 ---
 
 # Card Lookup
