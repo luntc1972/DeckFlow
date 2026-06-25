@@ -30,6 +30,14 @@ test('manabase page renders the deck-input form', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('Moxfield Bridge hint renders under the URL field like Deck Analysis', async ({ page }) => {
+  await page.goto('/manabase');
+
+  const bridgeHint = page.locator('details.deckflow-bridge-hint');
+  await expect(bridgeHint).toBeAttached();
+  await expect(bridgeHint.locator('summary')).toContainText('DeckFlow Bridge extension');
+});
+
 test('reduced/alternative cost overrides box is present and posts its value', async ({ page }) => {
   await page.goto('/manabase');
 
