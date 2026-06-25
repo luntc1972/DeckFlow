@@ -87,18 +87,24 @@
   - [ ] 66-06-PLAN.md — Cross-surface Playwright hide/show + section-collapse + human-verify checkpoint (TOGGLE-02..05, TOGGLE-07) [Wave 3]
 **UI hint**: yes
 
-#### Phase 67: Content KB Value A/B Validation
+#### Phase 67: Content KB Value A/B Validation ✅ COMPLETE (2026-06-25) — verdict MARGINAL/NEGATIVE
 **Goal**: A recorded decision on whether the Content KB measurably improves AI deck analysis.
 **Depends on**: Nothing new (KBVAL harness over existing prompt builders); gates Phase 68
-**Requirements**: KBVAL-01, KBVAL-02
+**Requirements**: KBVAL-01 ✅, KBVAL-02 ✅
+**Decision**: Closed on spike 001's verdict (MARGINAL → NEGATIVE; gate NOT cleared). Harness already
+existed (`Spike001KbValueAbHarness.cs`); real `ContentKbRelevanceService` retrieval was counterproductive.
+`content.kb.enabled` stays OFF; Phase 68 DROPS. Full record: `phases/67-content-kb-value-a-b-validation/67-DECISION.md`.
 **Success Criteria** (what must be TRUE):
-  1. A harness emits the deck-analysis prompt twice (with and without expert-context clips) for a representative set of decks.
-  2. Both variants are run through ChatGPT and compared (blind where feasible) on signal-beyond-baseline, actionable specificity, and creator-voice.
-  3. A clear lift / marginal verdict is written down and explicitly gates Phase 68 and any `content.kb.enabled` flip.
-**Plans**: TBD
+  1. ✅ A harness emits the deck-analysis prompt twice (with and without expert-context clips) for a representative set of decks.
+  2. ◐ Both variants compared on signal-beyond-baseline, actionable specificity, and creator-voice — judged via spike rubric (NOT blind / not real-ChatGPT; caveat recorded in the decision).
+  3. ✅ A clear lift / marginal verdict is written down and explicitly gates Phase 68 and the `content.kb.enabled` flip.
+**Plans**: 0 (decision-only phase; no build)
 **UI hint**: no
 
-#### Phase 68: Creator-Philosophy Representation Research *(conditional on Phase 67 lift)*
+#### Phase 68: Creator-Philosophy Representation Research *(conditional on Phase 67 lift)* — ⊘ DROPPED (2026-06-25)
+> Phase 67 returned MARGINAL, so this conditional phase does not run this cycle. Requirement CREATOR-01
+> dropped. Revisit in a future milestone only after KB retrieval is fixed and re-validated. Cycle 11
+> ships phases 64, 65, 66, 69.
 **Goal**: An implementation-ready design for representing a creator's deckbuilding philosophy as a lens over AI analysis.
 **Depends on**: Phase 67 (drops/parks if KBVAL-02 returns marginal; research/design only — no production build this cycle)
 **Requirements**: CREATOR-01

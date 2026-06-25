@@ -31,12 +31,12 @@
 
 ### Content KB value validation (KBVAL)
 
-- [ ] **KBVAL-01**: An A/B harness produces the deck-analysis prompt twice for a representative deck set — once with and once without expert-context clips — so the two outputs can be run through ChatGPT and compared.
-- [ ] **KBVAL-02**: The comparison is judged (blind where feasible) and a clear lift / marginal decision is recorded, gating the creator-philosophy work and the eventual `content.kb.enabled` flip.
+- [x] **KBVAL-01**: An A/B harness produces the deck-analysis prompt twice for a representative deck set — once with and once without expert-context clips — so the two outputs can be run through ChatGPT and compared. _(Met — `Spike001KbValueAbHarness.cs`, promoted from spike 001.)_
+- [x] **KBVAL-02**: The comparison is judged (blind where feasible) and a clear lift / marginal decision is recorded, gating the creator-philosophy work and the eventual `content.kb.enabled` flip. _(Met — verdict MARGINAL/NEGATIVE, gate NOT cleared; see `phases/67-content-kb-value-a-b-validation/67-DECISION.md`. content.kb.enabled stays OFF; Phase 68 drops.)_
 
 ### Creator-philosophy research (CREATOR)
 
-- [ ] **CREATOR-01**: A research/design document specifies the per-creator philosophy representation — distilled style-card + RAG-over-transcript grounding, principle-level provenance, contradiction preservation, temporal-drift handling, and a hallucination gate. Research/design only; conditional on KBVAL-02 showing clear lift (phase drops if marginal).
+- [ ] ~~**CREATOR-01**~~ ⊘ **DROPPED** (Phase 68 does not run): conditional on KBVAL-02 showing clear lift; the verdict is marginal, so the creator-philosophy research/design phase drops this cycle. Original: A research/design document specifies the per-creator philosophy representation — distilled style-card + RAG-over-transcript grounding, principle-level provenance, contradiction preservation, temporal-drift handling, and a hallucination gate.
 
 ### Studio UI design pass (STUI)
 
@@ -72,16 +72,16 @@
 | SEC-03 | Phase 64 — Deck-Source Host Hardening | Partial — regression matrix built (Plan 01); call-site tests pending (Plan 02) |
 | DATA-01 | Phase 65 — Prod Content Artifact Reconcile | Not started |
 | DATA-02 | Phase 65 — Prod Content Artifact Reconcile | Not started |
-| TOGGLE-01 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| TOGGLE-02 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| TOGGLE-03 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| TOGGLE-04 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| TOGGLE-05 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| TOGGLE-06 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| TOGGLE-07 | Phase 66 — Admin Tool-Visibility Toggles | Not started |
-| KBVAL-01 | Phase 67 — Content KB Value A/B Validation | Not started |
-| KBVAL-02 | Phase 67 — Content KB Value A/B Validation | Not started |
-| CREATOR-01 | Phase 68 — Creator-Philosophy Research (conditional) | Not started |
+| TOGGLE-01 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (code-complete + reviewed; operator UAT pending) |
+| TOGGLE-02 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (code-complete + reviewed; operator UAT pending) |
+| TOGGLE-03 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (code-complete + reviewed; operator UAT pending) |
+| TOGGLE-04 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (route + API gating; coverage test hardened; operator UAT pending) |
+| TOGGLE-05 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (code-complete + reviewed; operator UAT pending) |
+| TOGGLE-06 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (code-complete + reviewed; operator UAT pending) |
+| TOGGLE-07 | Phase 66 — Admin Tool-Visibility Toggles | ✅ Met (code-complete + reviewed; operator UAT pending) |
+| KBVAL-01 | Phase 67 — Content KB Value A/B Validation | ✅ Met (harness from spike 001) |
+| KBVAL-02 | Phase 67 — Content KB Value A/B Validation | ✅ Met (verdict MARGINAL/NEGATIVE recorded) |
+| CREATOR-01 | Phase 68 — Creator-Philosophy Research (conditional) | ⊘ Dropped (KBVAL-02 marginal — gate not cleared) |
 | STUI-01 | Phase 69 — Studio UI Design Pass | Not started |
 | STUI-02 | Phase 69 — Studio UI Design Pass | Not started |
 | STUI-03 | Phase 69 — Studio UI Design Pass | Not started |

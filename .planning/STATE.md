@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: Phase 66 (Admin Tool-Visibility Toggles + Tool Registry) code-complete + reviewed. 7 commits on cycle11 (66-01..66-06 + 66-07 gap-fix), build green, xUnit + Playwright(12) pass. Awaiting operator UAT before push/merge.
-last_updated: "2026-06-25T20:30:00.000Z"
-last_activity: 2026-06-25 -- Phase 66 executed (Codex codes, Claude reviews); code review HI-01 API-gating gap found + fixed (79e1cb1a)
+stopped_at: Phase 66 code-complete+reviewed (8 commits, operator UAT pending). Phase 67 CLOSED as decision-only (KB value MARGINAL/NEGATIVE per spike 001 → content.kb.enabled OFF, Phase 68 DROPPED). Cycle 11 remaining = Phase 69 (Studio UI), then ship cycle11→main.
+last_updated: "2026-06-25T21:00:00.000Z"
+last_activity: 2026-06-25 -- Phase 67 decision recorded (67-DECISION.md); Phase 68 dropped; next Phase 69
 progress:
-  total_phases: 10
-  completed_phases: 6
+  total_phases: 9
+  completed_phases: 7
   total_plans: 27
   completed_plans: 19
-  percent: 60
+  percent: 78
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 66 done (code+review). Next: Phase 67 — Content KB Value A/B Validation (the gate phase).
+**Current focus:** Phase 67 CLOSED (decision: KB value MARGINAL/NEGATIVE → content.kb.enabled stays OFF, Phase 68 DROPPED). Next active: Phase 69 — Studio UI Design Pass (last phase of Cycle 11).
 
 ## Branch reconciliation (resolved 2026-06-22)
 
@@ -42,9 +42,9 @@ Last activity: 2026-06-25 -- Phase 66 executed + reviewed
 | 64 | Deck-Source Host Hardening | SEC-01, SEC-02, SEC-03 | ✅ Complete |
 | 65 | Prod Content Artifact Reconcile | DATA-01, DATA-02 | ✅ Executed (operator-gated reconcile) |
 | 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | ✅ Code-complete + reviewed (operator UAT pending) |
-| 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | Not started |
-| 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | Not started |
-| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | Not started |
+| 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | ✅ Complete (decision: MARGINAL/NEGATIVE) |
+| 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | ⊘ Dropped (67 marginal) |
+| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | Not started — NEXT |
 
 **Phase ordering rationale:**
 
