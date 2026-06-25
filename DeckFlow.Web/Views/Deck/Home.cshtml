@@ -1,7 +1,10 @@
+@using DeckFlow.Web.Services.Tools
 @model DeckFlow.Web.Models.DeckPageTab
 @inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
+@inject DeckFlow.Web.Services.Tools.IToolRegistry ToolRegistry
 @{
     ViewData["Title"] = "Home";
+    var sections = ToolVisibility.VisibleBySection(ToolRegistry.All, FlagCache);
 }
 
 @await Html.PartialAsync("_DeckToolTabs", Model)
@@ -14,156 +17,43 @@
     <span class="hub-hero__description">Five-step workflow: load your deck, pick your questions, copy the prompt, paste into ChatGPT, Claude, or Gemini, review the structured response.</span>
 </a>
 
-<section class="hub-group" aria-labelledby="hub-group-analyze">
-    <h2 id="hub-group-analyze" class="hub-group__title">
-        <span class="hub-group__icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
-        </span>
-        Analyze
-    </h2>
-    <div class="hub-grid">
-        <a class="hub-card" href="@Url.Content("~/deck-analysis")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="10" y2="13"/></svg>
-            </span>
-            <h3 class="hub-card__title">Deck Analysis</h3>
-            <p class="hub-card__description">Five-step workflow to generate a full analysis prompt for your deck and render the structured response.</p>
-        </a>
-        <a class="hub-card hub-card--primary" href="@Url.Content("~/deck-comparison")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="7" height="12" rx="1.5"/><rect x="11" y="4" width="7" height="12" rx="1.5"/></svg>
-            </span>
-            <h3 class="hub-card__title">Deck Comparison</h3>
-            <p class="hub-card__description">Side-by-side comparison of two decks with an AI-authored breakdown of strengths, weaknesses, and trade-offs.</p>
-        </a>
-        <a class="hub-card" href="@Url.Content("~/cedh-meta-gap")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="3,14 7,9 11,11 17,5"/><polyline points="14,5 17,5 17,8"/></svg>
-            </span>
-            <h3 class="hub-card__title">cEDH Meta Gap</h3>
-            <p class="hub-card__description">Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.</p>
-        </a>
-        @if (FlagCache.IsEnabled("feature.manabase.enabled"))
-        {
-            <a class="hub-card" href="@Url.Content("~/manabase")">
-                <span class="hub-card__icon">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 3c3 4 4.5 6 4.5 8a4.5 4.5 0 0 1-9 0c0-2 1.5-4 4.5-8z"/></svg>
-                </span>
-                <h3 class="hub-card__title">Mana Base</h3>
-                <p class="hub-card__description">Score a deck's lands and colored sources — Frank Karsten's source-count math, extended to weight rocks, dorks, and MDFCs and to count tapped vs. untapped lands. No AI needed.</p>
-            </a>
-        }
-    </div>
-</section>
+@foreach (var section in sections)
+{
+    var sectionName = section.Section.ToString();
+    var sectionId = $"hub-group-{sectionName.ToLowerInvariant()}";
 
-<section class="hub-group" aria-labelledby="hub-group-build">
-    <h2 id="hub-group-build" class="hub-group__title">
-        <span class="hub-group__icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8a5 5 0 0 1 9.9-1M13 8a5 5 0 0 1-9.9 1"/><polyline points="11,5 13,7 11,9"/><polyline points="5,11 3,9 5,7"/></svg>
-        </span>
-        Build
-    </h2>
-    <div class="hub-grid">
-        <a class="hub-card hub-card--primary" href="@Url.Content("~/sync")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10a6 6 0 0 1 11.8-1.5M16 10a6 6 0 0 1-11.8 1.5"/><polyline points="13,6 16,8.5 13,11"/><polyline points="7,14 4,11.5 7,9"/></svg>
+    <section class="hub-group" aria-labelledby="@sectionId">
+        <h2 id="@sectionId" class="hub-group__title">
+            <span class="hub-group__icon">
+                @switch (section.Section)
+                {
+                    case ToolNavSection.Analyze:
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+                        break;
+                    case ToolNavSection.Build:
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8a5 5 0 0 1 9.9-1M13 8a5 5 0 0 1-9.9 1"/><polyline points="11,5 13,7 11,9"/><polyline points="5,11 3,9 5,7"/></svg>
+                        break;
+                    case ToolNavSection.Reference:
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+                        break;
+                    case ToolNavSection.Categories:
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 4h5l1.5 2H14v7H2z"/></svg>
+                        break;
+                }
             </span>
-            <h3 class="hub-card__title">Deck Sync</h3>
-            <p class="hub-card__description">Reconcile a Moxfield deck against an Archidekt deck (either direction) and generate add/cut text for the target.</p>
-        </a>
-        <a class="hub-card" href="@Url.Content("~/convert")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 10h10M12 7l3 3-3 3"/><path d="M15 10H5M8 7L5 10l3 3" opacity="0.4"/></svg>
-            </span>
-            <h3 class="hub-card__title">Convert Deck</h3>
-            <p class="hub-card__description">Convert deck export text or a public URL between Moxfield and Archidekt formats.</p>
-        </a>
-        <a class="hub-card" href="@Url.Content("~/deck-primer")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 3h9l3 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="13,3 13,6 16,6"/><line x1="7" y1="9" x2="13" y2="9"/><line x1="7" y1="12" x2="13" y2="12"/></svg>
-            </span>
-            <h3 class="hub-card__title">Deck Primer</h3>
-            <p class="hub-card__description">Generate a staged, ChatGPT-ready primer that explains your deck's plan, lines, and key interactions.</p>
-        </a>
-    </div>
-</section>
-
-<section class="hub-group" aria-labelledby="hub-group-reference">
-    <h2 id="hub-group-reference" class="hub-group__title">
-        <span class="hub-group__icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
-        </span>
-        Reference
-    </h2>
-    <div class="hub-grid">
-        <a class="hub-card hub-card--primary" href="@Url.Content("~/card-lookup")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="5.5"/><line x1="13.5" y1="13.5" x2="17" y2="17"/></svg>
-            </span>
-            <h3 class="hub-card__title">Card Lookup</h3>
-            <p class="hub-card__description">Paste a card list and get back Oracle text and rulings for each match.</p>
-        </a>
-        <a class="hub-card" href="@Url.Content("~/mechanic-lookup")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h12v2H4zM4 9h8v2H4zM4 14h10v2H4z"/></svg>
-            </span>
-            <h3 class="hub-card__title">Mechanic Rules</h3>
-            <p class="hub-card__description">Look up official WOTC rules text for keyword mechanics found in your deck.</p>
-        </a>
-        <a class="hub-card" href="@Url.Content("~/judge-questions")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7.5"/><path d="M8 8a2 2 0 1 1 2.5 1.9c-.8.3-1 .8-1 1.6"/><circle cx="10" cy="14" r="0.6" fill="currentColor" stroke="none"/></svg>
-            </span>
-            <h3 class="hub-card__title">Ask a Judge</h3>
-            <p class="hub-card__description">Get rules answers from real MTG judges 24/7, with a ChatGPT prompt generator as backup.</p>
-        </a>
-        @if (FlagCache.IsEnabled("content.kb.enabled"))
-        {
-            <a class="hub-card" href="@Url.Action("Index", "ContentKb")">
-                <span class="hub-card__icon">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 3h7l1 1v12l-1 1H4l-1-1V4l1-1z"/><path d="M10 3h6l1 1v12l-1 1h-6"/><line x1="7" y1="8" x2="9" y2="8"/><line x1="7" y1="11" x2="9" y2="11"/></svg>
-                </span>
-                <h3 class="hub-card__title">Expert Knowledge Base</h3>
-                <p class="hub-card__description">Browse distilled creator advice, open any entry, and copy a ready-to-paste prompt from the Knowledge Base detail page.</p>
-            </a>
-        }
-    </div>
-</section>
-
-<section class="hub-group" aria-labelledby="hub-group-categories">
-    <h2 id="hub-group-categories" class="hub-group__title">
-        <span class="hub-group__icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 4h5l1.5 2H14v7H2z"/></svg>
-        </span>
-        Categories
-    </h2>
-    <div class="hub-grid">
-        @if (FlagCache.IsEnabled("feature.categories.enabled"))
-        {
-            <a class="hub-card" href="@Url.Content("~/suggest-categories")">
-                <span class="hub-card__icon">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="14" r="2"/><line x1="7.4" y1="7.4" x2="9" y2="12.6"/><line x1="12.6" y1="7.4" x2="11" y2="12.6"/></svg>
-                </span>
-                <h3 class="hub-card__title">Category Suggestions</h3>
-                <p class="hub-card__description">Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.</p>
-            </a>
-        }
-        else
-        {
-            <div class="hub-card hub-card--status">
-                <span class="hub-card__icon">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="14" r="2"/><line x1="7.4" y1="7.4" x2="9" y2="12.6"/><line x1="12.6" y1="7.4" x2="11" y2="12.6"/></svg>
-                </span>
-                <h3 class="hub-card__title">Category Suggestions</h3>
-                <p class="hub-card__description">Temporarily offline for maintenance. Category Reference remains available.</p>
-            </div>
-        }
-        <a class="hub-card" href="@Url.Content("~/commander-categories")">
-            <span class="hub-card__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 5h5l1.5 2H17v9H3z"/></svg>
-            </span>
-            <h3 class="hub-card__title">Category Reference</h3>
-            <p class="hub-card__description">Browse the category knowledge base the suggestion engine draws on.</p>
-        </a>
-    </div>
-</section>
+            @sectionName
+        </h2>
+        <div class="hub-grid">
+            @foreach (var tool in section.Tools)
+            {
+                <a class="hub-card @(tool.IsPrimaryTile ? "hub-card--primary" : string.Empty)" href="@Url.Content("~" + tool.Route)">
+                    <span class="hub-card__icon">
+                        @await Html.PartialAsync("_ToolTileIcon", tool.IconKey)
+                    </span>
+                    <h3 class="hub-card__title">@tool.TileTitle</h3>
+                    <p class="hub-card__description">@tool.TileDescription</p>
+                </a>
+            }
+        </div>
+    </section>
+}
