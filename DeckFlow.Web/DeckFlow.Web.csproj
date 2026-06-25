@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <!-- Override transitive SQLitePCLRaw 2.1.11 (NU1903 / GHSA-2m69-gcr7-jv3q). See Core csproj. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="Markdig" Version="0.38.0" />
     <PackageReference Include="Npgsql" Version="10.0.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />

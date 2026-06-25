@@ -10,6 +10,10 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <!-- Override the transitive SQLitePCLRaw 2.1.11 (NU1903 / GHSA-2m69-gcr7-jv3q: the whole 2.1.x
+         line bundles a vulnerable SQLite; no 2.1.x patch exists). 3.x bundles a patched engine and
+         satisfies Microsoft.Data.Sqlite.Core's "SQLitePCLRaw.core >= 2.1.11" floor. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="Npgsql" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
