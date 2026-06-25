@@ -9,8 +9,8 @@ namespace DeckFlow.Web.Services.FeatureFlags;
 /// <see cref="RelationalDatabaseConnection"/> (Postgres in production, SQLite in tests
 /// and local-dev). Schema is lazy-initialized on first call via a SemaphoreSlim gate,
 /// mirroring AdminBruteForceTrackerStore. Seed list (Phase 6 D-09 + Phase 7 B3 + Phase 7.1
-/// CATFLAG-01) inserts default-on rows for 'scryfall.tagger.enabled', 'page.help.enabled',
-/// 'harvest.cron.enabled', and 'feature.categories.enabled' using
+/// CATFLAG-01 + Phase 66 TOGGLE-01/06) inserts default-on rows for 'scryfall.tagger.enabled',
+/// 'page.help.enabled', 'harvest.cron.enabled', and the public-tool visibility flags using
 /// ON CONFLICT (key) DO NOTHING so re-bootstrapping on an existing DB never overwrites
 /// operator changes (FLAG-01).
 /// </summary>
@@ -155,6 +155,16 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('feature.categories.enabled', TRUE),
           ('content.kb.enabled', TRUE),
           ('feature.manabase.enabled', TRUE),
+          ('tool.deck-analysis.enabled', TRUE),
+          ('tool.deck-comparison.enabled', TRUE),
+          ('tool.cedh-meta-gap.enabled', TRUE),
+          ('tool.deck-sync.enabled', TRUE),
+          ('tool.convert.enabled', TRUE),
+          ('tool.deck-primer.enabled', TRUE),
+          ('tool.card-lookup.enabled', TRUE),
+          ('tool.mechanic-lookup.enabled', TRUE),
+          ('tool.judge-questions.enabled', TRUE),
+          ('tool.commander-categories.enabled', TRUE),
           ('analysis.reference.full-oracle-text', TRUE),
           ('analysis.reference.deck-stats', FALSE)
         ON CONFLICT (key) DO NOTHING;
@@ -168,6 +178,16 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('feature.categories.enabled', 1),
           ('content.kb.enabled', 1),
           ('feature.manabase.enabled', 1),
+          ('tool.deck-analysis.enabled', 1),
+          ('tool.deck-comparison.enabled', 1),
+          ('tool.cedh-meta-gap.enabled', 1),
+          ('tool.deck-sync.enabled', 1),
+          ('tool.convert.enabled', 1),
+          ('tool.deck-primer.enabled', 1),
+          ('tool.card-lookup.enabled', 1),
+          ('tool.mechanic-lookup.enabled', 1),
+          ('tool.judge-questions.enabled', 1),
+          ('tool.commander-categories.enabled', 1),
           ('analysis.reference.full-oracle-text', 1),
           ('analysis.reference.deck-stats', 0)
         ON CONFLICT (key) DO NOTHING;
