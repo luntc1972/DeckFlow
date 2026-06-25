@@ -45,6 +45,7 @@
         <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
         <input id="manabase-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
                placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
+        @await Html.PartialAsync("_DeckFlowBridgeHint")
     </div>
 
     <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="manabase-deck-text">
