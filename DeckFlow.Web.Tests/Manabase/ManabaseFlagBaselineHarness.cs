@@ -338,6 +338,8 @@ public sealed class ManabaseFlagBaselineHarness
         sb.AppendLine($"### {label}");
         sb.AppendLine();
         sb.AppendLine($"- Health: {off.Health} → {on.Health}");
+        sb.AppendLine($"- Avg/Worst color cast: {off.AvgOnCurvePercent}/{off.WorstColorCastPercent:F0} → "
+            + $"{on.AvgOnCurvePercent}/{on.WorstColorCastPercent:F0}");
         if (targetMoved)
         {
             sb.AppendLine($"- Land target: {off.TargetLands:F1} → {on.TargetLands:F1} "

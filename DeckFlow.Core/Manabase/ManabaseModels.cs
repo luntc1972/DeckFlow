@@ -587,11 +587,23 @@ public sealed record ManabaseReport
             // spell casting fine. The land delta only escalates to "needs work" when the sim
             // corroborates it: a real color issue or broad under-support rides alongside.
             bool landShort = LandDelta <= -2;
-            if (s.AnySevereColorDeficit
-                || s.ColorsWithIssue >= 2
-                || (landShort && (s.ColorsWithIssue >= 1 || s.BroadUnderSupport)))
+            bool simFunctions =
+                   UseHealthBandHeadlineFloor
+                && AvgOnCurvePercent >= 85
+                && WorstColorCastPercent >= 50
+                && !s.AnySevereColorDeficit
+                && !s.BroadColorUnderSupport;
+
+            if (s.AnySevereColorDeficit || s.ColorsWithIssue >= 2)
             {
                 return ManabaseHealth.NeedsWork;
+            }
+
+            if (landShort && (s.ColorsWithIssue >= 1 || s.BroadUnderSupport))
+            {
+                return (simFunctions && s.ColorsWithIssue == 1)
+                    ? ManabaseHealth.Workable
+                    : ManabaseHealth.NeedsWork;
             }
 
             // Workable: a single contained color problem the base can fix.
@@ -628,7 +640,15 @@ public sealed record ManabaseReport
             }
 
             ColorSignals s = ComputeColorSignals();
-            return s.ColorsWithIssue == 0 && !s.BroadUnderSupport && !s.AnySevereColorDeficit;
+            bool simFunctions =
+                   UseHealthBandHeadlineFloor
+                && AvgOnCurvePercent >= 85
+                && WorstColorCastPercent >= 50
+                && !s.AnySevereColorDeficit
+                && !s.BroadColorUnderSupport;
+
+            return (s.ColorsWithIssue == 0 && !s.BroadUnderSupport && !s.AnySevereColorDeficit)
+                   || (simFunctions && s.ColorsWithIssue == 1);
         }
     }
 
@@ -644,6 +664,7 @@ public sealed record ManabaseReport
         bool anySevereColorDeficit = false;
         bool everyColorClear = true;
         bool broadUnderSupport = false;
+        bool broadColorUnderSupport = false;
 
         // Mirror ManabaseAnalyzer's support thresholds: Casual = 80, cEDH = 88.
         // Why: the health-band castability path (UseHealthBandCastability) must gate on the same
@@ -701,13 +722,18 @@ public sealed record ManabaseReport
                 broadUnderSupport = true;
             }
 
+            if (f.ColorLimitedUnderSupportedCount > tolerance)
+            {
+                broadColorUnderSupport = true;
+            }
+
             if (f.Deficit > 2)
             {
                 anySevereColorDeficit = true;
             }
         }
 
-        return new ColorSignals(colorsWithIssue, anySevereColorDeficit, everyColorClear, broadUnderSupport);
+        return new ColorSignals(colorsWithIssue, anySevereColorDeficit, everyColorClear, broadUnderSupport, broadColorUnderSupport);
     }
 
     /// <summary>Shared per-color corroboration signals computed once by <see cref="ComputeColorSignals"/>.</summary>
@@ -715,7 +741,8 @@ public sealed record ManabaseReport
         int ColorsWithIssue,
         bool AnySevereColorDeficit,
         bool EveryColorClear,
-        bool BroadUnderSupport);
+        bool BroadUnderSupport,
+        bool BroadColorUnderSupport);
 
     /// <summary>True only when fully <see cref="ManabaseHealth.Healthy"/>. Retained for back-compat.</summary>
     public bool IsHealthy => Health == ManabaseHealth.Healthy;
@@ -741,10 +768,48 @@ public sealed record ManabaseReport
     public bool UseHealthBandCastability { get; init; }
 
     /// <summary>
+    /// MQ-health-band headline-floor flag. When true, the headline average castability can narrowly
+    /// promote a land-short NeedsWork verdict to Workable when exactly one soft color issue exists,
+    /// no broad under-support is present, and no hard-fail color deficit exists.
+    /// </summary>
+    public bool UseHealthBandHeadlineFloor { get; init; }
+
+    /// <summary>
     /// Per-spell castability rows, commander(s) pinned first then ascending by cast %. Excludes
     /// rocks/dorks (they feed the probability pools but are not real payoff spells).
     /// </summary>
     public IReadOnlyList<CardCastability> Castability { get; init; } = Array.Empty<CardCastability>();
+
+    /// <summary>
+    /// Deck-level "avg on-curve" cast rate: the rounded mean of
+    /// <see cref="CardCastability.CastPercent"/> across tracked castability rows. Returns 0 for an
+    /// empty set.
+    /// </summary>
+    public int AvgOnCurvePercent
+    {
+        get
+        {
+            if (Castability.Count == 0)
+            {
+                return 0;
+            }
+
+            long sum = 0;
+            foreach (CardCastability row in Castability)
+            {
+                sum += row.CastPercent;
+            }
+
+            return (int)Math.Round((double)sum / Castability.Count);
+        }
+    }
+
+    /// <summary>
+    /// The lowest per-color worst-spell castability. Returns 100 when there are no color findings so
+    /// colorless decks are not treated as catastrophic color failures.
+    /// </summary>
+    public double WorstColorCastPercent =>
+        ColorFindings.Count == 0 ? 100 : ColorFindings.Min(f => f.WorstSpellCastPercent);
 
     /// <summary>
     /// How many spells demand each color (the population denominator behind COLOR-AGG's

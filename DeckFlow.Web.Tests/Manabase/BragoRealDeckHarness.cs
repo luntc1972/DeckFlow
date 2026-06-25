@@ -135,6 +135,7 @@ public sealed class BragoRealDeckHarness
         }
 
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        ManabaseDeck prodDeck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: true, landRampSim: true);
 
         var sb = new StringBuilder();
         sb.AppendLine("# Brago real-deck harness output (Core analyzer)");
@@ -146,13 +147,17 @@ public sealed class BragoRealDeckHarness
 
         AppendSnailComparison(sb, deck);
         AppendReport(sb, "Casual · Standard", deck, ManabaseMode.Casual, CommanderImportance.Standard);
+        AppendReport(sb, "Casual · Standard · prod flags", prodDeck, ManabaseMode.Casual, CommanderImportance.Standard,
+            useManaQuantity: true, colorAwareMulligan: true, gateRampOnCastable: true, useHealthBandHeadlineFloor: true);
         AppendReport(sb, "cEDH · Standard", deck, ManabaseMode.Cedh, CommanderImportance.Standard);
         AppendReport(sb, "Casual · Central (Brago)", deck, ManabaseMode.Casual, CommanderImportance.Central);
         AppendReport(sb, "Casual · Low", deck, ManabaseMode.Casual, CommanderImportance.Low);
 
-        string outPath = Path.Combine(RepoRoot(),
-            ".planning", "phases", "64-manabase-modes-castability", "64-harness-brago-output.md");
+        string outDir = Path.Combine(RepoRoot(), ".planning", "phases", "64-manabase-modes-castability");
+        Directory.CreateDirectory(outDir);
+        string outPath = Path.Combine(outDir, "64-harness-brago-output.md");
         await File.WriteAllTextAsync(outPath, sb.ToString());
+        System.Console.WriteLine(sb.ToString());
 
         Assert.True(facts.Count > 70, $"expected the deck to resolve; got {facts.Count}");
     }
@@ -199,25 +204,39 @@ public sealed class BragoRealDeckHarness
         sb.AppendLine();
     }
 
-    private static void AppendReport(StringBuilder sb, string label, ManabaseDeck deck,
-        ManabaseMode mode, CommanderImportance importance)
+    private static void AppendReport(
+        StringBuilder sb,
+        string label,
+        ManabaseDeck deck,
+        ManabaseMode mode,
+        CommanderImportance importance,
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false,
+        bool gateRampOnCastable = false,
+        bool useHealthBandHeadlineFloor = false)
     {
-        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, mode, importance);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            deck, mode, importance,
+            useManaQuantity: useManaQuantity,
+            colorAwareMulligan: colorAwareMulligan,
+            gateRampOnCastable: gateRampOnCastable,
+            useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
         sb.AppendLine($"## {label}");
         sb.AppendLine();
         sb.AppendLine($"- Lands {report.ActualLands} vs target {report.TargetLands:F1} (delta {report.LandDelta:F1})");
         sb.AppendLine($"- Health: {report.Health} · Weakest: {report.WeakestColor?.Color.ToString() ?? "none"}");
+        sb.AppendLine($"- AvgOnCurvePercent: {report.AvgOnCurvePercent} · WorstColorCastPercent: {report.WorstColorCastPercent:F0}");
         if (report.DemandingCards.Count > 0)
         {
             sb.AppendLine($"- Demanding: {string.Join(", ", report.DemandingCards.Select(d => $"{d.Name} ({d.CastPercent}%)"))}");
         }
         sb.AppendLine($"- Summary: {report.Summary}");
         sb.AppendLine();
-        sb.AppendLine("| Color | Sources | Need | UnderSupp | AvgCast% | WorstCast% | WorstSpell |");
-        sb.AppendLine("|---|---|---|---|---|---|---|");
+        sb.AppendLine("| Color | Sources | Need | UnderSupp | ColorLimited | AvgCast% | WorstCast% | WorstSpell |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|");
         foreach (ColorSourceFinding f in report.ColorFindings)
         {
-            sb.AppendLine($"| {f.Color} | {f.ActualSources:F1} | {f.RequiredSources} | {f.UnderSupportedCount} "
+            sb.AppendLine($"| {f.Color} | {f.ActualSources:F1} | {f.RequiredSources} | {f.UnderSupportedCount} | {f.ColorLimitedUnderSupportedCount} "
                 + $"| {f.AverageCastPercent:F0} | {f.WorstSpellCastPercent:F0} | {f.WorstSpell} |");
         }
         sb.AppendLine();
