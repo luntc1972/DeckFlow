@@ -41,7 +41,7 @@ Two parallel tracks exist — do not conflate:
 Phase: 70
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-24 - Completed quick task 260624-kpg: Fix DFC/transform cards excluded from set-packet top-60
+Last activity: 2026-06-24 - Completed quick task 260624-opb: Download manabase analysis as paste-ready .txt
 
 ## Roadmap Summary
 
@@ -107,6 +107,7 @@ Last activity: 2026-06-24 - Completed quick task 260624-kpg: Fix DFC/transform c
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260624-kpg | Fix DFC/transform cards excluded from set-packet top-60 via face-aware scoring | 2026-06-24 | a01473cc | [260624-kpg-fix-dfc-transform-cards-excluded-from-se](./quick/260624-kpg-fix-dfc-transform-cards-excluded-from-se/) |
+| 260624-opb | Download manabase analysis as paste-ready .txt via ManabaseReportTextBuilder | 2026-06-24 | 3c5155c3 | [260624-opb-be-able-to-download-the-manabase-analysi](./quick/260624-opb-be-able-to-download-the-manabase-analysi/) |
 
 ### Carry-Forward (still open from prior cycles)
 
