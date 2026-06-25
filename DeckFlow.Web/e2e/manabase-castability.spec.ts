@@ -111,19 +111,20 @@ test('Mode + CommanderImportance selections survive the postback', async ({ page
   // The radios re-render from Model.Request on BOTH the success and the error path, so this holds
   // even when Scryfall is unreachable in the sandbox — we assert the form state, not the result.
 
-  // Casual + Low.
+  // Casual + Low. Scope to the radio: the download mini-form also carries hidden
+  // name="Mode"/"CommanderImportance" inputs, so a bare name locator matches 2 elements.
   await submitDeck(page, 'Casual', 'Low');
-  await expect(page.locator('input[name="Mode"][value="Casual"]')).toBeChecked();
-  await expect(page.locator('input[name="Mode"][value="Cedh"]')).not.toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Low"]')).toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Casual"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Cedh"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Low"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
 
   // cEDH + Central.
   await submitDeck(page, 'Cedh', 'Central');
-  await expect(page.locator('input[name="Mode"][value="Cedh"]')).toBeChecked();
-  await expect(page.locator('input[name="Mode"][value="Casual"]')).not.toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Central"]')).toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Cedh"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Casual"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Central"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
 
   await assertNoHorizontalScroll(page);
 });
