@@ -60,13 +60,7 @@ public static class ManabaseDisplay
     }
 
     /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
-    public static string HealthLabel(ManabaseHealth health) => health switch
-    {
-        ManabaseHealth.Healthy => "Excellent",
-        ManabaseHealth.Functional => "Solid",
-        ManabaseHealth.Workable => "Workable",
-        _ => "Needs work",
-    };
+    public static string HealthLabel(ManabaseHealth health) => ManabaseLabels.Health(health);
 
     /// <summary>
     /// Health-scale chip class. These are health-only (distinct from the shared cast-chip
@@ -135,8 +129,7 @@ public static class ManabaseDisplay
     }
 
     /// <summary>Human label for an analysis mode (used in the results echo line).</summary>
-    public static string ModeLabel(ManabaseMode mode) =>
-        mode == ManabaseMode.Cedh ? "cEDH" : "Casual";
+    public static string ModeLabel(ManabaseMode mode) => ManabaseLabels.Mode(mode);
 
     /// <summary>Human label for the commander-importance setting.</summary>
     public static string ImportanceLabel(CommanderImportance importance) => importance switch
