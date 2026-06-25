@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using DeckFlow.Web.Infrastructure;
-using DeckFlow.Web.Models.Admin;
 using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -15,12 +14,12 @@ namespace DeckFlow.Web.Tests;
 
 /// <summary>
 /// Tests for <see cref="FeatureFlagGateAttribute"/> covering gate behaviour for disabled flags,
-/// maintenance-page redirect, and pass-through when flags are enabled.
+/// 404 short-circuiting, and pass-through when flags are enabled.
 /// </summary>
 public sealed class FeatureFlagGateAttributeTests
 {
     [Fact]
-    public async Task OnActionExecutionAsync_WhenFlagDisabled_ReturnsMaintenancePageWithAction()
+    public async Task OnActionExecutionAsync_WhenFlagDisabled_ReturnsNotFound()
     {
         var attribute = new FeatureFlagGateAttribute("feature.categories.enabled")
         {
@@ -42,15 +41,10 @@ public sealed class FeatureFlagGateAttributeTests
         });
 
         Assert.False(nextCalled);
-        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.HttpContext.Response.StatusCode);
-        Assert.Equal("300", context.HttpContext.Response.Headers["Retry-After"]);
-        var view = Assert.IsType<ViewResult>(context.Result);
-        Assert.Equal("_MaintenancePage", view.ViewName);
-        var model = Assert.IsType<MaintenanceViewModel>(view.Model);
-        Assert.Equal("Category suggestions temporarily unavailable", model.Title);
-        Assert.Equal("Category Suggestions is offline for maintenance. Category Reference remains available.", model.Message);
-        Assert.Equal("Open Category Reference", model.PrimaryActionLabel);
-        Assert.Equal("/commander-categories", model.PrimaryActionUrl);
+        var result = Assert.IsType<NotFoundResult>(context.Result);
+        Assert.Equal(StatusCodes.Status404NotFound, result.StatusCode);
+        Assert.Equal(StatusCodes.Status200OK, context.HttpContext.Response.StatusCode);
+        Assert.False(context.HttpContext.Response.Headers.ContainsKey("Retry-After"));
     }
 
     [Fact]

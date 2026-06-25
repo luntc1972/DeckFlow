@@ -37,6 +37,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
     /// Renders the card lookup page.
     /// </summary>
     [HttpGet("/card-lookup")]
+    [FeatureFlagGate("tool.card-lookup.enabled")]
     public IActionResult CardLookup()
     {
         return View("CardLookup", new CardLookupViewModel
@@ -49,6 +50,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
     /// Renders the mechanic rules lookup page.
     /// </summary>
     [HttpGet("/mechanic-lookup")]
+    [FeatureFlagGate("tool.mechanic-lookup.enabled")]
     public IActionResult MechanicLookup()
     {
         return View("MechanicLookup", new MechanicLookupViewModel
@@ -62,6 +64,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Card verification request.</param>
     [HttpPost("/card-lookup/download")]
+    [FeatureFlagGate("tool.card-lookup.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DownloadCardLookup(CardLookupRequest request)
     {
@@ -73,6 +76,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Card verification request.</param>
     [HttpPost("/card-lookup/download-json")]
+    [FeatureFlagGate("tool.card-lookup.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DownloadCardLookupJson(CardLookupRequest request)
     {
@@ -84,6 +88,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
     /// </summary>
     /// <param name="name">Card name.</param>
     [HttpGet("/card-lookup/single")]
+    [FeatureFlagGate("tool.card-lookup.enabled")]
     public async Task<IActionResult> SingleCardLookup(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -150,6 +155,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Mechanic lookup request.</param>
     [HttpPost("/mechanic-lookup")]
+    [FeatureFlagGate("tool.mechanic-lookup.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MechanicLookup(MechanicLookupRequest request)
     {

@@ -57,6 +57,11 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
     /// </summary>
     /// <param name="query">Partial card name.</param>
     [HttpGet("/suggest-categories/card-search")]
+    [FeatureFlagGate("feature.categories.enabled",
+        Title = "Category suggestions temporarily unavailable",
+        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
+        PrimaryActionLabel = "Open Category Reference",
+        PrimaryActionUrl = "/commander-categories")]
     public async Task<IActionResult> CardSearch(string query)
     {
         try
