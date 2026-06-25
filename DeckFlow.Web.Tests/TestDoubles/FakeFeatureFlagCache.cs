@@ -14,6 +14,8 @@ internal sealed class FakeFeatureFlagCache : IFeatureFlagCache
 {
     public Dictionary<string, bool> Flags { get; }
 
+    public int ReloadCallCount { get; private set; }
+
     public FakeFeatureFlagCache(IDictionary<string, bool>? initial = null)
     {
         Flags = initial is null
@@ -25,5 +27,9 @@ internal sealed class FakeFeatureFlagCache : IFeatureFlagCache
 
     public IReadOnlyDictionary<string, bool> Snapshot() => Flags;
 
-    public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task ReloadAsync(CancellationToken cancellationToken = default)
+    {
+        ReloadCallCount++;
+        return Task.CompletedTask;
+    }
 }
