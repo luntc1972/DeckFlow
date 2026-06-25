@@ -10,18 +10,6 @@ namespace DeckFlow.Core.Manabase;
 /// </summary>
 public static class ManabaseReportTextBuilder
 {
-    // Why: Core cannot reference DeckFlow.Web.Models, so the health labels are
-    // hard-coded here to match ManabaseDisplay.HealthLabel exactly. Keep in sync
-    // with that mapping when the display tier labels change.
-    private static string HealthLabel(ManabaseHealth health) => health switch
-    {
-        ManabaseHealth.Healthy => "Excellent",
-        ManabaseHealth.Functional => "Solid",
-        ManabaseHealth.Workable => "Workable",
-        ManabaseHealth.NeedsWork => "Needs work",
-        _ => health.ToString(),
-    };
-
     /// <summary>
     /// Compose a paste-ready plain-text mana-base report from the computed analysis results.
     /// </summary>
@@ -53,8 +41,7 @@ public static class ManabaseReportTextBuilder
         sb.AppendLine();
 
         // --- Mode ------------------------------------------------------------
-        string modeLabel = mode == ManabaseMode.Cedh ? "cEDH" : "Casual";
-        sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Mode: {modeLabel}"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Mode: {ManabaseLabels.Mode(mode)}"));
         sb.AppendLine();
 
         // --- Lands line ------------------------------------------------------
@@ -79,7 +66,7 @@ public static class ManabaseReportTextBuilder
 
         // --- Health verdict --------------------------------------------------
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"Health: {HealthLabel(report.Health)}"));
+            $"Health: {ManabaseLabels.Health(report.Health)}"));
 
         if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
         {
