@@ -280,8 +280,10 @@ public sealed class PullFromProdPageTests : BunitContext
 
         Pull(cut);
 
-        // Progress panel shows the "not downloaded:" line with RemoteRelativePath.
-        Assert.Contains("not downloaded: content-kb/test-channel/vid-a.md", cut.Markup);
+        // Progress panel shows the "not downloaded:" line with RemoteRelativePath. The line renders
+        // asynchronously as the (faked) download fails, so wait for it rather than asserting on a
+        // bare snapshot — matches every other render assertion in this file (flaky otherwise).
+        cut.WaitForAssertion(() => Assert.Contains("not downloaded: content-kb/test-channel/vid-a.md", cut.Markup));
         // LocalPath is empty string on failure; regardless, the temp dir must never appear.
         Assert.DoesNotContain(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, '/'), cut.Markup,
             StringComparison.OrdinalIgnoreCase);
