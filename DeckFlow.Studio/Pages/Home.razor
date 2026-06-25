@@ -1,19 +1,181 @@
 @page "/"
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Knowledge
+@implements IDisposable
+@inject IContentSiteIndexStore IndexStore
+@inject PublishStateDeriver Deriver
+@inject StudioConfig Config
 
 <PageTitle>DeckFlow Studio</PageTitle>
 
-<h1>DeckFlow Studio</h1>
-<p>Studio is running.</p>
-<p>Prod connection: <strong>@(_isProdConfigured ? "configured" : "not configured")</strong></p>
+<div class="home-dashboard">
+    <header class="home-header">
+        <div>
+            <h1 class="studio-page-title">DeckFlow Studio</h1>
+            <p class="home-section-label mb-0">Pipeline at a glance</p>
+        </div>
+
+        <div class="home-quick-links">
+            <a class="btn dashboard-link-primary" href="/harvest">Open Harvest</a>
+            <a class="btn dashboard-link-secondary" href="/review">Review Queue</a>
+            <a class="btn btn-outline-secondary" href="/publish">Publish</a>
+        </div>
+    </header>
+
+    <p class="home-prod-indicator mb-0">
+        Prod connection: <strong>@(Config.IsProdConfigured ? "configured" : "not configured")</strong>
+    </p>
+
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center gap-2" role="status">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            <span>Loading pipeline status…</span>
+        </div>
+    }
+    else if (_loadError is not null)
+    {
+        <div class="alert alert-danger mb-0" role="alert">@_loadError</div>
+    }
+    else if (_allRows.Count == 0)
+    {
+        <section class="dashboard-panel" aria-labelledby="home-empty-state-title">
+            <h2 id="home-empty-state-title" class="h5 mb-2">No videos in the pipeline yet</h2>
+            <p class="mb-0">
+                Start by harvesting a creator's videos.
+                <a href="/harvest">Open Harvest</a>
+            </p>
+        </section>
+    }
+    else
+    {
+        <section aria-labelledby="pipeline-status-title">
+            <h2 id="pipeline-status-title" class="home-subheading">Pipeline status</h2>
+            <div class="dashboard-grid">
+                @foreach (var bucket in VideoStatusBuckets)
+                {
+                    <article class="dashboard-card hub-card" data-video-status="@bucket.Status">
+                        <div class="studio-count">@GetVideoStatusCount(bucket.Status)</div>
+                        <div class="dashboard-card-label">@bucket.Label</div>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section class="dashboard-panel" aria-labelledby="publish-summary-title">
+            <h2 id="publish-summary-title" class="home-subheading">Publish state summary</h2>
+            <div class="publish-state-list">
+                @foreach (var state in PublishStateBuckets)
+                {
+                    <div class="publish-state-item" data-publish-state="@state">
+                        @RenderPublishStateBadge(state)
+                        <span class="publish-state-count">@GetPublishStateCount(state)</span>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>
 
 @code {
-    [Inject]
-    private StudioConfig Config { get; set; } = default!;
-
-    private bool _isProdConfigured;
-
-    protected override void OnInitialized()
+    private static readonly (VideoStatus Status, string Label)[] VideoStatusBuckets =
     {
-        _isProdConfigured = Config.IsProdConfigured;
+        (VideoStatus.Harvested, "Harvested"),
+        (VideoStatus.Distilled, "Distilled"),
+        (VideoStatus.Approved, "Approved"),
+        (VideoStatus.Published, "Published"),
+    };
+
+    private static readonly PublishState[] PublishStateBuckets =
+    {
+        PublishState.NeverPublished,
+        PublishState.PushedHidden,
+        PublishState.Published,
+        PublishState.LocalNewer,
+    };
+
+    private readonly CancellationTokenSource _cts = new();
+    private IReadOnlyList<ContentSiteIndexRow> _allRows = Array.Empty<ContentSiteIndexRow>();
+    private Dictionary<VideoStatus, int> _videoStatusCounts = new();
+    private Dictionary<PublishState, int> _publishStateCounts = new();
+    private bool _loading = true;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var rows = await Task.Run(async () =>
+            {
+                await IndexStore.EnsureSchemaAsync(_cts.Token).ConfigureAwait(false);
+                return await IndexStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
+            }, _cts.Token);
+
+            _allRows = rows;
+            _videoStatusCounts = BuildVideoStatusCounts(rows);
+            _publishStateCounts = BuildPublishStateCounts(rows);
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed mid-load — swallow.
+        }
+        catch (Exception ex)
+        {
+            _ = ex;
+            _loadError = "Could not load pipeline status — check the Studio data directory and retry.";
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private static Dictionary<VideoStatus, int> BuildVideoStatusCounts(IReadOnlyList<ContentSiteIndexRow> rows)
+    {
+        var counts = VideoStatusBuckets.ToDictionary(bucket => bucket.Status, _ => 0);
+        foreach (var row in rows)
+        {
+            var status = VideoStatusResolver.FromContentRow(row.ApprovalStatus, row.PushedToProdUtc, row.IsVisible);
+            if (counts.ContainsKey(status))
+            {
+                counts[status]++;
+            }
+        }
+
+        return counts;
+    }
+
+    private Dictionary<PublishState, int> BuildPublishStateCounts(IReadOnlyList<ContentSiteIndexRow> rows)
+    {
+        var counts = PublishStateBuckets.ToDictionary(state => state, _ => 0);
+        foreach (var row in rows)
+        {
+            var state = Deriver.Derive(row.PushedToProdUtc, row.IsVisible, row.IndexedUtc);
+            counts[state]++;
+        }
+
+        return counts;
+    }
+
+    private int GetVideoStatusCount(VideoStatus status)
+        => _videoStatusCounts.TryGetValue(status, out var count) ? count : 0;
+
+    private int GetPublishStateCount(PublishState state)
+        => _publishStateCounts.TryGetValue(state, out var count) ? count : 0;
+
+    private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
+    {
+        PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,
+        PublishState.PushedHidden   => @<span class="badge bg-warning text-dark">Pushed-hidden</span>,
+        PublishState.Published      => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
+        PublishState.LocalNewer     => @<span class="badge bg-info text-dark">Local-newer</span>,
+        _                           => @<span class="badge bg-secondary">Unknown</span>,
+    };
 }
