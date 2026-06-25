@@ -22,6 +22,7 @@ namespace DeckFlow.Core.Tests;
 /// deferred defect).
 /// </para>
 /// Run: DECKFLOW_MANABASE_HARNESS=1 dotnet.exe test DeckFlow.Core.Tests --filter AvatarManabaseRegressionTests
+/// </summary>
 public sealed class AvatarManabaseRegressionTests
 {
     // Resolve paths relative to the repo root (found by walking up to DeckFlow.sln) so the test works

@@ -37,7 +37,7 @@ public interface IContentIndexExporter
     /// Materializes approved markdown artifacts from the Studio data root into the repo
     /// working tree so they can be staged and committed. Returns the copied repo-relative
     /// paths (= <c>row.ArtifactPath</c> for each approved row) for the caller to pass to
-    /// <see cref="IGitRepository.StageAndCommitAsync"/>.
+    /// <see cref="DeckFlow.Core.Integration.IGitRepository.StageAndCommitAsync"/>.
     /// </summary>
     /// <remarks>
     /// <para>
