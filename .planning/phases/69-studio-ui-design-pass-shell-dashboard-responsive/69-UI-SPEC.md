@@ -1,7 +1,8 @@
 ---
 phase: 69
 slug: studio-ui-design-pass-shell-dashboard-responsive
-status: draft
+status: approved
+reviewed_at: 2026-06-25
 shadcn_initialized: false
 preset: none
 created: 2026-06-25
