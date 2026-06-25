@@ -50,6 +50,14 @@ public sealed class HomeTilesViewTests
         Assert.Contains("_ToolTileIcon", content, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Home_HeroCtaIsNotHardcodedToDeckAnalysisRoute()
+    {
+        var content = ReadHome();
+
+        Assert.DoesNotContain("href=\"@Url.Content(\"~/deck-analysis\")\"", content, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("deck-analysis")]
     [InlineData("deck-comparison")]

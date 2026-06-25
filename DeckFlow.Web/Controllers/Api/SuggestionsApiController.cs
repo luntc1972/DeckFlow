@@ -6,6 +6,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -46,9 +47,11 @@ public sealed class SuggestionsApiController : ControllerBase
     /// <param name="cancellationToken">Cancellation token for the lookup.</param>
     /// <returns>A structured suggestion response used by the web UI and external callers.</returns>
     [HttpPost("card")]
+    [FeatureFlagGate("feature.categories.enabled")]
     [ProducesResponseType(typeof(CategorySuggestionApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<CategorySuggestionApiResponse>> PostCardSuggestionAsync([FromBody] CategorySuggestionRequest request, CancellationToken cancellationToken)
@@ -121,9 +124,11 @@ public sealed class SuggestionsApiController : ControllerBase
     /// <param name="cancellationToken">Cancellation token for the lookup.</param>
     /// <returns>A commander category summary response used by the web UI and external callers.</returns>
     [HttpPost("commander")]
+    [FeatureFlagGate("tool.commander-categories.enabled")]
     [ProducesResponseType(typeof(CommanderCategoryApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     public async Task<ActionResult<CommanderCategoryApiResponse>> PostCommanderSuggestionAsync([FromBody] CommanderCategoryRequest request, CancellationToken cancellationToken)
     {
@@ -179,9 +184,11 @@ public sealed class SuggestionsApiController : ControllerBase
     /// <param name="cancellationToken">Cancellation token for the lookup.</param>
     /// <returns>A structured mechanic rules response for the UI and external callers.</returns>
     [HttpPost("mechanic")]
+    [FeatureFlagGate("tool.mechanic-lookup.enabled")]
     [ProducesResponseType(typeof(MechanicLookupApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MechanicLookupApiResponse>> PostMechanicLookupAsync([FromBody] MechanicLookupRequest request, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))

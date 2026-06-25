@@ -5,17 +5,23 @@
 @{
     ViewData["Title"] = "Home";
     var sections = ToolVisibility.VisibleBySection(ToolRegistry.All, FlagCache);
+    var headlineWorkflow = sections
+        .SelectMany(section => section.Tools)
+        .FirstOrDefault(tool => tool.Key == "deck-analysis");
 }
 
 @await Html.PartialAsync("_DeckToolTabs", Model)
 
 <p class="hub-lede">Personal Magic: The Gathering deck tooling — analysis, sync, reference, and categories.</p>
 
-<a class="hub-hero hub-hero--primary" href="@Url.Content("~/deck-analysis")">
-    <span class="hub-hero__eyebrow">Headline workflow</span>
-    <span class="hub-hero__title">Analyze Your Deck</span>
-    <span class="hub-hero__description">Five-step workflow: load your deck, pick your questions, copy the prompt, paste into ChatGPT, Claude, or Gemini, review the structured response.</span>
-</a>
+@if (headlineWorkflow is not null)
+{
+    <a class="hub-hero hub-hero--primary" href="@Url.Content("~" + headlineWorkflow.Route)">
+        <span class="hub-hero__eyebrow">Headline workflow</span>
+        <span class="hub-hero__title">Analyze Your Deck</span>
+        <span class="hub-hero__description">Five-step workflow: load your deck, pick your questions, copy the prompt, paste into ChatGPT, Claude, or Gemini, review the structured response.</span>
+    </a>
+}
 
 @foreach (var section in sections)
 {

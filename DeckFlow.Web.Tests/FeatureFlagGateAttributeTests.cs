@@ -21,13 +21,7 @@ public sealed class FeatureFlagGateAttributeTests
     [Fact]
     public async Task OnActionExecutionAsync_WhenFlagDisabled_ReturnsNotFound()
     {
-        var attribute = new FeatureFlagGateAttribute("feature.categories.enabled")
-        {
-            Title = "Category suggestions temporarily unavailable",
-            Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
-            PrimaryActionLabel = "Open Category Reference",
-            PrimaryActionUrl = "/commander-categories",
-        };
+        var attribute = new FeatureFlagGateAttribute("feature.categories.enabled");
         var context = CreateContext(new FakeFeatureFlagCache(new Dictionary<string, bool>
         {
             ["feature.categories.enabled"] = false,

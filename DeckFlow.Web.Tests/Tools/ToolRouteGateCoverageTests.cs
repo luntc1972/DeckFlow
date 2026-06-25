@@ -13,20 +13,6 @@ namespace DeckFlow.Web.Tests.Tools;
 /// </summary>
 public sealed class ToolRouteGateCoverageTests
 {
-    private static readonly Type[] ToolControllerTypes =
-    [
-        typeof(DeckPacketController),
-        typeof(DeckLookupController),
-        typeof(DeckPrimerController),
-        typeof(DeckSyncController),
-        typeof(DeckConvertController),
-        typeof(JudgeQuestionsController),
-        typeof(CommanderController),
-        typeof(DeckCategoriesController),
-        typeof(ManabaseController),
-        typeof(ContentKbController),
-    ];
-
     [Fact]
     public void Every_tool_has_at_least_one_gated_action()
     {
@@ -36,7 +22,7 @@ public sealed class ToolRouteGateCoverageTests
         {
             Assert.Contains(
                 toolActions,
-                candidate => StringComparer.Ordinal.Equals(candidate.Tool.Key, tool.Key));
+                candidate => candidate.Tool is not null && StringComparer.Ordinal.Equals(candidate.Tool.Key, tool.Key));
         }
     }
 
@@ -44,7 +30,7 @@ public sealed class ToolRouteGateCoverageTests
     public void Every_tool_route_action_uses_the_matching_feature_flag_gate()
     {
         var failures = GetToolActions()
-            .Select(action => ValidateGate(action.Tool, action.Method, action.Path))
+            .Select(action => action.Failure ?? ValidateGate(action.Tool!, action.Method, action.Path))
             .Where(failure => failure is not null)
             .ToArray();
 
@@ -55,58 +41,59 @@ public sealed class ToolRouteGateCoverageTests
 
     private static IReadOnlyList<ToolAction> GetGatedToolActions() =>
         GetToolActions()
-            .Where(action => action.Method.GetCustomAttribute<FeatureFlagGateAttribute>() is not null)
+            .Where(action => action.Tool is not null && action.Method.GetCustomAttribute<FeatureFlagGateAttribute>() is not null)
             .ToArray();
 
     private static IReadOnlyList<ToolAction> GetToolActions()
     {
-        var tools = new ToolRegistry().All
-            .OrderByDescending(tool => tool.Route.Length)
+        var trackedRoutes = GetTrackedRoutes()
+            .OrderByDescending(candidate => candidate.Route.Length)
             .ToArray();
-        var controllerToolRouteMap = BuildControllerToolRouteMap(tools);
         var results = new List<ToolAction>();
 
-        foreach (var method in GetActionMethods())
+        foreach (var method in GetTrackedControllerActionMethods(trackedRoutes))
         {
             var path = GetEffectiveRoutePath(method);
-            var tool = MatchTool(method.DeclaringType!, path, tools, controllerToolRouteMap);
+            var tool = FindLongestPrefixMatch(path, trackedRoutes);
             if (tool is null)
             {
+                results.Add(new ToolAction(
+                    null,
+                    method,
+                    path,
+                    $"{method.DeclaringType!.Name}.{method.Name} ({path}) is on a tracked tool controller but does not match any registered tool route."));
                 continue;
             }
 
-            results.Add(new ToolAction(tool, method, path));
+            results.Add(new ToolAction(tool.Tool, method, path, null));
         }
 
         return results;
     }
 
-    private static Dictionary<Type, ToolDefinition> BuildControllerToolRouteMap(IReadOnlyList<ToolDefinition> tools)
+    private static IEnumerable<TrackedRoute> GetTrackedRoutes()
     {
-        var controllerToolRouteMap = new Dictionary<Type, ToolDefinition>();
-
-        foreach (var controllerType in ToolControllerTypes)
+        foreach (var tool in new ToolRegistry().All)
         {
-            var matchingTools = GetActionMethods(controllerType)
-                .Select(GetEffectiveRoutePath)
-                .Select(path => FindLongestPrefixMatch(path, tools))
-                .Where(tool => tool is not null)
-                .DistinctBy(tool => tool!.Key)
-                .Cast<ToolDefinition>()
-                .ToArray();
-
-            if (matchingTools.Length == 1)
+            yield return new TrackedRoute(tool, tool.Route);
+            foreach (var route in tool.AdditionalRoutes)
             {
-                controllerToolRouteMap[controllerType] = matchingTools[0];
+                yield return new TrackedRoute(tool, route);
             }
         }
-
-        return controllerToolRouteMap;
     }
 
-    private static IEnumerable<MethodInfo> GetActionMethods()
+    private static IEnumerable<MethodInfo> GetTrackedControllerActionMethods(IReadOnlyList<TrackedRoute> trackedRoutes)
     {
-        foreach (var controllerType in ToolControllerTypes)
+        var trackedControllerTypes = typeof(DeckPacketController).Assembly
+            .GetTypes()
+            .Where(static type => !type.IsAbstract && typeof(ControllerBase).IsAssignableFrom(type))
+            .Where(type => GetActionMethods(type)
+                .Select(GetEffectiveRoutePath)
+                .Any(path => FindLongestPrefixMatch(path, trackedRoutes) is not null))
+            .ToArray();
+
+        foreach (var controllerType in trackedControllerTypes)
         {
             foreach (var method in GetActionMethods(controllerType))
             {
@@ -136,27 +123,7 @@ public sealed class ToolRouteGateCoverageTests
         return NormalizeRoutePath(controllerRoute, httpMethodRoute);
     }
 
-    private static ToolDefinition? MatchTool(
-        Type controllerType,
-        string path,
-        IReadOnlyList<ToolDefinition> tools,
-        IReadOnlyDictionary<Type, ToolDefinition> controllerToolRouteMap)
-    {
-        var matchedTool = FindLongestPrefixMatch(path, tools);
-        if (matchedTool is not null)
-        {
-            return matchedTool;
-        }
-
-        if (controllerToolRouteMap.TryGetValue(controllerType, out var controllerTool))
-        {
-            return controllerTool;
-        }
-
-        return null;
-    }
-
-    private static ToolDefinition? FindLongestPrefixMatch(string path, IReadOnlyList<ToolDefinition> tools) =>
+    private static TrackedRoute? FindLongestPrefixMatch(string path, IReadOnlyList<TrackedRoute> tools) =>
         tools.FirstOrDefault(tool =>
             StringComparer.Ordinal.Equals(path, tool.Route)
             || path.StartsWith(tool.Route + "/", StringComparison.Ordinal));
@@ -209,5 +176,7 @@ public sealed class ToolRouteGateCoverageTests
             ? string.Empty
             : routeFragment.Trim().Trim('/');
 
-    private sealed record ToolAction(ToolDefinition Tool, MethodInfo Method, string Path);
+    private sealed record TrackedRoute(ToolDefinition Tool, string Route);
+
+    private sealed record ToolAction(ToolDefinition? Tool, MethodInfo Method, string Path, string? Failure);
 }

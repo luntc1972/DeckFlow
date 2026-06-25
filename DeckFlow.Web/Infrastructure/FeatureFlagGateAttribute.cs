@@ -7,10 +7,9 @@ namespace DeckFlow.Web.Infrastructure;
 
 /// <summary>
 /// Reusable per-action page kill-switch (Phase 6, FLAG-05, D-17 + D-18). Applied via
-/// <c>[FeatureFlagGate("page.help.enabled", Title = "Help center temporarily unavailable",
-/// Message = "Help is offline for maintenance.")]</c> on any controller action. When the
-/// referenced flag is off in <see cref="IFeatureFlagCache"/>, the action is short-circuited
-/// and the response becomes HTTP 404 Not Found.
+/// <c>[FeatureFlagGate("page.help.enabled")]</c> on any controller action. When the referenced
+/// flag is off in <see cref="IFeatureFlagCache"/>, the action is short-circuited and the
+/// response becomes HTTP 404 Not Found.
 ///
 /// Because attribute ctors only accept compile-time constants, the cache is resolved per
 /// invocation from <see cref="HttpContext.RequestServices"/> — guarantees the latest snapshot
@@ -21,18 +20,6 @@ public sealed class FeatureFlagGateAttribute : Attribute, IAsyncActionFilter
 {
     /// <summary>Dotted-namespace flag key (D-08), e.g. "page.help.enabled".</summary>
     public string Key { get; }
-
-    /// <summary>Title formerly rendered in the maintenance page H1. Defaults to a generic copy.</summary>
-    public string Title { get; init; } = "Temporarily unavailable";
-
-    /// <summary>Body copy formerly rendered in the maintenance page paragraph. Defaults to a generic copy.</summary>
-    public string Message { get; init; } = "This page is offline for maintenance. Please try again shortly.";
-
-    /// <summary>Optional primary action label formerly rendered on the maintenance page.</summary>
-    public string? PrimaryActionLabel { get; init; }
-
-    /// <summary>Optional primary action URL formerly rendered on the maintenance page.</summary>
-    public string? PrimaryActionUrl { get; init; }
 
     /// <summary>
     /// Constructs the gate with a required flag key. Throws <see cref="ArgumentException"/>

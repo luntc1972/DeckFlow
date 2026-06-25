@@ -38,11 +38,7 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
     /// Renders the suggest categories tab with fresh state.
     /// </summary>
     [HttpGet("/suggest-categories")]
-    [FeatureFlagGate("feature.categories.enabled",
-        Title = "Category suggestions temporarily unavailable",
-        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
-        PrimaryActionLabel = "Open Category Reference",
-        PrimaryActionUrl = "/commander-categories")]
+    [FeatureFlagGate("feature.categories.enabled")]
     public IActionResult SuggestCategories()
     {
         return View("SuggestCategories", new DeckDiffViewModel
@@ -57,11 +53,7 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
     /// </summary>
     /// <param name="query">Partial card name.</param>
     [HttpGet("/suggest-categories/card-search")]
-    [FeatureFlagGate("feature.categories.enabled",
-        Title = "Category suggestions temporarily unavailable",
-        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
-        PrimaryActionLabel = "Open Category Reference",
-        PrimaryActionUrl = "/commander-categories")]
+    [FeatureFlagGate("feature.categories.enabled")]
     public async Task<IActionResult> CardSearch(string query)
     {
         try
@@ -84,11 +76,7 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Category suggestion request.</param>
     [HttpPost("/suggest-categories")]
-    [FeatureFlagGate("feature.categories.enabled",
-        Title = "Category suggestions temporarily unavailable",
-        Message = "Category Suggestions is offline for maintenance. Category Reference remains available.",
-        PrimaryActionLabel = "Open Category Reference",
-        PrimaryActionUrl = "/commander-categories")]
+    [FeatureFlagGate("feature.categories.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SuggestCategories(CategorySuggestionRequest request)
     {

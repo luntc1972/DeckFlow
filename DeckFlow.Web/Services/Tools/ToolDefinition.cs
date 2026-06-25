@@ -23,6 +23,11 @@ public sealed record ToolDefinition
     public required string Route { get; init; }
 
     /// <summary>
+    /// Additional route paths that execute the same tool capability.
+    /// </summary>
+    public IReadOnlyList<string> AdditionalRoutes { get; init; } = [];
+
+    /// <summary>
     /// Navigation/home section the tool belongs to.
     /// </summary>
     public required ToolNavSection Section { get; init; }

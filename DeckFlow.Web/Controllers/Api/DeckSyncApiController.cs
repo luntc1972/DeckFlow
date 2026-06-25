@@ -3,6 +3,7 @@ using DeckFlow.Core.Exporting;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Security;
@@ -40,9 +41,11 @@ public sealed class DeckSyncApiController : ControllerBase
     /// <param name="cancellationToken">Cancellation token for the sync.</param>
     /// <returns>A structured deck sync response used by the web UI and external callers.</returns>
     [HttpPost("diff")]
+    [FeatureFlagGate("tool.deck-sync.enabled")]
     [ProducesResponseType(typeof(DeckSyncApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DeckSyncApiResponse>> PostDiffAsync([FromBody] DeckSyncApiRequest request, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))

@@ -13,15 +13,15 @@ public sealed class ToolRegistry : IToolRegistry
         Create("deck-comparison", "Deck Comparison", "/deck-comparison", ToolNavSection.Analyze, "tool.deck-comparison.enabled", true, "Deck Comparison", "Side-by-side comparison of two decks with an AI-authored breakdown of strengths, weaknesses, and trade-offs.", "deck-comparison", DeckPageTab.DeckComparison, true),
         Create("cedh-meta-gap", "cEDH Meta Gap", "/cedh-meta-gap", ToolNavSection.Analyze, "tool.cedh-meta-gap.enabled", true, "cEDH Meta Gap", "Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.", "cedh-meta-gap", DeckPageTab.CedhMetaGap, false),
         Create("manabase", "Mana Base", "/manabase", ToolNavSection.Analyze, "feature.manabase.enabled", false, "Mana Base", "Score a deck's lands and colored sources — Frank Karsten's source-count math, extended to weight rocks, dorks, and MDFCs and to count tapped vs. untapped lands. No AI needed.", "manabase", DeckPageTab.Manabase, false),
-        Create("deck-sync", "Deck Sync", "/sync", ToolNavSection.Build, "tool.deck-sync.enabled", false, "Deck Sync", "Reconcile a Moxfield deck against an Archidekt deck (either direction) and generate add/cut text for the target.", "deck-sync", DeckPageTab.Sync, true),
+        Create("deck-sync", "Deck Sync", "/sync", ToolNavSection.Build, "tool.deck-sync.enabled", false, "Deck Sync", "Reconcile a Moxfield deck against an Archidekt deck (either direction) and generate add/cut text for the target.", "deck-sync", DeckPageTab.Sync, true, "/resolve", "/api/deck/diff"),
         Create("convert", "Convert Deck", "/convert", ToolNavSection.Build, "tool.convert.enabled", false, "Convert Deck", "Convert deck export text or a public URL between Moxfield and Archidekt formats.", null, DeckPageTab.Convert, false),
         Create("deck-primer", "Deck Primer", "/deck-primer", ToolNavSection.Build, "tool.deck-primer.enabled", false, "Deck Primer", "Generate a staged, ChatGPT-ready primer that explains your deck's plan, lines, and key interactions.", "deck-primer", DeckPageTab.DeckPrimer, false),
         Create("card-lookup", "Card Lookup", "/card-lookup", ToolNavSection.Reference, "tool.card-lookup.enabled", false, "Card Lookup", "Paste a card list and get back Oracle text and rulings for each match.", "card-lookup", DeckPageTab.CardLookup, true),
-        Create("mechanic-lookup", "Mechanic Rules", "/mechanic-lookup", ToolNavSection.Reference, "tool.mechanic-lookup.enabled", false, "Mechanic Rules", "Look up official WOTC rules text for keyword mechanics found in your deck.", null, DeckPageTab.MechanicLookup, false),
+        Create("mechanic-lookup", "Mechanic Rules", "/mechanic-lookup", ToolNavSection.Reference, "tool.mechanic-lookup.enabled", false, "Mechanic Rules", "Look up official WOTC rules text for keyword mechanics found in your deck.", null, DeckPageTab.MechanicLookup, false, "/api/suggestions/mechanic"),
         Create("judge-questions", "Ask a Judge", "/judge-questions", ToolNavSection.Reference, "tool.judge-questions.enabled", false, "Ask a Judge", "Get rules answers from real MTG judges 24/7, with a ChatGPT prompt generator as backup.", "ask-a-judge", DeckPageTab.JudgeQuestions, false),
         Create("content-kb", "Knowledge Base", "/content-kb", ToolNavSection.Reference, "content.kb.enabled", false, "Expert Knowledge Base", "Browse distilled creator advice, open any entry, and copy a ready-to-paste prompt from the Knowledge Base detail page.", "content-kb", DeckPageTab.ContentKb, false),
-        Create("suggest-categories", "Category Suggestions", "/suggest-categories", ToolNavSection.Categories, "feature.categories.enabled", false, "Category Suggestions", "Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.", "category-suggestions", DeckPageTab.SuggestCategories, false),
-        Create("commander-categories", "Category Reference", "/commander-categories", ToolNavSection.Categories, "tool.commander-categories.enabled", false, "Category Reference", "Browse the category knowledge base the suggestion engine draws on.", "commander-categories", DeckPageTab.CommanderCategories, false),
+        Create("suggest-categories", "Category Suggestions", "/suggest-categories", ToolNavSection.Categories, "feature.categories.enabled", false, "Category Suggestions", "Suggest categories for your cards using cached data, Scryfall Tagger, or a reference-deck comparison.", "category-suggestions", DeckPageTab.SuggestCategories, false, "/api/suggestions/card"),
+        Create("commander-categories", "Category Reference", "/commander-categories", ToolNavSection.Categories, "tool.commander-categories.enabled", false, "Category Reference", "Browse the category knowledge base the suggestion engine draws on.", "commander-categories", DeckPageTab.CommanderCategories, false, "/api/suggestions/commander"),
     ];
 
     /// <inheritdoc />
@@ -38,13 +38,15 @@ public sealed class ToolRegistry : IToolRegistry
         string tileDescription,
         string? helpSlug,
         DeckPageTab tab,
-        bool isPrimaryTile)
+        bool isPrimaryTile,
+        params string[] additionalRoutes)
     {
         return new ToolDefinition
         {
             Key = key,
             Label = label,
             Route = route,
+            AdditionalRoutes = additionalRoutes,
             Section = section,
             FlagKey = flagKey,
             Core = core,

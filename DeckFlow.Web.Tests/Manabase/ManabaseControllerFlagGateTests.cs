@@ -2,6 +2,7 @@ using System.Linq;
 using System.Reflection;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -22,9 +23,7 @@ public sealed class ManabaseControllerFlagGateTests
     {
         var actions = GetManabaseActions();
 
-        // GET form + POST load + POST analyze — all three must carry the gate so the
-        // page and both POST siblings die together when the flag is off.
-        Assert.Equal(3, actions.Length);
+        Assert.Equal(new[] { "Load", "Manabase", "Manabase" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
 
         foreach (var method in actions)
         {
@@ -38,6 +37,6 @@ public sealed class ManabaseControllerFlagGateTests
     private static MethodInfo[] GetManabaseActions() =>
         typeof(ManabaseController)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Where(m => m.GetCustomAttributes<FeatureFlagGateAttribute>().Any())
+            .Where(m => m.GetCustomAttributes<HttpMethodAttribute>(inherit: true).Any())
             .ToArray();
 }
