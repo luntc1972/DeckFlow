@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: Branch reconciliation done — main de-numbered manabase out of slot 64; merged main → cycle11 (one STATE.md conflict resolved). cycle11 now superset (manabase + security). Phase 64 complete.
-last_updated: "2026-06-22T22:16:37.467Z"
-last_activity: 2026-06-22 -- Phase 65 execution started
+stopped_at: Phase 66 (Admin Tool-Visibility Toggles + Tool Registry) code-complete + reviewed. 7 commits on cycle11 (66-01..66-06 + 66-07 gap-fix), build green, xUnit + Playwright(12) pass. Awaiting operator UAT before push/merge.
+last_updated: "2026-06-25T20:30:00.000Z"
+last_activity: 2026-06-25 -- Phase 66 executed (Codex codes, Claude reviews); code review HI-01 API-gating gap found + fixed (79e1cb1a)
 progress:
   total_phases: 10
-  completed_phases: 3
-  total_plans: 20
-  completed_plans: 12
-  percent: 30
+  completed_phases: 6
+  total_plans: 27
+  completed_plans: 19
+  percent: 60
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 65 — prod-content-artifact-reconcile
+**Current focus:** Phase 66 done (code+review). Next: Phase 67 — Content KB Value A/B Validation (the gate phase).
 
 ## Branch reconciliation (resolved 2026-06-22)
 
@@ -30,18 +30,18 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 65 (prod-content-artifact-reconcile) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 65
-Last activity: 2026-06-22 -- Phase 65 execution started
+Phase: 66 (Admin Tool-Visibility Toggles + Tool Registry) — CODE-COMPLETE + REVIEWED
+Plan: 6/6 plans + 66-07 gap-fix; commits 7fda58dd 68bee950 2b529579 85b25f43 e2ad5af2 43b6626e 79e1cb1a (unpushed)
+Status: Build green; xUnit pass; Playwright 12/12; code review HI-01 (ungated tool-backing API endpoints) found + fixed. Awaiting operator UAT, then push/merge.
+Last activity: 2026-06-25 -- Phase 66 executed + reviewed
 
 ## Roadmap Summary
 
 | # | Phase | Requirements | Status |
 |---|-------|-------------|--------|
-| 64 | Deck-Source Host Hardening | SEC-01, SEC-02, SEC-03 | Not started |
-| 65 | Prod Content Artifact Reconcile | DATA-01, DATA-02 | Not started |
-| 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | Not started |
+| 64 | Deck-Source Host Hardening | SEC-01, SEC-02, SEC-03 | ✅ Complete |
+| 65 | Prod Content Artifact Reconcile | DATA-01, DATA-02 | ✅ Executed (operator-gated reconcile) |
+| 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | ✅ Code-complete + reviewed (operator UAT pending) |
 | 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | Not started |
 | 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | Not started |
 | 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | Not started |
