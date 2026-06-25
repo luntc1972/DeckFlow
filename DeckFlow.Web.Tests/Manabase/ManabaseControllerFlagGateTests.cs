@@ -23,7 +23,7 @@ public sealed class ManabaseControllerFlagGateTests
     {
         var actions = GetManabaseActions();
 
-        Assert.Equal(new[] { "Load", "Manabase", "Manabase" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
+        Assert.Equal(new[] { "Download", "Load", "Manabase", "Manabase" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
 
         foreach (var method in actions)
         {

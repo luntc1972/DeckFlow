@@ -31,11 +31,49 @@ public static class ManabaseAnalyzer
     /// How heavily to weight the commander's colors. Orthogonal to <paramref name="mode"/>: it never
     /// changes the land target, only the commander-color support evaluation and summary weighting.
     /// </param>
+    /// <param name="costOverrides">User effective-cost overrides by card name, applied before analysis.</param>
+    /// <param name="useManaQuantity">
+    /// MQ-02 flag. When true, the castability ROWS credit each source its full mana amount (Sol
+    /// Ring = 2, etc.). It is threaded ONLY into the display castability path — the per-color source
+    /// REQUIREMENT measurement stays mana-amount-blind, so the Karsten color counts
+    /// (EffectiveSources / SimRequiredSources / deficit) are identical whether the flag is on or off.
+    /// </param>
+    /// <param name="colorAwareMulligan">
+    /// MQ-05 flag. When true the castability ROWS mulligan multi-color hands whose opening lands do not
+    /// show enough distinct colors (threaded ONLY into the display castability path). The per-color
+    /// source REQUIREMENT probe stays count-only, so the Karsten color counts are unchanged.
+    /// </param>
+    /// <param name="gateRampOnCastable">
+    /// P4 gated-ramp flag (tied to land-ramp-sim). When true the castability ROWS only credit a drawn
+    /// ramp piece once the board can pay the ramp's OWN colored cost (mirrors 17Lands); when false
+    /// (default) ramp deploys as soon as its generic deploy cost is affordable (legacy, byte-identical).
+    /// Threaded ONLY into the display castability path — the per-color source requirement probe builds
+    /// ramp-free synthetic decks, so it is unaffected.
+    /// </param>
+    /// <param name="useHealthBandCastability">
+    /// MQ-health-band flag. When true, the composite-weakest color's worst-spell cast % feeds the
+    /// health-band verdict: a color that is composite-worst AND casts its worst spell below the mode
+    /// threshold (80 Casual / 88 cEDH) counts as a color issue, tipping Functional→Workable. Threaded
+    /// into <see cref="ManabaseReport.UseHealthBandCastability"/>; <see cref="ManabaseReport.Health"/>
+    /// reads it in <c>ComputeColorSignals</c>. When false (default), behavior is byte-identical.
+    /// </param>
+    /// <param name="useHealthBandHeadlineFloor">
+    /// MQ-health-band headline-floor flag. When true, a deck with a strong headline average and no
+    /// catastrophic color can promote from NeedsWork to Workable when the only red signal is one soft
+    /// color issue plus a land shortfall. Threaded into
+    /// <see cref="ManabaseReport.UseHealthBandHeadlineFloor"/>. When false (default), behavior is
+    /// byte-identical.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
         CommanderImportance importance = CommanderImportance.Standard,
-        IReadOnlyDictionary<string, string>? costOverrides = null)
+        IReadOnlyDictionary<string, string>? costOverrides = null,
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false,
+        bool gateRampOnCastable = false,
+        bool useHealthBandCastability = false,
+        bool useHealthBandHeadlineFloor = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -57,7 +95,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -78,11 +116,24 @@ public static class ManabaseAnalyzer
             TargetLands = targetLands,
             ColorFindings = findings,
             Mode = mode,
+            UseHealthBandCastability = useHealthBandCastability,
+            UseHealthBandHeadlineFloor = useHealthBandHeadlineFloor,
             Castability = castability,
             ColorSpellCounts = colorSpellCounts,
             CommanderColors = CommanderColors(deck).ToArray(),
             LandTarget = landTarget,
             DemandingCards = demandingCards,
+            // Genuine mana rocks/dorks only: artifacts/creatures that tap for mana (weight 0.5 dork
+            // / 0.75 rock). Excludes conditional "granted" creatures (a creature handed a mana
+            // ability by Cryptolith Rite / Elven Chorus is not itself a rock or dork) and MDFC
+            // land-backs (weight 0.8+, which are lands, not ramp pieces) so the at-a-glance count
+            // matches its label instead of over-reporting every non-land source.
+            RampSourceCount = deck.Sources.Count(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75),
+            // Project the SAME rock/dork predicate to names so the disclosure lists exactly what the
+            // count credited; de-dup by name preserving first-seen (deck) order.
+            RampSourceNames = deck.Sources.Where(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75).Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            RampAndDrawNames = deck.RampAndDrawNames,
+            UnsupportedInteractions = deck.UnsupportedInteractions,
             Summary = summary,
         };
     }
@@ -217,7 +268,10 @@ public static class ManabaseAnalyzer
         ManabaseDeck deck,
         int librarySize,
         int totalLands,
-        Dictionary<string, CardCastability> byName)
+        Dictionary<string, CardCastability> byName,
+        bool useManaQuantity,
+        bool colorAwareMulligan,
+        bool gateRampOnCastable)
     {
         var rows = new List<CardCastability>();
 
@@ -237,7 +291,8 @@ public static class ManabaseAnalyzer
             int onCurveTurn = EffectiveTurn(spell, deck.CostReduction);
 
             CardCastability row = CastabilitySimulator.Simulate(
-                deck, librarySize, spell, onCurveTurn, genericReduction);
+                deck, librarySize, spell, onCurveTurn, genericReduction,
+                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable);
             rows.Add(row);
             byName[spell.Name] = row;
         }
@@ -335,6 +390,7 @@ public static class ManabaseAnalyzer
             double worstDeficit = double.NegativeInfinity;
 
             int underSupported = 0;
+            int colorLimitedUnderSupported = 0;
             double castSum = 0;
             int castCount = 0;
             double worstCast = double.PositiveInfinity;
@@ -411,6 +467,17 @@ public static class ManabaseAnalyzer
                 if (castPercent < threshold)
                 {
                     underSupported++;
+
+                    // A color-limited shortfall (vs a pure mana/curve limit) is the only kind the mana
+                    // base can fix. Tracked separately so the health verdict never reads "needs work"
+                    // for an expensive card the base already supports color-wise — that is a curve
+                    // problem, not a mana-base one. (UnderSupportedCount keeps counting every late
+                    // card for the display "N of M".)
+                    if (IsColorLimited(row?.LimitingFactor, color))
+                    {
+                        colorLimitedUnderSupported++;
+                    }
+
                     // Record the demanding card once (a spell may demand several colors); keep the
                     // lowest cast % seen so the worst-first verdict list is stable.
                     if (!demandingByName.TryGetValue(spell.Name, out int prior) || castPercent < prior)
@@ -431,6 +498,8 @@ public static class ManabaseAnalyzer
             // sim deficit above, full pip map → gold contention modeled). No mulligan-blind
             // hypergeometric fallback: the sim models Commander's free first mulligan, so the
             // deficit/verdict no longer trip on a phantom double-pip shortfall.
+            (double direct, double shared, double conditional) = SourceBreakdown(deck, color);
+
             findings.Add(new ColorSourceFinding
             {
                 Color = color,
@@ -440,9 +509,13 @@ public static class ManabaseAnalyzer
                 RequiredSources = required,
                 DrivingSpell = driver,
                 UnderSupportedCount = underSupported,
+                ColorLimitedUnderSupportedCount = colorLimitedUnderSupported,
                 AverageCastPercent = castCount > 0 ? Math.Round(castSum / castCount, 1) : 0,
                 WorstSpellCastPercent = double.IsPositiveInfinity(worstCast) ? 0 : worstCast,
                 WorstSpell = worstSpell,
+                DirectSources = direct,
+                SharedSources = shared,
+                ConditionalSources = conditional,
             });
         }
 
@@ -510,7 +583,34 @@ public static class ManabaseAnalyzer
             result += 1;
         }
 
-        return result;
+        // The mulligan-aware sim may only LOWER the requirement below Karsten's mulligan-blind source
+        // count — modeling Commander's free first mulligan can never make a color HARDER than the
+        // draw-without-mulligan table. Yet for a double-pip spell in a 99-card deck the Monte-Carlo
+        // cast% sits depressed enough that the binary search climbs toward totalLands (a Gruul deck
+        // reading "need ~35 of 36 red sources" for an {2}{R}{R} card). Clamp to Karsten's trusted,
+        // Snail-validated figure so the sim's only effect is to shave the requirement, never inflate it.
+        int karstenCeiling = KarstenManabase.SourcesNeeded(librarySize, totalLands, pips, Math.Max(1, onCurveTurn));
+        return Math.Min(result, karstenCeiling);
+    }
+
+    // True when THIS color is part of why the card casts late. LimitingFactor (from
+    // CastabilitySimulator.DeriveLimitingFactor) is one of: "mana" (pure curve — never color),
+    // "both" (mana + color, so every demanded color is stressed), or "color:X" where X is the single
+    // most-missing color. For "color:X" we only credit the matching color — otherwise a gold card
+    // short on its OTHER color would wrongly mark this one color-starved (Codex review HIGH).
+    private static bool IsColorLimited(string? limitingFactor, ManaColor color)
+    {
+        if (string.IsNullOrEmpty(limitingFactor))
+        {
+            return false;
+        }
+
+        if (limitingFactor.Equals("both", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return limitingFactor.Equals("color:" + color, StringComparison.OrdinalIgnoreCase);
     }
 
     // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
@@ -552,9 +652,14 @@ public static class ManabaseAnalyzer
         return CastabilitySimulator.Simulate(deck, librarySize, probe, onCurveTurn, genericReduction: 0, trials).CastPercent;
     }
 
-    // WeakestColor / ordering = tail-risk-first composite (NOT mean alone): any under-supported
-    // first, then worst single-spell cast %, then mean cast %, then deficit. A Central commander
-    // color below its threshold is promoted ahead of the composite.
+    // WeakestColor / ordering = MOST-ACTIONABLE-first: the color whose mana a deck-builder can most
+    // usefully shore up leads. We rank color-FIXABLE shortfall ahead of raw tail risk so a single
+    // curve-limited bomb (short on mana, not color — e.g. The Skullspore Nexus) never crowns an
+    // otherwise over-supported color "weakest". Order: a below-threshold Central commander color,
+    // then color-limited under-support breadth (adding a source actually helps), then a raw source
+    // deficit, then worst single-spell cast % (tail risk), then mean cast %. This mirrors a
+    // marginal-value read (which color's extra source removes the most delay) rather than
+    // worst-single-card alone.
     private static IReadOnlyList<ColorSourceFinding> OrderFindings(
         List<ColorSourceFinding> findings,
         ManabaseDeck deck,
@@ -566,10 +671,10 @@ public static class ManabaseAnalyzer
         return findings
             .OrderByDescending(f => central && commanderColors.Contains(f.Color)
                 && f.WorstSpellCastPercent < ColorThreshold(f.Color, mode, importance, commanderColors))
-            .ThenByDescending(f => f.UnderSupportedCount > 0)
+            .ThenByDescending(f => f.ColorLimitedUnderSupportedCount)
+            .ThenByDescending(f => f.Deficit)
             .ThenBy(f => f.WorstSpellCastPercent)
             .ThenBy(f => f.AverageCastPercent)
-            .ThenByDescending(f => f.Deficit)
             .ToList();
     }
 
@@ -650,6 +755,46 @@ public static class ManabaseAnalyzer
         }
 
         return total;
+    }
+
+    // Display-only: split a color's total weighted sources into direct (mono-color, the dedicated
+    // core), shared (non-conditional multi-color fixers — duals, any-color rocks — real but spread
+    // across the deck's colors), and conditional (granted any-color sources the sim only fires
+    // ~weight of games). The canonical ActualSources is unchanged; this only explains its makeup so
+    // a green-heavy deck's big number reads honestly instead of looking inflated. The three sum to
+    // ActualSources within rounding.
+    private static (double Direct, double Shared, double Conditional) SourceBreakdown(
+        ManabaseDeck deck, ManaColor color)
+    {
+        double direct = 0.0, shared = 0.0, conditional = 0.0;
+        foreach (ManaSource source in deck.Sources)
+        {
+            if (!source.Produces.Contains(color))
+            {
+                continue;
+            }
+
+            if (source.IsConditional)
+            {
+                conditional += source.Weight;
+                continue;
+            }
+
+            // Colorless does not make a source "multi-color"; a Green+Colorless land is still mono.
+            int coloredCount = source.Produces.Count(c => c != ManaColor.Colorless);
+            if (coloredCount <= 1)
+            {
+                direct += source.Weight;
+            }
+            else
+            {
+                shared += source.Weight;
+            }
+        }
+
+        // Raw (unrounded) so the parts sum exactly to the unrounded source total; the view rounds
+        // each for display. Rounding here would drift (e.g. Math.Round(0.75,1) == 0.8, banker's).
+        return (direct, shared, conditional);
     }
 
     private static string BuildSummary(

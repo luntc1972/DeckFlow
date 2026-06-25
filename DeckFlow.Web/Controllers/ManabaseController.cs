@@ -1,3 +1,4 @@
+using System.Text;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
@@ -48,65 +49,24 @@ public sealed class ManabaseController : DeckToolControllerBase
     public async Task<IActionResult> Load(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
+        NormalizeKnobs(request);
 
-        // Normalize the knobs the same way the analyze action does so the re-rendered radios persist.
-        request.Mode = Enum.IsDefined(typeof(ManabaseMode), request.Mode) ? request.Mode : ManabaseMode.Casual;
-        request.CommanderImportance = Enum.IsDefined(typeof(CommanderImportance), request.CommanderImportance)
-            ? request.CommanderImportance
-            : CommanderImportance.Standard;
+        return await RunGuardedAsync(request, "load",
+            "Something went wrong loading that deck. Please try again.",
+            async token =>
+            {
+                var result = await _manabaseAnalysisService.LoadAsync(request.DeckSource, token);
 
-        using var timeoutScope = CreateTimeoutScope(LookupTimeout);
-
-        try
-        {
-            var result = await _manabaseAnalysisService.LoadAsync(request.DeckSource, timeoutScope.Token);
-
-            return View("Manabase", new ManabaseViewModel
-            {
-                Request = request,
-                InputSummary = result.InputSummary,
-                Unresolved = result.Unresolved,
-                ImportWarning = result.ImportWarning,
-                Suggestions = result.Suggestions,
-                Loaded = true,
+                return View("Manabase", new ManabaseViewModel
+                {
+                    Request = request,
+                    InputSummary = result.InputSummary,
+                    Unresolved = result.Unresolved,
+                    ImportWarning = result.ImportWarning,
+                    Suggestions = result.Suggestions,
+                    Loaded = true,
+                });
             });
-        }
-        catch (OperationCanceledException) when (timeoutScope.IsCancellationRequested)
-        {
-            _logger.LogInformation("Mana-base load timed out.");
-            return View("Manabase", new ManabaseViewModel
-            {
-                Request = request,
-                ErrorMessage = "The deck took too long to load. Try again in a moment.",
-            });
-        }
-        catch (InvalidOperationException exception)
-        {
-            _logger.LogInformation(exception, "Mana-base load failed validation.");
-            return View("Manabase", new ManabaseViewModel
-            {
-                Request = request,
-                ErrorMessage = exception.Message,
-            });
-        }
-        catch (HttpRequestException exception)
-        {
-            _logger.LogWarning(exception, "Mana-base load hit an upstream dependency.");
-            return View("Manabase", new ManabaseViewModel
-            {
-                Request = request,
-                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
-            });
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Mana-base load failed unexpectedly.");
-            return View("Manabase", new ManabaseViewModel
-            {
-                Request = request,
-                ErrorMessage = "Something went wrong loading that deck. Please try again.",
-            });
-        }
     }
 
     /// <summary>Runs the analysis for the submitted deck and renders the report.</summary>
@@ -117,46 +77,105 @@ public sealed class ManabaseController : DeckToolControllerBase
     public async Task<IActionResult> Manabase(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
+        NormalizeKnobs(request);
 
-        // MEDIUM-1: a hand-crafted post can carry an out-of-range enum value (model binding does not
-        // reject unknown ints). Coerce both knobs back to their defaults and write the normalized
-        // values onto the request so the analyzer runs a valid mode AND the view re-renders the
-        // correct radio (an invalid Mode would otherwise leave the report's mode invalid, dropping
-        // the castability table and un-checking both radios).
+        return await RunGuardedAsync(request, "analysis",
+            "Something went wrong analyzing that deck. Please try again.",
+            async token =>
+            {
+                var result = await RunAnalysisAsync(request, token);
+
+                return View("Manabase", new ManabaseViewModel
+                {
+                    Request = request,
+                    Report = result.Report,
+                    InputSummary = result.InputSummary,
+                    Unresolved = result.Unresolved,
+                    ImportWarning = result.ImportWarning,
+                    ChatGptSwapPrompt = result.ChatGptSwapPrompt,
+                    Suggestions = result.Suggestions,
+                });
+            });
+    }
+
+    /// <summary>
+    /// Re-runs the mana-base analysis for the submitted deck and returns the full report as a
+    /// paste-ready text file attachment (<c>manabase-analysis-{timestamp}.txt</c>). Mirrors the
+    /// analyze action body exactly so the download and the on-page verdict are always consistent.
+    /// Failures re-render the Manabase view with a friendly error rather than returning a 500.
+    /// </summary>
+    /// <param name="request">The form-bound deck input (re-posted by the mini download form).</param>
+    [HttpPost("/manabase/download")]
+    [ValidateAntiForgeryToken]
+    [FeatureFlagGate("feature.manabase.enabled")]
+    public async Task<IActionResult> Download(ManabaseRequest request)
+    {
+        request ??= new ManabaseRequest();
+        NormalizeKnobs(request);
+
+        return await RunGuardedAsync(request, "download",
+            "Something went wrong analyzing that deck. Please try again.",
+            async token =>
+            {
+                var result = await RunAnalysisAsync(request, token);
+
+                string text = ManabaseReportTextBuilder.Build(
+                    result.Report, request.DeckName, decklistText: null, request.Mode);
+                string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+
+                return File(
+                    Encoding.UTF8.GetBytes(text),
+                    "text/plain; charset=utf-8",
+                    $"manabase-analysis-{timestamp}.txt");
+            });
+    }
+
+    // MEDIUM-1: a hand-crafted post can carry an out-of-range enum value (model binding does not
+    // reject unknown ints). Coerce both knobs back to their defaults and write the normalized values
+    // onto the request so every action runs a valid mode AND the view re-renders the correct radios
+    // (an invalid Mode would otherwise drop the castability table and un-check both radios).
+    private static void NormalizeKnobs(ManabaseRequest request)
+    {
         request.Mode = Enum.IsDefined(typeof(ManabaseMode), request.Mode) ? request.Mode : ManabaseMode.Casual;
         request.CommanderImportance = Enum.IsDefined(typeof(CommanderImportance), request.CommanderImportance)
             ? request.CommanderImportance
             : CommanderImportance.Standard;
+    }
 
+    /// <summary>Runs the shared analyze pipeline with the request's mode, importance, and cost overrides.</summary>
+    private Task<ManabaseAnalysisResult> RunAnalysisAsync(ManabaseRequest request, CancellationToken cancellationToken)
+        => _manabaseAnalysisService.AnalyzeAsync(
+            request.DeckSource,
+            request.DeckName,
+            new ManabaseAnalysisOptions
+            {
+                Mode = request.Mode,
+                CommanderImportance = request.CommanderImportance,
+                CostOverrides = ManabaseCostOverrideParser.Parse(request.CostOverridesText),
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// Wraps a mana-base action body in the shared request timeout scope and the friendly error
+    /// ladder so every entry point (load/analyze/download) renders the same recoverable errors
+    /// instead of a raw 500. <paramref name="operation"/> names the action for log messages and
+    /// <paramref name="unexpectedMessage"/> is the copy shown for an unhandled fault.
+    /// </summary>
+    private async Task<IActionResult> RunGuardedAsync(
+        ManabaseRequest request,
+        string operation,
+        string unexpectedMessage,
+        Func<CancellationToken, Task<IActionResult>> body)
+    {
         using var timeoutScope = CreateTimeoutScope(LookupTimeout);
 
         try
         {
-            var result = await _manabaseAnalysisService.AnalyzeAsync(
-                request.DeckSource,
-                request.DeckName,
-                new ManabaseAnalysisOptions
-                {
-                    Mode = request.Mode,
-                    CommanderImportance = request.CommanderImportance,
-                    CostOverrides = ManabaseCostOverrideParser.Parse(request.CostOverridesText),
-                },
-                timeoutScope.Token);
-
-            return View("Manabase", new ManabaseViewModel
-            {
-                Request = request,
-                Report = result.Report,
-                InputSummary = result.InputSummary,
-                Unresolved = result.Unresolved,
-                ImportWarning = result.ImportWarning,
-                ChatGptSwapPrompt = result.ChatGptSwapPrompt,
-                Suggestions = result.Suggestions,
-            });
+            return await body(timeoutScope.Token);
         }
         catch (OperationCanceledException) when (timeoutScope.IsCancellationRequested)
         {
-            _logger.LogInformation("Mana-base analysis timed out.");
+            _logger.LogInformation("Mana-base {Operation} timed out.", operation);
             return View("Manabase", new ManabaseViewModel
             {
                 Request = request,
@@ -165,7 +184,7 @@ public sealed class ManabaseController : DeckToolControllerBase
         }
         catch (InvalidOperationException exception)
         {
-            _logger.LogInformation(exception, "Mana-base analysis failed validation.");
+            _logger.LogInformation(exception, "Mana-base {Operation} failed validation.", operation);
             return View("Manabase", new ManabaseViewModel
             {
                 Request = request,
@@ -174,7 +193,7 @@ public sealed class ManabaseController : DeckToolControllerBase
         }
         catch (HttpRequestException exception)
         {
-            _logger.LogWarning(exception, "Mana-base analysis hit an upstream dependency.");
+            _logger.LogWarning(exception, "Mana-base {Operation} hit an upstream dependency.", operation);
             return View("Manabase", new ManabaseViewModel
             {
                 Request = request,
@@ -185,11 +204,11 @@ public sealed class ManabaseController : DeckToolControllerBase
         {
             // Last-resort boundary so an unexpected parser/runtime fault renders a friendly
             // error on this public form instead of a raw 500.
-            _logger.LogError(exception, "Mana-base analysis failed unexpectedly.");
+            _logger.LogError(exception, "Mana-base {Operation} failed unexpectedly.", operation);
             return View("Manabase", new ManabaseViewModel
             {
                 Request = request,
-                ErrorMessage = "Something went wrong analyzing that deck. Please try again.",
+                ErrorMessage = unexpectedMessage,
             });
         }
     }

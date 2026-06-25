@@ -27,6 +27,23 @@ public sealed record ManaSource
     public bool EntersUntapped { get; init; } = true;
 
     /// <summary>
+    /// How much mana this source makes per activation (MQ-02): Sol Ring / Ancient Tomb = 2,
+    /// Gilded Lotus = 3, a normal land = 1. Defaults to 1. Feeds ONLY the castability simulator's
+    /// affordability/curve math — it never changes the Karsten color-SOURCE count (a 2-mana rock is
+    /// still ONE source of its color). Conditional/granted sources stay 1.
+    /// </summary>
+    public int ManaAmount { get; init; } = 1;
+
+    /// <summary>
+    /// MQ-03 (70-03b): explicit ramp deploy cost (the turn-cost to bring this non-land source online).
+    /// <see langword="null"/> (default) means "resolve it the old way" — the simulator looks the cost up
+    /// from the matching mana-source spell. Set only for sources that have no <c>IsManaSource</c> spell
+    /// row to key off, namely modeled land-ramp spells (Cultivate etc.), where it is the spell's mana
+    /// value. Lands ignore it.
+    /// </summary>
+    public int? DeployCost { get; init; }
+
+    /// <summary>
     /// True only for ENABLER-CONDITIONAL sources whose production depends on a separate permanent
     /// staying alive — the any-color sources granted by Cryptolith Rite / Relic of Legends et al.
     /// (see <c>AddGrantedSources</c>). These are genuinely speculative (the granter must resolve AND
@@ -37,6 +54,14 @@ public sealed record ManaSource
     /// re-applied as activation (that double-discounts). Defaults to <see langword="false"/>.
     /// </summary>
     public bool IsConditional { get; init; }
+
+    /// <summary>
+    /// True for a source contributed by a command-zone card (a mana-producing commander, or the
+    /// commander as a granted any-color source). Such a source still counts toward color supply
+    /// (a commander mana source is reliably castable) but is NOT drawn into the simulated library —
+    /// the commander starts in the command zone, not the 99. Defaults to <see langword="false"/>.
+    /// </summary>
+    public bool IsCommander { get; init; }
 }
 
 /// <summary>
@@ -202,6 +227,9 @@ public sealed record ManabaseDeck
     /// <summary>Count of ramp/card-draw spells of mana value 2 or less.</summary>
     public int RampAndDrawUnderThree { get; init; }
 
+    /// <summary>Names of the ≤2 MV ramp/draw cards credited above, de-duplicated, in deck order.</summary>
+    public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
+
     /// <summary>Count of non-mythic land/spell MDFCs (each ≈ 0.74 land off the target).</summary>
     public int MdfcCommon { get; init; }
 
@@ -223,6 +251,26 @@ public sealed record ManabaseDeck
     /// change the analysis on their own — only an applied override does. Empty when none found.
     /// </summary>
     public IReadOnlyList<CostSuggestion> CostSuggestions { get; init; } = Array.Empty<CostSuggestion>();
+
+    /// <summary>
+    /// Cards whose mana requirement the analysis cannot fully model (X/variable costs that are
+    /// skipped from castability; hybrid/Phyrexian pips that are approximated). Surfaced so the
+    /// verdict discloses what it approximates instead of silently absorbing it. Empty when none.
+    /// </summary>
+    public IReadOnlyList<UnsupportedInteraction> UnsupportedInteractions { get; init; } = Array.Empty<UnsupportedInteraction>();
+}
+
+/// <summary>
+/// A card the mana-base analysis cannot fully model — surfaced to the user so the verdict is honest
+/// about what it approximates or skips rather than silently absorbing it.
+/// </summary>
+public sealed record UnsupportedInteraction
+{
+    /// <summary>Card name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Short human-readable reason (e.g. "Variable (X) cost", "Hybrid/Phyrexian pips").</summary>
+    public required string Reason { get; init; }
 }
 
 /// <summary>
@@ -260,6 +308,13 @@ public sealed record ColorSourceFinding
     /// <summary>How many of this color's spells fall below the mode's castability threshold.</summary>
     public int UnderSupportedCount { get; init; }
 
+    /// <summary>
+    /// Subset of <see cref="UnderSupportedCount"/> whose shortfall involves color access (not a pure
+    /// mana/curve limit). Only this count drives the health verdict toward NeedsWork — an expensive
+    /// card the base already supports color-wise is a curve problem the mana base cannot fix.
+    /// </summary>
+    public int ColorLimitedUnderSupportedCount { get; init; }
+
     /// <summary>Mean castability (0–100) across every spell demanding this color.</summary>
     public double AverageCastPercent { get; init; }
 
@@ -269,11 +324,41 @@ public sealed record ColorSourceFinding
     /// <summary>The name of the spell with the lowest castability for this color.</summary>
     public string WorstSpell { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Display-only composition of <see cref="ActualSources"/>: weight from sources that make ONLY
+    /// this color (basics, mono dorks/rocks, mono lands). The reliable, dedicated core.
+    /// </summary>
+    public double DirectSources { get; init; }
+
+    /// <summary>
+    /// Display-only composition of <see cref="ActualSources"/>: weight from non-conditional sources
+    /// that make this color AND at least one other (dual/triome lands, any-color Moxen, Birds). Real,
+    /// but shared with the deck's other colors — one such card makes one mana per turn.
+    /// </summary>
+    public double SharedSources { get; init; }
+
+    /// <summary>
+    /// Display-only composition of <see cref="ActualSources"/>: weight from conditional "granted"
+    /// sources (a creature handed a mana ability by Cryptolith Rite / Elven Chorus). Speculative —
+    /// the simulator only fires these in ~weight of games (needs the granter online and the creature
+    /// alive). The three breakdown fields sum (within rounding) to <see cref="ActualSources"/>.
+    /// </summary>
+    public double ConditionalSources { get; init; }
+
     /// <summary>Required minus actual; positive means under-supported.</summary>
     public double Deficit => RequiredSources - ActualSources;
 
     /// <summary>True if the deck meets the requirement for this color.</summary>
     public bool IsAdequate => Deficit <= 0;
+
+    /// <summary>
+    /// True when adding sources of this color would actually help: it carries a color-limited
+    /// shortfall (<see cref="ColorLimitedUnderSupportedCount"/> &gt; 0) or a raw source deficit. A
+    /// color that is merely the weakest by tail risk but otherwise well-supported (its only late
+    /// cards are curve-limited) returns false. Drives the "weakest color" alarm accent so the view
+    /// does not embed the domain rule.
+    /// </summary>
+    public bool NeedsMoreSources => ColorLimitedUnderSupportedCount > 0 || !IsAdequate;
 
     /// <summary>
     /// True when this color is under-supported by the tail-risk composite (the same signal that
@@ -353,23 +438,33 @@ public sealed record ManabaseLandTargetBreakdown
 }
 
 /// <summary>
-/// Graded mana-base health, replacing the old binary OK/needs-work. A single sub-threshold card
-/// no longer flips the whole base to "needs work": a base that is land-adequate and has no real
-/// mulligan-aware source deficit, with only a small ratio of demanding cards, reads Functional.
+/// Graded mana-base health on a four-tier scale (worst to best: NeedsWork, Workable, Functional,
+/// Healthy). The display names the tiers Needs work / Workable / Solid / Excellent (see
+/// <c>ManabaseDisplay.HealthLabel</c>). Only a real, broad mana shortage reads NeedsWork; a single
+/// contained color issue is Workable; minor notes (slightly land-light, curve-limited demanding
+/// cards) are Functional; a clean base is Healthy.
 /// </summary>
 public enum ManabaseHealth
 {
-    /// <summary>Land count within one of target and no color has any under-supported spell.</summary>
+    /// <summary>Display "Excellent" — land-adequate and no color has any shortfall at all.</summary>
     Healthy,
 
     /// <summary>
-    /// Land-adequate, no mulligan-aware source deficit on any color, and each color's
-    /// under-supported count stays within a small ratio of its demanding cards — the base works
-    /// despite a few demanding spells.
+    /// Display "Solid" — the base works with only minor notes: within ~1-2 lands of target, or a few
+    /// demanding cards that are curve-limited (mana, not color). No color the base can fix.
     /// </summary>
     Functional,
 
-    /// <summary>A color is systematically short (real source deficit, over-ratio under-support, or lands short).</summary>
+    /// <summary>
+    /// Display "Workable" — exactly one contained color problem the base can fix: a single color short
+    /// by 1-2 sources, or one color color-starved beyond tolerance. A couple of targeted swaps.
+    /// </summary>
+    Workable,
+
+    /// <summary>
+    /// Display "Needs work" — a real, broad shortage: lands 2+ short, a color short by more than 2
+    /// sources, or two or more colors with a fixable problem.
+    /// </summary>
     NeedsWork,
 }
 
@@ -381,6 +476,56 @@ public sealed record DemandingCard
 
     /// <summary>The spell's estimated on-curve cast chance, 0–100.</summary>
     public required int CastPercent { get; init; }
+}
+
+/// <summary>
+/// Which single action best improves the mana base, chosen so the "biggest fix" callout never
+/// contradicts the land/health line (e.g. recommending you add sources to a color that already
+/// has a surplus). See <see cref="ManabaseReport.PrimaryFix"/>.
+/// </summary>
+public enum ManabaseFixKind
+{
+    /// <summary>Nothing actionable — lands and every color are adequately supported.</summary>
+    None,
+
+    /// <summary>A color has a real raw source deficit; add more sources of that color.</summary>
+    ColorSources,
+
+    /// <summary>No color is raw-short, but the land count itself is below target; add lands.</summary>
+    Lands,
+
+    /// <summary>Lands and colored sources are adequate, but some demanding spells still cast late.</summary>
+    DemandingCards,
+}
+
+/// <summary>
+/// The single most actionable fix for a mana base, derived from <see cref="ManabaseReport"/>. Exists
+/// so the view renders a fix that agrees with the land/health stats: when the weakest color is only
+/// a <i>composite</i> problem (under-supported demanding cards) rather than raw-short, the fix points
+/// at lands or top-end, never at adding sources to an already-oversupplied color.
+/// </summary>
+public sealed record ManabasePrimaryFix
+{
+    /// <summary>Which kind of fix this is; drives which message the view shows.</summary>
+    public required ManabaseFixKind Kind { get; init; }
+
+    /// <summary>The color the fix concerns (ColorSources/DemandingCards), or null.</summary>
+    public ManaColor? Color { get; init; }
+
+    /// <summary>Sources to add (ColorSources) or lands to add (Lands); 0 otherwise.</summary>
+    public int Amount { get; init; }
+
+    /// <summary>Effective sources currently in the deck for <see cref="Color"/> (ColorSources only).</summary>
+    public double ActualSources { get; init; }
+
+    /// <summary>Sources required for <see cref="Color"/> (ColorSources only).</summary>
+    public int RequiredSources { get; init; }
+
+    /// <summary>The spell to cite: the driving spell (ColorSources) or worst spell (DemandingCards).</summary>
+    public string Spell { get; init; } = string.Empty;
+
+    /// <summary>How many demanding cards of <see cref="Color"/> still cast late (DemandingCards only).</summary>
+    public int DemandingCount { get; init; }
 }
 
 /// <summary>The §6 mana-base report: land count, ramp, per-color sources, and a verdict.</summary>
@@ -411,49 +556,193 @@ public sealed record ManabaseReport
         ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
 
     /// <summary>
-    /// Two-tier graded verdict (Codex HIGH-3). EXACT numeric predicates, evaluated land-first:
+    /// Four-tier graded verdict. Only a REAL mana shortage the base can fix moves the needle; a land
+    /// surplus, a sub-source rounding deficit, and expensive late-casting (mana-limited) bombs never
+    /// do — the verdict measures the mana base, not the curve. A color "issue" is short by more than a
+    /// whole source (<see cref="ColorSourceFinding.Deficit"/> &gt; 1) OR color-starved beyond
+    /// <c>max(1, ceil(colorCards·0.15))</c> (counting only <see cref="ColorSourceFinding.ColorLimitedUnderSupportedCount"/>).
     /// <list type="bullet">
-    /// <item><b>NeedsWork</b> when <see cref="LandDelta"/> &lt; -1 (lands short), OR any color has a
-    /// real mulligan-aware <see cref="ColorSourceFinding.Deficit"/> &gt; 0, OR any color's
-    /// <see cref="ColorSourceFinding.UnderSupportedCount"/> exceeds <c>max(1, ceil(colorCards·0.15))</c>.</item>
-    /// <item><b>Healthy</b> when land-adequate and every color's under-supported count is 0.</item>
-    /// <item><b>Functional</b> otherwise (land-adequate, no source deficit, only a few demanding cards).</item>
+    /// <item><b>NeedsWork</b> ("Needs work"): a color short by more than 2 sources, OR two or more
+    /// colors with an issue, OR <see cref="LandDelta"/> &lt;= -2 (lands 2+ short) <i>and</i> the sim
+    /// corroborates it (a color issue or broad under-support). A raw land-count shortfall alone never
+    /// forces this tier — the regression under-credits cheap ramp, so a ramp-saturated deck that the
+    /// sim casts cleanly stays out of "needs work" despite a paper land deficit.</item>
+    /// <item><b>Workable</b>: exactly one color with an issue (and no NeedsWork condition).</item>
+    /// <item><b>Healthy</b> ("Excellent"): land-adequate (within one of target) and no color has any
+    /// shortfall at all.</item>
+    /// <item><b>Functional</b> ("Solid"): otherwise — works, but slightly land-light or only
+    /// curve-limited demanding cards.</item>
     /// </list>
     /// </summary>
     public ManabaseHealth Health
     {
         get
         {
-            if (LandDelta < -1)
+            ColorSignals s = ComputeColorSignals();
+
+            // Needs work: a real, broad shortage the base can fix. A raw Karsten land-count
+            // shortfall NEVER forces the worst tier on its own — the regression's ramp credit
+            // under-weights cheap explosive ramp (Sol Ring, rituals, Spirit Guides), so a
+            // ramp-saturated deck can read 2+ lands "short" while the castability sim shows every
+            // spell casting fine. The land delta only escalates to "needs work" when the sim
+            // corroborates it: a real color issue or broad under-support rides alongside.
+            bool landShort = LandDelta <= -2;
+            bool simFunctions =
+                   UseHealthBandHeadlineFloor
+                && AvgOnCurvePercent >= 85
+                && WorstColorCastPercent >= 50
+                && !s.AnySevereColorDeficit
+                && !s.BroadColorUnderSupport;
+
+            if (s.AnySevereColorDeficit || s.ColorsWithIssue >= 2)
             {
                 return ManabaseHealth.NeedsWork;
             }
 
-            bool everyColorClear = true;
-            bool everyColorFunctional = true;
-            foreach (ColorSourceFinding f in ColorFindings)
+            if (landShort && (s.ColorsWithIssue >= 1 || s.BroadUnderSupport))
             {
-                if (f.UnderSupportedCount != 0)
-                {
-                    everyColorClear = false;
-                }
-
-                int colorCards = ColorSpellCounts.TryGetValue(f.Color, out int count) ? count : 0;
-                int tolerance = Math.Max(1, (int)Math.Ceiling(colorCards * 0.15));
-                if (f.Deficit > 0 || f.UnderSupportedCount > tolerance)
-                {
-                    everyColorFunctional = false;
-                }
+                return (simFunctions && s.ColorsWithIssue == 1)
+                    ? ManabaseHealth.Workable
+                    : ManabaseHealth.NeedsWork;
             }
 
-            if (everyColorClear)
+            // Workable: a single contained color problem the base can fix.
+            if (s.ColorsWithIssue == 1)
+            {
+                return ManabaseHealth.Workable;
+            }
+
+            if (LandDelta >= -1 && s.EveryColorClear)
             {
                 return ManabaseHealth.Healthy;
             }
 
-            return everyColorFunctional ? ManabaseHealth.Functional : ManabaseHealth.NeedsWork;
+            return ManabaseHealth.Functional;
         }
     }
+
+    /// <summary>
+    /// True when the deck is below the Karsten land target (<see cref="LandDelta"/> &lt; -1) yet the
+    /// simulation finds no real shortage — no color has an issue and there is no broad under-support.
+    /// The deck's cheap ramp (which the land-count regression under-credits) covers the paper land
+    /// gap, so "add ~N lands" would contradict the Solid/Excellent verdict. The land-advice surfaces
+    /// (header copy + <see cref="PrimaryFix"/>) read this so they never recommend lands the sim says
+    /// are unnecessary. Shares the exact corroboration signal the <see cref="Health"/> verdict uses,
+    /// so the two never disagree.
+    /// </summary>
+    public bool LandShortfallCoveredByRamp
+    {
+        get
+        {
+            if (LandDelta >= -1)
+            {
+                return false;
+            }
+
+            ColorSignals s = ComputeColorSignals();
+            bool simFunctions =
+                   UseHealthBandHeadlineFloor
+                && AvgOnCurvePercent >= 85
+                && WorstColorCastPercent >= 50
+                && !s.AnySevereColorDeficit
+                && !s.BroadColorUnderSupport;
+
+            return (s.ColorsWithIssue == 0 && !s.BroadUnderSupport && !s.AnySevereColorDeficit)
+                   || (simFunctions && s.ColorsWithIssue == 1);
+        }
+    }
+
+    /// <summary>
+    /// The sim's read on whether the base has a real, base-fixable problem. <see cref="Health"/>,
+    /// <see cref="LandShortfallCoveredByRamp"/>, and <see cref="PrimaryFix"/> all consume this single
+    /// computation so the verdict, the land-advice copy, and the "biggest fix" callout can never
+    /// disagree about whether a paper land shortfall is genuine.
+    /// </summary>
+    private ColorSignals ComputeColorSignals()
+    {
+        int colorsWithIssue = 0;
+        bool anySevereColorDeficit = false;
+        bool everyColorClear = true;
+        bool broadUnderSupport = false;
+        bool broadColorUnderSupport = false;
+
+        // Mirror ManabaseAnalyzer's support thresholds: Casual = 80, cEDH = 88.
+        // Why: the health-band castability path (UseHealthBandCastability) must gate on the same
+        // per-mode bar that BuildColorFindings uses, so the sim verdict and the band agree.
+        int supportThreshold = Mode == ManabaseMode.Cedh ? 88 : 80;
+
+        // The composite-weakest color is ColorFindings[0] when it IsCompositeProblem. Only that
+        // color is eligible for the sim-weakest path — a good color that just happens to have a
+        // low worst-spell % is not a mana-base problem; the weakest IS because the sim already
+        // ranked it composite-worst.
+        ColorSourceFinding? compositeProblemWorst =
+            ColorFindings.Count > 0 && ColorFindings[0].IsCompositeProblem ? ColorFindings[0] : null;
+
+        foreach (ColorSourceFinding f in ColorFindings)
+        {
+            if (f.UnderSupportedCount != 0 || f.Deficit > 0)
+            {
+                everyColorClear = false;
+            }
+
+            int colorCards = ColorSpellCounts.TryGetValue(f.Color, out int count) ? count : 0;
+            int tolerance = Math.Max(1, (int)Math.Ceiling(colorCards * 0.15));
+
+            // A whole-source-plus deficit is a real shortage; a sub-source one is rounding noise.
+            // Only COLOR-limited under-support counts — mana-limited (curve) cards are not a
+            // mana-base fault. (UnderSupportedCount, all late cards, still gates Excellent below.)
+            bool sourceShort = f.Deficit > 1;
+            bool colorStarved = f.ColorLimitedUnderSupportedCount > tolerance;
+
+            // MQ-health-band: the sim's composite-worst color counts as an issue when its
+            // worst spell casts below the mode threshold AND at least one of those slow spells
+            // is genuinely COLOR-access-limited (not merely a mana-cost curve bomb that the
+            // base can't ramp into). The ColorLimitedUnderSupportedCount >= 1 guard is the
+            // key: it separates Avatar/White (Suki color:White → 1) from Meren/Green or
+            // graveyard-fungus/Green (Old Gnawbone/Protean Hulk are mana-limited curve
+            // bombs → ColorLimitedUnderSupportedCount = 0) so those decks stay Solid.
+            // Only the composite-weakest color (ColorFindings[0] when IsCompositeProblem)
+            // can trigger this, so a merely sub-par color never inflates the count.
+            bool simWeakestProblem = UseHealthBandCastability
+                && f.Color == compositeProblemWorst?.Color
+                && f.ColorLimitedUnderSupportedCount >= 1
+                && f.WorstSpellCastPercent < supportThreshold;
+
+            if (sourceShort || colorStarved || simWeakestProblem)
+            {
+                colorsWithIssue++;
+            }
+
+            // The simulation's verdict that the base actually fails a meaningful slice of the
+            // deck — counting ALL under-supported cards (mana- or color-limited), since a base
+            // genuinely too thin shows up as widespread mana-limited misses. Used only to
+            // corroborate a raw land-count shortfall.
+            if (f.UnderSupportedCount > tolerance)
+            {
+                broadUnderSupport = true;
+            }
+
+            if (f.ColorLimitedUnderSupportedCount > tolerance)
+            {
+                broadColorUnderSupport = true;
+            }
+
+            if (f.Deficit > 2)
+            {
+                anySevereColorDeficit = true;
+            }
+        }
+
+        return new ColorSignals(colorsWithIssue, anySevereColorDeficit, everyColorClear, broadUnderSupport, broadColorUnderSupport);
+    }
+
+    /// <summary>Shared per-color corroboration signals computed once by <see cref="ComputeColorSignals"/>.</summary>
+    private readonly record struct ColorSignals(
+        int ColorsWithIssue,
+        bool AnySevereColorDeficit,
+        bool EveryColorClear,
+        bool BroadUnderSupport,
+        bool BroadColorUnderSupport);
 
     /// <summary>True only when fully <see cref="ManabaseHealth.Healthy"/>. Retained for back-compat.</summary>
     public bool IsHealthy => Health == ManabaseHealth.Healthy;
@@ -469,10 +758,58 @@ public sealed record ManabaseReport
     public ManabaseMode Mode { get; init; } = ManabaseMode.Casual;
 
     /// <summary>
+    /// MQ-health-band flag. When true, the composite-weakest color's worst-spell cast % feeds
+    /// <see cref="Health"/>: a color that is the deck's composite-worst AND casts its worst spell
+    /// below the mode's support threshold counts as a color issue, tipping the band from Functional
+    /// ("Solid") to Workable. Only the composite-weakest color can trigger this path
+    /// (<see cref="ColorSourceFinding.IsCompositeProblem"/> must be true and it must be
+    /// <c>ColorFindings[0]</c>). When false (default), behavior is byte-identical to before.
+    /// </summary>
+    public bool UseHealthBandCastability { get; init; }
+
+    /// <summary>
+    /// MQ-health-band headline-floor flag. When true, the headline average castability can narrowly
+    /// promote a land-short NeedsWork verdict to Workable when exactly one soft color issue exists,
+    /// no broad under-support is present, and no hard-fail color deficit exists.
+    /// </summary>
+    public bool UseHealthBandHeadlineFloor { get; init; }
+
+    /// <summary>
     /// Per-spell castability rows, commander(s) pinned first then ascending by cast %. Excludes
     /// rocks/dorks (they feed the probability pools but are not real payoff spells).
     /// </summary>
     public IReadOnlyList<CardCastability> Castability { get; init; } = Array.Empty<CardCastability>();
+
+    /// <summary>
+    /// Deck-level "avg on-curve" cast rate: the rounded mean of
+    /// <see cref="CardCastability.CastPercent"/> across tracked castability rows. Returns 0 for an
+    /// empty set.
+    /// </summary>
+    public int AvgOnCurvePercent
+    {
+        get
+        {
+            if (Castability.Count == 0)
+            {
+                return 0;
+            }
+
+            long sum = 0;
+            foreach (CardCastability row in Castability)
+            {
+                sum += row.CastPercent;
+            }
+
+            return (int)Math.Round((double)sum / Castability.Count);
+        }
+    }
+
+    /// <summary>
+    /// The lowest per-color worst-spell castability. Returns 100 when there are no color findings so
+    /// colorless decks are not treated as catastrophic color failures.
+    /// </summary>
+    public double WorstColorCastPercent =>
+        ColorFindings.Count == 0 ? 100 : ColorFindings.Min(f => f.WorstSpellCastPercent);
 
     /// <summary>
     /// How many spells demand each color (the population denominator behind COLOR-AGG's
@@ -494,6 +831,100 @@ public sealed record ManabaseReport
     /// </summary>
     public ManabaseLandTargetBreakdown? LandTarget { get; init; }
 
+    /// <summary>
+    /// Count of non-land mana sources in the deck — mana rocks and dorks (artifacts/creatures that
+    /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
+    /// </summary>
+    public int RampSourceCount { get; init; }
+
+    /// <summary>
+    /// Names of the mana rocks/dorks counted by <see cref="RampSourceCount"/> (the exact
+    /// <c>!IsLand &amp;&amp; !IsConditional &amp;&amp; Weight &lt;= 0.75</c> predicate), de-duplicated by name in
+    /// deck order. Surfaced in the Ramp disclosure so the user can verify what was credited.
+    /// </summary>
+    public IReadOnlyList<string> RampSourceNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Names of the ≤2 MV ramp/draw cards counted by <see cref="ManabaseLandTargetBreakdown.RampAndDrawUnderThree"/>,
+    /// de-duplicated by name in deck order. Surfaced in the Ramp disclosure.
+    /// </summary>
+    public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Cards the analysis cannot fully model (X/variable costs skipped from castability;
+    /// hybrid/Phyrexian pips approximated). Surfaced as a disclosure so the verdict is honest about
+    /// what it skips. Empty when none.
+    /// </summary>
+    public IReadOnlyList<UnsupportedInteraction> UnsupportedInteractions { get; init; } = Array.Empty<UnsupportedInteraction>();
+
     /// <summary>Short human-readable verdict.</summary>
     public required string Summary { get; init; }
+
+    /// <summary>
+    /// The single most actionable fix, chosen land-and-source-truthfully so the "biggest fix" callout
+    /// never contradicts the land/health line. Priority: a real raw color deficit, else a short land
+    /// count, else demanding cards that cast late, else nothing. A color picked by the composite
+    /// signal (under-supported demanding spells) but holding a source <i>surplus</i> never yields an
+    /// "add ~N sources" message — that produced the negative "add ~-14" the callout used to show.
+    /// </summary>
+    public ManabasePrimaryFix PrimaryFix
+    {
+        get
+        {
+            // 1. A color short by more than a whole source is the most actionable fix. A sub-source
+            //    deficit is rounding noise (it shares the Health verdict's tolerance), so it falls
+            //    through to the land / demanding-card guidance instead of "add ~1 source".
+            ColorSourceFinding? rawShort = null;
+            foreach (ColorSourceFinding f in ColorFindings)
+            {
+                if (f.Deficit > 1 && (rawShort is null || f.Deficit > rawShort.Deficit))
+                {
+                    rawShort = f;
+                }
+            }
+
+            if (rawShort is not null)
+            {
+                return new ManabasePrimaryFix
+                {
+                    Kind = ManabaseFixKind.ColorSources,
+                    Color = rawShort.Color,
+                    Amount = (int)Math.Ceiling(rawShort.Deficit),
+                    ActualSources = rawShort.ActualSources,
+                    RequiredSources = rawShort.RequiredSources,
+                    Spell = rawShort.DrivingSpell,
+                };
+            }
+
+            // 2. No color is raw-short. A short land count is the real fix — but only when the sim
+            //    corroborates the shortage. A ramp-saturated deck reads land-light on the Karsten
+            //    count while every spell casts fine; recommending lands there contradicts the Solid
+            //    verdict (LandShortfallCoveredByRamp), so fall through to demanding-card / no-op
+            //    guidance. Never recommend adding sources to an already-oversupplied color.
+            if (LandDelta < -1 && !LandShortfallCoveredByRamp)
+            {
+                return new ManabasePrimaryFix
+                {
+                    Kind = ManabaseFixKind.Lands,
+                    Amount = (int)Math.Ceiling(-LandDelta),
+                };
+            }
+
+            // 3. Lands and sources adequate, but the weakest color still has demanding spells that
+            //    cast late — point at the top end / early ramp rather than raw source count.
+            if (WeakestColor is { } weak && weak.UnderSupportedCount > 0)
+            {
+                return new ManabasePrimaryFix
+                {
+                    Kind = ManabaseFixKind.DemandingCards,
+                    Color = weak.Color,
+                    DemandingCount = weak.UnderSupportedCount,
+                    Spell = weak.WorstSpell,
+                };
+            }
+
+            // 4. Nothing actionable.
+            return new ManabasePrimaryFix { Kind = ManabaseFixKind.None };
+        }
+    }
 }

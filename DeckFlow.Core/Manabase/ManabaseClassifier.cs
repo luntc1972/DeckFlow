@@ -33,10 +33,31 @@ public static class ManabaseClassifier
     private static readonly Regex ScalingSelfReducerRegex = new(
         @"this spell costs \{\d+\} less to cast for each", RegexOptions.Compiled);
 
+    // "This spell costs {X} less to cast, where X is the greatest power among creatures you control"
+    // (The Skullspore Nexus). The reduction is board-dependent, so it is resolved against the deck's
+    // greatest FIXED creature power as the optimistic on-board value (see DetectSelfCost).
+    private static readonly Regex GreatestPowerReducerRegex = new(
+        @"this spell costs \{x\} less to cast,? where x is the greatest power among creatures you control",
+        RegexOptions.Compiled);
+
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true)
+    /// <param name="rampCreditV2">
+    /// MQ-03 flag. When false (default), the ramp/draw land-target credit uses the historic broad
+    /// <see cref="IsRampOrDraw"/> predicate (byte-identical). When true, it uses the narrowed
+    /// <see cref="IsRepeatableRampOrDraw"/> — only repeatable ramp (mana permanents incl. enchantment
+    /// ramp, land-ramp onto the battlefield) and true card draw earn the −0.28 credit; one-shot
+    /// rituals and Treasure-makers no longer do. Affects only <see cref="ManabaseDeck.RampAndDrawUnderThree"/>.
+    /// </param>
+    /// <param name="landRampSim">
+    /// MQ-03 70-03b flag. When true, repeatable land-ramp-to-battlefield spells (Cultivate / Rampant
+    /// Growth) are added to <see cref="ManabaseDeck.Sources"/> as colorless, non-land ramp sources
+    /// (deploy cost = the spell's mana value) so the castability simulator models the fetched land's
+    /// mana. Colorless + non-land → never changes color counts or the land total. When false (default),
+    /// no such source is added (byte-identical sim).
+    /// </param>
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -50,14 +71,29 @@ public static class ManabaseClassifier
         var granters = new List<GranterScope>();
         var suggestions = new List<CostSuggestion>();
         var suggestedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var unsupported = new List<UnsupportedInteraction>();
+        var unsupportedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int totalCards = 0;
         int commanderCount = 0;
         double mvSum = 0;
         int nonlandCount = 0;
         int rampUnderThree = 0;
+        var rampNames = new List<string>();
         int mdfcCommon = 0;
         int mdfcMythic = 0;
         int fastMana = 0;
+
+        // Greatest FIXED creature power in the deck — the optimistic on-board value for board-scaling
+        // self reducers keyed on "the greatest power among creatures you control" (The Skullspore
+        // Nexus). Variable-power creatures (*goyf, Power == null) contribute nothing.
+        int maxCreaturePower = 0;
+        foreach (CardFact c in cards)
+        {
+            if (c.Power is int p && p > maxCreaturePower && IsType(c.TypeLine, "Creature"))
+            {
+                maxCreaturePower = p;
+            }
+        }
 
         foreach (CardFact card in cards)
         {
@@ -82,11 +118,61 @@ public static class ManabaseClassifier
             }
 
             ParsedManaCost cost = ManaCostParser.Parse(card.ManaCost);
-            AddSpellRequirement(spells, card, cost);
 
-            if (card.ManaValue <= 2 && IsRampOrDraw(card))
+            // Detect a below-printed effective cost once; reused for the auto-apply decision AND the
+            // visible suggestion entry below (so the two never disagree).
+            (string EffectiveCost, string Reason)? selfCost = DetectSelfCost(card, maxCreaturePower);
+
+            // Intrinsic, always-on "costs {X} less, where X is the greatest power among creatures you
+            // control" reducer (The Skullspore Nexus): unlike evoke/pitch (opt-in alternative casts),
+            // this discount is automatic, so apply it to the default analysis using the deck's
+            // greatest fixed creature power. User overrides (the cost box) still take precedence later.
+            string? intrinsicReduced = GreatestPowerEffectiveCost(card, maxCreaturePower);
+
+            // P3 free-cost auto-apply: a SELF-ANCHORED free cast ("rather than pay this spell's mana
+            // cost" / "cast this spell without paying its mana cost" — Force of Negation, Fierce
+            // Guardianship, Deflecting Swat, Flawless Maneuver) is realistically cast for free in the
+            // decks that run it (the commander is on the battlefield / a pitch card is in hand). Apply
+            // it to the default analysis like the greatest-power reducer, so these stop reading as false
+            // "demanding" cards at their printed colored cost. The visible suggestion below still shows
+            // it (now noted as auto-applied) and a user override still wins. Only the FREE category
+            // (effective "0") auto-applies — evoke/suspend stay opt-in suggestions (a player may choose
+            // not to evoke), and the greatest-power case is handled by intrinsicReduced above.
+            bool freeAutoApplied = false;
+            if (intrinsicReduced is not null)
+            {
+                ParsedManaCost reduced = ManaCostParser.Parse(ManaCostParser.NormalizeToBraced(intrinsicReduced));
+                AddSpellRequirement(spells, card, reduced, costOverridden: true);
+            }
+            else if (selfCost is (string freeCost, "free / alternative cost"))
+            {
+                ParsedManaCost reduced = ManaCostParser.Parse(ManaCostParser.NormalizeToBraced(freeCost));
+                AddSpellRequirement(spells, card, reduced, costOverridden: true);
+                freeAutoApplied = true;
+            }
+            else
+            {
+                AddSpellRequirement(spells, card, cost);
+            }
+
+            // MQ-04: disclose what the analysis cannot fully model rather than silently absorbing it.
+            // X/variable spells are dropped from castability entirely; hybrid/Phyrexian pips are
+            // flexible so they carry no hard color requirement (Karsten-correct, but then the color
+            // need is approximated). One entry per card, X taking priority over hybrid.
+            string? unsupportedReason = cost.HasVariableCost
+                ? "Variable (X) cost — castability not simulated"
+                : (card.ManaCost?.Contains('/', StringComparison.Ordinal) ?? false)
+                    ? "Flexible split pips (hybrid / Phyrexian / twobrid) — color requirement approximated"
+                    : null;
+            if (unsupportedReason is not null && unsupportedNames.Add(card.Name))
+            {
+                unsupported.Add(new UnsupportedInteraction { Name = card.Name, Reason = unsupportedReason });
+            }
+
+            if (card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
             {
                 rampUnderThree += card.Quantity;
+                rampNames.Add(card.Name);
             }
 
             // Tally land-count formula adjustments (MDFC spell-backs, 0-cost fast mana).
@@ -108,6 +194,25 @@ public static class ManabaseClassifier
 
             AddPartialSources(sources, card);
 
+            // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
+            // the simulator credits the fetched land's mana. Colorless (Produces empty) → no color-count
+            // change; non-land → no land-count / mulligan inflation; deploy cost = the spell's MV.
+            if (landRampSim && IsLandRampToBattlefield(card))
+            {
+                for (int i = 0; i < card.Quantity; i++)
+                {
+                    sources.Add(new ManaSource
+                    {
+                        Name = card.Name,
+                        Produces = System.Array.Empty<ManaColor>(),
+                        IsLand = false,
+                        Weight = 1.0,
+                        ManaAmount = 1,
+                        DeployCost = Math.Max(1, (int)Math.Round(card.ManaValue, MidpointRounding.AwayFromZero)),
+                    });
+                }
+            }
+
             // Detect always-on static cost reducers and mana-ability granters (one per copy).
             CostReducer? reducer = DetectCostReducer(card);
             if (reducer is not null)
@@ -128,15 +233,16 @@ public static class ManabaseClassifier
             }
 
             // Alt/reduced-cost suggestion (free/pitch, board-scaling self-reducer, evoke/suspend).
-            // One per distinct card name — these only pre-populate the override box, they don't
-            // alter the analysis unless the user applies an override.
-            if (suggestedNames.Add(card.Name) && DetectSelfCost(card) is (string effCost, string reason))
+            // One per distinct card name. Most stay suggestion-only (pre-fill the override box); the
+            // free/alt-cost category is now AUTO-APPLIED above (P3), so we annotate its reason to say so
+            // — the entry stays in the list for visibility, no longer a false "demanding" flag.
+            if (suggestedNames.Add(card.Name) && selfCost is (string effCost, string reason))
             {
                 suggestions.Add(new CostSuggestion
                 {
                     Name = card.Name,
                     EffectiveCost = effCost,
-                    Reason = reason,
+                    Reason = freeAutoApplied ? reason + " — auto-applied" : reason,
                 });
             }
         }
@@ -155,12 +261,14 @@ public static class ManabaseClassifier
             Spells = spells,
             AverageManaValue = Math.Round(avgMv, 2),
             RampAndDrawUnderThree = rampUnderThree,
+            RampAndDrawNames = rampNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             MdfcCommon = mdfcCommon,
             MdfcMythic = mdfcMythic,
             FastMana = fastMana,
             IsSingleton = isSingleton,
             CostReduction = reducers,
             CostSuggestions = suggestions,
+            UnsupportedInteractions = unsupported,
         };
     }
 
@@ -210,11 +318,13 @@ public static class ManabaseClassifier
                 Produces = produces,
                 Weight = weight,
                 EntersUntapped = untapped,
+                IsCommander = card.IsCommander,
+                ManaAmount = card.ManaAmount, // MQ-02: e.g. Ancient Tomb (a land) makes 2.
             });
         }
     }
 
-    private static void AddSpellRequirement(List<SpellRequirement> spells, CardFact card, ParsedManaCost cost)
+    private static void AddSpellRequirement(List<SpellRequirement> spells, CardFact card, ParsedManaCost cost, bool costOverridden = false)
     {
         // X/Y/Z spells: printed mana value is not the real cast turn, so an on-curve source
         // check at that turn is meaningless. Skip them rather than strain colors at a bogus turn.
@@ -230,14 +340,49 @@ public static class ManabaseClassifier
         {
             Name = card.Name,
             // True printed mana value (0-cost cards stay 0 for display). The min-1 cast-turn
-            // floor is enforced downstream by EffectiveTurn and the simulator, not here.
-            ManaValue = Math.Max(0, (int)Math.Round(card.ManaValue)),
+            // floor is enforced downstream by EffectiveTurn and the simulator, not here. When the
+            // cost is an applied intrinsic reduction, use the reduced value so the cast turn drops.
+            ManaValue = costOverridden ? cost.ManaValue : Math.Max(0, (int)Math.Round(card.ManaValue)),
             Pips = cost.Pips,
             IsGold = cost.DistinctColors >= 2,
             IsManaSource = IsRockOrDork(card),
             Kinds = ClassifyKinds(card.TypeLine),
             IsCommander = card.IsCommander,
+            IsCostOverridden = costOverridden,
         });
+    }
+
+    // The intrinsic, always-on effective cost for a "costs {X} less, where X is the greatest power
+    // among creatures you control" reducer (The Skullspore Nexus). Resolves X against the deck's
+    // greatest FIXED creature power (the optimistic on-board value); falls back to the colored-pip
+    // floor when there is no fixed-power creature to measure. Returns null when the card has no such
+    // reducer. Shared by the spell-cost auto-apply path and the DetectSelfCost suggestion.
+    private static string? GreatestPowerEffectiveCost(CardFact card, int maxCreaturePower)
+    {
+        string text = (card.OracleText ?? string.Empty).ToLowerInvariant();
+        if (text.Length == 0 || !GreatestPowerReducerRegex.IsMatch(text))
+        {
+            return null;
+        }
+
+        // Guard: ManaCostParser keeps hybrid / Phyrexian / twobrid symbols OUT of Pips (they have no
+        // hard color), so the generic = ManaValue − pip-count math below would mistake them for
+        // reducible generic mana and could collapse a cost like {2}{G/U}{G/U} below its real floor.
+        // No printed greatest-power card has such a cost today; if one appears, score it at full cost
+        // (no auto-discount) rather than over-reduce. Revisit when ParsedManaCost tracks flexible pips.
+        if (card.ManaCost?.Contains('/', StringComparison.Ordinal) ?? false)
+        {
+            return null;
+        }
+
+        ParsedManaCost parsed = ManaCostParser.Parse(card.ManaCost);
+        if (maxCreaturePower > 0)
+        {
+            return ReduceGenericCost(parsed, maxCreaturePower);
+        }
+
+        string colored = RenderColoredPips(parsed.Pips);
+        return colored.Length == 0 ? "0" : colored;
     }
 
     // The exact rock/dork test AddPartialSources uses, factored out so the row-exclusion set ==
@@ -321,7 +466,7 @@ public static class ManabaseClassifier
 
         for (int i = 0; i < card.Quantity; i++)
         {
-            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false });
+            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false, IsCommander = card.IsCommander, ManaAmount = card.ManaAmount });
         }
     }
 
@@ -484,6 +629,52 @@ public static class ManabaseClassifier
         return ramp || draw;
     }
 
+    // MQ-03 (rampCreditV2): narrowed land-target credit. Only REPEATABLE ramp and true card draw earn
+    // the Karsten −0.28 credit; one-shot rituals ("Add" on an instant/sorcery) and Treasure-makers do
+    // NOT, because they give the regression credit for mana the source model / sim never represents as
+    // persistent access. Positive keep-rules (not a broad "is a permanent" filter):
+    //   * true card draw (Karsten's draw term; deck-thinning, no mana path needed), OR
+    //   * land-ramp that puts a land ONTO THE BATTLEFIELD (Cultivate/Rampant Growth — persistent;
+    //     land-search-to-hand does not count), OR
+    //   * a mana-producing PERMANENT — ProducesMana on a non-Instant/Sorcery: rocks, dorks, AND
+    //     enchantment ramp (Utopia Sprawl, Wild Growth). The type-gate is what drops one-shot rituals.
+    private static bool IsRepeatableRampOrDraw(CardFact card)
+    {
+        string text = card.OracleText ?? string.Empty;
+
+        bool draw = text.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("draw two cards", StringComparison.OrdinalIgnoreCase);
+        if (draw)
+        {
+            return true;
+        }
+
+        if (IsLandRampToBattlefield(card))
+        {
+            return true;
+        }
+
+        // Repeatable mana permanent (rock/dork/enchantment ramp). Check the FRONT face only: joined
+        // oracle text would leak a one-shot mana adventure/back face into this front-face permanent
+        // test (a creature with a "{...} Add" adventure is NOT repeatable ramp). Front "Add " is the
+        // precise signal — card-level produced_mana is intentionally NOT used here (also leaky).
+        string typeLine = card.TypeLine ?? string.Empty;
+        string frontText = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
+        return permanent && frontText.Contains("Add ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 70-03b: repeatable land-ramp that puts a land ONTO THE BATTLEFIELD (Cultivate / Rampant Growth /
+    // Nature's Lore) — persistent mana access. Land-search-to-HAND does not count. Shared by the MQ-03
+    // land-target credit (IsRepeatableRampOrDraw) and the land-ramp sim source, so the two never drift.
+    private static bool IsLandRampToBattlefield(CardFact card)
+    {
+        string text = card.OracleText ?? string.Empty;
+        return text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("land", StringComparison.OrdinalIgnoreCase)
+            && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsMythic(CardFact card) =>
         string.Equals(card.Rarity, "mythic", StringComparison.OrdinalIgnoreCase);
 
@@ -546,7 +737,7 @@ public static class ManabaseClassifier
     // effective cost ("0", "{R}", "{1}{B}") plus a short reason, or null when nothing applies.
     // This is a SUGGESTION only — it pre-populates the override box; it never changes the analysis
     // by itself. Most-specific category first.
-    private static (string EffectiveCost, string Reason)? DetectSelfCost(CardFact card)
+    private static (string EffectiveCost, string Reason)? DetectSelfCost(CardFact card, int maxCreaturePower)
     {
         // Known limitation: OracleText is joined across faces, so a multi-face card could inherit a
         // suggestion from a non-front face. Low harm — a suggestion only pre-fills the editable box
@@ -557,14 +748,37 @@ public static class ManabaseClassifier
             return null;
         }
 
-        // 1) Free / pitch — self-anchored wording ("rather than pay this spell's mana cost").
-        //    Not the "without paying its mana cost" wording, which casts OTHER spells for free.
-        if (text.Contains("rather than pay this spell's mana cost", StringComparison.Ordinal))
+        // 1) Free / pitch — SELF-ANCHORED free-cast wording. Two forms, both referring to THIS spell:
+        //      a) "... rather than pay this spell's mana cost"      (Force of Negation, the pitch cycle)
+        //      b) "cast this spell without paying its mana cost"    (Fierce Guardianship / Deflecting
+        //         Swat / Flawless Maneuver — the commander-conditional free cycle)
+        //    Both name "this spell ... its mana cost", so they are unambiguously self-anchored. We must
+        //    NOT match the OTHER-spell forms ("cast that spell / cast spells ... without paying their/its
+        //    mana cost", e.g. Omniscience, cascade), which free a DIFFERENT spell — those say "that
+        //    spell" / "spells" / "their", never "this spell ... its".
+        if (text.Contains("rather than pay this spell's mana cost", StringComparison.Ordinal)
+            || text.Contains("cast this spell without paying its mana cost", StringComparison.Ordinal))
         {
             return ("0", "free / alternative cost");
         }
 
-        // 2) Board-scaling self-reduction ("this spell costs {1} less to cast for each ..."):
+        // 2) "Costs {X} less, where X is the greatest power among creatures you control" (The
+        //    Skullspore Nexus). X is board-dependent; resolve it against the deck's greatest fixed
+        //    creature power as the optimistic on-board value and reduce the generic cost by it
+        //    (floored at the colored pips). Falls back to the colored-pip floor when the deck has no
+        //    fixed-power creature (all *goyf / no creatures) — the same practical floor as case 3.
+        // Greatest-power reducer (The Skullspore Nexus). This one is AUTO-APPLIED to the default
+        // analysis (see the spell-cost path); the suggestion just surfaces the value in the editable
+        // box so the user can see it and override to a different on-board assumption.
+        if (GreatestPowerEffectiveCost(card, maxCreaturePower) is string powerCost)
+        {
+            string reason = maxCreaturePower > 0
+                ? $"costs {{X}} less, X = greatest creature power (~{maxCreaturePower} here) — auto-applied, editable"
+                : "costs {X} less, X = greatest creature power — auto-applied (assumed fully online), editable";
+            return (powerCost, reason);
+        }
+
+        // 3) Board-scaling self-reduction ("this spell costs {1} less to cast for each ..."):
         //    drop all generic, keep the colored pips — the practical floor when fully online.
         if (ScalingSelfReducerRegex.IsMatch(text))
         {
@@ -573,7 +787,7 @@ public static class ManabaseClassifier
                 "scales down with the board — assuming the reduction is fully online");
         }
 
-        // 3) Evoke — use its braced mana cost when it has one (Shriekmaw "evoke {1}{B}"); a
+        // 4) Evoke — use its braced mana cost when it has one (Shriekmaw "evoke {1}{B}"); a
         //    non-mana evoke cost (Grief "exile a black card") is free of mana, so 0.
         if (text.Contains("evoke", StringComparison.Ordinal))
         {
@@ -583,7 +797,7 @@ public static class ManabaseClassifier
                 : ("0", "evoke (alternative cost)");
         }
 
-        // 4) Suspend — the suspend cost is a mana cost (Crashing Footfalls "suspend 1—{g}").
+        // 5) Suspend — the suspend cost is a mana cost (Crashing Footfalls "suspend 1—{g}").
         Match suspend = SuspendCostRegex.Match(text);
         if (suspend.Success)
         {
@@ -591,6 +805,25 @@ public static class ManabaseClassifier
         }
 
         return null;
+    }
+
+    // Reduce a parsed cost's GENERIC portion by `reduction`, keeping all colored (and {C}) pips, and
+    // render the canonical braced result. Generic = ManaValue − colored-pip count (ManaCostParser
+    // tracks generic only in the value, not in Pips). Floors at the colored pips; "0" when nothing
+    // is left. e.g. {4}{G}{G} reduced by 5 → "{G}{G}"; reduced by 2 → "{2}{G}{G}".
+    private static string ReduceGenericCost(ParsedManaCost cost, int reduction)
+    {
+        int coloredCount = cost.Pips.Values.Sum();
+        int generic = Math.Max(0, cost.ManaValue - coloredCount);
+        int newGeneric = Math.Max(0, generic - reduction);
+        string colored = RenderColoredPips(cost.Pips);
+
+        if (newGeneric > 0)
+        {
+            return colored.Length > 0 ? $"{{{newGeneric}}}{colored}" : $"{{{newGeneric}}}";
+        }
+
+        return colored.Length > 0 ? colored : "0";
     }
 
     // Render hard colored pips as a canonical braced cost in WUBRG(+C) order (e.g. "{R}", "{U}{U}").
@@ -756,6 +989,11 @@ public static class ManabaseClassifier
                     Produces = deckColors,
                     Weight = 0.25,
                     IsLand = false,
+                    IsCommander = card.IsCommander,
+
+                    // MQ-02: conditional/granted sources stay at 1 mana — the Bernoulli activation
+                    // gates a single speculative unit; multi-unit granted bundles are out of scope.
+                    ManaAmount = 1,
 
                     // Enabler-conditional: this source only produces if the granter (Cryptolith Rite,
                     // Relic of Legends, ...) is on the battlefield AND this creature survives. That is

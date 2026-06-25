@@ -41,6 +41,11 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ASPNETCORE_ENVIRONMENT: 'Development',
+      // Suppress the Development auto-open browser launch — without this the
+      // Playwright-spawned server (CI, or a local run with no server already
+      // up) pops a Windows browser window. The Program.cs gate keys on this
+      // exact var; env here overrides the launch profile.
+      DECKFLOW_DISABLE_AUTO_BROWSER: 'true',
       FEEDBACK_ADMIN_USER: 'admin',
       FEEDBACK_ADMIN_PASSWORD: 'changeme-local',
     },

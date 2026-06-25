@@ -561,6 +561,27 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 Plans:
 - [x] 63-01-PLAN.md — Self-contained win-x64 publish profile + publish scripts (ps1/sh) + Kestrel port pin + standalone-exe docs (DIST-01)
 
+### Phase 70: Manabase Accuracy — Mana Quantity & Source Fidelity (ad-hoc trunk / main)
+
+**Goal:** Raise the mana-base analysis from "rough heuristic" toward "trustworthy across real
+Commander mana patterns" by fixing the verified Codex-audit accuracy defects — biggest win is
+modeling how MUCH mana a source makes, not just which colors.
+**Requirements:** MQ-01 (commander not drawable) · MQ-02 (per-source mana quantity) · MQ-03
+(ramp-credit consistency) · MQ-04 (unsupported-interaction disclosure) · MQ-05 (color-aware
+mulligan). **#4 joint-multicolor deficit deferred.**
+**Source:** `.planning/captures/manabase-efficacy-findings.md` (Codex efficacy audit + research).
+**Status:** ✅ COMPLETE 2026-06-24 — all MQ-01..05 + two-lens header shipped (flags ON by default). Follow-up UAT on a real Disa deck surfaced + fixed 4 accuracy/UX defects (Skullspore creature-power discount, ramp-aware land advice, actionable weakest color, red-bar gating); committed `eec118df` + pushed `feature/manabase-accuracy`. 138 manabase Core tests green, Codex APPROVE, SECURED 11/11.
+**Context:** `.planning/phases/70-manabase-accuracy-mana-quantity/70-CONTEXT.md`
+
+Plans:
+- [x] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (done, `043a9157`)
+- [x] 70-02-PLAN.md — MQ-02 per-source mana quantity — implemented behind `manabase.source-mana-quantity` flag (seeded OFF); Codex-approved; 155 Core tests green. Baseline diff run on real Brago deck (Sol Ring only → +1/+2 top-end, color/land/verdict unchanged). NOTE: Salubrious Snail / ScrollVault is a color-source-only tool and **cannot** validate the mana-quantity dimension — MQ-02 rests on golden-deck unit tests + magnitude sanity instead. Flag-default decision (keep OFF vs flip ON) is a judgment call, no longer gated on an external cross-check.
+- [x] 70-03-PLAN.md — MQ-03 ramp-credit consistency (defect 2): narrowed `IsRampOrDraw` → repeatable ramp + draw only, behind `manabase.ramp-credit-v2` flag (seeded OFF); Codex-approved plan; `93afdbdf`, Core 164 + Web 75 green. ⏳ baseline-diff before flag defaults ON. Defect 1 (model land-ramp in sim) → 70-03b.
+- [x] 70-03b-PLAN.md — MQ-03 defect 1: model land-ramp in the sim. Repeatable land-ramp-to-battlefield spells (Cultivate/Rampant Growth) are added as colorless non-land ramp sources (`DeployCost = MV`, new `ManaSource.DeployCost`), so the fetched land's mana is credited — closing the sim↔regression gap. Self-excluded from the card's own row; colorless+non-land → color counts/land total/RampSourceCount untouched. Behind `manabase.land-ramp-sim` flag (seeded OFF). Codex plan + diff APPROVE (1 BLOCK each round, resolved); Core 7 + Web 1 + seed tests green; full Core 763/Web 746. ⏳ baseline-diff before flag default ON (harness has a landRampSim pass to add).
+- [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
+- [x] 70-05-PLAN.md — MQ-05 color-aware London mulligan: a non-forced keep of a 2+ color deck also requires the opening lands to show >=2 distinct colors (KCap=2), behind `manabase.color-aware-mulligan` flag (seeded OFF). Cast%-affecting on multi-color decks only; mono decks byte-identical even flag-ON; verdict/color-count math untouched (probe path stays count-only). Codex-approved plan + diff; Core 10 + Web 2 tests green, full Core/Web suites clean. ⏳ baseline-diff before flag defaults ON; README/help update deferred until flip.
+- [x] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Live on `feature/manabase-accuracy` (both lenses render side-by-side).
+
 ---
 
 *v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19 | Cycle 10 shipped 2026-06-21 (`2026.06.6`)*

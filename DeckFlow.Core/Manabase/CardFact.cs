@@ -25,6 +25,14 @@ public sealed record CardFact
     /// <summary>Scryfall oracle text (joined across faces), used for ramp/dork/rock heuristics.</summary>
     public string? OracleText { get; init; }
 
+    /// <summary>
+    /// FRONT-face oracle text only (the permanent/castable face). Falls back to <see cref="OracleText"/>
+    /// for single-face cards. Used where joined text would leak a back/adventure face's mana into a
+    /// front-face permanent check (MQ-03): a creature with a one-shot mana adventure must NOT read as
+    /// repeatable ramp. Null is treated as "use OracleText".
+    /// </summary>
+    public string? FrontFaceOracleText { get; init; }
+
     /// <summary>Scryfall <c>produced_mana</c> letters (e.g. ["U","R","G"]); empty if none.</summary>
     public IReadOnlyList<string> ProducedMana { get; init; } = Array.Empty<string>();
 
@@ -39,4 +47,19 @@ public sealed record CardFact
 
     /// <summary>True when in the command zone (commander) rather than the library.</summary>
     public bool IsCommander { get; init; }
+
+    /// <summary>
+    /// Mana produced per activation when this card is a mana source (MQ-02): Sol Ring / Ancient
+    /// Tomb = 2, Gilded Lotus = 3, a normal land/dork = 1. Defaults to 1. Parsed from oracle text by
+    /// <see cref="ManaProductionAmount"/>; unused for non-source cards.
+    /// </summary>
+    public int ManaAmount { get; init; } = 1;
+
+    /// <summary>
+    /// Fixed printed power of the front face when this card is a creature with a numeric power
+    /// (e.g. 5). Null for non-creatures and for variable power ("*", as on *goyf cards). Used to
+    /// resolve board-scaling self cost reducers that read "costs {X} less, where X is the greatest
+    /// power among creatures you control" (e.g. The Skullspore Nexus).
+    /// </summary>
+    public int? Power { get; init; }
 }

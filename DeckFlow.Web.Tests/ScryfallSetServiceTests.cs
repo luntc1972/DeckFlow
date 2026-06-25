@@ -346,6 +346,296 @@ public sealed class ScryfallSetServiceTests
         Assert.Contains("Commander/precon sets are filtered to first-print cards only (reprints excluded).", packet);
     }
 
+    [Fact]
+    public async Task BuildSetPacketAsync_TransformCard_IncludedWithFrontFaceCostAndText()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("mar", "Marvel", "2025-01-01", "expansion", 2, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard(
+                            "Monica Rambeau // Photon, Living Light",
+                            "",
+                            "Legendary Creature — Hero // Legendary Creature — Hero",
+                            null,
+                            null,
+                            null,
+                            [],
+                            ["W"],
+                            "mar",
+                            "Marvel",
+                            "1",
+                            CardFaces:
+                            [
+                                new ScryfallCardFace(
+                                    "Monica Rambeau",
+                                    "{2}{W}",
+                                    "Legendary Creature — Hero",
+                                    "Flying, prowess\nWhenever this attacks, put a +1/+1 counter on it.",
+                                    "2",
+                                    "2"),
+                                new ScryfallCardFace(
+                                    "Photon, Living Light",
+                                    null,
+                                    "Legendary Creature — Hero",
+                                    "Flying\nWhenever you cast a noncreature spell, this deals 2 damage to any target.",
+                                    "3",
+                                    "3")
+                            ]),
+                        new ScryfallCard("Plain Soldier", "{1}{W}", "Creature — Soldier", "When this creature enters, draw a card.", "2", "2", [], ["W"], "mar", "Marvel", "2")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["mar"], ["W"]);
+
+        Assert.Contains("Monica Rambeau", packet);
+        var transformLine = packet
+            .Split('\n')
+            .Single(line => line.StartsWith("Monica Rambeau", StringComparison.Ordinal));
+        Assert.Contains("{2}{W}", transformLine);
+        Assert.Contains("prowess", transformLine);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_TransformCard_RanksIntoCutOverScoreFloorFillers()
+    {
+        // The packet caps each set at the top 60 candidates by relevance score. Without
+        // face-aware scoring a transform card scores only its type bonus minus the empty-cost
+        // curve penalty (Creature +5, Legendary +1, no text signals, MV parsed as int.MaxValue
+        // => -1 => ~5) and ties the vanilla fillers below, where the empty-cost tiebreak sorts
+        // it dead last => excluded as the 61st card. With the fix it earns face text signals
+        // and the front-face curve bonus, clearing the cut. This proves the original "cut from
+        // top-60" failure is closed, not merely that face text renders.
+        var cards = new List<ScryfallCard>
+        {
+            new ScryfallCard(
+                "Monica Rambeau // Photon, Living Light",
+                "",
+                "Legendary Creature — Hero // Legendary Creature — Hero",
+                null,
+                null,
+                null,
+                [],
+                ["W"],
+                "mar",
+                "Marvel",
+                "1",
+                CardFaces:
+                [
+                    new ScryfallCardFace(
+                        "Monica Rambeau",
+                        "{2}{W}",
+                        "Legendary Creature — Hero",
+                        "Flying, prowess\nWhenever this attacks, put a +1/+1 counter on it.",
+                        "2",
+                        "2"),
+                    new ScryfallCardFace(
+                        "Photon, Living Light",
+                        null,
+                        "Legendary Creature — Hero",
+                        "Flying\nWhenever you cast a noncreature spell, this deals 2 damage to any target.",
+                        "3",
+                        "3")
+                ])
+        };
+
+        // 60 single-face fillers, each scoring exactly +5 (Creature, MV6 => no curve bonus, no
+        // text signals). Their non-empty {5}{W} cost sorts them ahead of an unfixed Monica on
+        // the mana-value tiebreak, so without the fix she is the one card pushed past the cap.
+        for (var i = 0; i < 60; i++)
+        {
+            cards.Add(new ScryfallCard(
+                $"Filler {i:D2}",
+                "{5}{W}",
+                "Creature — Soldier",
+                "A stalwart guardian.",
+                "3",
+                "3",
+                [],
+                ["W"],
+                "mar",
+                "Marvel",
+                (10 + i).ToString()));
+        }
+
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("mar", "Marvel", "2025-01-01", "expansion", 61, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(cards, false, null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["mar"], ["W"]);
+
+        // 61 candidates in, capped to 60 out, and Monica made the cut — so a filler was bumped.
+        Assert.Contains("candidate_cards_included: 60", packet);
+        Assert.Contains("Monica Rambeau", packet);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_CardWithParentTextButNoParentPowerToughness_DoesNotBorrowFacePowerToughness()
+    {
+        // Regression guard for the P/T fallback: it must only fire for genuine transform/MDFC
+        // cards (parent oracle_text empty). A split/adventure-style card carries parent oracle
+        // text but no parent P/T; borrowing a face's P/T here would drift its rendered line.
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 1, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard(
+                            "Split Spell",
+                            "{1}{U}",
+                            "Instant",
+                            "Draw two cards.",
+                            null,
+                            null,
+                            [],
+                            ["U"],
+                            "tst",
+                            "Test Set",
+                            "1",
+                            CardFaces:
+                            [
+                                new ScryfallCardFace("Left Half", "{1}{U}", "Instant", "Draw two cards.", "5", "5"),
+                                new ScryfallCardFace("Right Half", "{2}{U}", "Instant", "Counter target spell.", null, null)
+                            ])
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["U"]);
+
+        var cardLine = packet
+            .Split('\n')
+            .Single(line => line.StartsWith("Split Spell", StringComparison.Ordinal));
+        Assert.Equal("Split Spell | {1}{U} | Instant | Draw two cards.", cardLine);
+        Assert.DoesNotContain("5/5", cardLine);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_SingleFaceCard_LineUnchanged()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 1, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Sage Scribe", "{1}{G}", "Creature — Elf", "Draw a card.", "2", "2", [], ["G"], "tst", "Test Set", "1")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["G"]);
+
+        var cardLine = packet
+            .Split('\n')
+            .Single(line => line.StartsWith("Sage Scribe", StringComparison.Ordinal));
+        Assert.Equal("Sage Scribe | {1}{G} | Creature — Elf | Draw a card. 2/2", cardLine);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_SpellPayoffCard_OutranksVanillaViaCastMattersSignal()
+    {
+        // The spell-payoff / cast-matters bucket must lift an on-theme prowess/cast card above a
+        // vanilla creature of identical type and cost. Both score Creature +5 and the MV2 curve
+        // bonus +3; only the new bucket (+3 for "Prowess") breaks the tie, so the payoff card
+        // must render first. Without the bucket they tie and sort alphabetically (filler first).
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = TestServiceFactory.CreateScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 2, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Aardvark Vanilla", "{1}{U}", "Creature — Wizard", "A quiet scholar.", "2", "2", [], ["U"], "tst", "Test Set", "1"),
+                        new ScryfallCard("Zealous Prodigy", "{1}{U}", "Creature — Wizard", "Prowess.", "2", "2", [], ["U"], "tst", "Test Set", "2")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["U"]);
+
+        var lines = packet.Split('\n');
+        var payoffIndex = Array.FindIndex(lines, line => line.StartsWith("Zealous Prodigy", StringComparison.Ordinal));
+        var vanillaIndex = Array.FindIndex(lines, line => line.StartsWith("Aardvark Vanilla", StringComparison.Ordinal));
+        Assert.True(payoffIndex >= 0 && vanillaIndex >= 0);
+        Assert.True(payoffIndex < vanillaIndex, "Spell-payoff card should outrank the vanilla creature via the cast-matters signal.");
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)

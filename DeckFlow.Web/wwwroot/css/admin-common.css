@@ -238,6 +238,9 @@ a:hover { text-decoration: underline; }
    `.route` cells are textual (URL slugs) and explicitly excluded so monospace remains crisp. */
 .admin-shell .admin-table td:not(.route) { font-variant-numeric: tabular-nums; }
 
+/* Flag descriptions: readable wrapped prose, capped so the key/status/action columns keep room. */
+.admin-shell .admin-flags__desc { font-variant-numeric: normal; max-width: 46ch; white-space: normal; color: var(--muted, inherit); font-size: 13px; line-height: 1.4; }
+
 .admin-shell .admin-action-form { display: inline; }
 .admin-shell .admin-action-form button { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; }
 .admin-shell .admin-action-form button:hover { filter: brightness(1.1); }

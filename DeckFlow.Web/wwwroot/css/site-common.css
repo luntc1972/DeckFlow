@@ -2258,16 +2258,6 @@ label.field > span,
   margin: 0.5rem 0 0.25rem;
 }
 
-/* Input-source radios share the .toolbar shell (themes fork it as
-   justify-content: space-between), which would shove "Public URL" and
-   "Paste decklist" to opposite page edges. Compound selector raises specificity
-   above the theme's plain .toolbar rule (which loads after site-common.css). */
-.toolbar.manabase-source-toggle {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
 /* Analyze + Start over share a .toolbar shell (themes fork it as space-between);
    keep them grouped left with a gap instead of pushed to opposite edges. */
 .toolbar.manabase-actions {
@@ -2280,6 +2270,15 @@ label.field > span,
 /* Start over is an <a> styled as a button — drop the default link underline. */
 .manabase-start-over {
   text-decoration: none;
+}
+
+/* Download analysis mini-form: left-aligned single-button toolbar matching manabase-actions
+   spacing so it sits flush with the result panel content below the result section. */
+.toolbar.manabase-download {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 /* Hero "How it works" disclosure: keeps the long methodology copy off the first
@@ -2365,12 +2364,20 @@ label.field > span,
   user-select: none;
 }
 
-.manabase-pill > input {
+/* The radio is visually hidden; only the span shows. The [type="radio"]
+   qualifier raises specificity to (0,2,1) so this collapse beats the global
+   custom-render in site-theme-overrides.css (`input[type="radio"]`, 0,1,1),
+   which loads after site-common.css and would otherwise re-inflate the radio
+   to a ~1.05rem in-flow box (opacity:0 but space-occupying), knocking the
+   pill label text off-center. border/appearance neutralize that render too. */
+.manabase-pill > input[type="radio"] {
   position: absolute;
   opacity: 0;
   width: 1px;
   height: 1px;
   margin: 0;
+  border: 0;
+  appearance: none;
 }
 
 /* Selected state is driven purely by the checked radio via :has(). The server
@@ -2410,6 +2417,42 @@ label.field > span,
 .manabase-cmd-glyph {
   color: var(--commander-gold, #d4af37);
   margin-right: 0.2rem;
+}
+
+/* Muted sub-line under the per-color Sources figure: explains the number's makeup
+   (direct + shared + conditional) without competing with the headline value. */
+.manabase-source-breakdown {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78em;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
+/* Disclosure for cards the analysis can't fully model (X / hybrid / Phyrexian). Muted, collapsed
+   by default so it informs without alarming. */
+.manabase-unsupported,
+.manabase-ramp {
+  margin: 0.5rem 0 0;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.manabase-unsupported > summary,
+.manabase-ramp > summary {
+  cursor: pointer;
+}
+
+.manabase-unsupported ul,
+.manabase-ramp ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
+/* Group labels separating the rock/dork list from the ≤2 MV ramp/draw list. */
+.manabase-ramp-group-label {
+  margin: 0.35rem 0 0.1rem;
+  font-weight: 600;
 }
 
 /* Weakest color emphasized with a left accent border + danger tint. */
@@ -2463,10 +2506,130 @@ label.field > span,
   color: var(--ink, #2d3748);
 }
 
+/* Health-verdict chips: fixed, theme-independent filled status colors (WCAG-AA contrast with the
+   baked-in text color) so the four levels stay legible on every guild theme — the per-theme
+   --info/--warning/--success tokens are surface colors, not status colors, and bled into the chip
+   text (e.g. Solid was near-white on the light Orzhov theme). Solid badges read on light AND dark
+   panels because they carry their own background. Distinct from the shared cast-chip --good/ok/low. */
+.manabase-health--excellent {
+  background: #166534;
+  border-color: #166534;
+  color: #ffffff;
+}
+
+.manabase-health--solid {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.manabase-health--workable {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #1c1917;
+}
+
+.manabase-health--needswork {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #ffffff;
+}
+
 .manabase-chip--good {
   background: color-mix(in srgb, var(--success, #2f855a) 18%, transparent);
   border-color: var(--success, #2f855a);
   color: var(--success, #2f855a);
+}
+
+/* Two-lens result header (70-06): Karsten source check + simulated cast rate, side by side. */
+.manabase-twolens {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.manabase-lens {
+  background: var(--panel-soft-bg, var(--surface, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.manabase-lens-label {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--line, rgba(0, 0, 0, 0.12));
+}
+
+.manabase-lens-row:last-of-type {
+  border-bottom: 0;
+}
+
+.manabase-lens-color {
+  font-weight: 600;
+}
+
+.manabase-lens-muted {
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-met {
+  color: var(--success, #2f855a);
+  font-weight: 600;
+}
+
+.manabase-lens-short {
+  color: var(--gold-warning, var(--warning, #c8a040));
+  font-weight: 600;
+}
+
+.manabase-lens-big {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.manabase-lens-big > span {
+  margin-left: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-lens-pill {
+  display: inline-block;
+  margin-top: 0.55rem;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  background: var(--info, var(--panel-soft-bg, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  color: var(--accent-strong, var(--muted, inherit));
+}
+
+@media (max-width: 640px) {
+  .manabase-twolens {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* The two FORMULA-01 disclosure panels. */

@@ -354,6 +354,123 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_RampSourceCount_CountsOnlyRocksAndDorks_NotGrantedOrMdfcBacks()
+    {
+        // The at-a-glance "N mana rock(s)/dork(s)" count must count only genuine rocks/dorks — not
+        // a vanilla creature handed a mana ability by a granter (Cryptolith Rite), and not an MDFC
+        // land-back (a land, not a ramp piece). Here: Sol Ring + Llanowar Elves = 2.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Sol Ring", Quantity = 1, ManaCost = "{1}", ManaValue = 1, TypeLine = "Artifact", OracleText = "{T}: Add {C}{C}.", ProducedMana = new[] { "C" } },
+            new() { Name = "Llanowar Elves", Quantity = 1, ManaCost = "{G}", ManaValue = 1, TypeLine = "Creature — Elf Druid", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" } },
+            new() { Name = "Cryptolith Rite", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Enchantment", OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Craterhoof Behemoth", Quantity = 1, ManaCost = "{5}{G}{G}{G}", ManaValue = 8, TypeLine = "Creature — Beast", OracleText = "Haste.", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Boseiju, Who Endures", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Sorcery // Legendary Land", OracleText = "Destroy target artifact.\n{T}: Add {G}.", ProducedMana = new[] { "G" }, HasLandFace = true },
+        };
+        for (int i = 0; i < 30; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+
+        // Sol Ring (rock) + Llanowar Elves (dork) only — Craterhoof gets a granted source but is not
+        // itself a rock/dork; Boseiju's spell face has a land-back and is not a ramp piece.
+        Assert.Equal(2, report.RampSourceCount);
+    }
+
+    [Fact]
+    public void Analyze_SourceBreakdown_SplitsDirectSharedConditional_AndSumsToActual()
+    {
+        // Green sources of three kinds: a mono Forest (direct), an any-color Mox (shared, weight
+        // 0.75), and a granted creature via Cryptolith Rite (conditional, weight 0.25). The
+        // breakdown must bucket each correctly and sum (within rounding) to ActualSources, which
+        // itself is unchanged.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Mox Opal", Quantity = 1, ManaCost = "{0}", ManaValue = 0, TypeLine = "Artifact", OracleText = "{T}: Add one mana of any color.", ProducedMana = new[] { "W", "U", "B", "R", "G" } },
+            new() { Name = "Cryptolith Rite", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Enchantment", OracleText = "Creatures you control have \"{T}: Add one mana of any color.\"", ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Vanilla Bear", Quantity = 1, ManaCost = "{2}{G}", ManaValue = 3, TypeLine = "Creature — Bear", OracleText = "Vanilla.", ProducedMana = System.Array.Empty<string>() },
+        };
+        for (int i = 0; i < 30; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
+        ColorSourceFinding green = report.ColorFindings.Single(f => f.Color == ManaColor.Green);
+
+        Assert.Equal(30.0, green.DirectSources, 1);                 // 30 Forests, weight 1.0 each
+        Assert.Equal(0.75, green.SharedSources, 2);                 // Mox Opal (any-color rock)
+        Assert.Equal(0.25, green.ConditionalSources, 2);           // Vanilla Bear granted by the Rite
+        Assert.Equal(
+            green.ActualSources,
+            Math.Round(green.DirectSources + green.SharedSources + green.ConditionalSources, 1),
+            1);
+    }
+
+    [Fact]
+    public void Analyze_CommanderOnlyColorSource_NotDrawnIntoLibrary_ButCountedInSupply()
+    {
+        // The commander is the deck's ONLY red source (a red dork). It starts in the command zone,
+        // so the simulator must NOT draw it — meaning a red spell can never be cast in the sim and
+        // its cast% is exactly 0 (the teeth: if the commander leaked into the library, red would be
+        // drawable some games and cast% would be > 0). It MUST still count toward red supply, since
+        // a commander mana source is reliably castable in real play.
+        // Normal-sized ~99 deck so the mulligan doesn't pathologically bottom the lone dork, and a
+        // {4}{R} target so raw mana stays short on the ramp-up turns — meaning if the commander dork
+        // leaked into the library and were drawn, the sim WOULD deploy it (TryDeployRamp fires while
+        // availableNow < cost) and red would become castable. With the fix it never enters the
+        // library, so red is unreachable and cast% is exactly 0. (Teeth verified: disabling the fix
+        // flips this to > 0.)
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Red Cmdr", Quantity = 1, IsCommander = true, ManaCost = "{G}", ManaValue = 1, TypeLine = "Legendary Creature — Elf Druid", OracleText = "{T}: Add {R}.", ProducedMana = new[] { "R" } },
+            new() { Name = "Red Spell", Quantity = 1, ManaCost = "{4}{R}", ManaValue = 5, TypeLine = "Sorcery", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Forest", Quantity = 36, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true },
+            new() { Name = "Filler", Quantity = 61, ManaCost = "{2}{G}", ManaValue = 3, TypeLine = "Creature — Bear", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(ManabaseClassifier.Classify(cards));
+
+        // Commander red source never drawn → no red in the simulated library → red spell uncastable.
+        Assert.Equal(0, report.Castability.Single(c => c.Name == "Red Spell").CastPercent);
+
+        // ...but red supply still counts the commander dork (0.5) — kept in the color count.
+        ColorSourceFinding red = report.ColorFindings.Single(f => f.Color == ManaColor.Red);
+        Assert.Equal(0.5, red.ActualSources, 1);
+    }
+
+    [Fact]
+    public void Analyze_UnsupportedInteractions_SurfacesXAndHybridCards()
+    {
+        // X/variable spells are skipped from castability; hybrid/Phyrexian pips carry no hard color
+        // requirement. Both must be DISCLOSED (MQ-04), not silently absorbed. A plain card is not.
+        var cards = new List<CardFact>
+        {
+            new() { Name = "Hydra X", Quantity = 1, ManaCost = "{X}{G}{G}", ManaValue = 2, TypeLine = "Creature — Hydra", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Hybrid Bolt", Quantity = 1, ManaCost = "{R/G}", ManaValue = 1, TypeLine = "Instant", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Phyrexian Card", Quantity = 1, ManaCost = "{1}{G/P}", ManaValue = 2, TypeLine = "Instant", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+            new() { Name = "Plain Bear", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2, TypeLine = "Creature — Bear", OracleText = string.Empty, ProducedMana = System.Array.Empty<string>() },
+        };
+        for (int i = 0; i < 36; i++)
+        {
+            cards.Add(new CardFact { Name = "Forest", Quantity = 1, TypeLine = "Basic Land — Forest", OracleText = "{T}: Add {G}.", ProducedMana = new[] { "G" }, ManaValue = 0, HasLandFace = true });
+        }
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(ManabaseClassifier.Classify(cards));
+        var names = report.UnsupportedInteractions.Select(u => u.Name).ToList();
+
+        Assert.Contains("Hydra X", names);          // X cost
+        Assert.Contains("Hybrid Bolt", names);      // hybrid pip
+        Assert.Contains("Phyrexian Card", names);   // Phyrexian pip
+        Assert.DoesNotContain("Plain Bear", names); // fully modeled — not disclosed
+        Assert.DoesNotContain("Forest", names);
+    }
+
+    [Fact]
     public void Analyze_StandardCommander_DoesNotOverride_AWorseNonCommanderColor()
     {
         // Commander is WU and very well supported; an off-commander black bomb is the true worst.

@@ -63,6 +63,300 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_RampCreditV2Flag_DropsOneShotRitualFromLandTarget()
+    {
+        // MQ-03 plumbing: the flag is read BEFORE classification → narrows the ramp/draw credit. A
+        // one-shot ritual (Dark Ritual, an Instant) loses the credit under v2; a mana rock (Sol Ring)
+        // keeps it. Confirms the bool reaches ManabaseClassifier and fails safe OFF without the cache.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Swamp", 33),
+            Entry("Dark Ritual", 1, "mainboard"),
+            Entry("Sol Ring", 1, "mainboard"),
+        };
+        static List<ScryfallCard> Cards() => new()
+        {
+            BasicLand("Swamp", "B"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Oracle("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}."),
+            Oracle("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}."),
+        };
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.ramp-credit-v2"] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        // Off (no cache → fail-safe off): broad predicate counts ritual + rock.
+        Assert.Equal(2, rOff.Report.LandTarget!.RampAndDrawUnderThree);
+        // On: the one-shot ritual is dropped, the rock is kept.
+        Assert.Equal(1, rOn.Report.LandTarget!.RampAndDrawUnderThree);
+        Assert.True(rOn.Report.TargetLands >= rOff.Report.TargetLands); // less ramp credit → higher target
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_HealthBandHeadlineFloorFlag_ThreadsToReport()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Plains", 30),
+            Entry("Swords to Plowshares", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Plains", "W"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Spell("Swords to Plowshares", "{W}", 1, "Instant"),
+        };
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.HealthBandHeadlineFloorFlagKey] = true,
+            }));
+
+        ManabaseAnalysisResult offResult = await off.AnalyzeAsync("x", null);
+        ManabaseAnalysisResult onResult = await on.AnalyzeAsync("x", null);
+
+        Assert.False(offResult.Report.UseHealthBandHeadlineFloor);
+        Assert.True(onResult.Report.UseHealthBandHeadlineFloor);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_LandRampSimFlag_RaisesPayoffCast_FailsSafeOff()
+    {
+        // 70-03b plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into Classify, so
+        // repeatable land-ramp is modeled as colorless ramp in the sim. On a Forest + Cultivate deck the
+        // expensive {6}{G} payoff casts more often when the flag is on; without a cache it does not.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+        const string ramp = "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.";
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Azusa, Lost but Seeking", 1, "commander", set: "chk", cn: "212"),
+            Land("Forest", 33),
+            Entry("Rampant Growth", 1, "mainboard"),
+            Entry("Nature's Lore", 1, "mainboard"),
+            Entry("Three Visits", 1, "mainboard"),
+            Entry("Cultivate", 1, "mainboard"),
+            Entry("Kodama's Reach", 1, "mainboard"),
+            Entry("Big Green", 1, "mainboard"),
+        };
+        for (int i = 0; i < 55; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        List<ScryfallCard> Cards()
+        {
+            var cards = new List<ScryfallCard>
+            {
+                BasicLand("Forest", "G"),
+                Spell("Azusa, Lost but Seeking", "{2}{G}", 3, "Legendary Creature — Human Monk"),
+                Oracle("Rampant Growth", "{1}{G}", 2, "Sorcery", ramp),
+                Oracle("Nature's Lore", "{1}{G}", 2, "Sorcery", ramp),
+                Oracle("Three Visits", "{1}{G}", 2, "Sorcery", ramp),
+                Oracle("Cultivate", "{2}{G}", 3, "Sorcery", ramp),
+                Oracle("Kodama's Reach", "{2}{G}", 3, "Sorcery", ramp),
+                Oracle("Big Green", "{6}{G}", 7, "Creature — Hydra", "Trample."),
+            };
+            for (int i = 0; i < 55; i++)
+            {
+                cards.Add(Oracle($"Filler {i}", "{3}", 3, "Artifact", "Does nothing."));
+            }
+
+            return cards;
+        }
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.land-ramp-sim"] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        int castOff = rOff.Report.Castability.First(c => c.Name == "Big Green").CastPercent;
+        int castOn = rOn.Report.Castability.First(c => c.Name == "Big Green").CastPercent;
+
+        Assert.True(castOn > castOff, $"land-ramp sim should raise the payoff's cast% (off={castOff}, on={castOn})");
+        // Colorless ramp source → land total + color verdict unchanged.
+        Assert.Equal(rOff.Report.TargetLands, rOn.Report.TargetLands);
+        Assert.Equal(rOff.Report.ActualLands, rOn.Report.ActualLands);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_ColorAwareMulliganFlag_ChangesCast_FailsSafeOff()
+    {
+        // MQ-05 plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into the analyzer
+        // → the castability rows' London mulligan becomes color-aware. On a White-skewed WU deck (blue
+        // scarce) the color-aware keep guarantees an Island in every kept opener, so the {U} spell
+        // casts more often when the flag is on; without a cache it stays count-only.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Plains", 29),
+            Land("Island", 5),
+            Entry("Blue One", 1, "mainboard"),
+            Entry("White One", 1, "mainboard"),
+        };
+        // Pad to a realistic ~96-card deck: ~35% lands so 7-card openers land in the count band
+        // (an all-land deck busts the band every time and force-mulligans past the color gate).
+        for (int i = 0; i < 60; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        List<ScryfallCard> Cards()
+        {
+            var cards = new List<ScryfallCard>
+            {
+                BasicLand("Plains", "W"),
+                BasicLand("Island", "U"),
+                Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+                Oracle("Blue One", "{U}", 1, "Instant", "Draw a card."),
+                Oracle("White One", "{W}", 1, "Instant", "Gain 1 life."),
+            };
+            for (int i = 0; i < 60; i++)
+            {
+                cards.Add(Oracle($"Filler {i}", "{3}", 3, "Artifact", "Does nothing."));
+            }
+
+            return cards;
+        }
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.color-aware-mulligan"] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        int castOff = rOff.Report.Castability.First(c => c.Name == "Blue One").CastPercent;
+        int castOn = rOn.Report.Castability.First(c => c.Name == "Blue One").CastPercent;
+
+        Assert.True(castOn > castOff, $"color-aware mulligan should raise scarce-color cast% (off={castOff}, on={castOn})");
+        // Color counts must not move with the flag (verdict probe path stays count-only).
+        Assert.Equal(rOff.Report.TargetLands, rOn.Report.TargetLands);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SourceManaQuantityFlag_RaisesAffordability_FailsSafeOff()
+    {
+        // MQ-02 plumbing: the flag "manabase.source-mana-quantity" is read via IsFlagOn (fail-safe OFF)
+        // and threaded as useManaQuantity into ManabaseAnalyzer.Analyze → CastabilitySimulator. When ON
+        // each colorless burst source (oracle "{T}: Add {C}{C}.") contributes ManaAmount=2 so a big
+        // colorless payoff casts more often. Without a cache the key is absent → IsFlagOn returns false
+        // → same result as explicit OFF. Mirrors the Core ManaQuantityTests.ManaQuantity_RaisesAffordability
+        // deck shape: many burst rocks + thin land base + expensive colorless payoff.
+        //
+        // Rocks MUST carry ProducedMana: ["C"] — the classifier's IsRockOrDork gate short-circuits when
+        // ProducedMana.Count == 0, so rocks without it are never added to deck.Sources and ManaAmount
+        // never reaches the simulator.
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        static ScryfallCard ColorlessRock(string name) => new(
+            Name: name, ManaCost: "{1}", TypeLine: "Artifact", OracleText: "{T}: Add {C}{C}.",
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 1,
+            // "C" in ProducedMana is required: IsRockOrDork checks ProducedMana.Count > 0 as a gate.
+            // ManaProductionAmount.Parse("{T}: Add {C}{C}.") == 2 → ManaAmount=2 when flag ON.
+            ProducedMana: new[] { "C" }, Rarity: "rare");
+
+        // 30 Islands + 20 burst colorless rocks + 1 expensive payoff = 51 cards; pad to ~99.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Commander Guy", 1, "commander"),
+            Land("Island", 30),
+            Entry("Big Colorless", 1, "mainboard"),
+        };
+        // 20 distinct rock names so the Scryfall resolver returns each; all produce {C}{C}.
+        for (int i = 0; i < 20; i++)
+        {
+            entries.Add(Entry($"Burst Rock {i}", 1, "mainboard"));
+        }
+        for (int i = 0; i < 47; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        List<ScryfallCard> Cards()
+        {
+            var cards = new List<ScryfallCard>
+            {
+                BasicLand("Island", "U"),
+                Spell("Commander Guy", "{2}{U}", 3, "Legendary Creature — Human"),
+                // MV=6 pure generic payoff — the sim must scrape together 6 mana on turn 6.
+                Oracle("Big Colorless", "{6}", 6, "Artifact", "Does nothing."),
+            };
+            // 20 burst rocks with ProducedMana=["C"] so they reach deck.Sources and ManaAmount wires in.
+            for (int i = 0; i < 20; i++)
+            {
+                cards.Add(ColorlessRock($"Burst Rock {i}"));
+            }
+            for (int i = 0; i < 47; i++)
+            {
+                cards.Add(Oracle($"Filler {i}", "{3}", 3, "Artifact", "Does nothing."));
+            }
+
+            return cards;
+        }
+
+        // OFF path: no cache at all → IsFlagOn("manabase.source-mana-quantity") returns false.
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
+
+        // ON path: cache present with the flag enabled.
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.ManaQuantityFlagKey] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        int castOff = rOff.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
+        int castOn = rOn.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
+
+        // Fail-safe OFF: absent cache must behave identically to explicit false.
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(Cards()),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.ManaQuantityFlagKey] = false }));
+        var rExplicitOff = await explicitOff.AnalyzeAsync("x", null);
+        int castExplicitOff = rExplicitOff.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
+
+        Assert.Equal(castExplicitOff, castOff); // absent key == explicit false (fail-safe off)
+        Assert.True(castOn > castOff, $"source-mana-quantity ON should raise payoff cast% (off={castOff}, on={castOn})");
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DefaultMode_IsCasual()
     {
         var (entries, cards) = CurveFixture();
@@ -269,14 +563,19 @@ public sealed class ManabaseAnalysisServiceTests
             cards.Add(Spell($"Filler {i}", "{2}", 3, "Sorcery"));
         }
 
-        // No override applied: Force of Will is detected as a suggestion but its row is unchanged.
+        // P3 auto-apply (debug session manabase-too-optimistic): a SELF-ANCHORED free cast ("rather
+        // than pay this spell's mana cost") is now auto-applied to the default analysis, so the
+        // detect-only path already casts Force of Will at effective MV 0 and marks it overridden — it is
+        // surfaced as a suggestion AND applied, no longer a false "demanding" {U}{U} row.
         var detectOnly = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
         var detect = await detectOnly.AnalyzeAsync("paste", null);
         Assert.Contains(detect.Suggestions, s => s.Name == "Force of Will" && s.EffectiveCost == "0");
         CardCastability before = detect.Report.Castability.Single(c => c.Name == "Force of Will");
-        Assert.False(before.IsCostOverridden);
+        Assert.True(before.IsCostOverridden);   // auto-applied free cost (was: not overridden pre-P3)
+        Assert.Equal(0, before.ManaValue);
 
-        // Override applied: effective MV 0, marked overridden, and a higher cast %.
+        // An explicit override to the same "0" is consistent with the auto-applied state: still
+        // overridden, still MV 0, and at least as castable (it cannot be made harder).
         var applied = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
         var withOverride = await applied.AnalyzeAsync(
             "paste", null,
@@ -287,7 +586,7 @@ public sealed class ManabaseAnalysisServiceTests
         CardCastability after = withOverride.Report.Castability.Single(c => c.Name == "Force of Will");
         Assert.True(after.IsCostOverridden);
         Assert.Equal(0, after.ManaValue);
-        Assert.True(after.CastPercent > before.CastPercent);
+        Assert.True(after.CastPercent >= before.CastPercent);
     }
 
     [Fact]

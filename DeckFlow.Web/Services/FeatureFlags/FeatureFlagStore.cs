@@ -166,7 +166,13 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.judge-questions.enabled', TRUE),
           ('tool.commander-categories.enabled', TRUE),
           ('analysis.reference.full-oracle-text', TRUE),
-          ('analysis.reference.deck-stats', FALSE)
+          ('analysis.reference.deck-stats', FALSE),
+          ('manabase.source-mana-quantity', TRUE),
+          ('manabase.ramp-credit-v2', TRUE),
+          ('manabase.color-aware-mulligan', TRUE),
+          ('manabase.land-ramp-sim', TRUE),
+          ('manabase.health-band-castability', FALSE),
+          ('manabase.health-band-headline-floor', TRUE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -189,7 +195,13 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.judge-questions.enabled', 1),
           ('tool.commander-categories.enabled', 1),
           ('analysis.reference.full-oracle-text', 1),
-          ('analysis.reference.deck-stats', 0)
+          ('analysis.reference.deck-stats', 0),
+          ('manabase.source-mana-quantity', 1),
+          ('manabase.ramp-credit-v2', 1),
+          ('manabase.color-aware-mulligan', 1),
+          ('manabase.land-ramp-sim', 1),
+          ('manabase.health-band-castability', 0),
+          ('manabase.health-band-headline-floor', 1)
         ON CONFLICT (key) DO NOTHING;
         """;
 

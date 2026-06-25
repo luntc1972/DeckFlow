@@ -21,6 +21,7 @@
             <thead>
                 <tr>
                     <th scope="col">Key</th>
+                    <th scope="col">What it does</th>
                     <th scope="col">Status</th>
                     <th scope="col">Action</th>
                 </tr>
@@ -30,6 +31,7 @@
                 {
                     <tr>
                         <td data-label="Key"><code>@flag.Key</code></td>
+                        <td data-label="What it does" class="admin-flags__desc">@(string.IsNullOrEmpty(flag.Description) ? "—" : flag.Description)</td>
                         <td data-label="Status">@(flag.Enabled ? "On" : "Off")</td>
                         <td data-label="Action">
                             <form method="post" asp-action="Toggle" asp-route-key="@flag.Key" class="admin-action-form">

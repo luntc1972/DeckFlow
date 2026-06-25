@@ -29,36 +29,40 @@
       data-busy-title="Analyzing mana base"
       data-busy-message="Resolving cards and simulating castability — this can take a few seconds."
       data-busy-progress="Loading the deck|Resolving cards via Scryfall|Simulating castability|Scoring colors"
-      data-busy-hold-final-step="true">
+      data-busy-hold-final-step="true"
+      data-busy-min-ms="500">
     @Html.AntiForgeryToken()
 
-    <div class="toolbar manabase-source-toggle" role="radiogroup" aria-label="Deck input source">
-        <label><input type="radio" name="DeckInputSource" value="PublicUrl" checked="@(isUrl ? "checked" : null)" /> Public URL</label>
-        <label><input type="radio" name="DeckInputSource" value="PasteText" checked="@(!isUrl ? "checked" : null)" /> Paste decklist</label>
-    </div>
-
-    <div class="field-grid">
-        <div class="field">
-            <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
-            <input id="manabase-deck-url" type="text" name="DeckUrl" spellcheck="false" autocomplete="off"
-                   placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
-        </div>
-        <div class="field">
-            <label for="manabase-deck-name">Deck name (optional)</label>
-            <input id="manabase-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
-                   placeholder="e.g. Kinnan Stax" value="@Model.Request.DeckName" />
-        </div>
-    </div>
-
     <div class="field">
-        <label for="manabase-deck-text">…or paste a decklist (one card per line, with set/collector if you have it)</label>
+        <label for="manabase-input-source">Input method</label>
+        <select id="manabase-input-source" name="DeckInputSource" data-df-select>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
+        </select>
+    </div>
+
+    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="manabase-deck-url">
+        <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
+        <input id="manabase-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
+               placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
+        @await Html.PartialAsync("_DeckFlowBridgeHint")
+    </div>
+
+    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="manabase-deck-text">
+        <label for="manabase-deck-text">Paste a decklist (one card per line, with set/collector if you have it)</label>
         <textarea id="manabase-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
                   placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
     </div>
 
+    <div class="field">
+        <label for="manabase-deck-name">Deck name (optional)</label>
+        <input id="manabase-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
+               placeholder="e.g. Kinnan Stax" value="@Model.Request.DeckName" />
+    </div>
+
     @if (Model.Loaded && !Model.HasResult)
     {
-        <p class="manabase-loaded-hint" role="status">
+        <p class="manabase-loaded-hint" role="status" data-scroll-on-load>
             @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
             {
                 <strong>Deck loaded</strong> @:(@Model.InputSummary).
@@ -144,7 +148,7 @@
 
 @if (Model.HasResult && report is not null)
 {
-    <section class="result-panel">
+    <section class="result-panel" data-scroll-on-load>
         <div class="panel-heading">
             <div>
                 <h2>Result</h2>
@@ -155,6 +159,52 @@
             </div>
         </div>
 
+        @{
+            var castRows = report.Castability;
+            var showRightLens = Model.ShowCastability && castRows.Count > 0;
+            var showLeftLens = report.ColorFindings.Count > 0;
+        }
+        @if (showLeftLens || showRightLens)
+        {
+            <div class="manabase-twolens">
+                @if (showLeftLens)
+                {
+                    <div class="manabase-lens">
+                        <p class="manabase-lens-label">Karsten source check</p>
+                        @foreach (var f in report.ColorFindings)
+                        {
+                            var km = ManabaseDisplay.KarstenMet(f);
+                            <div class="manabase-lens-row">
+                                <span class="manabase-lens-color">@f.Color</span>
+                                <span>
+                                    <strong>@f.ActualSources.ToString("F1")</strong>
+                                    <span class="manabase-lens-muted">/ @f.RequiredSources need</span>
+                                    @if (km.Met)
+                                    {
+                                        <span class="manabase-lens-met">✓</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="manabase-lens-short">⚠ −@km.Deficit</span>
+                                    }
+                                </span>
+                            </div>
+                        }
+                        <p class="manabase-lens-note">The validated colored-source target (Frank Karsten's math) — are there enough sources of each color?</p>
+                    </div>
+                }
+                @if (showRightLens)
+                {
+                    <div class="manabase-lens">
+                        <p class="manabase-lens-label">Simulated cast rate</p>
+                        <div class="manabase-lens-big">@ManabaseDisplay.AvgOnCurve(castRows)%<span>avg on-curve</span></div>
+                        <p class="manabase-lens-note">Joint mana + color, with London mulligan, tapped-land timing, and ramp — our Monte-Carlo models the real game, not just color odds.</p>
+                        <span class="manabase-lens-pill">avg across @castRows.Count tracked spells</span>
+                    </div>
+                }
+            </div>
+        }
+
         <p class="manabase-context">
             Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong> ·
             Commander: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong>
@@ -162,10 +212,14 @@
 
         <p>
             <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
-            (@(report.LandDelta >= -1 ? "land count OK" : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
+            (@(report.LandDelta >= -1
+                ? "land count OK"
+                : report.LandShortfallCoveredByRamp
+                    ? $"~{Math.Ceiling(-report.LandDelta):F0} under the Karsten count, but ramp covers it"
+                    : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
             <strong>Health:</strong>
             <span class="manabase-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
-            @if (report.Health == ManabaseHealth.Functional && report.DemandingCards.Count > 0)
+            @if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
             {
                 var demanding = report.DemandingCards;
                 <span class="manabase-demanding">
@@ -174,6 +228,46 @@
                 </span>
             }
         </p>
+
+        @{
+            var rampDraw = report.LandTarget?.RampAndDrawUnderThree ?? 0;
+        }
+        @if (report.RampSourceCount > 0 || rampDraw > 0)
+        {
+            var rampSummary = $"{report.RampSourceCount} mana rock(s)/dork(s)" + (rampDraw > 0 ? $" · {rampDraw} ramp/draw piece(s) at ≤2 MV credited toward a lower land count" : string.Empty);
+            if (report.RampSourceNames.Count > 0 || report.RampAndDrawNames.Count > 0)
+            {
+                <details class="manabase-ramp">
+                    <summary><strong>Ramp:</strong> @rampSummary.</summary>
+                    @if (report.RampSourceNames.Count > 0)
+                    {
+                        <p class="manabase-ramp-group-label">Mana rocks/dorks</p>
+                        <ul>
+                            @foreach (var name in report.RampSourceNames)
+                            {
+                                <li>@name</li>
+                            }
+                        </ul>
+                    }
+                    @if (report.RampAndDrawNames.Count > 0)
+                    {
+                        <p class="manabase-ramp-group-label">Ramp/draw ≤2 MV</p>
+                        <ul>
+                            @foreach (var name in report.RampAndDrawNames)
+                            {
+                                <li>@name</li>
+                            }
+                        </ul>
+                    }
+                </details>
+            }
+            else
+            {
+                <p class="manabase-help">
+                    <strong>Ramp:</strong> @rampSummary.
+                </p>
+            }
+        }
 
         <p class="mode-note">
             Built on
@@ -197,9 +291,12 @@
                     @foreach (var f in report.ColorFindings)
                     {
                         var isWeakest = report.WeakestColor is { } w && w.Color == f.Color;
+                        // Red "weakest" accent only when the lead color genuinely needs sources
+                        // (domain rule lives on the model, see ColorSourceFinding.NeedsMoreSources).
+                        var weakestNeedsSources = isWeakest && f.NeedsMoreSources;
                         var isCommanderColor = report.CommanderColors.Contains(f.Color);
                         var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
-                        <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(isWeakest ? "manabase-row--weakest" : null)">
+                        <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(weakestNeedsSources ? "manabase-row--weakest" : null)">
                             <td>
                                 @f.Color
                                 @if (isCommanderColor)
@@ -207,7 +304,13 @@
                                     <span class="manabase-cmd-glyph" title="commander color" aria-label="commander color">★</span>
                                 }
                             </td>
-                            <td>@f.ActualSources.ToString("F1")</td>
+                            <td>
+                                @f.ActualSources.ToString("F1")
+                                @if (f.SharedSources > 0 || f.ConditionalSources > 0)
+                                {
+                                    <span class="manabase-source-breakdown">@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared@(f.ConditionalSources > 0 ? $" + {f.ConditionalSources.ToString("F1")} conditional" : string.Empty)</span>
+                                }
+                            </td>
                             <td>@f.RequiredSources</td>
                             <td>@f.UnderSupportedCount of @total under-supported</td>
                             <td>@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
@@ -218,20 +321,44 @@
             </table>
         </div>
 
-        @* Callout is the single most actionable fix — distinct from the land/health stats line above. *@
-        @if (report.WeakestColor is { } weakest)
+        @* Callout is the single most actionable fix — chosen so it never contradicts the land/health
+           line above (e.g. it won't tell you to add sources to an oversupplied color). *@
+        @{ var fix = report.PrimaryFix; }
+        @switch (fix.Kind)
         {
-            <p class="mode-note"><strong>Biggest fix:</strong> add ~@(Math.Ceiling(weakest.Deficit).ToString("F0")) more <strong>@weakest.Color</strong> source(s) — you have @weakest.ActualSources.ToString("F1") vs @weakest.RequiredSources needed for @weakest.DrivingSpell.</p>
+            case ManabaseFixKind.ColorSources:
+                <p class="mode-note"><strong>Biggest fix:</strong> add ~@fix.Amount more <strong>@fix.Color</strong> source(s) — you have @fix.ActualSources.ToString("F1") vs @fix.RequiredSources needed for @fix.Spell.</p>
+                break;
+            case ManabaseFixKind.Lands:
+                <p class="mode-note"><strong>Biggest fix:</strong> add ~@fix.Amount more <strong>land(s)</strong> — each color is individually well-supported, but the base is ~@fix.Amount land(s) short of the curve.</p>
+                break;
+            case ManabaseFixKind.DemandingCards:
+                <p class="mode-note"><strong>Biggest fix:</strong> lands and colored sources are adequate, but @fix.DemandingCount demanding <strong>@fix.Color</strong> card(s) still cast late (worst: @fix.Spell) — trim the top end or add early ramp.</p>
+                break;
+            default:
+                <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
+                break;
         }
-        else
+
+        @* MQ-04: disclose cards the analysis can't fully model (X costs, hybrid/Phyrexian pips)
+           instead of silently folding them into a clean-looking verdict. *@
+        @if (report.UnsupportedInteractions.Count > 0)
         {
-            <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
+            <details class="manabase-unsupported">
+                <summary>⚠ @report.UnsupportedInteractions.Count card(s) use interactions this analysis approximates or skips</summary>
+                <ul>
+                    @foreach (var u in report.UnsupportedInteractions)
+                    {
+                        <li><strong>@u.Name</strong> — @u.Reason</li>
+                    }
+                </ul>
+            </details>
         }
 
         @if (Model.ShowCastability && report.Castability.Count > 0)
         {
             <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
-            <p class="manabase-help">Estimate, on the play, on its mana-value turn. Counts ramp; mana rocks/dorks aren't listed.</p>
+            <p class="manabase-help">Estimate on the play (going first, so the turn-one draw is skipped), on each card's mana-value turn. Counts ramp; the credited mana rocks/dorks are listed in the expandable Ramp line above. See <em>How the analysis works</em> below for the mulligan and on-the-play details.</p>
 
             <div class="manabase-table-wrap castability-scroll">
                 <table class="manabase-table castability-table">
@@ -290,6 +417,23 @@
         }
     </section>
 
+    @* Download mini-form: re-posts the same deck inputs to /manabase/download so the server
+       can re-run the analysis and return the report as a text file. This form is a separate
+       <form> element because the result panel is rendered outside the main analyze <form>
+       and cannot use a formaction= button inside it. All hidden inputs mirror the analyze
+       form's field names exactly so model-binding produces an identical ManabaseRequest. *@
+    <form method="post" action="@Url.Content("~/manabase/download")" class="toolbar manabase-download">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="DeckInputSource" value="@Model.Request.DeckInputSource" />
+        <input type="hidden" name="DeckUrl" value="@Model.Request.DeckUrl" />
+        <input type="hidden" name="DeckText" value="@Model.Request.DeckText" />
+        <input type="hidden" name="DeckName" value="@Model.Request.DeckName" />
+        <input type="hidden" name="Mode" value="@Model.Request.Mode" />
+        <input type="hidden" name="CommanderImportance" value="@Model.Request.CommanderImportance" />
+        <input type="hidden" name="CostOverridesText" value="@Model.Request.CostOverridesText" />
+        <button type="submit" class="run-button manabase-download-button" data-no-busy>Download analysis (.txt)</button>
+    </form>
+
     @if (!string.IsNullOrWhiteSpace(Model.ChatGptSwapPrompt))
     {
         <details class="result-panel nested-panel">
@@ -311,8 +455,10 @@
     <summary>How the analysis works</summary>
     <div class="manabase-formula-body">
         <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, fast mana, and double-faced lands, with a credit for each commander. cEDH mode lowers that target into the competitive ~28–32 band (a ~3.5-land cut, floored at 28), crediting fast mana fully.</p>
-        <p>Each spell's <strong>castability</strong> comes from a Monte-Carlo simulation: it draws an opening seven, applies the <strong>London mulligan</strong> (bottoming non-lands first when a hand is land-light), plays on the play turn by turn, deploys ramp as it comes online, credits fetchlands to the colors they can fetch, and applies any always-on cost reducers — then asks, on the spell's on-curve turn, whether there is enough <strong>mana and the right colored pips together</strong> (a joint check, not two independent odds). The reported number is the share of simulated games where the card was castable on curve.</p>
+        <p>Each spell's <strong>castability</strong> comes from a Monte-Carlo simulation. It draws an opening seven and applies the <strong>London mulligan</strong>, including <strong>Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only later ones bottom a card (lowest-impact first, never your lands). It then plays <strong>on the play</strong> (going first), which means it <strong>skips the turn-one draw</strong>: a card is judged on its mana-value turn, so by turn N it has seen its opening 7 plus one card per turn after the first (7 + (N − 1) cards). Each turn it deploys ramp as it comes online, credits fetchlands to the colors they can fetch, and applies any always-on cost reducers — then asks, on that turn, whether there is enough <strong>mana and the right colored pips together</strong> (a joint check, not two independent odds). The reported number is the share of simulated games where the card was castable on curve.</p>
+        <p class="manabase-help">"On the play" is the <strong>conservative</strong> case: in a multiplayer pod you are on the play only about a quarter of the time, and the rest of the time you are on the draw and see one extra card by your curve turn — so real odds run a little higher than shown. This matches the Karsten / Salubrious Snail baseline the analyzer is checked against.</p>
         <p>Colored-source findings combine a <strong>worst-driver</strong> spell (the hardest single card for a color) with a <strong>population</strong> view (how many of that color's cards are under-supported and their mean castability). The weakest color surfaces tail risk first. The <strong>commander-importance</strong> setting weights the commander's colors more or less heavily — Central holds them to a stricter, cEDH-style threshold.</p>
+        <p>The overall <strong>health</strong> reads on a four-tier scale — <strong>Excellent</strong>, <strong>Solid</strong>, <strong>Workable</strong>, <strong>Needs work</strong> — that combines Karsten source counts with the simulated avg-on-curve headline. A card that casts late only because it is <em>expensive</em> (a curve problem the base can't fix) never fails the verdict. <em>Needs work</em> means a severe or broad shortage: a color short by more than about two sources, two-plus colors short, broad color-access misses, or a land shortfall that the simulation corroborates. If the simulation says the deck functions, with no catastrophic color, no severe color deficit, and no broad color-access shortfall, a land-count shortfall plus one soft color issue is <em>Workable</em>, not red. <em>Solid</em> is a working base with minor notes; <em>Excellent</em> is clean.</p>
         <p class="manabase-help">Credit: Frank Karsten's published source-count work. The castability estimate is our own Monte-Carlo simulation, cross-checked against community mana calculators including <a href="https://www.salubrioussnail.com/manabase-tool" target="_blank" rel="noopener">Salubrious Snail</a>. These figures are an estimate; treat them as a ranking aid, not a guarantee.</p>
     </div>
 </details>
@@ -344,19 +490,22 @@
             }
             <p class="manabase-help">Commander importance applied: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong> (weights the commander's colors; does not move the land target).</p>
 
-            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make):</p>
+            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding your other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
             <ul class="manabase-formula-list">
                 @foreach (var f in report.ColorFindings)
                 {
                     var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
                     <li>
-                        <strong>@f.Color</strong>: @f.ActualSources.ToString("F1") sources · needs @f.RequiredSources for @f.DrivingSpell ·
+                        <strong>@f.Color</strong>: @f.ActualSources.ToString("F1") sources
+                        (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·
+                        needs @f.RequiredSources for @f.DrivingSpell ·
                         @f.UnderSupportedCount of @total card(s) under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
                     </li>
                 }
             </ul>
 
-            <p><strong>Simulation parameters.</strong> On the play (skip the first draw); London mulligan to six then five, bottoming non-lands first; ~20,000 trials per spell; each spell measured on its effective on-curve turn after any cost reduction. Cast % above is the share of trials where the card was castable on curve.</p>
+            <p><strong>Simulation parameters.</strong> Played <strong>on the play</strong> — going first, so the turn-one draw is skipped: a card on its mana-value turn N has seen 7 + (N − 1) cards (its opening seven plus one per turn after the first). <strong>London mulligan including Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only the second and third bottom a card (to six then five, lowest-impact non-lands first). ~20,000 trials per spell; each spell measured on its effective on-curve turn after any cost reduction. Cast % above is the share of trials where the card was castable on curve.</p>
+            <p class="manabase-help">On the play is the <strong>conservative</strong> case: in a multiplayer pod you are usually on the draw and see one more card by your curve turn, so real odds run a little higher than shown — matching the Karsten / Salubrious Snail baseline.</p>
             <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so you can audit why a color or a card was flagged.</p>
         </div>
     </details>

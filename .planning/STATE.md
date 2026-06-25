@@ -23,10 +23,11 @@ See: .planning/PROJECT.md
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
 **Current focus:** Phase 67 CLOSED (decision: KB value MARGINAL/NEGATIVE → content.kb.enabled stays OFF, Phase 68 DROPPED). Next active: Phase 69 — Studio UI Design Pass (last phase of Cycle 11).
 
-## Branch reconciliation (resolved 2026-06-22)
+## Branch reconciliation (resolved 2026-06-22; re-merged 2026-06-25)
 
-- The shipped **Manabase Analyzer** feature (built ad-hoc on `main`, deployed to prod 2026-06-22) is now MERGED into `cycle11`. Tracked as un-numbered trunk features: `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` (de-numbered out of slot 64 so Cycle 11 owns phase 64). Code is fully disjoint from Cycle 11's host-hardening — no overlapping files.
-- Going forward: do Cycle 11 work HERE on `cycle11`. main stays as-is (already has manabase). Cycle 11 ships via cycle11→main fast-forward when phases 65-69 are done.
+- The shipped **Manabase Analyzer** feature (built ad-hoc on `main`, deployed to prod 2026-06-22) is MERGED into `cycle11`. Tracked as un-numbered trunk features: `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` (de-numbered out of slot 64 so Cycle 11 owns phase 64).
+- **2026-06-25 re-merge:** `main` had advanced 92 commits (Phase 70 manabase-accuracy: health-band coupling, ramp disclosure, manabase download action, set-packet scoring, Admin/Flags descriptions, SQLitePCLRaw 3.0.3 override). Merged main→cycle11. Only STATE.md conflicted (planning — took cycle11). The 3 overlapping code files (ManabaseController.cs, FeatureFlagStore.cs, admin-common.css) auto-merged; integration follow-up: Phase 70's new `/manabase` action(s) must carry the Phase 66 `[FeatureFlagGate]` or `ToolRouteGateCoverageTests` fails (the gate doing its job).
+- Going forward: Cycle 11 ships via `cycle11→main` once Phase 69 lands. main is now merged in, so the ship is a fast-forward (no manabase loss).
 
 ## Current Position
 

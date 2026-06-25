@@ -71,6 +71,14 @@ const panelConfigs: PanelConfig[] = [
     urlSelector: '[data-sync-panel="chatgpt-deck-url"]',
     textSelector: '[data-sync-panel="chatgpt-deck-text"]',
   },
+  {
+    // Manabase reuses the DeckInputSource select; on the deck-analysis page these
+    // manabase panels are absent so this config no-ops (togglePanel ignores missing
+    // selectors), and vice versa on the manabase page.
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="manabase-deck-url"]',
+    textSelector: '[data-sync-panel="manabase-deck-text"]',
+  },
 ];
 
 type MoxfieldImportTask = {
@@ -724,6 +732,14 @@ const registerBusyIndicator = (): void => {
   document.querySelectorAll<HTMLFormElement>('form[data-busy-title]').forEach(form => {
     form.addEventListener('submit', (event: Event) => {
       const submitter = (event as SubmitEvent).submitter;
+
+      // Release pass of a min-display delay (see below): the overlay is already up, so let this
+      // re-fired submit navigate without re-showing or re-delaying.
+      if (form.dataset.busyMinReleased === 'true') {
+        delete form.dataset.busyMinReleased;
+        return;
+      }
+
       if (submitter?.hasAttribute('data-no-busy')) {
         return;
       }
@@ -751,6 +767,29 @@ const registerBusyIndicator = (): void => {
         duration,
         holdFinalStep
       );
+
+      // Optional minimum display floor: a full-page POST that returns quickly (e.g. cached cards)
+      // navigates before the overlay is ever perceived, so it just flashes. When the form opts in via
+      // data-busy-min-ms, hold the submit briefly so the "Analyzing…" state is actually seen, then
+      // re-fire it. Skipped when another handler already owns this submit (event.defaultPrevented —
+      // the Moxfield extension-bypass path, which is already slow enough to show the overlay).
+      const minMs = parseInt(form.getAttribute('data-busy-min-ms') ?? '', 10);
+      if (Number.isFinite(minMs) && minMs > 0 && !event.defaultPrevented) {
+        event.preventDefault();
+        window.setTimeout(() => {
+          form.dataset.busyMinReleased = 'true';
+          if (typeof form.requestSubmit === 'function') {
+            // Preserve which button submitted (its formaction, e.g. the Load vs Analyze endpoint).
+            form.requestSubmit(
+              submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement
+                ? submitter
+                : undefined
+            );
+          } else {
+            form.submit();
+          }
+        }, minMs);
+      }
     });
   });
 
@@ -2671,6 +2710,25 @@ interface Window {
 window.setAllPrintingChoices = setAllPrintingChoices;
 window.hideBusyIndicator = hideBusyIndicator;
 
+// After a full-page POST (e.g. the Mana Base Load / Analyze submit), the browser lands at the top of
+// the fresh page. When the response rendered a section worth seeing — marked [data-scroll-on-load] —
+// bring it into view so the user lands on the loaded costs / result instead of an empty top of page.
+const scrollToOnLoadTarget = (): void => {
+  const target = document.querySelector<HTMLElement>('[data-scroll-on-load]');
+  if (!target) {
+    return;
+  }
+
+  // Wait two frames so layout has settled (a tall result table shifts the target's position after
+  // first paint) and use an INSTANT scroll — a smooth scroll fired this early is dropped by the
+  // browser's post-navigation scroll restoration, so the page would stay near the top.
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'auto', block: 'start' });
+    });
+  });
+};
+
 let deckSyncBootstrapped = false;
 
 const bootstrapDeckSync = (): void => {
@@ -2681,6 +2739,7 @@ const bootstrapDeckSync = (): void => {
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
   registerBusyIndicator();
+  scrollToOnLoadTarget();
   registerChatGptDownloadHandler();
   attachActionButtons();
   attachGenericPersistedForms();

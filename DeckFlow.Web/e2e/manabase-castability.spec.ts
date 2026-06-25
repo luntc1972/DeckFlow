@@ -32,7 +32,7 @@ async function submitDeck(
   importance: 'Central' | 'Standard' | 'Low' = 'Standard',
 ): Promise<boolean> {
   await page.goto('/manabase');
-  await page.locator('input[name="DeckInputSource"][value="PasteText"]').check();
+  await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(PASTE_DECK);
   await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
   await page.locator(`.manabase-pill input[name="CommanderImportance"][value="${importance}"]`).check();
@@ -79,23 +79,52 @@ test('mode + commander-importance selectors are present and persist on postback'
   await assertNoHorizontalScroll(page);
 });
 
+test('segmented pill radios stay visually collapsed so labels center', async ({ page }) => {
+  // Regression: the global custom radio render in site-theme-overrides.css
+  // (`input[type="radio"] { appearance:none; width:1.05rem; ... position:relative }`)
+  // loads after site-common.css and tied its specificity, re-inflating the
+  // visually-hidden pill radio into an in-flow ~16px box (opacity:0 but
+  // space-occupying), which shoved each pill's label off-center. The collapse
+  // rule is now `.manabase-pill > input[type="radio"]` (higher specificity) so
+  // the radio must measure ~1px and sit out of flow on every theme.
+  await page.goto('/manabase');
+
+  const pillRadios = page.locator('.manabase-pill > input[type="radio"]');
+  const count = await pillRadios.count();
+  expect(count).toBeGreaterThan(0);
+
+  for (let i = 0; i < count; i++) {
+    const box = await pillRadios.nth(i).evaluate((el) => ({
+      width: (el as HTMLElement).offsetWidth,
+      height: (el as HTMLElement).offsetHeight,
+      position: getComputedStyle(el).position,
+    }));
+    expect(box.width, 'pill radio must stay collapsed (not the 16px custom box)').toBeLessThanOrEqual(2);
+    expect(box.height).toBeLessThanOrEqual(2);
+    expect(box.position, 'pill radio must be out of flow').toBe('absolute');
+  }
+
+  await assertNoHorizontalScroll(page);
+});
+
 test('Mode + CommanderImportance selections survive the postback', async ({ page }) => {
   // The radios re-render from Model.Request on BOTH the success and the error path, so this holds
   // even when Scryfall is unreachable in the sandbox — we assert the form state, not the result.
 
-  // Casual + Low.
+  // Casual + Low. Scope to the radio: the download mini-form also carries hidden
+  // name="Mode"/"CommanderImportance" inputs, so a bare name locator matches 2 elements.
   await submitDeck(page, 'Casual', 'Low');
-  await expect(page.locator('input[name="Mode"][value="Casual"]')).toBeChecked();
-  await expect(page.locator('input[name="Mode"][value="Cedh"]')).not.toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Low"]')).toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Casual"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Cedh"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Low"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
 
   // cEDH + Central.
   await submitDeck(page, 'Cedh', 'Central');
-  await expect(page.locator('input[name="Mode"][value="Cedh"]')).toBeChecked();
-  await expect(page.locator('input[name="Mode"][value="Casual"]')).not.toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Central"]')).toBeChecked();
-  await expect(page.locator('input[name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Cedh"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="Mode"][value="Casual"]')).not.toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Central"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][name="CommanderImportance"][value="Standard"]')).not.toBeChecked();
 
   await assertNoHorizontalScroll(page);
 });
@@ -172,4 +201,45 @@ test('cedh submit echoes cEDH and replaces the castability table with a note', a
   await expect(page.locator('.manabase-castability-note')).toContainText(/available in Casual mode/i);
 
   await assertNoHorizontalScroll(page);
+});
+
+test('biggest-fix callout never recommends a negative source count', async ({ page }) => {
+  // Regression: the callout used to do ceil(weakest.Deficit) on a color picked by the composite
+  // (under-supported) signal. When that color held a raw source SURPLUS, the deficit was negative
+  // and it rendered "add ~-14 more Green source(s)" — contradicting the "add lands" health line.
+  // The reconciled selector (ManabaseReport.PrimaryFix) must never emit a negative add amount.
+  const analyzed = await submitDeck(page, 'Casual');
+  test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
+
+  const note = page.locator('.result-panel p.mode-note:has(strong:text-is("Biggest fix:"))');
+  if ((await note.count()) > 0) {
+    await expect(note).not.toContainText('~-');
+  }
+
+  await assertNoHorizontalScroll(page);
+});
+
+test('health verdict renders a four-tier scale label', async ({ page }) => {
+  // Health chip must read one of the four scale tiers (Excellent / Solid / Workable / Needs work),
+  // never the old two-tier "Healthy"/"Functional" wording.
+  const analyzed = await submitDeck(page, 'Casual');
+  test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
+
+  const chip = page.locator('.result-panel .manabase-chip').first();
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText(/^(Excellent|Solid|Workable|Needs work)$/);
+
+  await assertNoHorizontalScroll(page);
+});
+
+test('analyzing scrolls the result into view, not stuck at the top', async ({ page }) => {
+  // A full-page POST lands at the top; deck-sync.js scrolls the [data-scroll-on-load] result section
+  // into view so the user sees the verdict instead of an empty top of page.
+  const analyzed = await submitDeck(page, 'Casual');
+  test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
+
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY)), {
+    message: 'page should scroll down to the result after analyzing',
+    timeout: 5000,
+  }).toBeGreaterThan(0);
 });

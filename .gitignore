@@ -26,3 +26,12 @@ DeckFlow.Web/.playwright/
 DeckFlow.Studio/appsettings*.local.json
 DeckFlow.Studio/appsettings.Local.json
 DeckFlow.Studio/secrets.json
+
+# Manabase baseline harness local artifacts (the gating sentinel + harvested decks).
+# The live-Scryfall regenerator is gated by .manabase-harness-on (kept uncommitted), so ignoring
+# the sentinel is what keeps CI from hitting Scryfall. The *-facts.json caches, by contrast, are
+# offline fixtures consumed by the unconditional health-band regression tests and MUST be tracked.
+.manabase-*.json
+!.manabase-*-facts.json
+.manabase-harness-on
+archidekt-baseline-decks.json

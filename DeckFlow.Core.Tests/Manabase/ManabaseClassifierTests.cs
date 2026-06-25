@@ -160,6 +160,125 @@ public sealed class ManabaseClassifierTests
         Assert.Equal("{G}", s!.EffectiveCost);
     }
 
+    private const string SkullsporeText =
+        "This spell costs {X} less to cast, where X is the greatest power among creatures you control. "
+        + "Whenever one or more creatures you control die, create a 1/1 green Saproling creature token.";
+
+    private static CardFact Creature(string name, string manaCost, int mv, int? power) =>
+        new()
+        {
+            Name = name,
+            Quantity = 1,
+            ManaCost = manaCost,
+            ManaValue = mv,
+            TypeLine = "Creature — Beast",
+            OracleText = "Vanilla.",
+            Power = power,
+            ProducedMana = System.Array.Empty<string>(),
+        };
+
+    [Fact]
+    public void DetectSelfCost_GreatestPowerReducer_ReducesGenericByMaxCreaturePower()
+    {
+        // The Skullspore Nexus ({4}{G}{G}) with a 5-power creature in the deck: X = 5 removes all 4
+        // generic, leaving the colored floor {G}{G}.
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            new()
+            {
+                Name = "The Skullspore Nexus",
+                Quantity = 1,
+                ManaCost = "{4}{G}{G}",
+                ManaValue = 6,
+                TypeLine = "Legendary Artifact",
+                OracleText = SkullsporeText,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            Creature("Perennial Behemoth", "{5}", 5, power: 5),
+        });
+
+        CostSuggestion? s = Suggestion(deck, "The Skullspore Nexus");
+        Assert.NotNull(s);
+        Assert.Equal("{G}{G}", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void DetectSelfCost_GreatestPowerReducer_PartialReductionKeepsRemainingGeneric()
+    {
+        // Greatest fixed creature power is 2 → {4}{G}{G} reduced by 2 = {2}{G}{G}.
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            new()
+            {
+                Name = "The Skullspore Nexus",
+                Quantity = 1,
+                ManaCost = "{4}{G}{G}",
+                ManaValue = 6,
+                TypeLine = "Legendary Artifact",
+                OracleText = SkullsporeText,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            Creature("Llanowar Elves", "{G}", 1, power: 1),
+            Creature("Grizzly Bears", "{1}{G}", 2, power: 2),
+        });
+
+        CostSuggestion? s = Suggestion(deck, "The Skullspore Nexus");
+        Assert.NotNull(s);
+        Assert.Equal("{2}{G}{G}", s!.EffectiveCost);
+    }
+
+    [Fact]
+    public void GreatestPowerReducer_AutoAppliesReducedCostToTheSpellRequirement()
+    {
+        // The discount is intrinsic (always-on), so the default analysis must already cast Skullspore
+        // at the reduced cost — not merely suggest it. With a 5-power creature, {4}{G}{G} (MV 6) drops
+        // to {G}{G} (MV 2) on the spell requirement itself, flagged IsCostOverridden.
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            new()
+            {
+                Name = "The Skullspore Nexus",
+                Quantity = 1,
+                ManaCost = "{4}{G}{G}",
+                ManaValue = 6,
+                TypeLine = "Legendary Artifact",
+                OracleText = SkullsporeText,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            Creature("Perennial Behemoth", "{5}", 5, power: 5),
+        });
+
+        SpellRequirement skullspore = deck.Spells.Single(s => s.Name == "The Skullspore Nexus");
+        Assert.Equal(2, skullspore.ManaValue);
+        Assert.True(skullspore.IsCostOverridden);
+        Assert.Equal(2, skullspore.Pips[ManaColor.Green]);
+    }
+
+    [Fact]
+    public void DetectSelfCost_GreatestPowerReducer_NoFixedPowerCreature_FallsBackToColoredFloor()
+    {
+        // Only a variable-power creature (*goyf, Power == null): cannot measure X, so fall back to
+        // the optimistic colored-pip floor {G}{G} rather than leaving the cost unreduced.
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            new()
+            {
+                Name = "The Skullspore Nexus",
+                Quantity = 1,
+                ManaCost = "{4}{G}{G}",
+                ManaValue = 6,
+                TypeLine = "Legendary Artifact",
+                OracleText = SkullsporeText,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            Creature("Tarmogoyf", "{1}{G}", 2, power: null),
+        });
+
+        CostSuggestion? s = Suggestion(deck, "The Skullspore Nexus");
+        Assert.NotNull(s);
+        Assert.Equal("{G}{G}", s!.EffectiveCost);
+    }
+
     [Fact]
     public void DetectSelfCost_DeckWideReducer_IsNotSelfCost()
     {

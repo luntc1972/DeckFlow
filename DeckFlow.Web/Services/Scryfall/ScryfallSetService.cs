@@ -212,7 +212,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             builder.AppendLine("cards:");
             foreach (var card in item.Cards)
             {
-                builder.AppendLine($"{card.Name} | {card.ManaCost ?? string.Empty} | {card.TypeLine} | {NormalizeOracleText(card)}");
+                builder.AppendLine($"{card.Name} | {ResolveManaCost(card) ?? string.Empty} | {card.TypeLine} | {NormalizeOracleText(card)}");
             }
         }
 
@@ -300,13 +300,55 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         {
             parts.Add(CollapseWhitespace(card.OracleText));
         }
-
-        if (!string.IsNullOrWhiteSpace(card.Power) && !string.IsNullOrWhiteSpace(card.Toughness))
+        else if (card.CardFaces is { Count: > 0 })
         {
-            parts.Add($"{card.Power}/{card.Toughness}");
+            // Why: transform/MDFC cards leave parent oracle_text null; the real text
+            // (often the back-face payoff) lives only in card_faces[].
+            foreach (var face in card.CardFaces)
+            {
+                if (!string.IsNullOrWhiteSpace(face.OracleText))
+                {
+                    parts.Add(CollapseWhitespace(face.OracleText));
+                }
+            }
+        }
+
+        var power = card.Power;
+        var toughness = card.Toughness;
+        if (string.IsNullOrWhiteSpace(card.OracleText)
+            && (string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness))
+            && card.CardFaces is { Count: > 0 })
+        {
+            // Why: only fall back to the front (cast) face P/T for genuine transform/MDFC
+            // cards (parent oracle_text empty). Gating on the same parent-empty condition as
+            // the text fallback avoids P/T drift on split/adventure cards that carry parent
+            // oracle text but no parent P/T.
+            power = card.CardFaces[0].Power;
+            toughness = card.CardFaces[0].Toughness;
+        }
+
+        if (!string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness))
+        {
+            parts.Add($"{power}/{toughness}");
         }
 
         return string.Join(" ", parts);
+    }
+
+    private static string? ResolveManaCost(ScryfallCard card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.ManaCost))
+        {
+            return card.ManaCost;
+        }
+
+        // Why: transform/MDFC parent mana_cost is empty; the castable cost is on the front face.
+        if (card.CardFaces is { Count: > 0 })
+        {
+            return card.CardFaces[0].ManaCost;
+        }
+
+        return card.ManaCost;
     }
 
     private static string CollapseWhitespace(string value)
@@ -318,7 +360,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             .Select(card => new { Card = card, Score = ScoreSetCard(card) })
             .Where(entry => entry.Score > 0)
             .OrderByDescending(entry => entry.Score)
-            .ThenBy(entry => ParseManaValue(entry.Card.ManaCost))
+            .ThenBy(entry => ParseManaValue(ResolveManaCost(entry.Card)))
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Take(MaxCardsPerSetPacket)
             .Select(entry => entry.Card)
@@ -365,7 +407,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
 
         score += ScoreTextSignals(oracleText);
 
-        var manaValue = ParseManaValue(card.ManaCost);
+        var manaValue = ParseManaValue(ResolveManaCost(card));
         if (manaValue <= 2)
         {
             score += 3;
@@ -429,6 +471,20 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             "counter target",
             "target player sacrifices"
         ];
+        // Why: the other buckets are blind to the entire spell-payoff / cast-matters class
+        // (prowess, magecraft, noncreature-cast triggers). These are powerful, common
+        // build-arounds — and were the reason on-theme spellslinger payoffs like the
+        // transform card Monica Rambeau // Photon previously scored only on incidental
+        // "attack"/"counter" matches rather than their actual text.
+        string[] spellPayoffSignals =
+        [
+            "prowess",
+            "magecraft",
+            "whenever you cast",
+            "noncreature spell",
+            "instant or sorcery",
+            "instant and sorcery"
+        ];
 
         if (graveyardSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
         {
@@ -441,6 +497,11 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         }
 
         if (selectionSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 3;
+        }
+
+        if (spellPayoffSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
         {
             score += 3;
         }

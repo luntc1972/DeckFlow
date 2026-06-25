@@ -14,7 +14,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - **Theme system**: Guild themes are full standalone CSS forks; layout CSS must go in `site-common.css`, not `site.css` — token additions go in `:root` of each theme file
 - **HTTP resilience**: Use existing RestSharp + direct Polly v8 pattern — do NOT migrate to standard handler
 - **Public repo**: `luntc1972/DeckFlow` is public — no secrets in commits ever; secrets live in Render dashboard with `sync: false`
-- **Testing**: VSTest unreliable in WSL; rely on `dotnet build` clean + targeted manual harness or push-and-watch CI
+- **Testing**: VSTest unreliable in WSL; rely on `dotnet build` clean + targeted manual harness or push-and-watch CI. **UI testing must NEVER open a browser on the Windows host** — start the web app with `scripts/run-web-test.sh` (or `.ps1`), which sets `DECKFLOW_DISABLE_AUTO_BROWSER=true` so the Development auto-launch is suppressed. Drive live UI checks with `npx --no-install playwright test` (WSL can run it) or a manually-opened browser against the headless server; do NOT rely on the WSL `gstack` headless daemon (observed unstable — crashes / won't follow form-POST navigation).
 - **Commits**: Plain default-author commits, no Co-Authored-By trailer; README updated when behavior changes; commit per logical change
 - **Formatting**: `.editorconfig` is the enforced, tool-agnostic source of truth and `.gitattributes` still enforces LF line endings. New and changed C# lines must satisfy the changed-lines gate locally (`git config core.hooksPath .githooks` opt-in, then the versioned pre-commit hook runs `scripts/format-check-changed.sh staged`) and in CI (`format-gate`, which is the authoritative enforcer). Existing files are not mass-reflowed; the gate is changed-lines-only, so when editing a file, touch only the lines that need touching. The five bug-driven carve-outs override any conflicting formatter preference: never auto-convert `{ get; init; }` to `{ get; }` (System.Text.Json silently skips get-only properties in .NET 9+ — has broken `EdhTop16Client` deserialization before), never inline `[Attribute]` onto the property line, never re-indent C# raw-string literals (changes the literal value shipped to the AI), preserve switch expressions, preserve xmldoc single-space indent, preserve LF line endings (`.gitattributes` enforces). The carve-outs live authoritatively in `.editorconfig` and are guarded by the `CarveOutGuard` test.
 <!-- GSD:project-end -->
@@ -62,7 +62,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 ## Configuration
 - Configured via environment variables; no `.env` file present in repo.
 - Required for production: `ASPNETCORE_ENVIRONMENT=Production`, `MTG_DATA_DIR=/data`, `PORT` (Render/Fly inject).
-- Optional: `DECKFLOW_DATABASE_PROVIDER` (`Sqlite`|`Postgres`), `DECKFLOW_DATABASE_CONNECTION_STRING`, `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD`, `FEEDBACK_IP_SALT`, `MTGDECKSTUDIO_DISABLE_AUTO_BROWSER`.
+- Optional: `DECKFLOW_DATABASE_PROVIDER` (`Sqlite`|`Postgres`), `DECKFLOW_DATABASE_CONNECTION_STRING`, `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD`, `FEEDBACK_IP_SALT`, `DECKFLOW_DISABLE_AUTO_BROWSER`.
 - App-level: `DeckFlow.Web/appsettings.json` (logging defaults, allowed hosts) and `appsettings.Development.json` (logging override).
 - `DeckFlow.Web/Properties/launchSettings.json` - Local dev URLs `http://localhost:5173` / `https://localhost:7173`.
 - `Directory.Build.props` - Clears NuGet fallback folders.

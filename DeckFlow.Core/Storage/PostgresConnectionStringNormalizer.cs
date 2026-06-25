@@ -36,7 +36,12 @@ public static class PostgresConnectionStringNormalizer
         // EndOfStreamException) — the documented Render + Npgsql string pairs Require with trust.
         // Traffic stays encrypted; only chain validation is skipped (accepted Render norm).
         builder.SslMode = SslMode.Require;
+        // CS0618: TrustServerCertificate is a documented no-op on this Npgsql (SslMode.Require already
+        // skips chain validation). Keep the assignment behind a pragma so the emitted string stays
+        // byte-identical to the documented Render pairing rather than silently dropping the key.
+#pragma warning disable CS0618
         builder.TrustServerCertificate = true;
+#pragma warning restore CS0618
 
         if (!string.IsNullOrEmpty(uri.UserInfo))
         {
