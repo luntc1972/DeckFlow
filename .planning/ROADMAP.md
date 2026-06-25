@@ -124,7 +124,11 @@ existed (`Spike001KbValueAbHarness.cs`); real `ContentKbRelevanceService` retrie
   2. The Studio Home page is a dashboard surfacing pipeline state at a glance (counts by status / publish-state) with quick links to Harvest / Review / Publish.
   3. Studio pages handle table-overflow / responsive layout and dark mode consistently.
   4. No functional/behavior change — the pass is presentation-only over the existing 6 pages.
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
+  - [ ] 69-01-PLAN.md — studio-theme.css token home + _Layout link + site.css token alignment (STUI-01, STUI-03) [Wave 1]
+  - [ ] 69-02-PLAN.md — Branded shell: MainLayout + NavMenu restyle onto tokens (STUI-01) [Wave 2]
+  - [ ] 69-03-PLAN.md — Home pipeline dashboard (counts + badges + quick links) + bUnit tests (STUI-02) [Wave 2]
+  - [ ] 69-04-PLAN.md — Table-overflow wraps (DirectPush/PullFromProd) + dark/badge-contrast operator sweep (STUI-03) [Wave 2]
 **UI hint**: yes
 
 <details>
