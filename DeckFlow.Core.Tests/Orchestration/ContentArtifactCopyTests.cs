@@ -7,7 +7,7 @@ namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// Pins the copy behavior, missing-source error, and traversal rejection of
-/// <see cref="IContentKbOrchestrator.CopyApprovedArtifactsToRepoAsync"/>.
+/// <see cref="DeckFlow.Core.Orchestration.IContentIndexExporter.CopyApprovedArtifactsToRepoAsync"/>.
 /// </summary>
 public sealed class ContentArtifactCopyTests : IDisposable
 {

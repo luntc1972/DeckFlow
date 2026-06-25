@@ -74,7 +74,9 @@ public sealed class PostgresConnectionStringNormalizerTests
         var result = PostgresConnectionStringNormalizer.Normalize("postgres://u:p@host:5433/dbname");
         var builder = new NpgsqlConnectionStringBuilder(result);
 
+#pragma warning disable CS0618 // Asserting the no-op key is still emitted for Render string parity.
         Assert.True(builder.TrustServerCertificate);
+#pragma warning restore CS0618
     }
 
     [Fact]

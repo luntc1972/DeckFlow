@@ -963,7 +963,6 @@
     //   L left-in-review   = M - K
     //   D dropped          = DistillResult.VideosFiltered
     //   F failed (+ ids)   = DistillResult.DistillFailed / FailedVideoIds
-    private bool _oneClickInFlight;
     private bool _showOutcomeCard;
     private int _outcomeHarvestReadyCount;
     private int _outcomeAutoApprovedCount;
@@ -1406,7 +1405,6 @@
         }
 
         _operationInFlight = true;
-        _oneClickInFlight = true;
         _logLines.Clear();
         _harvestResult = null;
         _harvestCancelled = false;
@@ -1509,7 +1507,6 @@
         }
         finally
         {
-            _oneClickInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
