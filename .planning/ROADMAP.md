@@ -78,7 +78,13 @@
   3. When all tools in a nav section are disabled, that section's header/trigger and dropdown are not rendered.
   4. The existing `feature.manabase.enabled`, `content.kb.enabled`, `feature.categories.enabled` flags are unified into the registry with no double-gate; all tool flags default ON so an existing deploy exposes the same tools as before (SQLite + Postgres seed).
   5. Disabling a core-workflow tool (e.g. Deck Analysis) surfaces a warning in the admin UI but is not blocked.
-**Plans**: TBD
+**Plans**: 6 plans (3 waves)
+  - [ ] 66-01-PLAN.md — Tool Registry + DI + section-visibility helper + seed 10 tool flags (TOGGLE-01, TOGGLE-06) [Wave 1]
+  - [ ] 66-02-PLAN.md — FeatureFlagGate 503→404 + gate all 13 tool routes + coverage tests (TOGGLE-04) [Wave 2]
+  - [ ] 66-03-PLAN.md — Registry-driven nav + home tiles + section collapse + drop offline placeholders (TOGGLE-03, TOGGLE-05) [Wave 2]
+  - [ ] 66-04-PLAN.md — requires_flag help headers + registry↔help consistency test (TOGGLE-03) [Wave 2]
+  - [ ] 66-05-PLAN.md — /Admin/Tools page + core-tool warning + AdminLanding card (TOGGLE-02, TOGGLE-07) [Wave 2]
+  - [ ] 66-06-PLAN.md — Cross-surface Playwright hide/show + section-collapse + human-verify checkpoint (TOGGLE-02..05, TOGGLE-07) [Wave 3]
 **UI hint**: yes
 
 #### Phase 67: Content KB Value A/B Validation
