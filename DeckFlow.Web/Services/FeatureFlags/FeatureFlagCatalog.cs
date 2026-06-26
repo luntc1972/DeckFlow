@@ -36,8 +36,6 @@ public static class FeatureFlagCatalog
                 "Only let repeatable ramp and real card draw lower the recommended land count. One-shot rituals and Treasure tokens no longer make a deck look like it needs fewer lands than it really does.",
             ["manabase.color-aware-mulligan"] =
                 "When simulating opening hands, also mulligan hands that are color-screwed: a deck of two or more colors wants at least two of its colors among its starting lands. Mono-color decks are unaffected.",
-            ["manabase.p1-grace-strict"] =
-                "Require one-mana (turn-1) spells to be castable exactly on turn 1, with no one-turn-late forgiveness. Makes the score stricter for decks that can be color-screwed out of their one-drops. Spells on turn 2 and later keep the usual one-turn grace. Off by default.",
             ["manabase.land-ramp-sim"] =
                 "Treat repeatable land ramp (Cultivate, Rampant Growth, and similar) as putting its fetched land onto the battlefield during the simulation, so expensive payoff spells in ramp-heavy decks are not under-rated.",
             ["manabase.health-band-castability"] =

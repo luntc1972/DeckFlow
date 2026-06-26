@@ -153,10 +153,6 @@ public static class CastabilitySimulator
     /// is credited only once the ramp itself was castable), so an un-castable ramp never inflates the
     /// spell's mana.
     /// </param>
-    /// <param name="strictP1Grace">
-    /// When true, the simulator's uniform +1 grace window stays in place for turns 2+ but turn-1
-    /// spells get no extra turn: a 1-drop must be castable exactly on turn 1.
-    /// </param>
     public static CardCastability Simulate(
         ManabaseDeck deck,
         int librarySize,
@@ -166,8 +162,7 @@ public static class CastabilitySimulator
         int trials = DefaultTrials,
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
-        bool gateRampOnCastable = false,
-        bool strictP1Grace = false)
+        bool gateRampOnCastable = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(spell);
@@ -228,7 +223,7 @@ public static class CastabilitySimulator
         // (7 + turn) slots is sufficient and far cheaper than a full Fisher-Yates of ~99 cards.
         // Critically it must cover BOTH the mulligan look AND every per-turn draw — otherwise the
         // un-shuffled tail (which BuildLibrary front-loads with sources) biases draws land-heavy.
-        int prefix = Math.Min(library.Count, 7 + turn + GraceWindow(turn, strictP1Grace) + 2);
+        int prefix = Math.Min(library.Count, 7 + turn + GraceWindow(turn) + 2);
 
         for (int t = 0; t < trials; t++)
         {
@@ -246,7 +241,7 @@ public static class CastabilitySimulator
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
-                gateRampOnCastable, strictP1Grace, out bool manaShort, out bool colorShort, out int firstCastableTurn);
+                gateRampOnCastable, out bool manaShort, out bool colorShort, out int firstCastableTurn);
 
             // Delay this trial: how many turns LATE the spell first became castable, floored at 0
             // (a spell never tests as castable before its on-curve turn, so this is already >= 0).
@@ -483,7 +478,6 @@ public static class CastabilitySimulator
         List<(int Mask, int Amount)> availableColors,
         List<int> onlineLandMasks,
         bool gateRampOnCastable,
-        bool strictP1Grace,
         out bool manaShort,
         out bool colorShort,
         out int firstCastableTurn)
@@ -491,10 +485,10 @@ public static class CastabilitySimulator
         manaShort = false;
         colorShort = false;
 
-        // Snail's metric forgives a short delay via a uniform +1 grace window. When strict-P1 is on,
-        // that exception is removed for turn-1 spells only, so a 1-drop must be castable exactly on
-        // turn 1; turns 2+ keep the same +1 tolerance.
-        int grace = GraceWindow(turn, strictP1Grace);
+        // Snail's metric forgives a short delay; lower drops get a slightly wider window (a 1-drop is
+        // rarely cast exactly on turn 1, but a player will still happily cast it on turn 2-3). The
+        // window shrinks with the curve so a 6-drop isn't credited for casting on turn 10.
+        int grace = GraceWindow(turn);
         int lastTurn = turn + grace;
 
         // Default: never castable within the grace window → cap the "first castable" at one turn past
@@ -656,10 +650,13 @@ public static class CastabilitySimulator
     }
 
     // Grace turns granted past the on-curve turn: a uniform +1 ("castable on its turn, or one turn
-    // late"). When the strict-P1 flag is on, turn-1 spells get NO grace and must be castable exactly
-    // on turn 1; turns 2+ keep the same +1. This matches the 17Lands manabase-evaluator convention
-    // closely while tightening the headline for color-screwed 1-drops when the experiment is enabled.
-    private static int GraceWindow(int turn, bool strictP1Grace) => strictP1Grace && turn <= 1 ? 0 : 1;
+    // late"). This matches the 17Lands manabase-evaluator convention (strict on-curve, +1 tolerance at
+    // most) rather than the old 3/2/1 window, which credited a 1-2 drop as "on curve" up to THREE turns
+    // late and let the deploy-friction delay of a self-cast ramp piece (debug session
+    // manabase-too-optimistic) be silently forgiven — masking the ramp over-credit it was meant to
+    // correct. With +1 the Avatar fixture lands at its honest headline and its weakest color reads White
+    // (matching the independent Salubrious Snail baseline) instead of Blue.
+    private static int GraceWindow(int turn) => 1;
 
     private static void PlayOneLand(
         IReadOnlyList<LibraryCard> library,
@@ -1106,12 +1103,6 @@ public static class CastabilitySimulator
         (int Bit, int Count)[] pipReq = pips.Select(p => (ColorBit(p.Color), p.Count)).ToArray();
         return ColorsCoverable(src, pipReq, effectiveCost);
     }
-
-    /// <summary>
-    /// Test seam for the simulator grace-window policy: default is a uniform +1, while strict-P1
-    /// removes the grace for turn-1 spells only.
-    /// </summary>
-    internal static int GraceWindowForTest(int turn, bool strictP1Grace) => GraceWindow(turn, strictP1Grace);
 
     // ---- London mulligan ------------------------------------------------------------------
 
