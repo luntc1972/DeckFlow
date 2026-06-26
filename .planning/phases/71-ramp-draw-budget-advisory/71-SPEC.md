@@ -20,9 +20,13 @@ Scoping decisions (user, 2026-06-26):
 Turn the manabase result from raw numbers into something a non-expert can act on:
 
 1. **Friendly metric explanations** — each lens/number gets a one-line plain
-   gloss so the user knows what it means without prior knowledge.
+   gloss so the user knows what it means without prior knowledge. **UI surface
+   ONLY** — the prompt artifact's reader is an LLM that already understands the
+   metrics, so mirroring glosses there adds tokens for no value and bloats the
+   paste-into-AI artifact. (Scope decision 2026-06-26: A = UI-only; B + C = both
+   surfaces.)
 2. **"Reading your deck" summary** — a synthesized, prioritized plain-language
-   verdict:
+   verdict (both UI + prompt):
    - **If issues:** ordered, concrete add/remove suggestions ("you're ~3 white
      sources short — add about 3 white-producing lands/rocks; you could cut a
      colorless utility land for one").
