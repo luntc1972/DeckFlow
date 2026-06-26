@@ -118,13 +118,13 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
         var normalizedDeckSource = deckSource.Trim();
         if (Uri.TryCreate(normalizedDeckSource, UriKind.Absolute, out var uri))
         {
-            if (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase))
+            if (DeckSourceHost.IsMoxfield(uri))
             {
                 var result = await _moxfieldDeckImporter.ImportWithSourceAsync(deckSource, cancellationToken).ConfigureAwait(false);
                 return new DeckSourceLoadResult(result.Entries.ToList(), result.FallbackNotice);
             }
 
-            if (uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase))
+            if (DeckSourceHost.IsArchidekt(uri))
             {
                 var entries = await _archidektDeckImporter.ImportAsync(deckSource, cancellationToken).ConfigureAwait(false);
                 return new DeckSourceLoadResult(entries, null);

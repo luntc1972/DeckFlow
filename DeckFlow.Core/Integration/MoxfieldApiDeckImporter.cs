@@ -102,9 +102,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
 
     private async Task<List<DeckEntry>> FetchViaCommanderSpellbookAsync(string originalUrl, string deckId, CancellationToken cancellationToken)
     {
-        var moxfieldUrl = originalUrl.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase)
-            ? originalUrl
-            : $"https://moxfield.com/decks/{deckId}";
+        var moxfieldUrl = $"https://moxfield.com/decks/{deckId}";
 
         var request = new RestRequest("https://backend.commanderspellbook.com/card-list-from-url", Method.Get);
         request.AddQueryParameter("url", moxfieldUrl);

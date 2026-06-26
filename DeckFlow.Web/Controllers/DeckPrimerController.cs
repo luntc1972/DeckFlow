@@ -38,6 +38,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     /// Renders the staged deck-primer workflow.
     /// </summary>
     [HttpGet("/deck-primer")]
+    [FeatureFlagGate("tool.deck-primer.enabled")]
     public IActionResult DeckPrimer()
     {
         var defaultBracket = CommanderBracketCatalog.Find("Optimized")?.Value ?? string.Empty;
@@ -56,6 +57,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current primer workflow request.</param>
     [HttpPost("/deck-primer")]
+    [FeatureFlagGate("tool.deck-primer.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckPrimer(DeckPrimerRequest request)
     {
@@ -113,6 +115,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current deck-primer workflow request.</param>
     [HttpPost("/deck-primer/download")]
+    [FeatureFlagGate("tool.deck-primer.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckPrimerDownload(DeckPrimerRequest request)
     {
@@ -180,6 +183,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     /// </summary>
     /// <param name="zipFile">Packet zip uploaded from a prior deck-primer session.</param>
     [HttpPost("/deck-primer/upload")]
+    [FeatureFlagGate("tool.deck-primer.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public async Task<IActionResult> DeckPrimerUpload(IFormFile zipFile)

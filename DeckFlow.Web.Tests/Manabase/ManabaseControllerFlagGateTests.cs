@@ -2,6 +2,7 @@ using System.Linq;
 using System.Reflection;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -10,7 +11,7 @@ namespace DeckFlow.Web.Tests;
 /// Locks the feature-flag wiring on <see cref="ManabaseController"/>. The Mana Base tool is
 /// gated by the <c>feature.manabase.enabled</c> kill-switch so operators can hide it from the
 /// admin flags console; these reflection tests guard against the attribute being dropped or
-/// the flag key drifting. Gate behaviour itself (503 + maintenance page) is covered by
+/// the flag key drifting. Gate behaviour itself (404 when disabled) is covered by
 /// <see cref="FeatureFlagGateAttributeTests"/>.
 /// </summary>
 public sealed class ManabaseControllerFlagGateTests
@@ -22,9 +23,7 @@ public sealed class ManabaseControllerFlagGateTests
     {
         var actions = GetManabaseActions();
 
-        // GET form + POST analyze — both must carry the gate so the page and the
-        // submit handler are killed together when the flag is off.
-        Assert.Equal(2, actions.Length);
+        Assert.Equal(new[] { "Download", "Load", "Manabase", "Manabase" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
 
         foreach (var method in actions)
         {
@@ -38,6 +37,6 @@ public sealed class ManabaseControllerFlagGateTests
     private static MethodInfo[] GetManabaseActions() =>
         typeof(ManabaseController)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Where(m => m.Name == nameof(ManabaseController.Manabase))
+            .Where(m => m.GetCustomAttributes<HttpMethodAttribute>(inherit: true).Any())
             .ToArray();
 }

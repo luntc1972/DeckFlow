@@ -350,6 +350,71 @@ internal static class ContentKbCommandRunners
     }
 
     /// <summary>
+    /// Read-only consistency check: classifies each local <c>content_site_index</c> row against the
+    /// artifact files on disk and reports OK / published-orphan / hidden-orphan, exiting 1 when any
+    /// PUBLISHED orphan (visible row missing its artifact) exists.
+    /// </summary>
+    /// <param name="db">Optional path to the LOCAL content KB database (never prod).</param>
+    /// <param name="artifactRoot">
+    /// Optional artifact directory. Accepts EITHER the data-root parent of <c>content-kb/</c> OR the
+    /// <c>content-kb</c> directory itself — the handler normalizes both to a content base.
+    /// </param>
+    /// <returns>Process exit code: 1 when a published orphan exists, else 0.</returns>
+    public static async Task<int> RunContentKbCheckAsync(FileInfo? db, DirectoryInfo? artifactRoot)
+    {
+        try
+        {
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
+            var rawRoot = artifactRoot?.FullName ?? ContentKbCliPaths.ResolveArtifactRoot(db);
+            var contentBase = NormalizeToContentBase(rawRoot);
+
+            var store = new ContentSiteIndexStore(dbPath);
+            var rows = await store.GetAllRowsAsync().ConfigureAwait(false);
+            var result = ContentKbOrphanScanner.Scan(rows, contentBase);
+
+            foreach (var check in result.Rows)
+            {
+                var marker = check.Exists ? "OK     " : "MISSING";
+                var visibility = check.IsVisible ? "visible" : "not visible";
+                Console.WriteLine($"  {marker}  {check.ArtifactPath} ({visibility}, approval={check.ApprovalStatus})");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Total rows: {result.TotalRows}");
+            Console.WriteLine($"Rows with artifact: {result.RowsWithArtifact}");
+            Console.WriteLine($"Missing artifacts: {result.MissingCount}");
+            Console.WriteLine($"  Published (missing): {result.PublishedOrphanCount}");
+            Console.WriteLine($"  Unpublished (missing): {result.HiddenOrphanCount}");
+
+            return result.PublishedOrphanCount > 0 ? 1 : 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Normalizes a supplied artifact directory to a content base (the parent that CONTAINS
+    /// <c>content-kb/</c>), mirroring <c>ContentKbArtifactPathResolver.ContentBase</c>. When the
+    /// directory's final segment is <c>content-kb</c>, its parent is returned; otherwise the
+    /// directory is used as-is. This lets both conventions resolve to identical artifact paths.
+    /// </summary>
+    /// <param name="rawRoot">The supplied or default artifact directory.</param>
+    /// <returns>The resolved content base directory.</returns>
+    private static string NormalizeToContentBase(string rawRoot)
+    {
+        var trimmed = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rawRoot));
+        if (string.Equals(Path.GetFileName(trimmed), "content-kb", StringComparison.OrdinalIgnoreCase))
+        {
+            return Path.GetDirectoryName(trimmed) ?? trimmed;
+        }
+
+        return trimmed;
+    }
+
+    /// <summary>
     /// Parses a comma-separated --video-ids option value into a trimmed id list.
     /// </summary>
     /// <param name="videoIds">Raw option value; null/blank yields null (option not used).</param>

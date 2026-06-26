@@ -5,6 +5,7 @@ using DeckFlow.Core.Exporting;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 
@@ -38,6 +39,7 @@ public sealed class DeckSyncController : DeckToolControllerBase
     /// Renders the deck sync view with default tab state.
     /// </summary>
     [HttpGet("/sync")]
+    [FeatureFlagGate("tool.deck-sync.enabled")]
     public IActionResult Index()
     {
         return View("DeckSync", new DeckDiffViewModel
@@ -51,6 +53,7 @@ public sealed class DeckSyncController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Deck diff request data.</param>
     [HttpPost("/sync")]
+    [FeatureFlagGate("tool.deck-sync.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(DeckDiffRequest request)
     {
@@ -62,6 +65,7 @@ public sealed class DeckSyncController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Deck diff request with resolutions.</param>
     [HttpPost("/resolve")]
+    [FeatureFlagGate("tool.deck-sync.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Resolve(DeckDiffRequest request)
     {

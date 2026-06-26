@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Controllers.Api;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Services;
@@ -23,6 +25,20 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class SuggestionsApiControllerTests
 {
+    [Theory]
+    [InlineData(nameof(SuggestionsApiController.PostCardSuggestionAsync), "feature.categories.enabled")]
+    [InlineData(nameof(SuggestionsApiController.PostCommanderSuggestionAsync), "tool.commander-categories.enabled")]
+    [InlineData(nameof(SuggestionsApiController.PostMechanicLookupAsync), "tool.mechanic-lookup.enabled")]
+    public void Tool_backing_actions_use_expected_feature_flag_gates(string actionName, string expectedFlagKey)
+    {
+        var method = typeof(SuggestionsApiController).GetMethod(actionName, BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(method);
+        var gate = method!.GetCustomAttribute<FeatureFlagGateAttribute>();
+        Assert.NotNull(gate);
+        Assert.Equal(expectedFlagKey, gate!.Key);
+    }
+
     [Fact]
     public async Task PostCardSuggestionAsync_ReturnsBadRequest_WhenCardNameMissing()
     {

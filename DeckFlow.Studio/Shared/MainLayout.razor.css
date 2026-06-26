@@ -9,16 +9,23 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    background: var(--studio-surface);
+    border-right: 1px solid var(--studio-border);
 }
 
 .top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
+    background: var(--studio-surface);
+    border-bottom: 1px solid var(--studio-border);
     justify-content: flex-end;
     height: 3.5rem;
     display: flex;
     align-items: center;
+}
+
+.studio-content {
+    max-width: var(--studio-content-max);
+    min-width: 0;
+    padding: var(--sp-4);
 }
 
     .top-row ::deep a, .top-row .btn-link {

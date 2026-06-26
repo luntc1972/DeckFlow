@@ -52,63 +52,64 @@
     </div>
 </section>
 
-@if (Model.Entries.Count == 0)
-{
-    <p class="admin-kb-empty">No entries loaded. Use 'Reload Index from Seed' to populate the index.</p>
-}
-else
-{
-    <section aria-labelledby="kb-bulk-heading">
-        <h2 id="kb-bulk-heading">Sources</h2>
-        <table class="admin-table admin-table--card">
-            <caption class="sr-only">Content sources — bulk publish controls</caption>
-            <thead>
-                <tr>
-                    <th scope="col">Source</th>
-                    <th scope="col">Entries</th>
-                    <th scope="col">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var source in Model.Sources)
-                {
-                    <tr>
-                        <td data-label="Source"><strong>@source.Source</strong></td>
-                        <td data-label="Entries">@source.EntryCount</td>
-                        <td data-label="Actions">
-                            <form method="post" asp-action="BulkSetVisibility" class="admin-action-form">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
-                                <input type="hidden" name="source" value="@source.Source" />
-                                <input type="hidden" name="visible" value="true" />
-                                <button type="submit" aria-label="Publish all entries from @source.Source">Publish All</button>
-                            </form>
-                            <form method="post" asp-action="BulkHide" class="admin-action-form" data-admin-confirm-twoclick>
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
-                                <input type="hidden" name="source" value="@source.Source" />
-                                <button type="submit" class="danger" data-confirm-label="Confirm Hide All"
-                                        aria-label="Hide all entries from @source.Source">Hide All</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </section>
-
-    <section aria-labelledby="kb-entries-heading">
-        <div class="admin-section-header">
-            <div>
-                <h2 id="kb-entries-heading">Entries</h2>
-            </div>
-            <div class="admin-kb-toggle" role="tablist" aria-label="Visibility filter">
-                <a class="@(Model.VisibilityFilter == "all" ? "is-active" : null)" href="@allFilterUrl">All</a>
-                <a class="@(Model.VisibilityFilter == "published" ? "is-active" : null)" href="@publishedFilterUrl">Published</a>
-                <a class="@(Model.VisibilityFilter == "unpublished" ? "is-active" : null)" href="@unpublishedFilterUrl">Unpublished</a>
-                <a class="@(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl">Hidden</a>
-            </div>
+<section aria-labelledby="kb-entries-heading">
+    <div class="admin-section-header">
+        <div>
+            <h2 id="kb-entries-heading">Entries</h2>
         </div>
+        <div class="admin-kb-toggle" role="tablist" aria-label="Visibility filter">
+            <a class="@(Model.VisibilityFilter == "all" ? "is-active" : null)" href="@allFilterUrl">All</a>
+            <a class="@(Model.VisibilityFilter == "published" ? "is-active" : null)" href="@publishedFilterUrl">Published</a>
+            <a class="@(Model.VisibilityFilter == "unpublished" ? "is-active" : null)" href="@unpublishedFilterUrl">Unpublished</a>
+            <a class="@(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl">Hidden</a>
+        </div>
+    </div>
+    @if (Model.Entries.Count == 0)
+    {
+        <p class="admin-kb-empty">@(Model.Status.TotalCount == 0
+            ? "No entries loaded. Use 'Reload Index from Seed' to populate the index."
+            : "No entries match the current filter.")</p>
+    }
+    else
+    {
+        <section aria-labelledby="kb-bulk-heading">
+            <h2 id="kb-bulk-heading">Sources</h2>
+            <table class="admin-table admin-table--card">
+                <caption class="sr-only">Content sources — bulk publish controls</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Source</th>
+                        <th scope="col">Entries</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var source in Model.Sources)
+                    {
+                        <tr>
+                            <td data-label="Source"><strong>@source.Source</strong></td>
+                            <td data-label="Entries">@source.EntryCount</td>
+                            <td data-label="Actions">
+                                <form method="post" asp-action="BulkSetVisibility" class="admin-action-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
+                                    <input type="hidden" name="source" value="@source.Source" />
+                                    <input type="hidden" name="visible" value="true" />
+                                    <button type="submit" aria-label="Publish all entries from @source.Source">Publish All</button>
+                                </form>
+                                <form method="post" asp-action="BulkHide" class="admin-action-form" data-admin-confirm-twoclick>
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="visibilityFilter" value="@Model.VisibilityFilter" />
+                                    <input type="hidden" name="source" value="@source.Source" />
+                                    <button type="submit" class="danger" data-confirm-label="Confirm Hide All"
+                                            aria-label="Hide all entries from @source.Source">Hide All</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
         <div class="kb-filter">
             <label>
                 Filter entries
@@ -254,8 +255,8 @@ else
                 </tbody>
             </table>
         </div>
-    </section>
-}
+    }
+</section>
 
 @await Html.PartialAsync("_AdminConfirmModal")
 

@@ -117,6 +117,40 @@ Deck
         Assert.Null(result.FallbackNotice);
     }
 
+    [Theory]
+    [InlineData("https://moxfield.com.evil.tld/decks/abc")]
+    [InlineData("https://evilmoxfield.com/decks/abc")]
+    [InlineData("https://moxfield.com@evil.tld/decks/abc")]
+    public async Task LoadFromSourceAsync_SpoofedMoxfieldUrl_DoesNotRouteToMoxfieldImporter(string spoofUrl)
+    {
+        // Spoof URLs must never reach the Moxfield importer, regardless of whether the parser
+        // cascade accepts or rejects the input. The null-capture assertion is the security proof:
+        // if the importer were called (a future regression), LastImportWithSourceArgument would be set.
+        var importer = new FakeMoxfieldDeckImporter(_ => []);
+        var loader = CreateLoader(importer: importer);
+
+        // The spoof URL falls through to the parser cascade (treated as pasted text, not a
+        // recognised deck URL). The importer must never be invoked.
+        await loader.LoadFromSourceAsync(spoofUrl);
+
+        Assert.Null(importer.LastImportWithSourceArgument);
+    }
+
+    [Theory]
+    [InlineData("https://archidekt.com.evil.tld/decks/abc")]
+    [InlineData("https://evilarchidekt.com/decks/abc")]
+    [InlineData("https://archidekt.com@evil.tld/decks/abc")]
+    public async Task LoadFromSourceAsync_SpoofedArchidektUrl_DoesNotRouteToArchidektImporter(string spoofUrl)
+    {
+        // Spoof URLs must never reach the Archidekt importer. See spoof-Moxfield variant above.
+        var archidektImporter = new FakeArchidektDeckImporter(_ => []);
+        var loader = CreateLoader(archidektImporter: archidektImporter);
+
+        await loader.LoadFromSourceAsync(spoofUrl);
+
+        Assert.Null(archidektImporter.LastImportArgument);
+    }
+
     [Fact]
     public async Task LoadFromSourceAsync_UnrecognizedTextWithThrowNotRecognized_ThrowsExactMessage()
     {

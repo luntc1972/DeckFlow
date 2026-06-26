@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Controllers.Api;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Services;
@@ -20,6 +22,17 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class DeckSyncApiControllerTests
 {
+    [Fact]
+    public void PostDiffAsync_UsesDeckSyncFeatureFlagGate()
+    {
+        var method = typeof(DeckSyncApiController).GetMethod(nameof(DeckSyncApiController.PostDiffAsync), BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(method);
+        var gate = method!.GetCustomAttribute<FeatureFlagGateAttribute>();
+        Assert.NotNull(gate);
+        Assert.Equal("tool.deck-sync.enabled", gate!.Key);
+    }
+
     /// <summary>
     /// Rejects requests that omit the left-side deck input.
     /// </summary>

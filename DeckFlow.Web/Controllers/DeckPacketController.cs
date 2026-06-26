@@ -51,6 +51,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// Renders the staged deck-analysis packet workflow. Set options load asynchronously on the client.
     /// </summary>
     [HttpGet("/deck-analysis")]
+    [FeatureFlagGate("tool.deck-analysis.enabled")]
     public IActionResult DeckAnalysis()
     {
         return View("DeckAnalysis", new DeckAnalysisViewModel
@@ -64,6 +65,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// Renders the staged deck-comparison workflow.
     /// </summary>
     [HttpGet("/deck-comparison")]
+    [FeatureFlagGate("tool.deck-comparison.enabled")]
     public IActionResult DeckComparison()
     {
         return View("DeckComparison", new DeckComparisonViewModel
@@ -77,6 +79,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// Renders the staged cEDH meta-gap workflow.
     /// </summary>
     [HttpGet("/cedh-meta-gap")]
+    [FeatureFlagGate("tool.cedh-meta-gap.enabled")]
     public IActionResult CedhMetaGap()
     {
         return View("CedhMetaGap", new MetaGapViewModel
@@ -91,6 +94,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current workflow request.</param>
     [HttpPost("/deck-analysis")]
+    [FeatureFlagGate("tool.deck-analysis.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckAnalysis(DeckAnalysisRequest request)
     {
@@ -143,6 +147,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current deck-analysis workflow request.</param>
     [HttpPost("/deck-analysis/download")]
+    [FeatureFlagGate("tool.deck-analysis.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckAnalysisDownload(DeckAnalysisRequest request)
     {
@@ -225,6 +230,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="zipFile">Packet zip uploaded from a prior deck-analysis session.</param>
     [HttpPost("/deck-analysis/upload")]
+    [FeatureFlagGate("tool.deck-analysis.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public async Task<IActionResult> DeckAnalysisUpload(IFormFile zipFile)
@@ -299,6 +305,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current comparison workflow request.</param>
     [HttpPost("/deck-comparison")]
+    [FeatureFlagGate("tool.deck-comparison.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckComparison(DeckComparisonRequest request)
     {
@@ -365,6 +372,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current deck-comparison workflow request.</param>
     [HttpPost("/deck-comparison/download")]
+    [FeatureFlagGate("tool.deck-comparison.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeckComparisonDownload(DeckComparisonRequest request)
     {
@@ -489,6 +497,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="zipFile">Packet zip uploaded from a prior deck-comparison session.</param>
     [HttpPost("/deck-comparison/upload")]
+    [FeatureFlagGate("tool.deck-comparison.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public IActionResult DeckComparisonUpload(IFormFile zipFile)
@@ -589,6 +598,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current meta-gap workflow request.</param>
     [HttpPost("/cedh-meta-gap")]
+    [FeatureFlagGate("tool.cedh-meta-gap.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CedhMetaGap(MetaGapRequest request)
     {
@@ -655,6 +665,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Current cEDH meta-gap workflow request.</param>
     [HttpPost("/cedh-meta-gap/download")]
+    [FeatureFlagGate("tool.cedh-meta-gap.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CedhMetaGapDownload(MetaGapRequest request)
     {
@@ -751,6 +762,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     /// </summary>
     /// <param name="zipFile">Packet zip uploaded from a prior cEDH meta-gap session.</param>
     [HttpPost("/cedh-meta-gap/upload")]
+    [FeatureFlagGate("tool.cedh-meta-gap.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
     public IActionResult CedhMetaGapUpload(IFormFile zipFile)

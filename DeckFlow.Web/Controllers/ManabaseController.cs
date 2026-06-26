@@ -32,9 +32,7 @@ public sealed class ManabaseController : DeckToolControllerBase
 
     /// <summary>Renders the empty mana-base form.</summary>
     [HttpGet("/manabase")]
-    [FeatureFlagGate("feature.manabase.enabled",
-        Title = "Mana Base analyzer unavailable",
-        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
+    [FeatureFlagGate("feature.manabase.enabled")]
     public IActionResult Manabase()
     {
         return View("Manabase", new ManabaseViewModel());
@@ -47,9 +45,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     /// <param name="request">The form-bound deck input.</param>
     [HttpPost("/manabase/load")]
     [ValidateAntiForgeryToken]
-    [FeatureFlagGate("feature.manabase.enabled",
-        Title = "Mana Base analyzer unavailable",
-        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
+    [FeatureFlagGate("feature.manabase.enabled")]
     public async Task<IActionResult> Load(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
@@ -77,9 +73,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     /// <param name="request">The form-bound deck input.</param>
     [HttpPost("/manabase")]
     [ValidateAntiForgeryToken]
-    [FeatureFlagGate("feature.manabase.enabled",
-        Title = "Mana Base analyzer unavailable",
-        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
+    [FeatureFlagGate("feature.manabase.enabled")]
     public async Task<IActionResult> Manabase(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
@@ -113,9 +107,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     /// <param name="request">The form-bound deck input (re-posted by the mini download form).</param>
     [HttpPost("/manabase/download")]
     [ValidateAntiForgeryToken]
-    [FeatureFlagGate("feature.manabase.enabled",
-        Title = "Mana Base analyzer unavailable",
-        Message = "The Mana Base analyzer is offline for maintenance. Please try again shortly.")]
+    [FeatureFlagGate("feature.manabase.enabled")]
     public async Task<IActionResult> Download(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();

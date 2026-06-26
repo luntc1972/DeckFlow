@@ -493,6 +493,20 @@ public sealed class AiPlatformPhase10RoundTripTests
         Assert.Equal("https://pastebin.com/raw/abc", PacketArtifactStore.OriginalDeckTextOrNull("https://pastebin.com/raw/abc"));
     }
 
+    [Theory]
+    [InlineData("https://moxfield.com.evil.tld/decks/x")]
+    [InlineData("https://evilmoxfield.com/decks/x")]
+    [InlineData("https://moxfield.com@evil.tld/decks/x")]
+    [InlineData("https://archidekt.com.evil.tld/decks/x")]
+    public void OriginalDeckTextOrNull_ReturnsTextUnchanged_ForSpoofedDeckHosts(string input)
+    {
+        // Spoof look-alike hosts (moxfield.com.evil.tld, evilmoxfield.com, etc.) are NOT
+        // trusted deck sources. The artifact must NOT be suppressed for these — the original
+        // text is preserved so the parser cascade can handle it as pasted text.
+        // DeckSourceHost.IsMoxfield/IsArchidekt reject all of these look-alikes.
+        Assert.Equal(input, PacketArtifactStore.OriginalDeckTextOrNull(input));
+    }
+
     [Fact]
     public void Packets_OriginalDeckText_OverridesCanonicalAndRequestContextDeckSource()
     {

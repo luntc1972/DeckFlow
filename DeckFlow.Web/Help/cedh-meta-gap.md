@@ -2,6 +2,7 @@
 title: cEDH Meta Gap
 summary: Compare your deck against recent EDH Top 16 lists for the same commander.
 order: 30
+requires_flag: tool.cedh-meta-gap.enabled
 ---
 
 # cEDH Meta Gap

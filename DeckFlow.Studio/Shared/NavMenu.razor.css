@@ -1,14 +1,19 @@
 .navbar-toggler {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--studio-accent) 16%, transparent);
 }
 
 .top-row {
     height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
+    background-color: transparent;
 }
 
 .navbar-brand {
     font-size: 1.1rem;
+}
+
+.studio-wordmark {
+    color: var(--studio-text);
+    font-weight: var(--fw-brand);
 }
 
 .oi {
@@ -32,22 +37,28 @@
     }
 
     .nav-item ::deep a {
-        color: #d7d7d7;
+        color: var(--studio-text);
         border-radius: 4px;
-        height: 3rem;
+        border-left: 4px solid transparent;
+        min-height: var(--touch-floor);
         display: flex;
         align-items: center;
-        line-height: 3rem;
+        line-height: 1.5;
     }
 
 .nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.25);
-    color: white;
+    background-color: color-mix(in srgb, var(--studio-accent) 14%, transparent);
+    border-left: 4px solid var(--studio-accent);
+    color: var(--studio-text);
 }
 
 .nav-item ::deep a:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
+    background-color: color-mix(in srgb, var(--studio-accent) 8%, transparent);
+    color: var(--studio-text);
+}
+
+.nav-section-header {
+    color: var(--studio-muted) !important;
 }
 
 @media (min-width: 641px) {

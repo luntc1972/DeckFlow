@@ -2,6 +2,7 @@
 title: Deck Analysis
 summary: Five-step workflow that builds an analysis prompt and renders the returned JSON.
 order: 10
+requires_flag: tool.deck-analysis.enabled
 ---
 
 # Deck Analysis

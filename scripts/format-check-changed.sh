@@ -179,10 +179,6 @@ collect_changed_lines() {
     fi
 
     if [[ "$line" =~ ^@@\ [^+]*\+([0-9]+)(,([0-9]+))?\ @@ ]]; then
-      if [ -z "$current_file" ]; then
-        infra_fail "diff hunk encountered before file header"
-      fi
-
       local start="${BASH_REMATCH[1]}"
       local count="${BASH_REMATCH[3]:-1}"
       local end
@@ -190,6 +186,10 @@ collect_changed_lines() {
 
       if [ "$count" -eq 0 ]; then
         continue
+      fi
+
+      if [ -z "$current_file" ]; then
+        infra_fail "diff hunk encountered before file header"
       fi
 
       end=$((start + count - 1))

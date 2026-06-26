@@ -47,6 +47,7 @@ interface DeckFlowNamespace {
   createTypeaheadPanel?: (anchor: HTMLElement) => HTMLDivElement;
   attachDfSelect?: () => void;
   refreshDfSelect?: (select: HTMLSelectElement) => void;
+  attachActionButtons?: () => void;
 }
 
 type DeckFlowWindow = Window & {
@@ -2760,6 +2761,9 @@ const bootstrapDeckSync = (): void => {
   loadSetOptionsAsync();
   attachConvertForm();
 };
+
+deckFlowWindow.DeckFlow = deckFlowWindow.DeckFlow ?? {};
+deckFlowWindow.DeckFlow.attachActionButtons = attachActionButtons;
 
 const attachConvertForm = (): void => {
   const form = document.querySelector<HTMLFormElement>('form[data-cache-key="deck-convert"]');

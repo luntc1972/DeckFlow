@@ -2,6 +2,7 @@
 title: Ask a Judge
 summary: Link to the live community judge chat, plus a secondary ChatGPT prompt builder.
 order: 60
+requires_flag: tool.judge-questions.enabled
 ---
 
 # Ask a Judge

@@ -2,6 +2,7 @@
 title: Category Suggestions
 summary: Suggest functional categories for a card using multiple data sources.
 order: 80
+requires_flag: feature.categories.enabled
 ---
 
 # Category Suggestions

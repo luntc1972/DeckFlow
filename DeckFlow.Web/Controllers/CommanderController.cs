@@ -2,6 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 
@@ -32,6 +33,7 @@ public sealed class CommanderController : Controller
     /// </summary>
     /// <param name="commander">Optional commander name to pre-populate.</param>
     [HttpGet("/commander-categories")]
+    [FeatureFlagGate("tool.commander-categories.enabled")]
     public IActionResult Index(string? commander)
     {
         var request = new CommanderCategoryRequest { CommanderName = commander ?? string.Empty };
@@ -43,6 +45,7 @@ public sealed class CommanderController : Controller
     /// </summary>
     /// <param name="request">Commander category request.</param>
     [HttpPost("/commander-categories")]
+    [FeatureFlagGate("tool.commander-categories.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(CommanderCategoryRequest request)
     {
@@ -97,6 +100,7 @@ public sealed class CommanderController : Controller
     /// </summary>
     /// <param name="query">Partial commander name.</param>
     [HttpGet("/commander-categories/search")]
+    [FeatureFlagGate("tool.commander-categories.enabled")]
     public async Task<IActionResult> Search(string query)
     {
         try
