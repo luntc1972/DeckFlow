@@ -79,6 +79,14 @@ const panelConfigs: PanelConfig[] = [
     urlSelector: '[data-sync-panel="manabase-deck-url"]',
     textSelector: '[data-sync-panel="manabase-deck-text"]',
   },
+  {
+    // Deck Primer reuses the DeckInputSource select too; its panels are absent on the
+    // other tools so this config no-ops there. Wires the Moxfield Bridge into Deck
+    // Primer so its public-URL import goes through the extension like the other tools.
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="primer-deck-url"]',
+    textSelector: '[data-sync-panel="primer-deck-text"]',
+  },
 ];
 
 type MoxfieldImportTask = {
