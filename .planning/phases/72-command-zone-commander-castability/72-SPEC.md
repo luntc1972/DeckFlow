@@ -95,12 +95,30 @@ Phase 71 ramp/draw threshold to be right.
 - Mirror a concise version into the manabase prompt artifact
   (`ManabaseSwapPromptBuilder`) — the commander cast line(s) help the LLM.
 
-### E. Phase 71 coordination
+### E. Deck-analysis prompt command-zone awareness (second surface)
+- The deck-analysis page (`/deck-analysis`) is prompt-artifact-centric. Reuse the
+  Phase 72 command-zone detection so the generated analysis prompt correctly states
+  the command zone: name the commander(s) (partner pair), the Background, and the
+  companion (if any) so the AI analysis treats the command zone correctly.
+- Scope here is AWARENESS only — annotate the command-zone composition in the
+  prompt artifact. NOT the castability callout, NOT on-page sim UI.
+- Edit ALL THREE decoupled analysis prompt variants — do NOT extract a shared
+  helper (variants are intentionally decoupled, see ADR
+  `docs/decisions/0001-prompt-variants-decoupled.md`):
+  - `DeckFlow.Web/Services/PromptBuilders/Analysis/ChatGptAnalysisPromptVariant.cs`
+  - `DeckFlow.Web/Services/PromptBuilders/Analysis/ClaudeAnalysisPromptVariant.cs`
+  - `DeckFlow.Web/Services/PromptBuilders/Analysis/GeminiAnalysisPromptVariant.cs`
+- Companion on deck-analysis follows the same auto-detect-first rule (Archidekt/
+  Moxfield import); designator-UI fallback parity with manabase is a PLAN decision.
+- Flag-gated (may share `manabase.commander-castability` or a deck-analysis-specific
+  flag — PLAN decides); flag OFF → all three variants byte-identical.
+
+### F. Phase 71 coordination
 - The ramp/draw budget threshold (Phase 71) uses the command zone: multi-commander
   threshold = the max MV across the command-zone cards (partners/background). Pin
   this so 71 and 72 agree on the proxy.
 
-### F. Plumbing
+### G. Plumbing
 - Flag (e.g. `manabase.commander-castability`), seeded OFF both dialects, MQ-flag
   pattern + fail-safe read. Flag OFF → commander stays in the table, no callout, no
   companion modeling, no importer board change effect on analysis → prod
@@ -140,6 +158,10 @@ Phase 71 ramp/draw threshold to be right.
   companion +3 tax cost); live Playwright callout screenshots Casual desktop+mobile
   × 2 themes; build clean.
 - README + `Help/manabase.md` updated.
+- Deck-analysis: flag ON → all three analysis prompt variants (ChatGpt/Claude/
+  Gemini) state the command zone (commander(s)/partner, Background, companion);
+  flag OFF → all three byte-identical. Tests cover each variant + a
+  partner/background/companion fixture.
 
 ---
 
