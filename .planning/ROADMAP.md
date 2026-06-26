@@ -601,11 +601,15 @@ castability verdict, or health band. Deterministic templated prose, no LLM call 
 UI + prompt · ramp/draw target = dynamic-from-threshold (interpolate article MV anchors) · Casual
 gets the full read in v1, cEDH gets glosses but ramp/draw budget suppressed.
 **Sources:** `.planning/captures/ramp-draw-unit-of-value-theory.md` + user clarity ask 2026-06-26.
-**Status:** 🟡 SPEC — `.planning/phases/71-ramp-draw-budget-advisory/71-SPEC.md`. Not yet planned.
-**Flag:** `manabase.plain-language-verdict` (seeded OFF; ramp/draw may share it — PLAN decides).
+**Flag:** `manabase.plain-language-verdict` (seeded OFF; shared by glosses + verdict + ramp/draw budget — one flag, planner decision).
+**Status:** 🟡 PLANNED — 5 plans (route through Codex review before execute).
 
 Plans:
-- [ ] 71-01 — TBD (run /gsd-plan-phase 71; route PLAN through Codex review before execute)
+- [ ] 71-01-PLAN.md — Core ramp/draw budget engine (bucket counts + 0.5 overlap, threshold, 24-slot interpolation)
+- [ ] 71-02-PLAN.md — Core verdict synthesis + prompt/text builder augmentation
+- [ ] 71-03-PLAN.md — Web flag plumbing + service/view-model wiring + metric glosses
+- [ ] 71-04-PLAN.md — Razor view + site-common.css + live Playwright spec + README/Help docs
+- [ ] 71-05-PLAN.md — Checkpoint: human visual verify (desktop+mobile × 2 themes, issue + clean, cEDH)
 
 ---
 

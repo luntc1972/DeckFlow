@@ -27,7 +27,10 @@ Deterministic templated prose. NO LLM call for the on-page or builder text.
 ## Implementation Decisions (locked)
 
 ### Delivery
-- Surface in BOTH the on-page UI (`/manabase`) AND the manabase prompt artifact.
+- Surface in BOTH the on-page UI (`/manabase`) AND the manabase prompt artifact —
+  EXCEPT deliverable A (metric glosses), which is **UI-only** (the prompt's reader
+  is an LLM that needs no gloss; mirroring them bloats the artifact). B (verdict) +
+  C (ramp/draw budget) go to both surfaces. (Scope decision 2026-06-26.)
 - Prompt artifact = the SINGLE builder `ManabaseSwapPromptBuilder.Build(...)`
   (`Model.ChatGptSwapPrompt`). Manabase has ONE prompt builder — NOT the 3
   decoupled variants used by deck-analysis. Edit only this builder.
