@@ -31,17 +31,19 @@ public static class FeatureFlagCatalog
             ["analysis.reference.deck-stats"] =
                 "Append computed deck statistics to the deck-analysis prompt.",
             ["manabase.source-mana-quantity"] =
-                "MQ-02: model how MUCH mana each source makes (Sol Ring = 2, Gilded Lotus = 3) on the affordability/curve side. Karsten color counts are untouched.",
+                "Count how much mana each source actually makes (Sol Ring makes 2, Gilded Lotus 3) when judging whether spells are affordable on curve. The colored-source counts behind the land recommendation stay the same.",
             ["manabase.ramp-credit-v2"] =
-                "MQ-03: narrow the land-target ramp credit to repeatable ramp and true card draw only — one-shot rituals and Treasure-makers no longer soften the land count.",
+                "Only let repeatable ramp and real card draw lower the recommended land count. One-shot rituals and Treasure tokens no longer make a deck look like it needs fewer lands than it really does.",
             ["manabase.color-aware-mulligan"] =
-                "MQ-05: the castability simulation's London mulligan also mulligans color-screwed hands (a 2+ color deck wants 2 colors in its opening lands). Mono-color decks are unchanged.",
+                "When simulating opening hands, also mulligan hands that are color-screwed: a deck of two or more colors wants at least two of its colors among its starting lands. Mono-color decks are unaffected.",
+            ["manabase.p1-grace-strict"] =
+                "Require one-mana (turn-1) spells to be castable exactly on turn 1, with no one-turn-late forgiveness. Makes the score stricter for decks that can be color-screwed out of their one-drops. Spells on turn 2 and later keep the usual one-turn grace. Off by default.",
             ["manabase.land-ramp-sim"] =
-                "MQ-03 (70-03b): repeatable land-ramp (Cultivate, Rampant Growth) puts its fetched land into the simulation as persistent colorless mana, so payoffs in ramp decks are not under-rated.",
+                "Treat repeatable land ramp (Cultivate, Rampant Growth, and similar) as putting its fetched land onto the battlefield during the simulation, so expensive payoff spells in ramp-heavy decks are not under-rated.",
             ["manabase.health-band-castability"] =
-                "MQ-health-band: the composite-weakest color's worst-spell cast % feeds the health-band verdict. A color that is composite-worst and casts its worst spell below the mode threshold (80% Casual / 88% cEDH) counts as a color issue, tipping Solid→Workable. Seeded OFF; promote after regression-guard passes.",
+                "Let the deck's weakest color affect the overall health rating: if that color's hardest spell is cast below the target (80% Casual, 88% cEDH), it counts as a color problem and can drop the verdict from Solid to Workable. Off by default until the regression check passes.",
             ["manabase.health-band-headline-floor"] =
-                "MQ-health-band headline floor: a strong avg-on-curve result can narrowly promote a land-short Needs work verdict to Workable when exactly one soft color issue exists, worst-color castability clears the floor, and no hard-fail color/broad under-support signal is present. Seeded ON.",
+                "Allow a deck with a strong average on-curve score to be nudged up from 'Needs work' to 'Workable', but only when it has a single minor color weakness, that color still casts acceptably, and there are no serious mana shortfalls. On by default.",
         };
 
     /// <summary>
