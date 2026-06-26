@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { open, unlink } from 'node:fs/promises';
 
 const getVisibleRowCount = async (page: Page): Promise<number> =>
   page.locator('#kb-entries-table tbody tr').evaluateAll((rows) =>
@@ -7,6 +8,11 @@ const getVisibleRowCount = async (page: Page): Promise<number> =>
       .filter((row) => !(row as HTMLTableRowElement).hidden)
       .length,
   );
+
+const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
+const adminLockTimeoutMs = 90_000;
+
+type LockHandle = Awaited<ReturnType<typeof open>>;
 
 test('deck primer exposes bracket and section controls', async ({ page }) => {
   const response = await page.goto('/deck-primer');
@@ -81,57 +87,56 @@ test('manabase exposes a Load deck step before Analyze', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Analyze Mana Base' })).toBeVisible();
 });
 
-test('admin content kb filter wires without console errors and narrows rows', async ({ page }) => {
-  const consoleErrors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      consoleErrors.push(message.text());
+async function acquireAdminLock(): Promise<LockHandle> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < adminLockTimeoutMs) {
+    try {
+      const handle = await open(adminLockPath, 'wx');
+      await handle.writeFile(`${process.pid}\n`);
+      return handle;
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+      if (code !== 'EEXIST') {
+        throw error;
+      }
     }
-  });
 
-  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
-
-  expect(response?.ok()).toBeTruthy();
-  expect(await page.locator('script[src*="admin-modal.js"]').count()).toBeGreaterThan(0);
-  expect(await page.locator('script[src*="kb-entry-filter.js"]').count()).toBeGreaterThan(0);
-  expect(await page.locator('script[src*="content-kb-admin.js"]').count()).toBeGreaterThan(0);
-  await expect(page.locator('#kb-filter-search')).toBeVisible();
-
-  const totalRows = await page.locator('#kb-entries-table tbody tr').count();
-  const visibleRowsBefore = await getVisibleRowCount(page);
-
-  await page.locator('#kb-filter-search').fill('zzzznomatch');
-
-  expect(consoleErrors).toEqual([]);
-
-  if (totalRows > 1) {
-    await expect.poll(async () => getVisibleRowCount(page)).toBeLessThan(visibleRowsBefore);
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
-});
 
-test('content kb visibility pills sit below Sources and directly above the filter', async ({ page }) => {
-  // Regression guard: a layout restructure once hoisted the Entries header
-  // (carrying the All/Published/Unpublished/Hidden pills) above the Sources
-  // table, separating the pills from the entries filter/grid so they appeared
-  // "gone" once scrolled to the filter. Order must be Sources -> pills -> filter.
-  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
-  expect(response?.ok()).toBeTruthy();
+  throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
+}
 
-  const sourcesY = await page.locator('#kb-bulk-heading').boundingBox();
-  const pillsY = await page.locator('.admin-kb-toggle').boundingBox();
-  const filterY = await page.locator('#kb-filter-search').boundingBox();
-  const gridY = await page.locator('#kb-entries-table').boundingBox();
+async function releaseAdminLock(handle: LockHandle | null): Promise<void> {
+  if (!handle) {
+    return;
+  }
 
-  expect(sourcesY).not.toBeNull();
-  expect(pillsY).not.toBeNull();
-  expect(filterY).not.toBeNull();
-  expect(gridY).not.toBeNull();
+  try {
+    await handle.close();
+  } finally {
+    try {
+      await unlink(adminLockPath);
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+      if (code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+}
 
-  // Sources table is above the pills; pills are above the filter and grid.
-  expect(sourcesY!.y).toBeLessThan(pillsY!.y);
-  expect(pillsY!.y).toBeLessThan(filterY!.y);
-  expect(filterY!.y).toBeLessThan(gridY!.y);
-});
+function getAdminForwardedIp(): string {
+  const info = test.info();
+  const key = `${info.project.name}:${info.file}:${info.title}:${info.retry}`;
+  let hash = 0;
+  for (const char of key) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 200;
+  }
+
+  return `203.0.113.${hash + 1}`;
+}
 
 test('content kb detail copy button signals it builds an AI prompt', async ({ page }) => {
   const listResponse = await page.goto('/content-kb');
@@ -169,56 +174,121 @@ test('content kb detail copy button signals it builds an AI prompt', async ({ pa
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
 });
 
-test('admin content kb delete requires an arm click before submission', async ({ page }) => {
-  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+test.describe('admin content kb flows @admin', () => {
+  let heldLock: LockHandle | null = null;
 
-  expect(response?.ok()).toBeTruthy();
+  test.beforeEach(async ({ page }) => {
+    // The admin Content KB pages share a SQLite-backed admin store. Keep every
+    // /Admin/ content-kb test behind the same lock so desktop/mobile workers do
+    // not collide and trigger transient 429/500 responses in CI.
+    await page.setExtraHTTPHeaders({
+      'CF-Connecting-IP': getAdminForwardedIp(),
+    });
+    heldLock = await acquireAdminLock();
+  });
 
-  const deleteButtons = page.locator('form[data-admin-confirm-twoclick] button.danger');
-  const deleteButtonCount = await deleteButtons.count();
-  test.skip(deleteButtonCount === 0, 'no KB rows seeded');
+  test.afterEach(async () => {
+    await releaseAdminLock(heldLock);
+    heldLock = null;
+  });
 
-  const firstDeleteButton = deleteButtons.first();
-  const startingUrl = page.url();
+  test('admin content kb filter wires without console errors and narrows rows', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text());
+      }
+    });
 
-  await firstDeleteButton.click();
+    const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
 
-  await expect(page).toHaveURL(startingUrl);
+    expect(response?.ok()).toBeTruthy();
+    expect(await page.locator('script[src*="admin-modal.js"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('script[src*="kb-entry-filter.js"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('script[src*="content-kb-admin.js"]').count()).toBeGreaterThan(0);
+    await expect(page.locator('#kb-filter-search')).toBeVisible();
 
-  const buttonText = (await firstDeleteButton.textContent())?.trim() ?? '';
-  const isArmed = await firstDeleteButton.evaluate((button) => button.classList.contains('is-armed'));
+    const totalRows = await page.locator('#kb-entries-table tbody tr').count();
+    const visibleRowsBefore = await getVisibleRowCount(page);
 
-  expect(isArmed || buttonText === 'Confirm delete').toBeTruthy();
-});
+    await page.locator('#kb-filter-search').fill('zzzznomatch');
 
-test('admin content kb keeps creator + search filter across visibility tab switches', async ({ page }) => {
-  // Re-navigate on a transient non-2xx: parallel CI workers can momentarily hit a
-  // "database is locked" (500) on the shared SQLite admin store. A real failure
-  // still surfaces after the retries.
-  let response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
-  for (let attempt = 0; attempt < 2 && !response?.ok(); attempt++) {
-    response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
-  }
-  expect(response?.ok()).toBeTruthy();
+    expect(consoleErrors).toEqual([]);
 
-  const creator = page.locator('#kb-creator-filter');
-  const optionCount = await creator.locator('option').count();
-  test.skip(optionCount < 2, 'no creator options seeded');
+    if (totalRows > 1) {
+      await expect.poll(async () => getVisibleRowCount(page)).toBeLessThan(visibleRowsBefore);
+    }
+  });
 
-  // Index 0 is the "All creators" placeholder; pick the first real creator.
-  const chosenCreator = await creator.locator('option').nth(1).getAttribute('value');
-  await creator.selectOption(chosenCreator!);
-  await page.locator('#kb-filter-search').fill('combo');
+  test('content kb visibility pills sit below Sources and directly above the filter', async ({ page }) => {
+    // Regression guard: a layout restructure once hoisted the Entries header
+    // (carrying the All/Published/Unpublished/Hidden pills) above the Sources
+    // table, separating the pills from the entries filter/grid so they appeared
+    // "gone" once scrolled to the filter. Order must be Sources -> pills -> filter.
+    const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+    expect(response?.ok()).toBeTruthy();
 
-  // Switching the visibility tab is a full-page <a> navigation (not a form
-  // submit), so the creator + search filter must be restored from sessionStorage
-  // rather than reset. Switch to the Unpublished tab: seeded entries default to
-  // unpublished, so that tab is populated and renders the filter bar — the
-  // Published tab can be empty (no entries -> no toggle/filter controls at all).
-  // Target by href; matching on the text "Unpublished" is fine but href is exact.
-  await page.locator('.admin-kb-toggle a[href*="visibilityFilter=unpublished"]').click();
-  await expect(page).toHaveURL(/visibilityFilter=unpublished/);
+    const sourcesY = await page.locator('#kb-bulk-heading').boundingBox();
+    const pillsY = await page.locator('.admin-kb-toggle').boundingBox();
+    const filterY = await page.locator('#kb-filter-search').boundingBox();
+    const gridY = await page.locator('#kb-entries-table').boundingBox();
 
-  await expect(page.locator('#kb-creator-filter')).toHaveValue(chosenCreator!);
-  await expect(page.locator('#kb-filter-search')).toHaveValue('combo');
+    expect(sourcesY).not.toBeNull();
+    expect(pillsY).not.toBeNull();
+    expect(filterY).not.toBeNull();
+    expect(gridY).not.toBeNull();
+
+    // Sources table is above the pills; pills are above the filter and grid.
+    expect(sourcesY!.y).toBeLessThan(pillsY!.y);
+    expect(pillsY!.y).toBeLessThan(filterY!.y);
+    expect(filterY!.y).toBeLessThan(gridY!.y);
+  });
+
+  test('admin content kb delete requires an arm click before submission', async ({ page }) => {
+    const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+
+    expect(response?.ok()).toBeTruthy();
+
+    const deleteButtons = page.locator('form[data-admin-confirm-twoclick] button.danger');
+    const deleteButtonCount = await deleteButtons.count();
+    test.skip(deleteButtonCount === 0, 'no KB rows seeded');
+
+    const firstDeleteButton = deleteButtons.first();
+    const startingUrl = page.url();
+
+    await firstDeleteButton.click();
+
+    await expect(page).toHaveURL(startingUrl);
+
+    const buttonText = (await firstDeleteButton.textContent())?.trim() ?? '';
+    const isArmed = await firstDeleteButton.evaluate((button) => button.classList.contains('is-armed'));
+
+    expect(isArmed || buttonText === 'Confirm delete').toBeTruthy();
+  });
+
+  test('admin content kb keeps creator + search filter across visibility tab switches', async ({ page }) => {
+    const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+    expect(response?.ok()).toBeTruthy();
+
+    const creator = page.locator('#kb-creator-filter');
+    const optionCount = await creator.locator('option').count();
+    test.skip(optionCount < 2, 'no creator options seeded');
+
+    // Index 0 is the "All creators" placeholder; pick the first real creator.
+    const chosenCreator = await creator.locator('option').nth(1).getAttribute('value');
+    await creator.selectOption(chosenCreator!);
+    await page.locator('#kb-filter-search').fill('combo');
+
+    // Switching the visibility tab is a full-page <a> navigation (not a form
+    // submit), so the creator + search filter must be restored from sessionStorage
+    // rather than reset. Switch to the Unpublished tab: seeded entries default to
+    // unpublished, so that tab is populated and renders the filter bar — the
+    // Published tab can be empty (no entries -> no toggle/filter controls at all).
+    // Target by href; matching on the text "Unpublished" is fine but href is exact.
+    await page.locator('.admin-kb-toggle a[href*="visibilityFilter=unpublished"]').click();
+    await expect(page).toHaveURL(/visibilityFilter=unpublished/);
+
+    await expect(page.locator('#kb-creator-filter')).toHaveValue(chosenCreator!);
+    await expect(page.locator('#kb-filter-search')).toHaveValue('combo');
+  });
 });

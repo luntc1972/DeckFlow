@@ -7,8 +7,8 @@ const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
 const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
 const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
 const representativeThemes = ['site.css', 'site-nyx.css'] as const;
-const toolToggleLockPath = '/tmp/deckflow-tool-toggles.lock';
-const toolToggleLockTimeoutMs = 90_000;
+const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
+const adminLockTimeoutMs = 90_000;
 const deckAnalysisDownloadDeck = `Commander
 1 Atraxa, Praetors' Voice
 
@@ -28,13 +28,25 @@ let heldLock: LockHandle | null = null;
 
 test.describe.configure({ mode: 'serial' });
 
+function getAdminForwardedIp(): string {
+  const info = test.info();
+  const key = `${info.project.name}:${info.file}:${info.title}:${info.retry}`;
+  let hash = 0;
+  for (const char of key) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 200;
+  }
+
+  return `203.0.113.${hash + 1}`;
+}
+
 test.beforeEach(async ({ page }) => {
-  const forwardedIp = test.info().project.name.includes('mobile') ? '203.0.113.12' : '203.0.113.11';
   await page.setExtraHTTPHeaders({
     Authorization: basicAuthHeader,
-    'CF-Connecting-IP': forwardedIp,
+    'CF-Connecting-IP': getAdminForwardedIp(),
   });
-  heldLock = await acquireToolToggleLock();
+  // Share the same lock used by the other /Admin/ specs so no admin page or
+  // admin-side mutation overlaps with another worker or viewport project.
+  heldLock = await acquireAdminLock();
   await restoreAllTogglesOn(page);
 });
 
@@ -42,7 +54,7 @@ test.afterEach(async ({ page }) => {
   try {
     await restoreAllTogglesOn(page);
   } finally {
-    await releaseToolToggleLock(heldLock);
+    await releaseAdminLock(heldLock);
     heldLock = null;
   }
 });
@@ -168,12 +180,12 @@ test('disabling a core Analyze tool shows the inline warning banner and removes 
   await expect(page.locator('#deck-tool-nav a[href="/deck-analysis"]')).toHaveCount(0);
 });
 
-async function acquireToolToggleLock(): Promise<LockHandle> {
+async function acquireAdminLock(): Promise<LockHandle> {
   const startedAt = Date.now();
 
-  while (Date.now() - startedAt < toolToggleLockTimeoutMs) {
+  while (Date.now() - startedAt < adminLockTimeoutMs) {
     try {
-      const handle = await open(toolToggleLockPath, 'wx');
+      const handle = await open(adminLockPath, 'wx');
       await handle.writeFile(`${process.pid}\n`);
       return handle;
     } catch (error: unknown) {
@@ -186,10 +198,10 @@ async function acquireToolToggleLock(): Promise<LockHandle> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  throw new Error(`Timed out waiting for tool-toggle lock at ${toolToggleLockPath}`);
+  throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
 }
 
-async function releaseToolToggleLock(handle: LockHandle | null): Promise<void> {
+async function releaseAdminLock(handle: LockHandle | null): Promise<void> {
   if (!handle) {
     return;
   }
@@ -198,7 +210,7 @@ async function releaseToolToggleLock(handle: LockHandle | null): Promise<void> {
     await handle.close();
   } finally {
     try {
-      await unlink(toolToggleLockPath);
+      await unlink(adminLockPath);
     } catch (error: unknown) {
       const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
       if (code !== 'ENOENT') {
