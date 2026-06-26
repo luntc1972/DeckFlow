@@ -36,8 +36,11 @@ table contents/average — so it must gate).
 ## Why
 
 Today partners/background only work if the source platform happens to tag both
-cards as commander; companion is silently dropped (analysis whitelist =
-mainboard+commander only, `ManabaseAnalysisService.cs:109`); and the commander is
+cards as commander; a companion is NOT recognized as such — on Archidekt its
+"Companion" category falls through to `mainboard` (`ArchidektApiDeckImporter.cs`
+`DetermineBoard` routes only Commander/Maybeboard/Sideboard) so it is analyzed as
+a normal 99 card; on the Moxfield Commander-Spellbook fallback path it is never
+imported at all. Either way it is never modeled AS a companion. And the commander is
 just one row inside the castability table (`ManabaseAnalyzer.cs:281` keeps it in),
 rolled into the deck average — so its individual castability is buried. Casting the
 commander on curve is the single most important line in a Commander deck; it
@@ -51,10 +54,13 @@ Phase 71 ramp/draw threshold to be right.
   (`KarstenManabase.cs:21,29,37`) — partners/background = 2 already supported math-side.
 - Companion: no model. Archidekt importer `DetermineBoard` routes only
   Commander/Maybeboard/Sideboard (`ArchidektApiDeckImporter.cs:126-143`) →
-  Companion category falls to mainboard. Moxfield parser handles
-  commander/sideboard/maybeboard headers only (`MoxfieldParser.cs:174-186`).
-  Companion data likely exists upstream (Archidekt "Companion" category, Moxfield
-  "companions" board) but is dropped.
+  Companion category falls to `mainboard` (analyzed as a normal card, not dropped).
+  Moxfield: the **direct API** path reads only four hard-coded top-level boards
+  (`MoxfieldApiDeckImporter.cs:95-98`); the **Commander-Spellbook fallback** path
+  (used on common edge blocks, `:35-37`,`:60-68`) imports only `commanders` + `main`
+  (`:103-127`) — so a Moxfield companion is unavailable on the fallback path.
+  ⚠ Must confirm the direct-payload "companions" board shape with a fixture before
+  planning.
 - Castability table INCLUDES commander rows (`ManabaseAnalyzer.cs:281`; view
   `Manabase.cshtml:378-382` `manabase-row--commander` + star). No separate
   per-commander cast-rate metric (`ManabaseDisplay.cs:96`).
@@ -71,17 +77,34 @@ Phase 71 ramp/draw threshold to be right.
   "Commander"/"Background" categories).
 
 ### B. Companion detection (auto-first)
-- Importers: capture companion from Archidekt "Companion" category +
-  Moxfield "companions" board as a distinct board value (e.g. `Board == "companion"`)
-  rather than collapsing it to mainboard/dropping it.
-- Fallback UI designator: when the source carries no companion (pasted text, or
-  absent), a UI input lets the user name the companion (pattern: like the existing
-  cost-overrides box). Auto-detected value pre-fills; user can override/clear.
+- Detect the companion from import metadata where available: Archidekt "Companion"
+  category; Moxfield "companions" board on the **direct API path only**.
+- ⚠ Moxfield Commander-Spellbook fallback path does NOT carry companion → on that
+  path, fall back to the manual designator. cEDH-edge Moxfield decks frequently
+  hit the fallback, so do not assume auto-detect always succeeds for Moxfield.
+- ⚠ Do NOT globally remap the canonical `DeckEntry.Board` to a new `"companion"`
+  value at import time — deck-analysis consumes every non-sideboard/non-maybeboard
+  entry as active deck content (`DeckAnalysisPacketService.cs:165-169`,`:409-418`),
+  so a global remap would change prod deck-analysis output even with the flag OFF
+  (violates byte-identity). Instead carry companion as side metadata (e.g. a
+  category tag / a separate detected-companion field on the request/result) that
+  ONLY the flagged manabase + flagged deck-analysis paths read. See §G.
+- Fallback UI designator: when the source carries no companion (pasted text, or the
+  Moxfield fallback path), a UI input lets the user name the companion (pattern:
+  the existing cost-overrides box). Auto-detected value pre-fills; user can
+  override/clear.
+- PLAN prerequisite: capture a real Moxfield direct-API payload fixture proving the
+  "companions" board name/shape before relying on it.
 
 ### C. Companion modeling
 - A designated/detected companion is modeled as outside-the-99 with effective cost
   = printed cost **+ 3 generic** (the "to hand" tax). It does NOT count toward
   `commanderCount` or the Karsten land target, and is not in the library draw.
+- ⚠ This is a HEURISTIC, not a rules-exact simulation. The real sequence is "pay 3
+  at sorcery speed to move it to hand, then cast it later"; we approximate it as a
+  single castability event at printed+3. `CastabilitySimulator` supports the flat
+  extra generic via `effectiveGeneric`/`effectiveCost` (`CastabilitySimulator.cs:178-187`)
+  and does not require the card to be in the library. State the approximation in copy.
 - Its castability appears only in the commander callout (Section D), labeled as a
   companion with the +3 tax disclosed.
 
@@ -89,9 +112,20 @@ Phase 71 ramp/draw threshold to be right.
 - New UI section ABOVE the castability table: one line per command-zone card
   (1-2 commanders / background) showing its cast-on-ideal-turn %, plus the
   companion line (tax noted).
-- REMOVE commander row(s) from the per-card castability table (move-out) and
-  recompute the table's average (the right-lens "avg on-curve across N spells")
-  WITHOUT the commanders, so the number isn't double-shown.
+- ⚠ DISPLAY-LAYER move-out ONLY — do NOT mutate `report.Castability`. That list
+  feeds `ManabaseReport.AvgOnCurvePercent` (`ManabaseModels.cs:788-803`), which
+  drives `Health` (`:577-620`) and `LandShortfallCoveredByRamp` (`:633-652`), and
+  is also read by the right-lens view (`Manabase.cshtml:163-202`) and the text
+  artifact (`ManabaseReportTextBuilder.cs:128-140`). Removing rows from the
+  underlying list would silently shift the health verdict + fix selection. So:
+  keep `report.Castability` intact (verdict/health byte-identical); the per-card
+  TABLE rendering filters OUT commander rows for display, and the callout reads the
+  commander rows. Provide a SEPARATE display-level "table average excluding
+  commanders" for the visible table/right-lens count so the shown rows and the
+  shown average agree — without touching report-level `AvgOnCurvePercent`.
+- Headline/summary rule for 2 command-zone cards: use the WORST command-zone
+  castability for any verdict copy (current code takes the first commander row,
+  `ManabaseAnalyzer.cs:861-867` — make multi-commander deterministic: worst-of).
 - Mirror a concise version into the manabase prompt artifact
   (`ManabaseSwapPromptBuilder`) — the commander cast line(s) help the LLM.
 
@@ -102,6 +136,13 @@ Phase 71 ramp/draw threshold to be right.
   companion (if any) so the AI analysis treats the command zone correctly.
 - Scope here is AWARENESS only — annotate the command-zone composition in the
   prompt artifact. NOT the castability callout, NOT on-page sim UI.
+- ⚠ This is BIGGER than "edit 3 prompt strings". The variants today receive a
+  SINGULAR `commanderName` (`ChatGptAnalysisPromptVariant.cs:24-33`,
+  `Claude…:25-34`, `Gemini…:26-35`) and the dispatcher passes one value
+  (`DeckAnalysisPacketService.cs:1115-1121`); the deck text only distinguishes
+  `Commander` vs `Mainboard` (`:790-841`). So Section E requires command-zone
+  PLUMBING in `DeckAnalysisPacketService` first: surface the full command zone
+  (partner pair / commander+Background / companion) to the variants, then render it.
 - Edit ALL THREE decoupled analysis prompt variants — do NOT extract a shared
   helper (variants are intentionally decoupled, see ADR
   `docs/decisions/0001-prompt-variants-decoupled.md`):
@@ -109,9 +150,12 @@ Phase 71 ramp/draw threshold to be right.
   - `DeckFlow.Web/Services/PromptBuilders/Analysis/ClaudeAnalysisPromptVariant.cs`
   - `DeckFlow.Web/Services/PromptBuilders/Analysis/GeminiAnalysisPromptVariant.cs`
 - Companion on deck-analysis follows the same auto-detect-first rule (Archidekt/
-  Moxfield import); designator-UI fallback parity with manabase is a PLAN decision.
+  Moxfield direct only); designator-UI fallback parity with manabase is a PLAN
+  decision. Companion is carried as side metadata, NOT a remapped Board (see §B/§G).
 - Flag-gated (may share `manabase.commander-castability` or a deck-analysis-specific
-  flag — PLAN decides); flag OFF → all three variants byte-identical.
+  flag — PLAN decides); flag OFF → `DeckAnalysisPacketService` + all three variants
+  byte-identical.
+- PLAN should decide whether E is large enough to split into its own phase.
 
 ### F. Phase 71 coordination
 - The ramp/draw budget threshold (Phase 71) uses the command zone: multi-commander
@@ -121,9 +165,13 @@ Phase 71 ramp/draw threshold to be right.
 ### G. Plumbing
 - Flag (e.g. `manabase.commander-castability`), seeded OFF both dialects, MQ-flag
   pattern + fail-safe read. Flag OFF → commander stays in the table, no callout, no
-  companion modeling, no importer board change effect on analysis → prod
-  byte-identical. (Importer capturing a new board value is inert unless the flagged
-  analysis path consumes it.)
+  companion modeling, deck-analysis variants unchanged → prod byte-identical.
+- ⚠ Byte-identity hazard: do NOT change global importer output (no remapped
+  `Board`). Companion is carried as INERT side metadata that only the flagged
+  manabase + flagged deck-analysis paths read. With the flag OFF, deck-analysis
+  (`DeckAnalysisPacketService.cs:165-169`,`:409-418`,`:790-841`,`:1087-1102`) and
+  manabase must produce identical bytes to today for the SAME imported deck.
+  Add a flag-OFF byte-identity regression test on BOTH surfaces.
 - Web-page change rule: xUnit + Playwright + desktop/mobile across themes; layout
   CSS in `site-common.css`; README + `Help/manabase.md` updated.
 
@@ -138,24 +186,36 @@ Phase 71 ramp/draw threshold to be right.
 
 ## Open / ambiguity to resolve in PLAN
 - Whether companion gets its own flag or shares the commander-castability flag.
-- Exact importer representation for companion (new `Board=="companion"` vs a flag on
-  the entry) and how the fallback UI designator threads through request → service.
-- Moxfield API: confirm the "companions" board name/shape in the raw deck JSON
-  (`MoxfieldApiDeckImporter`) before relying on it.
+- Companion side-metadata representation (a category tag vs a dedicated
+  detected-companion field on the request/result) — NOT a remapped `Board` — and how
+  the fallback UI designator threads through request → service.
+- ⚠ Moxfield: capture a real DIRECT-API payload fixture confirming the "companions"
+  board name/shape BEFORE relying on auto-detect; define fallback-path behavior
+  (Commander-Spellbook path → manual designator only).
 - Callout copy + placement relative to Phase 71's verdict block (both sit above the
   table — order them).
-- Table-average recompute: confirm no downstream metric (health band) depends on the
-  commander being in the table average.
+- ⚠ Table move-out is DISPLAY-ONLY: confirm the separate display-average path leaves
+  `ManabaseReport.AvgOnCurvePercent`/Health/LandShortfall untouched (regression-test
+  health byte-identity with commander still in `report.Castability`).
+- Multi-commander headline rule: confirm "worst command-zone castability" for verdict
+  copy (vs current first-commander pick at `ManabaseAnalyzer.cs:861-867`).
+- Whether Section E (deck-analysis command-zone plumbing + 3 variants) is large enough
+  to split into its own phase.
 
 ## Done when
-- Flag OFF → prod byte-identical (commander in table, no callout, no companion).
+- Flag OFF → prod byte-identical on BOTH manabase AND deck-analysis (commander in
+  table, no callout, no companion, analysis variants unchanged) for the same imported
+  deck — guarded by a flag-OFF regression test on each surface.
 - Flag ON: partners/background → 2 commanders in the callout; companion auto-detected
-  from Archidekt/Moxfield (fallback UI designator works for paste-text) and shown
-  with +3 tax; commander row(s) removed from the table and the table average
-  recomputed; prompt artifact carries the commander cast line(s).
+  from Archidekt category / Moxfield DIRECT API (manual designator fallback for
+  paste-text + Moxfield Spellbook-fallback path) and shown with the +3 tax (labeled a
+  heuristic); commander row(s) hidden from the per-card TABLE (display-only) with a
+  display-average that excludes them, while `report.Castability`/Health stay intact;
+  prompt artifact carries the commander cast line(s).
 - Core + Web tests green (partner pair, commander+background, companion auto-detect
-  per platform, companion via UI fallback, table-average-excludes-commander,
-  companion +3 tax cost); live Playwright callout screenshots Casual desktop+mobile
+  per platform, companion via UI fallback, display-table-excludes-commander while
+  report-level AvgOnCurve/Health unchanged, companion +3 tax cost, multi-commander
+  worst-of headline); live Playwright callout screenshots Casual desktop+mobile
   × 2 themes; build clean.
 - README + `Help/manabase.md` updated.
 - Deck-analysis: flag ON → all three analysis prompt variants (ChatGpt/Claude/
