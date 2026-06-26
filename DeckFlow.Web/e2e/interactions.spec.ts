@@ -109,6 +109,30 @@ test('admin content kb filter wires without console errors and narrows rows', as
   }
 });
 
+test('content kb visibility pills sit below Sources and directly above the filter', async ({ page }) => {
+  // Regression guard: a layout restructure once hoisted the Entries header
+  // (carrying the All/Published/Unpublished/Hidden pills) above the Sources
+  // table, separating the pills from the entries filter/grid so they appeared
+  // "gone" once scrolled to the filter. Order must be Sources -> pills -> filter.
+  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  expect(response?.ok()).toBeTruthy();
+
+  const sourcesY = await page.locator('#kb-bulk-heading').boundingBox();
+  const pillsY = await page.locator('.admin-kb-toggle').boundingBox();
+  const filterY = await page.locator('#kb-filter-search').boundingBox();
+  const gridY = await page.locator('#kb-entries-table').boundingBox();
+
+  expect(sourcesY).not.toBeNull();
+  expect(pillsY).not.toBeNull();
+  expect(filterY).not.toBeNull();
+  expect(gridY).not.toBeNull();
+
+  // Sources table is above the pills; pills are above the filter and grid.
+  expect(sourcesY!.y).toBeLessThan(pillsY!.y);
+  expect(pillsY!.y).toBeLessThan(filterY!.y);
+  expect(filterY!.y).toBeLessThan(gridY!.y);
+});
+
 test('content kb detail copy button signals it builds an AI prompt', async ({ page }) => {
   const listResponse = await page.goto('/content-kb');
   expect(listResponse?.ok()).toBeTruthy();
