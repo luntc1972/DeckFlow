@@ -620,6 +620,9 @@ companion) and surface commander-cast clarity. Show each command-zone card's cas
 in a callout ABOVE the castability table, and MOVE the commander row(s) out of that table
 (recomputing its average). Companion is auto-detected from Archidekt/Moxfield import data where
 present (UI designator fallback for pasted text), modeled outside-the-99 with its +3 "to hand" tax.
+Also gives the deck-analysis page command-zone AWARENESS in its prompt artifact (name the
+commander(s)/partner, Background, companion across all 3 decoupled analysis variants) — awareness
+only, no castability callout there.
 **Depends on:** Phase 71 (shares the manabase verdict/flag/UI scaffolding + the ramp/draw threshold).
 **Decisions (2026-06-26):** commander row moves OUT of the table (callout only) · companion
 auto-detect first (Archidekt Companion category / Moxfield companions board), salubrioussnail.com-style
