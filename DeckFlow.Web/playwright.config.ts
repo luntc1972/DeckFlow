@@ -1,4 +1,9 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+const windowsDotnetPath = '/mnt/c/Program Files/dotnet/dotnet.exe';
+const dotnetCommand = existsSync(windowsDotnetPath) ? `"${windowsDotnetPath}"` : 'dotnet';
+const reuseExistingServer = !process.env.CI || Boolean(process.env.WSL_DISTRO_NAME);
 
 export default defineConfig({
   testDir: './e2e',
@@ -31,13 +36,14 @@ export default defineConfig({
       },
     },
   ],
-  // NOTE: On local WSL setups `dotnet` is often not on PATH (only `dotnet.exe`),
-  // so start the app first via `scripts/run-web-uat.sh` and let reuseExistingServer
-  // attach to it; CI launches `dotnet` directly.
+  // NOTE: WSL verification runs start the app first via scripts/run-web-test.sh and
+  // then execute Playwright with CI=1 to mirror CI retries/parallelism. Detect
+  // WSL so those local CI-mode runs still reuse the already-running headless
+  // server, while real CI keeps owning server startup itself.
   webServer: {
-    command: 'dotnet run --launch-profile http',
+    command: `${dotnetCommand} run --launch-profile http`,
     url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer,
     timeout: 120_000,
     env: {
       ASPNETCORE_ENVIRONMENT: 'Development',
