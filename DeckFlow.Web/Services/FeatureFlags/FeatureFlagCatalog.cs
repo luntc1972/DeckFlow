@@ -26,6 +26,26 @@ public static class FeatureFlagCatalog
                 "Serve the browsable Content Knowledge Base (creator videos) on the public site.",
             ["feature.manabase.enabled"] =
                 "Enable the Mana Base analyzer tool and its navigation link.",
+            ["tool.deck-analysis.enabled"] =
+                "Enable the Deck Analysis tool that builds the ChatGPT deck-analysis prompt packet.",
+            ["tool.deck-comparison.enabled"] =
+                "Enable the Deck Comparison tool that builds the head-to-head comparison prompt for two decks.",
+            ["tool.cedh-meta-gap.enabled"] =
+                "Enable the cEDH Meta Gap tool that builds the prompt comparing a deck against the cEDH metagame.",
+            ["tool.deck-sync.enabled"] =
+                "Enable the Deck Sync tool (and its /api/deck/diff endpoint) that diffs two decks card-by-card.",
+            ["tool.convert.enabled"] =
+                "Enable the Convert tool that rewrites a decklist between Moxfield and Archidekt formats.",
+            ["tool.deck-primer.enabled"] =
+                "Enable the Deck Primer tool that generates a primer write-up prompt for a deck.",
+            ["tool.card-lookup.enabled"] =
+                "Enable the Card Lookup tool that fetches Scryfall card details for a list of card names.",
+            ["tool.mechanic-lookup.enabled"] =
+                "Enable the Mechanic Lookup tool that finds cards matching a rules mechanic or keyword.",
+            ["tool.judge-questions.enabled"] =
+                "Enable the Judge Questions tool that builds rules-question prompts for a deck.",
+            ["tool.commander-categories.enabled"] =
+                "Enable the Commander Categories page and its commander-specific category lookup.",
             ["analysis.reference.full-oracle-text"] =
                 "Include full Oracle rules text for reference cards in the deck-analysis prompt (larger but more precise).",
             ["analysis.reference.deck-stats"] =
