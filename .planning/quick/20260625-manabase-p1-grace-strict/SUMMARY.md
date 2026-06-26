@@ -31,4 +31,20 @@ jargon) so the /Admin/Flags page reads clearly.
 
 ## Notes
 - No UI/README change: internal flag, default OFF, admin-only copy.
-- Follow-up option: widen strict-P1 to the color-requirement probe if desired.
+
+## REVERTED 2026-06-25
+After running 10 real decks off vs on, the team decided the uniform +1 grace is the
+better default (matches real play + the Karsten/Salubrious Snail baselines; strict
+never flipped a verdict, only added 1-2 pt pessimism). The intended refinement
+(strict turn-1 only for ramp **dorks**) turned out un-implementable as-is: tap-for-mana
+1-drops are flagged `IsManaSource`/`IsRockOrDork` and are EXCLUDED from the castability
+rows (`ManabaseAnalyzer.cs:287,411`), so the grace window has no dork to attach to.
+Decision: drop `manabase.p1-grace-strict` entirely. Reverted the flag + all wiring
+(simulator/analyzer/service/seed/catalog entry/tests); kept the plain-language
+rewrites of the OTHER flag descriptions. Uniform +1 grace restored
+(`GraceWindow(turn) => 1`).
+
+Operator note: the flag row was seeded into prod on the earlier deploy (idempotent
+insert). Removing the seed line does not delete the existing prod row — it is now an
+inert orphan (enabled=false, no catalog description). Delete it via /Admin/Flags or
+SQL if tidiness is wanted; harmless otherwise.

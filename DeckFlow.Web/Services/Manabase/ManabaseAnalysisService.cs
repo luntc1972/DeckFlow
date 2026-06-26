@@ -130,12 +130,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string ColorAwareMulliganFlagKey = "manabase.color-aware-mulligan";
 
     /// <summary>
-    /// P1 grace strict flag key: when enabled, turn-1 spells get no castability grace window in the
-    /// simulator, while turns 2+ keep the historic uniform +1. Seeded OFF.
-    /// </summary>
-    public const string P1GraceStrictFlagKey = "manabase.p1-grace-strict";
-
-    /// <summary>
     /// MQ-03 70-03b flag key: when enabled, repeatable land-ramp spells (Cultivate / Rampant Growth)
     /// are modeled in the castability simulator as colorless ramp sources so the fetched land's mana is
     /// credited (closing the sim ↔ regression gap). Seeded ON after the Phase-70 land-ramp baseline.
@@ -201,7 +195,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         // MQ-05: read the color-aware-mulligan flag and pass it down. Fail-safe OFF, same as the others.
         bool colorAwareMulligan = IsFlagOn(ColorAwareMulliganFlagKey);
-        bool strictP1Grace = IsFlagOn(P1GraceStrictFlagKey);
 
         // P4 gated-ramp shares the land-ramp-sim flag: when ramp is modeled in the sim, also gate its
         // credit on the ramp's own colored cost being payable (mirrors 17Lands; corrects the optimism).
@@ -214,8 +207,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: landRampSim,
             useHealthBandCastability: useHealthBandCastability,
-            useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
-            strictP1Grace: strictP1Grace);
+            useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
 
         string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
 
