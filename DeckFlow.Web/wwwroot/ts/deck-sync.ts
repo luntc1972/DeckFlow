@@ -367,6 +367,7 @@ const attachMoxfieldExtensionImport = (): void => {
         + 'Open your deck in Moxfield, tap Bulk Edit, copy the Main Deck contents, and paste them into the text field here. '
         + 'Tags are preserved.'
       );
+      abortBridgeBusy();
       return;
     }
 
@@ -379,6 +380,7 @@ const attachMoxfieldExtensionImport = (): void => {
         + 'If you cannot install the extension, switch this field to Paste text and use Moxfield Bulk Edit instead.'
       );
       window.open(getExtensionInstallUrl(), '_blank', 'noopener');
+      abortBridgeBusy();
       return;
     }
 
@@ -390,6 +392,7 @@ const attachMoxfieldExtensionImport = (): void => {
       if (extensionStatus.optionsUrl) {
         window.open(extensionStatus.optionsUrl, '_blank', 'noopener');
       }
+      abortBridgeBusy();
       return;
     }
 
@@ -412,6 +415,7 @@ const attachMoxfieldExtensionImport = (): void => {
         );
       }
 
+      abortBridgeBusy();
       return;
     }
 
@@ -671,6 +675,13 @@ const hideBusyIndicator = (): void => {
     window.clearTimeout(busyHideTimer);
     busyHideTimer = undefined;
   }
+};
+
+// Why: the bridge intercept runs in capture, but the busy overlay shows later in
+// bubble. Abort-path hides must be deferred to a macrotask so they run after the
+// bubble-phase showBusyIndicator() listener.
+const abortBridgeBusy = (): void => {
+  window.setTimeout(hideBusyIndicator, 0);
 };
 
 const scheduleBusyHide = (durationMs: number): void => {
