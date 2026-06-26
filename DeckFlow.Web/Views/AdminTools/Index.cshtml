@@ -1,0 +1,71 @@
+@using DeckFlow.Web.Services.Tools
+@model DeckFlow.Web.Controllers.Admin.AdminToolsListViewModel
+@{
+    ViewData["Title"] = "Tools";
+    var actionMessage = TempData["AdminToolsAction"] as string;
+    var warningMessage = TempData["AdminToolsWarning"] as string;
+}
+
+<section class="admin-tools">
+    @if (!string.IsNullOrEmpty(actionMessage))
+    {
+        <div class="admin-banner admin-banner--success">@actionMessage</div>
+    }
+
+    @if (Model.DisabledCoreToolLabels.Count > 0)
+    {
+        <div class="admin-banner admin-banner--warn" role="status">
+            <strong>Core Analyze workflow warning.</strong>
+            @if (!string.IsNullOrEmpty(warningMessage))
+            {
+                <span>@warningMessage</span>
+            }
+            else
+            {
+                <span>These core tools are currently hidden.</span>
+            }
+            <span>Disabled core tools: @string.Join(", ", Model.DisabledCoreToolLabels).</span>
+        </div>
+    }
+
+    @foreach (var toolSection in Model.Sections)
+    {
+        <section class="admin-tools__section" aria-labelledby="tools-@toolSection.Section-heading">
+            <h2 id="tools-@toolSection.Section-heading">@toolSection.Section</h2>
+            <table class="admin-table admin-table--card">
+                <caption class="sr-only">@toolSection.Section tools and their current on/off status</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Tool</th>
+                        <th scope="col">Flag</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tool in toolSection.Tools)
+                    {
+                        <tr>
+                            <td data-label="Tool">
+                                <span>@tool.Label</span>
+                                @if (tool.Core)
+                                {
+                                    <span class="admin-tools__core-badge">Core</span>
+                                }
+                            </td>
+                            <td data-label="Flag"><code>@tool.FlagKey</code></td>
+                            <td data-label="Status">@(tool.Enabled ? "On" : "Off")</td>
+                            <td data-label="Action">
+                                <form method="post" action="@Url.Content($"~/Admin/Tools/{tool.FlagKey}/toggle")" class="admin-action-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="enabled" value="@((!tool.Enabled).ToString().ToLowerInvariant())" />
+                                    <button type="submit">@(tool.Enabled ? "Disable" : "Enable")</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+</section>

@@ -2,6 +2,7 @@
 title: Knowledge Base
 summary: Browse expert deck knowledge distilled from community videos, and copy any entry into your AI.
 order: 100
+requires_flag: content.kb.enabled
 ---
 
 # Knowledge Base

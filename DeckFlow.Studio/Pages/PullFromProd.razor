@@ -125,90 +125,92 @@ mirror of Direct Push — it NEVER writes to production.</p>
                             }
                             else
                             {
-                                <table class="table table-sm table-hover align-middle mt-2"
-                                       aria-live="polite">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Title</th>
-                                            <th>Natural key</th>
-                                            <th>Difference</th>
-                                            <th>Artifact</th>
-                                            <th>Resolution</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var entry in _diffEntries)
-                                        {
-                                            var key = EntryKey(entry);
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover align-middle mt-2"
+                                           aria-live="polite">
+                                        <thead class="table-light">
                                             <tr>
-                                                <td class="text-truncate" style="max-width:280px">@entry.Title</td>
-                                                <td><code>@entry.NaturalKeyType:@entry.NaturalKeyValue</code></td>
-                                                <td>
-                                                    @switch (entry.Kind)
-                                                    {
-                                                        case SyncDiffKind.ProdNewer:
-                                                            <span class="badge bg-primary">Prod newer</span>
-                                                            break;
-                                                        case SyncDiffKind.MissingLocally:
-                                                            <span class="badge bg-success">Missing locally</span>
-                                                            break;
-                                                        case SyncDiffKind.LocalOnly:
-                                                            <span class="badge bg-secondary">Local only</span>
-                                                            break;
-                                                        case SyncDiffKind.Diverged:
-                                                            <span class="badge bg-warning text-dark">Diverged</span>
-                                                            @if (entry.LocalIsNewer)
-                                                            {
-                                                                <span class="text-muted small ms-1">local is newer</span>
-                                                            }
-                                                            break;
-                                                    }
-                                                </td>
-                                                <td>
-                                                    @if (entry.Kind == SyncDiffKind.LocalOnly)
-                                                    {
-                                                        <span class="text-muted small">n/a</span>
-                                                    }
-                                                    else if (entry.ArtifactDownloaded)
-                                                    {
-                                                        <span class="badge bg-success">downloaded</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-warning text-dark">not downloaded</span>
-                                                    }
-                                                </td>
-                                                <td>
-                                                    @if (entry.Kind == SyncDiffKind.LocalOnly)
-                                                    {
-                                                        <span class="text-muted small">display only</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="form-check form-check-inline">
-                                                            <input class="form-check-input" type="radio"
-                                                                   name="res-@key" id="adopt-@key"
-                                                                   checked="@(GetResolution(entry) == Resolution.AdoptProd)"
-                                                                   @onchange="() => SetResolution(entry, Resolution.AdoptProd)" />
-                                                            <label class="form-check-label small" for="adopt-@key">adopt prod</label>
-                                                        </div>
-                                                        <div class="form-check form-check-inline">
-                                                            <input class="form-check-input" type="radio"
-                                                                   name="res-@key" id="keep-@key"
-                                                                   checked="@(GetResolution(entry) == Resolution.KeepLocal)"
-                                                                   @onchange="() => SetResolution(entry, Resolution.KeepLocal)" />
-                                                            <label class="form-check-label small" for="keep-@key">keep local</label>
-                                                        </div>
-                                                        @if (!entry.ArtifactDownloaded)
-                                                        {
-                                                            <div class="text-warning small">artifact not downloaded — adopting updates the row only</div>
-                                                        }
-                                                    }
-                                                </td>
+                                                <th>Title</th>
+                                                <th>Natural key</th>
+                                                <th>Difference</th>
+                                                <th>Artifact</th>
+                                                <th>Resolution</th>
                                             </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var entry in _diffEntries)
+                                            {
+                                                var key = EntryKey(entry);
+                                                <tr>
+                                                    <td class="text-truncate" style="max-width:280px">@entry.Title</td>
+                                                    <td><code>@entry.NaturalKeyType:@entry.NaturalKeyValue</code></td>
+                                                    <td>
+                                                        @switch (entry.Kind)
+                                                        {
+                                                            case SyncDiffKind.ProdNewer:
+                                                                <span class="badge bg-primary">Prod newer</span>
+                                                                break;
+                                                            case SyncDiffKind.MissingLocally:
+                                                                <span class="badge bg-success">Missing locally</span>
+                                                                break;
+                                                            case SyncDiffKind.LocalOnly:
+                                                                <span class="badge bg-secondary">Local only</span>
+                                                                break;
+                                                            case SyncDiffKind.Diverged:
+                                                                <span class="badge bg-warning text-dark">Diverged</span>
+                                                                @if (entry.LocalIsNewer)
+                                                                {
+                                                                    <span class="text-muted small ms-1">local is newer</span>
+                                                                }
+                                                                break;
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (entry.Kind == SyncDiffKind.LocalOnly)
+                                                        {
+                                                            <span class="text-muted small">n/a</span>
+                                                        }
+                                                        else if (entry.ArtifactDownloaded)
+                                                        {
+                                                            <span class="badge bg-success">downloaded</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-warning text-dark">not downloaded</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (entry.Kind == SyncDiffKind.LocalOnly)
+                                                        {
+                                                            <span class="text-muted small">display only</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio"
+                                                                       name="res-@key" id="adopt-@key"
+                                                                       checked="@(GetResolution(entry) == Resolution.AdoptProd)"
+                                                                       @onchange="() => SetResolution(entry, Resolution.AdoptProd)" />
+                                                                <label class="form-check-label small" for="adopt-@key">adopt prod</label>
+                                                            </div>
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio"
+                                                                       name="res-@key" id="keep-@key"
+                                                                       checked="@(GetResolution(entry) == Resolution.KeepLocal)"
+                                                                       @onchange="() => SetResolution(entry, Resolution.KeepLocal)" />
+                                                                <label class="form-check-label small" for="keep-@key">keep local</label>
+                                                            </div>
+                                                            @if (!entry.ArtifactDownloaded)
+                                                            {
+                                                                <div class="text-warning small">artifact not downloaded — adopting updates the row only</div>
+                                                            }
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
                             }
                         </div>
                     </div>
@@ -250,37 +252,39 @@ mirror of Direct Push — it NEVER writes to production.</p>
 
                     @if (_rowResults.Count > 0)
                     {
-                        <table class="table table-sm table-hover align-middle mt-3"
-                               aria-live="polite">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Title</th>
-                                    <th>Natural key</th>
-                                    <th>Status</th>
-                                    <th>Note</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var rr in _rowResults)
-                                {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mt-3"
+                                   aria-live="polite">
+                                <thead class="table-light">
                                     <tr>
-                                        <td class="text-truncate" style="max-width:280px">@rr.Title</td>
-                                        <td><code>@rr.KeyType:@rr.KeyValue</code></td>
-                                        <td>
-                                            @if (rr.Success)
-                                            {
-                                                <span class="badge bg-success">@rr.Action</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-danger">Failed</span>
-                                            }
-                                        </td>
-                                        <td><span class="text-muted small">@rr.Note</span></td>
+                                        <th>Title</th>
+                                        <th>Natural key</th>
+                                        <th>Status</th>
+                                        <th>Note</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rr in _rowResults)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:280px">@rr.Title</td>
+                                            <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                            <td>
+                                                @if (rr.Success)
+                                                {
+                                                    <span class="badge bg-success">@rr.Action</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Failed</span>
+                                                }
+                                            </td>
+                                            <td><span class="text-muted small">@rr.Note</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
 
                     @if (_applySuccess)

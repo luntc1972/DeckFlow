@@ -28,9 +28,7 @@ public sealed class HelpController : Controller
     /// tool's help disappears alongside the tool itself.
     /// </summary>
     [HttpGet("/help")]
-    [FeatureFlagGate("page.help.enabled",
-        Title = "Help center temporarily unavailable",
-        Message = "Help is offline for maintenance. Please try again in a few minutes.")]
+    [FeatureFlagGate("page.help.enabled")]
     public IActionResult Index() => View(VisibleTopics());
 
     /// <summary>

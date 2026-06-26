@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DeckFlow.Core.Integration;
 using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Services;
@@ -96,8 +97,7 @@ internal static class PacketArtifactStore
         if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)
             && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
             && uri.Host is not null
-            && (uri.Host.Contains("moxfield.com", StringComparison.OrdinalIgnoreCase)
-                || uri.Host.Contains("archidekt.com", StringComparison.OrdinalIgnoreCase)))
+            && (DeckSourceHost.IsMoxfield(uri) || DeckSourceHost.IsArchidekt(uri)))
         {
             return null;
         }

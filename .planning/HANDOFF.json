@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-06-22T22:47:41Z",
+  "phase": "66",
+  "phase_name": "Admin Tool-Visibility Toggles + Tool Registry",
+  "phase_dir": ".planning/phases/66-admin-tool-visibility-toggles-tool-registry",
+  "plan": null,
+  "task": null,
+  "total_tasks": 0,
+  "status": "paused",
+  "stage": "discuss-phase (paused before any decisions captured)",
+  "completed_tasks": [
+    {"id": 1, "name": "Scout existing tool-visibility wiring (flags/cache/gate/admin/nav/home/help)", "status": "done"}
+  ],
+  "remaining_tasks": [
+    {"id": 2, "name": "Decide 4 open gray areas (disabled-route behavior, admin toggle UI, offline UX, core-tool warning)", "status": "not_started"},
+    {"id": 3, "name": "Write 66-CONTEXT.md", "status": "not_started"},
+    {"id": 4, "name": "plan-phase 66 --skip-research --skip-ui", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Decide the 4 open gray areas, or delegate to planner", "context": "User paused discuss-phase before selecting any area to discuss", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Skip research for phase 66", "rationale": "Internal wiring over existing flag/nav/tile/help infra; no new integration", "phase": "66"},
+    {"decision": "Skip UI-SPEC for phase 66", "rationale": "Reuses existing admin-table + nav/tile patterns; no net-new visual design", "phase": "66"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "From the cycle11 worktree, either re-run /gsd:discuss-phase 66 to lock the 4 gray areas, or /gsd:plan-phase 66 --skip-research --skip-ui to let the planner decide them.",
+  "context_notes": "Phase 66 lives ONLY on the cycle11 worktree (/mnt/c/users/chrislunt/source/personal/deckflow-cycle11). Main's .planning has no phase 66. All GSD commands MUST run with the cycle11 worktree as cwd. Discuss was paused at present_gray_areas (user picked 'Pause for now'). Scouted map captured in .continue-here.md so it is not lost. No CONTEXT.md written, no decisions fabricated."
+}

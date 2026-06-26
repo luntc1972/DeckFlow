@@ -39,6 +39,7 @@ public sealed class DeckConvertController : DeckToolControllerBase
     /// Renders the deck format conversion page.
     /// </summary>
     [HttpGet("/convert")]
+    [FeatureFlagGate("tool.convert.enabled")]
     public IActionResult Convert()
     {
         return View("DeckConvert", new DeckConvertViewModel());
@@ -49,6 +50,7 @@ public sealed class DeckConvertController : DeckToolControllerBase
     /// </summary>
     /// <param name="request">Deck convert request.</param>
     [HttpPost("/convert")]
+    [FeatureFlagGate("tool.convert.enabled")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Convert(DeckConvertRequest request)
     {
@@ -91,6 +93,7 @@ public sealed class DeckConvertController : DeckToolControllerBase
     /// </summary>
     /// <param name="q">Partial commander name.</param>
     [HttpGet("/convert/commander-search")]
+    [FeatureFlagGate("tool.convert.enabled")]
     public async Task<IActionResult> ConvertCommanderSearch(string q)
     {
         try

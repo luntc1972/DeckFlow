@@ -2,6 +2,7 @@
 title: Deck Sync
 summary: Compare two decks and generate the delta needed to keep them in sync.
 order: 40
+requires_flag: tool.deck-sync.enabled
 ---
 
 # Deck Sync

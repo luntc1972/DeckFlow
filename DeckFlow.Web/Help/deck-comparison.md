@@ -2,6 +2,7 @@
 title: Deck Comparison
 summary: Compare two Commander decklists side by side with a structured AI prompt.
 order: 20
+requires_flag: tool.deck-comparison.enabled
 ---
 
 # Deck Comparison

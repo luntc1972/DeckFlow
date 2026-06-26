@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Controllers;
@@ -15,6 +16,7 @@ public sealed class JudgeQuestionsController : DeckToolControllerBase
     /// </summary>
     /// <param name="card">Optional card name to pre-populate the question form.</param>
     [HttpGet("/judge-questions")]
+    [FeatureFlagGate("tool.judge-questions.enabled")]
     public IActionResult JudgeQuestions(string? card)
     {
         return View("JudgeQuestions", new JudgeQuestionViewModel

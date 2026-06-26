@@ -171,6 +171,10 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-banner { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); }
 .admin-shell .admin-banner--success { border-color: var(--accent); }
 .admin-shell .admin-banner--error { border-color: var(--danger); }
+.admin-shell .admin-banner--warn {
+  background: color-mix(in srgb, #d69e2e 18%, var(--panel));
+  border-color: color-mix(in srgb, #d69e2e 60%, var(--border));
+}
 .admin-shell .admin-banner[data-admin-toast] {
   position: fixed;
   top: 16px;
@@ -240,6 +244,24 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-action-form { display: inline; }
 .admin-shell .admin-action-form button { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; }
 .admin-shell .admin-action-form button:hover { filter: brightness(1.1); }
+
+.admin-shell .admin-tools__section + .admin-tools__section {
+  margin-top: 24px;
+}
+
+.admin-shell .admin-tools__core-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, #d69e2e 60%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, #d69e2e 14%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 .admin-shell .autocomplete-anchor {
   position: relative;

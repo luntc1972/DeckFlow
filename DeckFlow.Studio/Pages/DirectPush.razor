@@ -155,37 +155,39 @@ unlocks only after every file uploads.</p>
                                 </dl>
 
                                 @* Per-row table (New + Updated) — mirror Review.razor table style *@
-                                <table class="table table-sm table-hover align-middle mt-2"
-                                       aria-live="polite">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Title</th>
-                                            <th>Natural key</th>
-                                            <th>Change</th>
-                                            <th>Artifact file</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var item in _diffRows)
-                                        {
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover align-middle mt-2"
+                                           aria-live="polite">
+                                        <thead class="table-light">
                                             <tr>
-                                                <td class="text-truncate" style="max-width:300px">@item.Title</td>
-                                                <td><code>@item.KeyType:@item.KeyValue</code></td>
-                                                <td>
-                                                    @if (item.IsNew)
-                                                    {
-                                                        <span class="badge bg-success">New</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-primary">Updated</span>
-                                                    }
-                                                </td>
-                                                <td><code>@item.ArtifactFile</code></td>
+                                                <th>Title</th>
+                                                <th>Natural key</th>
+                                                <th>Change</th>
+                                                <th>Artifact file</th>
                                             </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var item in _diffRows)
+                                            {
+                                                <tr>
+                                                    <td class="text-truncate" style="max-width:300px">@item.Title</td>
+                                                    <td><code>@item.KeyType:@item.KeyValue</code></td>
+                                                    <td>
+                                                        @if (item.IsNew)
+                                                        {
+                                                            <span class="badge bg-success">New</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-primary">Updated</span>
+                                                        }
+                                                    </td>
+                                                    <td><code>@item.ArtifactFile</code></td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
 
                                 @* Confirmation gate (D-09) *@
                                 <div class="mb-3">
@@ -242,40 +244,42 @@ unlocks only after every file uploads.</p>
                     @* Per-file reconcile list — aria-live so it streams (SC4) *@
                     @if (_fileResults.Count > 0)
                     {
-                        <table class="table table-sm table-hover align-middle mt-3"
-                               aria-live="polite">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>File</th>
-                                    <th>Status</th>
-                                    <th>Reason</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var file in _fileResults)
-                                {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mt-3"
+                                   aria-live="polite">
+                                <thead class="table-light">
                                     <tr>
-                                        <td><code>@file.RemoteRelativePath</code></td>
-                                        <td>
-                                            @if (file.Success)
-                                            {
-                                                <span class="badge bg-success">Uploaded</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-danger">Failed</span>
-                                            }
-                                        </td>
-                                        <td>
-                                            @if (!file.Success)
-                                            {
-                                                <span class="text-muted small">@file.FailureReason</span>
-                                            }
-                                        </td>
+                                        <th>File</th>
+                                        <th>Status</th>
+                                        <th>Reason</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var file in _fileResults)
+                                    {
+                                        <tr>
+                                            <td><code>@file.RemoteRelativePath</code></td>
+                                            <td>
+                                                @if (file.Success)
+                                                {
+                                                    <span class="badge bg-success">Uploaded</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Failed</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!file.Success)
+                                                {
+                                                    <span class="text-muted small">@file.FailureReason</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
 
                     @if (_scpSuccess)
@@ -328,42 +332,44 @@ unlocks only after every file uploads.</p>
                     @* Per-row reconcile list *@
                     @if (_rowResults.Count > 0)
                     {
-                        <table class="table table-sm table-hover align-middle mt-3"
-                               aria-live="polite">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Title</th>
-                                    <th>Natural key</th>
-                                    <th>Status</th>
-                                    <th>Reason</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var rr in _rowResults)
-                                {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mt-3"
+                                   aria-live="polite">
+                                <thead class="table-light">
                                     <tr>
-                                        <td class="text-truncate" style="max-width:300px">@rr.Title</td>
-                                        <td><code>@rr.KeyType:@rr.KeyValue</code></td>
-                                        <td>
-                                            @if (rr.Success)
-                                            {
-                                                <span class="badge bg-success">Written</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-danger">Failed</span>
-                                            }
-                                        </td>
-                                        <td>
-                                            @if (!rr.Success)
-                                            {
-                                                <span class="text-muted small">@rr.Reason</span>
-                                            }
-                                        </td>
+                                        <th>Title</th>
+                                        <th>Natural key</th>
+                                        <th>Status</th>
+                                        <th>Reason</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rr in _rowResults)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:300px">@rr.Title</td>
+                                            <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                            <td>
+                                                @if (rr.Success)
+                                                {
+                                                    <span class="badge bg-success">Written</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Failed</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!rr.Success)
+                                                {
+                                                    <span class="text-muted small">@rr.Reason</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
 
                     @if (_dbSuccess)

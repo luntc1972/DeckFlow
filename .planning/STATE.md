@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: Cycle 10
-milestone_name: — Studio Automation, Sync & Polish
-status: phase_70_in_progress
-stopped_at: Phase 70 health-band coupling shipped LOCAL (3 commits unpushed); Cycle 10 (59-63) shipped separately as 2026.06.6
-last_updated: 2026-06-25T17:50:00.000Z
-last_activity: 2026-06-25 — Health-band headline-floor done (bd26ac4b); tracked the 9 offline calibration fixtures the regression suite needs (were gitignored → CI/clone would fail) + committed manabase debug/nsm planning artifacts. main ahead 3, unpushed.
+milestone: Cycle 11
+milestone_name: Security, Visibility Control & Creator-Lens
+status: executing
+stopped_at: "Phase 69 COMPLETE + VERIFIED (passed 11/11). 5 commits 2357b5cc→7c846ec5; Studio.Tests 144/144; operator Playwright sweep PASSED (2 vp x 2 themes), 2 dark light-islands caught+fixed. Cycle 11 code-complete — remaining: Phase 66 operator UAT, then ship cycle11→main (ff)."
+last_updated: "2026-06-25T23:12:56.849Z"
+last_activity: 2026-06-25 -- Phase 69 executed + verified (Studio UI design pass)
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 16
-  completed_plans: 34
-  percent: 100
+  total_phases: 9
+  completed_phases: 8
+  total_plans: 31
+  completed_plans: 23
+  percent: 89
 ---
 
 # Project State
@@ -21,47 +21,41 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 70 — Manabase Accuracy (ad-hoc trunk on `main`, NOT part of Cycle 10).
-Health-band headline-floor coupling (the deferred 6th efficacy-audit defect) is DONE + committed
-LOCAL (`bd26ac4b` + 2 docs commits, default ON, flag `manabase.health-band-headline-floor`); main
-ahead 3, UNPUSHED. PRIORITY over Cycle 11 (operator decision 2026-06-22). **Cycle 11 is PAUSED** on
-its `cycle11` worktree (was Phase 64 done → next 65; resume after Phase 70 ships). Phase 70 fixes the
-verified Codex efficacy-audit defects — see `.planning/phases/70-manabase-accuracy-mana-quantity/`
-and `.planning/captures/manabase-efficacy-findings.md`.
+**Current focus:** Phase 67 CLOSED (decision: KB value MARGINAL/NEGATIVE → content.kb.enabled stays OFF, Phase 68 DROPPED). Next active: Phase 69 — Studio UI Design Pass (last phase of Cycle 11).
 
-## ⚠ Branch divergence (read first)
+## Branch reconciliation (resolved 2026-06-22; re-merged 2026-06-25)
 
-Two parallel tracks exist — do not conflate:
-
-- **`main` (this tree):** Cycle 10 shipped (`2026.06.6`). SINCE then a **Manabase Analyzer** feature was built and committed DIRECTLY on main (27 commits past the tag) and **deployed to prod 2026-06-22 ~12:33**. This violated the milestone-branch rule but is already live. Tracked (post-hoc, as un-numbered ad-hoc trunk features) under `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` — SUMMARYs reconstructed 2026-06-22. De-numbered out of slot 64 on 2026-06-22 so Cycle 11 owns phase 64.
-- **`cycle11` worktree (`../deckflow-cycle11`):** official **Cycle 11 — Security, Visibility Control & Creator-Lens** (phases 64-69; phase 64 = *Deck-Source Host Hardening*). 35% done; Phase 64 complete+verified+secured+pushed; next `/gsd-plan-phase 65`.
-
-**Reconciliation decided 2026-06-22:** (1) manabase de-numbered out of slot 64 (no more clash); (2) merge `main` → `cycle11` so cycle11 is the superset integration branch (manabase + security). Code is fully disjoint (no overlapping files). Cycle 11 ships via cycle11→main fast-forward when phases 65-69 are done.
+- The shipped **Manabase Analyzer** feature (built ad-hoc on `main`, deployed to prod 2026-06-22) is MERGED into `cycle11`. Tracked as un-numbered trunk features: `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` (de-numbered out of slot 64 so Cycle 11 owns phase 64).
+- **2026-06-25 re-merge:** `main` had advanced 92 commits (Phase 70 manabase-accuracy: health-band coupling, ramp disclosure, manabase download action, set-packet scoring, Admin/Flags descriptions, SQLitePCLRaw 3.0.3 override). Merged main→cycle11. Only STATE.md conflicted (planning — took cycle11). The 3 overlapping code files (ManabaseController.cs, FeatureFlagStore.cs, admin-common.css) auto-merged; integration follow-up: Phase 70's new `/manabase` action(s) must carry the Phase 66 `[FeatureFlagGate]` or `ToolRouteGateCoverageTests` fails (the gate doing its job).
+- Going forward: Cycle 11 ships via `cycle11→main` once Phase 69 lands. main is now merged in, so the ship is a fast-forward (no manabase loss).
 
 ## Current Position
 
-Phase: 70 (Manabase Accuracy — ad-hoc trunk on main; Cycle 10 phases 59-63 shipped 2026.06.6)
-Plan: Health-band headline-floor coupling — DONE, committed local, unpushed
-Status: Phase 70 work shipped LOCAL — main ahead 3 of origin, awaiting operator push (Render deploy gated on checksPass)
-Last activity: 2026-06-25 - Health-band floor (bd26ac4b) + tracked 9 calibration fixtures (gitignore negation) + committed debug/nsm planning artifacts
+Phase: 69 (Studio UI Design Pass — Shell, Dashboard & Responsive) — COMPLETE + VERIFIED (passed 11/11)
+Plan: 4/4 plans; commits 2357b5cc 1ce022d4 ee7ca904 1b0474ce 7c846ec5 (unpushed)
+Status: Dual-gate planned (Claude plan-check + Codex review). Codex-executed (gpt-5.4). Build clean; Studio.Tests 144/144 (incl HomePageTests 4/4); operator Playwright sweep PASSED (390/1280 x light/dark) — caught + fixed 2 dark light-islands (.alert-* + nav-tabs active). Presentation-only confirmed via git diff.
+Cycle 11 status: code-complete (64,65,66,67,69 done; 68 dropped). Remaining before ship: Phase 66 operator UAT, then squash/ff cycle11→main.
+Last activity: 2026-06-25 -- Phase 69 executed + verified
 
 ## Roadmap Summary
 
 | # | Phase | Requirements | Status |
 |---|-------|-------------|--------|
-| 59 | Pipeline Automation | AUTO-01, AUTO-02 | ✅ Complete |
-| 60 | Pull-from-Prod Reconcile | SYNC-01, SYNC-02, SYNC-03 | ✅ Complete |
-| 61 | Creator Sources & Selection | SRC-01, SRC-02, HSEL-01, HSEL-02, HSEL-03 | ✅ Executed |
-| 62 | Studio UI Polish | SUI-01, SUI-02, SUI-03, SUI-04, SUI-05, SUI-06 | ✅ Complete |
-| 63 | Studio Self-Contained Executable | DIST-01 | ✅ Complete |
+| 64 | Deck-Source Host Hardening | SEC-01, SEC-02, SEC-03 | ✅ Complete |
+| 65 | Prod Content Artifact Reconcile | DATA-01, DATA-02 | ✅ Executed (operator-gated reconcile) |
+| 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | ✅ Code-complete + reviewed (operator UAT pending) |
+| 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | ✅ Complete (decision: MARGINAL/NEGATIVE) |
+| 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | ⊘ Dropped (67 marginal) |
+| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | ✅ Complete + verified (11/11; sweep PASSED) |
 
 **Phase ordering rationale:**
 
-- **59 first**: Auto-distill/auto-approve lives in the Core orchestrator distill/approve slice and redefines "harvested" vs "review-ready" vs "approved" state. HSEL-01's unharvested-only filter and SUI-01's status badges both read that state. Carries the AUTO-02 quality-signal open risk — isolating it contains that risk.
-- **60 second, own phase**: Pull-from-Prod is the most novel/risky lane — a NEW authenticated prod READ path mirroring DirectPush (SSH.NET SCP from Render `/data` + Postgres read of `content_site_index`). Shares no surface with the Harvest.razor UX work; must not be diluted into a polish phase.
-- **61 third**: Creator-source management + harvest selection (persisted creator list, dropdown picker, unharvested-only default, skip/ignore + un-skip) — the data-and-behavior pass over `Harvest.razor`. Depends on Phase 59's harvested-state definition for the default filter.
-- **62 last**: Presentation pass (status badges, flow tightening, feedback states, layout/nav, creator filtering, the one-line MainLayout About-link fix) runs over the now-settled surfaces so polish isn't redone after 61 reshapes them. SUI-01 reuses the existing status engine; SUI-06 is a one-line fix.
-- **No separate dogfood phase**: coarse granularity. Validation folds into per-phase operator success criteria (Phases 59 and 60 each carry observable operator gates).
+- **64 first**: SSRF/host-spoof is HIGH priority and lives in shared Core (`DeckEntryLoader`, `MoxfieldApiDeckImporter`) touching every deck tool; isolate it so the fix + regression tests land clean before other phases churn those files.
+- **65 second**: Prod artifact gap is HIGH but largely investigation + an operator-run reconcile (AI stays read-only against prod); independent of the code phases.
+- **66 third**: Largest feature (tool registry + nav/tiles/help/admin cascade + empty-section collapse); self-contained. Runs after the security fix so it isn't interleaved with shared-Core edits.
+- **67 gate**: KBVAL must complete before creator-philosophy; its lift/marginal verdict decides whether Phase 68 runs at all and whether `content.kb.enabled` flips.
+- **68 conditional**: Drops if KBVAL-02 is marginal. Research/design only — no production build of the philosophy layer this cycle.
+- **69 last**: Studio UI pass is independent of the public-site work; presentation polish runs over settled surfaces last.
 
 ## Performance Metrics
 
@@ -75,6 +69,8 @@ Last activity: 2026-06-25 - Health-band floor (bd26ac4b) + tracked 9 calibration
 
 ### Key Decisions
 
+- **Phase 64 Plan 02 (4-site adoption + SC2 fix, 2026-06-21):** Spoof-URL test asserts null-capture (importer not called), not InvalidOperationException — MoxfieldParser accepts URL strings as implicit-quantity-1 card names, so both parsers succeed and no exception is thrown. Canonical Spellbook URL (`https://moxfield.com/decks/{deckId}`) always reconstructed from the already-parsed deckId, never forwarded from originalUrl. Three commits (aebfd8e8, de6d212a, 934b6789). 612 Core + 677 Web tests green.
+- **Phase 64 Plan 01 (DeckSourceHost predicate, 2026-06-21):** `DeckSourceHost.IsMoxfield(Uri)` / `IsArchidekt(Uri)` use exact-or-approved-subdomain matching (`host == apex || host.EndsWith("." + apex)`). No `TrimEnd('.')` — trimming trailing dot would re-open confusable-domain surface. The `-warnaserror` flag cannot be used as the local gate because pre-existing NU1903/CS0618/CS1574 warnings are present; CI is the authoritative gate. 16/16 acceptance tests pass locally.
 - **Phase 63 added 2026-06-20 (DIST-01):** Package DeckFlow.Studio as a self-contained single-file win-x64 executable runnable without a .NET install; produce publish profile/script + document build/run steps. Last phase of Cycle 10 (after Phase 62 Studio UI Polish). Not planned yet → `/gsd-plan-phase 63`.
 - **Branch rule reaffirmed 2026-06-20:** ALWAYS branch per milestone — Cycle 10 work belongs on its own `cycle10` branch, never piled on local main. ⚠ ANOMALY: a concurrent session switched the tree to `feat/analysis-prompt-recency-gate` mid phase-59 execution and interleaved unrelated manabase/analysis-prompt commits with the 59 commits. Needs operator decision to re-home Cycle 10 onto a clean `cycle10` branch once the concurrent session settles.
 - **Cycle 10 roadmap created 2026-06-20:** 4 phases (59-62), 16/16 requirements mapped (AUTO, SYNC, SRC, HSEL, SUI). Phase numbering continues from 58. (Phase 63 DIST-01 appended 2026-06-20.)
@@ -103,13 +99,6 @@ Last activity: 2026-06-25 - Health-band floor (bd26ac4b) + tracked 9 calibration
 ### Blockers/Concerns
 
 - **AUTO-02 quality/confidence signal may not exist yet** — flagged as Phase 59 open risk; resolution (derive vs add heuristic) decided at plan-phase.
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260624-kpg | Fix DFC/transform cards excluded from set-packet top-60 via face-aware scoring | 2026-06-24 | a01473cc | [260624-kpg-fix-dfc-transform-cards-excluded-from-se](./quick/260624-kpg-fix-dfc-transform-cards-excluded-from-se/) |
-| 260624-opb | Download manabase analysis as paste-ready .txt via ManabaseReportTextBuilder | 2026-06-24 | 3c5155c3 | [260624-opb-be-able-to-download-the-manabase-analysi](./quick/260624-opb-be-able-to-download-the-manabase-analysi/) |
 
 ### Carry-Forward (still open from prior cycles)
 
@@ -154,12 +143,13 @@ Last activity: 2026-06-25 - Health-band floor (bd26ac4b) + tracked 9 calibration
 
 ## Session Continuity
 
-Last session: 2026-06-22T19:00:00Z
-Stopped at: Reconciled main planning — wrote reconstructed manabase SUMMARYs (64-01, 64-02, manabase-accuracy, manabase-alt-cost), updated STATE, deleted the stale Cycle-10 phase-60 HANDOFF.json. Untracked at repo root: `.manabase-brago-facts.json` (harness cache — left untracked, candidate for .gitignore).
-Resume: main is honest. Decide branch reconciliation (manabase-on-main vs Cycle 11 worktree), then either resume Cycle 11 (`/gsd-plan-phase 65` in `../deckflow-cycle11`) or start a Cycle 12 to absorb manabase.
+Last session: 2026-06-25T23:12:56.817Z
+Stopped at: Phase 69 PLANNED + DUAL-GATE CLEAN (fc83aebd): Claude plan-check PASSED + Codex PASS after closing dark-mode blocker over 3 revisions (bs-var bridge + base .table + form-check-input + .bg-light regression). Ready /gsd-execute-phase 69.
+Resume: Cycle 11 here on `cycle11`. Next: `/gsd-verify-work 64` then `/gsd-plan-phase 65`.
 
 ## Operator Next Steps
 
-- Decide how to reconcile main's shipped manabase feature with the Cycle 11 worktree track.
-- To continue Cycle 11: work in `../deckflow-cycle11`, run `/gsd-plan-phase 65`.
-- `.manabase-brago-facts.json` at repo root is a harness cache — add to `.gitignore` (operator: that file is in the do-not-modify list) or `git clean` it.
+- Cycle 11 work continues HERE in `../deckflow-cycle11` (branch `cycle11`).
+- Next: `/gsd-verify-work 64`, then `/gsd-plan-phase 65`.
+- Push when ready: `cycle11` (this merge) and `main` (de-number commit `64fc72e9`) — AI awaits explicit push confirmation.
+- `.manabase-brago-facts.json` at repo root is a harness cache — `git clean` it or add to `.gitignore` (do-not-modify list → operator).
