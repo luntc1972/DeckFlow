@@ -15,7 +15,13 @@
 # Local planning / notes / dev tooling not needed for the image
 .planning/
 .claude/
-browser-extensions/
+# browser-extensions/ is intentionally NOT ignored: the ZipDeckFlowBridge MSBuild
+# target zips browser-extensions/deckflow-bridge into
+# wwwroot/extensions/deckflow-bridge.zip during publish (served at
+# /extensions/deckflow-bridge.zip). Excluding it from the build context makes the
+# target's Exists() condition false in-container, so the zip is never built and the
+# production download 404s. Only /app/publish reaches the runtime image, so keeping
+# the source in the build context does not bloat the final image.
 docs/
 prompt-templates/
 scripts/
