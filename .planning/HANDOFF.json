@@ -1,31 +1,36 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-22T22:47:41Z",
-  "phase": "66",
-  "phase_name": "Admin Tool-Visibility Toggles + Tool Registry",
-  "phase_dir": ".planning/phases/66-admin-tool-visibility-toggles-tool-registry",
-  "plan": null,
-  "task": null,
-  "total_tasks": 0,
+  "timestamp": "2026-06-26T20:42:00.501Z",
+  "phase": "71",
+  "phase_name": "Manabase Plain-Language Verdict & Ramp/Draw Advisory",
+  "phase_dir": ".planning/phases/71-ramp-draw-budget-advisory",
+  "plan": 1,
+  "task": 0,
+  "total_tasks": 12,
   "status": "paused",
-  "stage": "discuss-phase (paused before any decisions captured)",
+  "stage": "planned + reviewed (Claude plan-check + Codex) + UI-SPEC approved; NOT executed",
   "completed_tasks": [
-    {"id": 1, "name": "Scout existing tool-visibility wiring (flags/cache/gate/admin/nav/home/help)", "status": "done"}
+    {"id": 0, "name": "Phase 71 scoped + planned + reviewed (SPEC, CONTEXT, 5 PLANs, UI-SPEC) all committed", "status": "done", "commit": "54d6588c"}
   ],
   "remaining_tasks": [
-    {"id": 2, "name": "Decide 4 open gray areas (disabled-route behavior, admin toggle UI, offline UX, core-tool warning)", "status": "not_started"},
-    {"id": 3, "name": "Write 66-CONTEXT.md", "status": "not_started"},
-    {"id": 4, "name": "plan-phase 66 --skip-research --skip-ui", "status": "not_started"}
+    {"id": 1, "name": "EXECUTE Phase 71 (Codex implements wave-by-wave, Claude reviews) — 5 plans / 5 waves / ~12 tasks", "status": "not_started"},
+    {"id": 2, "name": "PLAN Phase 72 (/gsd-plan-phase 72) — SPEC + Codex-review done; depends on 71 scaffolding", "status": "not_started"}
   ],
-  "blockers": [],
+  "blockers": [
+    {"description": "Parallel session co-committing+pushing on main (admin/e2e/bridge); manabase files mostly disjoint but execute-71 risks working-tree collision with their churn", "type": "external", "workaround": "Execute when parallel session settles, or worktree-isolate"}
+  ],
   "human_actions_pending": [
-    {"action": "Decide the 4 open gray areas, or delegate to planner", "context": "User paused discuss-phase before selecting any area to discuss", "blocking": false}
+    {"action": "Push local main to origin (ahead 5) when ready — user pushes, not AI", "context": "Plain default-author commits; parallel session also pushing", "blocking": false}
   ],
   "decisions": [
-    {"decision": "Skip research for phase 66", "rationale": "Internal wiring over existing flag/nav/tile/help infra; no new integration", "phase": "66"},
-    {"decision": "Skip UI-SPEC for phase 66", "rationale": "Reuses existing admin-table + nav/tile patterns; no net-new visual design", "phase": "66"}
+    {"decision": "71 glosses = UI-only; verdict + ramp/draw budget = both UI + prompt", "rationale": "prompt reader is an LLM; gloss mirroring bloats the paste-into-AI artifact", "phase": "71"},
+    {"decision": "71 one shared flag manabase.plain-language-verdict (OFF); Casual full, cEDH glosses-only", "rationale": "simpler; matches done-when", "phase": "71"},
+    {"decision": "Phase 72 split out, not folded into 71", "rationale": "71 already reviewed+committed; command-zone work is large+structural", "phase": "72"},
+    {"decision": "72 commander table move-out = DISPLAY-ONLY (keep report.Castability intact)", "rationale": "report.Castability feeds AvgOnCurve->Health->LandShortfall; mutating shifts the verdict (Codex HIGH)", "phase": "72"},
+    {"decision": "72 companion = inert side metadata, NOT a remapped Board", "rationale": "deck-analysis consumes all active boards even flag-OFF; remap breaks byte-identity (Codex HIGH)", "phase": "72"},
+    {"decision": "72 companion auto-detect = Archidekt category + Moxfield DIRECT API only; manual designator fallback on Moxfield Spellbook-fallback path + paste-text", "rationale": "Moxfield fallback importer reads only commanders+main (Codex HIGH)", "phase": "72"}
   ],
   "uncommitted_files": [],
-  "next_action": "From the cycle11 worktree, either re-run /gsd:discuss-phase 66 to lock the 4 gray areas, or /gsd:plan-phase 66 --skip-research --skip-ui to let the planner decide them.",
-  "context_notes": "Phase 66 lives ONLY on the cycle11 worktree (/mnt/c/users/chrislunt/source/personal/deckflow-cycle11). Main's .planning has no phase 66. All GSD commands MUST run with the cycle11 worktree as cwd. Discuss was paused at present_gray_areas (user picked 'Pause for now'). Scouted map captured in .continue-here.md so it is not lost. No CONTEXT.md written, no decisions fabricated."
+  "next_action": "Decide: execute Phase 71 (Codex, wave 1 = 71-01 Core budget engine) OR plan Phase 72. Both ready. If executing 71, watch for parallel-session file collisions on main.",
+  "context_notes": "Session: closed Phase 70 (MQ-02 already shipped+ON in prod, OBS-1 SSRF already fixed, 70-06 live-render verified). Evaluated creator ramp/draw 'unit of value' theory (capture filed). Scoped+planned Phase 71 (Claude plan-check + Codex gpt-5.4 review, all HIGH cleared; UI-SPEC checker-approved). Scoped Phase 72 (command-zone modeling + commander castability + deck-analysis command-zone awareness; Codex SPEC-review revised 3 HIGH+3 MED+1 LOW). NOTHING executed yet. Codex this session = gpt-5.4 medium, full-access sandbox. Local main ahead of origin by 5; user pushes. NOTE: prior HANDOFF was Phase 66/cycle11-worktree (different context) — overwritten."
 }
