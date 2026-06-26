@@ -1,8 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import '../wwwroot/ts/primer-selection';
+import '../wwwroot/ts/deck-sync';
 
 interface PrimerSelectionApi {
-  attachPrimerCopyButtons(): void;
+  attachActionButtons(): void;
 }
 
 let api: PrimerSelectionApi;
@@ -26,7 +26,7 @@ describe('Primer copy buttons', () => {
       value: { writeText },
     });
 
-    api.attachPrimerCopyButtons();
+    api.attachActionButtons();
 
     const button = document.querySelector<HTMLButtonElement>('[data-copy-target="primer-output"]');
     button?.click();
@@ -48,7 +48,7 @@ describe('Primer copy buttons', () => {
       <textarea id="primer-output"></textarea>
     `;
 
-    api.attachPrimerCopyButtons();
+    api.attachActionButtons();
 
     const button = document.querySelector<HTMLButtonElement>('[data-copy-target="primer-output"]');
     button?.click();
