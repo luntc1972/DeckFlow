@@ -87,8 +87,12 @@ into the prompt artifact.
   pattern + fail-safe read; catalog description added). Ramp/draw budget can share
   this flag or get its own sub-flag `manabase.ramp-draw-budget` — PLAN decides
   (lean: one flag, simpler).
-- Prompt block hand-edited into all three manabase prompt variants (ChatGPT /
-  Claude / Gemini) — variants intentionally decoupled.
+- Prompt block added to the SINGLE manabase prompt builder
+  `DeckFlow.Core/Manabase/ManabaseSwapPromptBuilder.cs` (surfaced as
+  `Model.ChatGptSwapPrompt`, one "Copy for ChatGPT / Claude" box). NOTE: manabase
+  has ONE prompt builder, not the 3 decoupled variants used by deck-analysis —
+  edit only this builder. The verdict text augments the deterministic-report
+  framing already in `Build(...)`.
 
 ## Tests
 - Core: synthesis selects + orders the right issues per fixture deck (color-short,
