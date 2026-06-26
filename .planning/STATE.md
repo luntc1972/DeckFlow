@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: Phase 66 code-complete+reviewed (8 commits, operator UAT pending). Phase 67 CLOSED as decision-only (KB value MARGINAL/NEGATIVE per spike 001 → content.kb.enabled OFF, Phase 68 DROPPED). Cycle 11 remaining = Phase 69 (Studio UI), then ship cycle11→main.
-last_updated: "2026-06-25T21:00:00.000Z"
-last_activity: 2026-06-25 -- Phase 67 decision recorded (67-DECISION.md); Phase 68 dropped; next Phase 69
+stopped_at: "Phase 69 COMPLETE + VERIFIED (passed 11/11). 5 commits 2357b5cc→7c846ec5; Studio.Tests 144/144; operator Playwright sweep PASSED (2 vp x 2 themes), 2 dark light-islands caught+fixed. Cycle 11 code-complete — remaining: Phase 66 operator UAT, then ship cycle11→main (ff)."
+last_updated: "2026-06-25T23:12:56.849Z"
+last_activity: 2026-06-25 -- Phase 69 executed + verified (Studio UI design pass)
 progress:
   total_phases: 9
-  completed_phases: 7
-  total_plans: 27
-  completed_plans: 19
-  percent: 78
+  completed_phases: 8
+  total_plans: 31
+  completed_plans: 23
+  percent: 89
 ---
 
 # Project State
@@ -31,10 +31,11 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 66 (Admin Tool-Visibility Toggles + Tool Registry) — CODE-COMPLETE + REVIEWED
-Plan: 6/6 plans + 66-07 gap-fix; commits 7fda58dd 68bee950 2b529579 85b25f43 e2ad5af2 43b6626e 79e1cb1a (unpushed)
-Status: Build green; xUnit pass; Playwright 12/12; code review HI-01 (ungated tool-backing API endpoints) found + fixed. Awaiting operator UAT, then push/merge.
-Last activity: 2026-06-25 -- Phase 66 executed + reviewed
+Phase: 69 (Studio UI Design Pass — Shell, Dashboard & Responsive) — COMPLETE + VERIFIED (passed 11/11)
+Plan: 4/4 plans; commits 2357b5cc 1ce022d4 ee7ca904 1b0474ce 7c846ec5 (unpushed)
+Status: Dual-gate planned (Claude plan-check + Codex review). Codex-executed (gpt-5.4). Build clean; Studio.Tests 144/144 (incl HomePageTests 4/4); operator Playwright sweep PASSED (390/1280 x light/dark) — caught + fixed 2 dark light-islands (.alert-* + nav-tabs active). Presentation-only confirmed via git diff.
+Cycle 11 status: code-complete (64,65,66,67,69 done; 68 dropped). Remaining before ship: Phase 66 operator UAT, then squash/ff cycle11→main.
+Last activity: 2026-06-25 -- Phase 69 executed + verified
 
 ## Roadmap Summary
 
@@ -45,7 +46,7 @@ Last activity: 2026-06-25 -- Phase 66 executed + reviewed
 | 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | ✅ Code-complete + reviewed (operator UAT pending) |
 | 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | ✅ Complete (decision: MARGINAL/NEGATIVE) |
 | 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | ⊘ Dropped (67 marginal) |
-| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | Not started — NEXT |
+| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | ✅ Complete + verified (11/11; sweep PASSED) |
 
 **Phase ordering rationale:**
 
@@ -142,8 +143,8 @@ Last activity: 2026-06-25 -- Phase 66 executed + reviewed
 
 ## Session Continuity
 
-Last session: 2026-06-22T19:30:00Z
-Stopped at: Branch reconciliation done — main de-numbered manabase out of slot 64; merged main → cycle11 (one STATE.md conflict resolved). cycle11 now superset (manabase + security). Phase 64 complete.
+Last session: 2026-06-25T23:12:56.817Z
+Stopped at: Phase 69 PLANNED + DUAL-GATE CLEAN (fc83aebd): Claude plan-check PASSED + Codex PASS after closing dark-mode blocker over 3 revisions (bs-var bridge + base .table + form-check-input + .bg-light regression). Ready /gsd-execute-phase 69.
 Resume: Cycle 11 here on `cycle11`. Next: `/gsd-verify-work 64` then `/gsd-plan-phase 65`.
 
 ## Operator Next Steps

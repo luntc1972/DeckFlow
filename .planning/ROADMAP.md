@@ -115,8 +115,9 @@ existed (`Spike001KbValueAbHarness.cs`); real `ContentKbRelevanceService` retrie
 **Plans**: TBD
 **UI hint**: no
 
-#### Phase 69: Studio UI Design Pass — Shell, Dashboard & Responsive
+#### Phase 69: Studio UI Design Pass — Shell, Dashboard & Responsive ✅ COMPLETE (2026-06-25)
 **Goal**: DeckFlow.Studio looks like a real branded tool, not the stock Blazor template.
+**Outcome**: Verified 11/11 (69-VERIFICATION.md). 5 commits `2357b5cc`→`7c846ec5`; Studio.Tests 144/144; operator Playwright sweep PASSED. Codex-executed (gpt-5.4 medium); dual-gate planned (Claude plan-check + Codex review).
 **Depends on**: Nothing (independent of public-site work; runs last over settled Studio surfaces)
 **Requirements**: STUI-01, STUI-02, STUI-03
 **Success Criteria** (what must be TRUE):
@@ -125,10 +126,10 @@ existed (`Spike001KbValueAbHarness.cs`); real `ContentKbRelevanceService` retrie
   3. Studio pages handle table-overflow / responsive layout and dark mode consistently.
   4. No functional/behavior change — the pass is presentation-only over the existing 6 pages.
 **Plans**: 4 plans (2 waves)
-  - [ ] 69-01-PLAN.md — studio-theme.css token home + _Layout link + site.css token alignment (STUI-01, STUI-03) [Wave 1]
-  - [ ] 69-02-PLAN.md — Branded shell: MainLayout + NavMenu restyle onto tokens (STUI-01) [Wave 2]
-  - [ ] 69-03-PLAN.md — Home pipeline dashboard (counts + badges + quick links) + bUnit tests (STUI-02) [Wave 2]
-  - [ ] 69-04-PLAN.md — Table-overflow wraps (DirectPush/PullFromProd) + dark/badge-contrast operator sweep (STUI-03) [Wave 2]
+  - [x] 69-01-PLAN.md — studio-theme.css token home + _Layout link + site.css token alignment (STUI-01, STUI-03) [Wave 1] — `2357b5cc`
+  - [x] 69-02-PLAN.md — Branded shell: MainLayout + NavMenu restyle onto tokens (STUI-01) [Wave 2] — `1ce022d4`
+  - [x] 69-03-PLAN.md — Home pipeline dashboard (counts + badges + quick links) + bUnit tests (STUI-02) [Wave 2] — `ee7ca904`
+  - [x] 69-04-PLAN.md — Table-overflow wraps (DirectPush/PullFromProd) + dark/badge-contrast operator sweep (STUI-03) [Wave 2] — `1b0474ce` + sweep fix `7c846ec5`
 **UI hint**: yes
 
 <details>
