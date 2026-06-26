@@ -613,4 +613,24 @@ Plans:
 
 ---
 
+### Phase 72: Command-Zone Modeling & Commander Castability (ad-hoc trunk / main)
+
+**Goal:** Correctly model the full command zone (partner pairs, commander+Background, and
+companion) and surface commander-cast clarity. Show each command-zone card's cast-on-ideal-turn %
+in a callout ABOVE the castability table, and MOVE the commander row(s) out of that table
+(recomputing its average). Companion is auto-detected from Archidekt/Moxfield import data where
+present (UI designator fallback for pasted text), modeled outside-the-99 with its +3 "to hand" tax.
+**Depends on:** Phase 71 (shares the manabase verdict/flag/UI scaffolding + the ramp/draw threshold).
+**Decisions (2026-06-26):** commander row moves OUT of the table (callout only) · companion
+auto-detect first (Archidekt Companion category / Moxfield companions board), salubrioussnail.com-style
+manual UI only as fallback · no +2 recast command tax (first-cast on curve), but the +3 companion tax IS modeled.
+**Source:** `.planning/phases/72-command-zone-commander-castability/72-SPEC.md` + user asks 2026-06-26.
+**Status:** 🟡 SPEC — not yet discussed/planned. Plan AFTER Phase 71 lands (depends on its scaffolding).
+**Flag:** `manabase.commander-castability` (seeded OFF; flag OFF = prod byte-identical, commander stays in table).
+
+Plans:
+- [ ] 72-01 — TBD (run /gsd-plan-phase 72 after Phase 71; route PLAN through Codex review before execute)
+
+---
+
 *v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19 | Cycle 10 shipped 2026-06-21 (`2026.06.6`)*
