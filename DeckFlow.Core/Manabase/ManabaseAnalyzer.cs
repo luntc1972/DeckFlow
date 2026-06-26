@@ -64,6 +64,10 @@ public static class ManabaseAnalyzer
     /// <see cref="ManabaseReport.UseHealthBandHeadlineFloor"/>. When false (default), behavior is
     /// byte-identical.
     /// </param>
+    /// <param name="strictP1Grace">
+    /// When true, the display castability simulation gives turn-1 spells no grace window, while the
+    /// turn-2+ rows and the isolated color-requirement probe both keep the historic +1 grace.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -73,7 +77,8 @@ public static class ManabaseAnalyzer
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
         bool useHealthBandCastability = false,
-        bool useHealthBandHeadlineFloor = false)
+        bool useHealthBandHeadlineFloor = false,
+        bool strictP1Grace = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -95,7 +100,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, strictP1Grace);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -271,7 +276,8 @@ public static class ManabaseAnalyzer
         Dictionary<string, CardCastability> byName,
         bool useManaQuantity,
         bool colorAwareMulligan,
-        bool gateRampOnCastable)
+        bool gateRampOnCastable,
+        bool strictP1Grace)
     {
         var rows = new List<CardCastability>();
 
@@ -292,7 +298,8 @@ public static class ManabaseAnalyzer
 
             CardCastability row = CastabilitySimulator.Simulate(
                 deck, librarySize, spell, onCurveTurn, genericReduction,
-                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable);
+                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable,
+                strictP1Grace: strictP1Grace);
             rows.Add(row);
             byName[spell.Name] = row;
         }
@@ -649,7 +656,7 @@ public static class ManabaseAnalyzer
             IsSingleton = isSingleton,
         };
 
-        return CastabilitySimulator.Simulate(deck, librarySize, probe, onCurveTurn, genericReduction: 0, trials).CastPercent;
+        return CastabilitySimulator.Simulate(deck, librarySize, probe, onCurveTurn, genericReduction: 0, trials, strictP1Grace: false).CastPercent;
     }
 
     // WeakestColor / ordering = MOST-ACTIONABLE-first: the color whose mana a deck-builder can most
