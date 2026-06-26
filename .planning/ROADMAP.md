@@ -585,7 +585,27 @@ Plans:
 - [x] 70-03b-PLAN.md — MQ-03 defect 1: model land-ramp in the sim. Repeatable land-ramp-to-battlefield spells (Cultivate/Rampant Growth) are added as colorless non-land ramp sources (`DeployCost = MV`, new `ManaSource.DeployCost`), so the fetched land's mana is credited — closing the sim↔regression gap. Self-excluded from the card's own row; colorless+non-land → color counts/land total/RampSourceCount untouched. Behind `manabase.land-ramp-sim` flag (seeded OFF). Codex plan + diff APPROVE (1 BLOCK each round, resolved); Core 7 + Web 1 + seed tests green; full Core 763/Web 746. ⏳ baseline-diff before flag default ON (harness has a landRampSim pass to add).
 - [x] 70-04 — MQ-04 unsupported-interaction disclosure (done, `24aed27f` + `824a1c3a`)
 - [x] 70-05-PLAN.md — MQ-05 color-aware London mulligan: a non-forced keep of a 2+ color deck also requires the opening lands to show >=2 distinct colors (KCap=2), behind `manabase.color-aware-mulligan` flag (seeded OFF). Cast%-affecting on multi-color decks only; mono decks byte-identical even flag-ON; verdict/color-count math untouched (probe path stays count-only). Codex-approved plan + diff; Core 10 + Web 2 tests green, full Core/Web suites clean. ⏳ baseline-diff before flag defaults ON; README/help update deferred until flip.
-- [x] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Live on `feature/manabase-accuracy` (both lenses render side-by-side).
+- [x] 70-06-PLAN.md — Two-lens result header (Karsten source check + simulated cast rate); view-only, ships with the MQ changes. Live on `feature/manabase-accuracy` (both lenses render side-by-side). Live-render/theme sweep verified 2026-06-26.
+
+---
+
+### Phase 71: Manabase Plain-Language Verdict & Ramp/Draw Advisory (ad-hoc trunk / main)
+
+**Goal:** Make the manabase result understandable to non-experts. (A) friendly one-line gloss
+for each metric, (B) a synthesized "Reading your deck" verdict — prioritized add/remove guidance
+when there are issues, or a specific why-it's-fine when there aren't — and (C) a ramp/draw
+slot-budget check folded in as one input. Surfaced both as UI on `/manabase` and as text in the
+manabase prompt artifact. Pure advisory/explanatory: never changes land count, color counts,
+castability verdict, or health band. Deterministic templated prose, no LLM call for on-page text.
+**Decisions (2026-06-26):** primary ask = clarity (analysis is hard to read) · delivery = both
+UI + prompt · ramp/draw target = dynamic-from-threshold (interpolate article MV anchors) · Casual
+gets the full read in v1, cEDH gets glosses but ramp/draw budget suppressed.
+**Sources:** `.planning/captures/ramp-draw-unit-of-value-theory.md` + user clarity ask 2026-06-26.
+**Status:** 🟡 SPEC — `.planning/phases/71-ramp-draw-budget-advisory/71-SPEC.md`. Not yet planned.
+**Flag:** `manabase.plain-language-verdict` (seeded OFF; ramp/draw may share it — PLAN decides).
+
+Plans:
+- [ ] 71-01 — TBD (run /gsd-plan-phase 71; route PLAN through Codex review before execute)
 
 ---
 
