@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 72 COMPLETE on branch plan/phase-72-command-zone (worktree ../deckflow-phase72, based on origin/main ebec49df). 7 plans / 4 waves Codex-impl + Claude-review/verify. Gates GREEN: build 0/0, Core 861, Web 883 (12 PG-int skipped), live e2e 2/2, operator cross-theme visual sign-off PASSED. Flag manabase.commander-castability seeded OFF (prod byte-identical). Fixture-driven plan corrections: Background already command-zone via importer (no reclassification); Archidekt companion-category detection dropped (companion = manual designator + Moxfield DetectedCompanionName). NOTE: this branch carries a STALE .planning snapshot (Phase 71-era) - reconcile STATE against origin/main (authoritative) at merge. NEXT: user pushes / merges branch to main; Phase 73 = deck-analysis command-zone awareness (split out of 72 section E)."
-last_updated: "2026-06-27T10:20:00.000Z"
-last_activity: 2026-06-27 -- Phase 72 EXECUTED + verified (command-zone commander castability), pending user push/merge
+stopped_at: "Phase 72 SHIPPED to origin/main 5a78ffc2 (FF, 29 commits) 2026-06-27. Rebased clean onto Phase 74 ef6eac42 (0 conflicts); main CI GREEN; live commander-callout e2e 2/2 + cross-theme visual PASS; combined-tree tests Core 865 + Web 911. Flag manabase.commander-castability seeded OFF (operator flips in prod via Admin/Flags). Built by Claude Opus 4.8 + Codex cross-AI review (delegation reversed 2026-06-27: Claude codes+plans, Codex reviews). Fixture-driven plan corrections: Background already command-zone via importer (no reclassification); Archidekt companion-category detection dropped (companion = manual designator + Moxfield DetectedCompanionName). NEXT: Phase 73 = deck-analysis command-zone awareness (split out of 72 section E)."
+last_updated: "2026-06-27T18:30:00.000Z"
+last_activity: 2026-06-27 -- Phase 72 SHIPPED to main (command-zone commander castability)
 progress:
   total_phases: 10
   completed_phases: 5
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 71 — ramp-draw-budget-advisory
+**Current focus:** Phase 72 SHIPPED to main (manabase command-zone commander castability); next is Phase 73 (deck-analysis command-zone awareness)
 
 ## Branch reconciliation (resolved 2026-06-22; re-merged 2026-06-25)
 
@@ -31,11 +31,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 71 (ramp-draw-budget-advisory) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 71
-Cycle 11 status: code-complete (64,65,66,67,69 done; 68 dropped). Remaining before ship: Phase 66 operator UAT, then squash/ff cycle11→main.
-Last activity: 2026-06-27 -- Phase 71 execution started
+Phase: 72 (command-zone commander castability) — SHIPPED to origin/main 5a78ffc2 (FF, CI green)
+Plan: 7 of 7 complete
+Status: Phase 72 merged to main; Phase 71 also shipped earlier (a36b9f6c). Next: Phase 73 (deck-analysis command-zone awareness).
+Last activity: 2026-06-27 -- Phase 72 shipped to main
 
 ## Roadmap Summary
 
