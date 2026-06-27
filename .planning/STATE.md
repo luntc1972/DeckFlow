@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: Cycle 11
-milestone_name: — Security, Visibility Control & Creator-Lens
+milestone: Cycle 12
+milestone_name: — Manabase Accuracy, Command-Zone Awareness & Cross-Tool Persistence
 status: completed
-stopped_at: "Phase 73 Plan 04 IMPLEMENTATION EXECUTED (17eb642b + 532facfa) on `plan/phase-73-deck-analysis-command-zone` worktree — flag-gated companion designator on /deck-analysis Step 1, single CompanionName input, centralized 11-site controller flag plumbing, README/Help, Playwright smoke. Build 0/0; full Web suite 927/0/12; controller 14/14; format-gate clean. Task 3 blocking checkpoint:human-verify (operator cross-theme/mobile visual sign-off) PENDING — plan NOT fully complete."
-last_updated: "2026-06-27T22:00:56.729Z"
-last_activity: 2026-06-27 -- Phase 73 marked complete
+stopped_at: "Cycle 12 SHIPPED to main (2026.06.9) — phases 70-74 + flag-key namespacing. Phase 73 (deck-analysis command-zone awareness) fully complete: operator visual checkpoint APPROVED, Codex review APPROVE, verifier PASS 6/6, build 0/0, Web suite 929 pass. main fast-forwarded to c3e14b8e; tag 2026.06.9. New feature flags seeded OFF in prod; manual prod deploy owed (autodeploy OFF)."
+last_updated: "2026-06-27T22:30:00.000Z"
+last_activity: 2026-06-27 -- Cycle 12 shipped + tagged 2026.06.9
 progress:
   total_phases: 6
   completed_phases: 3
