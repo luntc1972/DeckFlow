@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models;
 using Xunit;
@@ -156,6 +157,21 @@ public sealed class ManabaseDisplayTests
         Assert.Equal(deficit, result.Deficit);
     }
 
+    [Theory]
+    [InlineData("KarstenSourceGloss", "need -3 means about 3 short")]
+    [InlineData("CastRateGloss", "Higher = smoother.")]
+    [InlineData("WeakestColorGloss", "first color to fix")]
+    [InlineData("DemandingCardsGloss", "hardest spells to cast on time")]
+    public void GlossConstants_AreNonEmpty_AndContainAnchorPhrase(string fieldName, string anchor)
+    {
+        string value = GetGloss(fieldName);
+
+        Assert.False(string.IsNullOrWhiteSpace(value));
+        Assert.Contains(anchor, value);
+        Assert.DoesNotContain('—', value);
+        Assert.DoesNotContain('–', value);
+    }
+
     private static ManabaseViewModel ViewModel(ManabaseMode mode, System.Collections.Generic.IReadOnlyList<CardCastability> rows) => new()
     {
         Report = new ManabaseReport
@@ -168,4 +184,11 @@ public sealed class ManabaseDisplayTests
             Summary = "ok",
         },
     };
+
+    private static string GetGloss(string fieldName)
+    {
+        FieldInfo field = typeof(ManabaseDisplay).GetField(fieldName, BindingFlags.Public | BindingFlags.Static)
+            ?? throw new Xunit.Sdk.XunitException($"ManabaseDisplay.{fieldName} field missing.");
+        return Assert.IsType<string>(field.GetValue(null));
+    }
 }
