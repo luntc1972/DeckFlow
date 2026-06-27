@@ -61,6 +61,15 @@ test('url mode restore keeps the correct input method across tools', async ({ pa
   await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
 });
 
+test('deck text prefills into deck primer from deck analysis', async ({ page }) => {
+  await page.goto('/deck-analysis');
+  await page.locator('select[name="DeckInputSource"]').selectOption('PasteText');
+  await page.locator('textarea[name="DeckText"]').fill(pastedDeck);
+
+  await page.goto('/deck-primer');
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue(pastedDeck);
+});
+
 test('postback keeps the server-echoed deck instead of overwriting it from sessionStorage', async ({ page }) => {
   await page.addInitScript(([storageKey, storedDeck]) => {
     window.sessionStorage.setItem(storageKey, JSON.stringify(storedDeck));
