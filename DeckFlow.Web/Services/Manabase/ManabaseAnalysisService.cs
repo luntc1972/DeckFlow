@@ -255,17 +255,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         if (commanderCastability && resolved.CompanionCard is not null)
         {
             ParsedManaCost printedCost = ManaCostParser.Parse(resolved.CompanionCard.ManaCost);
-            int printedManaValue = Math.Max(0, Math.Min(20, (int)Math.Round(resolved.CompanionCard.Cmc)));
-            var companionRequirement = new SpellRequirement
-            {
-                Name = resolved.CompanionCard.Name,
-                // HEURISTIC: companion access costs an extra 3 generic mana to move it to hand first.
-                ManaValue = printedManaValue + 3,
-                Pips = printedCost.Pips,
-                IsGold = printedCost.DistinctColors >= 2,
-                IsCommander = false,
-            };
-
+            SpellRequirement companionRequirement = ManabaseAnalyzer.BuildCompanionSpell(
+                resolved.CompanionCard.Name, printedCost, resolved.CompanionCard.Cmc);
             companionRow = ManabaseAnalyzer.SimulateCompanion(
                 resolved.Deck,
                 companionRequirement,

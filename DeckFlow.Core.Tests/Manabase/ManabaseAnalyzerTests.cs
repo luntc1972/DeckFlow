@@ -15,6 +15,50 @@ namespace DeckFlow.Core.Tests;
 public sealed class ManabaseAnalyzerTests
 {
     [Fact]
+    public void BuildCompanionSpell_AddsTaxAndPreservesPrintedMonoColorShape()
+    {
+        ParsedManaCost printedCost = ManaCostParser.Parse("{1}{U}");
+
+        SpellRequirement companion = ManabaseAnalyzer.BuildCompanionSpell("Gyruda, Doom of Depths", printedCost, 2);
+
+        Assert.Equal("Gyruda, Doom of Depths", companion.Name);
+        Assert.Equal(5, companion.ManaValue);
+        Assert.False(companion.IsGold);
+        Assert.False(companion.IsCommander);
+        Assert.Equal(printedCost.Pips, companion.Pips);
+    }
+
+    [Fact]
+    public void BuildCompanionSpell_TwoColorPrintedCost_IsGold()
+    {
+        ParsedManaCost printedCost = ManaCostParser.Parse("{W}{U}");
+
+        SpellRequirement companion = ManabaseAnalyzer.BuildCompanionSpell("Yorion, Sky Nomad", printedCost, 2);
+
+        Assert.True(companion.IsGold);
+    }
+
+    [Fact]
+    public void BuildCompanionSpell_ClampsAdversarialPrintedManaValueBeforeTax()
+    {
+        ParsedManaCost printedCost = ManaCostParser.Parse("{5}{B}");
+
+        SpellRequirement companion = ManabaseAnalyzer.BuildCompanionSpell("Jegantha, the Wellspring", printedCost, 25);
+
+        Assert.Equal(23, companion.ManaValue);
+    }
+
+    [Fact]
+    public void BuildCompanionSpell_ZeroPrintedManaValue_StillPaysTax()
+    {
+        ParsedManaCost printedCost = ManaCostParser.Parse("{G}");
+
+        SpellRequirement companion = ManabaseAnalyzer.BuildCompanionSpell("Kaheera, the Orphanguard", printedCost, 0);
+
+        Assert.Equal(3, companion.ManaValue);
+    }
+
+    [Fact]
     public void Hypergeometric_AtLeast_MatchesKnownTwoLandKeepProbability()
     {
         // 7-card opener from a 60-card deck with 24 lands, P(>= 2 lands) ≈ 0.84.
