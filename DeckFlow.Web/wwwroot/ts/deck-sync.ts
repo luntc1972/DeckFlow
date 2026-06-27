@@ -2749,6 +2749,15 @@ const scrollToOnLoadTarget = (): void => {
   });
 };
 
+const hasRenderedResultOnLoad = (): boolean => {
+  if (document.querySelector('.result-panel[data-scroll-on-load]')) {
+    return true;
+  }
+
+  return Array.from(document.querySelectorAll<HTMLHeadingElement>('.result-panel h2'))
+    .some(heading => (heading.textContent ?? '').includes('Result'));
+};
+
 let deckSyncBootstrapped = false;
 
 const bootstrapDeckSync = (): void => {
@@ -2759,6 +2768,9 @@ const bootstrapDeckSync = (): void => {
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
   registerBusyIndicator();
+  if (hasRenderedResultOnLoad()) {
+    hideBusyIndicator();
+  }
   scrollToOnLoadTarget();
   registerChatGptDownloadHandler();
   attachActionButtons();
