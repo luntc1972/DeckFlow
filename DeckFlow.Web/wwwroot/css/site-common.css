@@ -2355,6 +2355,21 @@ label.field > span,
   margin-top: 0.5rem;
 }
 
+/* Deck-analysis companion designator: a collapsible block under the Step 1 deck input,
+   parity with .manabase-overrides. Gated on the analysis.command-zone-awareness flag. */
+.deck-analysis-overrides {
+  margin: 0.5rem 0 0.25rem;
+}
+
+.deck-analysis-overrides > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.deck-analysis-overrides .field {
+  margin-top: 0.5rem;
+}
+
 /* The "*" marker on a castability row whose cost was overridden. */
 .manabase-override-mark {
   color: var(--accent, #3858a6);
