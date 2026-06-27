@@ -16,7 +16,18 @@
     }
     else
     {
-        <table class="admin-table admin-table--card">
+        <div class="flag-filter">
+            <label for="flag-filter-search">Filter by key prefix, e.g. tool.</label>
+            <input id="flag-filter-search" type="search" autocomplete="off" placeholder="Filter by key prefix, e.g. tool." aria-controls="flag-table" />
+            <div class="flag-filter__chips" role="group" aria-label="Namespace filter">
+                <button type="button" class="flag-filter__chip is-active" data-flag-prefix="" aria-pressed="true">All</button>
+                <button type="button" class="flag-filter__chip" data-flag-prefix="tool." aria-pressed="false">tool.</button>
+                <button type="button" class="flag-filter__chip" data-flag-prefix="service." aria-pressed="false">service.</button>
+                <button type="button" class="flag-filter__chip" data-flag-prefix="analysis." aria-pressed="false">analysis.</button>
+            </div>
+            <p class="flag-filter__count" id="flag-filter-count" role="status" aria-live="polite"></p>
+        </div>
+        <table id="flag-table" class="admin-table admin-table--card">
             <caption class="sr-only">Tool flags and their current on/off status</caption>
             <thead>
                 <tr>
@@ -29,7 +40,7 @@
             <tbody>
                 @foreach (var flag in Model.Flags)
                 {
-                    <tr>
+                    <tr data-flag-key="@flag.Key">
                         <td data-label="Key"><code>@flag.Key</code></td>
                         <td data-label="What it does" class="admin-flags__desc">@(string.IsNullOrEmpty(flag.Description) ? "—" : flag.Description)</td>
                         <td data-label="Status">@(flag.Enabled ? "On" : "Off")</td>
@@ -42,7 +53,15 @@
                         </td>
                     </tr>
                 }
+                <tr class="flag-filter__empty-row hidden" id="flag-filter-empty">
+                    <td colspan="4">No flags match the current filter.</td>
+                </tr>
             </tbody>
         </table>
     }
 </section>
+
+@section Scripts {
+    <script src="~/js/flag-filter.js" asp-append-version="true"></script>
+    <script src="~/js/admin-flags.js" asp-append-version="true"></script>
+}
