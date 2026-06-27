@@ -65,6 +65,7 @@ created: 2026-06-27
 | G-03 | Visible table average excludes commanders | 72-06 | e2e | same | ⬜ pending |
 | G-04 | Companion row shown in callout with +3 tax note | 72-06 | e2e | same | ⬜ pending |
 | F-pin | Ramp/draw threshold proxy = max command-zone MV (Phase 71/72 agree) | 72-04 | unit | budget calculator test | ⬜ pending |
+| BETA-01 | Always-on "analysis in beta" disclaimer renders on manabase results (flag-independent) | 72-06 | e2e/manual | `grep -n "manabase-beta-notice" DeckFlow.Web/Views/Deck/Manabase.cshtml` + cross-theme visual checkpoint | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
