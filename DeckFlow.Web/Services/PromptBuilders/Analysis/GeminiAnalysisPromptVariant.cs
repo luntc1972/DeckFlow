@@ -32,7 +32,8 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         IReadOnlyList<string> selectedQuestionIds,
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
-        bool includeCardVersions)
+        bool includeCardVersions,
+        string? companionName = null)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardNames, request.BudgetUpgradeAmount);

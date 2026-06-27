@@ -23,6 +23,7 @@ internal interface IAnalysisPromptVariant
     /// <param name="bannedCards">Official banned-card names.</param>
     /// <param name="comboResult">Optional Commander Spellbook combo result.</param>
     /// <param name="includeCardVersions">Whether to preserve specific card printings in outputs.</param>
+    /// <param name="companionName">Companion name carried as command-zone side metadata; null when the awareness flag is off.</param>
     string Build(
         DeckAnalysisRequest request,
         string decklistText,
@@ -32,5 +33,6 @@ internal interface IAnalysisPromptVariant
         IReadOnlyList<string> selectedQuestionIds,
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
-        bool includeCardVersions);
+        bool includeCardVersions,
+        string? companionName = null);
 }

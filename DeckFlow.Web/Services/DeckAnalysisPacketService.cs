@@ -1120,13 +1120,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null)
     {
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
             commanderName, selectedQuestionIds, bannedCards,
-            comboResult, includeCardVersions);
+            comboResult, includeCardVersions, companionName);
     }
 
 

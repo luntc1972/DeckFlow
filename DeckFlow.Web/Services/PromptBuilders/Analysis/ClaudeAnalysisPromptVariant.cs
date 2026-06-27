@@ -31,7 +31,8 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         IReadOnlyList<string> selectedQuestionIds,
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
-        bool includeCardVersions)
+        bool includeCardVersions,
+        string? companionName = null)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(
