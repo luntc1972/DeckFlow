@@ -44,6 +44,12 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the plain-language glossary/verdict affordances.</summary>
     public bool ShowPlainLanguage { get; init; }
 
+    /// <summary>Whether the UI should surface the command-zone castability affordances.</summary>
+    public bool ShowCommanderCastability { get; init; }
+
+    /// <summary>Optional companion castability row surfaced outside the 99 table.</summary>
+    public CardCastability? CompanionCallout { get; init; }
+
     /// <summary>The detected suggestions rendered as override-box lines (<c>Name: cost</c>).</summary>
     public string SuggestedOverridesText =>
         string.Join("\n", Suggestions.Select(s => $"{s.Name}: {s.EffectiveCost}"));

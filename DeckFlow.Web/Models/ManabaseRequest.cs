@@ -11,6 +11,7 @@ public sealed class ManabaseRequest
     private string _deckUrl = string.Empty;
     private string _deckText = string.Empty;
     private string _deckName = string.Empty;
+    private string _companionName = string.Empty;
     private string _costOverridesText = string.Empty;
 
     /// <summary>Selects whether the deck is supplied via a public URL or pasted export text.</summary>
@@ -48,6 +49,13 @@ public sealed class ManabaseRequest
     {
         get => _deckName;
         set => _deckName = value ?? string.Empty;
+    }
+
+    /// <summary>Optional manual companion designator; blank is fine.</summary>
+    public string CompanionName
+    {
+        get => _companionName;
+        set => _companionName = value ?? string.Empty;
     }
 
     /// <summary>
