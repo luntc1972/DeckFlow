@@ -159,7 +159,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// Phase-71 flag key: when enabled, Casual mode computes a deterministic plain-language verdict
     /// plus ramp/draw budget advisory; cEDH uses the same gate for UI glosses only. Seeded OFF.
     /// </summary>
-    public const string PlainLanguageVerdictFlagKey = "manabase.plain-language-verdict";
+    public const string PlainLanguageVerdictFlagKey = "analysis.manabase.plain-language-verdict";
 
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
