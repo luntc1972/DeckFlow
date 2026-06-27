@@ -17,6 +17,7 @@ public sealed class PacketArtifactStorePrimerTests
         {
             TargetCommanderBracket = "cEDH",
             TargetAiPlatform = "ChatGPT",
+            PrimerStyle = PrimerOutputStyle.MoxfieldRich,
             SelectedSectionIds = ["core-identity", "mulligan", "matchups"]
         };
 
@@ -31,6 +32,7 @@ public sealed class PacketArtifactStorePrimerTests
             commander: Kinnan, Bonder Prodigy
             target_commander_bracket: cEDH
             target_ai_platform: ChatGPT
+            primer_style: MoxfieldRich
             selected_section_ids:
             - core-identity
             - mulligan
@@ -50,6 +52,7 @@ public sealed class PacketArtifactStorePrimerTests
 
         Assert.Equal("cEDH", loaded.TargetCommanderBracket);
         Assert.Equal("ChatGPT", loaded.TargetAiPlatform);
+        Assert.Equal(PrimerOutputStyle.MoxfieldRich, loaded.PrimerStyle);
         Assert.Equal(["core-identity", "mulligan", "matchups"], loaded.SelectedSectionIds);
     }
 

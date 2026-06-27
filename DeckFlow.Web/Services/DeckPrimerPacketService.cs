@@ -196,14 +196,16 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             return null;
         }
 
-        var selectedSectionIds = PrimerSectionCatalog.NormalizeSelections(
-            request.SelectedSectionIds,
-            request.TargetCommanderBracket);
+        var primerOptions = NormalizePrimerOptions(request);
+        request.PrimerStyle = primerOptions.EffectiveStyle;
+
+        var selectedSectionIds = primerOptions.SelectedSectionIds;
 
         var inputs = new PrimerCacheInputs(
             Commander: commanderName,
             NormalizedDeckSource: BuildCanonicalDeckSourceText(entries),
             TargetBracket: NormalizeSingleLine(request.TargetCommanderBracket, string.Empty),
+            PrimerStyle: request.PrimerStyle,
             SelectedSectionIds: selectedSectionIds,
             GeminiEnabled: _aiPlatformOptions.GeminiEnabled);
 
@@ -238,9 +240,10 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             .First(item => string.Equals(item.Option.Value, bracket.Value, StringComparison.OrdinalIgnoreCase))
             .Number;
 
-        var selectedSectionIds = PrimerSectionCatalog.NormalizeSelections(
-            request.SelectedSectionIds,
-            request.TargetCommanderBracket);
+        var primerOptions = NormalizePrimerOptions(request);
+        request.PrimerStyle = primerOptions.EffectiveStyle;
+
+        var selectedSectionIds = primerOptions.SelectedSectionIds;
         var selectedSections = PrimerSectionCatalog.AllSections
             .Where(section => selectedSectionIds.Contains(section.Id, StringComparer.OrdinalIgnoreCase))
             .ToList();
@@ -656,6 +659,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");
         builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
         builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, AiPlatform.Default.Key)}");
+        builder.AppendLine($"primer_style: {request.PrimerStyle}");
         builder.AppendLine("selected_section_ids:");
         foreach (var sectionId in selectedSectionIds)
         {
@@ -665,6 +669,22 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         builder.AppendLine("deck_source:");
         builder.AppendLine(request.DeckSource.Trim());
         return builder.ToString().TrimEnd();
+    }
+
+    private static PrimerPromptOptions NormalizePrimerOptions(DeckPrimerRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
+        var isCedh = CommanderBracketCatalog.IsCedh(request.TargetCommanderBracket);
+        var effectiveStyle = request.PrimerStyle == PrimerOutputStyle.FullCedh && !isCedh
+            ? PrimerOutputStyle.MoxfieldRich
+            : request.PrimerStyle;
+        var selectedSectionIds = effectiveStyle == PrimerOutputStyle.FullCedh && isCedh
+            ? PrimerSectionCatalog.GetPresetForBracket(bracket!.Value)
+            : PrimerSectionCatalog.NormalizeSelections(request.SelectedSectionIds, request.TargetCommanderBracket);
+
+        return new PrimerPromptOptions(effectiveStyle, selectedSectionIds);
     }
 
     private static string BuildTimingSummary(IReadOnlyList<(string Label, long Ms, string? Detail)> timings, long totalMs)
@@ -720,5 +740,10 @@ internal sealed record PrimerCacheInputs(
     string Commander,
     string NormalizedDeckSource,
     string TargetBracket,
+    PrimerOutputStyle PrimerStyle,
     IReadOnlyList<string> SelectedSectionIds,
     bool GeminiEnabled);
+
+internal sealed record PrimerPromptOptions(
+    PrimerOutputStyle EffectiveStyle,
+    IReadOnlyList<string> SelectedSectionIds);

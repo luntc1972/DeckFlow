@@ -156,6 +156,74 @@ public sealed class DeckPrimerPacketServiceTests
     }
 
     [Fact]
+    public async Task FullCedhStyle_AtCedhBracket_ForcesCedhPresetSections_AndPreservesStyle()
+    {
+        var service = CreateService();
+        var request = CreateRequest("cEDH");
+        request.PrimerStyle = PrimerOutputStyle.FullCedh;
+        request.SelectedSectionIds =
+        [
+            "commander-identity",
+            "mulligan-principles"
+        ];
+        var secondRequest = CreateRequest("cEDH");
+        secondRequest.PrimerStyle = PrimerOutputStyle.FullCedh;
+        secondRequest.SelectedSectionIds =
+        [
+            "verified-combos",
+            "upgrade-paths"
+        ];
+
+        var cacheKey = await service.TryComputeCacheKeyAsync(request, CancellationToken.None);
+        var secondCacheKey = await service.TryComputeCacheKeyAsync(secondRequest, CancellationToken.None);
+        var result = await service.BuildAsync(request);
+        var prompt = result.PromptTextsByPlatform["ChatGPT"];
+        var expectedSections = PrimerSectionCatalog.GetPresetForBracket("cEDH");
+
+        Assert.NotNull(cacheKey);
+        Assert.Equal(cacheKey, secondCacheKey);
+        Assert.Contains("STYLE: FullCedh", prompt);
+        Assert.Contains("primer_style: FullCedh", result.RequestContextText);
+        Assert.Contains("cedh-meta-macro-matchups", prompt);
+        Assert.Contains("stack-wars-and-fast-mana", prompt);
+        Assert.DoesNotContain("battlecruiser-politics-and-social-pacing", prompt);
+        Assert.Equal(expectedSections.Count, CountSectionsFromPrompt(prompt));
+        Assert.Contains($"SECTIONS: {string.Join(", ", expectedSections)}", prompt);
+    }
+
+    [Fact]
+    public async Task FullCedhStyle_OutsideCedhBracket_FallsBackToMoxfieldRich_WithoutForcedSections()
+    {
+        var service = CreateService();
+        var request = CreateRequest("Optimized");
+        request.PrimerStyle = PrimerOutputStyle.FullCedh;
+        request.SelectedSectionIds =
+        [
+            "verified-combos",
+            "budget-cut-ladder"
+        ];
+        var secondRequest = CreateRequest("Optimized");
+        secondRequest.PrimerStyle = PrimerOutputStyle.FullCedh;
+        secondRequest.SelectedSectionIds =
+        [
+            "verified-combos"
+        ];
+
+        var cacheKey = await service.TryComputeCacheKeyAsync(request, CancellationToken.None);
+        var secondCacheKey = await service.TryComputeCacheKeyAsync(secondRequest, CancellationToken.None);
+        var result = await service.BuildAsync(request);
+        var prompt = result.PromptTextsByPlatform["ChatGPT"];
+
+        Assert.NotNull(cacheKey);
+        Assert.NotEqual(cacheKey, secondCacheKey);
+        Assert.Contains("STYLE: MoxfieldRich", prompt);
+        Assert.Contains("primer_style: MoxfieldRich", result.RequestContextText);
+        Assert.Contains("SECTIONS: verified-combos, budget-cut-ladder", prompt);
+        Assert.DoesNotContain("cedh-meta-macro-matchups", prompt);
+        Assert.DoesNotContain("stack-wars-and-fast-mana", prompt);
+    }
+
+    [Fact]
     public void RankingBranch_FallbackEmitsApiOrderInstruction()
     {
         var text = DeckPrimerPacketService.BuildComboReferenceText(
@@ -322,6 +390,7 @@ public sealed class DeckPrimerPacketServiceTests
             var builder = new System.Text.StringBuilder();
             builder.AppendLine($"PLATFORM: {Platform.Key}");
             builder.AppendLine($"BRACKET: {bracketNumber}");
+            builder.AppendLine($"STYLE: {request.PrimerStyle}");
             builder.AppendLine($"SECTIONS: {string.Join(", ", selectedSections.Select(section => section.Id))}");
             builder.AppendLine(DeckPrimerPacketService.BuildComboReferenceText(comboResult, "sufficient"));
             builder.AppendLine(top16Entries is null || top16Entries.Count == 0
@@ -334,5 +403,14 @@ public sealed class DeckPrimerPacketServiceTests
 
             return builder.ToString().TrimEnd();
         }
+    }
+
+    private static int CountSectionsFromPrompt(string prompt)
+    {
+        const string prefix = "SECTIONS: ";
+        var line = prompt.Split('\n').First(text => text.StartsWith(prefix, StringComparison.Ordinal));
+        return line[prefix.Length..]
+            .Split(", ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Length;
     }
 }

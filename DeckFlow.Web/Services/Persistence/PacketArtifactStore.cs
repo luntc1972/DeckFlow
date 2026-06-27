@@ -594,6 +594,7 @@ internal static class PacketArtifactStore
         var selectedSectionIds = new List<string>();
         string? targetCommanderBracket = null;
         string? targetAiPlatform = null;
+        PrimerOutputStyle? primerStyle = null;
 
         for (var i = 0; i < lines.Length; i++)
         {
@@ -607,6 +608,17 @@ internal static class PacketArtifactStore
             if (line.StartsWith("target_ai_platform:", StringComparison.Ordinal))
             {
                 targetAiPlatform = line["target_ai_platform:".Length..].Trim();
+                continue;
+            }
+
+            if (line.StartsWith("primer_style:", StringComparison.Ordinal))
+            {
+                var primerStyleText = line["primer_style:".Length..].Trim();
+                if (Enum.TryParse<PrimerOutputStyle>(primerStyleText, ignoreCase: true, out var parsedPrimerStyle))
+                {
+                    primerStyle = parsedPrimerStyle;
+                }
+
                 continue;
             }
 
@@ -638,6 +650,11 @@ internal static class PacketArtifactStore
         if (!string.IsNullOrWhiteSpace(targetAiPlatform))
         {
             request.TargetAiPlatform = AiPlatform.Normalize(targetAiPlatform).Key;
+        }
+
+        if (primerStyle.HasValue)
+        {
+            request.PrimerStyle = primerStyle.Value;
         }
 
         if (selectedSectionIds.Count > 0)

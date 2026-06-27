@@ -30,6 +30,7 @@ Configure the primer:
 |---|---|
 | **AI platform** | ChatGPT, Claude, or Gemini. This selects which prompt variant Step 3 shows — the wording is tuned per platform. |
 | **Target Commander Bracket** | Exhibition, Core, Upgraded, Optimized (default), or cEDH. The bracket controls which sections are available and which matchup/meta context is pulled in. |
+| **Primer style** | **Standard** (clean, paste-anywhere markdown) or **Moxfield-style rich** (adds a clickable table of contents, callout boxes, collapsible combo lines, matchup tables, and ASCII/markdown visuals for pasting into a Moxfield description). At the **cEDH** bracket a third option, **Full cEDH primer**, appears: it uses the rich formatting, forces full cEDH section coverage, and asks for extra competitive depth (fast-mana lines, operating under stax, free-interaction counts, win-by-turn windows, and named-archetype matchups). |
 | **Primer sections** | The parts of the primer you want the AI to write. |
 
 Sections are grouped into five collapsible groups — **Identity**, **Combos**, **Gameplay**, **Matchups**, and **Maintenance** — with checkboxes for each section and a running "selected" count per group. Each section has a short "What this adds" note describing what good AI output for that part looks like.
@@ -51,7 +52,7 @@ Step 3 shows three things:
 - **Deck summary** — mainboard/maybeboard/sideboard counts, commander, bracket and format, and the ramp/draw/tutor/interaction breakdown when it could be grounded.
 - **Primer prompt** — the prompt to paste into your AI, with a copy button and an approximate size (for example `~2.5 KB`). If the prompt is large enough to risk exceeding the platform's paste limit, a caution appears suggesting you trim sections or paste in parts.
 
-Copy the prompt, paste it into ChatGPT, Claude, or Gemini, and the AI returns the finished primer inside a single fenced `markdown` block, with sections in the order you selected.
+Copy the prompt, paste it into ChatGPT, Claude, or Gemini, and the AI returns the finished primer inside a single fenced `markdown` block, with sections in the order you selected. With **Moxfield-style rich** or **Full cEDH primer** selected, the prompt also asks for a table of contents, callout boxes, collapsible combo lines, tables, and ASCII/markdown visuals.
 
 ## Saving and resuming a session
 

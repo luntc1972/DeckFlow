@@ -9,6 +9,25 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckPrimerRequestTests
 {
     [Fact]
+    public void PrimerStyle_DefaultsToStandard()
+    {
+        var request = new DeckPrimerRequest();
+
+        Assert.Equal(PrimerOutputStyle.Standard, request.PrimerStyle);
+    }
+
+    [Fact]
+    public void PrimerStyle_RoundTripsWhenSet()
+    {
+        var request = new DeckPrimerRequest
+        {
+            PrimerStyle = PrimerOutputStyle.MoxfieldRich
+        };
+
+        Assert.Equal(PrimerOutputStyle.MoxfieldRich, request.PrimerStyle);
+    }
+
+    [Fact]
     public void TargetAiPlatform_Setter_NormalizesUnknownToDefault()
     {
         var request = new DeckPrimerRequest
