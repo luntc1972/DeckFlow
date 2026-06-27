@@ -171,6 +171,7 @@
             IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
                 ? report.Castability.Where(c => !c.IsCommander).ToList()
                 : report.Castability;
+            var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
             var showRightLens = Model.ShowCastability && castRows.Count > 0;
             var showLeftLens = report.ColorFindings.Count > 0;
         }
@@ -297,11 +298,11 @@
             </section>
         }
 
-        @if (Model.ShowCommanderCastability && Model.ShowCastability && report.Castability.Any(c => c.IsCommander))
+        @if (Model.ShowCommanderCastability && Model.ShowCastability && commanderRows.Count > 0)
         {
             <section class="manabase-cmd-castability" aria-label="Command-zone castability">
                 <p class="manabase-verdict-heading">Command-zone castability</p>
-                @foreach (var c in report.Castability.Where(c => c.IsCommander))
+                @foreach (var c in commanderRows)
                 {
                     <p class="manabase-cmd-castability-line">
                         <span class="manabase-cmd-glyph" title="commander" aria-label="commander">★</span>
