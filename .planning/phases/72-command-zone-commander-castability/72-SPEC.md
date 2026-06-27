@@ -129,7 +129,13 @@ Phase 71 ramp/draw threshold to be right.
 - Mirror a concise version into the manabase prompt artifact
   (`ManabaseSwapPromptBuilder`) — the commander cast line(s) help the LLM.
 
-### E. Deck-analysis prompt command-zone awareness (second surface)
+### E. Deck-analysis prompt command-zone awareness (second surface) — ⛔ MOVED TO PHASE 73 (2026-06-27)
+> **Out of scope for Phase 72.** Per user decision 2026-06-27, Section E is carved out into a
+> dedicated **Phase 73 (Deck-Analysis Command-Zone Awareness)** so the `DeckAnalysisPacketService`
+> plumbing + 3-variant edits ship independently of the manabase callout. Phase 72 planner: IGNORE
+> §E — do not plan deck-analysis work. Phase 73 depends on Phase 72's command-zone detection +
+> companion side-metadata. The text below is retained as the Phase 73 scope source.
+
 - The deck-analysis page (`/deck-analysis`) is prompt-artifact-centric. Reuse the
   Phase 72 command-zone detection so the generated analysis prompt correctly states
   the command zone: name the commander(s) (partner pair), the Background, and the
@@ -218,10 +224,10 @@ Phase 71 ramp/draw threshold to be right.
   worst-of headline); live Playwright callout screenshots Casual desktop+mobile
   × 2 themes; build clean.
 - README + `Help/manabase.md` updated.
-- Deck-analysis: flag ON → all three analysis prompt variants (ChatGpt/Claude/
-  Gemini) state the command zone (commander(s)/partner, Background, companion);
-  flag OFF → all three byte-identical. Tests cover each variant + a
-  partner/background/companion fixture.
+- Deck-analysis AWARENESS (§E) → ⛔ moved to **Phase 73**, not a Phase 72 done-criterion.
+  Phase 72 must still keep deck-analysis byte-identical (companion side-metadata is INERT to
+  `DeckAnalysisPacketService` whether the manabase flag is OFF or ON) — guarded by the §G
+  flag-OFF + flag-ON deck-analysis byte-identity regression test.
 
 ---
 
