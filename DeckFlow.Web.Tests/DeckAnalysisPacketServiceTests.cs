@@ -1,10 +1,17 @@
 using System.Net;
 using System.IO;
+using System.Text;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
+using DeckFlow.Web.Services.Scryfall;
+using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Xunit;
 
@@ -840,6 +847,68 @@ Commander
         Assert.Contains("Commander cards: 1", summary);
     }
 
+    [Fact]
+    public async Task BuildAsync_DoesNotLeakCompanionDeckContent_WhenImportCarriesDetectedCompanionMetadata()
+    {
+        var baselineEntries = CreateCompanionFixtureEntries(includeBackgroundCommander: false);
+        var companionImporter = new FakeMoxfieldDeckImporter(
+            entries: baselineEntries,
+            detectedCompanionName: "Jegantha, the Wellspring");
+        var baselineImporter = new FakeMoxfieldDeckImporter(entries: baselineEntries);
+
+        var companionService = CreateService(moxfieldDeckImporter: companionImporter);
+        var baselineService = CreateService(moxfieldDeckImporter: baselineImporter);
+
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-companion",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var companionResult = await companionService.BuildAsync(request);
+        var baselineResult = await baselineService.BuildAsync(request);
+        var companionPacketText = FlattenPacketText(companionResult);
+
+        Assert.DoesNotContain("Jegantha, the Wellspring", companionPacketText);
+        Assert.Equal(PacketBytes(baselineResult), PacketBytes(companionResult));
+    }
+
+    [Fact]
+    public async Task BuildAsync_IsByteIdentical_WhenCommanderCastabilityFlagTogglesForCompanionBackgroundDeck()
+    {
+        var importer = new FakeMoxfieldDeckImporter(
+            entries: CreateCompanionFixtureEntries(includeBackgroundCommander: true),
+            detectedCompanionName: "Jegantha, the Wellspring");
+        var flagOff = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["manabase.commander-castability"] = false
+        });
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["manabase.commander-castability"] = true
+        });
+
+        var serviceFlagOff = CreateService(moxfieldDeckImporter: importer, flagCache: flagOff);
+        var serviceFlagOn = CreateService(moxfieldDeckImporter: importer, flagCache: flagOn);
+
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-companion-background",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var offResult = await serviceFlagOff.BuildAsync(request);
+        var onResult = await serviceFlagOn.BuildAsync(request);
+
+        Assert.Equal(PacketBytes(offResult), PacketBytes(onResult));
+    }
+
     /// <summary>
     /// When the first two leading entries are both 1-of, both are treated as partner commanders.
     /// </summary>
@@ -1349,23 +1418,103 @@ Commander
     }
 
     private static DeckAnalysisPacketService CreateService(
+        IMoxfieldDeckImporter? moxfieldDeckImporter = null,
+        IFeatureFlagCache? flagCache = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
     {
-        return TestServiceFactory.CreateDeckAnalysisPacketService(
-            new FakeMoxfieldDeckImporter(),
-            new FakeArchidektDeckImporter(),
-            new MoxfieldParser(),
-            new ArchidektParser(),
+        return new DeckAnalysisPacketService(
+            new ScryfallCardResolver(
+                new FakeScryfallRestClientFactory(new HttpClient
+                {
+                    BaseAddress = new Uri("https://api.scryfall.com/")
+                }),
+                new FakeResiliencePipelineProvider(),
+                executeCollectionAsyncOverride: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
+                executeSearchAsyncOverride: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
+                executeNamedAsyncOverride: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request)))),
+            new DeckEntryLoader(
+                moxfieldDeckImporter ?? new FakeMoxfieldDeckImporter(),
+                new FakeArchidektDeckImporter(),
+                new MoxfieldParser(),
+                new ArchidektParser()),
             new FakeMechanicLookupService(),
             new FakeCommanderBanListService(),
             new FakeScryfallSetService(),
             new FakeCommanderSpellbookService(),
-            executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
-            executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
-            executeNamedAsync: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))));
+            new AnalysisPromptVariantRegistry(new IAnalysisPromptVariant[]
+            {
+                new ChatGptAnalysisPromptVariant(),
+                new ClaudeAnalysisPromptVariant(),
+                new GeminiAnalysisPromptVariant(),
+            }),
+            new SetUpgradePromptVariantRegistry(new ISetUpgradePromptVariant[]
+            {
+                new ChatGptSetUpgradePromptVariant(),
+                new ClaudeSetUpgradePromptVariant(),
+                new GeminiSetUpgradePromptVariant(),
+            }),
+            new PacketSessionCache(),
+            flagCache,
+            NullLogger<DeckAnalysisPacketService>.Instance);
     }
+
+    private static List<DeckEntry> CreateCompanionFixtureEntries(bool includeBackgroundCommander)
+    {
+        var entries = new List<DeckEntry>
+        {
+            CreateDeckEntry("Kraum, Ludevic's Opus", 1, "commander", "c16", "39"),
+            CreateDeckEntry("Command Tower", 1, "mainboard", "c16", "285"),
+            CreateDeckEntry("Arcane Signet", 1, "mainboard", "eld", "331"),
+            CreateDeckEntry("Ponder", 1, "mainboard", "c21", "118"),
+            CreateDeckEntry("Sol Ring", 1, "mainboard", "c16", "272"),
+        };
+
+        if (includeBackgroundCommander)
+        {
+            entries.Insert(1, CreateDeckEntry("Passionate Archaeologist", 1, "commander", "clb", "189"));
+        }
+
+        return entries;
+    }
+
+    private static DeckEntry CreateDeckEntry(
+        string name,
+        int quantity,
+        string board,
+        string? setCode,
+        string? collectorNumber,
+        string? category = null)
+        => new()
+        {
+            Name = name,
+            NormalizedName = name.ToLowerInvariant(),
+            Quantity = quantity,
+            Board = board,
+            SetCode = setCode,
+            CollectorNumber = collectorNumber,
+            Category = category
+        };
+
+    private static string FlattenPacketText(DeckAnalysisPacketResult result)
+        => string.Join(
+            "\n",
+            new[]
+            {
+                result.InputSummary,
+                result.ReferenceText,
+                result.AnalysisPromptText,
+                result.SetUpgradePromptText,
+                result.RequestContextText,
+                result.DeckProfileSchemaJson,
+                result.TimingSummary,
+                result.SuggestedChatTitle,
+                result.ResolvedCommanderName
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static byte[] PacketBytes(DeckAnalysisPacketResult result)
+        => Encoding.UTF8.GetBytes(FlattenPacketText(result));
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(RestRequest request)
     {
@@ -1426,9 +1575,13 @@ Commander
     [
         new("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, null, [], null, null, null),
         new("Arcane Signet", "{2}", "Artifact", "{T}: Add one mana of any color in your commander's color identity.", null, null, null, [], null, null, null),
+        new("Command Tower", null, "Land", "{T}: Add one mana of any color in your commander's color identity.", null, null, [], [], null, null, null),
+        new("Ponder", "{U}", "Sorcery", "Look at the top three cards of your library, then put them back in any order. You may shuffle. Draw a card.", null, null, [], ["U"], null, null, null),
         new("Swords to Plowshares", "{W}", "Instant", "Exile target creature. Its controller gains life equal to its power.", null, null, null, ["W"], null, null, null),
         new("Smothering Tithe", "{3}{W}", "Enchantment", "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token.", null, null, ["Treasure"], ["W"], null, null, null),
         new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], ["G", "W", "U", "B"], null, null, null),
+        new("Kraum, Ludevic's Opus", "{3}{U}{R}", "Legendary Creature — Zombie Horror", "Flying, haste\nWhenever an opponent casts their second spell each turn, draw a card.", "4", "4", ["Flying", "Haste"], ["U", "R"], "c16", "Commander 2016", "39"),
+        new("Passionate Archaeologist", "{2}{R}", "Legendary Enchantment — Background", "Commander creatures you own have \"Whenever you cast a spell from exile, this creature deals damage equal to that spell's mana value to target opponent.\"", null, null, ["Background"], ["R"], "clb", "Commander Legends: Battle for Baldur's Gate", "189"),
         new("Tymna the Weaver", "{1}{W}{B}", "Legendary Creature — Human Cleric", "Lifelink\nAt the beginning of your postcombat main phase, you may pay X life, where X is the number of opponents that were dealt combat damage this turn. If you do, draw X cards.", "2", "2", ["Lifelink"], ["W", "B"], null, null, null),
         new("Thrasios, Triton Hero", "{G/U}", "Legendary Creature — Merfolk Wizard", "{4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.", "1", "3", [], ["G", "U"], null, null, null),
         new("Tannuk, Memorial Ensign", "{3}{G}{W}", "Legendary Creature — Human Scout", "Vigilance\nWhenever one or more cards leave your graveyard during your turn, create a 2/2 white and black Soldier creature token. This ability triggers only once each turn.", "3", "4", ["Vigilance"], ["G", "W"], null, null, null),
@@ -1466,8 +1619,26 @@ Commander
 
     private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
     {
+        private readonly List<DeckEntry> _entries;
+        private readonly string? _detectedCompanionName;
+
+        public FakeMoxfieldDeckImporter(List<DeckEntry>? entries = null, string? detectedCompanionName = null)
+        {
+            _entries = entries ?? [];
+            _detectedCompanionName = detectedCompanionName;
+        }
+
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new List<DeckEntry>());
+            => Task.FromResult(_entries.Select(CloneEntry).ToList());
+
+        public Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new MoxfieldImportResult(
+                ImportAsync(urlOrDeckId, cancellationToken).GetAwaiter().GetResult(),
+                MoxfieldImportSource.Direct,
+                DetectedCompanionName: _detectedCompanionName));
+
+        private static DeckEntry CloneEntry(DeckEntry entry)
+            => CreateDeckEntry(entry.Name, entry.Quantity, entry.Board, entry.SetCode, entry.CollectorNumber, entry.Category);
     }
 
     private sealed class FakeArchidektDeckImporter : IArchidektDeckImporter
