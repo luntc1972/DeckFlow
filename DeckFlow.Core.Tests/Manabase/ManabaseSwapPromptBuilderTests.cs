@@ -55,6 +55,12 @@ public sealed class ManabaseSwapPromptBuilderTests
                 DrivingSpell = "Swords to Plowshares",
             },
         },
+        Castability = new List<CardCastability>
+        {
+            new() { Name = "Isshin, Two Heavens as One", ManaValue = 3, OnCurveTurn = 3, CastPercent = 78, LimitingFactor = "color:White", IsCommander = true },
+            new() { Name = "Akiri, Line-Slinger", ManaValue = 2, OnCurveTurn = 2, CastPercent = 92, LimitingFactor = "mana", IsCommander = true },
+            new() { Name = "Swords to Plowshares", ManaValue = 1, OnCurveTurn = 1, CastPercent = 97, LimitingFactor = "mana" },
+        },
     };
 
     [Fact]
@@ -107,6 +113,32 @@ public sealed class ManabaseSwapPromptBuilderTests
     }
 
     [Fact]
+    public void Build_DefaultCommandZoneParameters_KeepPromptByteIdentical()
+    {
+        ManabaseReport report = ReportWithDeficit();
+
+        string baseline = ManabaseSwapPromptBuilder.Build(
+            report,
+            "My Deck",
+            "1 Plains\n1 Island",
+            ManabaseMode.Casual,
+            IssueVerdict,
+            Budget);
+
+        string withExplicitDefaults = ManabaseSwapPromptBuilder.Build(
+            report,
+            "My Deck",
+            "1 Plains\n1 Island",
+            ManabaseMode.Casual,
+            IssueVerdict,
+            Budget,
+            false,
+            null);
+
+        Assert.Equal(baseline, withExplicitDefaults);
+    }
+
+    [Fact]
     public void Build_WithVerdictAndBudget_AppendsReadingDeckBlockBeforeAsk()
     {
         string prompt = ManabaseSwapPromptBuilder.Build(
@@ -125,5 +157,35 @@ public sealed class ManabaseSwapPromptBuilderTests
         Assert.Contains("1. You're ~3 White source(s) short", prompt);
         Assert.Contains("2. Ramp looks light: you run ~6 ramp", prompt);
         Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", prompt);
+    }
+
+    [Fact]
+    public void Build_WithCommandZoneEnabled_AppendsCommanderAndCompanionBlock()
+    {
+        CardCastability companionRow = new()
+        {
+            Name = "Jegantha, the Wellspring",
+            ManaValue = 8,
+            OnCurveTurn = 8,
+            CastPercent = 41,
+            LimitingFactor = "mana",
+        };
+
+        string prompt = ManabaseSwapPromptBuilder.Build(
+            ReportWithDeficit(),
+            "My Deck",
+            "1 Plains\n1 Island",
+            ManabaseMode.Casual,
+            IssueVerdict,
+            Budget,
+            includeCommandZone: true,
+            companionRow: companionRow);
+
+        Assert.Contains("Command-zone castability:", prompt);
+        Assert.Contains("Isshin, Two Heavens as One", prompt);
+        Assert.Contains("~78%", prompt);
+        Assert.Contains("Akiri, Line-Slinger", prompt);
+        Assert.Contains("Jegantha, the Wellspring", prompt);
+        Assert.Contains("+3 generic to hand tax heuristic", prompt);
     }
 }

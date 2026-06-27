@@ -517,6 +517,23 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void SelectHeadlineSpell_CentralImportance_UsesWorstCommanderCastability()
+    {
+        var castability = new List<CardCastability>
+        {
+            new() { Name = "Partner A", ManaValue = 4, OnCurveTurn = 4, CastPercent = 80, LimitingFactor = "mana", IsCommander = true },
+            new() { Name = "Partner B", ManaValue = 6, OnCurveTurn = 6, CastPercent = 30, LimitingFactor = "color:Blue", IsCommander = true },
+            new() { Name = "Support Spell", ManaValue = 2, OnCurveTurn = 2, CastPercent = 10, LimitingFactor = "mana" },
+        };
+
+        CardCastability? headline = InvokeSelectHeadlineSpell(castability, CommanderImportance.Central);
+
+        Assert.NotNull(headline);
+        Assert.Equal("Partner B", headline!.Name);
+        Assert.Equal(30, headline.CastPercent);
+    }
+
+    [Fact]
     public void Analyze_LandTargetBreakdown_PopulatedWithDeckTerms_AndSumsToTarget()
     {
         // FORMULA-01 (MEDIUM-2): the additive breakdown carries this deck's real regression inputs
@@ -1176,4 +1193,15 @@ public sealed class ManabaseAnalyzerTests
 
     private static IReadOnlyDictionary<ManaColor, int> Pip(params (ManaColor Color, int Count)[] pips)
         => pips.ToDictionary(p => p.Color, p => p.Count);
+
+    private static CardCastability? InvokeSelectHeadlineSpell(
+        IReadOnlyList<CardCastability> castability,
+        CommanderImportance importance)
+    {
+        global::System.Reflection.MethodInfo method = typeof(ManabaseAnalyzer).GetMethod(
+            "SelectHeadlineSpell",
+            global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Static)!;
+
+        return (CardCastability?)method.Invoke(null, new object?[] { castability, importance });
+    }
 }

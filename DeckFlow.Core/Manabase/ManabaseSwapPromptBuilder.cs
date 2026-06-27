@@ -23,13 +23,17 @@ public static class ManabaseSwapPromptBuilder
     /// </param>
     /// <param name="verdict">Optional synthesized plain-language verdict.</param>
     /// <param name="budget">Optional ramp/draw budget advisory.</param>
+    /// <param name="includeCommandZone">When true, append command-zone castability lines.</param>
+    /// <param name="companionRow">Optional companion castability row to append with the heuristic note.</param>
     public static string Build(
         ManabaseReport report,
         string? deckName,
         string? decklistText,
         ManabaseMode mode = ManabaseMode.Casual,
         ManabaseVerdict? verdict = null,
-        ManabaseRampDrawBudget? budget = null)
+        ManabaseRampDrawBudget? budget = null,
+        bool includeCommandZone = false,
+        CardCastability? companionRow = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -83,6 +87,11 @@ public static class ManabaseSwapPromptBuilder
             sb.AppendLine();
         }
 
+        if (includeCommandZone)
+        {
+            AppendCommandZoneBlock(sb, report, companionRow);
+        }
+
         sb.AppendLine(
             "Please recommend SPECIFIC lands to add and specific weak lands or cards to cut to fix these " +
             "deficits, without raising the deck's average mana value. Keep suggestions Commander-legal and on-color.");
@@ -120,6 +129,35 @@ public static class ManabaseSwapPromptBuilder
         {
             sb.AppendLine(BuildBudgetLine(budget));
         }
+    }
+
+    private static void AppendCommandZoneBlock(
+        StringBuilder sb,
+        ManabaseReport report,
+        CardCastability? companionRow)
+    {
+        List<CardCastability> commanders = report.Castability.Where(c => c.IsCommander).ToList();
+        if (commanders.Count == 0 && companionRow is null)
+        {
+            return;
+        }
+
+        sb.AppendLine("Command-zone castability:");
+        foreach (CardCastability commander in commanders)
+        {
+            sb.AppendLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"- Commander: {commander.Name} (~{commander.CastPercent}%)."));
+        }
+
+        if (companionRow is not null)
+        {
+            sb.AppendLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"- Companion: {companionRow.Name} (~{companionRow.CastPercent}%, +3 generic to hand tax heuristic)."));
+        }
+
+        sb.AppendLine();
     }
 
     private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(

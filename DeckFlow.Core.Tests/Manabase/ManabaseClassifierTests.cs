@@ -720,6 +720,74 @@ public sealed class ManabaseClassifierTests
         Assert.True((spell.Kinds & SpellKinds.Creature) != 0);
     }
 
+    [Fact]
+    public void Classify_PartnerPair_CountsTwoCommanders()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            CommanderCard("Thrasios, Triton Hero", "{G/U}", 2, "Legendary Creature"),
+            CommanderCard("Tymna the Weaver", "{1}{W}{B}", 3, "Legendary Creature"),
+        });
+
+        Assert.Equal(2, deck.CommanderCount);
+    }
+
+    [Fact]
+    public void Classify_BackgroundStyleSecondCommander_CountsTwoCommanders()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            CommanderCard("Wilson, Refined Grizzly", "{1}{G}", 2, "Legendary Creature"),
+            CommanderCard("Sword Coast Sailor", "{1}{U}", 2, "Legendary Enchantment — Background"),
+        });
+
+        Assert.Equal(2, deck.CommanderCount);
+    }
+
+    [Fact]
+    public void Classify_CompanionStyleCard_DoesNotIncreaseCommanderCount()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact>
+        {
+            CommanderCard("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", 4, "Legendary Creature"),
+            new()
+            {
+                Name = "Jegantha, the Wellspring",
+                Quantity = 1,
+                ManaCost = "{4}{R/G}",
+                ManaValue = 5,
+                TypeLine = "Legendary Creature — Elemental Elk",
+                OracleText = "Companion",
+                ProducedMana = System.Array.Empty<string>(),
+                IsCommander = false,
+            },
+        });
+
+        Assert.Equal(1, deck.CommanderCount);
+    }
+
+    [Fact]
+    public void RampDrawBudget_WithTwoCommanders_UsesHighestManaValueThreshold()
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 2,
+            AverageManaValue = 3.0,
+            Sources = new List<ManaSource>(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Commander Four", ManaValue = 4, Pips = new Dictionary<ManaColor, int>(), IsCommander = true },
+                new() { Name = "Commander Six", ManaValue = 6, Pips = new Dictionary<ManaColor, int>(), IsCommander = true },
+                new() { Name = "Spell", ManaValue = 3, Pips = new Dictionary<ManaColor, int>() },
+            },
+            IsSingleton = true,
+        });
+
+        Assert.Equal(6.0, budget.Threshold);
+        Assert.Equal(ManabaseRampDrawThresholdSource.CommanderManaValue, budget.ThresholdSource);
+    }
+
     private static CardFact Land(string name, int qty, string color) => new()
     {
         Name = name,
@@ -742,6 +810,18 @@ public sealed class ManabaseClassifierTests
         TypeLine = "Creature",
         OracleText = string.Empty,
         ProducedMana = System.Array.Empty<string>(),
+    };
+
+    private static CardFact CommanderCard(string name, string cost, int mv, string typeLine) => new()
+    {
+        Name = name,
+        Quantity = 1,
+        ManaCost = cost,
+        ManaValue = mv,
+        TypeLine = typeLine,
+        OracleText = string.Empty,
+        ProducedMana = System.Array.Empty<string>(),
+        IsCommander = true,
     };
 
     private static CardFact Land(string name, string typeLine, string[] produced, string oracle = "") => new()
