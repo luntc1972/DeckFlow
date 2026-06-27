@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 73 Plan 03 EXECUTED (98298278 + 4b074821): companion rendered in all 3 decoupled analysis variants (ChatGpt/Gemini `companion:` line, Claude XML-escaped `<companion>` element + note) + per-platform render/decklist-byte-identity + malicious-input prompt-shape tests. DeckAnalysisPacketServiceTests 64/64; full Web suite 923/0 (1 transient Admin-e2e flake, did not reproduce). Wave 4 (73-04) next."
-last_updated: "2026-06-27T21:10:00.000Z"
+stopped_at: "Phase 73 Plan 04 IMPLEMENTATION EXECUTED (17eb642b + 532facfa): flag-gated companion designator on /deck-analysis Step 1 (single name=CompanionName input, no hidden mirror) + centralized controller flag plumbing (1 helper stamps all 11 DeckAnalysisViewModel sites, Codex MED-1) + README/Help docs + Playwright smoke. Build 0/0; full Web suite 927/0/12; controller tests 14/14; format-gate clean. Task 3 blocking checkpoint:human-verify (operator cross-theme/mobile visual sign-off) PENDING — plan NOT fully complete."
+last_updated: "2026-06-27T21:55:00.000Z"
 last_activity: 2026-06-27
 progress:
   total_phases: 10
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md
 
 Phase: 73 (deck-analysis-command-zone-awareness-ad-hoc-trunk-main) — EXECUTING
 Plan: 4 of 4
-Status: 73-03 executed (Wave 3 complete) — ready for Wave 4 (73-04)
+Status: 73-04 implementation executed (Tasks 1-2 committed) — Task 3 blocking human-verify checkpoint PENDING (plan not fully complete)
 Last activity: 2026-06-27
 
 ## Roadmap Summary
@@ -68,6 +68,7 @@ Last activity: 2026-06-27
 
 ### Key Decisions
 
+- **Phase 73 Plan 04 (flag-gated companion designator UI + controller plumbing, 2026-06-27 — CHECKPOINT PENDING):** Surfaced the manual companion designator on `/deck-analysis` Step 1 behind `analysis.command-zone-awareness`. Added `bool CommandZoneAwarenessEnabled { get; init; }` (server-computed, init-only, NOT form-bound — T-73-05) to `DeckAnalysisViewModel`; injected optional `IFeatureFlagCache? = null` into `DeckPacketController` and a single `IsCommandZoneAwarenessEnabled()` default-OFF-snapshot helper stamped on ALL 11 `new DeckAnalysisViewModel` sites incl. error/upload paths (Codex MED-1: no path renders the wrong UI). View renders EXACTLY ONE `name=CompanionName` input in a collapsible `<details class="deck-analysis-overrides">` (no hidden mirror — single form would duplicate-bind, unlike Manabase's two-form layout). Layout CSS in site-common.css (`.deck-analysis-overrides`), not a per-theme fork. README + Help/deck-analysis.md document the flag + designator. 4 controller tests (flag ON/OFF/missing-cache + validation-error-path stamping). Playwright smoke `deck-analysis-command-zone.spec.ts` (toggles flag via /Admin/Flags, asserts input present ON / absent OFF) authored — NOT run live (Task 3 operator checkpoint). Build 0/0; full Web suite 927/0/12; controller 14/14; CompanionName count=1; format-gate clean (fixed 10 nested stamp lines from 12→16 spaces). Commits 17eb642b (feat) + 532facfa (test). **Task 3 = blocking operator cross-theme/mobile visual sign-off — PENDING; plan NOT marked complete.**
 - **Phase 73 Plan 03 (companion rendering in 3 decoupled variants, 2026-06-27):** Rendered the resolved companion into the prompt TEXT — ChatGpt + Gemini each emit a guarded `companion: {name} (this deck's companion; applies its companion deckbuilding restriction)` line directly after the `commander:` line in DECK CONTEXT (plain text, value NOT encoded); Claude emits a guarded XML-escaped `<companion>{SecurityElement.Escape(name)}</companion>` element + `<companion_note>` between `<commander>` and `<bracket>`. Three independent hand-edits, NO shared helper (ADR 0001). Awareness-only — no "outside the 99"/zone claim (Codex HIGH-1); Claude XML-escape keeps a single well-formed element for `</companion>...`/`a & b` inputs (Codex HIGH-2). Tests: `BuildAsync_CommandZoneAwareness_RendersCompanion` (companion surfaces for all 3 platforms + decklist-region byte-identity flag-ON==flag-OFF, no deck-text mutation) and `..._CompanionInput_PreservesPromptShape` (`[Theory]` malicious values → exactly one Claude `<companion>`/`</companion>` pair + single-line ChatGpt `companion:`). DeckAnalysisPacketServiceTests 64/64; full Web suite 923/0 (1 transient Admin-e2e flake, did not reproduce on rerun); build 0/0; format-gate clean; LF + raw-string carve-outs preserved. Commits 98298278 + 4b074821. Wave 4 (73-04) adds the flag-gated Step-1 designator input + controller plumbing + docs.
 - **Phase 73 Plan 02 (command-zone enrichment + companion resolution, 2026-06-27):** Wired `analysis.command-zone-awareness` into `DeckAnalysisPacketService.BuildAsync` — flag ON collects all `Board=="commander"` names, oracle-resolves EACH individually then joins 2+ with `" & "` (resolve-then-join, Pitfall 1), and resolves the companion (designator-wins via `request.CompanionName`, else `loaded.DetectedCompanionName`) through `BoundCompanionName` (reuses the file's existing `CollapseWhitespace` for the single-line CR/LF strip — HIGH-2 — then trim + 200-char cap). `companionName` is forwarded to `BuildAnalysisPrompt` as side metadata only; deck text, cache key (`TryComputeCacheKeyAsync`/`ResolvePreScryfallCommanderState`) untouched. Flag-OFF byte-identity proven across ChatGPT/Claude/Gemini by a `[Theory]` (Codex HIGH-1: no companion-absence assertion). Targeted 60/60 green; full Web suite 919 passed/12 skipped/0 failed; build 0/0. Commits f356840a (feat) + 3e5d6739 (test). Variants still render the companion in Plan 73-03.
 - **Phase 64 Plan 02 (4-site adoption + SC2 fix, 2026-06-21):** Spoof-URL test asserts null-capture (importer not called), not InvalidOperationException — MoxfieldParser accepts URL strings as implicit-quantity-1 card names, so both parsers succeed and no exception is thrown. Canonical Spellbook URL (`https://moxfield.com/decks/{deckId}`) always reconstructed from the already-parsed deckId, never forwarded from originalUrl. Three commits (aebfd8e8, de6d212a, 934b6789). 612 Core + 677 Web tests green.
@@ -144,9 +145,9 @@ Last activity: 2026-06-27
 
 ## Session Continuity
 
-Last session: 2026-06-27T21:10:00.000Z
-Stopped at: Phase 73 Plan 03 EXECUTED (98298278 + 4b074821) on `plan/phase-73-deck-analysis-command-zone` worktree — companion rendered in all 3 decoupled analysis variants (ChatGpt/Gemini `companion:` line, Claude XML-escaped `<companion>` element + note), awareness-only side metadata, decklist byte-identical flag-ON==flag-OFF. DeckAnalysisPacketServiceTests 64/64; Web suite 923/0. Wave 4 (73-04) next.
-Resume: `/gsd-execute-phase 73` to run Wave 4 (73-04: flag-gated Step-1 companion designator input + controller plumbing + README/Help + Playwright smoke + cross-theme/mobile sign-off).
+Last session: 2026-06-27T21:55:00.000Z
+Stopped at: Phase 73 Plan 04 IMPLEMENTATION EXECUTED (17eb642b + 532facfa) on `plan/phase-73-deck-analysis-command-zone` worktree — flag-gated companion designator on /deck-analysis Step 1, single CompanionName input, centralized 11-site controller flag plumbing, README/Help, Playwright smoke. Build 0/0; full Web suite 927/0/12; controller 14/14; format-gate clean. Task 3 blocking checkpoint:human-verify (operator cross-theme/mobile visual sign-off) PENDING — plan NOT fully complete.
+Resume: Operator runs the Task 3 visual sign-off (start `scripts/run-web-test.sh`, enable `analysis.command-zone-awareness` via /Admin/Flags, verify the companion input on /deck-analysis Step 1 across desktop ≥1200px + mobile ≤480px, default + one guild theme, light + dark; confirm it disappears when the flag is OFF; enter a companion on an Archidekt deck and confirm it is named in the generated prompt with no duplicate-bind error). Type "approved" to finalize the plan, or describe layout issues to fix. Optionally run the smoke headless: from DeckFlow.Web/ `npx --no-install playwright test e2e/deck-analysis-command-zone.spec.ts`.
 
 ## Operator Next Steps
 

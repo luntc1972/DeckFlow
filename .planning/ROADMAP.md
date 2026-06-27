@@ -738,7 +738,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 73-04-PLAN.md — Flag-gated Step-1 companion designator input + controller plumbing + README/Help + Playwright smoke + cross-theme/mobile sign-off [Wave 4]
+- [~] 73-04-PLAN.md — Flag-gated Step-1 companion designator input + controller plumbing + README/Help + Playwright smoke + cross-theme/mobile sign-off [Wave 4] — IMPLEMENTATION DONE 2026-06-27 (17eb642b + 532facfa): single CompanionName input gated on `analysis.command-zone-awareness`, 11-site controller flag plumbing (Codex MED-1), README/Help, Playwright smoke; build 0/0, Web suite 927/0/12, controller 14/14. ⏳ Task 3 blocking operator cross-theme/mobile visual sign-off PENDING — plan NOT marked complete.
 
 ---
 
