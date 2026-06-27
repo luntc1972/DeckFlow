@@ -11,6 +11,7 @@ public sealed class DeckAnalysisRequest
     private string _deckName = string.Empty;
     private string _strategyNotes = string.Empty;
     private string _metaNotes = string.Empty;
+    private string _companionName = string.Empty;
     private string _deckProfileJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
@@ -108,6 +109,17 @@ public sealed class DeckAnalysisRequest
     {
         get => _metaNotes;
         set => _metaNotes = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Optional manual companion designator, supplied by the user when companion auto-detection is
+    /// unavailable (Archidekt / pasted text). Plan 73-02 owns trimming and length-bounding; this model
+    /// only stores the raw value.
+    /// </summary>
+    public string CompanionName
+    {
+        get => _companionName;
+        set => _companionName = value ?? string.Empty;
     }
 
     /// <summary>

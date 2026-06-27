@@ -37,12 +37,13 @@ internal sealed class AnalysisPromptVariantRegistry
         IReadOnlyList<string> selectedQuestionIds,
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult = null,
-        bool includeCardVersions = false)
+        bool includeCardVersions = false,
+        string? companionName = null)
     {
         var variant = _variants.TryGetValue(platform, out var found)
             ? found
             : _variants[AiPlatform.Default];
         return variant.Build(request, decklistText, referenceText, deckProfileSchemaJson,
-            commanderName, selectedQuestionIds, bannedCards, comboResult, includeCardVersions);
+            commanderName, selectedQuestionIds, bannedCards, comboResult, includeCardVersions, companionName);
     }
 }
