@@ -7,6 +7,7 @@
     var report = Model.Report;
     var mode = Model.Request.Mode;
     var importance = Model.Request.CommanderImportance;
+    var showPlainLanguage = Model.ShowPlainLanguage;
 }
 
 <section class="hero">
@@ -191,6 +192,11 @@
                             </div>
                         }
                         <p class="manabase-lens-note">The validated colored-source target (Frank Karsten's math) — are there enough sources of each color?</p>
+                        @if (showPlainLanguage)
+                        {
+                            <p class="manabase-lens-gloss">@ManabaseDisplay.KarstenSourceGloss</p>
+                            <p class="manabase-lens-gloss">@ManabaseDisplay.WeakestColorGloss</p>
+                        }
                     </div>
                 }
                 @if (showRightLens)
@@ -199,6 +205,10 @@
                         <p class="manabase-lens-label">Simulated cast rate</p>
                         <div class="manabase-lens-big">@ManabaseDisplay.AvgOnCurve(castRows)%<span>avg on-curve</span></div>
                         <p class="manabase-lens-note">Joint mana + color, with London mulligan, tapped-land timing, and ramp — our Monte-Carlo models the real game, not just color odds.</p>
+                        @if (showPlainLanguage)
+                        {
+                            <p class="manabase-lens-gloss">@ManabaseDisplay.CastRateGloss</p>
+                        }
                         <span class="manabase-lens-pill">avg across @castRows.Count tracked spells</span>
                     </div>
                 }
@@ -226,8 +236,53 @@
                     — @demanding.Count demanding @(demanding.Count == 1 ? "card" : "cards"):
                     @string.Join(", ", demanding.Select(d => $"{d.Name} ({d.CastPercent}%)"))
                 </span>
+                @if (showPlainLanguage)
+                {
+                    <span class="manabase-lens-gloss">@ManabaseDisplay.DemandingCardsGloss</span>
+                }
             }
         </p>
+
+        @if (Model.PlainLanguageVerdict is { } verdict)
+        {
+            <section class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")" aria-label="@verdict.Headline">
+                <p class="manabase-verdict-heading">@verdict.Headline</p>
+                @if (verdict.HasIssues)
+                {
+                    <ul class="manabase-verdict-list">
+                        @foreach (var line in verdict.Lines)
+                        {
+                            <li>@line</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="manabase-verdict-fine">@verdict.NoIssueReason</p>
+                }
+            </section>
+        }
+
+        @if (Model.RampDrawBudget is { } budget)
+        {
+            var thresholdProxy = budget.ThresholdSource == ManabaseRampDrawThresholdSource.CommanderManaValue
+                ? "commander MV"
+                : "curve 75th-percentile MV";
+            <section class="manabase-rampdraw" aria-label="Ramp and draw budget advisory">
+                <p class="manabase-rampdraw-line">
+                    @if (budget.IsBalanced)
+                    {
+                        <span>Your ramp/draw split looks balanced. </span>
+                    }
+                    <span>You run <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@budget.Threshold.ToString("0.#") threshold a common split is @budget.TargetRamp / @budget.TargetDraw.</span>
+                    @if (budget.OverlapCount > 0)
+                    {
+                        <span> (@budget.OverlapCount do both)</span>
+                    }
+                </p>
+                <p class="manabase-rampdraw-note">Community heuristic, not Karsten math. Threshold proxied from @thresholdProxy.</p>
+            </section>
+        }
 
         @{
             var rampDraw = report.LandTarget?.RampAndDrawUnderThree ?? 0;
