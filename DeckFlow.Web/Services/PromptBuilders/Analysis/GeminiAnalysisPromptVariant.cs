@@ -67,6 +67,10 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine($"commander: {commanderName}");
         }
+        if (!string.IsNullOrWhiteSpace(companionName))
+        {
+            builder.AppendLine($"companion: {companionName} (this deck's companion; applies its companion deckbuilding restriction)");
+        }
         if (bracket is not null)
         {
             builder.AppendLine($"target_bracket: {bracket.Label}");
