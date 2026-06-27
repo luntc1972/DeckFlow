@@ -1,0 +1,109 @@
+import { expect, test, type Locator, type Page } from '@playwright/test';
+
+// Live-only Phase 71 verdict surfaces.
+// Run:
+//   1. Start the app with scripts/run-web-test.sh and the manabase plain-language flag ON.
+//   2. From DeckFlow.Web/, run:
+//      DECKFLOW_LIVE_E2E=1 npx --no-install playwright test manabase-verdict
+
+const CASUAL_ISSUE_DECK = [
+  'Commander',
+  '1 Brago, King Eternal',
+  '',
+  'Deck',
+  '10 Plains',
+  '6 Island',
+  '1 Sol Ring',
+  '1 Arcane Signet',
+  '1 Counterspell',
+  '1 Supreme Verdict',
+  '1 Cryptic Command',
+  '1 Wrath of God',
+  '1 Teferi, Hero of Dominaria',
+].join('\n');
+
+const CASUAL_CLEAN_DECK = [
+  'Commander',
+  '1 Brago, King Eternal',
+  '',
+  'Deck',
+  '24 Plains',
+  '24 Island',
+  '1 Sol Ring',
+  '1 Arcane Signet',
+  '1 Azorius Signet',
+  '1 Mind Stone',
+  '1 Counterspell',
+  '1 Swords to Plowshares',
+  '1 Supreme Verdict',
+  '1 Wrath of God',
+].join('\n');
+
+const CEDH_DECK = [
+  'Commander',
+  '1 Kinnan, Bonder Prodigy',
+  '',
+  'Deck',
+  '14 Island',
+  '14 Forest',
+  '1 Command Tower',
+  '1 Breeding Pool',
+  '1 Sol Ring',
+  '1 Mana Crypt',
+  '1 Arcane Signet',
+  '1 Fellwar Stone',
+  '1 Llanowar Elves',
+  '1 Birds of Paradise',
+  '1 Counterspell',
+  '1 Swan Song',
+  '1 Neoform',
+].join('\n');
+
+async function analyzeDeck(
+  page: Page,
+  deckText: string,
+  mode: 'Casual' | 'Cedh',
+): Promise<Locator> {
+  await page.goto('/manabase');
+  await page.locator('#manabase-input-source').selectOption('PasteText');
+  await page.locator('#manabase-deck-text').fill(deckText);
+  await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
+  await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
+
+  const result = page.locator('.result-panel:has(h2:has-text("Result"))');
+  await expect(result).toBeVisible({ timeout: 60_000 });
+  return result;
+}
+
+test('casual issue deck shows glosses, an issue verdict list, and ramp/draw budget', async ({ page }) => {
+  test.skip(!process.env.DECKFLOW_LIVE_E2E, 'live-only: needs Scryfall + flag on');
+
+  const result = await analyzeDeck(page, CASUAL_ISSUE_DECK, 'Casual');
+
+  await expect(result.locator('.manabase-lens-gloss').first()).toBeVisible();
+  await expect(result.locator('.manabase-verdict')).toBeVisible();
+  await expect(result.locator('.manabase-verdict-list li').first()).toBeVisible();
+  await expect(result.locator('.manabase-rampdraw')).toBeVisible();
+});
+
+test('casual clean deck shows the why-it-is-fine verdict with no issue list', async ({ page }) => {
+  test.skip(!process.env.DECKFLOW_LIVE_E2E, 'live-only: needs Scryfall + flag on');
+
+  const result = await analyzeDeck(page, CASUAL_CLEAN_DECK, 'Casual');
+
+  await expect(result.locator('.manabase-lens-gloss').first()).toBeVisible();
+  await expect(result.locator('.manabase-verdict')).toBeVisible();
+  await expect(result.locator('.manabase-verdict-fine')).toBeVisible();
+  await expect(result.locator('.manabase-verdict-list')).toHaveCount(0);
+  await expect(result.locator('.manabase-rampdraw')).toBeVisible();
+});
+
+test('cedh shows glosses but suppresses the casual-only verdict and ramp/draw advisory', async ({ page }) => {
+  test.skip(!process.env.DECKFLOW_LIVE_E2E, 'live-only: needs Scryfall + flag on');
+
+  const result = await analyzeDeck(page, CEDH_DECK, 'Cedh');
+
+  await expect(result.locator('.manabase-lens-gloss').first()).toBeVisible();
+  await expect(result.locator('.manabase-rampdraw')).toHaveCount(0);
+  await expect(result.locator('.manabase-verdict')).toHaveCount(0);
+});
