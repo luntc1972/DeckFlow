@@ -722,7 +722,7 @@ DeckAnalysisPacketServiceTests.cs:879 valid and gives independent operator contr
 **Designator (decided):** add `DeckAnalysisRequest.CompanionName` manual designator + flag-gated Step-1
 input, for parity with manabase and to cover Archidekt / pasted decks (no auto-detect there).
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 Plans:
 **Wave 1**
 
@@ -730,7 +730,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 73-02-PLAN.md — Service plumbing: capture DetectedCompanionName + collect all commanders (oracle-resolve then `" & "`) + flag-OFF byte-identity + partner-pair tests [Wave 2]
+- [x] 73-02-PLAN.md — Service plumbing: capture DetectedCompanionName + collect all commanders (oracle-resolve then `" & "`) + flag-OFF byte-identity + partner-pair tests [Wave 2] — DONE 2026-06-27
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

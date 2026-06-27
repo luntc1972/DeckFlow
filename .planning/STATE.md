@@ -4,14 +4,14 @@ milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
 stopped_at: "Phase 69 PLANNED + DUAL-GATE CLEAN (fc83aebd): Claude plan-check PASSED + Codex PASS after closing dark-mode blocker over 3 revisions (bs-var bridge + base .table + form-check-input + .bg-light regression). Ready /gsd-execute-phase 69."
-last_updated: "2026-06-27T19:58:48.413Z"
+last_updated: "2026-06-27T20:40:00.000Z"
 last_activity: 2026-06-27
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
-  percent: 30
+  completed_plans: 14
+  percent: 33
 ---
 
 # Project State
@@ -32,8 +32,8 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 73 (deck-analysis-command-zone-awareness-ad-hoc-trunk-main) — EXECUTING
-Plan: 2 of 4
-Status: Ready to execute
+Plan: 3 of 4
+Status: 73-02 executed (Wave 2 complete) — ready for Wave 3 (73-03)
 Last activity: 2026-06-27
 
 ## Roadmap Summary
@@ -68,6 +68,7 @@ Last activity: 2026-06-27
 
 ### Key Decisions
 
+- **Phase 73 Plan 02 (command-zone enrichment + companion resolution, 2026-06-27):** Wired `analysis.command-zone-awareness` into `DeckAnalysisPacketService.BuildAsync` — flag ON collects all `Board=="commander"` names, oracle-resolves EACH individually then joins 2+ with `" & "` (resolve-then-join, Pitfall 1), and resolves the companion (designator-wins via `request.CompanionName`, else `loaded.DetectedCompanionName`) through `BoundCompanionName` (reuses the file's existing `CollapseWhitespace` for the single-line CR/LF strip — HIGH-2 — then trim + 200-char cap). `companionName` is forwarded to `BuildAnalysisPrompt` as side metadata only; deck text, cache key (`TryComputeCacheKeyAsync`/`ResolvePreScryfallCommanderState`) untouched. Flag-OFF byte-identity proven across ChatGPT/Claude/Gemini by a `[Theory]` (Codex HIGH-1: no companion-absence assertion). Targeted 60/60 green; full Web suite 919 passed/12 skipped/0 failed; build 0/0. Commits f356840a (feat) + 3e5d6739 (test). Variants still render the companion in Plan 73-03.
 - **Phase 64 Plan 02 (4-site adoption + SC2 fix, 2026-06-21):** Spoof-URL test asserts null-capture (importer not called), not InvalidOperationException — MoxfieldParser accepts URL strings as implicit-quantity-1 card names, so both parsers succeed and no exception is thrown. Canonical Spellbook URL (`https://moxfield.com/decks/{deckId}`) always reconstructed from the already-parsed deckId, never forwarded from originalUrl. Three commits (aebfd8e8, de6d212a, 934b6789). 612 Core + 677 Web tests green.
 - **Phase 64 Plan 01 (DeckSourceHost predicate, 2026-06-21):** `DeckSourceHost.IsMoxfield(Uri)` / `IsArchidekt(Uri)` use exact-or-approved-subdomain matching (`host == apex || host.EndsWith("." + apex)`). No `TrimEnd('.')` — trimming trailing dot would re-open confusable-domain surface. The `-warnaserror` flag cannot be used as the local gate because pre-existing NU1903/CS0618/CS1574 warnings are present; CI is the authoritative gate. 16/16 acceptance tests pass locally.
 - **Phase 63 added 2026-06-20 (DIST-01):** Package DeckFlow.Studio as a self-contained single-file win-x64 executable runnable without a .NET install; produce publish profile/script + document build/run steps. Last phase of Cycle 10 (after Phase 62 Studio UI Polish). Not planned yet → `/gsd-plan-phase 63`.
@@ -142,9 +143,9 @@ Last activity: 2026-06-27
 
 ## Session Continuity
 
-Last session: 2026-06-25T23:12:56.817Z
-Stopped at: Phase 69 PLANNED + DUAL-GATE CLEAN (fc83aebd): Claude plan-check PASSED + Codex PASS after closing dark-mode blocker over 3 revisions (bs-var bridge + base .table + form-check-input + .bg-light regression). Ready /gsd-execute-phase 69.
-Resume: Cycle 11 here on `cycle11`. Next: `/gsd-verify-work 64` then `/gsd-plan-phase 65`.
+Last session: 2026-06-27T20:40:00.000Z
+Stopped at: Phase 73 Plan 02 EXECUTED (f356840a + 3e5d6739) on `plan/phase-73-deck-analysis-command-zone-awareness` worktree — command-zone enrichment + companion resolution behind `analysis.command-zone-awareness` (flag-OFF byte-identical across 3 variants). Web suite 919/0. Wave 3 (73-03) next.
+Resume: `/gsd-execute-phase 73` to run Wave 3 (73-03 variant rendering), then 73-04.
 
 ## Operator Next Steps
 
