@@ -16,6 +16,14 @@ public sealed class DeckAnalysisViewModel
     public DeckAnalysisRequest Request { get; init; } = new();
 
     /// <summary>
+    /// Gets whether the <c>analysis.command-zone-awareness</c> feature flag is enabled. When true the
+    /// Step 1 form surfaces the optional companion designator input; when false (the default) that
+    /// input is not rendered and the page is byte-identical to baseline. Server-computed from the flag
+    /// cache and init-only, so it is never form-bound and a crafted POST cannot enable the feature.
+    /// </summary>
+    public bool CommandZoneAwarenessEnabled { get; init; }
+
+    /// <summary>
     /// Gets the user-facing error message for form or upstream failures.
     /// </summary>
     public string? ErrorMessage { get; init; }

@@ -20,6 +20,12 @@ Choose an **Input method** (paste text or public deck URL) and provide either a 
 - Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports), then validates the inferred commander against Scryfall before continuing.
 - Rejects inferred commanders that are not legal by the workflow rules: legendary creature, legendary Vehicle, or a planeswalker whose oracle text says it can be your commander.
 
+### Companion designator (optional)
+
+When the site operator has enabled the `analysis.command-zone-awareness` feature flag, Step 1 shows an optional **Companion** input (collapsible). Use it to name your deck's companion (for example, *Jegantha, the Wellspring*) so the generated analysis prompt records the companion and its deckbuilding restriction as side metadata.
+
+Moxfield direct imports auto-detect the companion, so you usually do not need to fill this in for them. Archidekt decks, pasted decklists, and the Moxfield Commander Spellbook fallback path have no reliable companion signal — name the companion here for those sources. A typed value always wins over auto-detection. The designator only adds context to the prompt; it never changes the parsed decklist.
+
 ## Step 2 — Analysis
 
 Configure the analysis:

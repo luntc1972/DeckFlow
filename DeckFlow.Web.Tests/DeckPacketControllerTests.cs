@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
@@ -230,6 +231,97 @@ public sealed class DeckPacketControllerTests
         Assert.Single(capturingService.LastRequest.SelectedSetCodes);
         Assert.Contains("dsk", capturingService.LastRequest.SelectedSetCodes);
         Assert.Equal("75", capturingService.LastRequest.BudgetUpgradeAmount);
+    }
+
+    [Fact]
+    public void DeckAnalysis_Get_StampsCommandZoneAwareness_WhenFlagOn()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [DeckAnalysisPacketService.CommandZoneAwarenessFlag] = true
+            }));
+
+        var result = controller.DeckAnalysis();
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
+        Assert.True(model.CommandZoneAwarenessEnabled);
+    }
+
+    [Fact]
+    public void DeckAnalysis_Get_LeavesCommandZoneAwarenessOff_WhenFlagOff()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [DeckAnalysisPacketService.CommandZoneAwarenessFlag] = false
+            }));
+
+        var result = controller.DeckAnalysis();
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
+        Assert.False(model.CommandZoneAwarenessEnabled);
+    }
+
+    [Fact]
+    public void DeckAnalysis_Get_LeavesCommandZoneAwarenessOff_WhenFlagCacheMissing()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance);
+
+        var result = controller.DeckAnalysis();
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
+        Assert.False(model.CommandZoneAwarenessEnabled);
+    }
+
+    [Fact]
+    public async Task DeckAnalysis_ValidationErrorPath_StampsCommandZoneAwareness_WhenFlagOn()
+    {
+        var controller = new DeckPacketController(
+            new ThrowingDeckAnalysisPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [DeckAnalysisPacketService.CommandZoneAwarenessFlag] = true
+            }))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.DeckAnalysis(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<DeckAnalysisViewModel>(view.Model);
+        // Error/upload paths must stamp the flag too (Codex MED-1: no path renders the wrong UI).
+        Assert.True(model.CommandZoneAwarenessEnabled);
     }
 
     [Fact]

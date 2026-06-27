@@ -7,6 +7,7 @@ using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 
 namespace DeckFlow.Web.Controllers;
 
@@ -23,6 +24,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     private readonly IMetaGapService _metaGapService;
     private readonly PacketSessionCache _packetCache;
     private readonly ILogger<DeckPacketController> _logger;
+    private readonly IFeatureFlagCache? _flagCache;
 
     /// <summary>
     /// Creates the packet-workflow controller.
@@ -32,7 +34,8 @@ public sealed class DeckPacketController : DeckToolControllerBase
         IDeckComparisonService deckComparisonService,
         IMetaGapService metaGapService,
         PacketSessionCache packetCache,
-        ILogger<DeckPacketController> logger)
+        ILogger<DeckPacketController> logger,
+        IFeatureFlagCache? flagCache = null)
     {
         ArgumentNullException.ThrowIfNull(deckAnalysisPacketService);
         ArgumentNullException.ThrowIfNull(deckComparisonService);
@@ -45,7 +48,19 @@ public sealed class DeckPacketController : DeckToolControllerBase
         _metaGapService = metaGapService;
         _packetCache = packetCache;
         _logger = logger;
+        _flagCache = flagCache;
     }
+
+    /// <summary>
+    /// Single source of truth for the <c>analysis.command-zone-awareness</c> flag state stamped onto
+    /// every <see cref="DeckAnalysisViewModel"/> render path (Codex MED-1). Reads the snapshot with the
+    /// default-OFF pattern — a missing key means the feature stays off, so the companion designator UI
+    /// cannot appear on some paths and not others.
+    /// </summary>
+    private bool IsCommandZoneAwarenessEnabled()
+        => _flagCache is not null
+            && _flagCache.Snapshot().TryGetValue(DeckAnalysisPacketService.CommandZoneAwarenessFlag, out var enabled)
+            && enabled;
 
     /// <summary>
     /// Renders the staged deck-analysis packet workflow. Set options load asynchronously on the client.
@@ -57,6 +72,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
         return View("DeckAnalysis", new DeckAnalysisViewModel
         {
             ActiveTab = DeckPageTab.DeckAnalysis,
+            CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
             Request = new DeckAnalysisRequest(),
         });
     }
@@ -106,6 +122,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = request,
                 InputSummary = result.InputSummary,
                 SuggestedChatTitle = result.SuggestedChatTitle,
@@ -126,6 +143,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = request,
                 ErrorMessage = exception.Message,
             });
@@ -136,6 +154,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
@@ -209,6 +228,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = request,
                 ErrorMessage = exception.Message,
             });
@@ -219,6 +239,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
@@ -240,6 +261,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = new DeckAnalysisRequest(),
                 ErrorMessage = "Choose a .zip file produced by Download to import."
             });
@@ -250,6 +272,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = new DeckAnalysisRequest(),
                 ErrorMessage = "Only .zip files produced by Download are accepted."
             });
@@ -264,6 +287,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = request,
                 InputSummary = result.InputSummary,
                 SuggestedChatTitle = result.SuggestedChatTitle,
@@ -285,6 +309,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = new DeckAnalysisRequest(),
                 ErrorMessage = errorMessage
             });
@@ -294,6 +319,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
+                CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
                 Request = new DeckAnalysisRequest(),
                 ErrorMessage = "The uploaded file is not a valid .zip archive."
             });

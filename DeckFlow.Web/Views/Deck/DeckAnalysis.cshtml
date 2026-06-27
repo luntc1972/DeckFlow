@@ -168,6 +168,19 @@ Do not omit any fields from the schema.
                 @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Analysis")
             </label>
         </div>
+        @if (Model.CommandZoneAwarenessEnabled)
+        {
+            <details class="deck-analysis-overrides">
+                <summary>Companion (optional)</summary>
+                <div class="field">
+                    <label for="deck-analysis-companion-name">
+                        Companion (optional) - auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.
+                    </label>
+                    <input id="deck-analysis-companion-name" type="text" name="CompanionName" spellcheck="false" autocomplete="off"
+                           placeholder="e.g. Jegantha, the Wellspring…" value="@Model.Request.CompanionName" />
+                </div>
+            </details>
+        }
         <div class="toolbar chatgpt-step-actions">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-analysis")">Start Over</button>
             <div class="chatgpt-step-note">You only need to paste the deck here once. After that, move through the workflow tabs below.</div>
