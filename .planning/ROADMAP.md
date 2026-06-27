@@ -722,7 +722,7 @@ DeckAnalysisPacketServiceTests.cs:879 valid and gives independent operator contr
 **Designator (decided):** add `DeckAnalysisRequest.CompanionName` manual designator + flag-gated Step-1
 input, for parity with manabase and to cover Archidekt / pasted decks (no auto-detect there).
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 Plans:
 **Wave 1**
 
