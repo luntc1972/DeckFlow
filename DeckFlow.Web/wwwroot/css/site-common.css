@@ -2615,6 +2615,14 @@ label.field > span,
   color: var(--muted, #5a6472);
 }
 
+.manabase-lens-gloss {
+  display: block;
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #5a6472);
+  overflow-wrap: anywhere;
+}
+
 .manabase-lens-pill {
   display: inline-block;
   margin-top: 0.55rem;
@@ -2624,6 +2632,63 @@ label.field > span,
   background: var(--info, var(--panel-soft-bg, transparent));
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   color: var(--accent-strong, var(--muted, inherit));
+}
+
+.manabase-verdict,
+.manabase-rampdraw {
+  margin: 0.75rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  background: var(--panel-soft-bg, var(--surface, transparent));
+}
+
+.manabase-verdict--issues {
+  border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 14%, var(--panel-soft-bg, var(--surface, transparent)));
+}
+
+.manabase-verdict--fine {
+  border-left: 3px solid var(--success, #2f855a);
+  background: color-mix(in srgb, var(--success, #2f855a) 14%, var(--panel-soft-bg, var(--surface, transparent)));
+}
+
+.manabase-verdict-heading {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-verdict-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.manabase-verdict-list li {
+  margin: 0.3rem 0;
+}
+
+.manabase-verdict-fine {
+  margin: 0.35rem 0 0;
+}
+
+.manabase-rampdraw-line {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.manabase-rampdraw-line strong {
+  color: var(--accent-strong, var(--accent, inherit));
+  font-weight: 600;
+}
+
+.manabase-rampdraw-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #5a6472);
 }
 
 @media (max-width: 640px) {
