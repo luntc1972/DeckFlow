@@ -661,12 +661,20 @@ ships independently of the manabase callout work.
 designator-UI fallback parity with manabase is a PLAN decision · companion carried as side metadata,
 NOT a remapped `Board` · edit all 3 variants, no shared helper.
 **Source:** `.planning/phases/72-command-zone-commander-castability/72-SPEC.md` (§E) + user asks 2026-06-26.
-**Status:** 🟡 SPEC — not yet planned. Plan AFTER Phase 72 lands.
-**Flag:** may share `manabase.commander-castability` or a deck-analysis-specific flag — PLAN decides;
-flag OFF → `DeckAnalysisPacketService` + all three variants byte-identical.
+**Status:** 🟢 PLANNED 2026-06-27 — 4 plans / 4 waves. Route through Codex review before execute.
+**Flag (decided):** NEW `analysis.command-zone-awareness`, seeded OFF (NOT reusing
+`manabase.commander-castability` — keeps the existing byte-identity test at
+DeckAnalysisPacketServiceTests.cs:879 valid and gives independent operator control). Flag OFF →
+`DeckAnalysisPacketService` + all three variants byte-identical.
+**Designator (decided):** add `DeckAnalysisRequest.CompanionName` manual designator + flag-gated Step-1
+input, for parity with manabase and to cover Archidekt / pasted decks (no auto-detect there).
 
+**Plans:** 4 plans (4 waves)
 Plans:
-- [ ] 73-01 — TBD (run /gsd-plan-phase 73 after Phase 72; route PLAN through Codex review before execute)
+- [ ] 73-01-PLAN.md — Flag four-file+seed-test registration + interface `companionName` param + request CompanionName property (contract-first, byte-identical) [Wave 1]
+- [ ] 73-02-PLAN.md — Service plumbing: capture DetectedCompanionName + collect all commanders (oracle-resolve then `" & "`) + flag-OFF byte-identity + partner-pair tests [Wave 2]
+- [ ] 73-03-PLAN.md — Render companion in all 3 decoupled variants (ChatGpt/Gemini `companion:` line, Claude `<companion>` tag) + per-platform render tests [Wave 3]
+- [ ] 73-04-PLAN.md — Flag-gated Step-1 companion designator input + controller plumbing + README/Help + Playwright smoke + cross-theme/mobile sign-off [Wave 4]
 
 ---
 
