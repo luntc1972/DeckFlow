@@ -630,11 +630,18 @@ This phase is manabase-surface only.
 auto-detect first (Archidekt Companion category / Moxfield companions board), salubrioussnail.com-style
 manual UI only as fallback · no +2 recast command tax (first-cast on curve), but the +3 companion tax IS modeled.
 **Source:** `.planning/phases/72-command-zone-commander-castability/72-SPEC.md` (§A–D, F, G) + user asks 2026-06-26.
-**Status:** 🟡 SPEC — planning in progress (research first). Plan AFTER Phase 71 lands (depends on its scaffolding).
+**Status:** 📋 PLANNED 2026-06-27 — 7 plans, 4 waves (research + validation complete). Route PLANs through Codex review before execute.
 **Flag:** `manabase.commander-castability` (seeded OFF; flag OFF = prod byte-identical, commander stays in table).
 
+**Plans:** 7 plans (4 waves)
 Plans:
-- [ ] 72-01 — TBD (run /gsd-plan-phase 72; route PLAN through Codex review before execute)
+- [ ] 72-01-PLAN.md — Flag four-file registration (manabase.commander-castability seeded OFF) + key constant [Wave 1, BLOCKING]
+- [ ] 72-02-PLAN.md — Wave-0 API-fixture probes: Moxfield companions board + Archidekt Background/Companion category strings [Wave 1, BLOCKING]
+- [ ] 72-04-PLAN.md — Core math: worst-of headline + SimulateCompanion (+3 heuristic) + commanderCount/threshold locks + opt-in prompt line [Wave 1]
+- [ ] 72-03-PLAN.md — Moxfield companion-name side metadata + DeckSourceLoadResult thread + Archidekt passthrough lock [Wave 2]
+- [ ] 72-05-PLAN.md — Web service flag gate: companion detect/clamp/model + Background-as-commander + controller + flag-OFF byte-identity [Wave 3]
+- [ ] 72-06-PLAN.md — Razor callout + display-only filter + designator + site-common.css + live e2e + cross-theme visual gate [Wave 4]
+- [ ] 72-07-PLAN.md — Deck-analysis companion-inert byte-identity (flag OFF+ON) + README + Help/manabase.md [Wave 4]
 
 ---
 
