@@ -25,16 +25,16 @@ public sealed class ManabaseRampDrawBudgetTests
         double drawCount,
         int overlapCount,
         params SpellRequirement[] spells) => new()
-    {
-        TotalCards = 100,
-        CommanderCount = 1,
-        Sources = new List<ManaSource>(),
-        Spells = spells,
-        AverageManaValue = 3.0,
-        RampPieceCount = rampCount,
-        DrawPieceCount = drawCount,
-        RampDrawBothCount = overlapCount,
-    };
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            Sources = new List<ManaSource>(),
+            Spells = spells,
+            AverageManaValue = 3.0,
+            RampPieceCount = rampCount,
+            DrawPieceCount = drawCount,
+            RampDrawBothCount = overlapCount,
+        };
 
     [Fact]
     public void Calculate_UsesHighestCommanderManaValueAsThreshold()
