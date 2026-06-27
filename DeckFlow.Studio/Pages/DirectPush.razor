@@ -1,5 +1,5 @@
 @page "/direct-push"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Knowledge
 @using DeckFlow.Core.Orchestration
@@ -421,9 +421,6 @@ unlocks only after every file uploads.</p>
     // ── Shared in-flight guard ──────────────────────────────────────────────
     private bool _operationInFlight;
 
-    // ── CTS for disposal-safe cancellation ─────────────────────────────────
-    private CancellationTokenSource _cts = new();
-
     // ── Stage 1 — compute diff ──────────────────────────────────────────────
     private bool _diffComputeInFlight;
     private string _diffError = string.Empty;
@@ -456,6 +453,13 @@ unlocks only after every file uploads.</p>
 
     private sealed record RowResult(string Title, string KeyType, string KeyValue, bool Success, string? Reason);
 
+    // Why: the diff loop and the push loop derive the same (display keyType, key value) pair.
+    // KeyType is the local diff label ("youtube"/"podcast"), intentionally NOT the store's
+    // youtube_channel/podcast_rss discriminator — matching is on the key value, not the type.
+    private static (string KeyType, string KeyValue) DeriveNaturalKey(ContentSiteIndexRow row)
+        => (row.YoutubeVideoId is not null ? "youtube" : "podcast",
+            row.YoutubeVideoId ?? row.RssGuid ?? string.Empty);
+
     // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
@@ -464,10 +468,10 @@ unlocks only after every file uploads.</p>
             // Why: Task.Run moves store calls off the Blazor sync context (Pitfall 7).
             var (approvedCount, dataRoot) = await Task.Run(async () =>
             {
-                var rows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+                var rows = await IndexStore.GetApprovedRowsAsync(Cts.Token).ConfigureAwait(false);
                 var dr = Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot;
                 return (rows.Count, dr);
-            }, _cts.Token);
+            }, Cts.Token);
 
             _approvedCount = approvedCount;
             _dataRoot = dataRoot;
@@ -514,15 +518,15 @@ unlocks only after every file uploads.</p>
             await Task.Run(async () =>
             {
                 // Read local approved rows
-                var localRows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+                var localRows = await IndexStore.GetApprovedRowsAsync(Cts.Token).ConfigureAwait(false);
 
                 // Build on-demand prod store (D-03) — never at DI startup
                 var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
                 var prodStore = ProdStoreFactory.Create(rawConnStr);
-                await prodStore.EnsureSchemaAsync(_cts.Token).ConfigureAwait(false);
+                await prodStore.EnsureSchemaAsync(Cts.Token).ConfigureAwait(false);
 
                 // Read prod rows (all rows regardless of visibility) — diff base
-                var prodRows = await prodStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
+                var prodRows = await prodStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
 
                 // In-memory natural-key diff (D-04)
                 var prodByKey = new HashSet<string>(
@@ -532,8 +536,7 @@ unlocks only after every file uploads.</p>
                 var diffRows = new List<DiffRow>();
                 foreach (var row in localRows)
                 {
-                    var key = row.YoutubeVideoId ?? row.RssGuid ?? string.Empty;
-                    var keyType = row.YoutubeVideoId is not null ? "youtube" : "podcast";
+                    var (keyType, key) = DeriveNaturalKey(row);
                     var isNew = !prodByKey.Contains(key);
                     if (isNew)
                     {
@@ -561,11 +564,9 @@ unlocks only after every file uploads.</p>
                     _diffReady = true;
                     _diffComputeInFlight = false;
                     _operationInFlight = false;
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
-            }, _cts.Token);
+            }, Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -618,13 +619,11 @@ unlocks only after every file uploads.</p>
                     _ = InvokeAsync(() =>
                     {
                         _fileResults.Add(result);
-                        try { StateHasChanged(); }
-                        catch (ObjectDisposedException) { }
-                        catch (InvalidOperationException) { }
+                        SafeStateHasChanged();
                     });
                 });
 
-                var results = await SshUploader.UploadArtifactsAsync(requests, progress, _cts.Token)
+                var results = await SshUploader.UploadArtifactsAsync(requests, progress, Cts.Token)
                     .ConfigureAwait(false);
 
                 var allOk = results.All(r => r.Success);
@@ -641,11 +640,9 @@ unlocks only after every file uploads.</p>
 
                     _scpInFlight = false;
                     _operationInFlight = false;
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
-            }, _cts.Token);
+            }, Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -692,13 +689,12 @@ unlocks only after every file uploads.</p>
                 var localResults = new List<RowResult>();
                 foreach (var row in _approvedRows)
                 {
-                    var keyType = row.YoutubeVideoId is not null ? "youtube" : "podcast";
-                    var keyValue = row.YoutubeVideoId ?? row.RssGuid ?? string.Empty;
+                    var (keyType, keyValue) = DeriveNaturalKey(row);
                     try
                     {
                         // SC3 / D-08: only the content-columns-only upsert may run on prod — never a
                         // full-row upsert (preserves is_visible / is_evergreen on existing rows).
-                        await prodStore.UpsertContentColumnsOnlyAsync(row, _cts.Token).ConfigureAwait(false);
+                        await prodStore.UpsertContentColumnsOnlyAsync(row, Cts.Token).ConfigureAwait(false);
                         localResults.Add(new RowResult(row.Title, keyType, keyValue, true, null));
                     }
                     catch (OperationCanceledException)
@@ -716,9 +712,7 @@ unlocks only after every file uploads.</p>
                     await InvokeAsync(() =>
                     {
                         _rowResults = localResults.ToList();
-                        try { StateHasChanged(); }
-                        catch (ObjectDisposedException) { }
-                        catch (InvalidOperationException) { }
+                        SafeStateHasChanged();
                     });
                 }
 
@@ -738,10 +732,10 @@ unlocks only after every file uploads.</p>
                     // hidden) rather than deriving Published while prod is not — local must never
                     // over-report prod (PUB-01/HIGH-3). DirectPush publishes its rows visible so both
                     // the prod /Admin and Studio surfaces derive Published once local catches up.
-                    await prodStore.StampPushedToProdAsync(keys, pushedUtc, _cts.Token).ConfigureAwait(false);
-                    await prodStore.SetVisibilityAsync(keys, true, _cts.Token).ConfigureAwait(false);
-                    await IndexStore.StampPushedToProdAsync(keys, pushedUtc, _cts.Token).ConfigureAwait(false);
-                    await IndexStore.SetVisibilityAsync(keys, true, _cts.Token).ConfigureAwait(false);
+                    await prodStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
+                    await prodStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
+                    await IndexStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
+                    await IndexStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
                 }
 
                 await InvokeAsync(() =>
@@ -756,11 +750,9 @@ unlocks only after every file uploads.</p>
 
                     _dbInFlight = false;
                     _operationInFlight = false;
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
-            }, _cts.Token);
+            }, Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -793,10 +785,4 @@ unlocks only after every file uploads.</p>
     /// prod read, SCP upload, or DB write is stopped when the operator closes the tab or the
     /// SignalR circuit drops (D-09).
     /// </summary>
-    public void Dispose()
-    {
-        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-09).
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 }

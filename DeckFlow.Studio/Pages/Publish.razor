@@ -1,5 +1,5 @@
 @page "/publish"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Integration
 @using DeckFlow.Core.Orchestration
@@ -51,7 +51,7 @@
             <div class="d-flex gap-2 flex-wrap mb-2">
                 @foreach (var (state, count) in _publishStateSummary)
                 {
-                    <span>@RenderPublishStateBadge(state) <span class="text-muted small">@count</span></span>
+                    <span><PublishStateBadge State="state" /> <span class="text-muted small">@count</span></span>
                 }
             </div>
         }
@@ -268,9 +268,6 @@
     // ── Shared in-flight guard ──────────────────────────────────────────────
     private bool _operationInFlight;
 
-    // ── CTS for disposal-safe cancellation ─────────────────────────────────
-    private CancellationTokenSource _cts = new();
-
     // ── Pinned serializer options for canonical per-row JSON comparison ──────
     // Why: ContentIndexExportRow tag props are IReadOnlyList<string>; record == compares
     // list references not contents, miscounting unchanged rows as Updated. Compare canonical
@@ -289,9 +286,9 @@
             // Why: Task.Run moves git + store calls off the Blazor sync context (Pitfall 7).
             var (repoRoot, branch, approvedCount, dataRoot, summary) = await Task.Run(async () =>
             {
-                var rr = await Git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), _cts.Token).ConfigureAwait(false);
-                var br = await Git.GetCurrentBranchAsync(rr, _cts.Token).ConfigureAwait(false);
-                var rows = await IndexStore.GetApprovedRowsAsync(_cts.Token).ConfigureAwait(false);
+                var rr = await Git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), Cts.Token).ConfigureAwait(false);
+                var br = await Git.GetCurrentBranchAsync(rr, Cts.Token).ConfigureAwait(false);
+                var rows = await IndexStore.GetApprovedRowsAsync(Cts.Token).ConfigureAwait(false);
                 var summary = rows
                     .GroupBy(r => Deriver.Derive(r.PushedToProdUtc, r.IsVisible, r.IndexedUtc))
                     .Select(g => (State: g.Key, Count: g.Count()))
@@ -299,7 +296,7 @@
                     .ToList();
                 var dr = Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot;
                 return (rr, br, rows.Count, dr, summary);
-            }, _cts.Token);
+            }, Cts.Token);
 
             _repoRoot = repoRoot;
             _branch = branch;
@@ -326,15 +323,6 @@
         }
     }
 
-    private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
-    {
-        PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,
-        PublishState.PushedHidden   => @<span class="badge bg-warning text-dark">Pushed-hidden</span>,
-        PublishState.Published      => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
-        PublishState.LocalNewer     => @<span class="badge bg-info text-dark">Local-newer</span>,
-        _                           => @<span class="badge bg-secondary">Unknown</span>,
-    };
-
     // ── Stage 1: Export, Copy Artifacts & Preview Diff ─────────────────────
     private async Task ExportAndDiffAsync()
     {
@@ -359,9 +347,7 @@
         var progress = new ActionOrchestratorProgress(msg =>
             InvokeAsync(() =>
             {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
+                SafeStateHasChanged();
             }));
 
         try
@@ -375,7 +361,7 @@
                 var seedAbsPath = Path.GetFullPath(Path.Combine(_repoRoot, SeedRelative));
 
                 // Step 1: Write the approved-only LF seed into the repo tree.
-                var exportResult = await Orchestrator.ExportIndexToFileAsync(seedAbsPath, progress, _cts.Token).ConfigureAwait(false);
+                var exportResult = await Orchestrator.ExportIndexToFileAsync(seedAbsPath, progress, Cts.Token).ConfigureAwait(false);
                 if (!exportResult.Success)
                 {
                     await InvokeAsync(() =>
@@ -383,9 +369,7 @@
                         _exportError = $"Seed export failed — {exportResult.Message}";
                         _exportInFlight = false;
                         _operationInFlight = false;
-                        try { StateHasChanged(); }
-                        catch (ObjectDisposedException) { }
-                        catch (InvalidOperationException) { }
+                        SafeStateHasChanged();
                     });
                     return;
                 }
@@ -400,7 +384,7 @@
                 try
                 {
                     copiedArtifactPaths = await Orchestrator.CopyApprovedArtifactsToRepoAsync(
-                        _dataRoot, _repoRoot, _cts.Token).ConfigureAwait(false);
+                        _dataRoot, _repoRoot, Cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -413,9 +397,7 @@
                         _exportError = "Cannot publish — an approved artifact is missing or unreadable. Re-distill or remove that entry, then retry.";
                         _exportInFlight = false;
                         _operationInFlight = false;
-                        try { StateHasChanged(); }
-                        catch (ObjectDisposedException) { }
-                        catch (InvalidOperationException) { }
+                        SafeStateHasChanged();
                     });
                     return;
                 }
@@ -426,13 +408,13 @@
                 var stagedReadOnly = staged.AsReadOnly();
 
                 // Step 4: Get the raw git diff for the staged paths.
-                var rawDiff = await Git.DiffAsync(_repoRoot, stagedReadOnly, _cts.Token).ConfigureAwait(false);
+                var rawDiff = await Git.DiffAsync(_repoRoot, stagedReadOnly, Cts.Token).ConfigureAwait(false);
 
                 // Step 5: In-memory counts via CANONICAL PER-ROW JSON (FIX — never record/list-reference equality).
                 // Why: ContentIndexExportRow tag props are IReadOnlyList<string>; record == compares
                 // list references not contents, miscounting unchanged rows as Updated. Compare
                 // canonical per-row JSON instead.
-                var headSeedText = await Git.CatHeadSeedAsync(_repoRoot, SeedRelative, _cts.Token).ConfigureAwait(false);
+                var headSeedText = await Git.CatHeadSeedAsync(_repoRoot, SeedRelative, Cts.Token).ConfigureAwait(false);
                 List<ContentIndexExportRow> headRows;
                 if (string.IsNullOrEmpty(headSeedText))
                 {
@@ -499,11 +481,9 @@
                     _commitMessage = $"content: publish KB seed ({added} added, {updated} updated, {removed} removed)";
                     _exportInFlight = false;
                     _operationInFlight = false;
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
-            }, _cts.Token);
+            }, Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -541,8 +521,8 @@
             // (never -A). It throws GitForeignStagedChangesException if unrelated paths are already
             // staged. The pathspec-scoped commit is defense-in-depth. (D-01/D-02/D-03).
             var sha = await Task.Run(
-                () => Git.StageAndCommitAsync(_repoRoot, _stagedPaths, _commitMessage, _cts.Token),
-                _cts.Token);
+                () => Git.StageAndCommitAsync(_repoRoot, _stagedPaths, _commitMessage, Cts.Token),
+                Cts.Token);
 
             _commitSha = sha;
             _commitSuccess = true;
@@ -555,7 +535,7 @@
                     await IndexStore.StampPushedToProdAsync(
                         _exportedKeys,
                         DateTimeOffset.UtcNow,
-                        _cts.Token).ConfigureAwait(false);
+                        Cts.Token).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -589,12 +569,7 @@
         {
             _commitInFlight = false;
             _operationInFlight = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
@@ -604,10 +579,4 @@
     /// git op or store read is stopped when the operator closes the tab or the SignalR circuit
     /// drops (D-09).
     /// </summary>
-    public void Dispose()
-    {
-        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-09).
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 }

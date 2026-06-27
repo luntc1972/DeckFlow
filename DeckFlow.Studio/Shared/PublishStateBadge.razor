@@ -1,0 +1,30 @@
+@using DeckFlow.Core.Content
+
+@* Shared publish-state badge. Renders the exact Bootstrap badge markup that Home, Publish, and
+   Review previously each generated inline via a private RenderPublishStateBadge(PublishState).
+   Markup is byte-identical to the originals so no visual regression occurs. *@
+
+@switch (State)
+{
+    case PublishState.NeverPublished:
+        <span class="badge bg-secondary">Never published</span>
+        break;
+    case PublishState.PushedHidden:
+        <span class="badge bg-warning text-dark">Pushed-hidden</span>
+        break;
+    case PublishState.Published:
+        <span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>
+        break;
+    case PublishState.LocalNewer:
+        <span class="badge bg-info text-dark">Local-newer</span>
+        break;
+    default:
+        <span class="badge bg-secondary">Unknown</span>
+        break;
+}
+
+@code {
+    /// <summary>The publish state to display as a Bootstrap badge.</summary>
+    [Parameter]
+    public PublishState State { get; set; }
+}

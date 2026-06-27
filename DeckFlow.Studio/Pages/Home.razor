@@ -1,7 +1,7 @@
 @page "/"
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Knowledge
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @inject IContentSiteIndexStore IndexStore
 @inject PublishStateDeriver Deriver
 @inject StudioConfig Config
@@ -68,7 +68,7 @@
                 @foreach (var state in PublishStateBuckets)
                 {
                     <div class="publish-state-item" data-publish-state="@state">
-                        @RenderPublishStateBadge(state)
+                        <PublishStateBadge State="state" />
                         <span class="publish-state-count">@GetPublishStateCount(state)</span>
                     </div>
                 }
@@ -94,7 +94,6 @@
         PublishState.LocalNewer,
     };
 
-    private readonly CancellationTokenSource _cts = new();
     private IReadOnlyList<ContentSiteIndexRow> _allRows = Array.Empty<ContentSiteIndexRow>();
     private Dictionary<VideoStatus, int> _videoStatusCounts = new();
     private Dictionary<PublishState, int> _publishStateCounts = new();
@@ -107,9 +106,9 @@
         {
             var rows = await Task.Run(async () =>
             {
-                await IndexStore.EnsureSchemaAsync(_cts.Token).ConfigureAwait(false);
-                return await IndexStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
-            }, _cts.Token);
+                await IndexStore.EnsureSchemaAsync(Cts.Token).ConfigureAwait(false);
+                return await IndexStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
+            }, Cts.Token);
 
             _allRows = rows;
             _videoStatusCounts = BuildVideoStatusCounts(rows);
@@ -119,9 +118,8 @@
         {
             // Component disposed mid-load — swallow.
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _ = ex;
             _loadError = "Could not load pipeline status — check the Studio data directory and retry.";
         }
         finally
@@ -129,12 +127,6 @@
             _loading = false;
             await InvokeAsync(StateHasChanged);
         }
-    }
-
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
     }
 
     private static Dictionary<VideoStatus, int> BuildVideoStatusCounts(IReadOnlyList<ContentSiteIndexRow> rows)
@@ -169,13 +161,4 @@
 
     private int GetPublishStateCount(PublishState state)
         => _publishStateCounts.TryGetValue(state, out var count) ? count : 0;
-
-    private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
-    {
-        PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,
-        PublishState.PushedHidden   => @<span class="badge bg-warning text-dark">Pushed-hidden</span>,
-        PublishState.Published      => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
-        PublishState.LocalNewer     => @<span class="badge bg-info text-dark">Local-newer</span>,
-        _                           => @<span class="badge bg-secondary">Unknown</span>,
-    };
 }

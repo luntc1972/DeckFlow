@@ -1,5 +1,5 @@
 @page "/review"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Knowledge
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Orchestration
@@ -132,7 +132,7 @@
                                         <span class="badge bg-warning text-dark ms-1">Artifact missing</span>
                                     }
                                 </td>
-                                <td>@RenderPublishStateBadge(Deriver.Derive(vm.PushedToProdUtc, vm.IsVisible, vm.IndexedUtc))</td>
+                                <td><PublishStateBadge State="Deriver.Derive(vm.PushedToProdUtc, vm.IsVisible, vm.IndexedUtc)" /></td>
                                 <td>
                                     @{
                                         var approveDisabledForMissing = missing && vm.ApprovalStatus != "approved";
@@ -141,13 +141,13 @@
                                             : "Approve Entry";
                                     }
                                     <button class="btn btn-sm btn-outline-primary me-1"
-                                            @onclick="() => ApproveRowAsync(vm)"
+                                            @onclick='() => SetRowStatusAsync(vm, "approved")'
                                             disabled="@(vm.ApprovalStatus == "approved" || missing)"
                                             aria-label="@approveAriaLabel">
                                         Approve Entry
                                     </button>
                                     <button class="btn btn-sm btn-outline-danger"
-                                            @onclick="() => RejectRowAsync(vm)"
+                                            @onclick='() => SetRowStatusAsync(vm, "rejected")'
                                             disabled="@(vm.ApprovalStatus == "rejected")"
                                             aria-label="Reject Entry">
                                         Reject Entry
@@ -269,9 +269,6 @@
     // resolves every file MISSING. Containment guard rejects rooted/.. paths.
     private readonly Dictionary<string, string?> _expandCache = new();
 
-    // ── CTS for disposal-safe cancellation ─────────────────────────────────
-    private CancellationTokenSource _cts = new();
-
     // ── Filtered view ──────────────────────────────────────────────────────
     // Tab filter (approval-status axis).
     private List<ReviewViewModel> _filteredRows =>
@@ -305,9 +302,9 @@
             // Why: Task.Run moves the store calls off the Blazor sync context (Pitfall 1).
             var rows = await Task.Run(async () =>
             {
-                await IndexStore.EnsureSchemaAsync(_cts.Token).ConfigureAwait(false);
-                return await IndexStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
-            }, _cts.Token);
+                await IndexStore.EnsureSchemaAsync(Cts.Token).ConfigureAwait(false);
+                return await IndexStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
+            }, Cts.Token);
 
             _allRows = rows.Select(r => new ReviewViewModel(r)).ToList();
         }
@@ -315,11 +312,10 @@
         {
             // Component disposed mid-load — swallow.
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Why: store errors can carry DB path/connection details — NEVER surface ex.Message (D-07);
-            // log full detail server-side and show a generic operator-safe message.
-            _ = ex; // consumed by logger via structured logging if one is wired; swallow safely here.
+            // show a generic operator-safe message.
             _loadError = "Could not load review queue — check the Studio data directory and retry.";
         }
         finally
@@ -369,17 +365,20 @@
     }
 
     // ── Per-row approve/reject (D-05 optimistic, no spinner) ───────────────
-    private async Task ApproveRowAsync(ReviewViewModel vm)
+    // Why: approve and reject differ only by the target status and the approve-only
+    // artifact-missing guard, so they share one optimistic-write helper.
+    private async Task SetRowStatusAsync(ReviewViewModel vm, string status)
     {
-        if (vm.ApprovalStatus == "approved" || IsArtifactMissing(vm))
+        // Approving a row whose artifact is missing is blocked; rejecting it is always allowed.
+        if (vm.ApprovalStatus == status || (status == "approved" && IsArtifactMissing(vm)))
         {
             return;
         }
 
         try
         {
-            await IndexStore.SetApprovalStatusAsync(vm.NaturalKeyType, vm.NaturalKeyValue, "approved", _cts.Token);
-            vm.ApprovalStatus = "approved";
+            await IndexStore.SetApprovalStatusAsync(vm.NaturalKeyType, vm.NaturalKeyValue, status, Cts.Token);
+            vm.ApprovalStatus = status;
         }
         catch (OperationCanceledException) { }
         catch (Exception)
@@ -391,26 +390,10 @@
         StateHasChanged();
     }
 
-    private async Task RejectRowAsync(ReviewViewModel vm)
-    {
-        if (vm.ApprovalStatus == "rejected")
-        {
-            return;
-        }
-
-        try
-        {
-            await IndexStore.SetApprovalStatusAsync(vm.NaturalKeyType, vm.NaturalKeyValue, "rejected", _cts.Token);
-            vm.ApprovalStatus = "rejected";
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception) { }
-
-        StateHasChanged();
-    }
-
     // ── Batch approve/reject ────────────────────────────────────────────────
-    private async Task BatchApproveAsync(List<ReviewViewModel> eligible)
+    // Why: batch approve and reject differ only by the target status and the spinner
+    // label (_batchAction), so they share one helper.
+    private async Task BatchSetStatusAsync(List<ReviewViewModel> eligible, string status, string actionLabel)
     {
         if (eligible.Count == 0 || _operationInFlight)
         {
@@ -418,7 +401,7 @@
         }
 
         _operationInFlight = true;
-        _batchAction = "approve";
+        _batchAction = actionLabel;
 
         try
         {
@@ -428,12 +411,12 @@
                 .AsReadOnly();
 
             await Task.Run(
-                () => IndexStore.SetApprovalStatusAsync(keys, "approved", _cts.Token),
-                _cts.Token);
+                () => IndexStore.SetApprovalStatusAsync(keys, status, Cts.Token),
+                Cts.Token);
 
             foreach (var vm in eligible)
             {
-                vm.ApprovalStatus = "approved";
+                vm.ApprovalStatus = status;
                 vm.Selected = false;
             }
 
@@ -445,56 +428,7 @@
         {
             _operationInFlight = false;
             _batchAction = string.Empty;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
-        }
-    }
-
-    private async Task BatchRejectAsync(List<ReviewViewModel> eligible)
-    {
-        if (eligible.Count == 0 || _operationInFlight)
-        {
-            return;
-        }
-
-        _operationInFlight = true;
-        _batchAction = "reject";
-
-        try
-        {
-            var keys = eligible
-                .Select(vm => (vm.NaturalKeyType, vm.NaturalKeyValue))
-                .ToList()
-                .AsReadOnly();
-
-            await Task.Run(
-                () => IndexStore.SetApprovalStatusAsync(keys, "rejected", _cts.Token),
-                _cts.Token);
-
-            foreach (var vm in eligible)
-            {
-                vm.ApprovalStatus = "rejected";
-                vm.Selected = false;
-            }
-
-            _allSelected = false;
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception) { }
-        finally
-        {
-            _operationInFlight = false;
-            _batchAction = string.Empty;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
@@ -516,7 +450,7 @@
         try
         {
             // Why: Task.Run moves the file read off the Blazor sync context (Pitfall 1).
-            text = await Task.Run(() => ReadArtifactSafe(vm.ArtifactPath), _cts.Token);
+            text = await Task.Run(() => ReadArtifactSafe(vm.ArtifactPath), Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -525,12 +459,7 @@
 
         _expandCache[vm.NaturalKeyValue] = text;
 
-        await InvokeAsync(() =>
-        {
-            try { StateHasChanged(); }
-            catch (ObjectDisposedException) { }
-            catch (InvalidOperationException) { }
-        });
+        await SafeStateHasChangedAsync();
     }
 
     /// <summary>
@@ -652,7 +581,7 @@
 
         return @<div class="d-flex gap-2 align-items-center mb-3 mt-2">
             <button class="btn btn-primary btn-sm"
-                    @onclick="() => BatchApproveAsync(approveEligible)"
+                    @onclick='() => BatchSetStatusAsync(approveEligible, "approved", "approve")'
                     disabled="@(approveEligible.Count == 0 || _operationInFlight)">
                 @if (_operationInFlight && _batchAction == "approve")
                 {
@@ -669,7 +598,7 @@
                 }
             </button>
             <button class="btn btn-outline-danger btn-sm"
-                    @onclick="() => BatchRejectAsync(rejectEligible)"
+                    @onclick='() => BatchSetStatusAsync(rejectEligible, "rejected", "reject")'
                     disabled="@(rejectEligible.Count == 0 || _operationInFlight)">
                 @if (_operationInFlight && _batchAction == "reject")
                 {
@@ -713,15 +642,7 @@
         </div>;
     }
 
-    // ── Badge and tag rendering ─────────────────────────────────────────────
-    private static RenderFragment RenderPublishStateBadge(PublishState state) => state switch
-    {
-        PublishState.NeverPublished => @<span class="badge bg-secondary">Never published</span>,
-        PublishState.PushedHidden   => @<span class="badge bg-warning text-dark">Pushed-hidden</span>,
-        PublishState.Published      => @<span class="badge bg-success text-white"><span class="oi oi-check me-1" aria-hidden="true"></span>Published</span>,
-        PublishState.LocalNewer     => @<span class="badge bg-info text-dark">Local-newer</span>,
-        _                           => @<span class="badge bg-secondary">Unknown</span>,
-    };
+    // ── Tag rendering ───────────────────────────────────────────────────────
 
     private static RenderFragment RenderTagsSummary(ReviewViewModel vm)
     {
@@ -750,12 +671,6 @@
     /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
     /// store or file read is stopped when the operator closes the tab or the SignalR circuit drops.
     /// </summary>
-    public void Dispose()
-    {
-        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-06).
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 
     // ── View model ──────────────────────────────────────────────────────────
     private sealed class ReviewViewModel
