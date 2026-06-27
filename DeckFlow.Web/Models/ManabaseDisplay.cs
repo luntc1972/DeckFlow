@@ -9,6 +9,22 @@ namespace DeckFlow.Web.Models;
 /// </summary>
 public static class ManabaseDisplay
 {
+    /// <summary>UI-only gloss for the Karsten source-check metric.</summary>
+    public const string KarstenSourceGloss =
+        "Enough lands/rocks of each color to reliably have that color when you need it. need -3 means about 3 short.";
+
+    /// <summary>UI-only gloss for the simulated cast-rate metric.</summary>
+    public const string CastRateGloss =
+        "Across simulated games, how often your spells are castable on or before their ideal turn. Higher = smoother.";
+
+    /// <summary>UI-only gloss for the weakest-color callout.</summary>
+    public const string WeakestColorGloss =
+        "The color with the biggest source shortfall or most fragile support - usually the first color to fix.";
+
+    /// <summary>UI-only gloss for the demanding-cards callout.</summary>
+    public const string DemandingCardsGloss =
+        "The hardest spells to cast on time with this mana base - the cards most likely to expose weak support.";
+
     /// <summary>
     /// Maps a <see cref="CardCastability.LimitingFactor"/> token (<c>"mana"</c>, <c>"color:U"</c>,
     /// <c>"both"</c>) to a human-readable phrase for the table's "Limiting" column.
