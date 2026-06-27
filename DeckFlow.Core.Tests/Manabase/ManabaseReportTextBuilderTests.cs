@@ -13,6 +13,35 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ManabaseReportTextBuilderTests
 {
+    private static readonly ManabaseVerdict IssueVerdict = new()
+    {
+        HasIssues = true,
+        Headline = "Reading your deck",
+        NoIssueReason = string.Empty,
+        Lines =
+        [
+            "You're ~3 White source(s) short - add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
+            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp piece(s) (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+        ],
+    };
+
+    private static readonly ManabaseRampDrawBudget Budget = new()
+    {
+        RampCount = 6.0,
+        DrawCount = 12.0,
+        OverlapCount = 1,
+        Threshold = 4.0,
+        ThresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
+        TargetRamp = 12,
+        TargetDraw = 12,
+        IsBalanced = false,
+        IsRampLight = true,
+        IsRampHeavy = false,
+        RampShort = 6,
+        IsDrawLight = false,
+        DrawShort = 0,
+    };
+
     // --- fixtures ------------------------------------------------------------
 
     private static ManabaseReport HealthyCasualReport() => new()
@@ -323,6 +352,45 @@ public sealed class ManabaseReportTextBuilderTests
             HealthyCasualReport(), null, null);
 
         Assert.DoesNotContain("Decklist:", output);
+    }
+
+    [Fact]
+    public void Build_NullVerdictAndBudget_IsByteIdentical()
+    {
+        ManabaseReport report = HealthyCasualReport();
+
+        string baseline = ManabaseReportTextBuilder.Build(report, "Atraxa Stax", "1 Sol Ring");
+        string withNulls = ManabaseReportTextBuilder.Build(
+            report,
+            "Atraxa Stax",
+            "1 Sol Ring",
+            ManabaseMode.Casual,
+            null,
+            null);
+
+        Assert.Equal(baseline, withNulls);
+    }
+
+    [Fact]
+    public void Build_WithVerdictAndBudget_AppendsReadingDeckBlockAfterSummary()
+    {
+        string output = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(),
+            "Atraxa Stax",
+            null,
+            ManabaseMode.Casual,
+            IssueVerdict,
+            Budget);
+
+        int summaryIndex = output.IndexOf("Mana base is well-built.", StringComparison.Ordinal);
+        int verdictIndex = output.IndexOf("Reading your deck:", StringComparison.Ordinal);
+        int colorSourcesIndex = output.IndexOf("Color Sources:", StringComparison.Ordinal);
+
+        Assert.True(verdictIndex > summaryIndex);
+        Assert.True(colorSourcesIndex > verdictIndex);
+        Assert.Contains("1. You're ~3 White source(s) short", output);
+        Assert.Contains("2. Ramp looks light: you run ~6 ramp", output);
+        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", output);
     }
 
     [Fact]
