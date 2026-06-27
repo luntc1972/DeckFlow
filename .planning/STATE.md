@@ -4,8 +4,8 @@ milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
 stopped_at: "Phase 69 PLANNED + DUAL-GATE CLEAN (fc83aebd): Claude plan-check PASSED + Codex PASS after closing dark-mode blocker over 3 revisions (bs-var bridge + base .table + form-check-input + .bg-light regression). Ready /gsd-execute-phase 69."
-last_updated: "2026-06-27T19:13:19.693Z"
-last_activity: 2026-06-27 -- Phase 73 planning complete
+last_updated: "2026-06-27T19:58:48.413Z"
+last_activity: 2026-06-27
 progress:
   total_phases: 10
   completed_phases: 3
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 72 SHIPPED to main (manabase command-zone commander castability); next is Phase 73 (deck-analysis command-zone awareness)
+**Current focus:** Phase 73 — deck-analysis-command-zone-awareness-ad-hoc-trunk-main
 
 ## Branch reconciliation (resolved 2026-06-22; re-merged 2026-06-25)
 
@@ -31,10 +31,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 72 (command-zone commander castability) — SHIPPED to origin/main 5a78ffc2 (FF, CI green)
-Plan: 7 of 7 complete
+Phase: 73 (deck-analysis-command-zone-awareness-ad-hoc-trunk-main) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-06-27 -- Phase 73 planning complete
+Last activity: 2026-06-27
 
 ## Roadmap Summary
 
