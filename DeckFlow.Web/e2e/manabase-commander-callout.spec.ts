@@ -90,7 +90,7 @@ test('command-zone castability callout renders above the table and excludes comm
   expect(isBeforeHeading).toBe(true);
   await expect(heading).toBeVisible();
 
-  await expect(castabilityTable.locator('tbody tr')).not.toContainText('Esika, God of the Tree');
+  await expect(castabilityTable).not.toContainText('Esika, God of the Tree');
 
   const rowPercents = await castabilityTable.locator('tbody tr td:nth-child(3)').allTextContents();
   const avgFromRows = Math.round(
