@@ -27,6 +27,10 @@ async function fillDeckAnalysisPasteText(page: Page, deckText: string): Promise<
   await page.locator('textarea[name="DeckText"]').fill(deckText);
 }
 
+async function expectRestoredNoticeHidden(page: Page): Promise<void> {
+  await expect(page.locator('.deck-restored-notice')).toHaveCount(0);
+}
+
 async function runThemePrefillCheck(browser: Browser, themeFile: string): Promise<void> {
   const page = await browser.newPage();
 
@@ -106,4 +110,65 @@ test('combined deck source restores into split fields using the url heuristic', 
   await expect(page.locator('select[name="DeckInputSource"]')).toHaveValue('PublicUrl');
   await expect(page.locator('input[name="DeckUrl"]')).toHaveValue(combinedUrlDeck);
   await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+});
+
+test('start over clears the carried deck store', async ({ page }) => {
+  await fillDeckAnalysisPasteText(page, pastedDeck);
+
+  await page.goto('/deck-primer');
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue(pastedDeck);
+  await expect(page.locator('.deck-restored-notice')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Start Over' }).click();
+  await page.waitForURL('**/deck-primer');
+
+  await page.goto('/deck-primer');
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+  await expectRestoredNoticeHidden(page);
+});
+
+test('restored notice appears across representative themes when a deck is actually prefilling', async ({ browser }) => {
+  for (const themeFile of representativeThemes) {
+    const page = await browser.newPage();
+
+    try {
+      await setThemeBeforeNavigation(page, themeFile);
+      await fillDeckAnalysisPasteText(page, pastedDeck);
+      await expectThemeSelected(page, themeFile);
+
+      await page.goto('/deck-primer');
+      await expectThemeSelected(page, themeFile);
+      await expect(page.locator('textarea[name="DeckText"]')).toHaveValue(pastedDeck);
+      await expect(page.locator('.deck-restored-notice')).toBeVisible();
+      await expect(page.locator('.deck-restored-notice')).toContainText('Restored your last deck.');
+    } finally {
+      await page.close();
+    }
+  }
+});
+
+test('restored notice clear empties the current tool and removes future prefills', async ({ page }) => {
+  await fillDeckAnalysisPasteText(page, pastedDeck);
+
+  await page.goto('/deck-primer');
+  const deckText = page.locator('textarea[name="DeckText"]');
+  const restoredNotice = page.locator('.deck-restored-notice');
+  await expect(restoredNotice).toBeVisible();
+  await expect(deckText).toHaveValue(pastedDeck);
+
+  await restoredNotice.locator('[data-deck-restored-clear]').click();
+  await expect(deckText).toHaveValue('');
+  await expectRestoredNoticeHidden(page);
+
+  await page.goto('/convert');
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+  await expect(page.locator('input[name="DeckUrl"]')).toHaveValue('');
+  await expectRestoredNoticeHidden(page);
+});
+
+test('fresh context does not show a restored deck notice', async ({ page }) => {
+  await page.goto('/deck-primer');
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+  await expect(page.locator('input[name="DeckUrl"]')).toHaveValue('');
+  await expectRestoredNoticeHidden(page);
 });
