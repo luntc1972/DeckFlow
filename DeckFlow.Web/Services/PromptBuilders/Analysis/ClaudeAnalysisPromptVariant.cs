@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
@@ -59,6 +60,14 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         if (!string.IsNullOrWhiteSpace(commanderName))
         {
             builder.AppendLine($"<commander>{commanderName}</commander>");
+            builder.AppendLine();
+        }
+
+        if (!string.IsNullOrWhiteSpace(companionName))
+        {
+            var escapedCompanion = SecurityElement.Escape(companionName);
+            builder.AppendLine($"<companion>{escapedCompanion}</companion>");
+            builder.AppendLine("<companion_note>This is the deck's companion; it applies its companion deckbuilding restriction.</companion_note>");
             builder.AppendLine();
         }
 
