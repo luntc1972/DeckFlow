@@ -1508,7 +1508,7 @@ Commander
                 result.SetUpgradePromptText,
                 result.RequestContextText,
                 result.DeckProfileSchemaJson,
-                result.TimingSummary,
+                // Timing is environmental (Stopwatch ms) and excluded from content byte-identity checks.
                 result.SuggestedChatTitle,
                 result.ResolvedCommanderName
             }.Where(value => !string.IsNullOrWhiteSpace(value)));
