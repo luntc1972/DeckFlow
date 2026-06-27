@@ -2007,7 +2007,7 @@ details.info-tooltip > summary:focus-visible {
 details.info-tooltip > p {
     margin: 0.4rem 0 0 0;
     padding: 0.5rem 0.75rem;
-    background: var(--panel-soft-bg, var(--surface, transparent));
+    background: var(--panel-soft-bg, var(--panel));
     color: var(--text, inherit);
     border-radius: 0.25rem;
     font-size: var(--fs-sm);
@@ -2410,7 +2410,7 @@ label.field > span,
   border-radius: 999px;
   padding: 0.3rem 0.85rem;
   cursor: pointer;
-  background: var(--panel-soft-bg, var(--surface, transparent));
+  background: var(--panel-soft-bg, var(--panel));
   user-select: none;
 }
 
@@ -2600,7 +2600,7 @@ label.field > span,
 }
 
 .manabase-lens {
-  background: var(--panel-soft-bg, var(--surface, transparent));
+  background: var(--panel-soft-bg, var(--panel));
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   border-radius: 12px;
   padding: 0.85rem 1rem;
@@ -2692,23 +2692,26 @@ label.field > span,
   padding: 0.85rem 1rem;
   border-radius: 12px;
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
-  background: var(--panel-soft-bg, var(--surface, transparent));
+  /* --panel is defined in every theme fork (24/24); --panel-soft-bg + the dead
+     --surface token are not, so the old chain bottomed out at transparent in the
+     11 standalone (non-@import) forks. Fall back to --panel for a real fill. */
+  background: var(--panel-soft-bg, var(--panel));
 }
 
 .manabase-beta-notice {
   border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
-  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 10%, var(--panel-soft-bg, var(--surface, transparent)));
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 10%, var(--panel-soft-bg, var(--panel)));
   color: var(--ink, inherit);
 }
 
 .manabase-verdict--issues {
   border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
-  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 14%, var(--panel-soft-bg, var(--surface, transparent)));
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 14%, var(--panel-soft-bg, var(--panel)));
 }
 
 .manabase-verdict--fine {
   border-left: 3px solid var(--success, #2f855a);
-  background: color-mix(in srgb, var(--success, #2f855a) 14%, var(--panel-soft-bg, var(--surface, transparent)));
+  background: color-mix(in srgb, var(--success, #2f855a) 14%, var(--panel-soft-bg, var(--panel)));
 }
 
 .manabase-verdict-heading {
@@ -2764,6 +2767,15 @@ label.field > span,
   margin-right: 0.2rem;
   color: var(--accent-strong, var(--accent, #3858a6));
   font-weight: 700;
+}
+
+/* Align the commander ★ with the companion + in this section: the shared
+   .manabase-cmd-glyph is inline (min-width ignored) elsewhere; scope the
+   inline-block + min-width here so names line up without touching the
+   pinned-commander marker used on other pages. */
+.manabase-cmd-castability-line .manabase-cmd-glyph {
+  display: inline-block;
+  min-width: 0.9rem;
 }
 
 @media (max-width: 640px) {
