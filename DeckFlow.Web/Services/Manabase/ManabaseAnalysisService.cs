@@ -2,6 +2,7 @@ using System.Net;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
@@ -60,6 +61,9 @@ public sealed class ManabaseAnalysisOptions
     /// printed cost in the castability math for alt/reduced-cost cards. Empty/null = no overrides.
     /// </summary>
     public IReadOnlyDictionary<string, string>? CostOverrides { get; init; }
+
+    /// <summary>Optional user-supplied companion designator; blank/null means "no manual override".</summary>
+    public string? CompanionDesignator { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -81,7 +85,14 @@ public sealed record ManabaseAnalysisResult(
     IReadOnlyList<CostSuggestion> Suggestions,
     ManabaseVerdict? Verdict,
     ManabaseRampDrawBudget? Budget,
-    bool ShowPlainLanguage);
+    bool ShowPlainLanguage)
+{
+    /// <summary>Whether the command-zone castability affordances were enabled for this result.</summary>
+    public bool CommanderCastabilityEnabled { get; init; }
+
+    /// <summary>Optional companion castability row modeled outside the analyzed 99.</summary>
+    public CardCastability? CompanionRow { get; init; }
+}
 
 /// <summary>
 /// The outcome of the cheap "Load deck" step: the deck resolved and classified, with its detected
@@ -108,6 +119,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     // A Commander deck is ~100 cards; these leave generous headroom while rejecting abuse.
     private const int MaxDeckSourceChars = 100_000;
     private const int MaxDeckCards = 500;
+    private const int MaxCompanionNameLength = 200;
 
     // Only these boards make up the deck under analysis; a sideboard/maybeboard would skew the
     // land target.
@@ -201,8 +213,15 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // sim source are both built in the classifier, so reading them after Resolve would be too late.
         bool rampCreditV2 = IsFlagOn(RampCreditV2FlagKey);
         bool landRampSim = IsFlagOn(LandRampSimFlagKey);
+        bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
 
-        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2, landRampSim, cancellationToken)
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
+                deckSource,
+                rampCreditV2,
+                landRampSim,
+                commanderCastability,
+                options.CompanionDesignator,
+                cancellationToken)
             .ConfigureAwait(false);
 
         // MQ-02: read the flag and pass it down, so the simulator stays a pure function of its
@@ -230,7 +249,30 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
         ManabaseRampDrawBudget? budget = null;
         ManabaseVerdict? verdict = null;
+        CardCastability? companionRow = null;
         string swapPrompt;
+
+        if (commanderCastability && resolved.CompanionCard is not null)
+        {
+            ParsedManaCost printedCost = ParsePrintedManaCost(resolved.CompanionCard.ManaCost);
+            int printedManaValue = Math.Max(0, Math.Min(20, (int)Math.Round(resolved.CompanionCard.Cmc)));
+            var companionRequirement = new SpellRequirement
+            {
+                Name = resolved.CompanionCard.Name,
+                // HEURISTIC: companion access costs an extra 3 generic mana to move it to hand first.
+                ManaValue = printedManaValue + 3,
+                Pips = printedCost.Pips,
+                IsGold = printedCost.DistinctColors >= 2,
+                IsCommander = false,
+            };
+
+            companionRow = ManabaseAnalyzer.SimulateCompanion(
+                resolved.Deck,
+                companionRequirement,
+                useManaQuantity,
+                colorAwareMulligan,
+                gateRampOnCastable: landRampSim);
+        }
 
         if (plainLanguage)
         {
@@ -241,16 +283,21 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             }
 
             swapPrompt = ManabaseSwapPromptBuilder.Build(
-                report, deckName, resolved.DecklistText, options.Mode, verdict, budget);
+                report, deckName, resolved.DecklistText, options.Mode, verdict, budget, commanderCastability, companionRow);
         }
         else
         {
-            swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
+            swapPrompt = ManabaseSwapPromptBuilder.Build(
+                report, deckName, resolved.DecklistText, options.Mode, null, null, commanderCastability, companionRow);
         }
 
         return new ManabaseAnalysisResult(
             report, resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice,
-            swapPrompt, resolved.Deck.CostSuggestions, verdict, budget, plainLanguage);
+            swapPrompt, resolved.Deck.CostSuggestions, verdict, budget, plainLanguage)
+        {
+            CommanderCastabilityEnabled = commanderCastability,
+            CompanionRow = companionRow,
+        };
     }
 
     /// <inheritdoc />
@@ -260,7 +307,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     {
         // Load surfaces cost suggestions only; neither the ramp-credit land target nor the land-ramp sim
         // source is used here, so the flag values are immaterial — pass false.
-        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(deckSource, rampCreditV2: false, landRampSim: false, cancellationToken)
+        ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
+                deckSource,
+                rampCreditV2: false,
+                landRampSim: false,
+                commanderCastability: false,
+                companionDesignator: null,
+                cancellationToken)
             .ConfigureAwait(false);
 
         // No simulation here — Load just surfaces the detected cost suggestions for review/edit.
@@ -282,6 +335,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string deckSource,
         bool rampCreditV2,
         bool landRampSim,
+        bool commanderCastability,
+        string? companionDesignator,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(deckSource))
@@ -320,12 +375,34 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             throw new InvalidOperationException($"That deck has too many cards to analyze (limit {MaxDeckCards}).");
         }
 
+        string? companionName = commanderCastability
+            ? ResolveCompanionName(companionDesignator, load.DetectedCompanionName)
+            : null;
+        string? normalizedCompanionName = companionName is null ? null : CardNormalizer.Normalize(companionName);
+        DeckEntry? excludedCompanionEntry = normalizedCompanionName is null
+            ? null
+            : deckCards.FirstOrDefault(entry =>
+                string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(CardNormalizer.Normalize(entry.Name), normalizedCompanionName, StringComparison.Ordinal));
+
         ScryfallCardNameIndex index = await ResolveCardsAsync(deckCards, cancellationToken).ConfigureAwait(false);
+        ScryfallCardData? companionCard = null;
+        if (commanderCastability && companionName is not null)
+        {
+            companionCard = excludedCompanionEntry is not null
+                ? await ResolveCompanionFromDeckEntryAsync(index, excludedCompanionEntry, cancellationToken).ConfigureAwait(false)
+                : await ResolveSingleCardAsync(companionName, cancellationToken).ConfigureAwait(false);
+        }
 
         var deckEntries = new List<DeckCardEntry>();
         var unresolved = new List<string>();
         foreach (DeckEntry entry in deckCards)
         {
+            if (excludedCompanionEntry is not null && ReferenceEquals(entry, excludedCompanionEntry))
+            {
+                continue;
+            }
+
             ScryfallCardData? card;
             if (!index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out card))
             {
@@ -376,7 +453,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string inputSummary = $"{cardCount} cards · {landCount} lands"
             + (unresolved.Count > 0 ? $" · {unresolved.Count} unresolved" : string.Empty);
 
-        return new ResolvedManabaseDeck(deck, unresolved, load.FallbackNotice, decklistText, inputSummary);
+        return new ResolvedManabaseDeck(deck, unresolved, load.FallbackNotice, decklistText, inputSummary, companionCard);
     }
 
     // Internal carrier for the shared resolve+classify stage (no report yet).
@@ -385,7 +462,81 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         IReadOnlyList<string> Unresolved,
         string? FallbackNotice,
         string DecklistText,
-        string InputSummary);
+        string InputSummary,
+        ScryfallCardData? CompanionCard);
+
+    private static string? ResolveCompanionName(string? designator, string? detected)
+    {
+        string? manual = BoundCompanionName(designator);
+        if (manual is not null)
+        {
+            return manual;
+        }
+
+        return BoundCompanionName(detected);
+    }
+
+    private static string? BoundCompanionName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        string trimmed = name.Trim();
+        return trimmed.Length <= MaxCompanionNameLength
+            ? trimmed
+            : trimmed[..MaxCompanionNameLength];
+    }
+
+    private static ParsedManaCost ParsePrintedManaCost(string? manaCost)
+        => string.IsNullOrWhiteSpace(manaCost)
+            ? ManaCostParser.Parse("{0}")
+            : ManaCostParser.Parse(manaCost);
+
+    private async Task<ScryfallCardData?> ResolveCompanionFromDeckEntryAsync(
+        ScryfallCardNameIndex index,
+        DeckEntry companionEntry,
+        CancellationToken cancellationToken)
+    {
+        if (index.TryResolve(companionEntry.Name, companionEntry.SetCode, companionEntry.CollectorNumber, out ScryfallCardData? hit))
+        {
+            return hit;
+        }
+
+        ScryfallCard? fallback = await _scryfallCardResolver
+            .SearchFallbackCardAsync(companionEntry.Name, cancellationToken).ConfigureAwait(false);
+        if (fallback is null)
+        {
+            return null;
+        }
+
+        ScryfallCardData data = ScryfallCardDataMapper.ToCardData(fallback);
+        index.Add(data);
+        return data;
+    }
+
+    private async Task<ScryfallCardData?> ResolveSingleCardAsync(string cardName, CancellationToken cancellationToken)
+    {
+        var request = new RestRequest("cards/collection", Method.Post);
+        request.AddJsonBody(new { identifiers = new object[] { new { name = cardName } } });
+
+        RestResponse<ScryfallCollectionResponse> response =
+            await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices && response.Data?.Data.Count > 0)
+        {
+            ScryfallCard? hit = response.Data.Data.FirstOrDefault(card =>
+                string.Equals(CardNormalizer.Normalize(card.Name), CardNormalizer.Normalize(cardName), StringComparison.Ordinal));
+            if (hit is not null)
+            {
+                return ScryfallCardDataMapper.ToCardData(hit);
+            }
+        }
+
+        ScryfallCard? fallback = await _scryfallCardResolver.SearchFallbackCardAsync(cardName, cancellationToken).ConfigureAwait(false);
+        return fallback is null ? null : ScryfallCardDataMapper.ToCardData(fallback);
+    }
 
     // Batch-resolve the deck's cards through Scryfall's collection endpoint, preferring an exact
     // printing (set + collector number) so alternate / flavor names still resolve.

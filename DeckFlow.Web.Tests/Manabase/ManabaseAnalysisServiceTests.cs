@@ -9,8 +9,13 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Controllers;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Xunit;
 
@@ -386,6 +391,94 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_CommanderCastabilityFlagOff_LeavesReportAndPromptByteIdentical()
+    {
+        var (entries, cards) = CommanderBackgroundCompanionFixture();
+
+        var baseline = new ManabaseAnalysisService(
+            new FakeLoader(entries, detectedCompanionName: "Jegantha, the Wellspring"),
+            new FakeResolver(cards));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries, detectedCompanionName: "Jegantha, the Wellspring"),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CommanderCastabilityFlagKey] = false,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync("paste", "Command Zone Deck");
+        var offResult = await explicitOff.AnalyzeAsync("paste", "Command Zone Deck");
+
+        Assert.Equal(
+            baselineResult.Report.Castability.Select(FormatCastabilityRow),
+            offResult.Report.Castability.Select(FormatCastabilityRow));
+        Assert.Equal(baselineResult.Report.AvgOnCurvePercent, offResult.Report.AvgOnCurvePercent);
+        Assert.Equal(baselineResult.Report.Health, offResult.Report.Health);
+        Assert.Equal(baselineResult.ChatGptSwapPrompt, offResult.ChatGptSwapPrompt);
+        Assert.False(GetResultCommanderCastabilityEnabled(offResult));
+        Assert.Null(GetResultCompanionRow(offResult));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CommanderCastabilityFlagOn_UsesDesignatorPrecedence_ExcludesCompanionAndKeepsTwoCommanders()
+    {
+        var (entries, cards) = CommanderBackgroundCompanionFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries, detectedCompanionName: "Jegantha, the Wellspring"),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CommanderCastabilityFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync(
+            "paste",
+            "Command Zone Deck",
+            new ManabaseAnalysisOptions
+            {
+                CompanionDesignator = "  Kaheera, the Orphanguard  ",
+            });
+
+        CardCastability? companion = GetResultCompanionRow(result);
+        Assert.True(GetResultCommanderCastabilityEnabled(result));
+        Assert.NotNull(companion);
+        Assert.Equal("Kaheera, the Orphanguard", companion!.Name);
+        Assert.Equal(6, companion.ManaValue);
+        Assert.DoesNotContain(result.Report.Castability, row => row.Name == "Kaheera, the Orphanguard");
+        Assert.Equal(2, result.Report.LandTarget!.CommanderCount);
+        Assert.Equal(2, result.Report.Castability.Count(row => row.IsCommander));
+        Assert.True(
+            result.ChatGptSwapPrompt.Contains("Command-zone castability:", StringComparison.Ordinal),
+            result.ChatGptSwapPrompt);
+        Assert.Contains("Companion: Kaheera, the Orphanguard", result.ChatGptSwapPrompt);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CommanderCastabilityFlagOn_ManualCompanionResolveFailure_TreatedAsNoCompanion()
+    {
+        var (entries, cards) = CommanderBackgroundCompanionFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries, detectedCompanionName: null),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CommanderCastabilityFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync(
+            "paste",
+            "Command Zone Deck",
+            new ManabaseAnalysisOptions
+            {
+                CompanionDesignator = "Unknown Companion",
+            });
+
+        Assert.True(GetResultCommanderCastabilityEnabled(result));
+        Assert.Null(GetResultCompanionRow(result));
+        Assert.DoesNotContain("Companion:", result.ChatGptSwapPrompt);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_PlainLanguageFlagOn_Casual_ThreadsVerdictBudgetAndPrompt()
     {
         var (entries, cards) = StrainedCommanderFixture();
@@ -530,6 +623,42 @@ public sealed class ManabaseAnalysisServiceTests
         return (entries, cards);
     }
 
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) CommanderBackgroundCompanionFixture()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Wilson, Refined Grizzly", 1, "commander"),
+            Entry("Passionate Archaeologist", 1, "commander", category: "Background"),
+            Land("Forest", 18),
+            Land("Mountain", 18),
+            Entry("Kaheera, the Orphanguard", 1, "mainboard"),
+            Entry("Cultivate", 1, "mainboard"),
+            Entry("Arcane Signet", 1, "mainboard"),
+        };
+        for (int i = 0; i < 20; i++)
+        {
+            entries.Add(Entry($"Filler Spell {i}", 1, "mainboard"));
+        }
+
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Forest", "G"),
+            BasicLand("Mountain", "R"),
+            Spell("Wilson, Refined Grizzly", "{1}{G}", 2, "Legendary Creature — Bear Warrior"),
+            Spell("Passionate Archaeologist", "{2}{R}", 3, "Legendary Enchantment — Background"),
+            Spell("Kaheera, the Orphanguard", "{1}{G/W}{G/W}", 3, "Legendary Creature — Cat Beast"),
+            Spell("Jegantha, the Wellspring", "{4}{R/G}", 5, "Legendary Creature — Elemental Elk"),
+            Spell("Cultivate", "{2}{G}", 3, "Sorcery"),
+            Spell("Arcane Signet", "{2}", 2, "Artifact"),
+        };
+        for (int i = 0; i < 20; i++)
+        {
+            cards.Add(Spell($"Filler Spell {i}", "{2}{R}", 3, "Sorcery"));
+        }
+
+        return (entries, cards);
+    }
+
     private static ManabaseVerdict? GetResultVerdict(ManabaseAnalysisResult result) =>
         GetOptionalProperty<ManabaseVerdict>(result, "Verdict");
 
@@ -542,6 +671,16 @@ public sealed class ManabaseAnalysisServiceTests
             ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowPlainLanguage property missing.");
         return (bool)(property.GetValue(result) ?? false);
     }
+
+    private static bool GetResultCommanderCastabilityEnabled(ManabaseAnalysisResult result)
+    {
+        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("CommanderCastabilityEnabled")
+            ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.CommanderCastabilityEnabled property missing.");
+        return (bool)(property.GetValue(result) ?? false);
+    }
+
+    private static CardCastability? GetResultCompanionRow(ManabaseAnalysisResult result) =>
+        GetOptionalProperty<CardCastability>(result, "CompanionRow");
 
     private static T? GetOptionalProperty<T>(object target, string name)
         where T : class
@@ -718,7 +857,10 @@ public sealed class ManabaseAnalysisServiceTests
 
     // --- helpers -------------------------------------------------------------
 
-    private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null) => new()
+    private static string FormatCastabilityRow(CardCastability row)
+        => $"{row.Name}|{row.ManaValue}|{row.OnCurveTurn}|{row.CastPercent}|{row.IsCommander}";
+
+    private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null, string? category = null) => new()
     {
         Name = name,
         NormalizedName = name.ToLowerInvariant(),
@@ -726,6 +868,7 @@ public sealed class ManabaseAnalysisServiceTests
         Board = board,
         SetCode = set,
         CollectorNumber = cn,
+        Category = category,
     };
 
     private static DeckEntry Land(string name, int qty) => Entry(name, qty, "mainboard");
@@ -745,14 +888,19 @@ public sealed class ManabaseAnalysisServiceTests
     private sealed class FakeLoader : IDeckEntryLoader
     {
         private readonly List<DeckEntry> _entries;
+        private readonly string? _detectedCompanionName;
 
-        public FakeLoader(List<DeckEntry> entries) => _entries = entries;
+        public FakeLoader(List<DeckEntry> entries, string? detectedCompanionName = null)
+        {
+            _entries = entries;
+            _detectedCompanionName = detectedCompanionName;
+        }
 
         public Task<DeckSourceLoadResult> LoadFromSourceAsync(
             string deckSource,
             UnrecognizedPasteBehavior unrecognizedBehavior = UnrecognizedPasteBehavior.ThrowNotRecognized,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new DeckSourceLoadResult(_entries, null));
+            => Task.FromResult(new DeckSourceLoadResult(_entries, null, _detectedCompanionName));
 
         public Task<List<DeckEntry>> LoadAsync(DeckLoadRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -776,10 +924,116 @@ public sealed class ManabaseAnalysisServiceTests
             });
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-            => Task.FromResult<ScryfallCard?>(null);
+            => Task.FromResult(_cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
 
         public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => Task.FromResult<ScryfallCard?>(null);
+    }
+}
+
+public sealed class ManabaseControllerCompanionTests
+{
+    [Fact]
+    public async Task Post_ThreadsCompanionDesignator_AndMapsCommanderCastabilityFields()
+    {
+        var companion = new CardCastability
+        {
+            Name = "Kaheera, the Orphanguard",
+            ManaValue = 6,
+            OnCurveTurn = 6,
+            CastPercent = 55,
+            LimitingFactor = "curve",
+        };
+        var service = new CapturingControllerService(ManabaseControllerModeTestsAccessor.CasualReport(), companion, commanderCastabilityEnabled: true);
+        var controller = BuildController(service);
+
+        var result = await controller.Manabase(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Kaheera, the Orphanguard",
+            CompanionName = " Kaheera, the Orphanguard ",
+        });
+
+        Assert.NotNull(service.LastOptions);
+        Assert.Equal(" Kaheera, the Orphanguard ", service.LastOptions!.CompanionDesignator);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ManabaseViewModel>(view.Model);
+        Assert.True(model.ShowCommanderCastability);
+        Assert.Same(companion, model.CompanionCallout);
+    }
+
+    private static ManabaseController BuildController(IManabaseAnalysisService service)
+    {
+        var controller = new ManabaseController(service, NullLogger<ManabaseController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+        return controller;
+    }
+
+    private sealed class CapturingControllerService : IManabaseAnalysisService
+    {
+        private readonly ManabaseReport _report;
+        private readonly CardCastability? _companionRow;
+        private readonly bool _commanderCastabilityEnabled;
+
+        public CapturingControllerService(
+            ManabaseReport report,
+            CardCastability? companionRow,
+            bool commanderCastabilityEnabled)
+        {
+            _report = report;
+            _companionRow = companionRow;
+            _commanderCastabilityEnabled = commanderCastabilityEnabled;
+        }
+
+        public ManabaseAnalysisOptions? LastOptions { get; private set; }
+
+        public Task<ManabaseAnalysisResult> AnalyzeAsync(
+            string deckSource,
+            string? deckName,
+            ManabaseAnalysisOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            LastOptions = options ?? new ManabaseAnalysisOptions();
+            return Task.FromResult(new ManabaseAnalysisResult(
+                _report,
+                "1 cards · 36 lands",
+                Array.Empty<string>(),
+                null,
+                "prompt",
+                Array.Empty<CostSuggestion>(),
+                null,
+                null,
+                false)
+            {
+                CommanderCastabilityEnabled = _commanderCastabilityEnabled,
+                CompanionRow = _companionRow,
+            });
+        }
+
+        public Task<ManabaseLoadResult> LoadAsync(
+            string deckSource,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new ManabaseLoadResult(
+                "1 cards · 36 lands", Array.Empty<string>(), null, Array.Empty<CostSuggestion>()));
+    }
+
+    private static class ManabaseControllerModeTestsAccessor
+    {
+        public static ManabaseReport CasualReport() => new()
+        {
+            ActualLands = 36,
+            TargetLands = 37.0,
+            ColorFindings = Array.Empty<ColorSourceFinding>(),
+            Mode = ManabaseMode.Casual,
+            Castability = new[]
+            {
+                new CardCastability { Name = "Counterspell", ManaValue = 2, OnCurveTurn = 2, CastPercent = 62, LimitingFactor = "color:U" },
+            },
+            Summary = "ok",
+        };
     }
 }
 

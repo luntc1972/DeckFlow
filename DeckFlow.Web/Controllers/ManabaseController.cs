@@ -97,6 +97,8 @@ public sealed class ManabaseController : DeckToolControllerBase
                     PlainLanguageVerdict = result.Verdict,
                     RampDrawBudget = result.Budget,
                     ShowPlainLanguage = result.ShowPlainLanguage,
+                    ShowCommanderCastability = result.CommanderCastabilityEnabled,
+                    CompanionCallout = result.CompanionRow,
                 });
             });
     }
@@ -154,6 +156,7 @@ public sealed class ManabaseController : DeckToolControllerBase
             {
                 Mode = request.Mode,
                 CommanderImportance = request.CommanderImportance,
+                CompanionDesignator = request.CompanionName,
                 CostOverrides = ManabaseCostOverrideParser.Parse(request.CostOverridesText),
             },
             cancellationToken);
