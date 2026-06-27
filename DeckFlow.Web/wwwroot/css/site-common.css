@@ -287,7 +287,7 @@ summary:focus-visible,
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-sm, 0.85rem);
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
@@ -2668,7 +2668,7 @@ label.field > span,
 .manabase-lens-gloss {
   display: block;
   margin: 0.45rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm, 0.85rem);
   color: var(--muted, #5a6472);
   overflow-wrap: anywhere;
 }
@@ -2738,7 +2738,7 @@ label.field > span,
 
 .manabase-rampdraw-line {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm, 0.85rem);
 }
 
 .manabase-rampdraw-line strong {
@@ -2748,7 +2748,7 @@ label.field > span,
 
 .manabase-rampdraw-note {
   margin: 0.45rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm, 0.85rem);
   color: var(--muted, #5a6472);
 }
 
