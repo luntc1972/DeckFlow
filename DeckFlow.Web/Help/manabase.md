@@ -59,6 +59,14 @@ The result panel shows:
 
 The castability number comes from a Monte-Carlo simulation: it plays out thousands of games with a London mulligan — including **Commander's free first mulligan** (the first mulligan keeps seven; only later ones bottom a card) — **on the play** (going first, so the turn-one draw is skipped). The simulation also models **how much** mana each source makes (Sol Ring and Ancient Tomb pay 2, Gilded Lotus pays 3 of one color) and is **color-aware when mulliganing** — it ships an opening hand that has enough lands but the wrong colors (a 2+ color deck wants at least two colors in its opening lands), the way a real player would. Repeatable **land-ramp** (Cultivate, Rampant Growth) is modeled too: the fetched land joins the simulation as persistent (colorless) mana one turn after the ramp spell resolves, so expensive payoffs in ramp decks are not under-rated. A card on its mana-value turn N has therefore seen its opening 7 plus one card per turn after the first (7 + (N − 1)). On the play is the **conservative** case: in a multiplayer pod you are usually *on the draw* and see one extra card by your curve turn, so real odds run a little higher than shown — this matches the Karsten / Salubrious Snail baseline. Read the number as a **ranking aid**, not a guarantee.
 
+### Command zone callout and companion handling
+
+When the `manabase.commander-castability` feature flag is enabled, the report can add a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
+
+Companions are handled separately from the command zone cards. DeckFlow can auto-detect a companion from the **Moxfield direct API**. Archidekt does not expose a reliable Companion category, so Archidekt decks, pasted lists, and the Moxfield Commander Spellbook fallback path rely on the manual companion designator instead.
+
+When you name a companion, DeckFlow estimates its castability by adding the companion's "put into hand" step as a simple **+3 generic mana** tax before the spell is cast. This is an approximation meant to rank how castable the companion is relative to the rest of the deck. It is not a rules-exact simulation of every game action or timing edge case.
+
 ### Reading your deck
 
 When the admin enables the plain-language layer, the result can also show a short **Reading your deck** advisory:
