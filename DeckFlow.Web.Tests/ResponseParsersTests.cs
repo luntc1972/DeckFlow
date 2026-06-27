@@ -116,6 +116,119 @@ public sealed class ResponseParsersTests
     }
 
     [Fact]
+    public void ParseAnalysisResponse_ObjectShapedStrengthsWeaknessesDeckNeeds_CoercesToStrings()
+    {
+        var payload = """
+            {
+              "deck_profile": {
+                "format": "commander",
+                "commander": "Sokka, Tenacious Tactician",
+                "game_plan": "Build a board of tactical value creatures, reuse ETB triggers, and snowball combat advantage through disciplined attacks.",
+                "primary_axes": ["combat", "tempo", "blink"],
+                "speed": "midrange",
+                "strengths": [
+                  { "name": "Efficient curve", "description": "The deck starts developing pressure on turns 1 through 3 without giving up interaction." },
+                  { "name": "Card velocity", "description": "Repeated ETB value lets the deck see more cards than a typical Boros shell." },
+                  { "name": "Combat leverage", "description": "Attack-step triggers convert small board edges into real pressure." },
+                  { "name": "Spot removal", "description": "Cheap answers keep problem blockers and combo creatures off the table." },
+                  { "name": "Resilient threats", "description": "Several creatures generate value immediately, softening the impact of sweepers." },
+                  { "name": "Political flexibility", "description": "The deck can pressure the leader while still holding up reactive tools." }
+                ],
+                "weaknesses": [
+                  { "name": "Stack interaction", "description": "It cannot consistently stop fast combo once mana is untapped." },
+                  { "name": "Mana recovery", "description": "After multiple wraths the deck can take too long to rebuild colored sources." },
+                  { "name": "Card quality", "description": "Some low-impact role-players become poor draws once the game goes long." },
+                  { "name": "Closing speed", "description": "The deck sometimes stabilizes without turning that position into a fast win." }
+                ],
+                "deck_needs": [
+                  { "need": "More burst draw", "description": "Add effects that reload after the first board wipe." },
+                  { "need": "Cheaper protection", "description": "Protect key engines without spending a full turn cycle." },
+                  { "need": "Higher impact finishers", "description": "Convert tempo advantages into shorter clocks." },
+                  { "need": "Extra land smoothing", "description": "Reduce the number of awkward two-color opening hands." }
+                ],
+                "weak_slots": [
+                  { "card": "Firemantle Adept", "reason": "Too small an effect for four mana." },
+                  { "card": "Tactician's Pike", "reason": "Win-more equipment that doesn't help from behind." }
+                ],
+                "synergy_tags": ["blink", "tokens", "attack-triggers"],
+                "question_answers": [
+                  { "question_number": 1, "question": "How does the deck usually win?", "answer": "By turning repeated attack triggers into overwhelming combat value.", "basis": "The creature suite is dense with ETB and attack payoffs." },
+                  { "question_number": 2, "question": "What does it struggle with?", "answer": "Fast combo and repeated sweepers.", "basis": "Most interaction is permanent-based and rebuilding takes time." }
+                ]
+              }
+            }
+            """;
+
+        var response = ResponseParsers.ParseAnalysisResponse(payload);
+
+        Assert.Equal(6, response.Strengths.Count);
+        Assert.Equal(4, response.Weaknesses.Count);
+        Assert.Equal(4, response.DeckNeeds.Count);
+        Assert.Contains("Efficient curve: The deck starts developing pressure on turns 1 through 3 without giving up interaction.", response.Strengths);
+    }
+
+    [Fact]
+    public void ParseAnalysisResponse_LegacyStringShaped_StillParses()
+    {
+        var payload = """
+            {
+              "deck_profile": {
+                "format": "commander",
+                "commander": "Sokka, Tenacious Tactician",
+                "strengths": [
+                  "Efficient curve",
+                  "Card velocity",
+                  "Combat leverage",
+                  "Spot removal",
+                  "Resilient threats",
+                  "Political flexibility"
+                ],
+                "weaknesses": [
+                  "Stack interaction",
+                  "Mana recovery",
+                  "Card quality",
+                  "Closing speed"
+                ],
+                "deck_needs": [
+                  "More burst draw",
+                  "Cheaper protection",
+                  "Higher impact finishers",
+                  "Extra land smoothing"
+                ]
+              }
+            }
+            """;
+
+        var response = ResponseParsers.ParseAnalysisResponse(payload);
+
+        Assert.Equal(6, response.Strengths.Count);
+        Assert.Equal(4, response.Weaknesses.Count);
+        Assert.Equal(4, response.DeckNeeds.Count);
+        Assert.Equal("Efficient curve", response.Strengths[0]);
+    }
+
+    [Fact]
+    public void ParseAnalysisResponse_MalformedDeckProfile_ThrowsInvalidOperationNotJsonException()
+    {
+        var payload = """
+            {
+              "deck_profile": {
+                "format": "commander",
+                "commander": "Sokka, Tenacious Tactician",
+                "strengths": [
+                  { "name": "Efficient curve", "description": "Good early development." },
+                  7
+                ]
+              }
+            }
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseAnalysisResponse(payload));
+
+        Assert.Equal("The submitted AI response did not contain a valid deck_profile payload.", exception.Message);
+    }
+
+    [Fact]
     public void ParseSetUpgradeResponse_ThrowsForNullOrWhitespaceInput()
     {
         Assert.Throws<InvalidOperationException>(() => ResponseParsers.ParseSetUpgradeResponse(null!));
