@@ -59,6 +59,16 @@ The result panel shows:
 
 The castability number comes from a Monte-Carlo simulation: it plays out thousands of games with a London mulligan — including **Commander's free first mulligan** (the first mulligan keeps seven; only later ones bottom a card) — **on the play** (going first, so the turn-one draw is skipped). The simulation also models **how much** mana each source makes (Sol Ring and Ancient Tomb pay 2, Gilded Lotus pays 3 of one color) and is **color-aware when mulliganing** — it ships an opening hand that has enough lands but the wrong colors (a 2+ color deck wants at least two colors in its opening lands), the way a real player would. Repeatable **land-ramp** (Cultivate, Rampant Growth) is modeled too: the fetched land joins the simulation as persistent (colorless) mana one turn after the ramp spell resolves, so expensive payoffs in ramp decks are not under-rated. A card on its mana-value turn N has therefore seen its opening 7 plus one card per turn after the first (7 + (N − 1)). On the play is the **conservative** case: in a multiplayer pod you are usually *on the draw* and see one extra card by your curve turn, so real odds run a little higher than shown — this matches the Karsten / Salubrious Snail baseline. Read the number as a **ranking aid**, not a guarantee.
 
+### Reading your deck
+
+When the admin enables the plain-language layer, the result can also show a short **Reading your deck** advisory:
+
+- **Metric glosses** — brief plain-English help under the Karsten source check and simulated cast-rate lenses, plus the demanding-cards note when that warning renders.
+- **Reading your deck** — a prioritized summary of the top fixes when there are issues, or a specific why-it-is-fine explanation when the mana base already clears the important checks.
+- **Ramp / draw budget** (Casual only) — an advisory slot-budget line comparing your current split to a common ramp/draw split for the deck's threshold proxy.
+
+This layer is advisory only. It never changes the land count, color counts, castability table, or health band. The ramp/draw split is a **community heuristic, not Karsten math**, and its threshold is a single-point proxy taken from either the commander's mana value or the deck's 75th-percentile curve point. In cEDH, the glosses can still render, but the ramp/draw budget is suppressed.
+
 ## Step 3 — See The Formula
 
 Two collapsible panels show exactly how the verdict was reached:
