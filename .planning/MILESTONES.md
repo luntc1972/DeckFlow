@@ -1,5 +1,20 @@
 # Milestones
 
+## Cycle 12 — Manabase Accuracy, Command-Zone Awareness & Cross-Tool Persistence (Shipped: 2026-06-27, `2026.06.9`)
+
+**Phases:** 70-74 + flag-key namespacing, shipped as trunk/ad-hoc work on `main` (linear history, capped by the `2026.06.9` tag — not a single squash, since the phases were ff-pushed individually as they shipped).
+
+**Key accomplishments:**
+
+- **Plain-language manabase verdict (Phase 71):** worded advisory + metric glosses on the Mana Base analyzer; underlying Karsten/simulation surfaces unchanged. Flag `manabase.plain-language-verdict`.
+- **Manabase command-zone + commander castability (Phase 72):** full command zone (partners, commander+Background, companion) threaded through deck loading; commander-castability lens in the UI. Flag `manabase.commander-castability`.
+- **Deck-analysis command-zone awareness (Phase 73):** `/deck-analysis` prompt artifact names the full command zone + an optional companion; flag-gated Step-1 Companion designator (auto-detected from Moxfield; nameable for Archidekt/pasted). Awareness-only — deck text untouched, byte-identical when off. Session cache bypassed while on (Codex HIGH fix). Flag `analysis.command-zone-awareness`. Codex review APPROVE; verifier PASS 6/6.
+- **Cross-tool deck-input persistence (Phase 74):** paste-once carry across single-deck tools (sessionStorage, fill-if-empty), restore notice, Start-Over clear.
+- **Deck Primer output-style toggle:** Moxfield-rich and Full cEDH styles.
+- **Feature-flag key namespacing:** `tool.*`/`service.*`/`analysis.*`/`manabase.*` keys with state-preserving migration; Admin Flags instant prefix filter + `tool.*` descriptions.
+
+**Quality:** build 0/0; Web suite 929 pass. New flags seeded OFF in prod (operator flips when ready). Manual prod deploy owed (autodeploy OFF).
+
 ## Mana Base — Casual/cEDH Modes & Castability (Shipped: 2026-06-21, `2026.06.7`)
 
 **Phase:** 64 (manabase-modes-castability), 2 waves (Core + Web)
