@@ -23,6 +23,8 @@ Set these environment variables (via `fly secrets set ...` on Fly.io or the Rend
 
 Basic auth covers the whole admin shell: Dashboard (`/Admin`), Feedback, Flags, Harvest, Analytics, Content KB curation, and YouTube Export. If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/*` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
 
+On `/Admin/Flags`, operators can now narrow the table instantly in-browser with a starts-with key filter plus namespace chips for `tool.`, `service.`, and `analysis.`; the current filter is kept in `sessionStorage` across admin page reloads within the session.
+
 Public submissions are rate-limited to 5 per hour per IP.
 
 ### Feedback rate-limit identity (CF-Connecting-IP, Phase 5)
