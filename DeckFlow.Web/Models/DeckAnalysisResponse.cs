@@ -65,18 +65,21 @@ public sealed class DeckAnalysisResponse
     /// Strengths the prompt identified in the submitted deck.
     /// </summary>
     [JsonPropertyName("strengths")]
+    [JsonConverter(typeof(JsonStringListCoercingConverter))]
     public IReadOnlyList<string> Strengths { get; init; } = Array.Empty<string>();
 
     /// <summary>
     /// Weaknesses the prompt identified in the submitted deck.
     /// </summary>
     [JsonPropertyName("weaknesses")]
+    [JsonConverter(typeof(JsonStringListCoercingConverter))]
     public IReadOnlyList<string> Weaknesses { get; init; } = Array.Empty<string>();
 
     /// <summary>
     /// Needs the prompt says the deck must address to improve.
     /// </summary>
     [JsonPropertyName("deck_needs")]
+    [JsonConverter(typeof(JsonStringListCoercingConverter))]
     public IReadOnlyList<string> DeckNeeds { get; init; } = Array.Empty<string>();
 
     /// <summary>

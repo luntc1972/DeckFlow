@@ -48,7 +48,16 @@ internal static class ResponseParsers
                 throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
             }
 
-            var result = JsonSerializer.Deserialize<DeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
+            DeckAnalysisResponse? result;
+            try
+            {
+                result = JsonSerializer.Deserialize<DeckAnalysisResponse>(payload.GetRawText(), DeserializerOptions);
+            }
+            catch (JsonException)
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
+            }
+
             if (result is null || !HasMeaningfulDeckProfileContent(result))
             {
                 throw new InvalidOperationException("The submitted AI response did not contain a valid deck_profile payload.");
@@ -90,7 +99,16 @@ internal static class ResponseParsers
                 throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
             }
 
-            var result = JsonSerializer.Deserialize<SetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
+            SetUpgradeResponse? result;
+            try
+            {
+                result = JsonSerializer.Deserialize<SetUpgradeResponse>(payload.GetRawText(), DeserializerOptions);
+            }
+            catch (JsonException)
+            {
+                throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
+            }
+
             if (result is null || !HasMeaningfulSetUpgradeContent(result))
             {
                 throw new InvalidOperationException("The submitted AI response did not contain a valid set_upgrade_report payload.");
