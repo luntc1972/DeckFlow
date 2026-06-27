@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 71 COMPLETE + VERIFIED. Waves 1-4 (71-01..04) Codex-impl/Claude-review; 71-05 operator visual verify PASSED (flag ON desktop+mobile x light/dark, issue/clean/cEDH). Flag manabase.plain-language-verdict seeded OFF (byte-identical). Plus defensive fix 3769891b (force-hide stuck busy overlay on load + e2e guard). Gates GREEN: build 0/0, Core 846/846, Web 869 pass/0 fail. NEXT: user pushes main (~23 ahead of origin); then Phase 72 ready to plan (/gsd-plan-phase 72)."
-last_updated: "2026-06-27T06:55:00.000Z"
-last_activity: 2026-06-27 -- Phase 71 SHIPPED-pending-push (waves 1-5 done) + busy-overlay guard fix
+stopped_at: "Phase 72 COMPLETE on branch plan/phase-72-command-zone (worktree ../deckflow-phase72, based on origin/main ebec49df). 7 plans / 4 waves Codex-impl + Claude-review/verify. Gates GREEN: build 0/0, Core 861, Web 883 (12 PG-int skipped), live e2e 2/2, operator cross-theme visual sign-off PASSED. Flag manabase.commander-castability seeded OFF (prod byte-identical). Fixture-driven plan corrections: Background already command-zone via importer (no reclassification); Archidekt companion-category detection dropped (companion = manual designator + Moxfield DetectedCompanionName). NOTE: this branch carries a STALE .planning snapshot (Phase 71-era) - reconcile STATE against origin/main (authoritative) at merge. NEXT: user pushes / merges branch to main; Phase 73 = deck-analysis command-zone awareness (split out of 72 section E)."
+last_updated: "2026-06-27T10:20:00.000Z"
+last_activity: 2026-06-27 -- Phase 72 EXECUTED + verified (command-zone commander castability), pending user push/merge
 progress:
   total_phases: 10
   completed_phases: 5
