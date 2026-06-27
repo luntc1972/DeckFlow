@@ -765,13 +765,19 @@ pattern as `NormalizeSingleLine`, `ParseCardNameList`).
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All four resolved during planning (2026-06-27). Decisions are locked in ROADMAP.md Phase 73
+> and implemented across plans 73-01..73-04.
 
 1. **Companion designator UI (plan decision)**
    - What we know: ManabaseRequest has `CompanionName` string; manabase view shows an input.
    - What's unclear: Should deck-analysis Step 1 add a companion input field?
    - Recommendation: YES, add `CompanionName` to `DeckAnalysisRequest` for parity. Gate its
      rendering behind the flag so Step 1 only shows the input when flag ON.
+   - **RESOLVED:** YES — add `DeckAnalysisRequest.CompanionName` (73-01) + flag-gated Step-1
+     input (73-04), parity with the manabase commander-callout pattern. Manual input (no
+     auto-detect pre-fill; detected companion is only known post-Step-2).
 
 2. **Cache key parity with enriched commanderName**
    - What we know: `TryComputeCacheKeyAsync` uses `ResolvePreScryfallCommanderState` → first
@@ -780,6 +786,9 @@ pattern as `NormalizeSingleLine`, `ParseCardNameList`).
    - What's unclear: Is cache correctness required for flag-ON operation?
    - Recommendation: Keep cache key using first commander for now (correctness, not performance).
      Document deviation; optimize later if cache hit rate is an issue.
+   - **RESOLVED:** Cache key UNCHANGED — stays on the first (pre-Scryfall) commander; 73-02
+     acceptance criteria forbids edits to `TryComputeCacheKeyAsync`. Correctness over hit-rate;
+     also closes the cache-poisoning threat (T-73, RESEARCH §Security).
 
 3. **Flag: new `analysis.command-zone-awareness` vs. reuse `manabase.commander-castability`**
    - What we know: See RQ6 — separate flag is recommended.
@@ -787,6 +796,9 @@ pattern as `NormalizeSingleLine`, `ParseCardNameList`).
      at once") or separate control.
    - Recommendation: Separate flag (`analysis.command-zone-awareness`). The operator can toggle
      both independently. Four-file registration is low-cost.
+   - **RESOLVED:** NEW separate flag `analysis.command-zone-awareness`, seeded OFF (73-01).
+     Keeps the existing byte-identity test (DeckAnalysisPacketServiceTests.cs:879, toggles the
+     manabase flag) valid unchanged; gives independent operator control.
 
 4. **Archidekt companion limitation**
    - What we know: Archidekt importer doesn't detect companion; no `DetectedCompanionName`
@@ -795,6 +807,8 @@ pattern as `NormalizeSingleLine`, `ParseCardNameList`).
      OR just document the limitation.
    - Recommendation: Add `CompanionName` to `DeckAnalysisRequest` (designator UI) so Archidekt
      users can manually name the companion. Updating the importer is out of scope for Phase 73.
+   - **RESOLVED:** Designator UI (Q1) covers Archidekt/pasted decks via manual companion entry;
+     the Archidekt importer is NOT modified (out of scope for Phase 73).
 
 ---
 
