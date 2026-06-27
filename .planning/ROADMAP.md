@@ -663,4 +663,32 @@ Plans:
 
 ---
 
+### Phase 74: Cross-Tool Deck-Input Persistence (ad-hoc trunk / main)
+
+**Goal:** When a user enters a deck (public URL or pasted text) in one tool and navigates
+to another tool/page, the deck input is restored automatically so they don't re-paste.
+Applied uniformly across the deck tools (analyze, comparison, cedh-meta-gap, manabase,
+convert, sync, primer).
+**Premise correction (2026-06-27):** deck-analysis does NOT currently persist across
+navigation — it only echoes form fields on POST round-trips within its own form (every
+GET builds a fresh empty request; no shared "last deck" store exists). So this is an
+*upgrade* applied to all deck tools, analysis included, not parity with analysis.
+**Chosen approach (research verdict):** client-side `sessionStorage` shared TS module
+holding the canonical last deck source `{inputSource, deckUrl, deckText}`; each tool
+prefills empty deck fields on load and writes on change. Rationale: zero server RAM
+(512MB cap), survives full-page GET navigation, tab-independent, no server cleanup;
+matches existing `sessionStorage` precedent (`category-suggestions.ts`, `card-lookup.ts`,
+`content-kb.ts`). Rejected: server `ISession` (RAM/CSRF/cleanup), hidden-field round-trip
+(within-form only = the current gap), query-string (leaks URL), TempData (single redirect).
+**Source:** `.planning/phases/74-cross-tool-input-persistence/74-SPEC.md` + read-only
+investigation + MS Learn app-state guidance (2026-06-27).
+**Status:** 🟡 SPEC — research done; run /gsd-plan-phase 74 next.
+**Flag:** likely `tool.cross-tool-deck-persistence` (OFF → no client store read/write,
+byte-identical behavior) — PLAN decides.
+
+Plans:
+- [ ] 74-01 — TBD (run /gsd-plan-phase 74; route PLAN through Codex review before execute)
+
+---
+
 *v1.0 shipped 2026-05-02 | v1.1 shipped 2026-05-08 | v1.2 shipped 2026-05-13 | v1.3 shipped 2026-05-23 | v1.4 shipped 2026-06-03 | v1.5 shipped 2026-06-10 | v1.6 shipped 2026-06-12 | v1.7 shipped 2026-06-17 | Cycle 8 shipped 2026-06-17 | Cycle 9 shipped 2026-06-19 | Cycle 10 shipped 2026-06-21 (`2026.06.6`)*
