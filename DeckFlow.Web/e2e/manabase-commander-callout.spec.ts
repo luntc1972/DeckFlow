@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 // Live-only Phase 72 command-zone castability surfaces.
 // Requires:
 //   1. Start the app with scripts/run-web-test.sh.
-//   2. Enable the manabase.commander-castability flag.
+//   2. Enable the analysis.manabase.commander-castability flag.
 //   3. Use Casual mode.
 //   4. From DeckFlow.Web/, run:
 //      DECKFLOW_LIVE_E2E=1 npx --no-install playwright test manabase-commander-callout

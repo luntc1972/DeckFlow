@@ -64,7 +64,27 @@ public sealed class FeatureFlagStoreMigrationTests : IDisposable
         Assert.Equal(1, await CountRowsForKeyAsync(NewKey));
     }
 
-    private async Task SeedLegacyFlagAsync(bool enabled)
+    [Fact]
+    public async Task EnsureSchemaAsync_RenamesCommanderCastabilityKey_AndPreservesDisabledValue()
+    {
+        // Phase-72 shipped this flag as the bare "manabase.commander-castability" outside the
+        // analysis.manabase.* namespace; prod has the OFF row. Renaming must carry the OFF state.
+        const string oldKey = "manabase.commander-castability";
+        const string newKey = "analysis.manabase.commander-castability";
+        await SeedLegacyFlagAsync(key: oldKey, enabled: false);
+        var store = new FeatureFlagStore(_dbPath);
+
+        await store.EnsureSchemaAsync();
+
+        var flags = await store.GetAllAsync();
+        Assert.False(flags[newKey]);
+        Assert.DoesNotContain(oldKey, flags.Keys);
+        Assert.Equal(1, await CountRowsForKeyAsync(newKey));
+    }
+
+    private Task SeedLegacyFlagAsync(bool enabled) => SeedLegacyFlagAsync(OldKey, enabled);
+
+    private async Task SeedLegacyFlagAsync(string key, bool enabled)
     {
         await using var connection = new SqliteConnection($"Data Source={_dbPath}");
         await connection.OpenAsync();
@@ -79,7 +99,7 @@ public sealed class FeatureFlagStoreMigrationTests : IDisposable
             INSERT INTO feature_flags (key, enabled, updated_at)
             VALUES (@key, @enabled, @updatedAt);
             """;
-        command.Parameters.AddWithValue("@key", OldKey);
+        command.Parameters.AddWithValue("@key", key);
         command.Parameters.AddWithValue("@enabled", enabled ? 1 : 0);
         command.Parameters.AddWithValue("@updatedAt", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
         await command.ExecuteNonQueryAsync();

@@ -61,7 +61,7 @@ The castability number comes from a Monte-Carlo simulation: it plays out thousan
 
 ### Command zone callout and companion handling
 
-When the `manabase.commander-castability` feature flag is enabled, the report can add a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
+When the `analysis.manabase.commander-castability` feature flag is enabled, the report can add a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
 
 Companions are handled separately from the command zone cards. DeckFlow can auto-detect a companion from the **Moxfield direct API**. Archidekt does not expose a reliable Companion category, so Archidekt decks, pasted lists, and the Moxfield Commander Spellbook fallback path rely on the manual companion designator instead.
 

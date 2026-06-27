@@ -884,11 +884,11 @@ Commander
             detectedCompanionName: "Jegantha, the Wellspring");
         var flagOff = new FakeFeatureFlagCache(new Dictionary<string, bool>
         {
-            ["manabase.commander-castability"] = false
+            ["analysis.manabase.commander-castability"] = false
         });
         var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
         {
-            ["manabase.commander-castability"] = true
+            ["analysis.manabase.commander-castability"] = true
         });
 
         var serviceFlagOff = CreateService(moxfieldDeckImporter: importer, flagCache: flagOff);
