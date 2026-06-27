@@ -84,9 +84,30 @@ internal sealed class ClaudePrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine("</decklist>");
         builder.AppendLine();
         builder.AppendLine("<primer_output>");
-        builder.AppendLine("Return the finished primer as readable markdown.");
-        builder.AppendLine("Use the same numbered section order as <section_directives>.");
-        builder.AppendLine("Keep verified combos only in the known-combos section, keep speculative ideas separate, and keep matchup guidance grounded in the supplied targets.");
+        if (request.PrimerStyle == PrimerOutputStyle.Standard)
+        {
+            builder.AppendLine("Return the finished primer as readable markdown.");
+            builder.AppendLine("Use the same numbered section order as <section_directives>.");
+            builder.AppendLine("Keep verified combos only in the known-combos section, keep speculative ideas separate, and keep matchup guidance grounded in the supplied targets.");
+        }
+        else
+        {
+            builder.AppendLine("Return the finished primer as readable markdown with consistent formatting throughout.");
+            builder.AppendLine("Use the same numbered section order as <section_directives>.");
+            builder.AppendLine("Start with a clickable table of contents that uses markdown anchor links to each major section.");
+            builder.AppendLine("Use markdown blockquote callout boxes with emoji prefixes for recurring coaching notes: 💡 Tips, ⚠️ Common Mistakes, and 🎯 Tutor Priorities.");
+            builder.AppendLine("Present combo lines in collapsible sections using <details><summary>...</summary>...</details> when that format improves readability.");
+            builder.AppendLine("Include combo diagrams, tutor flowcharts, matchup tables, and mana curve plus game-plan graphics using ASCII or markdown only.");
+            builder.AppendLine("Keep verified combos only in the known-combos section, keep speculative ideas separate, and keep matchup guidance grounded in the supplied targets.");
+            if (request.PrimerStyle == PrimerOutputStyle.FullCedh)
+            {
+                builder.AppendLine("Add cEDH-depth guidance for fast mana and turn 1-turn 3 lines, including how Sol Ring, Mana Crypt, rituals, and early commander deployment accelerate the plan.");
+                builder.AppendLine("Explain how the deck operates under stax, tax, and denial pieces, including how to advance or win through common lock pieces and resource pressure.");
+                builder.AppendLine("Count and sequence free interaction when discussing contested wins, specifically free interaction such as Force of Will, Fierce Guardianship, and Pact effects used to defend or force through a line.");
+                builder.AppendLine("Include explicit win-by-turn guidance covering when to attempt the combo line versus hold, plus realistic turn windows for proactive and patient lines.");
+                builder.AppendLine("When discussing positioning and mulligan pressure, reference the named cEDH archetypes supplied in <matchup_targets> rather than generic pod labels.");
+            }
+        }
         builder.AppendLine("</primer_output>");
         builder.AppendLine("</deck_primer>");
 

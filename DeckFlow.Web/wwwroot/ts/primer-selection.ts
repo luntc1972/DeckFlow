@@ -13,6 +13,11 @@
   type PrimerElements = {
     form: HTMLFormElement;
     bracketSelect: HTMLSelectElement;
+    standardStyleRadio: HTMLInputElement | null;
+    richStyleRadio: HTMLInputElement | null;
+    cedhStyleContainers: HTMLElement[];
+    nonCedhHelp: HTMLElement[];
+    fullCedhStyleRadio: HTMLInputElement | null;
     sectionCheckboxes: HTMLInputElement[];
     sectionRows: HTMLElement[];
     groups: HTMLElement[];
@@ -173,6 +178,32 @@
     return orderedIds;
   };
 
+  const syncCedhStyleVisibility = (elements: PrimerElements, bracket: string): void => {
+    const cedh = isCedhBracket(bracket);
+
+    elements.cedhStyleContainers.forEach(container => {
+      container.hidden = !cedh;
+      container.setAttribute('aria-hidden', cedh ? 'false' : 'true');
+    });
+    elements.nonCedhHelp.forEach(container => {
+      container.hidden = cedh;
+      container.setAttribute('aria-hidden', cedh ? 'true' : 'false');
+    });
+
+    if (cedh || !elements.fullCedhStyleRadio?.checked) {
+      return;
+    }
+
+    if (elements.richStyleRadio) {
+      elements.richStyleRadio.checked = true;
+      return;
+    }
+
+    if (elements.standardStyleRadio) {
+      elements.standardStyleRadio.checked = true;
+    }
+  };
+
   const restoreSectionsForBracket = (elements: PrimerElements, bracket: string): void => {
     const savedIds = loadSectionsForBracket(bracket);
     const ids = savedIds !== null ? savedIds : presetForBracket(elements.bracketSelect, bracket);
@@ -287,6 +318,11 @@
     const elements: PrimerElements = {
       form,
       bracketSelect,
+      standardStyleRadio: form.querySelector<HTMLInputElement>('input[type="radio"][name="PrimerStyle"][value="Standard"]'),
+      richStyleRadio: form.querySelector<HTMLInputElement>('input[type="radio"][name="PrimerStyle"][value="MoxfieldRich"]'),
+      cedhStyleContainers: Array.from(form.querySelectorAll<HTMLElement>('[data-primer-cedh-style]')),
+      nonCedhHelp: Array.from(form.querySelectorAll<HTMLElement>('[data-primer-noncedh-help]')),
+      fullCedhStyleRadio: form.querySelector<HTMLInputElement>('input[type="radio"][name="PrimerStyle"][value="FullCedh"]'),
       sectionCheckboxes: Array.from(form.querySelectorAll<HTMLInputElement>('[data-primer-section-checkbox]')),
       sectionRows: Array.from(form.querySelectorAll<HTMLElement>('[data-primer-section-row]')),
       groups: Array.from(form.querySelectorAll<HTMLElement>('[data-primer-group]')),
@@ -297,11 +333,13 @@
     }
 
     let currentBracket = bracketSelect.value.trim();
+    syncCedhStyleVisibility(elements, currentBracket);
     restoreSectionsForBracket(elements, currentBracket);
 
     bracketSelect.addEventListener('change', () => {
       syncSelection(elements, currentBracket, currentSelectedIds(elements));
       currentBracket = bracketSelect.value.trim();
+      syncCedhStyleVisibility(elements, currentBracket);
       restoreSectionsForBracket(elements, currentBracket);
     });
 

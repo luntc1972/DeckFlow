@@ -12,6 +12,10 @@
         ? DeckFlow.Web.Models.PrimerSectionCatalog.NormalizeSelections(Model.Request.SelectedSectionIds, selectedBracket.Value)
         : DeckFlow.Web.Models.PrimerSectionCatalog.GetPresetForBracket(selectedBracket.Value);
     var selectedSectionSet = new HashSet<string>(selectedSectionIds, StringComparer.OrdinalIgnoreCase);
+    var isCedhBracket = DeckFlow.Web.Models.CommanderBracketCatalog.IsCedh(selectedBracket.Value);
+    var selectedPrimerStyle = Model.Request.PrimerStyle == DeckFlow.Web.Models.PrimerOutputStyle.FullCedh && !isCedhBracket
+        ? DeckFlow.Web.Models.PrimerOutputStyle.MoxfieldRich
+        : Model.Request.PrimerStyle;
     var cedhOnlySectionIdsJson = JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.CedhOnlySectionIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
     var casualOnlySectionIdsJson = JsonSerializer.Serialize(DeckFlow.Web.Models.PrimerSectionCatalog.CasualOnlySectionIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
     var promptBytes = string.IsNullOrWhiteSpace(Model.PrimerPromptText) ? 0 : Encoding.UTF8.GetByteCount(Model.PrimerPromptText);
@@ -85,7 +89,7 @@
     <details class="chatgpt-resume">
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
-            Choose a <code>.zip</code> file you previously downloaded from this page to restore the bracket, AI target, and selected primer sections.
+            Choose a <code>.zip</code> file you previously downloaded from this page to restore the bracket, AI target, primer style, and selected primer sections.
         </p>
         <label class="field">
             <span>Saved session file</span>
@@ -173,6 +177,39 @@
         <div class="info-banner">
             Pick as many sections as you want. The generated prompt asks @aiPlatform.DisplayName to write a coherent primer that covers every checked section in order.
         </div>
+
+        <fieldset class="manabase-segmented" role="radiogroup">
+            <legend>Primer style</legend>
+            <div class="manabase-pills">
+                <label class="manabase-pill">
+                    <input type="radio"
+                           name="PrimerStyle"
+                           value="@DeckFlow.Web.Models.PrimerOutputStyle.Standard"
+                           checked="@(selectedPrimerStyle == DeckFlow.Web.Models.PrimerOutputStyle.Standard ? "checked" : null)" />
+                    <span>Standard</span>
+                </label>
+                <label class="manabase-pill">
+                    <input type="radio"
+                           name="PrimerStyle"
+                           value="@DeckFlow.Web.Models.PrimerOutputStyle.MoxfieldRich"
+                           checked="@(selectedPrimerStyle == DeckFlow.Web.Models.PrimerOutputStyle.MoxfieldRich ? "checked" : null)" />
+                    <span>Moxfield-style rich</span>
+                </label>
+                <label class="manabase-pill"
+                       data-primer-cedh-style
+                       @(isCedhBracket ? null : "hidden")>
+                    <input type="radio"
+                           name="PrimerStyle"
+                           value="@DeckFlow.Web.Models.PrimerOutputStyle.FullCedh"
+                           checked="@(selectedPrimerStyle == DeckFlow.Web.Models.PrimerOutputStyle.FullCedh ? "checked" : null)" />
+                    <span>Full cEDH primer</span>
+                </label>
+            </div>
+            <p class="manabase-help"
+               data-primer-noncedh-help
+               @(DeckFlow.Web.Models.CommanderBracketCatalog.IsCedh(selectedBracket.Value) ? "hidden" : null)>Moxfield-style adds a clickable table of contents, callout boxes, collapsible combo lines, matchup tables, and ASCII or markdown visuals.</p>
+            <p class="manabase-help" data-primer-cedh-style @(isCedhBracket ? null : "hidden")>Full cEDH primer builds the most complete cEDH primer: all cEDH sections plus fast-mana, stax, free-interaction, and meta-matchup depth.</p>
+        </fieldset>
 
         @foreach (var group in DeckFlow.Web.Models.PrimerSectionCatalog.Groups)
         {

@@ -100,6 +100,11 @@ public sealed class DeckPrimerRequest
     }
 
     /// <summary>
+    /// Controls the output style the primer prompt should request from the AI.
+    /// </summary>
+    public PrimerOutputStyle PrimerStyle { get; set; } = PrimerOutputStyle.Standard;
+
+    /// <summary>
     /// Identifiers of the primer sections the user selected from the catalog.
     /// </summary>
     public List<string> SelectedSectionIds

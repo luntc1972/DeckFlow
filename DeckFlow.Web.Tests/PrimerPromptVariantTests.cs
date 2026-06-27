@@ -126,8 +126,8 @@ public sealed class PrimerPromptVariantTests
         var comboResult = CreateOversizedComboResult();
         var decklistText = CreateOversizedDecklist();
 
-        var chatGptPrompt = BuildPrompt("ChatGPT", comboResult, SampleTop16Entries, bracketNumber: 5, decklistText);
-        var claudePrompt = BuildPrompt("Claude", comboResult, SampleTop16Entries, bracketNumber: 5, decklistText);
+        var chatGptPrompt = BuildPrompt("ChatGPT", comboResult, SampleTop16Entries, bracketNumber: 5, decklistText: decklistText);
+        var claudePrompt = BuildPrompt("Claude", comboResult, SampleTop16Entries, bracketNumber: 5, decklistText: decklistText);
 
         Assert.DoesNotContain("Sections omitted due to Gemini paste limit", chatGptPrompt, StringComparison.Ordinal);
         Assert.DoesNotContain("Sections omitted due to Gemini paste limit", claudePrompt, StringComparison.Ordinal);
@@ -184,12 +184,82 @@ public sealed class PrimerPromptVariantTests
         Assert.DoesNotContain("27. Budget Cut Ladder —", prompt, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [MemberData(nameof(Platforms))]
+    public void MoxfieldRichStyle_EmitsRichOutputDirectives(string platform)
+    {
+        var prompt = BuildPrompt(platform, AllSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5, primerStyle: PrimerOutputStyle.MoxfieldRich);
+
+        Assert.Contains("clickable table of contents", prompt, StringComparison.Ordinal);
+        Assert.Contains("💡 Tips", prompt, StringComparison.Ordinal);
+        Assert.Contains("⚠️ Common Mistakes", prompt, StringComparison.Ordinal);
+        Assert.Contains("🎯 Tutor Priorities", prompt, StringComparison.Ordinal);
+        Assert.Contains("<details><summary>", prompt, StringComparison.Ordinal);
+        Assert.Contains("matchup tables", prompt, StringComparison.Ordinal);
+        Assert.Contains("mana curve", prompt, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Platforms))]
+    public void StandardStyle_DoesNotEmitRichOutputDirectives(string platform)
+    {
+        var prompt = BuildPrompt(platform, AllSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5, primerStyle: PrimerOutputStyle.Standard);
+
+        Assert.DoesNotContain("clickable table of contents", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("💡 Tips", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("⚠️ Common Mistakes", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("🎯 Tutor Priorities", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details><summary>", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("matchup tables", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("mana curve", prompt, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Platforms))]
+    public void FullCedhStyle_EmitsRichAndCedhDepthDirectives(string platform)
+    {
+        var prompt = BuildPrompt(platform, AllSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5, primerStyle: PrimerOutputStyle.FullCedh);
+
+        Assert.Contains("clickable table of contents", prompt, StringComparison.Ordinal);
+        Assert.Contains("💡 Tips", prompt, StringComparison.Ordinal);
+        Assert.Contains("<details><summary>", prompt, StringComparison.Ordinal);
+        Assert.Contains("fast mana", prompt, StringComparison.Ordinal);
+        Assert.Contains("turn 1", prompt, StringComparison.Ordinal);
+        Assert.Contains("operates under stax, tax, and denial pieces", prompt, StringComparison.Ordinal);
+        Assert.Contains("Count and sequence free interaction", prompt, StringComparison.Ordinal);
+        Assert.Contains("win-by-turn guidance", prompt, StringComparison.Ordinal);
+        Assert.Contains("reference the named cEDH archetypes", prompt, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Platforms))]
+    public void MoxfieldRichStyle_DoesNotEmitCedhDepthDirectives(string platform)
+    {
+        var prompt = BuildPrompt(platform, AllSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5, primerStyle: PrimerOutputStyle.MoxfieldRich);
+
+        Assert.DoesNotContain("Count and sequence free interaction", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("win-by-turn guidance", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("operates under stax, tax, and denial pieces", prompt, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Platforms))]
+    public void StandardStyle_DoesNotEmitCedhDepthDirectives(string platform)
+    {
+        var prompt = BuildPrompt(platform, AllSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5, primerStyle: PrimerOutputStyle.Standard);
+
+        Assert.DoesNotContain("Count and sequence free interaction", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("win-by-turn guidance", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("operates under stax, tax, and denial pieces", prompt, StringComparison.Ordinal);
+    }
+
     private static string BuildPrompt(
         string platform,
         IReadOnlyList<PrimerSectionEntry> selectedSections,
         CommanderSpellbookResult? comboResult,
         IReadOnlyList<EdhTop16Entry>? top16Entries,
         int bracketNumber,
+        PrimerOutputStyle primerStyle = PrimerOutputStyle.Standard,
         string? decklistText = null)
     {
         IPrimerPromptVariant variant = platform switch
@@ -205,6 +275,7 @@ public sealed class PrimerPromptVariantTests
             Format = SampleRequest.Format,
             DeckName = SampleRequest.DeckName,
             TargetCommanderBracket = SampleRequest.TargetCommanderBracket,
+            PrimerStyle = primerStyle,
             SelectedSectionIds = selectedSections.Select(section => section.Id).ToList()
         };
 
@@ -223,9 +294,10 @@ public sealed class PrimerPromptVariantTests
         CommanderSpellbookResult? comboResult,
         IReadOnlyList<EdhTop16Entry>? top16Entries,
         int bracketNumber,
+        PrimerOutputStyle primerStyle = PrimerOutputStyle.Standard,
         string? decklistText = null)
     {
-        return BuildPrompt(platform, AllSections, comboResult, top16Entries, bracketNumber, decklistText);
+        return BuildPrompt(platform, AllSections, comboResult, top16Entries, bracketNumber, primerStyle, decklistText);
     }
 
     private static void AssertGenericBuckets(string prompt)

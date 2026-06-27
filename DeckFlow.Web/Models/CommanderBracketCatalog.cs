@@ -51,4 +51,12 @@ public static class CommanderBracketCatalog
     {
         return Options.FirstOrDefault(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>Returns whether the posted bracket value resolves to the canonical cEDH bracket.</summary>
+    /// <param name="bracketValue">Bracket value to evaluate.</param>
+    /// <returns>True when the value resolves to cEDH; otherwise false.</returns>
+    public static bool IsCedh(string? bracketValue)
+    {
+        return string.Equals(Find(bracketValue)?.Value, "cEDH", StringComparison.OrdinalIgnoreCase);
+    }
 }
