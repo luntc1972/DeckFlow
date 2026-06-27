@@ -1132,6 +1132,88 @@ Commander
         Assert.Contains(collapsedValue, companionLine);
     }
 
+    /// <summary>
+    /// Codex 73 HIGH-1: the session cache key intentionally omits the command-zone flag and companion,
+    /// so while the flag is ON the service must report NO cache key (null) — otherwise the controller /
+    /// download path could replay a stale flag-OFF packet or a prior companion designator. Flag OFF must
+    /// still return a usable key so normal caching is unaffected.
+    /// </summary>
+    [Fact]
+    public async Task TryComputeCacheKeyAsync_ReturnsNull_WhenCommandZoneAwarenessEnabled_AndKey_WhenOff()
+    {
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-command-zone-cache-bypass",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = "ChatGPT",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.command-zone-awareness"] = true
+        });
+
+        var serviceFlagOn = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(
+                entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            flagCache: flagOn);
+        var serviceFlagOff = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(
+                entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)));
+
+        var keyWhenOn = await serviceFlagOn.TryComputeCacheKeyAsync(request, CancellationToken.None);
+        var keyWhenOff = await serviceFlagOff.TryComputeCacheKeyAsync(request, CancellationToken.None);
+
+        Assert.Null(keyWhenOn);
+        Assert.False(string.IsNullOrEmpty(keyWhenOff));
+    }
+
+    /// <summary>
+    /// Codex 73 MEDIUM: a lone carriage return (no line feed) must not survive into the rendered
+    /// companion line — the shared whitespace collapse only splits on \n, so the companion path
+    /// normalizes bare \r first. The companion: line stays single and carries no CR.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_CommandZoneAwareness_CompanionInput_StripsBareCarriageReturn()
+    {
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.command-zone-awareness"] = true
+        });
+
+        var service = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(
+                entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            flagCache: flagOn);
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-companion-bare-cr",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = "ChatGPT",
+            CompanionName = "Jegantha\rInjected",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        var text = result.AnalysisPromptText;
+        Assert.NotNull(text);
+        // Normalize the prompt's own CRLF line endings away first so the only \r we could observe would
+        // be one that leaked from the (bare-CR) companion value into the rendered line.
+        var companionLine = Assert.Single(text
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Where(line => line.StartsWith("companion: ", StringComparison.Ordinal))
+            .ToList());
+        Assert.DoesNotContain('\r', companionLine);
+        // The bare CR is collapsed to a single space — value stays on one line, both halves intact.
+        Assert.Contains("Jegantha Injected", companionLine);
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;

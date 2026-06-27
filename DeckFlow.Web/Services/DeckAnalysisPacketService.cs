@@ -286,6 +286,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         return builder.ToString();
     }
 
+    // Phase 73: explicit default-OFF read of the command-zone-awareness flag (absent key, null cache,
+    // or store-read failure all resolve to off) so a flag-system fault never changes behavior.
+    private bool IsCommandZoneAwarenessEnabled()
+        => _flagCache is not null
+            && _flagCache.Snapshot().TryGetValue(CommandZoneAwarenessFlag, out var on)
+            && on;
+
     /// <summary>
     /// Composes the D-01 cache-input field bag and returns the canonical PacketSessionCache key
     /// for this request. Re-runs the same shared deck-loader path
@@ -304,6 +311,16 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(request);
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))
+        {
+            return null;
+        }
+
+        // Codex 73 HIGH-1: command-zone awareness changes AnalysisPromptText (enriched commander +
+        // companion side-metadata) but those inputs are intentionally NOT in the cache key. Rather than
+        // widen the key (which would risk the flag-OFF byte-identity contract), bypass the session cache
+        // entirely while the flag is ON: returning null here means no cache hit, so /deck-analysis and
+        // /deck-analysis/download always rebuild and never replay a stale OFF packet or a prior companion.
+        if (IsCommandZoneAwarenessEnabled())
         {
             return null;
         }
@@ -654,18 +671,19 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // before the " & " join — never concatenate before resolving) and resolve the companion
                 // as side metadata. The deck text, cache key, and ResolvePreScryfallCommanderState are
                 // left untouched.
-                var commandZoneAwareness = _flagCache is not null
-                    && _flagCache.Snapshot().TryGetValue(CommandZoneAwarenessFlag, out var commandZoneOn)
-                    && commandZoneOn;
+                var commandZoneAwareness = IsCommandZoneAwarenessEnabled();
                 string? companionName = null;
                 if (commandZoneAwareness)
                 {
+                    // Codex 73 LOW-3: oracle-resolve each command-zone name FIRST, then dedupe and order on
+                    // the RESOLVED names so two import aliases that collapse to the same oracle name do not
+                    // produce a duplicate in the joined string and ordering is deterministic on final names.
                     var resolvedCommanderNames = deckEntries
                         .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
                         .Select(entry => entry.Name)
+                        .Select(name => cardReferenceBundle.OracleNameMap.TryGetValue(name, out var oracleName) ? oracleName : name)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                        .Select(name => cardReferenceBundle.OracleNameMap.TryGetValue(name, out var oracleName) ? oracleName : name)
                         .ToList();
                     if (resolvedCommanderNames.Count >= 2)
                     {
@@ -728,9 +746,15 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // (ResolvePreScryfallCommanderState + BuildDeckAnalysisCacheInputs), guaranteeing
         // identical SHA-256 keys for identical logical inputs — including for Moxfield decks
         // without an explicit commander section (the case Codex pass-3 flagged).
-        var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
-        var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
-        _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
+        // Codex 73 HIGH-1: mirror the read-side bypass — do not cache the artifact while command-zone
+        // awareness is ON, otherwise an enriched packet would be keyed without the flag/companion inputs
+        // and could be served back after the flag is toggled off or the companion designator changes.
+        if (!IsCommandZoneAwarenessEnabled())
+        {
+            var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
+            var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
+            _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
+        }
 
         return result;
     }
@@ -1603,9 +1627,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         => BoundCompanionName(designator) ?? BoundCompanionName(detected);
 
     // Phase 73-02 (Codex HIGH-2): bound a companion name before it reaches any prompt. Collapses the
-    // value to a SINGLE LINE (CollapseWhitespace strips CR/LF, mirroring NormalizeSingleLine) so a
-    // crafted newline cannot break prompt structure, trims, then caps at MaxCompanionNameLength.
-    // Returns null for null/whitespace input.
+    // value to a SINGLE LINE so a crafted newline cannot break prompt structure, trims, then caps at
+    // MaxCompanionNameLength. Returns null for null/whitespace input.
+    // Codex 73 MEDIUM: the shared CollapseWhitespace only splits on \n (and \r\n); a lone CR would
+    // survive into the rendered companion line. Normalize any bare \r to \n on the companion path FIRST
+    // so every CR/LF form is collapsed. The shared helper is intentionally left untouched to keep the
+    // flag-OFF byte-identity contract for all other prompt text.
     private static string? BoundCompanionName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -1613,7 +1640,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             return null;
         }
 
-        var singleLine = CollapseWhitespace(name).Trim();
+        var singleLine = CollapseWhitespace(name.Replace('\r', '\n')).Trim();
         if (singleLine.Length == 0)
         {
             return null;
