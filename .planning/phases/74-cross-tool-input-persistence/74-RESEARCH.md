@@ -35,9 +35,9 @@ Three TS modules already use `sessionStorage` for form/UI state — the pattern 
 |---|---|---|
 | Analyze | /deck-analysis | `DeckInputSource` enum, `DeckUrl`, `DeckText` |
 | Manabase | /manabase | `DeckInputSource` enum, `DeckUrl`, `DeckText` (+ DeckName) |
-| cEDH Meta Gap | /cedh-meta-gap | `DeckSource` (single string = URL or text) (+ CommanderName) |
+| cEDH Meta Gap | /cedh-meta-gap | `DeckSource` (single string = URL or text) (+ CommanderName) — **the ONLY combined-field tool** |
 | Convert | /convert | `InputSource`, `DeckUrl`, `DeckText` (+ formats) |
-| Deck Primer | /deck-primer | `DeckSource` (single string) |
+| Deck Primer | /deck-primer | `DeckInputSource`, `DeckUrl`, `DeckText` (SPLIT, verified `DeckPrimer.cshtml:119-132`) |
 The restore glue must map a canonical `{inputSource, deckUrl, deckText}` to each tool's
 actual field IDs (two distinct shapes: split url/text vs combined single field).
 
