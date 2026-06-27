@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Loading;
@@ -368,6 +369,64 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_PlainLanguageFlagOff_LeavesResultNullAndPromptByteIdentical()
+    {
+        var (entries, cards) = CurveFixture();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.Null(GetResultVerdict(result));
+        Assert.Null(GetResultBudget(result));
+        Assert.False(GetResultShowPlainLanguage(result));
+
+        string expectedPrompt = ManabaseSwapPromptBuilder.Build(
+            result.Report, "Curve Deck", BuildDecklistText(entries), result.Report.Mode);
+        Assert.Equal(expectedPrompt, result.ChatGptSwapPrompt);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_PlainLanguageFlagOn_Casual_ThreadsVerdictBudgetAndPrompt()
+    {
+        var (entries, cards) = StrainedCommanderFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.PlainLanguageVerdictFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync("paste", "Strained Deck");
+
+        Assert.True(GetResultShowPlainLanguage(result));
+        Assert.NotNull(GetResultVerdict(result));
+        Assert.NotNull(GetResultBudget(result));
+        Assert.Contains("Reading your deck", result.ChatGptSwapPrompt);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_PlainLanguageFlagOn_Cedh_ShowsGlossesOnly()
+    {
+        var (entries, cards) = StrainedCommanderFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.PlainLanguageVerdictFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync(
+            "paste", "Strained Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.True(GetResultShowPlainLanguage(result));
+        Assert.Null(GetResultVerdict(result));
+        Assert.Null(GetResultBudget(result));
+        Assert.DoesNotContain("Reading your deck", result.ChatGptSwapPrompt);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_CedhMode_LowersTargetLands_AndEchoesMode()
     {
         var (entries, cards) = CurveFixture();
@@ -415,6 +474,11 @@ public sealed class ManabaseAnalysisServiceTests
 
         return (entries, cards);
     }
+
+    private static string BuildDecklistText(IEnumerable<DeckEntry> entries) =>
+        string.Join("\n", entries
+            .Where(entry => entry.Quantity > 0)
+            .Select(entry => $"{entry.Quantity} {entry.Name}"));
 
     [Fact]
     public async Task AnalyzeAsync_CommanderImportance_ThreadsThroughToTheReport()
@@ -464,6 +528,27 @@ public sealed class ManabaseAnalysisServiceTests
         };
 
         return (entries, cards);
+    }
+
+    private static ManabaseVerdict? GetResultVerdict(ManabaseAnalysisResult result) =>
+        GetOptionalProperty<ManabaseVerdict>(result, "Verdict");
+
+    private static ManabaseRampDrawBudget? GetResultBudget(ManabaseAnalysisResult result) =>
+        GetOptionalProperty<ManabaseRampDrawBudget>(result, "Budget");
+
+    private static bool GetResultShowPlainLanguage(ManabaseAnalysisResult result)
+    {
+        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowPlainLanguage")
+            ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowPlainLanguage property missing.");
+        return (bool)(property.GetValue(result) ?? false);
+    }
+
+    private static T? GetOptionalProperty<T>(object target, string name)
+        where T : class
+    {
+        PropertyInfo property = target.GetType().GetProperty(name)
+            ?? throw new Xunit.Sdk.XunitException($"{target.GetType().Name}.{name} property missing.");
+        return property.GetValue(target) as T;
     }
 
     [Fact]

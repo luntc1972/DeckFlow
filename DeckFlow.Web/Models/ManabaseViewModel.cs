@@ -35,6 +35,15 @@ public sealed class ManabaseViewModel
     /// <summary>Auto-detected alt/reduced-cost suggestions used to pre-populate the override box.</summary>
     public IReadOnlyList<CostSuggestion> Suggestions { get; init; } = Array.Empty<CostSuggestion>();
 
+    /// <summary>Optional synthesized plain-language verdict for the analyzed deck.</summary>
+    public ManabaseVerdict? PlainLanguageVerdict { get; init; }
+
+    /// <summary>Optional ramp/draw slot-budget advisory for Casual-mode verdicts.</summary>
+    public ManabaseRampDrawBudget? RampDrawBudget { get; init; }
+
+    /// <summary>Whether the UI should surface the plain-language glossary/verdict affordances.</summary>
+    public bool ShowPlainLanguage { get; init; }
+
     /// <summary>The detected suggestions rendered as override-box lines (<c>Name: cost</c>).</summary>
     public string SuggestedOverridesText =>
         string.Join("\n", Suggestions.Select(s => $"{s.Name}: {s.EffectiveCost}"));

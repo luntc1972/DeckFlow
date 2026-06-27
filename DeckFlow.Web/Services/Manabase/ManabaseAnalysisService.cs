@@ -69,13 +69,19 @@ public sealed class ManabaseAnalysisOptions
 /// <param name="ImportWarning">Optional notice from the deck importer (e.g. a fallback path).</param>
 /// <param name="ChatGptSwapPrompt">Paste-ready prompt asking an LLM for specific land swaps.</param>
 /// <param name="Suggestions">Auto-detected alt/reduced-cost suggestions to pre-populate the override box.</param>
+/// <param name="Verdict">Optional synthesized plain-language verdict (Casual only when the flag is on).</param>
+/// <param name="Budget">Optional ramp/draw slot-budget advisory (Casual only when the flag is on).</param>
+/// <param name="ShowPlainLanguage">Whether the UI should surface the plain-language glosses/verdict gate.</param>
 public sealed record ManabaseAnalysisResult(
     ManabaseReport Report,
     string InputSummary,
     IReadOnlyList<string> Unresolved,
     string? ImportWarning,
     string ChatGptSwapPrompt,
-    IReadOnlyList<CostSuggestion> Suggestions);
+    IReadOnlyList<CostSuggestion> Suggestions,
+    ManabaseVerdict? Verdict,
+    ManabaseRampDrawBudget? Budget,
+    bool ShowPlainLanguage);
 
 /// <summary>
 /// The outcome of the cheap "Load deck" step: the deck resolved and classified, with its detected
@@ -149,6 +155,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string HealthBandHeadlineFloorFlagKey = "manabase.health-band-headline-floor";
 
+    /// <summary>
+    /// Phase-71 flag key: when enabled, Casual mode computes a deterministic plain-language verdict
+    /// plus ramp/draw budget advisory; cEDH uses the same gate for UI glosses only. Seeded OFF.
+    /// </summary>
+    public const string PlainLanguageVerdictFlagKey = "manabase.plain-language-verdict";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -209,11 +221,30 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
 
-        string swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
+        bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
+        ManabaseRampDrawBudget? budget = null;
+        ManabaseVerdict? verdict = null;
+        string swapPrompt;
+
+        if (plainLanguage)
+        {
+            if (options.Mode == ManabaseMode.Casual)
+            {
+                budget = ManabaseRampDrawBudgetCalculator.Calculate(resolved.Deck);
+                verdict = ManabaseVerdictSynthesizer.Synthesize(report, options.Mode, budget);
+            }
+
+            swapPrompt = ManabaseSwapPromptBuilder.Build(
+                report, deckName, resolved.DecklistText, options.Mode, verdict, budget);
+        }
+        else
+        {
+            swapPrompt = ManabaseSwapPromptBuilder.Build(report, deckName, resolved.DecklistText, options.Mode);
+        }
 
         return new ManabaseAnalysisResult(
             report, resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice,
-            swapPrompt, resolved.Deck.CostSuggestions);
+            swapPrompt, resolved.Deck.CostSuggestions, verdict, budget, plainLanguage);
     }
 
     /// <inheritdoc />
