@@ -83,7 +83,7 @@
 
     const clearButton = document.createElement('button');
     clearButton.type = 'button';
-    clearButton.className = 'clear-cache-button';
+    clearButton.className = 'deck-restored-notice__clear';
     clearButton.setAttribute('data-deck-restored-clear', '');
     clearButton.textContent = 'Clear';
     clearButton.addEventListener('click', () => {

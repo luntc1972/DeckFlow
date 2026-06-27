@@ -279,6 +279,27 @@ summary:focus-visible,
   color: var(--muted);
 }
 
+.deck-restored-notice__clear {
+  flex-shrink: 0;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.deck-restored-notice__clear:hover {
+  background: var(--panel);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .hub-lede {
   margin: 1rem 0 0.5rem;
   color: var(--muted);
