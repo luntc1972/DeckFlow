@@ -172,7 +172,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('manabase.color-aware-mulligan', TRUE),
           ('manabase.land-ramp-sim', TRUE),
           ('manabase.health-band-castability', FALSE),
-          ('manabase.health-band-headline-floor', TRUE)
+          ('manabase.health-band-headline-floor', TRUE),
+          ('manabase.plain-language-verdict', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -201,7 +202,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('manabase.color-aware-mulligan', 1),
           ('manabase.land-ramp-sim', 1),
           ('manabase.health-band-castability', 0),
-          ('manabase.health-band-headline-floor', 1)
+          ('manabase.health-band-headline-floor', 1),
+          ('manabase.plain-language-verdict', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 

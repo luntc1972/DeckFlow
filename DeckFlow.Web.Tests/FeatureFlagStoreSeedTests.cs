@@ -35,6 +35,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("manabase.land-ramp-sim", true)]        // MQ-03 70-03b
     [InlineData("manabase.health-band-castability", false)]
     [InlineData("manabase.health-band-headline-floor", true)]
+    [InlineData("manabase.plain-language-verdict", false)]
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);

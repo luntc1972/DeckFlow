@@ -37,6 +37,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("manabase.land-ramp-sim")]
     [InlineData("manabase.health-band-castability")]
     [InlineData("manabase.health-band-headline-floor")]
+    [InlineData("manabase.plain-language-verdict")]
     public void Describe_EverySeededFlag_HasNonEmptyDescription(string key)
     {
         string description = FeatureFlagCatalog.Describe(key);
