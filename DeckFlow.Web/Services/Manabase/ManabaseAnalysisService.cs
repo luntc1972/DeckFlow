@@ -496,24 +496,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
     private async Task<ScryfallCardData?> ResolveSingleCardAsync(string cardName, CancellationToken cancellationToken)
     {
-        var request = new RestRequest("cards/collection", Method.Post);
-        request.AddJsonBody(new { identifiers = new object[] { new { name = cardName } } });
-
-        RestResponse<ScryfallCollectionResponse> response =
-            await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-
-        if (response.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices && response.Data?.Data.Count > 0)
-        {
-            ScryfallCard? hit = response.Data.Data.FirstOrDefault(card =>
-                string.Equals(CardNormalizer.Normalize(card.Name), CardNormalizer.Normalize(cardName), StringComparison.Ordinal));
-            if (hit is not null)
-            {
-                return ScryfallCardDataMapper.ToCardData(hit);
-            }
-        }
-
-        ScryfallCard? fallback = await _scryfallCardResolver.SearchFallbackCardAsync(cardName, cancellationToken).ConfigureAwait(false);
-        return fallback is null ? null : ScryfallCardDataMapper.ToCardData(fallback);
+        // The single-name Scryfall resolve (collection lookup + exact-name fallback) lives on the
+        // resolver; this service only maps the result into its ScryfallCardData shape.
+        ScryfallCard? card = await _scryfallCardResolver.ResolveSingleAsync(cardName, cancellationToken).ConfigureAwait(false);
+        return card is null ? null : ScryfallCardDataMapper.ToCardData(card);
     }
 
     // Batch-resolve the deck's cards through Scryfall's collection endpoint, preferring an exact

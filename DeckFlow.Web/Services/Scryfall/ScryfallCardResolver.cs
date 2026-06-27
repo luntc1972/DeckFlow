@@ -1,4 +1,5 @@
 using System.Net;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Http;
 using Polly;
@@ -26,6 +27,12 @@ public interface IScryfallCardResolver
     /// Performs the analysis-specific printed-name fallback search used when collection lookup misses a card.
     /// </summary>
     Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves a single card by name: an exact collection lookup with a normalized-name match, falling
+    /// back to the exact-name search when the collection misses. Returns null when nothing matches.
+    /// </summary>
+    Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -90,6 +97,32 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
     {
         ArgumentNullException.ThrowIfNull(request);
         return _executeCollectionAsync(request, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(cardName))
+        {
+            return null;
+        }
+
+        var request = new RestRequest("cards/collection", Method.Post);
+        request.AddJsonBody(new { identifiers = new object[] { new { name = cardName } } });
+
+        RestResponse<ScryfallCollectionResponse> response =
+            await ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices && response.Data?.Data.Count > 0)
+        {
+            ScryfallCard? hit = response.Data.Data.FirstOrDefault(card =>
+                string.Equals(CardNormalizer.Normalize(card.Name), CardNormalizer.Normalize(cardName), StringComparison.Ordinal));
+            if (hit is not null)
+            {
+                return hit;
+            }
+        }
+
+        return await SearchFallbackCardAsync(cardName, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
