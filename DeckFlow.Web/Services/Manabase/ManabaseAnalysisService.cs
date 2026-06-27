@@ -254,7 +254,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         if (commanderCastability && resolved.CompanionCard is not null)
         {
-            ParsedManaCost printedCost = ParsePrintedManaCost(resolved.CompanionCard.ManaCost);
+            ParsedManaCost printedCost = ManaCostParser.Parse(resolved.CompanionCard.ManaCost);
             int printedManaValue = Math.Max(0, Math.Min(20, (int)Math.Round(resolved.CompanionCard.Cmc)));
             var companionRequirement = new SpellRequirement
             {
@@ -466,15 +466,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ScryfallCardData? CompanionCard);
 
     private static string? ResolveCompanionName(string? designator, string? detected)
-    {
-        string? manual = BoundCompanionName(designator);
-        if (manual is not null)
-        {
-            return manual;
-        }
-
-        return BoundCompanionName(detected);
-    }
+        => BoundCompanionName(designator) ?? BoundCompanionName(detected);
 
     private static string? BoundCompanionName(string? name)
     {
@@ -488,11 +480,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ? trimmed
             : trimmed[..MaxCompanionNameLength];
     }
-
-    private static ParsedManaCost ParsePrintedManaCost(string? manaCost)
-        => string.IsNullOrWhiteSpace(manaCost)
-            ? ManaCostParser.Parse("{0}")
-            : ManaCostParser.Parse(manaCost);
 
     private async Task<ScryfallCardData?> ResolveCompanionFromDeckEntryAsync(
         ScryfallCardNameIndex index,
