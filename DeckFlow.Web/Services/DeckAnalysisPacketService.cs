@@ -115,6 +115,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// </summary>
     internal const string CommandZoneAwarenessFlag = "analysis.command-zone-awareness";
 
+    /// <summary>
+    /// Upper bound (characters) applied to a resolved companion name before it reaches any prompt.
+    /// Mirrors the manabase companion cap; combined with the single-line collapse it defeats
+    /// newline/length-based prompt-structure injection from the free-form companion designator.
+    /// </summary>
+    private const int MaxCompanionNameLength = 200;
+
     internal DeckAnalysisPacketService(
         IScryfallCardResolver scryfallCardResolver,
         IDeckEntryLoader deckEntryLoader,
@@ -412,6 +419,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var loaded = await _deckEntryLoader.LoadFromSourceAsync(request.DeckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
         _lastImportNotice = loaded.FallbackNotice;
         var entries = loaded.Entries;
+        // Phase 73-02: capture the auto-detected companion (Moxfield import metadata) so command-zone
+        // awareness can surface it as SIDE METADATA when the flag is on. Discarded otherwise — never
+        // mutates the deck text, so flag-OFF output stays byte-identical.
+        var detectedCompanionName = loaded.DetectedCompanionName;
         timings.Add(("Deck load", loadDeckStopwatch.ElapsedMilliseconds, null));
         _logger.LogInformation("Deck Analysis packet deck load completed in {ElapsedMs}ms.", loadDeckStopwatch.ElapsedMilliseconds);
         var deckEntries = entries
@@ -636,11 +647,39 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     commanderName = oracleCommanderName;
                 }
 
+                // Phase 73-02: command-zone awareness (default-OFF). Gate on the EXPLICIT snapshot value
+                // (absent key, null cache, or store-read failure all resolve to off) so a flag-system
+                // fault never mutates output and flag-OFF stays byte-identical. When on, name the FULL
+                // command zone (all partners / commander+Background, each oracle-resolved INDIVIDUALLY
+                // before the " & " join — never concatenate before resolving) and resolve the companion
+                // as side metadata. The deck text, cache key, and ResolvePreScryfallCommanderState are
+                // left untouched.
+                var commandZoneAwareness = _flagCache is not null
+                    && _flagCache.Snapshot().TryGetValue(CommandZoneAwarenessFlag, out var commandZoneOn)
+                    && commandZoneOn;
+                string? companionName = null;
+                if (commandZoneAwareness)
+                {
+                    var resolvedCommanderNames = deckEntries
+                        .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+                        .Select(entry => entry.Name)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                        .Select(name => cardReferenceBundle.OracleNameMap.TryGetValue(name, out var oracleName) ? oracleName : name)
+                        .ToList();
+                    if (resolvedCommanderNames.Count >= 2)
+                    {
+                        commanderName = string.Join(" & ", resolvedCommanderNames);
+                    }
+
+                    companionName = ResolveCompanionName(request.CompanionName, detectedCompanionName);
+                }
+
                 var includeCardVersions = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestions) && request.IncludeCardVersions;
                 var analysisDecklistText = includeCardVersions
                     ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
                     : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions);
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions, companionName);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -1557,6 +1596,33 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
     internal static string NormalizeSingleLine(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : CollapseWhitespace(value);
+
+    // Phase 73-02: companion resolution with designator priority. The designator (free-form request
+    // field) wins over the auto-detected name; both flow through BoundCompanionName.
+    private static string? ResolveCompanionName(string? designator, string? detected)
+        => BoundCompanionName(designator) ?? BoundCompanionName(detected);
+
+    // Phase 73-02 (Codex HIGH-2): bound a companion name before it reaches any prompt. Collapses the
+    // value to a SINGLE LINE (CollapseWhitespace strips CR/LF, mirroring NormalizeSingleLine) so a
+    // crafted newline cannot break prompt structure, trims, then caps at MaxCompanionNameLength.
+    // Returns null for null/whitespace input.
+    private static string? BoundCompanionName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var singleLine = CollapseWhitespace(name).Trim();
+        if (singleLine.Length == 0)
+        {
+            return null;
+        }
+
+        return singleLine.Length <= MaxCompanionNameLength
+            ? singleLine
+            : singleLine[..MaxCompanionNameLength];
+    }
 
     private static string ExtractJsonObject(string value)
     {
