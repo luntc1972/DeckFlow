@@ -84,13 +84,13 @@
     }
 
     <details class="manabase-overrides" @(Model.HasSuggestions || !string.IsNullOrWhiteSpace(Model.Request.CostOverridesText) ? "open" : null)>
-        <summary>Reduced / alternative costs (optional)</summary>
+        <summary>Companion &amp; reduced costs (optional)</summary>
         <div class="field">
             <label for="manabase-companion-name">
                 Companion (optional) - auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.
             </label>
             <input id="manabase-companion-name" type="text" name="CompanionName" spellcheck="false" autocomplete="off"
-                   placeholder="e.g. Jegantha, the Wellspring" value="@(Model.CompanionCallout?.Name ?? Model.Request.CompanionName)" />
+                   placeholder="e.g. Jegantha, the Wellspring…" value="@(Model.CompanionCallout?.Name ?? Model.Request.CompanionName)" />
         </div>
         <div class="field">
             <label for="manabase-cost-overrides">
