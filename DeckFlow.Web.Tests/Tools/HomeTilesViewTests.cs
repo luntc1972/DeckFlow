@@ -24,9 +24,9 @@ public sealed class HomeTilesViewTests
     }
 
     [Theory]
-    [InlineData("feature.manabase.enabled")]
-    [InlineData("content.kb.enabled")]
-    [InlineData("feature.categories.enabled")]
+    [InlineData("tool.manabase.enabled")]
+    [InlineData("tool.knowledge-base.enabled")]
+    [InlineData("tool.categories.enabled")]
     public void Home_DoesNotContainHardcodedToolFlagLiterals(string flagKey)
     {
         var content = ReadHome();

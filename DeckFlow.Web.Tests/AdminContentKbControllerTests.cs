@@ -388,7 +388,7 @@ public sealed class AdminContentKbControllerTests
         bool crossOrigin)
     {
         loaderOut = loader;
-        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool> { ["content.kb.enabled"] = false });
+        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool> { ["tool.knowledge-base.enabled"] = false });
         var controller = new AdminContentKbController(
             store,
             loader,

@@ -118,7 +118,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// MQ-02 flag key: when enabled, the castability rows credit each source its full mana amount
     /// (Sol Ring = 2, etc.). Seeded ON after the Phase-70 flag baseline (8 decks, no verdict flips).
     /// </summary>
-    public const string ManaQuantityFlagKey = "manabase.source-mana-quantity";
+    public const string ManaQuantityFlagKey = "analysis.manabase.source-mana-quantity";
 
     /// <summary>
     /// MQ-03 flag key: when enabled, the Karsten ramp/draw land-target credit is narrowed to
@@ -126,34 +126,34 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// Seeded ON after the Phase-70 flag baseline. Read BEFORE classification (the credit is computed
     /// in the classifier, not the analyzer).
     /// </summary>
-    public const string RampCreditV2FlagKey = "manabase.ramp-credit-v2";
+    public const string RampCreditV2FlagKey = "analysis.manabase.ramp-credit-v2";
 
     /// <summary>
     /// MQ-05 flag key: when enabled, the castability rows' London mulligan keeps multi-color hands
     /// only when the opening lands show enough distinct colors (count-only otherwise). Cast%-affecting
     /// on 2+ color decks; mono decks are unchanged. Seeded ON after the Phase-70 flag baseline.
     /// </summary>
-    public const string ColorAwareMulliganFlagKey = "manabase.color-aware-mulligan";
+    public const string ColorAwareMulliganFlagKey = "analysis.manabase.color-aware-mulligan";
 
     /// <summary>
     /// MQ-03 70-03b flag key: when enabled, repeatable land-ramp spells (Cultivate / Rampant Growth)
     /// are modeled in the castability simulator as colorless ramp sources so the fetched land's mana is
     /// credited (closing the sim ↔ regression gap). Seeded ON after the Phase-70 land-ramp baseline.
     /// </summary>
-    public const string LandRampSimFlagKey = "manabase.land-ramp-sim";
+    public const string LandRampSimFlagKey = "analysis.manabase.land-ramp-sim";
 
     /// <summary>
     /// MQ-health-band flag key: when enabled, the composite-weakest color's worst-spell cast %
     /// feeds the health-band verdict (Functional→Workable when below the mode's support threshold).
     /// Seeded OFF — promoted to ON after a full 9-deck calibration regression guard passes.
     /// </summary>
-    public const string HealthBandCastabilityFlagKey = "manabase.health-band-castability";
+    public const string HealthBandCastabilityFlagKey = "analysis.manabase.health-band-castability";
 
     /// <summary>
     /// MQ-health-band headline-floor flag key: when enabled, a strong headline castability result
     /// can narrowly promote a land-short NeedsWork verdict to Workable. Seeded OFF.
     /// </summary>
-    public const string HealthBandHeadlineFloorFlagKey = "manabase.health-band-headline-floor";
+    public const string HealthBandHeadlineFloorFlagKey = "analysis.manabase.health-band-headline-floor";
 
     /// <summary>
     /// Phase-71 flag key: when enabled, Casual mode computes a deterministic plain-language verdict

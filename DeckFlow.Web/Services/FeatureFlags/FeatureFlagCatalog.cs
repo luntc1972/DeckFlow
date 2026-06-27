@@ -14,17 +14,17 @@ public static class FeatureFlagCatalog
     public static readonly IReadOnlyDictionary<string, string> Descriptions =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["scryfall.tagger.enabled"] =
+            ["service.scryfall-tagger.enabled"] =
                 "Scrape Scryfall Tagger to enrich category suggestions. Off falls back to the other suggestion sources.",
-            ["page.help.enabled"] =
+            ["tool.help.enabled"] =
                 "Show the in-app Help section and its navigation link.",
-            ["harvest.cron.enabled"] =
+            ["service.harvest-cron.enabled"] =
                 "Run the scheduled background content-harvest job. Off pauses automated harvesting (manual harvest still works).",
-            ["feature.categories.enabled"] =
+            ["tool.categories.enabled"] =
                 "Enable the Commander Categories page and the category-suggestion tools.",
-            ["content.kb.enabled"] =
+            ["tool.knowledge-base.enabled"] =
                 "Serve the browsable Content Knowledge Base (creator videos) on the public site.",
-            ["feature.manabase.enabled"] =
+            ["tool.manabase.enabled"] =
                 "Enable the Mana Base analyzer tool and its navigation link.",
             ["tool.deck-analysis.enabled"] =
                 "Enable the Deck Analysis tool that builds the ChatGPT deck-analysis prompt packet.",
@@ -50,17 +50,17 @@ public static class FeatureFlagCatalog
                 "Include full Oracle rules text for reference cards in the deck-analysis prompt (larger but more precise).",
             ["analysis.reference.deck-stats"] =
                 "Append computed deck statistics to the deck-analysis prompt.",
-            ["manabase.source-mana-quantity"] =
+            ["analysis.manabase.source-mana-quantity"] =
                 "Count how much mana each source actually makes (Sol Ring makes 2, Gilded Lotus 3) when judging whether spells are affordable on curve. The colored-source counts behind the land recommendation stay the same.",
-            ["manabase.ramp-credit-v2"] =
+            ["analysis.manabase.ramp-credit-v2"] =
                 "Only let repeatable ramp and real card draw lower the recommended land count. One-shot rituals and Treasure tokens no longer make a deck look like it needs fewer lands than it really does.",
-            ["manabase.color-aware-mulligan"] =
+            ["analysis.manabase.color-aware-mulligan"] =
                 "When simulating opening hands, also mulligan hands that are color-screwed: a deck of two or more colors wants at least two of its colors among its starting lands. Mono-color decks are unaffected.",
-            ["manabase.land-ramp-sim"] =
+            ["analysis.manabase.land-ramp-sim"] =
                 "Treat repeatable land ramp (Cultivate, Rampant Growth, and similar) as putting its fetched land onto the battlefield during the simulation, so expensive payoff spells in ramp-heavy decks are not under-rated.",
-            ["manabase.health-band-castability"] =
+            ["analysis.manabase.health-band-castability"] =
                 "Let the deck's weakest color affect the overall health rating: if that color's hardest spell is cast below the target (80% Casual, 88% cEDH), it counts as a color problem and can drop the verdict from Solid to Workable. Off by default until the regression check passes.",
-            ["manabase.health-band-headline-floor"] =
+            ["analysis.manabase.health-band-headline-floor"] =
                 "Allow a deck with a strong average on-curve score to be nudged up from 'Needs work' to 'Workable', but only when it has a single minor color weakness, that color still casts acceptably, and there are no serious mana shortfalls. On by default.",
             ["manabase.plain-language-verdict"] =
                 "Show a plain-language 'Reading your deck' verdict, friendly one-line explanations for each manabase metric, and (Casual only) a ramp vs. draw slot-budget advisory. Off by default; recommendations are heuristic and never change the land count, color counts, castability, or health rating.",

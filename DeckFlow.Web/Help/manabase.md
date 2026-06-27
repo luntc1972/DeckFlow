@@ -2,7 +2,7 @@
 title: Mana Base
 summary: Check whether a deck has enough lands and colored sources using Frank Karsten's source-count math — no AI needed for the verdict.
 order: 35
-requires_flag: feature.manabase.enabled
+requires_flag: tool.manabase.enabled
 ---
 
 # Mana Base

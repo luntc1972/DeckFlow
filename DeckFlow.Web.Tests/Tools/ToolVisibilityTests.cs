@@ -47,7 +47,7 @@ public sealed class ToolVisibilityTests
             ["tool.deck-analysis.enabled"] = false,
             ["tool.deck-comparison.enabled"] = false,
             ["tool.cedh-meta-gap.enabled"] = false,
-            ["feature.manabase.enabled"] = false,
+            ["tool.manabase.enabled"] = false,
         });
 
         var sections = ToolVisibility.VisibleBySection(registry.All, cache);

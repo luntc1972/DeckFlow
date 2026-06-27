@@ -16,9 +16,9 @@ public sealed class DeckToolTabsViewTests
     }
 
     [Theory]
-    [InlineData("feature.manabase.enabled")]
-    [InlineData("content.kb.enabled")]
-    [InlineData("feature.categories.enabled")]
+    [InlineData("tool.manabase.enabled")]
+    [InlineData("tool.knowledge-base.enabled")]
+    [InlineData("tool.categories.enabled")]
     public void Partial_DoesNotContainHardcodedToolFlagLiterals(string flagKey)
     {
         var content = ReadPartial();

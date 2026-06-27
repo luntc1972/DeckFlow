@@ -29,12 +29,12 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     }
 
     [Theory]
-    [InlineData("manabase.color-aware-mulligan", true)] // MQ-05
-    [InlineData("manabase.source-mana-quantity", true)] // MQ-02
-    [InlineData("manabase.ramp-credit-v2", true)]       // MQ-03
-    [InlineData("manabase.land-ramp-sim", true)]        // MQ-03 70-03b
-    [InlineData("manabase.health-band-castability", false)]
-    [InlineData("manabase.health-band-headline-floor", true)]
+    [InlineData("analysis.manabase.color-aware-mulligan", true)] // MQ-05
+    [InlineData("analysis.manabase.source-mana-quantity", true)] // MQ-02
+    [InlineData("analysis.manabase.ramp-credit-v2", true)]       // MQ-03
+    [InlineData("analysis.manabase.land-ramp-sim", true)]        // MQ-03 70-03b
+    [InlineData("analysis.manabase.health-band-castability", false)]
+    [InlineData("analysis.manabase.health-band-headline-floor", true)]
     [InlineData("manabase.plain-language-verdict", false)]
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {

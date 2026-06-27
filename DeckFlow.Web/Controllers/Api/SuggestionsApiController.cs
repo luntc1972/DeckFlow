@@ -47,7 +47,7 @@ public sealed class SuggestionsApiController : ControllerBase
     /// <param name="cancellationToken">Cancellation token for the lookup.</param>
     /// <returns>A structured suggestion response used by the web UI and external callers.</returns>
     [HttpPost("card")]
-    [FeatureFlagGate("feature.categories.enabled")]
+    [FeatureFlagGate("tool.categories.enabled")]
     [ProducesResponseType(typeof(CategorySuggestionApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

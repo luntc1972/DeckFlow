@@ -65,10 +65,10 @@ public class HelpControllerTests
     public void Index_hides_topic_whose_required_flag_is_disabled()
     {
         var open = new HelpTopic("a", "Alpha", "first", 10, "<p>a</p>");
-        var gated = new HelpTopic("manabase", "Mana Base", "s", 35, "<p>m</p>", "feature.manabase.enabled");
+        var gated = new HelpTopic("manabase", "Mana Base", "s", 35, "<p>m</p>", "tool.manabase.enabled");
         var controller = CreateController(
             new StubHelpContentService(open, gated),
-            new Dictionary<string, bool> { ["feature.manabase.enabled"] = false });
+            new Dictionary<string, bool> { ["tool.manabase.enabled"] = false });
 
         var result = Assert.IsType<ViewResult>(controller.Index());
         var model = Assert.IsAssignableFrom<IReadOnlyList<HelpTopic>>(result.Model);
@@ -80,10 +80,10 @@ public class HelpControllerTests
     [Fact]
     public void Index_shows_gated_topic_when_its_flag_is_enabled()
     {
-        var gated = new HelpTopic("manabase", "Mana Base", "s", 35, "<p>m</p>", "feature.manabase.enabled");
+        var gated = new HelpTopic("manabase", "Mana Base", "s", 35, "<p>m</p>", "tool.manabase.enabled");
         var controller = CreateController(
             new StubHelpContentService(gated),
-            new Dictionary<string, bool> { ["feature.manabase.enabled"] = true });
+            new Dictionary<string, bool> { ["tool.manabase.enabled"] = true });
 
         var result = Assert.IsType<ViewResult>(controller.Index());
         var model = Assert.IsAssignableFrom<IReadOnlyList<HelpTopic>>(result.Model);
@@ -94,10 +94,10 @@ public class HelpControllerTests
     [Fact]
     public void Topic_returns_NotFound_when_required_flag_is_disabled()
     {
-        var gated = new HelpTopic("manabase", "Mana Base", "s", 35, "<p>m</p>", "feature.manabase.enabled");
+        var gated = new HelpTopic("manabase", "Mana Base", "s", 35, "<p>m</p>", "tool.manabase.enabled");
         var controller = CreateController(
             new StubHelpContentService(gated),
-            new Dictionary<string, bool> { ["feature.manabase.enabled"] = false });
+            new Dictionary<string, bool> { ["tool.manabase.enabled"] = false });
 
         var result = controller.Topic("manabase");
 

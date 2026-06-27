@@ -12,7 +12,7 @@ namespace DeckFlow.Web.Services.Harvest;
 /// reads the cached <c>harvest_schedule</c> snapshot, and fires a 60-minute bulk harvest
 /// when <c>now &gt;= last_success_utc + interval_hours</c> AND the schedule is not paused
 /// AND <c>interval_hours</c> is set. The whole loop is gated by
-/// <see cref="IFeatureFlagCache.IsEnabled"/> on <c>harvest.cron.enabled</c>
+/// <see cref="IFeatureFlagCache.IsEnabled"/> on <c>service.harvest-cron.enabled</c>
 /// (Phase 6 FLAG-04 carry-forward kill switch). Per-tick try/catch keeps the loop alive
 /// across transient PG / job-service errors (T-07-14).
 /// </summary>
@@ -20,7 +20,7 @@ public sealed class HarvestScheduleService : BackgroundService
 {
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan FireDuration = TimeSpan.FromMinutes(60);
-    private const string CronEnabledFlagKey = "harvest.cron.enabled";
+    private const string CronEnabledFlagKey = "service.harvest-cron.enabled";
 
     private readonly IFeatureFlagCache _flagCache;
     private readonly IHarvestScheduleCache _scheduleCache;
@@ -31,7 +31,7 @@ public sealed class HarvestScheduleService : BackgroundService
     /// <summary>
     /// DI constructor. Registered as an <see cref="IHostedService"/> in Plan 07.
     /// </summary>
-    /// <param name="flagCache">Feature flag cache used to honor the <c>harvest.cron.enabled</c> kill switch.</param>
+    /// <param name="flagCache">Feature flag cache used to honor the <c>service.harvest-cron.enabled</c> kill switch.</param>
     /// <param name="scheduleCache">Cached <c>harvest_schedule</c> snapshot (no per-tick PG roundtrip).</param>
     /// <param name="runStore">Run-history store used to read <c>last_success_utc</c>.</param>
     /// <param name="jobService">Bulk-harvest job service called when a tick is due to fire.</param>

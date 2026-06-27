@@ -7,7 +7,7 @@
 # local defaults any time by setting FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD
 # in your environment before running.
 #
-# Note: content.kb.enabled is a DB-backed feature flag, NOT an env var.
+# Note: tool.knowledge-base.enabled is a DB-backed feature flag, NOT an env var.
 # Toggle it via /Admin/Flags (or the Content KB admin panel) after login.
 $ErrorActionPreference = 'Stop'
 
@@ -17,7 +17,7 @@ if (-not $env:FEEDBACK_ADMIN_USER)     { $env:FEEDBACK_ADMIN_USER = 'admin' }
 if (-not $env:FEEDBACK_ADMIN_PASSWORD) { $env:FEEDBACK_ADMIN_PASSWORD = 'changeme-local' }
 
 Write-Host "Admin login: $($env:FEEDBACK_ADMIN_USER) / $($env:FEEDBACK_ADMIN_PASSWORD)"
-Write-Host "After login, enable content.kb.enabled via /Admin/Flags for UAT."
+Write-Host "After login, enable tool.knowledge-base.enabled via /Admin/Flags for UAT."
 
 # Free port 5173 before building/running. A stale Kestrel (from a prior UAT run
 # or another worktree) both blocks the bind AND locks DeckFlow.Web.exe so the

@@ -26,7 +26,7 @@ namespace DeckFlow.Web.Tests;
 public sealed class SuggestionsApiControllerTests
 {
     [Theory]
-    [InlineData(nameof(SuggestionsApiController.PostCardSuggestionAsync), "feature.categories.enabled")]
+    [InlineData(nameof(SuggestionsApiController.PostCardSuggestionAsync), "tool.categories.enabled")]
     [InlineData(nameof(SuggestionsApiController.PostCommanderSuggestionAsync), "tool.commander-categories.enabled")]
     [InlineData(nameof(SuggestionsApiController.PostMechanicLookupAsync), "tool.mechanic-lookup.enabled")]
     public void Tool_backing_actions_use_expected_feature_flag_gates(string actionName, string expectedFlagKey)
