@@ -722,11 +722,11 @@ DeckAnalysisPacketServiceTests.cs:879 valid and gives independent operator contr
 **Designator (decided):** add `DeckAnalysisRequest.CompanionName` manual designator + flag-gated Step-1
 input, for parity with manabase and to cover Archidekt / pasted decks (no auto-detect there).
 
-**Plans:** 4 plans (4 waves)
+**Plans:** 1/4 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 73-01-PLAN.md — Flag four-file+seed-test registration + interface `companionName` param + request CompanionName property (contract-first, byte-identical) [Wave 1]
+- [x] 73-01-PLAN.md — Flag four-file+seed-test registration + interface `companionName` param + request CompanionName property (contract-first, byte-identical) [Wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
