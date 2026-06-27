@@ -1,0 +1,100 @@
+import { expect, test, type Browser, type Page } from '@playwright/test';
+
+const THEME_STORAGE_KEY = 'deckflow-theme';
+const representativeThemes = ['site.css', 'site-azorius.css', 'site-nyx.css'] as const;
+const pastedDeck = '1 Sol Ring\n1 Arcane Signet';
+const urlDeck = 'https://moxfield.com/decks/abc123';
+const combinedUrlDeck = 'https://moxfield.com/decks/xyz';
+const storeValueDeck = 'STORE VALUE DECK';
+const postedDeck = 'POSTED DECK';
+
+async function setThemeBeforeNavigation(page: Page, themeFile: string): Promise<void> {
+  await page.addInitScript(
+    ([storageKey, storageValue]) => {
+      window.localStorage.setItem(storageKey, storageValue);
+    },
+    [THEME_STORAGE_KEY, themeFile]
+  );
+}
+
+async function expectThemeSelected(page: Page, themeFile: string): Promise<void> {
+  await expect(page.locator('#theme-picker')).toHaveValue(themeFile);
+}
+
+async function fillDeckAnalysisPasteText(page: Page, deckText: string): Promise<void> {
+  await page.goto('/deck-analysis');
+  await page.locator('select[name="DeckInputSource"]').selectOption('PasteText');
+  await page.locator('textarea[name="DeckText"]').fill(deckText);
+}
+
+async function runThemePrefillCheck(browser: Browser, themeFile: string): Promise<void> {
+  const page = await browser.newPage();
+
+  try {
+    await setThemeBeforeNavigation(page, themeFile);
+    await fillDeckAnalysisPasteText(page, pastedDeck);
+    await expectThemeSelected(page, themeFile);
+
+    await page.goto('/manabase');
+    await expectThemeSelected(page, themeFile);
+    await expect(page.locator('textarea[name="DeckText"]')).toHaveValue(pastedDeck);
+    await expect(page.locator('input[name="DeckUrl"]')).toHaveValue('');
+  } finally {
+    await page.close();
+  }
+}
+
+test('deck text prefills across single-deck tools for representative themes', async ({ browser }) => {
+  for (const themeFile of representativeThemes) {
+    await runThemePrefillCheck(browser, themeFile);
+  }
+});
+
+test('url mode restore keeps the correct input method across tools', async ({ page }) => {
+  await page.goto('/deck-analysis');
+  await page.locator('select[name="DeckInputSource"]').selectOption('PublicUrl');
+  await page.locator('input[name="DeckUrl"]').fill(urlDeck);
+
+  await page.goto('/convert');
+  await expect(page.locator('select[name="InputSource"]')).toHaveValue('PublicUrl');
+  await expect(page.locator('input[name="DeckUrl"]')).toHaveValue(urlDeck);
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+});
+
+test('postback keeps the server-echoed deck instead of overwriting it from sessionStorage', async ({ page }) => {
+  await page.addInitScript(([storageKey, storedDeck]) => {
+    window.sessionStorage.setItem(storageKey, JSON.stringify(storedDeck));
+  }, ['deckflow.last-deck', {
+    inputSource: 'PasteText',
+    deckUrl: '',
+    deckText: storeValueDeck,
+  }]);
+
+  // DeckConvert gives the simplest same-page POST rerender for asserting that
+  // the echoed DeckText survives DOMContentLoaded without a second overwrite.
+  await page.goto('/convert');
+  await page.locator('select[name="InputSource"]').selectOption('PasteText');
+  await page.locator('textarea[name="DeckText"]').fill(postedDeck);
+  await page.getByRole('button', { name: 'Convert' }).click();
+  await page.waitForLoadState('networkidle');
+
+  const deckText = page.locator('textarea[name="DeckText"]');
+  await expect(deckText).toHaveValue(postedDeck);
+  await expect(deckText).not.toHaveValue(storeValueDeck);
+});
+
+test('fresh browser contexts do not inherit another tab session deck', async ({ page }) => {
+  await page.goto('/manabase');
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+  await expect(page.locator('input[name="DeckUrl"]')).toHaveValue('');
+});
+
+test('combined deck source restores into split fields using the url heuristic', async ({ page }) => {
+  await page.goto('/cedh-meta-gap');
+  await page.locator('textarea[name="DeckSource"]').fill(combinedUrlDeck);
+
+  await page.goto('/deck-analysis');
+  await expect(page.locator('select[name="DeckInputSource"]')).toHaveValue('PublicUrl');
+  await expect(page.locator('input[name="DeckUrl"]')).toHaveValue(combinedUrlDeck);
+  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
+});

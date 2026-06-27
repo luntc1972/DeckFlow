@@ -331,6 +331,9 @@ Choose an **Input method** (paste text or public deck URL) and provide either a 
 - Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports), then validates the inferred commander against Scryfall before continuing.
 - Rejects inferred commanders that are not legal by the workflow rules: legendary creature, legendary Vehicle, or a planeswalker whose oracle text says it can be your commander.
 
+#### Cross-tool single-deck carry-over
+Within the same browser tab, DeckFlow now carries deck input between `/deck-analysis`, `/manabase`, `/cedh-meta-gap`, `/convert`, and `/deck-primer` via client-side `sessionStorage`. If you navigate from one of those single-deck tools to another, the target page prefills the saved deck URL or pasted list only when its deck field is still empty, so a value already rendered or typed there is never overwritten. The data is per-tab, clears when the tab closes, and is not stored on the server. Two-deck tools such as `/deck-comparison` and `/sync` are not covered yet.
+
 ### Step 2 — Analysis
 Configure the analysis:
 
