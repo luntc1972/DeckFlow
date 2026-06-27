@@ -1,5 +1,5 @@
 @page "/blocked"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Orchestration
 
@@ -85,16 +85,14 @@
     private bool _operationInFlight;
     private List<BlockedVideoListResult.BlockedVideoListItem> _blocked = new();
 
-    private CancellationTokenSource _cts = new();
-
     protected override async Task OnInitializedAsync()
     {
         try
         {
             // Why: Task.Run moves the store call off the Blazor sync context (Pitfall 4).
             var result = await Task.Run(
-                () => MaintenanceOrchestrator.ListBlockedAsync(progress: null, _cts.Token),
-                _cts.Token);
+                () => MaintenanceOrchestrator.ListBlockedAsync(progress: null, Cts.Token),
+                Cts.Token);
             _blocked = result.Items.ToList();
         }
         catch (OperationCanceledException)
@@ -124,8 +122,8 @@
         try
         {
             var result = await Task.Run(
-                () => MaintenanceOrchestrator.UnblockVideoAsync(videoId, progress: null, _cts.Token),
-                _cts.Token);
+                () => MaintenanceOrchestrator.UnblockVideoAsync(videoId, progress: null, Cts.Token),
+                Cts.Token);
             if (result.Success)
             {
                 _blocked.RemoveAll(b => b.YoutubeVideoId == videoId);
@@ -148,18 +146,8 @@
         finally
         {
             _operationInFlight = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 }

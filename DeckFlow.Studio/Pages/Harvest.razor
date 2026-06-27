@@ -803,7 +803,7 @@
             }
 
             @* Stage B progress log and result *@
-            @if (_distillLiveInFlight || _distillLogLines.Count > 0 && (_distillLiveInFlight || _distillLiveResult is not null || _distillCancelled))
+            @if (_distillLiveInFlight || (_distillLogLines.Count > 0 && (_distillLiveResult is not null || _distillCancelled)))
             {
                 <pre class="bg-light border rounded p-2"
                      style="height:150px; overflow-y:auto; font-size:0.8125rem; font-family:monospace"

@@ -1,5 +1,5 @@
 @page "/skipped"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
 
 <PageTitle>Skipped Videos</PageTitle>
@@ -84,13 +84,11 @@
     private bool _operationInFlight;
     private List<SkippedVideo> _skipped = new();
 
-    private CancellationTokenSource _cts = new();
-
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var result = await SkippedStore.ListSkippedAsync(_cts.Token);
+            var result = await SkippedStore.ListSkippedAsync(Cts.Token);
             _skipped = result.ToList();
         }
         catch (OperationCanceledException)
@@ -104,12 +102,7 @@
         finally
         {
             _loading = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
@@ -124,7 +117,7 @@
         _error = string.Empty;
         try
         {
-            var removed = await SkippedStore.RemoveSkipAsync(videoId, _cts.Token);
+            var removed = await SkippedStore.RemoveSkipAsync(videoId, Cts.Token);
             if (removed)
             {
                 _skipped.RemoveAll(s => s.YoutubeVideoId == videoId);
@@ -144,18 +137,8 @@
         finally
         {
             _operationInFlight = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 }

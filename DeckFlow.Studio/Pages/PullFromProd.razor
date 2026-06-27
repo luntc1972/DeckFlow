@@ -1,5 +1,5 @@
 @page "/pull-from-prod"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
 @using DeckFlow.Core.Knowledge
 @using DeckFlow.Core.Orchestration
@@ -341,7 +341,6 @@ mirror of Direct Push — it NEVER writes to production.</p>
 
     // ── Shared in-flight guard + CTS ────────────────────────────────────────
     private bool _operationInFlight;
-    private CancellationTokenSource _cts = new();
 
     // ── Stage 1 — pull & classify ───────────────────────────────────────────
     private bool _pullInFlight;
@@ -378,7 +377,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
         try
         {
             var dataRoot = await Task.Run(() =>
-                Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot, _cts.Token);
+                Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot, Cts.Token);
             _dataRoot = dataRoot;
             _stagingRoot = Path.Combine(_dataRoot, "pull-staging");
         }
@@ -428,9 +427,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
                 await InvokeAsync(() =>
                 {
                     AppendProgressLine("Preparing staging area...");
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
 
                 if (Directory.Exists(_stagingRoot))
@@ -445,29 +442,23 @@ mirror of Direct Push — it NEVER writes to production.</p>
                 await InvokeAsync(() =>
                 {
                     AppendProgressLine("Reading production content_site_index...");
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
 
                 var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
-                var prodRows = await ProdReader.ReadAllAsync(rawConnStr, _cts.Token).ConfigureAwait(false);
+                var prodRows = await ProdReader.ReadAllAsync(rawConnStr, Cts.Token).ConfigureAwait(false);
 
                 await InvokeAsync(() =>
                 {
                     AppendProgressLine($"  {prodRows.Count} row(s) read from production.");
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
 
                 _pullStage = "download artifacts";
                 await InvokeAsync(() =>
                 {
                     AppendProgressLine($"Downloading {prodRows.Count} artifact(s)...");
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
 
                 // Why: the pull runs inside Task.Run, so a Progress<T> callback does NOT automatically
@@ -493,14 +484,12 @@ mirror of Direct Push — it NEVER writes to production.</p>
                     _ = InvokeAsync(() =>
                     {
                         AppendProgressLine(line);
-                        try { StateHasChanged(); }
-                        catch (ObjectDisposedException) { }
-                        catch (InvalidOperationException) { }
+                        SafeStateHasChanged();
                     });
                 });
 
                 var downloadResults = await SshDownloader
-                    .DownloadArtifactsAsync(requests, _stagingRoot, artifactProgress, _cts.Token)
+                    .DownloadArtifactsAsync(requests, _stagingRoot, artifactProgress, Cts.Token)
                     .ConfigureAwait(false);
 
                 var downloadedSet = new HashSet<string>(
@@ -511,12 +500,10 @@ mirror of Direct Push — it NEVER writes to production.</p>
                 await InvokeAsync(() =>
                 {
                     AppendProgressLine("Classifying diff against local store...");
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
 
-                var localRows = await IndexStore.GetAllRowsAsync(_cts.Token).ConfigureAwait(false);
+                var localRows = await IndexStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
 
                 // Classify (omits in-sync pairs, R3), then stamp ArtifactDownloaded per entry.
                 var entries = ContentSyncDiffClassifier.Classify(prodRows, localRows)
@@ -531,11 +518,9 @@ mirror of Direct Push — it NEVER writes to production.</p>
                     _diffReady = true;
                     _pullInFlight = false;
                     _operationInFlight = false;
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
-            }, _cts.Token);
+            }, Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -545,9 +530,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
             await InvokeAsync(() =>
             {
                 AppendProgressLine("Pull cancelled.");
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
+                SafeStateHasChanged();
             });
         }
         catch (Exception ex)
@@ -562,9 +545,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
             await InvokeAsync(() =>
             {
                 AppendProgressLine($"Pull failed during: {_pullStage} — see the Studio log for details.");
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
+                SafeStateHasChanged();
             });
         }
     }
@@ -614,8 +595,8 @@ mirror of Direct Push — it NEVER writes to production.</p>
                         // LOCAL-only apply: content columns + mirror prod approval_status (Q2 — reflect
                         // prod's actual state, never a blind pending). is_visible/is_hidden untouched —
                         // adopting never auto-publishes. Never the full-row upsert (Pitfall 3).
-                        await IndexStore.UpsertContentColumnsOnlyAsync(prodRow, _cts.Token).ConfigureAwait(false);
-                        await IndexStore.SetApprovalStatusAsync(keyType, keyValue, prodRow.ApprovalStatus, _cts.Token).ConfigureAwait(false);
+                        await IndexStore.UpsertContentColumnsOnlyAsync(prodRow, Cts.Token).ConfigureAwait(false);
+                        await IndexStore.SetApprovalStatusAsync(keyType, keyValue, prodRow.ApprovalStatus, Cts.Token).ConfigureAwait(false);
 
                         var note = "row updated; approval mirrored from prod";
                         if (entry.ArtifactDownloaded)
@@ -678,9 +659,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
                     await InvokeAsync(() =>
                     {
                         _rowResults = results.ToList();
-                        try { StateHasChanged(); }
-                        catch (ObjectDisposedException) { }
-                        catch (InvalidOperationException) { }
+                        SafeStateHasChanged();
                     });
                 }
 
@@ -697,11 +676,9 @@ mirror of Direct Push — it NEVER writes to production.</p>
 
                     _applyInFlight = false;
                     _operationInFlight = false;
-                    try { StateHasChanged(); }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
+                    SafeStateHasChanged();
                 });
-            }, _cts.Token);
+            }, Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -759,9 +736,4 @@ mirror of Direct Push — it NEVER writes to production.</p>
     /// read, SCP download, or local apply is stopped when the operator closes the tab or the
     /// SignalR circuit drops.
     /// </summary>
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 }

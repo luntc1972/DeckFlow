@@ -1,5 +1,5 @@
 @page "/creators"
-@implements IDisposable
+@inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
 
 <PageTitle>Creators</PageTitle>
@@ -99,8 +99,6 @@
     private string _channelRef = string.Empty;
     private List<CreatorSource> _creators = new();
 
-    private CancellationTokenSource _cts = new();
-
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
     private async Task ReloadAsync()
@@ -108,7 +106,7 @@
         try
         {
             // Why: Task.Run moves the store call off the Blazor sync context.
-            var creators = await Task.Run(() => CreatorStore.ListAsync(_cts.Token), _cts.Token);
+            var creators = await Task.Run(() => CreatorStore.ListAsync(Cts.Token), Cts.Token);
             _creators = creators.ToList();
         }
         catch (OperationCanceledException)
@@ -122,12 +120,7 @@
         finally
         {
             _loading = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
@@ -144,7 +137,7 @@
         {
             var name = _displayName;
             var channelRef = _channelRef;
-            await Task.Run(() => CreatorStore.AddAsync(name, channelRef, _cts.Token), _cts.Token);
+            await Task.Run(() => CreatorStore.AddAsync(name, channelRef, Cts.Token), Cts.Token);
             _displayName = string.Empty;
             _channelRef = string.Empty;
             await ReloadAsync();
@@ -159,12 +152,7 @@
         finally
         {
             _operationInFlight = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
@@ -179,7 +167,7 @@
         _error = string.Empty;
         try
         {
-            await Task.Run(() => CreatorStore.RemoveAsync(id, _cts.Token), _cts.Token);
+            await Task.Run(() => CreatorStore.RemoveAsync(id, Cts.Token), Cts.Token);
             _creators.RemoveAll(c => c.Id == id);
         }
         catch (OperationCanceledException)
@@ -192,18 +180,8 @@
         finally
         {
             _operationInFlight = false;
-            await InvokeAsync(() =>
-            {
-                try { StateHasChanged(); }
-                catch (ObjectDisposedException) { }
-                catch (InvalidOperationException) { }
-            });
+            await SafeStateHasChangedAsync();
         }
     }
 
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-    }
 }
