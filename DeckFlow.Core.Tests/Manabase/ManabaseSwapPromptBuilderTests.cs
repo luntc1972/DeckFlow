@@ -11,6 +11,35 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ManabaseSwapPromptBuilderTests
 {
+    private static readonly ManabaseVerdict IssueVerdict = new()
+    {
+        HasIssues = true,
+        Headline = "Reading your deck",
+        NoIssueReason = string.Empty,
+        Lines =
+        [
+            "You're ~3 White source(s) short - add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
+            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp piece(s) (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+        ],
+    };
+
+    private static readonly ManabaseRampDrawBudget Budget = new()
+    {
+        RampCount = 6.0,
+        DrawCount = 12.0,
+        OverlapCount = 1,
+        Threshold = 4.0,
+        ThresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
+        TargetRamp = 12,
+        TargetDraw = 12,
+        IsBalanced = false,
+        IsRampLight = true,
+        IsRampHeavy = false,
+        RampShort = 6,
+        IsDrawLight = false,
+        DrawShort = 0,
+    };
+
     private static ManabaseReport ReportWithDeficit() => new()
     {
         ActualLands = 34,
@@ -58,5 +87,43 @@ public sealed class ManabaseSwapPromptBuilderTests
 
         Assert.Contains("healthy", prompt);
         Assert.DoesNotContain("Decklist:", prompt); // no decklist supplied
+    }
+
+    [Fact]
+    public void Build_NullVerdictAndBudget_IsByteIdentical()
+    {
+        ManabaseReport report = ReportWithDeficit();
+
+        string baseline = ManabaseSwapPromptBuilder.Build(report, "My Deck", "1 Plains\n1 Island");
+        string withNulls = ManabaseSwapPromptBuilder.Build(
+            report,
+            "My Deck",
+            "1 Plains\n1 Island",
+            ManabaseMode.Casual,
+            null,
+            null);
+
+        Assert.Equal(baseline, withNulls);
+    }
+
+    [Fact]
+    public void Build_WithVerdictAndBudget_AppendsReadingDeckBlockBeforeAsk()
+    {
+        string prompt = ManabaseSwapPromptBuilder.Build(
+            ReportWithDeficit(),
+            "My Deck",
+            "1 Plains\n1 Island",
+            ManabaseMode.Casual,
+            IssueVerdict,
+            Budget);
+
+        int verdictIndex = prompt.IndexOf("Reading your deck:", global::System.StringComparison.Ordinal);
+        int askIndex = prompt.IndexOf("Please recommend SPECIFIC lands", global::System.StringComparison.Ordinal);
+
+        Assert.True(verdictIndex >= 0);
+        Assert.True(askIndex > verdictIndex);
+        Assert.Contains("1. You're ~3 White source(s) short", prompt);
+        Assert.Contains("2. Ramp looks light: you run ~6 ramp", prompt);
+        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", prompt);
     }
 }

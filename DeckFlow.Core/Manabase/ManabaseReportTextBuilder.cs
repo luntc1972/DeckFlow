@@ -20,12 +20,16 @@ public static class ManabaseReportTextBuilder
     /// The analysis mode. Casual includes the per-card castability table; cEDH omits it.
     /// Defaults to Casual.
     /// </param>
+    /// <param name="verdict">Optional synthesized plain-language verdict.</param>
+    /// <param name="budget">Optional ramp/draw budget advisory.</param>
     /// <returns>A paste-ready plain-text string containing the full mana-base verdict.</returns>
     public static string Build(
         ManabaseReport report,
         string? deckName,
         string? decklistText,
-        ManabaseMode mode = ManabaseMode.Casual)
+        ManabaseMode mode = ManabaseMode.Casual,
+        ManabaseVerdict? verdict = null,
+        ManabaseRampDrawBudget? budget = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -81,6 +85,12 @@ public static class ManabaseReportTextBuilder
         sb.AppendLine("Summary:");
         sb.AppendLine(report.Summary);
         sb.AppendLine();
+
+        if (verdict is not null)
+        {
+            AppendVerdictBlock(sb, verdict, budget);
+            sb.AppendLine();
+        }
 
         // --- Per-color source table ------------------------------------------
         if (report.ColorFindings.Count > 0)
@@ -176,4 +186,39 @@ public static class ManabaseReportTextBuilder
 
         return sb.ToString();
     }
+
+    private static void AppendVerdictBlock(
+        StringBuilder sb,
+        ManabaseVerdict verdict,
+        ManabaseRampDrawBudget? budget)
+    {
+        sb.AppendLine(verdict.Headline + ":");
+
+        if (verdict.HasIssues)
+        {
+            for (int i = 0; i < verdict.Lines.Count; i++)
+            {
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{i + 1}. {verdict.Lines[i]}"));
+            }
+        }
+        else
+        {
+            sb.AppendLine(verdict.NoIssueReason);
+        }
+
+        if (budget is not null)
+        {
+            sb.AppendLine(BuildBudgetLine(budget));
+        }
+    }
+
+    private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp}/{budget.TargetDraw} community target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
+
+    private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
+    {
+        ManabaseRampDrawThresholdSource.CommanderManaValue => "your commander's mana value",
+        _ => "your curve's 75th-percentile mana value, since you have no single commander",
+    };
 }
