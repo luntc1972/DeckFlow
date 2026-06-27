@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -44,6 +46,49 @@ public sealed class ManabaseControllerDownloadTests
         // Content must decode to a string containing the report summary
         string text = Encoding.UTF8.GetString(file.FileContents);
         Assert.Contains(CasualReport().Summary, text);
+    }
+
+    [Fact]
+    public async Task Download_IncludesVerdictAndBudgetText()
+    {
+        var verdict = new ManabaseVerdict
+        {
+            HasIssues = true,
+            Headline = "Reading your deck",
+            Lines = new[] { "Issue line from test" },
+            NoIssueReason = string.Empty,
+        };
+        var budget = new ManabaseRampDrawBudget
+        {
+            RampCount = 7,
+            DrawCount = 9,
+            OverlapCount = 1,
+            Threshold = 4,
+            ThresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
+            TargetRamp = 12,
+            TargetDraw = 12,
+            IsBalanced = false,
+            IsRampLight = true,
+            IsRampHeavy = false,
+            RampShort = 5,
+            IsDrawLight = true,
+            DrawShort = 3,
+        };
+        var service = new StubService(CasualReport(), verdict, budget, showPlainLanguage: true);
+        var controller = BuildController(service);
+
+        var result = await controller.Download(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            DeckName = "Test Deck",
+        });
+
+        var file = Assert.IsType<FileContentResult>(result);
+        string text = Encoding.UTF8.GetString(file.FileContents);
+        Assert.Contains("Reading your deck", text);
+        Assert.Contains("Issue line from test", text);
+        Assert.Contains("Ramp/draw:", text);
     }
 
     [Fact]
@@ -128,8 +173,21 @@ public sealed class ManabaseControllerDownloadTests
     private sealed class StubService : IManabaseAnalysisService
     {
         private readonly ManabaseReport _report;
+        private readonly ManabaseVerdict? _verdict;
+        private readonly ManabaseRampDrawBudget? _budget;
+        private readonly bool _showPlainLanguage;
 
-        public StubService(ManabaseReport report) => _report = report;
+        public StubService(
+            ManabaseReport report,
+            ManabaseVerdict? verdict = null,
+            ManabaseRampDrawBudget? budget = null,
+            bool showPlainLanguage = false)
+        {
+            _report = report;
+            _verdict = verdict;
+            _budget = budget;
+            _showPlainLanguage = showPlainLanguage;
+        }
 
         public ManabaseAnalysisOptions? LastOptions { get; private set; }
 
@@ -140,9 +198,9 @@ public sealed class ManabaseControllerDownloadTests
             CancellationToken cancellationToken = default)
         {
             LastOptions = options ?? new ManabaseAnalysisOptions();
-            return Task.FromResult(new ManabaseAnalysisResult(
-                _report, "1 cards · 36 lands", Array.Empty<string>(), null, "prompt",
-                Array.Empty<CostSuggestion>()));
+            return Task.FromResult(CreateResult(
+                _report, "1 cards · 36 lands", "prompt", Array.Empty<CostSuggestion>(),
+                _verdict, _budget, _showPlainLanguage));
         }
 
         public Task<ManabaseLoadResult> LoadAsync(
@@ -170,5 +228,21 @@ public sealed class ManabaseControllerDownloadTests
             string deckSource,
             CancellationToken cancellationToken = default)
             => Task.FromException<ManabaseLoadResult>(_exception);
+    }
+
+    private static ManabaseAnalysisResult CreateResult(
+        ManabaseReport report,
+        string inputSummary,
+        string chatGptSwapPrompt,
+        IReadOnlyList<CostSuggestion> suggestions,
+        ManabaseVerdict? verdict,
+        ManabaseRampDrawBudget? budget,
+        bool showPlainLanguage)
+    {
+        ConstructorInfo constructor = typeof(ManabaseAnalysisResult).GetConstructors().Single();
+        object?[] args = constructor.GetParameters().Length == 9
+            ? new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions, verdict, budget, showPlainLanguage }
+            : new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions };
+        return (ManabaseAnalysisResult)constructor.Invoke(args);
     }
 }

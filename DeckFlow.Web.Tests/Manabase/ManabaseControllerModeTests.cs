@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Manabase;
@@ -114,6 +116,47 @@ public sealed class ManabaseControllerModeTests
         Assert.False(model.ShowCastability);
     }
 
+    [Fact]
+    public async Task Post_CopiesPlainLanguageFieldsOntoViewModel()
+    {
+        var verdict = new ManabaseVerdict
+        {
+            HasIssues = true,
+            Headline = "Reading your deck",
+            Lines = new[] { "Issue line" },
+            NoIssueReason = string.Empty,
+        };
+        var budget = new ManabaseRampDrawBudget
+        {
+            RampCount = 7,
+            DrawCount = 9,
+            OverlapCount = 1,
+            Threshold = 4,
+            ThresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
+            TargetRamp = 12,
+            TargetDraw = 12,
+            IsBalanced = false,
+            IsRampLight = true,
+            IsRampHeavy = false,
+            RampShort = 5,
+            IsDrawLight = true,
+            DrawShort = 3,
+        };
+        var fake = new CapturingService(CasualReport(), verdict, budget, showPlainLanguage: true);
+        var controller = BuildController(fake);
+
+        var result = await controller.Manabase(new ManabaseRequest
+        {
+            DeckText = "x",
+            DeckInputSource = DeckInputSource.PasteText,
+        });
+
+        var model = ModelOf(result);
+        Assert.Same(verdict, GetOptionalProperty<ManabaseVerdict>(model, "PlainLanguageVerdict"));
+        Assert.Same(budget, GetOptionalProperty<ManabaseRampDrawBudget>(model, "RampDrawBudget"));
+        Assert.True(GetBoolProperty(model, "ShowPlainLanguage"));
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static ManabaseController BuildController(IManabaseAnalysisService service)
@@ -151,8 +194,21 @@ public sealed class ManabaseControllerModeTests
     private sealed class CapturingService : IManabaseAnalysisService
     {
         private readonly ManabaseReport _report;
+        private readonly ManabaseVerdict? _verdict;
+        private readonly ManabaseRampDrawBudget? _budget;
+        private readonly bool _showPlainLanguage;
 
-        public CapturingService(ManabaseReport report) => _report = report;
+        public CapturingService(
+            ManabaseReport report,
+            ManabaseVerdict? verdict = null,
+            ManabaseRampDrawBudget? budget = null,
+            bool showPlainLanguage = false)
+        {
+            _report = report;
+            _verdict = verdict;
+            _budget = budget;
+            _showPlainLanguage = showPlainLanguage;
+        }
 
         public ManabaseAnalysisOptions? LastOptions { get; private set; }
 
@@ -163,9 +219,9 @@ public sealed class ManabaseControllerModeTests
             CancellationToken cancellationToken = default)
         {
             LastOptions = options ?? new ManabaseAnalysisOptions();
-            return Task.FromResult(new ManabaseAnalysisResult(
-                _report, "1 cards · 36 lands", Array.Empty<string>(), null, "prompt",
-                Array.Empty<CostSuggestion>()));
+            return Task.FromResult(CreateResult(
+                _report, "1 cards · 36 lands", "prompt", Array.Empty<CostSuggestion>(),
+                _verdict, _budget, _showPlainLanguage));
         }
 
         public Task<ManabaseLoadResult> LoadAsync(
@@ -173,5 +229,36 @@ public sealed class ManabaseControllerModeTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(new ManabaseLoadResult(
                 "1 cards · 36 lands", Array.Empty<string>(), null, Array.Empty<CostSuggestion>()));
+    }
+
+    private static ManabaseAnalysisResult CreateResult(
+        ManabaseReport report,
+        string inputSummary,
+        string chatGptSwapPrompt,
+        IReadOnlyList<CostSuggestion> suggestions,
+        ManabaseVerdict? verdict,
+        ManabaseRampDrawBudget? budget,
+        bool showPlainLanguage)
+    {
+        ConstructorInfo constructor = typeof(ManabaseAnalysisResult).GetConstructors().Single();
+        object?[] args = constructor.GetParameters().Length == 9
+            ? new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions, verdict, budget, showPlainLanguage }
+            : new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions };
+        return (ManabaseAnalysisResult)constructor.Invoke(args);
+    }
+
+    private static T? GetOptionalProperty<T>(object target, string name)
+        where T : class
+    {
+        PropertyInfo property = target.GetType().GetProperty(name)
+            ?? throw new Xunit.Sdk.XunitException($"{target.GetType().Name}.{name} property missing.");
+        return property.GetValue(target) as T;
+    }
+
+    private static bool GetBoolProperty(object target, string name)
+    {
+        PropertyInfo property = target.GetType().GetProperty(name)
+            ?? throw new Xunit.Sdk.XunitException($"{target.GetType().Name}.{name} property missing.");
+        return (bool)(property.GetValue(target) ?? false);
     }
 }

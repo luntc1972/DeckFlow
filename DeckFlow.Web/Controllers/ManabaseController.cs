@@ -94,6 +94,9 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ImportWarning = result.ImportWarning,
                     ChatGptSwapPrompt = result.ChatGptSwapPrompt,
                     Suggestions = result.Suggestions,
+                    PlainLanguageVerdict = result.Verdict,
+                    RampDrawBudget = result.Budget,
+                    ShowPlainLanguage = result.ShowPlainLanguage,
                 });
             });
     }
@@ -120,7 +123,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 var result = await RunAnalysisAsync(request, token);
 
                 string text = ManabaseReportTextBuilder.Build(
-                    result.Report, request.DeckName, decklistText: null, request.Mode);
+                    result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget);
                 string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
                 return File(
