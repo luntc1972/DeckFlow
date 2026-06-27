@@ -79,7 +79,9 @@
 
     const message = document.createElement('span');
     message.className = 'deck-restored-notice__text';
-    message.textContent = 'Restored your last deck.';
+    // Left empty here on purpose: insertRestoredNotice populates it after the
+    // role="status" region is in the DOM, so screen readers announce the change.
+    // A live region inserted already-populated may not fire an announcement.
 
     const clearButton = document.createElement('button');
     clearButton.type = 'button';
@@ -102,7 +104,14 @@
     }
 
     removeRestoredNotice();
-    anchor.parentElement.insertBefore(createRestoredNotice(clearCurrentFields), anchor);
+    const notice = createRestoredNotice(clearCurrentFields);
+    anchor.parentElement.insertBefore(notice, anchor);
+    const text = notice.querySelector<HTMLSpanElement>('.deck-restored-notice__text');
+    if (text) {
+      requestAnimationFrame(() => {
+        text.textContent = 'Restored your last deck.';
+      });
+    }
   };
 
   const dispatchInputEvent = (element: HTMLInputElement | HTMLTextAreaElement): void => {
