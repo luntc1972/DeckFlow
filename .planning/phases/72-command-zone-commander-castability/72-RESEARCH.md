@@ -609,9 +609,14 @@ public async Task AnalyzeAsync_PlainLanguageFlagOff_LeavesResultNullAndPromptByt
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED in PLAN)
 
-1. **Moxfield companion board exact JSON structure**
+> All four resolved during planning (2026-06-27): Q1/Q2 → Wave-0 [BLOCKING] fixture probes in plan 72-02;
+> Q3 → plan 72-06 Task 1 gates the WHOLE command-zone callout (commanders + companion) to Casual via
+> `&& Model.ShowCastability` (simpler than a split-mode rule and matches the per-card table's visibility);
+> Q4 → companion kept OUT of `report.Castability`, returned as a separate `CompanionRow` field (plan 72-05).
+
+1. **Moxfield companion board exact JSON structure** — RESOLVED: Wave-0 task 72-02 captures the fixture.
    - What we know: Third-party Crystal wrapper confirms a `"companions"` key exists at the same level as `"commanders"` in the Moxfield API v2 deck response. Same property-access pattern as other boards.
    - What's unclear: Whether the `boardType` field differs (e.g., `"companion"` vs `"companions"`), whether `card` sub-object has any extra fields, whether a deck with no companion has an absent key or empty object.
    - Recommendation: Wave 0 task — capture a real Moxfield companion deck JSON (e.g., a Yorion deck) and create a test fixture. `AddBoardEntries` gracefully handles absent properties (returns 0 entries), so this is low-risk even if the key is absent; but the fixture is needed for the xUnit test.
