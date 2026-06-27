@@ -722,7 +722,7 @@ DeckAnalysisPacketServiceTests.cs:879 valid and gives independent operator contr
 **Designator (decided):** add `DeckAnalysisRequest.CompanionName` manual designator + flag-gated Step-1
 input, for parity with manabase and to cover Archidekt / pasted decks (no auto-detect there).
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 Plans:
 **Wave 1**
 
@@ -734,7 +734,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 73-03-PLAN.md — Render companion in all 3 decoupled variants (ChatGpt/Gemini `companion:` line, Claude `<companion>` tag) + per-platform render tests [Wave 3]
+- [x] 73-03-PLAN.md — Render companion in all 3 decoupled variants (ChatGpt/Gemini `companion:` line, Claude `<companion>` tag) + per-platform render tests [Wave 3] — DONE 2026-06-27 (98298278 + 4b074821)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
