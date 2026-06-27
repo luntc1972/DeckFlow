@@ -222,7 +222,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.health-band-castability', FALSE),
           ('analysis.manabase.health-band-headline-floor', TRUE),
           ('analysis.manabase.plain-language-verdict', FALSE),
-          ('analysis.manabase.commander-castability', FALSE)
+          ('analysis.manabase.commander-castability', FALSE),
+          ('analysis.command-zone-awareness', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -253,7 +254,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.health-band-castability', 0),
           ('analysis.manabase.health-band-headline-floor', 1),
           ('analysis.manabase.plain-language-verdict', 0),
-          ('analysis.manabase.commander-castability', 0)
+          ('analysis.manabase.commander-castability', 0),
+          ('analysis.command-zone-awareness', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 
