@@ -910,6 +910,112 @@ Commander
     }
 
     /// <summary>
+    /// Flag-OFF command-zone awareness must be byte-identical to baseline for ALL THREE AI variants,
+    /// even for a companion+Background deck. We do NOT assert the companion name is absent — Archidekt
+    /// leaves a companion classified mainboard so it may legitimately appear in the deck text; per-platform
+    /// byte-identity alone proves there is no flag-OFF regression (Codex HIGH-1, MED-2).
+    /// </summary>
+    [Theory]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
+    public async Task BuildAsync_IsByteIdentical_WhenCommandZoneAwarenessFlagOff(string targetAiPlatform)
+    {
+        var importer = new FakeMoxfieldDeckImporter(
+            entries: CreateCompanionFixtureEntries(includeBackgroundCommander: true),
+            detectedCompanionName: "Jegantha, the Wellspring");
+        var flagOff = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.command-zone-awareness"] = false
+        });
+
+        var serviceFlagOff = CreateService(moxfieldDeckImporter: importer, flagCache: flagOff);
+        var serviceBaseline = CreateService(moxfieldDeckImporter: importer);
+
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-command-zone-off",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = targetAiPlatform,
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var flagOffResult = await serviceFlagOff.BuildAsync(request);
+        var baselineResult = await serviceBaseline.BuildAsync(request);
+
+        Assert.Equal(PacketBytes(baselineResult), PacketBytes(flagOffResult));
+    }
+
+    /// <summary>
+    /// Flag ON: a deck with two command-zone entries (partner pair / commander+Background) names both,
+    /// joined "A &amp; B", in the analysis prompt. The existing variant already renders commanderName,
+    /// so this passes without the Plan 03 variant work.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_CommandZoneAwareness_RendersPartnerPair()
+    {
+        var importer = new FakeMoxfieldDeckImporter(
+            entries: CreateCompanionFixtureEntries(includeBackgroundCommander: true));
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.command-zone-awareness"] = true
+        });
+
+        var service = CreateService(moxfieldDeckImporter: importer, flagCache: flagOn);
+
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-command-zone-pair",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var result = await service.BuildAsync(request);
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Kraum, Ludevic's Opus & Passionate Archaeologist", result.AnalysisPromptText);
+    }
+
+    /// <summary>
+    /// Flag ON with a single commander must not introduce a spurious " &amp; " — the rendered prompt is
+    /// identical to flag-OFF for a solo-commander deck (no companion supplied).
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_CommandZoneAwareness_SingleCommanderUnchanged()
+    {
+        var importer = new FakeMoxfieldDeckImporter(
+            entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false));
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.command-zone-awareness"] = true
+        });
+
+        var serviceFlagOn = CreateService(moxfieldDeckImporter: importer, flagCache: flagOn);
+        var serviceFlagOff = CreateService(moxfieldDeckImporter: importer);
+
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-command-zone-solo",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var onResult = await serviceFlagOn.BuildAsync(request);
+        var offResult = await serviceFlagOff.BuildAsync(request);
+
+        Assert.NotNull(onResult.AnalysisPromptText);
+        Assert.Contains("Kraum, Ludevic's Opus", onResult.AnalysisPromptText);
+        Assert.DoesNotContain("Kraum, Ludevic's Opus &", onResult.AnalysisPromptText);
+        Assert.Equal(offResult.AnalysisPromptText, onResult.AnalysisPromptText);
+    }
+
+    /// <summary>
     /// When the first two leading entries are both 1-of, both are treated as partner commanders.
     /// </summary>
     [Fact]
