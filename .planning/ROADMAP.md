@@ -605,10 +605,10 @@ gets the full read in v1, cEDH gets glosses but ramp/draw budget suppressed.
 **Status:** 🟡 PLANNED — 5 plans (route through Codex review before execute).
 
 Plans:
-- [ ] 71-01-PLAN.md — Core ramp/draw budget engine (bucket counts + 0.5 overlap, threshold, 24-slot interpolation)
-- [ ] 71-02-PLAN.md — Core verdict synthesis + prompt/text builder augmentation
-- [ ] 71-03-PLAN.md — Web flag plumbing + service/view-model wiring + metric glosses
-- [ ] 71-04-PLAN.md — Razor view + site-common.css + live Playwright spec + README/Help docs
+- [x] 71-01-PLAN.md — Core ramp/draw budget engine (bucket counts + 0.5 overlap, threshold, 24-slot interpolation)
+- [x] 71-02-PLAN.md — Core verdict synthesis + prompt/text builder augmentation
+- [x] 71-03-PLAN.md — Web flag plumbing + service/view-model wiring + metric glosses
+- [x] 71-04-PLAN.md — Razor view + site-common.css + live Playwright spec + README/Help docs
 - [ ] 71-05-PLAN.md — Checkpoint: human visual verify (desktop+mobile × 2 themes, issue + clean, cEDH)
 
 ---
