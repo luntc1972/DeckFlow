@@ -55,8 +55,10 @@ created: 2026-06-27
 | C-01 | Companion SpellRequirement ManaValue = clamp(printed)+3 → lower CastPercent | 72-04 | unit | `... --filter "FullyQualifiedName~CastabilitySimulatorTests"` | ⬜ pending |
 | C-02 | Companion outside the 99 (library size unchanged) | 72-04 | unit | same | ⬜ pending |
 | D-01 | SelectHeadlineSpell worst-of (MinBy CastPercent) with 2 commanders | 72-04 | unit | `... --filter "FullyQualifiedName~ManabaseAnalyzerTests"` | ⬜ pending |
-| D-02 | report.Castability + AvgOnCurve/Health unchanged when flag ON | 72-05 | unit | `... test DeckFlow.Web.Tests --filter "FullyQualifiedName~ManabaseAnalysisServiceTests"` | ⬜ pending |
+| D-02 | Commander move-out is display-only: report.Castability/AvgOnCurve/Health unchanged when flag ON for a NO-companion deck (partner pair) | 72-05 | unit | `... test DeckFlow.Web.Tests --filter "FullyQualifiedName~ManabaseAnalysisServiceTests"` | ⬜ pending |
+| C-03 | Companion deck flag ON → report.Castability has 1 fewer row + recomputed avg vs flag OFF (companion excluded from 99 — intended) | 72-05 | unit | same | ⬜ pending |
 | B-06 | Paste / Spellbook-fallback path → manual designator (no auto-detect) | 72-05/72-06 | unit + e2e | service + callout spec | ⬜ pending |
+| B-precedence | Companion source precedence: designator > Moxfield-detected > Archidekt category | 72-05 | unit | `... test DeckFlow.Web.Tests --filter "FullyQualifiedName~ManabaseAnalysisServiceTests"` (ResolveCompanionName) | ⬜ pending |
 | F-01 | Flag OFF → manabase result + prompt byte-identical | 72-05 | unit | `... --filter "FullyQualifiedName~ManabaseAnalysisServiceTests"` | ⬜ pending |
 | F-02 | Flag OFF → deck-analysis bytes identical; companion not injected | 72-07 | unit | `... --filter "FullyQualifiedName~DeckAnalysisPacketServiceTests"` | ⬜ pending |
 | F-03 | Flag ON → deck-analysis bytes identical (companion metadata inert) | 72-07 | unit | same | ⬜ pending |
