@@ -19,7 +19,8 @@ public enum MoxfieldImportSource
 public sealed record MoxfieldImportResult(
     List<DeckEntry> Entries,
     MoxfieldImportSource Source,
-    string? FallbackNotice = null);
+    string? FallbackNotice = null,
+    string? DetectedCompanionName = null);
 
 /// <summary>
 /// Imports a Moxfield deck by URL or deck identifier.

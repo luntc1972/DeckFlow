@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using DeckFlow.Core.Integration;
 using RestSharp;
 using Xunit;
@@ -153,5 +154,117 @@ public sealed class MoxfieldApiDeckImporterTests
         Assert.Contains(entries, entry => entry.Name == "Sol Ring" && entry.Board == "mainboard");
         Assert.Contains(entries, entry => entry.Name == "Swords to Plowshares" && entry.Board == "sideboard");
         Assert.Contains(entries, entry => entry.Name == "Smothering Tithe" && entry.Board == "maybeboard");
+    }
+
+    [Fact]
+    public async Task ImportWithSourceAsync_DirectFixture_DetectsCompanionNameWithoutAddingEntry()
+    {
+        var fixtureBody = ReadFixture("moxfield-companion-direct.json");
+        var importer = CreateImporterReturning(fixtureBody);
+
+        var result = await importer.ImportWithSourceAsync("https://www.moxfield.com/decks/test-deck-id");
+
+        Assert.Equal("Jegantha, the Wellspring", result.DetectedCompanionName);
+        Assert.Equal(5, result.Entries.Count);
+        Assert.DoesNotContain(result.Entries, entry => entry.Name == "Jegantha, the Wellspring");
+    }
+
+    [Fact]
+    public async Task ImportWithSourceAsync_DirectFixtureWithoutCompanions_ReturnsNullCompanionName()
+    {
+        var fixtureBody = ReadFixtureWithoutCompanions();
+        var importer = CreateImporterReturning(fixtureBody);
+
+        var result = await importer.ImportWithSourceAsync("https://www.moxfield.com/decks/test-deck-id");
+
+        Assert.Null(result.DetectedCompanionName);
+        Assert.Equal(5, result.Entries.Count);
+    }
+
+    [Fact]
+    public async Task ImportWithSourceAsync_FallbackPath_LeavesDetectedCompanionNameNull()
+    {
+        var callCount = 0;
+        var importer = new MoxfieldApiDeckImporter(
+            executeAsync: (_, _) =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return Task.FromResult(new RestResponse
+                    {
+                        StatusCode = HttpStatusCode.Forbidden,
+                        ResponseStatus = ResponseStatus.Completed,
+                        IsSuccessStatusCode = false,
+                        StatusDescription = "Forbidden",
+                        Content = string.Empty
+                    });
+                }
+
+                return Task.FromResult(new RestResponse
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    ResponseStatus = ResponseStatus.Completed,
+                    IsSuccessStatusCode = true,
+                    StatusDescription = "OK",
+                    Content = SpellbookOkBody
+                });
+            });
+
+        var result = await importer.ImportWithSourceAsync("https://www.moxfield.com/decks/test-deck-id");
+
+        Assert.Equal(MoxfieldImportSource.CommanderSpellbookFallback, result.Source);
+        Assert.Null(result.DetectedCompanionName);
+    }
+
+    private static MoxfieldApiDeckImporter CreateImporterReturning(string body)
+        => new(
+            executeAsync: (_, _) => Task.FromResult(new RestResponse
+            {
+                StatusCode = HttpStatusCode.OK,
+                ResponseStatus = ResponseStatus.Completed,
+                IsSuccessStatusCode = true,
+                StatusDescription = "OK",
+                Content = body
+            }));
+
+    private static string ReadFixture(string fileName)
+        => File.ReadAllText(Path.Combine(RepositoryRoot(), "DeckFlow.Core.Tests", "Fixtures", fileName));
+
+    private static string ReadFixtureWithoutCompanions()
+    {
+        using var document = JsonDocument.Parse(ReadFixture("moxfield-companion-direct.json"));
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (!string.Equals(property.Name, "companions", StringComparison.Ordinal))
+                {
+                    property.WriteTo(writer);
+                }
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "DeckFlow.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Unable to locate repository root.");
     }
 }

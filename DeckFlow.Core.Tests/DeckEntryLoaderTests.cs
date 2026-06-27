@@ -42,6 +42,23 @@ public sealed class DeckEntryLoaderTests
     }
 
     [Fact]
+    public async Task LoadFromSourceAsync_MoxfieldUrl_PropagatesDetectedCompanionName()
+    {
+        var expectedEntries = new List<DeckEntry>
+        {
+            new() { Name = "Kraum, Ludevic's Opus", NormalizedName = "kraum, ludevic's opus", Quantity = 1, Board = "commander" }
+        };
+        var importer = new FakeMoxfieldDeckImporter(
+            _ => expectedEntries,
+            _ => new MoxfieldImportResult(expectedEntries, MoxfieldImportSource.Direct, null, "Jegantha, the Wellspring"));
+        var loader = CreateLoader(importer: importer);
+
+        var result = await loader.LoadFromSourceAsync("https://www.moxfield.com/decks/example");
+
+        Assert.Equal("Jegantha, the Wellspring", result.DetectedCompanionName);
+    }
+
+    [Fact]
     public async Task LoadFromSourceAsync_ArchidektUrl_ReturnsEntriesAndNullNotice()
     {
         var expectedEntries = new List<DeckEntry>
@@ -56,6 +73,7 @@ public sealed class DeckEntryLoaderTests
 
         Assert.Same(expectedEntries, result.Entries);
         Assert.Null(result.FallbackNotice);
+        Assert.Null(result.DetectedCompanionName);
         Assert.Equal(" https://archidekt.com/decks/123 ", importer.LastImportArgument);
     }
 
@@ -85,6 +103,7 @@ Deck
                 Assert.Equal("mainboard", entry.Board);
             });
         Assert.Null(result.FallbackNotice);
+        Assert.Null(result.DetectedCompanionName);
     }
 
     [Fact]
@@ -115,6 +134,7 @@ Deck
                 Assert.Equal("mainboard", entry.Board);
             });
         Assert.Null(result.FallbackNotice);
+        Assert.Null(result.DetectedCompanionName);
     }
 
     [Theory]
