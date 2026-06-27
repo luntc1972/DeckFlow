@@ -67,6 +67,8 @@ Companions are handled separately from the command zone cards. DeckFlow can auto
 
 When you name a companion, DeckFlow estimates its castability by adding the companion's "put into hand" step as a simple **+3 generic mana** tax before the spell is cast. This is an approximation meant to rank how castable the companion is relative to the rest of the deck. It is not a rules-exact simulation of every game action or timing edge case.
 
+A standing **"analysis is in beta"** notice sits at the top of every manabase result, whether or not the command-zone flag is enabled. It is a reminder that these numbers are a heuristic guide for comparing options, not a guarantee - treat them as directional.
+
 ### Reading your deck
 
 When the admin enables the plain-language layer, the result can also show a short **Reading your deck** advisory:
