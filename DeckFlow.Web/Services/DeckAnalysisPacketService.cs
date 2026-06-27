@@ -472,6 +472,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var preScryfallEntries = entries;
         var preScryfallCommanderName = commanderName;
 
+        // Codex 73 HIGH-1 (re-review): latch the command-zone flag ONCE per request so the enrichment
+        // read and the cache-write bypass below cannot observe different values if the flag flips
+        // mid-build. Reading it twice could otherwise enrich the packet (flag ON) and then still cache
+        // it under the OFF key (flag flipped OFF before the write), re-opening stale replay.
+        var commandZoneAwareness = IsCommandZoneAwarenessEnabled();
+
         if (string.Equals(request.Format, "Commander", StringComparison.OrdinalIgnoreCase) && inferredCommanderFromMoxfieldOrdering)
         {
             var inferredCommanderNames = entries
@@ -671,7 +677,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // before the " & " join — never concatenate before resolving) and resolve the companion
                 // as side metadata. The deck text, cache key, and ResolvePreScryfallCommanderState are
                 // left untouched.
-                var commandZoneAwareness = IsCommandZoneAwarenessEnabled();
                 string? companionName = null;
                 if (commandZoneAwareness)
                 {
@@ -749,7 +754,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // Codex 73 HIGH-1: mirror the read-side bypass — do not cache the artifact while command-zone
         // awareness is ON, otherwise an enriched packet would be keyed without the flag/companion inputs
         // and could be served back after the flag is toggled off or the companion designator changes.
-        if (!IsCommandZoneAwarenessEnabled())
+        if (!commandZoneAwareness)
         {
             var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
             var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
