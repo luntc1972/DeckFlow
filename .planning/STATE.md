@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 71 CODE-COMPLETE: waves 1-4 (71-01..04) executed by Codex (gpt-5.4), reviewed by Claude. 14 commits 6fd02f77..49e0d6e1. Post-merge gate GREEN: solution build 0/0, Core.Tests 846/846, Web.Tests 869 passed/12 skipped/0 failed. Flag manabase.plain-language-verdict seeded OFF (byte-identical OFF path verified). REMAINING: 71-05 = BLOCKING human visual verify (flag ON, live Scryfall, desktop+mobile x 2 themes, issue+clean+cEDH decks)."
-last_updated: "2026-06-27T05:10:00.000Z"
-last_activity: 2026-06-27 -- Phase 71 waves 1-4 executed + verified (Codex impl, Claude review)
+stopped_at: "Phase 71 COMPLETE + VERIFIED. Waves 1-4 (71-01..04) Codex-impl/Claude-review; 71-05 operator visual verify PASSED (flag ON desktop+mobile x light/dark, issue/clean/cEDH). Flag manabase.plain-language-verdict seeded OFF (byte-identical). Plus defensive fix 3769891b (force-hide stuck busy overlay on load + e2e guard). Gates GREEN: build 0/0, Core 846/846, Web 869 pass/0 fail. NEXT: user pushes main (~23 ahead of origin); then Phase 72 ready to plan (/gsd-plan-phase 72)."
+last_updated: "2026-06-27T06:55:00.000Z"
+last_activity: 2026-06-27 -- Phase 71 SHIPPED-pending-push (waves 1-5 done) + busy-overlay guard fix
 progress:
   total_phases: 10
   completed_phases: 5

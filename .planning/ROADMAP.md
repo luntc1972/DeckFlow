@@ -609,7 +609,7 @@ Plans:
 - [x] 71-02-PLAN.md — Core verdict synthesis + prompt/text builder augmentation
 - [x] 71-03-PLAN.md — Web flag plumbing + service/view-model wiring + metric glosses
 - [x] 71-04-PLAN.md — Razor view + site-common.css + live Playwright spec + README/Help docs
-- [ ] 71-05-PLAN.md — Checkpoint: human visual verify (desktop+mobile × 2 themes, issue + clean, cEDH)
+- [x] 71-05-PLAN.md — Checkpoint: human visual verify (desktop+mobile × 2 themes, issue + clean, cEDH)
 
 ---
 
