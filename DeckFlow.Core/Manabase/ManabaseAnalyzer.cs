@@ -20,6 +20,36 @@ public static class ManabaseAnalyzer
     public static ManabaseReport Analyze(ManabaseDeck deck)
         => Analyze(deck, ManabaseMode.Casual);
 
+    /// <summary>
+    /// Simulate a companion's castability against the deck's existing library, excluding commanders.
+    /// </summary>
+    public static CardCastability SimulateCompanion(
+        ManabaseDeck deck,
+        SpellRequirement companionSpell,
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false,
+        bool gateRampOnCastable = false)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        ArgumentNullException.ThrowIfNull(companionSpell);
+
+        int librarySize = deck.TotalCards - deck.CommanderCount;
+        int effectiveTurn = companionSpell.ManaValue;
+        // HEURISTIC: the caller pre-applies the companion's +3 "to hand" tax to ManaValue.
+        // Do not model it via genericReduction; CastabilitySimulator clamps negative reductions to 0.
+        const int genericReduction = 0;
+
+        return CastabilitySimulator.Simulate(
+            deck,
+            librarySize,
+            companionSpell,
+            effectiveTurn,
+            genericReduction,
+            useManaQuantity: useManaQuantity,
+            colorAwareMulligan: colorAwareMulligan,
+            gateRampOnCastable: gateRampOnCastable);
+    }
+
     /// <summary>Run the full analysis for a given mode (commander importance defaults to Standard).</summary>
     public static ManabaseReport Analyze(ManabaseDeck deck, ManabaseMode mode)
         => Analyze(deck, mode, CommanderImportance.Standard);
@@ -860,7 +890,7 @@ public static class ManabaseAnalyzer
 
         if (importance == CommanderImportance.Central)
         {
-            CardCastability? commander = castability.FirstOrDefault(c => c.IsCommander);
+            CardCastability? commander = castability.Where(c => c.IsCommander).MinBy(c => c.CastPercent);
             if (commander is not null)
             {
                 return commander;
