@@ -40,6 +40,10 @@ public static class ManabaseClassifier
         @"this spell costs \{x\} less to cast,? where x is the greatest power among creatures you control",
         RegexOptions.Compiled);
 
+    private static readonly Regex BudgetDrawRegex = new(
+        @"draws?\s+(one|two|three|four|five|six|seven|x|\d+)\s+cards?",
+        RegexOptions.Compiled);
+
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
@@ -78,6 +82,9 @@ public static class ManabaseClassifier
         double mvSum = 0;
         int nonlandCount = 0;
         int rampUnderThree = 0;
+        int rampPieces = 0;
+        int drawPieces = 0;
+        int bothPieces = 0;
         var rampNames = new List<string>();
         int mdfcCommon = 0;
         int mdfcMythic = 0;
@@ -175,6 +182,23 @@ public static class ManabaseClassifier
                 rampNames.Add(card.Name);
             }
 
+            bool isRampPieceForBudget = IsRampPieceForBudget(card);
+            bool isDrawPieceForBudget = IsDrawPieceForBudget(card);
+            if (isRampPieceForBudget)
+            {
+                rampPieces += card.Quantity;
+            }
+
+            if (isDrawPieceForBudget)
+            {
+                drawPieces += card.Quantity;
+            }
+
+            if (isRampPieceForBudget && isDrawPieceForBudget)
+            {
+                bothPieces += card.Quantity;
+            }
+
             // Tally land-count formula adjustments (MDFC spell-backs, 0-cost fast mana).
             if (card.HasLandFace)
             {
@@ -262,6 +286,9 @@ public static class ManabaseClassifier
             AverageManaValue = Math.Round(avgMv, 2),
             RampAndDrawUnderThree = rampUnderThree,
             RampAndDrawNames = rampNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            RampPieceCount = rampPieces - (0.5 * bothPieces),
+            DrawPieceCount = drawPieces - (0.5 * bothPieces),
+            RampDrawBothCount = bothPieces,
             MdfcCommon = mdfcCommon,
             MdfcMythic = mdfcMythic,
             FastMana = fastMana,
@@ -627,6 +654,24 @@ public static class ManabaseClassifier
         bool draw = text.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
             || text.Contains("draw two cards", StringComparison.OrdinalIgnoreCase);
         return ramp || draw;
+    }
+
+    private static bool IsRampPieceForBudget(CardFact card)
+    {
+        string text = card.OracleText ?? string.Empty;
+        return (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
+                && text.Contains("land", StringComparison.OrdinalIgnoreCase))
+            || text.Contains("Add ", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase)
+            || IsRockOrDork(card)
+            || IsLandRampToBattlefield(card);
+    }
+
+    private static bool IsDrawPieceForBudget(CardFact card)
+    {
+        string text = (card.OracleText ?? string.Empty).ToLowerInvariant();
+        return text.Contains("draw a card", StringComparison.Ordinal)
+            || BudgetDrawRegex.IsMatch(text);
     }
 
     // MQ-03 (rampCreditV2): narrowed land-target credit. Only REPEATABLE ramp and true card draw earn

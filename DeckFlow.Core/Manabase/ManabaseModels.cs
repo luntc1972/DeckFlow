@@ -230,6 +230,27 @@ public sealed record ManabaseDeck
     /// <summary>Names of the ≤2 MV ramp/draw cards credited above, de-duplicated, in deck order.</summary>
     public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// Advisory-only ramp-piece count over all nonland cards. Cards that qualify as both ramp and
+    /// draw count as 0.5 here and 0.5 in <see cref="DrawPieceCount"/>. Never feeds land target,
+    /// color counts, castability, or health.
+    /// </summary>
+    public double RampPieceCount { get; init; }
+
+    /// <summary>
+    /// Advisory-only draw-piece count over all nonland cards. Cards that qualify as both draw and
+    /// ramp count as 0.5 here and 0.5 in <see cref="RampPieceCount"/>. Never feeds land target,
+    /// color counts, castability, or health.
+    /// </summary>
+    public double DrawPieceCount { get; init; }
+
+    /// <summary>
+    /// Advisory-only overlap count: cards that qualify as both ramp and draw before the 0.5/0.5
+    /// split is applied to <see cref="RampPieceCount"/> and <see cref="DrawPieceCount"/>.
+    /// Never feeds land target, color counts, castability, or health.
+    /// </summary>
+    public int RampDrawBothCount { get; init; }
+
     /// <summary>Count of non-mythic land/spell MDFCs (each ≈ 0.74 land off the target).</summary>
     public int MdfcCommon { get; init; }
 
