@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 69 COMPLETE + VERIFIED (passed 11/11). 5 commits 2357b5cc→7c846ec5; Studio.Tests 144/144; operator Playwright sweep PASSED (2 vp x 2 themes), 2 dark light-islands caught+fixed. Cycle 11 code-complete — remaining: Phase 66 operator UAT, then ship cycle11→main (ff)."
-last_updated: "2026-06-25T23:12:56.849Z"
-last_activity: 2026-06-25 -- Phase 69 executed + verified (Studio UI design pass)
+stopped_at: "Phase 71 CODE-COMPLETE: waves 1-4 (71-01..04) executed by Codex (gpt-5.4), reviewed by Claude. 14 commits 6fd02f77..49e0d6e1. Post-merge gate GREEN: solution build 0/0, Core.Tests 846/846, Web.Tests 869 passed/12 skipped/0 failed. Flag manabase.plain-language-verdict seeded OFF (byte-identical OFF path verified). REMAINING: 71-05 = BLOCKING human visual verify (flag ON, live Scryfall, desktop+mobile x 2 themes, issue+clean+cEDH decks)."
+last_updated: "2026-06-27T05:10:00.000Z"
+last_activity: 2026-06-27 -- Phase 71 waves 1-4 executed + verified (Codex impl, Claude review)
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 31
+  total_phases: 10
+  completed_phases: 5
+  total_plans: 30
   completed_plans: 23
-  percent: 89
+  percent: 50
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 67 CLOSED (decision: KB value MARGINAL/NEGATIVE → content.kb.enabled stays OFF, Phase 68 DROPPED). Next active: Phase 69 — Studio UI Design Pass (last phase of Cycle 11).
+**Current focus:** Phase 71 — ramp-draw-budget-advisory
 
 ## Branch reconciliation (resolved 2026-06-22; re-merged 2026-06-25)
 
@@ -31,11 +31,11 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 69 (Studio UI Design Pass — Shell, Dashboard & Responsive) — COMPLETE + VERIFIED (passed 11/11)
-Plan: 4/4 plans; commits 2357b5cc 1ce022d4 ee7ca904 1b0474ce 7c846ec5 (unpushed)
-Status: Dual-gate planned (Claude plan-check + Codex review). Codex-executed (gpt-5.4). Build clean; Studio.Tests 144/144 (incl HomePageTests 4/4); operator Playwright sweep PASSED (390/1280 x light/dark) — caught + fixed 2 dark light-islands (.alert-* + nav-tabs active). Presentation-only confirmed via git diff.
+Phase: 71 (ramp-draw-budget-advisory) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 71
 Cycle 11 status: code-complete (64,65,66,67,69 done; 68 dropped). Remaining before ship: Phase 66 operator UAT, then squash/ff cycle11→main.
-Last activity: 2026-06-25 -- Phase 69 executed + verified
+Last activity: 2026-06-27 -- Phase 71 execution started
 
 ## Roadmap Summary
 
