@@ -42,52 +42,68 @@
 ### Phase Details
 
 #### Phase 64: Deck-Source Host Hardening
+
 **Goal**: A hostile look-alike deck URL can no longer impersonate Moxfield/Archidekt on any deck tool.
 **Depends on**: Nothing new (shared Core fix; lands first so other phases don't churn `DeckEntryLoader` / `MoxfieldApiDeckImporter`)
 **Requirements**: SEC-01, SEC-02, SEC-03
 **Success Criteria** (what must be TRUE):
+
   1. `LoadFromSourceAsync` + `MoxfieldApiDeckImporter` accept a host only on exact match or approved-subdomain (`host == "moxfield.com" || host.EndsWith(".moxfield.com")`; same for archidekt.com); `moxfield.com.evil.tld`, `evilmoxfield.com`, `moxfield.com@evil.tld` are all rejected.
   2. The Moxfield fallback forwards only a reconstructed canonical `https://moxfield.com/decks/{deckId}` to Commander Spellbook — the submitted URL is never forwarded.
   3. Regression tests cover each spoof case for both Moxfield and Archidekt and fail if substring matching is reintroduced.
+
 **Plans**: 2 plans
+
   - [x] 64-01-PLAN.md — DeckSourceHost trust-predicate helper + pure accept/reject matrix (SEC-01, SEC-03) — DONE 2026-06-21
   - [x] 64-02-PLAN.md — Adopt helper at all 4 call sites + canonical Spellbook forward + per-site regression (SEC-01, SEC-02, SEC-03)
+
 **UI hint**: no
 
 #### Phase 65: Prod Content Artifact Reconcile
+
 **Goal**: Prod content state is internally consistent — no DB rows silently missing their artifact bodies.
 **Depends on**: Nothing (investigation + operator-run reconcile; AI stays read-only against prod; independent of the code phases)
 **Requirements**: DATA-01, DATA-02
 **Success Criteria** (what must be TRUE):
+
   1. It is documented whether the live site serves content-KB body from `/data` `.md` files or the DB content column, with the source confirmed by inspection.
   2. The 86 orphaned rows are resolved: artifacts re-uploaded, or rows reconciled down, or the gap formally downgraded to cosmetic — with the chosen path and reasoning recorded.
   3. A post-reconcile check confirms every remaining prod row's artifact expectation matches reality (no remaining unexplained orphans).
+
 **Plans**: 3 plans
+
   - [x] 65-01-PLAN.md — DATA-01 serving-path decision doc + read-only prod probe (published-orphan count) [Wave 1]
   - [x] 65-03-PLAN.md — content-kb-check CLI command + Core orphan-scanner helper + xUnit tests [Wave 1]
   - [ ] 65-02-PLAN.md — operator-run reconcile execution (path choice + execute + post-reconcile check) [Wave 2]
+
 **UI hint**: no
 
 #### Phase 66: Admin Tool-Visibility Toggles + Tool Registry
+
 **Goal**: The admin can turn any public tool on or off and every surface for that tool appears/disappears together.
 **Depends on**: Phase 64 (runs after the shared-Core security fix so it isn't interleaved with shared-Core edits)
 **Requirements**: TOGGLE-01, TOGGLE-02, TOGGLE-03, TOGGLE-04, TOGGLE-05, TOGGLE-06, TOGGLE-07
 **Success Criteria** (what must be TRUE):
+
   1. A single tool registry holds each public tool's route, nav section, label, help topic, flag key, and tile copy; nav, home tiles, and help all derive from it.
   2. From the admin console the admin can toggle any tool; disabling hides its home tile, help entry, and nav link together, and the page route itself becomes unreachable (404/redirect).
   3. When all tools in a nav section are disabled, that section's header/trigger and dropdown are not rendered.
   4. The existing `feature.manabase.enabled`, `content.kb.enabled`, `feature.categories.enabled` flags are unified into the registry with no double-gate; all tool flags default ON so an existing deploy exposes the same tools as before (SQLite + Postgres seed).
   5. Disabling a core-workflow tool (e.g. Deck Analysis) surfaces a warning in the admin UI but is not blocked.
+
 **Plans**: 6 plans (3 waves)
+
   - [ ] 66-01-PLAN.md — Tool Registry + DI + section-visibility helper + seed 10 tool flags (TOGGLE-01, TOGGLE-06) [Wave 1]
   - [ ] 66-02-PLAN.md — FeatureFlagGate 503→404 + gate all 13 tool routes + coverage tests (TOGGLE-04) [Wave 2]
   - [ ] 66-03-PLAN.md — Registry-driven nav + home tiles + section collapse + drop offline placeholders (TOGGLE-03, TOGGLE-05) [Wave 2]
   - [ ] 66-04-PLAN.md — requires_flag help headers + registry↔help consistency test (TOGGLE-03) [Wave 2]
   - [ ] 66-05-PLAN.md — /Admin/Tools page + core-tool warning + AdminLanding card (TOGGLE-02, TOGGLE-07) [Wave 2]
   - [ ] 66-06-PLAN.md — Cross-surface Playwright hide/show + section-collapse + human-verify checkpoint (TOGGLE-02..05, TOGGLE-07) [Wave 3]
+
 **UI hint**: yes
 
 #### Phase 67: Content KB Value A/B Validation ✅ COMPLETE (2026-06-25) — verdict MARGINAL/NEGATIVE
+
 **Goal**: A recorded decision on whether the Content KB measurably improves AI deck analysis.
 **Depends on**: Nothing new (KBVAL harness over existing prompt builders); gates Phase 68
 **Requirements**: KBVAL-01 ✅, KBVAL-02 ✅
@@ -95,13 +111,16 @@
 existed (`Spike001KbValueAbHarness.cs`); real `ContentKbRelevanceService` retrieval was counterproductive.
 `content.kb.enabled` stays OFF; Phase 68 DROPS. Full record: `phases/67-content-kb-value-a-b-validation/67-DECISION.md`.
 **Success Criteria** (what must be TRUE):
+
   1. ✅ A harness emits the deck-analysis prompt twice (with and without expert-context clips) for a representative set of decks.
   2. ◐ Both variants compared on signal-beyond-baseline, actionable specificity, and creator-voice — judged via spike rubric (NOT blind / not real-ChatGPT; caveat recorded in the decision).
   3. ✅ A clear lift / marginal verdict is written down and explicitly gates Phase 68 and the `content.kb.enabled` flip.
+
 **Plans**: 0 (decision-only phase; no build)
 **UI hint**: no
 
 #### Phase 68: Creator-Philosophy Representation Research *(conditional on Phase 67 lift)* — ⊘ DROPPED (2026-06-25)
+
 > Phase 67 returned MARGINAL, so this conditional phase does not run this cycle. Requirement CREATOR-01
 > dropped. Revisit in a future milestone only after KB retrieval is fixed and re-validated. Cycle 11
 > ships phases 64, 65, 66, 69.
@@ -109,27 +128,34 @@ existed (`Spike001KbValueAbHarness.cs`); real `ContentKbRelevanceService` retrie
 **Depends on**: Phase 67 (drops/parks if KBVAL-02 returns marginal; research/design only — no production build this cycle)
 **Requirements**: CREATOR-01
 **Success Criteria** (what must be TRUE):
+
   1. A design doc specifies the hybrid representation — distilled per-creator style-card + RAG-over-transcript grounding (no fine-tuning).
   2. The design handles principle-level provenance (source video + date), contradiction preservation, temporal drift / recency-weighting, and a hallucination gate (every principle traces to a verified passage).
   3. The doc maps the work onto existing assets (transcripts = corpus, clips = RAG layer, harvest/refresh pipeline) and is explicitly skipped/parked if Phase 67 returned marginal.
+
 **Plans**: TBD
 **UI hint**: no
 
 #### Phase 69: Studio UI Design Pass — Shell, Dashboard & Responsive ✅ COMPLETE (2026-06-25)
+
 **Goal**: DeckFlow.Studio looks like a real branded tool, not the stock Blazor template.
 **Outcome**: Verified 11/11 (69-VERIFICATION.md). 5 commits `2357b5cc`→`7c846ec5`; Studio.Tests 144/144; operator Playwright sweep PASSED. Codex-executed (gpt-5.4 medium); dual-gate planned (Claude plan-check + Codex review).
 **Depends on**: Nothing (independent of public-site work; runs last over settled Studio surfaces)
 **Requirements**: STUI-01, STUI-02, STUI-03
 **Success Criteria** (what must be TRUE):
+
   1. A shared Studio stylesheet defines design tokens (color/spacing/type) aligned to the deckflow.gg brand and replaces the stock template chrome (header/nav/content container).
   2. The Studio Home page is a dashboard surfacing pipeline state at a glance (counts by status / publish-state) with quick links to Harvest / Review / Publish.
   3. Studio pages handle table-overflow / responsive layout and dark mode consistently.
   4. No functional/behavior change — the pass is presentation-only over the existing 6 pages.
+
 **Plans**: 4 plans (2 waves)
+
   - [x] 69-01-PLAN.md — studio-theme.css token home + _Layout link + site.css token alignment (STUI-01, STUI-03) [Wave 1] — `2357b5cc`
   - [x] 69-02-PLAN.md — Branded shell: MainLayout + NavMenu restyle onto tokens (STUI-01) [Wave 2] — `1ce022d4`
   - [x] 69-03-PLAN.md — Home pipeline dashboard (counts + badges + quick links) + bUnit tests (STUI-02) [Wave 2] — `ee7ca904`
   - [x] 69-04-PLAN.md — Table-overflow wraps (DirectPush/PullFromProd) + dark/badge-contrast operator sweep (STUI-03) [Wave 2] — `1b0474ce` + sweep fix `7c846ec5`
+
 **UI hint**: yes
 
 <details>
@@ -338,60 +364,76 @@ Full detail archived in `.planning/milestones/cycle10-ROADMAP.md`. Shipped phase
 ### Phase Details
 
 #### Phase 59: Pipeline Automation
+
 **Goal**: The operator harvests a video and gets a distilled, review-ready (often already-approved) entry in one action — no separate manual distill step, no rubber-stamping high-quality distills.
 **Depends on**: Nothing new (builds on the existing Cycle 9 Core orchestrator distill/approve slice)
 **Requirements**: AUTO-01, AUTO-02
 **Success Criteria** (what must be TRUE):
+
   1. Operator harvests a video from Studio and a distilled entry appears review-ready in one action, with no separate "Distill" click required.
   2. A distill whose quality/confidence signal is at or above the configured threshold lands auto-approved (skips the manual review queue); a distill below the threshold remains in the review queue.
   3. Operator can adjust the auto-approve threshold and can turn auto-approval off entirely; with it off, every distill enters the review queue.
   4. The harvest action still respects the existing spend dry-run / cap gate — auto-distill does not bypass the spend ceiling, and the existing distill provider is used unchanged (no model / provider swap).
+
 **Plans**: 3 plans
+
   - [x] 59-01-PLAN.md — Core auto-approve signal seam (clip-count, swappable) + per-video clip counts on DistillResult
   - [x] 59-02-PLAN.md — Persisted auto-approve settings (on/off + cutoff, default ON/5) + Harvest-page Auto-approve panel
   - [x] 59-03-PLAN.md — One-click harvest→auto-distill→auto-approve flow + per-video outcome summary (manual Distill fallback intact)
+
 **UI hint**: yes
 **Open risk**: A per-distill quality/confidence signal may not exist yet. This phase owns deriving or adding one from existing distill output (e.g. tag-count / clip-count / summary-completeness heuristics, or a returned model confidence). No distill provider or model swap is permitted to obtain the signal.
 
 #### Phase 60: Pull-from-Prod Reconcile
+
 **Goal**: Studio reflects what is actually live — the operator can pull prod content down, see exactly what is out of sync per entry, and reconcile each diff without dropping to the CLI or hand-editing the DB.
 **Depends on**: Phase 59 (so reconcile classification accounts for auto-distilled / auto-approved local state); independently plannable. Most novel/risky lane — stays its own phase.
 **Requirements**: SYNC-01, SYNC-02, SYNC-03
 **Success Criteria** (what must be TRUE):
+
   1. Operator triggers a "Pull from Prod" action in Studio and the live prod `content_site_index` rows plus their published artifacts are pulled down to local (a read mirror of the existing DirectPush write path: SSH.NET SCP from Render `/data` + a Postgres read of `content_site_index`).
   2. Studio shows, per entry, a diff classification of prod-newer / missing-locally / local-only / diverged, so the operator can see exactly what is out of sync.
   3. For each surfaced diff, the operator can pick a resolution (adopt prod / keep local) from Studio and have Studio apply it — no CLI, no manual DB edit.
   4. The pull path is read-only against prod (no write-back to prod from this lane) and uses the operator-local secret connection convention already established for DirectPush.
+
 **Plans**: 4 plans
+
 - [ ] 60-01-PLAN.md — ContentSyncDiffClassifier + SyncDiffEntry/SyncDiffKind in Core + xUnit (SYNC-02)
 - [ ] 60-02-PLAN.md — SCP download pair (ISshArtifactDownloader/SftpArtifactDownloader) + read-only IProdContentReader prod reader (SYNC-01)
 - [ ] 60-03-PLAN.md — PullFromProd.razor 2-stage page + nav + DI + bUnit tests + README (SYNC-01, SYNC-03)
 - [ ] 60-04-PLAN.md — Operator live pull verification checkpoint (SC1 + SC4 read-only invariant)
+
 **UI hint**: yes
 
 #### Phase 61: Creator Sources & Selection
+
 **Goal**: The operator manages a curated creator list and picks from it to browse, sees only the videos still worth harvesting by default, and can quietly skip candidates without the heavyweight Block path.
 **Depends on**: Phase 59 (harvested/distilled state drives the unharvested-only filter)
 **Requirements**: SRC-01, SRC-02, HSEL-01, HSEL-02, HSEL-03
 **Success Criteria** (what must be TRUE):
+
   1. Operator can add, view, and remove curated creators/channels in Studio, and the list persists across Studio restarts.
   2. When browsing videos to harvest, operator selects a creator from a dropdown of the saved list instead of pasting a channel URL — with paste-URL still available as a one-off fallback.
   3. The creator video-selection list defaults to showing only not-yet-harvested videos, with a toggle to show all (including harvested/distilled/published).
   4. Operator can skip/ignore a candidate so it no longer appears in selection — with no artifact hard-delete and no harvest blocklist entry (distinct from Block).
   5. Operator can view the skipped/ignored list and un-skip an entry to bring it back into selection (parity with the existing Block/Unblock pair).
+
 **Plans**: TBD
 **UI hint**: yes
 
 #### Phase 62: Studio UI Polish
+
 **Goal**: Pipeline state is obvious at a glance and the harvest→review→publish flow is fast, clear, and forgiving — fewer clicks, better feedback, cleaner navigation, and creator-based filtering throughout.
 **Depends on**: Phase 61 (status badges and creator filtering build on the surfaces and creator list settled in 59-61); presentation pass runs over the now-stable Studio surfaces.
 **Requirements**: SUI-01, SUI-02, SUI-03, SUI-04, SUI-05, SUI-06
 **Success Criteria** (what must be TRUE):
+
   1. Pipeline status is clear at a glance on the main Studio pages via consistent status badges (harvested / distilled / approved / publish-state), reusing the Cycle 9 `PublishStateDeriver` / `VideoStatusResolver` (no duplicate status logic).
   2. The harvest → review → publish flow takes fewer clicks (multi-select ergonomics, sensible defaults, less back-and-forth between pages) than before this phase.
   3. Studio actions show improved loading, error, and success feedback — including harvest/distill spend warnings and clear failure messages. (Operator request 2026-06-21: add a LIVE progress/console view on the Pull from Prod page — stream the existing stage + per-artifact `IProgress` reports into a scrolling UI panel as the pull runs, instead of only spinners + final table, so the operator can watch progress without tailing the Serilog log file.)
   4. Operator can filter/group video and entry lists by creator to see which videos belong to which creator.
   5. Studio layout and inter-page navigation read as denser and clearer, and the `MainLayout.razor` "About" link points at a real, relevant target instead of the ASP.NET docs scaffold placeholder.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -459,12 +501,14 @@ Scope note: shared Core code — affects all deck tools, needs its own change + 
 **Goal:** Make the Studio local store reflect current production data. Today Studio is strictly one-way (DirectPush local→prod); the local `content-kb.db` drifts from prod. Add a "Pull from Prod" page/action — the inverse of `DirectPush.razor` — so an operator can mirror prod into local.
 
 **Scope (Option B — full pull; Option A read-only "Prod vs Local" drift view was the cheaper alternative):**
+
 - Read prod rows via `prodStore.GetAllRowsAsync` (plumbing already exists — DirectPush Stage 1 uses it for the diff).
 - Upsert them into the local `IContentSiteIndexStore` (`UpsertRowAsync` exists).
 - SCP-**download** the artifact `.md` files from prod `/data` into local `content-kb/` — **new**: only SCP upload exists today (`ISshArtifactUploader`); needs a download counterpart.
 - Read-only prod DB connection acceptable for the row read; SCP read for artifacts. AI-never-writes-prod rule unaffected (this only writes LOCAL).
 
 **Open design questions (resolve when planned):**
+
 - Merge semantics: prod-wins vs local-wins for in-flight local edits.
 - `approval_status` handling (prod defaults `pending`; local may be `approved`) — don't clobber local approvals?
 - `is_visible` / `is_hidden` / `pushed_to_prod_utc` reconciliation.
@@ -480,21 +524,25 @@ Origin: operator wants Studio to mirror prod (Phase 58 dogfood, 2026-06-19).
 **Scope — three tiers (operator-only desktop tool; no functional/feature changes):**
 
 *P1 — shell + design system:*
+
 - Shared Studio design tokens (color/spacing/type) in one stylesheet; align with deckflow.gg brand (logo/title, accent, optional dark mode).
 - Replace the stock template chrome: app header/nav, page-title pattern, consistent `.content` layout container.
 - Turn `Home.razor` into a real landing/dashboard — pipeline state at a glance (counts by VideoStatus / PublishState, quick links to Harvest/Review/Publish).
 
 *P2 — per-page consistency:*
+
 - Unify status/publish-state badges into shared CSS classes driven by `VideoStatus` / `PublishState` (today colors are defined ad-hoc per page in Review/Publish/Harvest/Blocked).
 - Consistent table, form, alert, button-hierarchy, and primary-action patterns across all 6 pages (Home/Harvest/Review/Publish/DirectPush/Blocked).
 - Systematic loading + empty states (some spinners exist; not uniform).
 
 *P2 — channel/source column + filter (concrete, highest-value ask):*
+
 - **Show the source/channel each video came from in the grids.** `ContentSiteIndexRow.Source` already holds it (e.g. "The Command Zone") but it is **not surfaced** — the Review grid shows only Title/Tags/Status/Publish State/Actions and `ReviewViewModel` doesn't even expose `Source`. Add a **Source/Channel column** to the Review grid (and wherever a per-row list exists).
 - **Filter by channel/source** in those grids — a dropdown/segmented filter populated from the distinct `Source` values (mirror the web `/Admin/ContentKb` creator-filter behavior; that grid is source-grouped). Lets the operator focus one channel at a time.
 - Low-risk: data + persistence already exist; this is ViewModel field + column + client-side filter state.
 
 *P3 — optional:*
+
 - Responsive / table-overflow handling, dark mode, keyboard affordances.
 
 **Approach:** run as a `/gsd-ui-phase` (UI-SPEC design contract) → implement → `/gsd-ui-review` audit, same flow as Phase 48 for the public site.
@@ -541,6 +589,7 @@ Plans:
 ### Phase 39 architecture findings — deferred (ARCH-02 executes Finding A; rest below per SC3)
 
 See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` (two independent audits).
+
 - **B — Split `CategoryKnowledgeRepository`** (1276 LOC, 24 methods → Schema / DeckQueue / CardCategory). Live-path Core god-repo; strong existing test net (17 facts + parity + dedup). Effort L / Risk M. **DONE — Cycle 8 Phase 53 (ARCH-01).**
 - **C — Split `ContentKbCommandRunners`** (1508 LOC, 5 sub-domains → Harvest / Distill / Source runners). Internal seams pin behavior. Effort M / Risk M. **NOTE: v1.7 Phase 42 (ORCH-01) addresses Finding C as a side-effect by extracting domain logic to Core.**
 - **D — Finish `Services/` concern-foldering + extract `Program.cs` `AddDeckFlowXxx()`** (48 flat files; empty `Services/Content/` = stalled migration). Pure file/namespace moves. Effort M / Risk L. **DONE — Cycle 8 Phase 53.**
@@ -564,6 +613,7 @@ See `.planning/phases/39-architecture-review/39-AUDIT.md` + `39-AUDIT-CODEX.md` 
 **Plans:** 1/1 plans complete
 
 Plans:
+
 - [x] 63-01-PLAN.md — Self-contained win-x64 publish profile + publish scripts (ps1/sh) + Kestrel port pin + standalone-exe docs (DIST-01)
 
 ### Phase 70: Manabase Accuracy — Mana Quantity & Source Fidelity (ad-hoc trunk / main)
@@ -579,6 +629,7 @@ mulligan). **#4 joint-multicolor deficit deferred.**
 **Context:** `.planning/phases/70-manabase-accuracy-mana-quantity/70-CONTEXT.md`
 
 Plans:
+
 - [x] 70-01-PLAN.md — MQ-01 commander not drawn into the simulated library (done, `043a9157`)
 - [x] 70-02-PLAN.md — MQ-02 per-source mana quantity — implemented behind `manabase.source-mana-quantity` flag (seeded OFF); Codex-approved; 155 Core tests green. Baseline diff run on real Brago deck (Sol Ring only → +1/+2 top-end, color/land/verdict unchanged). NOTE: Salubrious Snail / ScrollVault is a color-source-only tool and **cannot** validate the mana-quantity dimension — MQ-02 rests on golden-deck unit tests + magnitude sanity instead. Flag-default decision (keep OFF vs flip ON) is a judgment call, no longer gated on an external cross-check.
 - [x] 70-03-PLAN.md — MQ-03 ramp-credit consistency (defect 2): narrowed `IsRampOrDraw` → repeatable ramp + draw only, behind `manabase.ramp-credit-v2` flag (seeded OFF); Codex-approved plan; `93afdbdf`, Core 164 + Web 75 green. ⏳ baseline-diff before flag defaults ON. Defect 1 (model land-ramp in sim) → 70-03b.
@@ -605,6 +656,7 @@ gets the full read in v1, cEDH gets glosses but ramp/draw budget suppressed.
 **Status:** 🟡 PLANNED — 5 plans (route through Codex review before execute).
 
 Plans:
+
 - [x] 71-01-PLAN.md — Core ramp/draw budget engine (bucket counts + 0.5 overlap, threshold, 24-slot interpolation)
 - [x] 71-02-PLAN.md — Core verdict synthesis + prompt/text builder augmentation
 - [x] 71-03-PLAN.md — Web flag plumbing + service/view-model wiring + metric glosses
@@ -635,6 +687,7 @@ manual UI only as fallback · no +2 recast command tax (first-cast on curve), bu
 
 **Plans:** 7 plans (4 waves)
 Plans:
+
 - [x] 72-01-PLAN.md — Flag four-file registration (manabase.commander-castability seeded OFF) + key constant [Wave 1, BLOCKING]
 - [x] 72-02-PLAN.md — Wave-0 API-fixture probes: synthetic Moxfield companions board + real Archidekt Background (deck 3674983); Archidekt companion-category disproven [Wave 1, BLOCKING]
 - [x] 72-04-PLAN.md — Core math: worst-of headline + SimulateCompanion (+3 heuristic) + commanderCount/threshold locks + opt-in prompt line [Wave 1]
@@ -671,9 +724,20 @@ input, for parity with manabase and to cover Archidekt / pasted decks (no auto-d
 
 **Plans:** 4 plans (4 waves)
 Plans:
+**Wave 1**
+
 - [ ] 73-01-PLAN.md — Flag four-file+seed-test registration + interface `companionName` param + request CompanionName property (contract-first, byte-identical) [Wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 73-02-PLAN.md — Service plumbing: capture DetectedCompanionName + collect all commanders (oracle-resolve then `" & "`) + flag-OFF byte-identity + partner-pair tests [Wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 73-03-PLAN.md — Render companion in all 3 decoupled variants (ChatGpt/Gemini `companion:` line, Claude `<companion>` tag) + per-platform render tests [Wave 3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 73-04-PLAN.md — Flag-gated Step-1 companion designator input + controller plumbing + README/Help + Playwright smoke + cross-theme/mobile sign-off [Wave 4]
 
 ---
@@ -701,6 +765,7 @@ investigation + MS Learn app-state guidance (2026-06-27).
 **Flag:** NONE — ships on by default (additive client-side UX; LOCKED decision, no kill-switch).
 
 Plans:
+
 - [ ] 74-01-PLAN.md — Shared sessionStorage deck-input store module + wire 5 in-scope views
 - [ ] 74-02-PLAN.md — Playwright e2e (cross-tool prefill, no-overwrite, per-tab isolation) + README
 

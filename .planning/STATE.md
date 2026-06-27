@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 11
 milestone_name: Security, Visibility Control & Creator-Lens
 status: executing
-stopped_at: "Phase 72 SHIPPED to origin/main 5a78ffc2 (FF, 29 commits) 2026-06-27. Rebased clean onto Phase 74 ef6eac42 (0 conflicts); main CI GREEN; live commander-callout e2e 2/2 + cross-theme visual PASS; combined-tree tests Core 865 + Web 911. Flag manabase.commander-castability seeded OFF (operator flips in prod via Admin/Flags). Built by Claude Opus 4.8 + Codex cross-AI review (delegation reversed 2026-06-27: Claude codes+plans, Codex reviews). Fixture-driven plan corrections: Background already command-zone via importer (no reclassification); Archidekt companion-category detection dropped (companion = manual designator + Moxfield DetectedCompanionName). NEXT: Phase 73 = deck-analysis command-zone awareness (split out of 72 section E)."
-last_updated: "2026-06-27T18:30:00.000Z"
-last_activity: 2026-06-27 -- Phase 72 SHIPPED to main (command-zone commander castability)
+stopped_at: "Phase 69 PLANNED + DUAL-GATE CLEAN (fc83aebd): Claude plan-check PASSED + Codex PASS after closing dark-mode blocker over 3 revisions (bs-var bridge + base .table + form-check-input + .bg-light regression). Ready /gsd-execute-phase 69."
+last_updated: "2026-06-27T19:13:19.693Z"
+last_activity: 2026-06-27 -- Phase 73 planning complete
 progress:
   total_phases: 10
-  completed_phases: 5
-  total_plans: 30
-  completed_plans: 23
-  percent: 50
+  completed_phases: 3
+  total_plans: 15
+  completed_plans: 13
+  percent: 30
 ---
 
 # Project State
@@ -33,8 +33,8 @@ See: .planning/PROJECT.md
 
 Phase: 72 (command-zone commander castability) — SHIPPED to origin/main 5a78ffc2 (FF, CI green)
 Plan: 7 of 7 complete
-Status: Phase 72 merged to main; Phase 71 also shipped earlier (a36b9f6c). Next: Phase 73 (deck-analysis command-zone awareness).
-Last activity: 2026-06-27 -- Phase 72 shipped to main
+Status: Ready to execute
+Last activity: 2026-06-27 -- Phase 73 planning complete
 
 ## Roadmap Summary
 
