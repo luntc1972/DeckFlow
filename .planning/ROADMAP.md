@@ -682,12 +682,12 @@ matches existing `sessionStorage` precedent (`category-suggestions.ts`, `card-lo
 (within-form only = the current gap), query-string (leaks URL), TempData (single redirect).
 **Source:** `.planning/phases/74-cross-tool-input-persistence/74-SPEC.md` + read-only
 investigation + MS Learn app-state guidance (2026-06-27).
-**Status:** 🟡 SPEC — research done; run /gsd-plan-phase 74 next.
-**Flag:** likely `tool.cross-tool-deck-persistence` (OFF → no client store read/write,
-byte-identical behavior) — PLAN decides.
+**Status:** 🟢 PLANNED — 2 plans / 2 waves (run /gsd-execute-phase 74; route PLANs through Codex review first).
+**Flag:** NONE — ships on by default (additive client-side UX; LOCKED decision, no kill-switch).
 
 Plans:
-- [ ] 74-01 — TBD (run /gsd-plan-phase 74; route PLAN through Codex review before execute)
+- [ ] 74-01-PLAN.md — Shared sessionStorage deck-input store module + wire 5 in-scope views
+- [ ] 74-02-PLAN.md — Playwright e2e (cross-tool prefill, no-overwrite, per-tab isolation) + README
 
 ---
 
