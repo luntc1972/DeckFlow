@@ -52,7 +52,7 @@ test('admin flags supports instant prefix filtering and namespace chips', async 
   await expect(page.locator('#flag-filter-count')).toHaveText(`${visibleServiceKeys.length} of ${total} flags shown`);
 
   await page.getByLabel('Filter by key prefix, e.g. tool.').fill('');
-  const toolChip = page.getByRole('button', { name: 'tool.', exact: true });
+  const toolChip = page.getByRole('button', { name: 'tool', exact: true });
   await toolChip.click();
   await expect(toolChip).toHaveAttribute('aria-pressed', 'true');
   const visibleToolKeys = await getVisibleFlagKeys(page);
