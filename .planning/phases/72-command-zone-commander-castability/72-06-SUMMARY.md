@@ -54,7 +54,7 @@ Each task was committed atomically:
 
 1. **Task 1-3: UI callout, designator, beta notice, and live spec** - `1368d259` (feat)
 
-**Plan metadata:** `PENDING` (docs: complete plan)
+**Plan metadata:** `1d5c1a65` (docs: complete plan)
 
 ## Files Created/Modified
 - `DeckFlow.Web/Views/Deck/Manabase.cshtml` - Adds the beta notice, command-zone callout, companion designator, filtered castability rows, and mirrored companion hidden field for downloads.
