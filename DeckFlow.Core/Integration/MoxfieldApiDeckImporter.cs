@@ -54,8 +54,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
 
         try
         {
-            var entries = await FetchDirectAsync(deckId, cancellationToken).ConfigureAwait(false);
-            return new MoxfieldImportResult(entries, MoxfieldImportSource.Direct);
+            return await FetchDirectAsync(deckId, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException httpException) when (IsCloudEdgeBlock(httpException))
         {
@@ -69,7 +68,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
         }
     }
 
-    private async Task<List<DeckEntry>> FetchDirectAsync(string deckId, CancellationToken cancellationToken)
+    private async Task<MoxfieldImportResult> FetchDirectAsync(string deckId, CancellationToken cancellationToken)
     {
         var request = new RestRequest(MoxfieldApiUrl.BuildDeckApiUri(deckId), Method.Get);
         request.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
@@ -97,7 +96,8 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
         AddBoardEntries(root, "maybeboard", "maybeboard", authorTags, entries);
         AddBoardEntries(root, "sideboard", "sideboard", authorTags, entries);
 
-        return entries;
+        var detectedCompanionName = ReadFirstCompanionName(root);
+        return new MoxfieldImportResult(entries, MoxfieldImportSource.Direct, DetectedCompanionName: detectedCompanionName);
     }
 
     private async Task<List<DeckEntry>> FetchViaCommanderSpellbookAsync(string originalUrl, string deckId, CancellationToken cancellationToken)
@@ -224,8 +224,8 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
             var name = card.GetProperty("name").GetString() ?? property.Name;
             authorTags.TryGetValue(name, out var category);
 
-        entries.Add(new DeckEntry
-        {
+            entries.Add(new DeckEntry
+            {
                 Name = name,
                 NormalizedName = CardNormalizer.Normalize(name),
                 Quantity = quantity,
@@ -236,5 +236,41 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
                 IsFoil = entry.TryGetProperty("isFoil", out var foilElement) && foilElement.ValueKind == JsonValueKind.True,
             });
         }
+    }
+
+    private static string? ReadFirstCompanionName(JsonElement root)
+    {
+        if (!root.TryGetProperty("companions", out var companionsElement) || companionsElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        foreach (var property in companionsElement.EnumerateObject())
+        {
+            if (!property.Value.TryGetProperty("card", out var cardElement) || cardElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            if (!cardElement.TryGetProperty("name", out var nameElement) || nameElement.ValueKind != JsonValueKind.String)
+            {
+                return null;
+            }
+
+            return SanitizeDetectedName(nameElement.GetString());
+        }
+
+        return null;
+    }
+
+    private static string? SanitizeDetectedName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var trimmedName = name.Trim();
+        return trimmedName.Length <= 200 ? trimmedName : trimmedName[..200];
     }
 }

@@ -42,7 +42,7 @@ public interface IDeckEntryLoader
 /// <summary>
 /// Carries source-loaded deck entries alongside any optional import notice.
 /// </summary>
-public sealed record DeckSourceLoadResult(List<DeckEntry> Entries, string? FallbackNotice);
+public sealed record DeckSourceLoadResult(List<DeckEntry> Entries, string? FallbackNotice, string? DetectedCompanionName = null);
 
 /// <summary>
 /// Controls how the loader surfaces unrecognized pasted deck text after trying both parsers.
@@ -121,7 +121,7 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
             if (DeckSourceHost.IsMoxfield(uri))
             {
                 var result = await _moxfieldDeckImporter.ImportWithSourceAsync(deckSource, cancellationToken).ConfigureAwait(false);
-                return new DeckSourceLoadResult(result.Entries.ToList(), result.FallbackNotice);
+                return new DeckSourceLoadResult(result.Entries.ToList(), result.FallbackNotice, result.DetectedCompanionName);
             }
 
             if (DeckSourceHost.IsArchidekt(uri))
