@@ -291,7 +291,7 @@ if (!string.IsNullOrWhiteSpace(commanderName))
 }
 if (!string.IsNullOrWhiteSpace(companionName))
 {
-    builder.AppendLine($"companion: {companionName} (outside the 99; requires {companionName} companion restriction)");
+    builder.AppendLine($"companion: {companionName} (this deck's companion; applies its companion deckbuilding restriction)");
 }
 ```
 
@@ -316,8 +316,8 @@ if (!string.IsNullOrWhiteSpace(commanderName))
 }
 if (!string.IsNullOrWhiteSpace(companionName))
 {
-    builder.AppendLine($"<companion>{companionName}</companion>");
-    builder.AppendLine("<companion_note>The companion is outside the 99 and requires its companion restriction to be met before being brought to hand (costs 3 generic to move to hand before casting).</companion_note>");
+    builder.AppendLine($"<companion>{System.Security.SecurityElement.Escape(companionName)}</companion>");
+    builder.AppendLine("<companion_note>This is the deck's companion; it applies its companion deckbuilding restriction.</companion_note>");
 }
 ```
 
@@ -330,7 +330,7 @@ if (!string.IsNullOrWhiteSpace(commanderName))
 }
 if (!string.IsNullOrWhiteSpace(companionName))
 {
-    builder.AppendLine($"companion: {companionName} (outside the 99; costs 3 generic to bring to hand before casting)");
+    builder.AppendLine($"companion: {companionName} (this deck's companion; applies its companion deckbuilding restriction)");
 }
 ```
 
@@ -657,20 +657,24 @@ first-commander for now; enrichment optimization deferred.
 
 ### Pitfall 4: Companion in deck text vs. companion in prompt DECK CONTEXT
 
-**What goes wrong:** The companion entry stays in the mainboard of `BuildDecklistText` output
-(it has `Board = "mainboard"`). The AI will see "Jegantha, the Wellspring" listed under
-"Mainboard" in the DECKLIST section. The Phase 73 `companion:` field in DECK CONTEXT then
-contradicts the mainboard placement, confusing the AI.
+**What goes wrong:** For Archidekt the companion stays classified `mainboard`
+(`ArchidektApiDeckImporter.cs`), so `BuildDecklistText` legitimately lists it (e.g. "Jegantha,
+the Wellspring") in the DECKLIST section. If the DECK CONTEXT `companion:` copy claims the
+companion is "outside the 99" / "not in the deck", it CONTRADICTS that mainboard placement and
+is simply false — confusing the AI.
 
-**How to avoid:** The DECK CONTEXT companion field should clarify the companion is listed in
-Mainboard because it arrived as a mainboard card. The copy should be explicit:
+**How to avoid (LOCKED, Codex HIGH-1 — awareness only):** Do NOT mutate, filter, or move the
+deck text — that preserves flag-OFF byte-identity and avoids a risky display-only decklist
+change. Render the companion ONLY as DECK CONTEXT / `<companion>` side metadata, and use
+location-AGNOSTIC copy that names the companion and notes its restriction WITHOUT asserting
+which zone it sits in (true for both Archidekt, where it is in the 99, and Moxfield, where it is
+detected separately):
 ```
-companion: Jegantha, the Wellspring (listed in Mainboard; applies companion restriction)
+companion: Jegantha, the Wellspring (this deck's companion; applies its companion deckbuilding restriction)
 ```
 
-Or: if the planner decides to exclude the companion from the deck text (move to a separate
-section), that is a DISPLAY-ONLY change to `BuildDecklistText` scoped to when companion is
-identified. This is more complex — plan decision.
+The companion may still appear among the listed cards; that is acceptable. Excluding the
+companion from the deck text is explicitly OUT OF SCOPE for this awareness-only phase.
 
 ### Pitfall 5: Archidekt companion invisible without designator UI
 
@@ -713,9 +717,7 @@ target_bracket: Optimized
 ```xml
 <commander>Esika, God of the Tree</commander>
 <companion>Keruga, the Macrosage</companion>
-<companion_note>The companion is outside the 99 and requires its companion
-restriction to be met before being brought to hand (costs 3 generic to move
-to hand before casting).</companion_note>
+<companion_note>This is the deck's companion; it applies its companion deckbuilding restriction.</companion_note>
 ```
 
 ### Example 4: Resolving companion with designator priority
