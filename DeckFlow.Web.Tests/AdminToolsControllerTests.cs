@@ -63,7 +63,7 @@ public sealed class AdminToolsControllerTests
         var cache = new FakeFeatureFlagCache();
         var controller = Build(store, cache, crossOrigin: false);
 
-        var result = await controller.Toggle("scryfall.tagger.enabled", enabled: false, default);
+        var result = await controller.Toggle("service.scryfall-tagger.enabled", enabled: false, default);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal("Unknown tool.", badRequest.Value);

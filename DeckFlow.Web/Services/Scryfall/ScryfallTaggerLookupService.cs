@@ -94,7 +94,7 @@ public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
 
         // FLAG-04, D-11: kill-switch gate. Off → return empty without any HTTP work.
-        if (!_flagCache.IsEnabled("scryfall.tagger.enabled"))
+        if (!_flagCache.IsEnabled("service.scryfall-tagger.enabled"))
         {
             return Array.Empty<string>();
         }

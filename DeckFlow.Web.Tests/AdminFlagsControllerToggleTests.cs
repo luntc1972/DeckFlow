@@ -21,7 +21,7 @@ public sealed class AdminFlagsControllerToggleTests
         var store = new FakeFeatureFlagStore();
         var controller = Build(store, crossOrigin: true);
 
-        var result = await controller.Toggle("content.kb.enabled", enabled: true, default);
+        var result = await controller.Toggle("tool.knowledge-base.enabled", enabled: true, default);
 
         var obj = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status403Forbidden, obj.StatusCode);
@@ -46,17 +46,17 @@ public sealed class AdminFlagsControllerToggleTests
         var store = new FakeFeatureFlagStore();
         var controller = Build(store, crossOrigin: false);
 
-        var result = await controller.Toggle("content.kb.enabled", enabled: true, default);
+        var result = await controller.Toggle("tool.knowledge-base.enabled", enabled: true, default);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(1, store.SetCallCount);
-        Assert.Equal("content.kb.enabled", store.LastSetKey);
+        Assert.Equal("tool.knowledge-base.enabled", store.LastSetKey);
         Assert.True(store.LastSetEnabled);
     }
 
     private static AdminFlagsController Build(FakeFeatureFlagStore store, bool crossOrigin)
     {
-        var cache = new FakeFeatureFlagCache(new Dictionary<string, bool> { ["content.kb.enabled"] = false });
+        var cache = new FakeFeatureFlagCache(new Dictionary<string, bool> { ["tool.knowledge-base.enabled"] = false });
         var controller = new AdminFlagsController(store, cache);
 
         var httpContext = new DefaultHttpContext();

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // The Mana Base analyzer is a public deck tool gated by the
-// `feature.manabase.enabled` flag (default ON). These tests cover the page
+// `tool.manabase.enabled` flag (default ON). These tests cover the page
 // chrome and form without submitting a real analysis (which would call
 // Scryfall) — the analysis pipeline itself is covered by xUnit
 // ManabaseAnalysisServiceTests.

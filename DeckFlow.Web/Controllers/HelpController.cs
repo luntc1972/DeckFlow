@@ -28,7 +28,7 @@ public sealed class HelpController : Controller
     /// tool's help disappears alongside the tool itself.
     /// </summary>
     [HttpGet("/help")]
-    [FeatureFlagGate("page.help.enabled")]
+    [FeatureFlagGate("tool.help.enabled")]
     public IActionResult Index() => View(VisibleTopics());
 
     /// <summary>

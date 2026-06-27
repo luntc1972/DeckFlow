@@ -21,10 +21,10 @@ public sealed class FeatureFlagGateAttributeTests
     [Fact]
     public async Task OnActionExecutionAsync_WhenFlagDisabled_ReturnsNotFound()
     {
-        var attribute = new FeatureFlagGateAttribute("feature.categories.enabled");
+        var attribute = new FeatureFlagGateAttribute("tool.categories.enabled");
         var context = CreateContext(new FakeFeatureFlagCache(new Dictionary<string, bool>
         {
-            ["feature.categories.enabled"] = false,
+            ["tool.categories.enabled"] = false,
         }));
         var nextCalled = false;
 
@@ -44,10 +44,10 @@ public sealed class FeatureFlagGateAttributeTests
     [Fact]
     public async Task OnActionExecutionAsync_WhenFlagEnabled_ContinuesPipeline()
     {
-        var attribute = new FeatureFlagGateAttribute("feature.categories.enabled");
+        var attribute = new FeatureFlagGateAttribute("tool.categories.enabled");
         var context = CreateContext(new FakeFeatureFlagCache(new Dictionary<string, bool>
         {
-            ["feature.categories.enabled"] = true,
+            ["tool.categories.enabled"] = true,
         }));
         var nextCalled = false;
 

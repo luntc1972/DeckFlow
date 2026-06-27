@@ -15,7 +15,7 @@ public interface IFeatureFlagCache
     /// not present in the snapshot (D-13). Emits a WARN log on first miss per key per
     /// process; subsequent misses for the same key are silent (dedupe).
     /// </summary>
-    /// <param name="key">Flag key (dotted-namespace, e.g. "scryfall.tagger.enabled").</param>
+    /// <param name="key">Flag key (dotted-namespace, e.g. "service.scryfall-tagger.enabled").</param>
     /// <returns>True if the flag is enabled, or true (default-on) if the key is missing.</returns>
     bool IsEnabled(string key);
 

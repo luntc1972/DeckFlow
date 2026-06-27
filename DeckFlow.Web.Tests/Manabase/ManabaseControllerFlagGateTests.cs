@@ -9,14 +9,14 @@ namespace DeckFlow.Web.Tests;
 
 /// <summary>
 /// Locks the feature-flag wiring on <see cref="ManabaseController"/>. The Mana Base tool is
-/// gated by the <c>feature.manabase.enabled</c> kill-switch so operators can hide it from the
+/// gated by the <c>tool.manabase.enabled</c> kill-switch so operators can hide it from the
 /// admin flags console; these reflection tests guard against the attribute being dropped or
 /// the flag key drifting. Gate behaviour itself (404 when disabled) is covered by
 /// <see cref="FeatureFlagGateAttributeTests"/>.
 /// </summary>
 public sealed class ManabaseControllerFlagGateTests
 {
-    private const string ManabaseFlagKey = "feature.manabase.enabled";
+    private const string ManabaseFlagKey = "tool.manabase.enabled";
 
     [Fact]
     public void Every_manabase_action_is_gated_by_the_manabase_flag()

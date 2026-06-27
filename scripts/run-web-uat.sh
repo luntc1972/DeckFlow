@@ -8,7 +8,7 @@
 # local defaults any time by exporting FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD
 # before running.
 #
-# Note: content.kb.enabled is a DB-backed feature flag, NOT an env var.
+# Note: tool.knowledge-base.enabled is a DB-backed feature flag, NOT an env var.
 # Toggle it via /Admin/Flags (or the Content KB admin panel) after login.
 set -euo pipefail
 
@@ -18,7 +18,7 @@ export FEEDBACK_ADMIN_USER="${FEEDBACK_ADMIN_USER:-admin}"
 export FEEDBACK_ADMIN_PASSWORD="${FEEDBACK_ADMIN_PASSWORD:-changeme-local}"
 
 echo "Admin login: ${FEEDBACK_ADMIN_USER} / ${FEEDBACK_ADMIN_PASSWORD}"
-echo "After login, enable content.kb.enabled via /Admin/Flags for UAT."
+echo "After login, enable tool.knowledge-base.enabled via /Admin/Flags for UAT."
 
 # Free port 5173 before building/running so a stale server does not block the
 # bind. Best-effort: fuser (Linux) if available.

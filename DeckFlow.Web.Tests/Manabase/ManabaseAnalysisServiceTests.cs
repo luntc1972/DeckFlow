@@ -93,7 +93,7 @@ public sealed class ManabaseAnalysisServiceTests
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.ramp-credit-v2"] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.manabase.ramp-credit-v2"] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -189,7 +189,7 @@ public sealed class ManabaseAnalysisServiceTests
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.land-ramp-sim"] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.manabase.land-ramp-sim"] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -252,7 +252,7 @@ public sealed class ManabaseAnalysisServiceTests
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["manabase.color-aware-mulligan"] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.manabase.color-aware-mulligan"] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -268,7 +268,7 @@ public sealed class ManabaseAnalysisServiceTests
     [Fact]
     public async Task AnalyzeAsync_SourceManaQuantityFlag_RaisesAffordability_FailsSafeOff()
     {
-        // MQ-02 plumbing: the flag "manabase.source-mana-quantity" is read via IsFlagOn (fail-safe OFF)
+        // MQ-02 plumbing: the flag "analysis.manabase.source-mana-quantity" is read via IsFlagOn (fail-safe OFF)
         // and threaded as useManaQuantity into ManabaseAnalyzer.Analyze → CastabilitySimulator. When ON
         // each colorless burst source (oracle "{T}: Add {C}{C}.") contributes ManaAmount=2 so a big
         // colorless payoff casts more often. Without a cache the key is absent → IsFlagOn returns false
@@ -332,7 +332,7 @@ public sealed class ManabaseAnalysisServiceTests
             return cards;
         }
 
-        // OFF path: no cache at all → IsFlagOn("manabase.source-mana-quantity") returns false.
+        // OFF path: no cache at all → IsFlagOn("analysis.manabase.source-mana-quantity") returns false.
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
 
         // ON path: cache present with the flag enabled.

@@ -53,7 +53,7 @@ public sealed record KbIndexStatus
     /// </summary>
     public DateTimeOffset? IndexGeneratedUtc { get; init; }
 
-    /// <summary>Current state of the content.kb.enabled feature flag.</summary>
+    /// <summary>Current state of the tool.knowledge-base.enabled feature flag.</summary>
     public required bool FlagEnabled { get; init; }
 }
 

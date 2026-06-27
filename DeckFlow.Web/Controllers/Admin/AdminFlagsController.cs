@@ -16,7 +16,7 @@ public sealed class AdminFlagsListViewModel
 }
 
 /// <summary>Single flag row: dotted key + current enabled state + operator description.</summary>
-/// <param name="Key">Dotted-namespace flag key (e.g. "scryfall.tagger.enabled").</param>
+/// <param name="Key">Dotted-namespace flag key (e.g. "service.scryfall-tagger.enabled").</param>
 /// <param name="Enabled">Current enabled state from the cache snapshot.</param>
 /// <param name="Description">Human-readable explanation of what the flag does (may be empty).</param>
 public sealed record FlagRow(string Key, bool Enabled, string Description);

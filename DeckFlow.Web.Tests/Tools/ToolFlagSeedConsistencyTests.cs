@@ -12,13 +12,6 @@ namespace DeckFlow.Web.Tests.Tools;
 /// </summary>
 public sealed class ToolFlagSeedConsistencyTests : IDisposable
 {
-    private static readonly string[] ExistingRegistrySeedKeys =
-    [
-        "feature.categories.enabled",
-        "content.kb.enabled",
-        "feature.manabase.enabled",
-    ];
-
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"tool-flags-{Guid.NewGuid():N}.db");
 
     public void Dispose()
@@ -41,7 +34,7 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
         await store.EnsureSchemaAsync();
 
         var seeded = await store.GetAllAsync();
-        Assert.Equal(10, expectedKeys.Count);
+        Assert.Equal(14, expectedKeys.Count);
         Assert.All(expectedKeys, key =>
         {
             Assert.True(seeded.TryGetValue(key, out var enabled), $"Missing seeded key '{key}'.");
@@ -56,10 +49,9 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
     }
 
     [Fact]
-    public void RegistryFlagKeys_AreSeededOrUseApprovedExistingKeys()
+    public void RegistryFlagKeys_AreSeeded()
     {
-        var allowedKeys = new HashSet<string>(ExistingRegistrySeedKeys, StringComparer.Ordinal);
-        allowedKeys.UnionWith(GetSeedKeys("SqliteSeedSql"));
+        var allowedKeys = GetSeedKeys("SqliteSeedSql");
         allowedKeys.UnionWith(GetSeedKeys("PostgresSeedSql"));
 
         var registry = new ToolRegistry();

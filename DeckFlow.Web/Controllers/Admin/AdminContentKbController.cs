@@ -28,7 +28,7 @@ public sealed class AdminContentKbController : Controller
     /// <summary>Constructor injecting the index store, seed loader, flag cache, and logger.</summary>
     /// <param name="store">Content site-index store (read all rows + flip visibility).</param>
     /// <param name="seedLoader">Curation-preserving seed loader for the reload action.</param>
-    /// <param name="flagCache">Feature-flag cache for the content.kb.enabled status display.</param>
+    /// <param name="flagCache">Feature-flag cache for the tool.knowledge-base.enabled status display.</param>
     /// <param name="deriver">Shared publish-state deriver.</param>
     /// <param name="logger">Logger.</param>
     public AdminContentKbController(
@@ -106,7 +106,7 @@ public sealed class AdminContentKbController : Controller
             SourceCount = sources.Length,
             // D-22D: max(indexed_utc) is the index-GENERATION time, not a reload time.
             IndexGeneratedUtc = rows.Count == 0 ? null : rows.Max(r => r.IndexedUtc),
-            FlagEnabled = _flagCache.IsEnabled("content.kb.enabled"),
+            FlagEnabled = _flagCache.IsEnabled("tool.knowledge-base.enabled"),
         };
 
         var model = new AdminContentKbViewModel

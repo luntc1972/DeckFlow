@@ -38,7 +38,7 @@
 
     <div class="admin-kb-status__actions">
         <form method="post" asp-controller="AdminFlags" asp-action="Toggle"
-              asp-route-key="content.kb.enabled" asp-route-enabled="@((!Model.Status.FlagEnabled).ToString().ToLowerInvariant())"
+              asp-route-key="tool.knowledge-base.enabled" asp-route-enabled="@((!Model.Status.FlagEnabled).ToString().ToLowerInvariant())"
               class="admin-action-form">
             @Html.AntiForgeryToken()
             <button type="submit">@(Model.Status.FlagEnabled ? "Disable" : "Enable")</button>

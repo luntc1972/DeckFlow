@@ -48,7 +48,7 @@ public sealed class ContentKbController : Controller
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet("")]
-    [FeatureFlagGate("content.kb.enabled")]
+    [FeatureFlagGate("tool.knowledge-base.enabled")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
     {
         var rows = await _store.GetPublishedRowsAsync(cancellationToken).ConfigureAwait(false);
@@ -87,7 +87,7 @@ public sealed class ContentKbController : Controller
     /// <param name="id">Content site-index row id.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet("{id:long}")]
-    [FeatureFlagGate("content.kb.enabled")]
+    [FeatureFlagGate("tool.knowledge-base.enabled")]
     public async Task<IActionResult> Detail(long id, CancellationToken cancellationToken = default)
     {
         var row = await _store.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);

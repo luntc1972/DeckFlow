@@ -7,7 +7,7 @@ namespace DeckFlow.Web.Infrastructure;
 
 /// <summary>
 /// Reusable per-action page kill-switch (Phase 6, FLAG-05, D-17 + D-18). Applied via
-/// <c>[FeatureFlagGate("page.help.enabled")]</c> on any controller action. When the referenced
+/// <c>[FeatureFlagGate("tool.help.enabled")]</c> on any controller action. When the referenced
 /// flag is off in <see cref="IFeatureFlagCache"/>, the action is short-circuited and the
 /// response becomes HTTP 404 Not Found.
 ///
@@ -18,14 +18,14 @@ namespace DeckFlow.Web.Infrastructure;
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
 public sealed class FeatureFlagGateAttribute : Attribute, IAsyncActionFilter
 {
-    /// <summary>Dotted-namespace flag key (D-08), e.g. "page.help.enabled".</summary>
+    /// <summary>Dotted-namespace flag key (D-08), e.g. "tool.help.enabled".</summary>
     public string Key { get; }
 
     /// <summary>
     /// Constructs the gate with a required flag key. Throws <see cref="ArgumentException"/>
     /// if <paramref name="key"/> is null, empty, or whitespace.
     /// </summary>
-    /// <param name="key">Dotted-namespace flag key (e.g. "page.help.enabled").</param>
+    /// <param name="key">Dotted-namespace flag key (e.g. "tool.help.enabled").</param>
     public FeatureFlagGateAttribute(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
