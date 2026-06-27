@@ -16,6 +16,12 @@ public static class ManabaseAnalyzer
     private const int CasualSupportThreshold = 80;
     private const int CedhSupportThreshold = 88;
 
+    /// <summary>
+    /// The companion "to hand" rule tax — accessing a companion from outside the game costs +3
+    /// generic mana first (a heuristic).
+    /// </summary>
+    public const int CompanionToHandTax = 3;
+
     /// <summary>Run the full analysis in the default Casual / Standard-commander profile.</summary>
     public static ManabaseReport Analyze(ManabaseDeck deck)
         => Analyze(deck, ManabaseMode.Casual);
@@ -48,6 +54,27 @@ public static class ManabaseAnalyzer
             useManaQuantity: useManaQuantity,
             colorAwareMulligan: colorAwareMulligan,
             gateRampOnCastable: gateRampOnCastable);
+    }
+
+    /// <summary>
+    /// Build the taxed companion <see cref="SpellRequirement"/>: clamp the printed mana value to a
+    /// sane 0..20 range (guards adversarial API mana values), then add the +3 "to hand" tax. Pips and
+    /// gold-ness come from the printed cost. IsCommander is false (companion is outside the 99).
+    /// </summary>
+    public static SpellRequirement BuildCompanionSpell(string name, ParsedManaCost printedCost, double printedCmc)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(printedCost);
+        int clampedPrinted = Math.Clamp((int)Math.Round(printedCmc), 0, 20);
+        return new SpellRequirement
+        {
+            Name = name,
+            // HEURISTIC: companion access costs an extra CompanionToHandTax generic mana to move it to hand first.
+            ManaValue = clampedPrinted + CompanionToHandTax,
+            Pips = printedCost.Pips,
+            IsGold = printedCost.DistinctColors >= 2,
+            IsCommander = false,
+        };
     }
 
     /// <summary>Run the full analysis for a given mode (commander importance defaults to Standard).</summary>
