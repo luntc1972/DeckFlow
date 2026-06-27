@@ -107,6 +107,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// </summary>
     internal const string ReferenceDeckStatsFlag = "analysis.reference.deck-stats";
 
+    /// <summary>
+    /// Feature-flag key that, when enabled, names the full command zone — all partners/Background plus
+    /// any companion as side metadata — in the /deck-analysis prompt for all three AI variants.
+    /// Default-off (seeded FALSE); output is byte-identical when off. Unwired in Plan 73-01 (the flag,
+    /// companion parameter, and request field are registered here; rendering lands in later plans).
+    /// </summary>
+    internal const string CommandZoneAwarenessFlag = "analysis.command-zone-awareness";
+
     internal DeckAnalysisPacketService(
         IScryfallCardResolver scryfallCardResolver,
         IDeckEntryLoader deckEntryLoader,

@@ -37,6 +37,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.health-band-headline-floor", true)]
     [InlineData("analysis.manabase.plain-language-verdict", false)]
     [InlineData("analysis.manabase.commander-castability", false)]
+    [InlineData("analysis.command-zone-awareness", false)]
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);

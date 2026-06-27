@@ -66,6 +66,8 @@ public static class FeatureFlagCatalog
                 "Show a plain-language 'Reading your deck' verdict, friendly one-line explanations for each manabase metric, and (Casual only) a ramp vs. draw slot-budget advisory. Off by default; recommendations are heuristic and never change the land count, color counts, castability, or health rating.",
             ["analysis.manabase.commander-castability"] =
                 "Shows command-zone castability - individual cast probability for each commander/partner/background, plus (Casual only) a companion's on-curve chance including the +3 generic 'to hand' rule tax (a heuristic); off by default.",
+            ["analysis.command-zone-awareness"] =
+                "Names the full command zone - all partners/Background plus any companion as side metadata - in the /deck-analysis prompt for all three AI variants; off by default, output byte-identical when off.",
         };
 
     /// <summary>

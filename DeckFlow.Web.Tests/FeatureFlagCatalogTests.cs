@@ -39,6 +39,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.manabase.health-band-headline-floor")]
     [InlineData("analysis.manabase.plain-language-verdict")]
     [InlineData("analysis.manabase.commander-castability")]
+    [InlineData("analysis.command-zone-awareness")]
     public void Describe_EverySeededFlag_HasNonEmptyDescription(string key)
     {
         string description = FeatureFlagCatalog.Describe(key);
