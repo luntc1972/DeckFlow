@@ -135,8 +135,58 @@ public sealed class PrimerPromptVariantTests
         Assert.True(claudePrompt.Length > 32000, $"Expected Claude prompt > 32000 chars but was {claudePrompt.Length}.");
     }
 
+    [Fact]
+    public void ChatGpt_UsesSequentialDirectiveNumbers_ForNonContiguousSelection()
+    {
+        var selectedSections = SelectSections(
+            "archetype-and-table-role",
+            "win-conditions-overview",
+            "verified-combos");
+
+        var prompt = BuildPrompt("ChatGPT", selectedSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5);
+
+        Assert.Contains("### 1. Archetype and Table Role", prompt, StringComparison.Ordinal);
+        Assert.Contains("### 2. Win Conditions Overview", prompt, StringComparison.Ordinal);
+        Assert.Contains("### 3. Verified Combos", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("### 8. Verified Combos", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Claude_UsesSequentialDirectiveNumbers_ForNonContiguousSelection()
+    {
+        var selectedSections = SelectSections(
+            "archetype-and-table-role",
+            "win-conditions-overview",
+            "verified-combos");
+
+        var prompt = BuildPrompt("Claude", selectedSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5);
+
+        Assert.Contains("1. Archetype and Table Role", prompt, StringComparison.Ordinal);
+        Assert.Contains("2. Win Conditions Overview", prompt, StringComparison.Ordinal);
+        Assert.Contains("3. Verified Combos", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("8. Verified Combos", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gemini_UsesSequentialDirectiveNumbers_AcrossRenderedGroups()
+    {
+        var selectedSections = SelectSections(
+            "archetype-and-table-role",
+            "game-plan-by-phase",
+            "budget-cut-ladder");
+
+        var prompt = BuildPrompt("Gemini", selectedSections, SampleComboResult, SampleTop16Entries, bracketNumber: 5);
+
+        Assert.Contains("1. Archetype and Table Role —", prompt, StringComparison.Ordinal);
+        Assert.Contains("2. Game Plan by Phase —", prompt, StringComparison.Ordinal);
+        Assert.Contains("3. Budget Cut Ladder —", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("14. Game Plan by Phase —", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("27. Budget Cut Ladder —", prompt, StringComparison.Ordinal);
+    }
+
     private static string BuildPrompt(
         string platform,
+        IReadOnlyList<PrimerSectionEntry> selectedSections,
         CommanderSpellbookResult? comboResult,
         IReadOnlyList<EdhTop16Entry>? top16Entries,
         int bracketNumber,
@@ -150,14 +200,32 @@ public sealed class PrimerPromptVariantTests
             _ => throw new ArgumentOutOfRangeException(nameof(platform))
         };
 
+        var request = new DeckPrimerRequest
+        {
+            Format = SampleRequest.Format,
+            DeckName = SampleRequest.DeckName,
+            TargetCommanderBracket = SampleRequest.TargetCommanderBracket,
+            SelectedSectionIds = selectedSections.Select(section => section.Id).ToList()
+        };
+
         return variant.Build(
-            SampleRequest,
+            request,
             decklistText ?? CreateDecklist(),
-            AllSections,
+            selectedSections,
             comboResult,
             top16Entries,
             SampleCategoryDistribution,
             bracketNumber);
+    }
+
+    private static string BuildPrompt(
+        string platform,
+        CommanderSpellbookResult? comboResult,
+        IReadOnlyList<EdhTop16Entry>? top16Entries,
+        int bracketNumber,
+        string? decklistText = null)
+    {
+        return BuildPrompt(platform, AllSections, comboResult, top16Entries, bracketNumber, decklistText);
     }
 
     private static void AssertGenericBuckets(string prompt)
@@ -203,4 +271,7 @@ public sealed class PrimerPromptVariantTests
         => string.Join(
             Environment.NewLine,
             Enumerable.Range(1, 300).Select(index => $"1 Oversized Card {index} {new string('X', 80)}"));
+
+    private static IReadOnlyList<PrimerSectionEntry> SelectSections(params string[] ids)
+        => AllSections.Where(section => ids.Contains(section.Id, StringComparer.Ordinal)).ToList();
 }

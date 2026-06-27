@@ -62,10 +62,12 @@ internal sealed class ChatGptPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine();
         builder.AppendLine("## SECTION DIRECTIVES");
         builder.AppendLine("Write the primer in the numbered order below. Each section should be concrete, deck-specific, and useful to a pilot in real games.");
+        var sectionNumber = 1;
         foreach (var section in selectedSections)
         {
-            builder.AppendLine($"### {section.Number}. {section.Title}");
+            builder.AppendLine($"### {sectionNumber}. {section.Title}");
             builder.AppendLine(section.HelpText);
+            sectionNumber++;
         }
 
         builder.AppendLine();
