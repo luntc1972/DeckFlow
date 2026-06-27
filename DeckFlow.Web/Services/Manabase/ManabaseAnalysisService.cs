@@ -161,6 +161,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string PlainLanguageVerdictFlagKey = "analysis.manabase.plain-language-verdict";
 
+    /// <summary>
+    /// Phase-72 flag key: seeded OFF; gates the command-zone castability callout plus companion
+    /// modeling in Casual mode.
+    /// </summary>
+    public const string CommanderCastabilityFlagKey = "manabase.commander-castability";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;

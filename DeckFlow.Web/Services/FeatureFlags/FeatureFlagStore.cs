@@ -220,7 +220,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.land-ramp-sim', TRUE),
           ('analysis.manabase.health-band-castability', FALSE),
           ('analysis.manabase.health-band-headline-floor', TRUE),
-          ('analysis.manabase.plain-language-verdict', FALSE)
+          ('analysis.manabase.plain-language-verdict', FALSE),
+          ('manabase.commander-castability', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -250,7 +251,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.land-ramp-sim', 1),
           ('analysis.manabase.health-band-castability', 0),
           ('analysis.manabase.health-band-headline-floor', 1),
-          ('analysis.manabase.plain-language-verdict', 0)
+          ('analysis.manabase.plain-language-verdict', 0),
+          ('manabase.commander-castability', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 
