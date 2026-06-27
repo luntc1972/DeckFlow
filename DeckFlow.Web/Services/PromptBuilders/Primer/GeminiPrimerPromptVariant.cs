@@ -33,6 +33,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         var bracket = ResolveBracketLabel(bracketNumber);
         var builder = new StringBuilder();
         var omittedSections = new List<string>();
+        var emittedSectionNumbers = BuildEmittedSectionNumbers(selectedSections);
 
         builder.AppendLine("You are an expert Magic: The Gathering analyst and primer writer specializing in Commander.");
         builder.AppendLine("You produce pilot-facing primers that stay grounded in supplied deck, combo, and matchup evidence.");
@@ -63,16 +64,16 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine(DeckPrimerPacketService.BuildComboReferenceText(comboResult, "sufficient"));
         builder.AppendLine();
 
-        var identityBlock = BuildIdentityBlock(selectedSections);
+        var identityBlock = BuildIdentityBlock(selectedSections, emittedSectionNumbers);
         AppendIfFits(builder, identityBlock, "Identity", omittedSections);
 
-        var gameplayBlock = BuildGameplayBlock(selectedSections, decklistText);
+        var gameplayBlock = BuildGameplayBlock(selectedSections, decklistText, emittedSectionNumbers);
         AppendIfFits(builder, gameplayBlock, "Gameplay", omittedSections);
 
-        var matchupBlock = BuildMatchupBlock(selectedSections, top16Entries, bracketNumber);
+        var matchupBlock = BuildMatchupBlock(selectedSections, top16Entries, bracketNumber, emittedSectionNumbers);
         AppendIfFits(builder, matchupBlock, "Matchups", omittedSections);
 
-        var maintenanceBlock = BuildMaintenanceBlock(selectedSections);
+        var maintenanceBlock = BuildMaintenanceBlock(selectedSections, emittedSectionNumbers);
         AppendIfFits(builder, maintenanceBlock, "Maintenance", omittedSections);
 
         var outputBlock = BuildOutputBlock();
@@ -103,7 +104,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         omittedSections.Add(label);
     }
 
-    private static string BuildIdentityBlock(IReadOnlyList<PrimerSectionEntry> selectedSections)
+    private static string BuildIdentityBlock(IReadOnlyList<PrimerSectionEntry> selectedSections, IReadOnlyDictionary<string, int> emittedSectionNumbers)
     {
         var identitySections = selectedSections.Where(section => string.Equals(section.Group, "Identity", StringComparison.OrdinalIgnoreCase)).ToList();
         if (identitySections.Count == 0)
@@ -116,14 +117,14 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine("Write the following identity sections in numbered order. Keep each section concrete, deck-specific, and useful to a pilot in real games.");
         foreach (var section in identitySections)
         {
-            builder.AppendLine($"{section.Number}. {section.Title} — {section.HelpText}");
+            builder.AppendLine($"{emittedSectionNumbers[section.Id]}. {section.Title} — {section.HelpText}");
         }
 
         builder.AppendLine();
         return builder.ToString();
     }
 
-    private static string BuildGameplayBlock(IReadOnlyList<PrimerSectionEntry> selectedSections, string decklistText)
+    private static string BuildGameplayBlock(IReadOnlyList<PrimerSectionEntry> selectedSections, string decklistText, IReadOnlyDictionary<string, int> emittedSectionNumbers)
     {
         var gameplaySections = selectedSections.Where(section => string.Equals(section.Group, "Gameplay", StringComparison.OrdinalIgnoreCase)).ToList();
         if (gameplaySections.Count == 0)
@@ -136,7 +137,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine("Write the following gameplay sections in numbered order. Keep the advice grounded in the actual deck composition.");
         foreach (var section in gameplaySections)
         {
-            builder.AppendLine($"{section.Number}. {section.Title} — {section.HelpText}");
+            builder.AppendLine($"{emittedSectionNumbers[section.Id]}. {section.Title} — {section.HelpText}");
         }
 
         builder.AppendLine();
@@ -146,7 +147,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         return builder.ToString();
     }
 
-    private static string BuildMatchupBlock(IReadOnlyList<PrimerSectionEntry> selectedSections, IReadOnlyList<EdhTop16Entry>? top16Entries, int bracketNumber)
+    private static string BuildMatchupBlock(IReadOnlyList<PrimerSectionEntry> selectedSections, IReadOnlyList<EdhTop16Entry>? top16Entries, int bracketNumber, IReadOnlyDictionary<string, int> emittedSectionNumbers)
     {
         var matchupSections = selectedSections.Where(section => string.Equals(section.Group, "Matchups", StringComparison.OrdinalIgnoreCase)).ToList();
         if (matchupSections.Count == 0)
@@ -159,7 +160,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine("Write the following matchup sections in numbered order.");
         foreach (var section in matchupSections)
         {
-            builder.AppendLine($"{section.Number}. {section.Title} — {section.HelpText}");
+            builder.AppendLine($"{emittedSectionNumbers[section.Id]}. {section.Title} — {section.HelpText}");
         }
 
         builder.AppendLine();
@@ -188,7 +189,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         return builder.ToString();
     }
 
-    private static string BuildMaintenanceBlock(IReadOnlyList<PrimerSectionEntry> selectedSections)
+    private static string BuildMaintenanceBlock(IReadOnlyList<PrimerSectionEntry> selectedSections, IReadOnlyDictionary<string, int> emittedSectionNumbers)
     {
         var maintenanceSections = selectedSections.Where(section => string.Equals(section.Group, "Maintenance", StringComparison.OrdinalIgnoreCase)).ToList();
         if (maintenanceSections.Count == 0)
@@ -201,7 +202,7 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine("Write the following maintenance sections in numbered order.");
         foreach (var section in maintenanceSections)
         {
-            builder.AppendLine($"{section.Number}. {section.Title} — {section.HelpText}");
+            builder.AppendLine($"{emittedSectionNumbers[section.Id]}. {section.Title} — {section.HelpText}");
         }
 
         builder.AppendLine();
@@ -217,6 +218,28 @@ internal sealed class GeminiPrimerPromptVariant : IPrimerPromptVariant
         builder.AppendLine("Keep verified combos only in the known-combos section, keep speculative ideas separate, and keep matchup guidance grounded in the supplied targets.");
         builder.AppendLine();
         return builder.ToString();
+    }
+
+    private static IReadOnlyDictionary<string, int> BuildEmittedSectionNumbers(IReadOnlyList<PrimerSectionEntry> selectedSections)
+    {
+        var emittedSectionNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var sectionNumber = 1;
+
+        foreach (var section in selectedSections)
+        {
+            if (!string.Equals(section.Group, "Identity", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(section.Group, "Gameplay", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(section.Group, "Matchups", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(section.Group, "Maintenance", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            emittedSectionNumbers[section.Id] = sectionNumber;
+            sectionNumber++;
+        }
+
+        return emittedSectionNumbers;
     }
 
     private static string ResolveBracketLabel(int bracketNumber)
