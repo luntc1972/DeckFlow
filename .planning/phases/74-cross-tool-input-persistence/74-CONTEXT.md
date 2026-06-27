@@ -58,7 +58,9 @@ store to each tool's actual fields:
 - `ManabaseRequest`: `DeckInputSource` (enum), `DeckUrl`, `DeckText` (+ `DeckName`, not shared)
 - `MetaGapRequest`: `DeckSource` (single string = URL OR text) (+ `CommanderName`, not shared)
 - `DeckConvertRequest`: `InputSource`, `DeckUrl`, `DeckText` (+ formats, not shared)
-- `DeckPrimerRequest`: `DeckSource` (single string)
+- `DeckPrimerRequest`: `DeckInputSource` (enum), `DeckUrl`, `DeckText` (SPLIT, verified at
+  `DeckPrimer.cshtml:119-132` — NOT a combined single field)
+- **Only `MetaGapRequest` uses the combined single `DeckSource` field.**
 The shared TS module exposes a canonical `{inputSource, deckUrl, deckText}` and each
 tool's page script adapts to/from its own field IDs.
 
