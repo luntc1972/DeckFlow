@@ -2670,12 +2670,20 @@ label.field > span,
 }
 
 .manabase-verdict,
+.manabase-beta-notice,
+.manabase-cmd-castability,
 .manabase-rampdraw {
   margin: 0.75rem 0 0;
   padding: 0.85rem 1rem;
   border-radius: 12px;
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   background: var(--panel-soft-bg, var(--surface, transparent));
+}
+
+.manabase-beta-notice {
+  border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 10%, var(--panel-soft-bg, var(--surface, transparent)));
+  color: var(--ink, inherit);
 }
 
 .manabase-verdict--issues {
@@ -2724,6 +2732,23 @@ label.field > span,
   margin: 0.45rem 0 0;
   font-size: 0.8rem;
   color: var(--muted, #5a6472);
+}
+
+.manabase-cmd-castability {
+  border-left: 3px solid var(--accent-strong, var(--accent, #3858a6));
+}
+
+.manabase-cmd-castability-line {
+  margin: 0.35rem 0 0;
+  color: var(--ink, inherit);
+}
+
+.manabase-cmd-companion-glyph {
+  display: inline-block;
+  min-width: 0.9rem;
+  margin-right: 0.2rem;
+  color: var(--accent-strong, var(--accent, #3858a6));
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {

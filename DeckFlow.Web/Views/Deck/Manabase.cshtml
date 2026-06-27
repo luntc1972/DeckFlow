@@ -86,6 +86,13 @@
     <details class="manabase-overrides" @(Model.HasSuggestions || !string.IsNullOrWhiteSpace(Model.Request.CostOverridesText) ? "open" : null)>
         <summary>Reduced / alternative costs (optional)</summary>
         <div class="field">
+            <label for="manabase-companion-name">
+                Companion (optional) - auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.
+            </label>
+            <input id="manabase-companion-name" type="text" name="CompanionName" spellcheck="false" autocomplete="off"
+                   placeholder="e.g. Jegantha, the Wellspring" value="@(Model.CompanionCallout?.Name ?? Model.Request.CompanionName)" />
+        </div>
+        <div class="field">
             <label for="manabase-cost-overrides">
                 One per line as <code>Card Name: cost</code> — e.g. <code>Force of Will: 0</code> or
                 <code>Blasphemous Act: {R}</code>. Use this for pitch/free spells, board-scaling cards
@@ -161,7 +168,9 @@
         </div>
 
         @{
-            var castRows = report.Castability;
+            IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
+                ? report.Castability.Where(c => !c.IsCommander).ToList()
+                : report.Castability;
             var showRightLens = Model.ShowCastability && castRows.Count > 0;
             var showLeftLens = report.ColorFindings.Count > 0;
         }
@@ -243,6 +252,10 @@
             }
         </p>
 
+        <section class="manabase-beta-notice" role="note">
+            Heads up: manabase analysis is in beta. Treat the results as a guide, not gospel - numbers may be inaccurate.
+        </section>
+
         @if (Model.PlainLanguageVerdict is { } verdict)
         {
             <section class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")" aria-label="@verdict.Headline">
@@ -281,6 +294,28 @@
                     }
                 </p>
                 <p class="manabase-rampdraw-note">Community heuristic, not Karsten math. Threshold proxied from @thresholdProxy.</p>
+            </section>
+        }
+
+        @if (Model.ShowCommanderCastability && Model.ShowCastability && report.Castability.Any(c => c.IsCommander))
+        {
+            <section class="manabase-cmd-castability" aria-label="Command-zone castability">
+                <p class="manabase-verdict-heading">Command-zone castability</p>
+                @foreach (var c in report.Castability.Where(c => c.IsCommander))
+                {
+                    <p class="manabase-cmd-castability-line">
+                        <span class="manabase-cmd-glyph" title="commander" aria-label="commander">★</span>
+                        <strong>@c.Name</strong> casts on curve <strong>@c.CastPercent%</strong> of the time on turn @c.OnCurveTurn.
+                    </p>
+                }
+                @if (Model.CompanionCallout is { } comp)
+                {
+                    <p class="manabase-cmd-castability-line">
+                        <span class="manabase-cmd-companion-glyph" title="companion" aria-label="companion">+</span>
+                        <strong>@comp.Name</strong> casts on curve <strong>@comp.CastPercent%</strong> of the time on turn @comp.OnCurveTurn.
+                        This heuristic includes the +3 generic "to hand" tax as an approximation.
+                    </p>
+                }
             </section>
         }
 
@@ -427,7 +462,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var c in report.Castability)
+                        @foreach (var c in castRows)
                         {
                             var chip = ManabaseDisplay.CastChip(c.CastPercent);
                             <tr class="@(c.IsCommander ? "manabase-row--commander" : null)">
@@ -485,6 +520,7 @@
         <input type="hidden" name="DeckName" value="@Model.Request.DeckName" />
         <input type="hidden" name="Mode" value="@Model.Request.Mode" />
         <input type="hidden" name="CommanderImportance" value="@Model.Request.CommanderImportance" />
+        <input type="hidden" name="CompanionName" value="@Model.Request.CompanionName" />
         <input type="hidden" name="CostOverridesText" value="@Model.Request.CostOverridesText" />
         <button type="submit" class="run-button manabase-download-button" data-no-busy>Download analysis (.txt)</button>
     </form>
