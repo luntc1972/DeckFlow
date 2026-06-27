@@ -62,7 +62,7 @@ public static class FeatureFlagCatalog
                 "Let the deck's weakest color affect the overall health rating: if that color's hardest spell is cast below the target (80% Casual, 88% cEDH), it counts as a color problem and can drop the verdict from Solid to Workable. Off by default until the regression check passes.",
             ["analysis.manabase.health-band-headline-floor"] =
                 "Allow a deck with a strong average on-curve score to be nudged up from 'Needs work' to 'Workable', but only when it has a single minor color weakness, that color still casts acceptably, and there are no serious mana shortfalls. On by default.",
-            ["manabase.plain-language-verdict"] =
+            ["analysis.manabase.plain-language-verdict"] =
                 "Show a plain-language 'Reading your deck' verdict, friendly one-line explanations for each manabase metric, and (Casual only) a ramp vs. draw slot-budget advisory. Off by default; recommendations are heuristic and never change the land count, color counts, castability, or health rating.",
         };
 
