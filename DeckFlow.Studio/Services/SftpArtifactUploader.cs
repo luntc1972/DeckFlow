@@ -12,19 +12,13 @@ namespace DeckFlow.Studio.Services;
 /// in the returned results (never thrown) and failure reasons are sanitized so no host, key, or
 /// remote-path value can leak to logs or UI (D-07).
 /// </summary>
-public sealed class SftpArtifactUploader : ISshArtifactUploader
+public sealed class SftpArtifactUploader : SftpArtifactSessionBase, ISshArtifactUploader
 {
     // Why: the only failure string ever surfaced to the result/UI — never ex.Message, which can
     // carry the host or remote path (D-07 / Pitfall 3).
     private const string SanitizedFailureReason =
         "SSH upload failed — check SCP configuration and Render SSH access.";
 
-    private readonly string _host;
-    private readonly int _port;
-    private readonly string _username;
-    private readonly string _keyFile;
-    private readonly string? _keyPassphrase;
-    private readonly string _remoteArtifactRoot;
     private readonly ILogger<SftpArtifactUploader>? _logger;
 
     /// <summary>
@@ -34,15 +28,8 @@ public sealed class SftpArtifactUploader : ISshArtifactUploader
     /// <param name="configuration">Configuration providing the <c>Studio:Scp:*</c> section.</param>
     /// <param name="logger">Optional logger; failure details are never written with secret values.</param>
     public SftpArtifactUploader(IConfiguration configuration, ILogger<SftpArtifactUploader>? logger = null)
+        : base(configuration)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-
-        _host = configuration["Studio:Scp:Host"] ?? string.Empty;
-        _port = int.TryParse(configuration["Studio:Scp:Port"], out var port) ? port : 22;
-        _username = configuration["Studio:Scp:Username"] ?? string.Empty;
-        _keyFile = configuration["Studio:Scp:KeyFile"] ?? string.Empty;
-        _keyPassphrase = configuration["Studio:Scp:KeyPassphrase"]; // optional; null = no passphrase
-        _remoteArtifactRoot = NormalizeRoot(configuration["Studio:Scp:RemoteArtifactRoot"] ?? string.Empty);
         _logger = logger;
     }
 
@@ -54,61 +41,14 @@ public sealed class SftpArtifactUploader : ISshArtifactUploader
     {
         ArgumentNullException.ThrowIfNull(uploads);
 
-        var results = new List<SshUploadResult>(uploads.Count);
-
-        // Why: SftpClient is not thread-safe across concurrent calls — open ONE client per
-        // UploadArtifactsAsync invocation, upload sequentially, then disconnect (Pitfall 5).
-        SftpClient? client = null;
-        var connected = false;
-        try
-        {
-            using var privateKey = string.IsNullOrEmpty(_keyPassphrase)
-                ? new PrivateKeyFile(_keyFile)
-                : new PrivateKeyFile(_keyFile, _keyPassphrase);
-            client = new SftpClient(_host, _port, _username, privateKey);
-            client.Connect();
-            connected = true;
-
-            foreach (var request in uploads)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var result = UploadOne(client, request);
-                results.Add(result);
-                progress?.Report(result);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex) when (ex is SshException or IOException)
-        {
-            // Why: connect-level failure aborts the batch — mark every not-yet-attempted request
-            // failed with the sanitized reason; never surface ex.Message (D-07 / Pitfall 3).
-            _logger?.LogWarning("SFTP connection failed; marking remaining artifacts as failed.");
-            for (var i = results.Count; i < uploads.Count; i++)
-            {
-                var request = uploads[i];
-                var failed = new SshUploadResult(
-                    request.LocalPath, request.RemoteRelativePath, false, SanitizedFailureReason);
-                results.Add(failed);
-                progress?.Report(failed);
-            }
-        }
-        finally
-        {
-            if (client is not null)
-            {
-                if (connected)
-                {
-                    client.Disconnect();
-                }
-
-                client.Dispose();
-            }
-        }
-
-        return Task.FromResult<IReadOnlyList<SshUploadResult>>(results);
+        return RunSftpBatchAsync(
+            uploads,
+            UploadOne,
+            request => new SshUploadResult(
+                request.LocalPath, request.RemoteRelativePath, false, SanitizedFailureReason),
+            progress,
+            _logger,
+            cancellationToken);
     }
 
     private SshUploadResult UploadOne(SftpClient client, SshUploadRequest request)
@@ -143,52 +83,6 @@ public sealed class SftpArtifactUploader : ISshArtifactUploader
     }
 
     /// <summary>
-    /// Builds the absolute remote path from <see cref="_remoteArtifactRoot"/> + the relative
-    /// artifact path, rejecting rooted paths, <c>..</c> traversal, and any resolved path that does
-    /// not stay under the root.
-    /// </summary>
-    private bool TryBuildRemotePath(string remoteRelativePath, out string remotePath)
-    {
-        remotePath = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(remoteRelativePath))
-        {
-            return false;
-        }
-
-        var normalizedRelative = remoteRelativePath.Replace('\\', '/');
-
-        // Reject rooted paths (leading '/' or a Windows drive root) outright.
-        if (normalizedRelative.StartsWith('/') || Path.IsPathRooted(remoteRelativePath))
-        {
-            return false;
-        }
-
-        // Reject any '..' segment (traversal) before joining.
-        var segments = normalizedRelative.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Any(static segment => segment == ".."))
-        {
-            return false;
-        }
-
-        if (segments.Length == 0)
-        {
-            return false;
-        }
-
-        var candidate = CollapseSlashes($"{_remoteArtifactRoot}/{string.Join('/', segments)}");
-
-        // Confirm the resolved path stays strictly under the root (boundary-safe, not loose prefix).
-        if (candidate != _remoteArtifactRoot && !candidate.StartsWith(_remoteArtifactRoot + "/", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        remotePath = candidate;
-        return true;
-    }
-
-    /// <summary>
     /// Creates each missing directory level under the remote root. SFTP <c>CreateDirectory</c> does
     /// NOT create nested parents (Pitfall 6 / MEDIUM-3), so walk each <c>/</c>-segment.
     /// </summary>
@@ -199,7 +93,7 @@ public sealed class SftpArtifactUploader : ISshArtifactUploader
             return;
         }
 
-        var rootSegments = _remoteArtifactRoot.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var rootSegments = RemoteArtifactRoot.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var allSegments = remoteDir.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
         // Why: only create levels at or below the configured root; never attempt to create the
@@ -224,19 +118,5 @@ public sealed class SftpArtifactUploader : ISshArtifactUploader
     {
         var lastSlash = remotePath.LastIndexOf('/');
         return lastSlash <= 0 ? "/" : remotePath[..lastSlash];
-    }
-
-    private static string NormalizeRoot(string root)
-    {
-        var collapsed = CollapseSlashes(root.Replace('\\', '/'));
-        return collapsed.Length > 1 ? collapsed.TrimEnd('/') : collapsed;
-    }
-
-    private static string CollapseSlashes(string value)
-    {
-        var hadLeadingSlash = value.StartsWith('/');
-        var segments = value.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var joined = string.Join('/', segments);
-        return hadLeadingSlash ? "/" + joined : joined;
     }
 }
