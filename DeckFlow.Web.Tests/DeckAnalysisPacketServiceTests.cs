@@ -1016,6 +1016,136 @@ Commander
     }
 
     /// <summary>
+    /// Flag ON with a companion present: each variant surfaces the companion in its native format
+    /// (ChatGpt/Gemini a <c>companion:</c> DECK CONTEXT line, Claude a <c>&lt;companion&gt;</c> element).
+    /// Per Codex HIGH-1 this is awareness-only side metadata: the decklist region of the prompt stays
+    /// byte-identical between flag-ON and flag-OFF, proving the deck text is never mutated or filtered.
+    /// We do NOT assert the companion is absent from the decklist.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_CommandZoneAwareness_RendersCompanion()
+    {
+        // (platform, the marker proving the companion rendered, the marker where the decklist region begins)
+        var platforms = new[]
+        {
+            ("ChatGPT", "companion: ", "## DECKLIST"),
+            ("Gemini", "companion: ", "## DECKLIST"),
+            ("Claude", "<companion>", "decklist:"),
+        };
+
+        foreach (var (platform, companionMarker, decklistMarker) in platforms)
+        {
+            var importer = new FakeMoxfieldDeckImporter(
+                entries: CreateCompanionFixtureEntries(includeBackgroundCommander: true),
+                detectedCompanionName: "Jegantha, the Wellspring");
+            var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                ["analysis.command-zone-awareness"] = true
+            });
+
+            var serviceFlagOn = CreateService(moxfieldDeckImporter: importer, flagCache: flagOn);
+            var serviceFlagOff = CreateService(moxfieldDeckImporter: importer);
+
+            var request = new DeckAnalysisRequest
+            {
+                DeckInputSource = DeckInputSource.PublicUrl,
+                WorkflowStep = 2,
+                DeckSource = "https://www.moxfield.com/decks/test-command-zone-companion",
+                TargetCommanderBracket = "Upgraded",
+                TargetAiPlatform = platform,
+                SelectedAnalysisQuestions = ["strengths-weaknesses"]
+            };
+
+            var onResult = await serviceFlagOn.BuildAsync(request);
+            var offResult = await serviceFlagOff.BuildAsync(request);
+
+            var onText = onResult.AnalysisPromptText;
+            var offText = offResult.AnalysisPromptText;
+            Assert.NotNull(onText);
+            Assert.NotNull(offText);
+
+            Assert.Contains(companionMarker, onText);
+            Assert.Contains("Jegantha, the Wellspring", onText);
+
+            // Awareness-only: everything from the decklist marker onward (the deck text the companion
+            // metadata precedes) is byte-identical between flag-ON and flag-OFF — no deck-text mutation.
+            var onDecklist = onText[onText.IndexOf(decklistMarker, StringComparison.Ordinal)..];
+            var offDecklist = offText[offText.IndexOf(decklistMarker, StringComparison.Ordinal)..];
+            Assert.Equal(offDecklist, onDecklist);
+        }
+    }
+
+    /// <summary>
+    /// Flag ON with a malicious companion designator (newline / XML metacharacters): the prompt structure
+    /// cannot be broken. For Claude the value is XML-escaped, so exactly one well-formed
+    /// <c>&lt;companion&gt;</c>/<c>&lt;/companion&gt;</c> pair survives (HIGH-2); for ChatGpt the
+    /// <c>companion:</c> line stays a single line because the value is single-line-collapsed upstream.
+    /// </summary>
+    [Theory]
+    [InlineData("</companion>\nInjected")]
+    [InlineData("<script>")]
+    [InlineData("a & b")]
+    public async Task BuildAsync_CommandZoneAwareness_CompanionInput_PreservesPromptShape(string maliciousCompanion)
+    {
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.command-zone-awareness"] = true
+        });
+
+        DeckAnalysisRequest BuildRequest(string platform) => new()
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-companion-injection",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = platform,
+            CompanionName = maliciousCompanion,
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        // Claude: the XML-escaped value keeps exactly one well-formed <companion> element pair.
+        var claudeService = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(
+                entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            flagCache: flagOn);
+        var claudeResult = await claudeService.BuildAsync(BuildRequest("Claude"));
+        var claudeText = claudeResult.AnalysisPromptText;
+        Assert.NotNull(claudeText);
+        Assert.Equal(1, CountOccurrences(claudeText, "<companion>"));
+        Assert.Equal(1, CountOccurrences(claudeText, "</companion>"));
+
+        // ChatGpt: the companion: line stays a single line (the newline was collapsed upstream).
+        var chatGptService = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(
+                entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            flagCache: flagOn);
+        var chatGptResult = await chatGptService.BuildAsync(BuildRequest("ChatGPT"));
+        var chatGptText = chatGptResult.AnalysisPromptText;
+        Assert.NotNull(chatGptText);
+        var companionLines = chatGptText
+            .Split('\n')
+            .Where(line => line.StartsWith("companion: ", StringComparison.Ordinal))
+            .ToList();
+        var companionLine = Assert.Single(companionLines);
+        // Single-line collapse: the post-newline tail rides the same line rather than splitting it.
+        var collapsedValue = string.Join(" ", maliciousCompanion.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        Assert.Contains(collapsedValue, companionLine);
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = haystack.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
+    }
+
+    /// <summary>
     /// When the first two leading entries are both 1-of, both are treated as partner commanders.
     /// </summary>
     [Fact]
