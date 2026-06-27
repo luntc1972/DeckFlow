@@ -613,26 +613,53 @@ Plans:
 
 ---
 
-### Phase 72: Command-Zone Modeling & Commander Castability (ad-hoc trunk / main)
+### Phase 72: Command-Zone Modeling & Commander Castability (manabase tool only) (ad-hoc trunk / main)
 
 **Goal:** Correctly model the full command zone (partner pairs, commander+Background, and
-companion) and surface commander-cast clarity. Show each command-zone card's cast-on-ideal-turn %
-in a callout ABOVE the castability table, and MOVE the commander row(s) out of that table
-(recomputing its average). Companion is auto-detected from Archidekt/Moxfield import data where
-present (UI designator fallback for pasted text), modeled outside-the-99 with its +3 "to hand" tax.
-Also gives the deck-analysis page command-zone AWARENESS in its prompt artifact (name the
-commander(s)/partner, Background, companion across all 3 decoupled analysis variants) — awareness
-only, no castability callout there.
+companion) in the MANABASE TOOL and surface commander-cast clarity. Show each command-zone card's
+cast-on-ideal-turn % in a callout ABOVE the castability table, and MOVE the commander row(s) out of
+that table for DISPLAY (separate display-only average; `report.Castability`/Health untouched).
+Companion is auto-detected from Archidekt/Moxfield import data where present (UI designator fallback
+for pasted text + the Moxfield Commander-Spellbook fallback path), modeled outside-the-99 with its
++3 "to hand" tax (labeled a heuristic). Carries companion as INERT side metadata — NO remapped
+importer `Board`. Covers SPEC sections A–D, F, G.
+**Scope split (2026-06-27):** Section E (deck-analysis command-zone AWARENESS) moved to new Phase 73.
+This phase is manabase-surface only.
 **Depends on:** Phase 71 (shares the manabase verdict/flag/UI scaffolding + the ramp/draw threshold).
-**Decisions (2026-06-26):** commander row moves OUT of the table (callout only) · companion
+**Decisions (2026-06-26):** commander row moves OUT of the table (display-only callout) · companion
 auto-detect first (Archidekt Companion category / Moxfield companions board), salubrioussnail.com-style
 manual UI only as fallback · no +2 recast command tax (first-cast on curve), but the +3 companion tax IS modeled.
-**Source:** `.planning/phases/72-command-zone-commander-castability/72-SPEC.md` + user asks 2026-06-26.
-**Status:** 🟡 SPEC — not yet discussed/planned. Plan AFTER Phase 71 lands (depends on its scaffolding).
+**Source:** `.planning/phases/72-command-zone-commander-castability/72-SPEC.md` (§A–D, F, G) + user asks 2026-06-26.
+**Status:** 🟡 SPEC — planning in progress (research first). Plan AFTER Phase 71 lands (depends on its scaffolding).
 **Flag:** `manabase.commander-castability` (seeded OFF; flag OFF = prod byte-identical, commander stays in table).
 
 Plans:
-- [ ] 72-01 — TBD (run /gsd-plan-phase 72 after Phase 71; route PLAN through Codex review before execute)
+- [ ] 72-01 — TBD (run /gsd-plan-phase 72; route PLAN through Codex review before execute)
+
+---
+
+### Phase 73: Deck-Analysis Command-Zone Awareness (ad-hoc trunk / main)
+
+**Goal:** Give the `/deck-analysis` prompt artifact command-zone AWARENESS (awareness only — no
+castability callout, no on-page sim). Name the commander(s)/partner pair, the Background, and the
+companion (if any) in the generated analysis prompt so the AI treats the command zone correctly.
+Requires command-zone PLUMBING in `DeckAnalysisPacketService` first (today it surfaces a SINGULAR
+`commanderName` and the deck text only distinguishes Commander vs Mainboard), THEN renders it in all
+THREE decoupled prompt variants (ChatGpt/Claude/Gemini — do NOT extract a shared helper, ADR
+`0001-prompt-variants-decoupled.md`). Reuses Phase 72's command-zone detection + companion side-metadata.
+**Scope split (2026-06-27):** Carved out of original Phase 72 Section E so the deck-analysis plumbing
+ships independently of the manabase callout work.
+**Depends on:** Phase 72 (command-zone detection + companion side-metadata representation).
+**Decisions (2026-06-26/27):** awareness only · companion auto-detect-first (Archidekt/Moxfield direct),
+designator-UI fallback parity with manabase is a PLAN decision · companion carried as side metadata,
+NOT a remapped `Board` · edit all 3 variants, no shared helper.
+**Source:** `.planning/phases/72-command-zone-commander-castability/72-SPEC.md` (§E) + user asks 2026-06-26.
+**Status:** 🟡 SPEC — not yet planned. Plan AFTER Phase 72 lands.
+**Flag:** may share `manabase.commander-castability` or a deck-analysis-specific flag — PLAN decides;
+flag OFF → `DeckAnalysisPacketService` + all three variants byte-identical.
+
+Plans:
+- [ ] 73-01 — TBD (run /gsd-plan-phase 73 after Phase 72; route PLAN through Codex review before execute)
 
 ---
 
