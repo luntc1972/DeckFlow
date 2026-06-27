@@ -9,13 +9,32 @@ namespace DeckFlow.Web.Services.FeatureFlags;
 /// <see cref="RelationalDatabaseConnection"/> (Postgres in production, SQLite in tests
 /// and local-dev). Schema is lazy-initialized on first call via a SemaphoreSlim gate,
 /// mirroring AdminBruteForceTrackerStore. Seed list (Phase 6 D-09 + Phase 7 B3 + Phase 7.1
-/// CATFLAG-01 + Phase 66 TOGGLE-01/06) inserts default-on rows for 'scryfall.tagger.enabled',
-/// 'page.help.enabled', 'harvest.cron.enabled', and the public-tool visibility flags using
-/// ON CONFLICT (key) DO NOTHING so re-bootstrapping on an existing DB never overwrites
-/// operator changes (FLAG-01).
+/// CATFLAG-01 + Phase 66 TOGGLE-01/06) inserts default-on rows for
+/// 'service.scryfall-tagger.enabled', 'tool.help.enabled',
+/// 'service.harvest-cron.enabled', the public-tool visibility flags, and the
+/// analysis tuning flags. Before seeding, an idempotent rename migration carries
+/// legacy rows forward to the new key names so re-bootstrapping on an existing DB
+/// never overwrites operator changes (FLAG-01).
 /// </summary>
 public sealed class FeatureFlagStore : IFeatureFlagStore
 {
+    private static readonly (string OldKey, string NewKey)[] RenamedFlagKeys =
+    [
+        (Key("feature", "categories", "enabled"), "tool.categories.enabled"),
+        (Key("feature", "manabase", "enabled"), "tool.manabase.enabled"),
+        (Key("content", "kb", "enabled"), "tool.knowledge-base.enabled"),
+        (Key("page", "help", "enabled"), "tool.help.enabled"),
+        (Key("scryfall", "tagger", "enabled"), "service.scryfall-tagger.enabled"),
+        (Key("harvest", "cron", "enabled"), "service.harvest-cron.enabled"),
+        (Key("manabase", "source-mana-quantity"), "analysis.manabase.source-mana-quantity"),
+        (Key("manabase", "ramp-credit-v2"), "analysis.manabase.ramp-credit-v2"),
+        (Key("manabase", "color-aware-mulligan"), "analysis.manabase.color-aware-mulligan"),
+        (Key("manabase", "land-ramp-sim"), "analysis.manabase.land-ramp-sim"),
+        (Key("manabase", "health-band-castability"), "analysis.manabase.health-band-castability"),
+        (Key("manabase", "health-band-headline-floor"), "analysis.manabase.health-band-headline-floor"),
+        (Key("manabase", "plain-language-verdict"), "analysis.manabase.plain-language-verdict"),
+    ];
+
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
@@ -107,6 +126,24 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
                 await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            var now = DateTimeOffset.UtcNow;
+            foreach (var (oldKey, newKey) in RenamedFlagKeys)
+            {
+                var parameters = new DynamicParameters();
+                parameters.Add("old", oldKey);
+                parameters.Add("new", newKey);
+                parameters.Add("now", now);
+
+                await connection.ExecuteAsync(new CommandDefinition(
+                    RenameFlagSql,
+                    parameters,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+                await connection.ExecuteAsync(new CommandDefinition(
+                    DeleteLegacyFlagSql,
+                    parameters,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+
             await using (var seed = connection.CreateCommand())
             {
                 seed.CommandText = _connectionInfo.IsPostgres ? PostgresSeedSql : SqliteSeedSql;
@@ -145,16 +182,26 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
         );
         """;
 
+    private const string RenameFlagSql = """
+        UPDATE feature_flags SET key = @new, updated_at = @now
+         WHERE key = @old AND NOT EXISTS (SELECT 1 FROM feature_flags WHERE key = @new);
+        """;
+
+    private const string DeleteLegacyFlagSql = """
+        DELETE FROM feature_flags
+         WHERE key = @old AND EXISTS (SELECT 1 FROM feature_flags WHERE key = @new);
+        """;
+
     // D-09 seed. ON CONFLICT (key) DO NOTHING preserves operator-set values on
     // re-bootstrap so toggles survive app restarts (FLAG-01 default-on contract).
     private const string PostgresSeedSql = """
         INSERT INTO feature_flags (key, enabled) VALUES
-          ('scryfall.tagger.enabled', TRUE),
-          ('page.help.enabled', TRUE),
-          ('harvest.cron.enabled', TRUE),
-          ('feature.categories.enabled', TRUE),
-          ('content.kb.enabled', TRUE),
-          ('feature.manabase.enabled', TRUE),
+          ('service.scryfall-tagger.enabled', TRUE),
+          ('tool.help.enabled', TRUE),
+          ('service.harvest-cron.enabled', TRUE),
+          ('tool.categories.enabled', TRUE),
+          ('tool.knowledge-base.enabled', TRUE),
+          ('tool.manabase.enabled', TRUE),
           ('tool.deck-analysis.enabled', TRUE),
           ('tool.deck-comparison.enabled', TRUE),
           ('tool.cedh-meta-gap.enabled', TRUE),
@@ -167,24 +214,24 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.commander-categories.enabled', TRUE),
           ('analysis.reference.full-oracle-text', TRUE),
           ('analysis.reference.deck-stats', FALSE),
-          ('manabase.source-mana-quantity', TRUE),
-          ('manabase.ramp-credit-v2', TRUE),
-          ('manabase.color-aware-mulligan', TRUE),
-          ('manabase.land-ramp-sim', TRUE),
-          ('manabase.health-band-castability', FALSE),
-          ('manabase.health-band-headline-floor', TRUE),
+          ('analysis.manabase.source-mana-quantity', TRUE),
+          ('analysis.manabase.ramp-credit-v2', TRUE),
+          ('analysis.manabase.color-aware-mulligan', TRUE),
+          ('analysis.manabase.land-ramp-sim', TRUE),
+          ('analysis.manabase.health-band-castability', FALSE),
+          ('analysis.manabase.health-band-headline-floor', TRUE),
           ('manabase.plain-language-verdict', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
     private const string SqliteSeedSql = """
         INSERT INTO feature_flags (key, enabled) VALUES
-          ('scryfall.tagger.enabled', 1),
-          ('page.help.enabled', 1),
-          ('harvest.cron.enabled', 1),
-          ('feature.categories.enabled', 1),
-          ('content.kb.enabled', 1),
-          ('feature.manabase.enabled', 1),
+          ('service.scryfall-tagger.enabled', 1),
+          ('tool.help.enabled', 1),
+          ('service.harvest-cron.enabled', 1),
+          ('tool.categories.enabled', 1),
+          ('tool.knowledge-base.enabled', 1),
+          ('tool.manabase.enabled', 1),
           ('tool.deck-analysis.enabled', 1),
           ('tool.deck-comparison.enabled', 1),
           ('tool.cedh-meta-gap.enabled', 1),
@@ -197,12 +244,12 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.commander-categories.enabled', 1),
           ('analysis.reference.full-oracle-text', 1),
           ('analysis.reference.deck-stats', 0),
-          ('manabase.source-mana-quantity', 1),
-          ('manabase.ramp-credit-v2', 1),
-          ('manabase.color-aware-mulligan', 1),
-          ('manabase.land-ramp-sim', 1),
-          ('manabase.health-band-castability', 0),
-          ('manabase.health-band-headline-floor', 1),
+          ('analysis.manabase.source-mana-quantity', 1),
+          ('analysis.manabase.ramp-credit-v2', 1),
+          ('analysis.manabase.color-aware-mulligan', 1),
+          ('analysis.manabase.land-ramp-sim', 1),
+          ('analysis.manabase.health-band-castability', 0),
+          ('analysis.manabase.health-band-headline-floor', 1),
           ('manabase.plain-language-verdict', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
@@ -231,4 +278,6 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
 
         public required bool Enabled { get; set; }
     }
+
+    private static string Key(params string[] parts) => string.Join('.', parts);
 }
