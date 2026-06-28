@@ -83,4 +83,40 @@ public sealed class ContentKbOrchestratorFactoryTests : IDisposable
             new ThrowingTranscriptSource(),
             new ThrowingFfmpegAudioChunker()));
     }
+
+    [Fact]
+    public void Create_NullLister_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => ContentKbOrchestratorFactory.Create(
+            SqliteConnection(),
+            artifactRoot: "content-kb",
+            new ThrowingLlmDistillationService(),
+            lister: null!,
+            new ThrowingTranscriptSource(),
+            new ThrowingFfmpegAudioChunker()));
+    }
+
+    [Fact]
+    public void Create_NullTranscriptSource_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => ContentKbOrchestratorFactory.Create(
+            SqliteConnection(),
+            artifactRoot: "content-kb",
+            new ThrowingLlmDistillationService(),
+            new ThrowingYouTubeChannelVideoLister(),
+            transcriptSource: null!,
+            new ThrowingFfmpegAudioChunker()));
+    }
+
+    [Fact]
+    public void Create_NullChunker_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => ContentKbOrchestratorFactory.Create(
+            SqliteConnection(),
+            artifactRoot: "content-kb",
+            new ThrowingLlmDistillationService(),
+            new ThrowingYouTubeChannelVideoLister(),
+            new ThrowingTranscriptSource(),
+            chunker: null!));
+    }
 }

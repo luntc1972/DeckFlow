@@ -503,7 +503,15 @@ internal static class ContentKbCommandRunners
         ITranscriptSource transcriptSource,
         IFfmpegAudioChunker chunker)
     {
+        // Why: keep the original up-front guard order (all args validated before any path
+        // normalization) so the exception precedence is byte-identical to the pre-M4 code — a
+        // malformed dbPath must not throw before a blank artifactRoot/null service does (Codex MED).
         ArgumentException.ThrowIfNullOrWhiteSpace(dbPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(artifactRoot);
+        ArgumentNullException.ThrowIfNull(distiller);
+        ArgumentNullException.ThrowIfNull(lister);
+        ArgumentNullException.ThrowIfNull(transcriptSource);
+        ArgumentNullException.ThrowIfNull(chunker);
 
         // M4: the store-set + orchestrator graph is declared once in ContentKbOrchestratorFactory.
         // The SQLite path is just a connection built from the db path.
