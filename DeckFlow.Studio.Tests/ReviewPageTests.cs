@@ -60,6 +60,9 @@ public sealed class ReviewPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(store);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         Services.AddSingleton<PublishStateDeriver>();
+        // Why: the page now resolves its store I/O + artifact reads through ReviewCoordinator (H1
+        // split); the coordinator is built from the fakes registered above, so behavior is unchanged.
+        Services.AddSingleton<DeckFlow.Studio.ViewModels.ReviewCoordinator>();
 
         var cut = Render<Review>();
         return (cut, store);
