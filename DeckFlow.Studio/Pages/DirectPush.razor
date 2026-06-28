@@ -147,6 +147,7 @@ unlocks only after every file uploads.</p>
                                 <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
                                     <span class="badge bg-success">New: @_newCount</span>
                                     <span class="badge bg-primary">Updated: @_updatedCount</span>
+                                    <span class="badge bg-secondary">Unchanged: @_unchangedCount</span>
                                 </div>
                                 <dl class="row mb-2">
                                     <dt class="col-sm-4">Target:</dt>
@@ -376,7 +377,8 @@ unlocks only after every file uploads.</p>
                     @if (_dbSuccess)
                     {
                         <div class="alert alert-success py-2 mt-3">
-                            All @_rowResults.Count approved row(s) written to production and published visible.
+                            All @_rowResults.Count new/updated row(s) written to production and published visible.
+                            Unchanged rows were already up to date and were skipped.
                             is_evergreen on existing rows was preserved.
                         </div>
                     }
@@ -433,11 +435,17 @@ unlocks only after every file uploads.</p>
     private bool _diffReady;
     private int _newCount;
     private int _updatedCount;
+    private int _unchangedCount;
 
-    // Approved local rows cached for SCP + upsert steps
+    // All approved local rows (reference; SCP + DB operate on _publishRows only).
     private IReadOnlyList<ContentSiteIndexRow> _approvedRows = Array.Empty<ContentSiteIndexRow>();
 
-    // Per-row diff display rows
+    // Why (M2): only New + Updated rows are uploaded and written; Unchanged rows are skipped
+    // entirely — their artifacts were uploaded on a prior push and their content signature is
+    // identical to what is already in prod.
+    private IReadOnlyList<ContentSiteIndexRow> _publishRows = Array.Empty<ContentSiteIndexRow>();
+
+    // Per-row diff display rows (New + Updated only, shown in the diff table)
     private List<DiffRow> _diffRows = new();
 
     // ── Confirmation gate (D-09) ────────────────────────────────────────────
@@ -518,6 +526,8 @@ unlocks only after every file uploads.</p>
         _dbSuccess = false;
         _dbError = string.Empty;
         _rowResults = new();
+        _publishRows = Array.Empty<ContentSiteIndexRow>();
+        _unchangedCount = 0;
 
         try
         {
@@ -536,39 +546,55 @@ unlocks only after every file uploads.</p>
                 // Read prod rows (all rows regardless of visibility) — diff base
                 var prodRows = await prodStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
 
-                // In-memory natural-key diff (D-04)
-                var prodByKey = new HashSet<string>(
-                    prodRows.Select(r => r.YoutubeVideoId ?? r.RssGuid ?? string.Empty));
+                // Why (M2): content-aware diff — compare actual content columns so unchanged
+                // rows are excluded from both SCP upload and DB write, stopping no-op re-writes
+                // and reducing prod write surface. A HashSet presence check is insufficient
+                // because it classifies every existing key as "Updated" even if nothing changed.
+                var prodByKey = new Dictionary<string, ContentSiteIndexRow>(
+                    prodRows.Count,
+                    StringComparer.Ordinal);
+                foreach (var r in prodRows)
+                {
+                    var k = r.YoutubeVideoId ?? r.RssGuid ?? string.Empty;
+                    if (!string.IsNullOrEmpty(k))
+                    {
+                        prodByKey[k] = r;
+                    }
+                }
 
-                int newCount = 0, updatedCount = 0;
+                int newCount = 0, updatedCount = 0, unchangedCount = 0;
                 var diffRows = new List<DiffRow>();
+                var publishRows = new List<ContentSiteIndexRow>();
                 foreach (var row in localRows)
                 {
                     var (keyType, key) = DeriveNaturalKey(row);
-                    var isNew = !prodByKey.Contains(key);
-                    if (isNew)
+                    if (!prodByKey.TryGetValue(key, out var prodRow))
                     {
                         newCount++;
+                        publishRows.Add(row);
+                        diffRows.Add(new DiffRow(row.Title, keyType, key, true, Path.GetFileName(row.ArtifactPath)));
+                    }
+                    else if (!ContentSiteIndexContentSignature.AreContentEqual(row, prodRow))
+                    {
+                        updatedCount++;
+                        publishRows.Add(row);
+                        diffRows.Add(new DiffRow(row.Title, keyType, key, false, Path.GetFileName(row.ArtifactPath)));
                     }
                     else
                     {
-                        updatedCount++;
+                        // Unchanged: content signature matches — skip SCP and DB write entirely.
+                        unchangedCount++;
                     }
-
-                    diffRows.Add(new DiffRow(
-                        row.Title,
-                        keyType,
-                        key,
-                        isNew,
-                        Path.GetFileName(row.ArtifactPath)));
                 }
 
                 await InvokeAsync(() =>
                 {
                     _approvedRows = localRows;
+                    _publishRows = publishRows;
                     _diffRows = diffRows;
                     _newCount = newCount;
                     _updatedCount = updatedCount;
+                    _unchangedCount = unchangedCount;
                     _diffReady = true;
                     _diffComputeInFlight = false;
                     _operationInFlight = false;
@@ -613,10 +639,9 @@ unlocks only after every file uploads.</p>
         {
             await Task.Run(async () =>
             {
-                // Why: build a request per approved row pairing the absolute local path with the
-                // row's RELATIVE artifact path; the uploader builds + traversal-validates the
-                // remote target from RemoteRelativePath (Codex HIGH-1).
-                var requests = _approvedRows
+                // Why (M2): only _publishRows (New + Updated) are uploaded; Unchanged rows
+                // already have identical artifacts in prod from a prior push.
+                var requests = _publishRows
                     .Select(r => new SshUploadRequest(
                         Path.GetFullPath(Path.Combine(_dataRoot, r.ArtifactPath)),
                         r.ArtifactPath))
@@ -696,75 +721,70 @@ unlocks only after every file uploads.</p>
                 var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
                 var prodStore = ProdStoreFactory.Create(rawConnStr);
 
-                // Why: prod schema is web-app-managed (H3); the write path needs no DDL bootstrap.
-                var localResults = new List<RowResult>();
-                foreach (var row in _approvedRows)
-                {
-                    var (keyType, keyValue) = DeriveNaturalKey(row);
-                    try
-                    {
-                        // SC3 / D-08: only the content-columns-only upsert may run on prod — never a
-                        // full-row upsert (preserves is_visible / is_evergreen on existing rows).
-                        await prodStore.UpsertContentColumnsOnlyAsync(row, Cts.Token).ConfigureAwait(false);
-                        localResults.Add(new RowResult(row.Title, keyType, keyValue, true, null));
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        // Why: M3 — Npgsql can carry host/database/user in ex.Message (D-07 / SC5);
-                        // log full exception to the sink, surface sanitized "see logs" copy only.
-                        Logger.LogError(ex, "Prod content upsert failed for row {Title}", row.Title);
-                        localResults.Add(new RowResult(row.Title, keyType, keyValue, false,
-                            "Prod upsert failed for this row — see logs."));
-                    }
+                // Why (H4): single transactional batch call — one connection, one DbTransaction,
+                // all-or-nothing. Replaces the per-row loop that left prod partially written on
+                // mid-batch failure (T-qyc-01). Prod schema is web-app-managed (H3); no DDL here.
+                // SC3 / D-08: only the content-columns-only upsert may run on prod — never a
+                // full-row upsert (preserves is_visible / is_evergreen on existing rows).
+                await prodStore.UpsertContentColumnsOnlyBatchAsync(_publishRows, Cts.Token).ConfigureAwait(false);
 
-                    await InvokeAsync(() =>
+                // All rows succeeded — build result list and run stamp/visibility.
+                var successResults = _publishRows
+                    .Select(row =>
                     {
-                        _rowResults = localResults.ToList();
-                        SafeStateHasChanged();
-                    });
-                }
+                        var (keyType, keyValue) = DeriveNaturalKey(row);
+                        return new RowResult(row.Title, keyType, keyValue, true, null);
+                    })
+                    .ToList();
 
-                var allOk = localResults.All(r => r.Success);
-                if (allOk)
-                {
-                    var keys = _approvedRows
-                        .Select(row => ContentIndexExportRow.From(row))
-                        .Select(row => (
-                            Type: row.NaturalKeyType,
-                            Value: row.NaturalKeyValue))
-                        .ToList();
-                    var pushedUtc = DateTimeOffset.UtcNow;
+                var keys = _publishRows
+                    .Select(row => ContentIndexExportRow.From(row))
+                    .Select(row => (
+                        Type: row.NaturalKeyType,
+                        Value: row.NaturalKeyValue))
+                    .ToList();
+                var pushedUtc = DateTimeOffset.UtcNow;
 
-                    // Why: write PRODUCTION state first (stamp + publish-visible), then advance the
-                    // local store. If a prod write fails, the local row stays behind (un-stamped /
-                    // hidden) rather than deriving Published while prod is not — local must never
-                    // over-report prod (PUB-01/HIGH-3). DirectPush publishes its rows visible so both
-                    // the prod /Admin and Studio surfaces derive Published once local catches up.
-                    await prodStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
-                    await prodStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
-                    await IndexStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
-                    await IndexStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
-                }
+                // Why: write PRODUCTION state first (stamp + publish-visible), then advance the
+                // local store. If a prod write fails, the local row stays behind (un-stamped /
+                // hidden) rather than deriving Published while prod is not — local must never
+                // over-report prod (PUB-01/HIGH-3). DirectPush publishes its rows visible so both
+                // the prod /Admin and Studio surfaces derive Published once local catches up.
+                await prodStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
+                await prodStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
+                await IndexStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
+                await IndexStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
 
                 await InvokeAsync(() =>
                 {
-                    _rowResults = localResults;
-                    _dbSuccess = allOk;
-                    if (!allOk)
-                    {
-                        _dbError = "Database upsert finished with failures — see the per-row list below. " +
-                                   "Artifacts already uploaded successfully; reconcile only the failed rows.";
-                    }
-
+                    _rowResults = successResults;
+                    _dbSuccess = true;
                     _dbInFlight = false;
                     _operationInFlight = false;
                     SafeStateHasChanged();
                 });
             }, Cts.Token);
+        }
+        catch (ContentSiteIndexBatchUpsertException ex)
+        {
+            // Why: ContentSiteIndexBatchUpsertException carries only the failing row's non-secret
+            // title; the underlying DB exception (host/db/credentials) stays in InnerException and
+            // goes only to the log sink (D-07 / SC5 / T-qyc-02). The entire batch was rolled back
+            // on any row failure — stamp/visibility MUST NOT run (PUB-01 / T-qyc-04).
+            Logger.LogError(ex, "Prod batch upsert rolled back at row {Title}", ex.FailedRowTitle);
+            var rollbackResults = _publishRows
+                .Select(row =>
+                {
+                    var (keyType, keyValue) = DeriveNaturalKey(row);
+                    return new RowResult(row.Title, keyType, keyValue, false, "Rolled back — not written");
+                })
+                .ToList();
+            _rowResults = rollbackResults;
+            _dbError = $"Row '{ex.FailedRowTitle}' failed — the entire batch was rolled back. " +
+                       "NOTHING was written to production. See logs.";
+            _dbInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException)
         {
