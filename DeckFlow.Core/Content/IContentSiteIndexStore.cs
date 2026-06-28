@@ -195,4 +195,22 @@ public interface IContentSiteIndexStore
         IReadOnlyList<(string Type, string Value)> keys,
         bool visible,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts or updates content/nav columns only for every row in <paramref name="rows"/>
+    /// inside a single <see cref="System.Data.Common.DbTransaction"/> — all-or-nothing.
+    /// Never touches <c>is_visible</c>, <c>is_hidden</c>, <c>is_evergreen</c>, or
+    /// <c>approval_status</c> on existing rows (D-08 / T-qyc-03).
+    /// </summary>
+    /// <param name="rows">Rows to upsert; empty list is a no-op.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ContentSiteIndexBatchUpsertException">
+    /// Thrown after rolling back the transaction when any row fails validation or the DB
+    /// upsert throws. Carries the failing row's title and natural key (non-secret) with the
+    /// underlying DB exception as <see cref="Exception.InnerException"/> for the log sink.
+    /// </exception>
+    Task UpsertContentColumnsOnlyBatchAsync(
+        IReadOnlyList<ContentSiteIndexRow> rows,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support batch content upsert.");
 }
