@@ -1,6 +1,7 @@
 @model DeckFlow.Web.Models.DeckAnalysisViewModel
 @{
-    ViewData["Title"] = "Deck Analysis";
+    ViewData["Title"] = "MTG Commander Deck Analysis for ChatGPT";
+    ViewData["Description"] = "Generate a ChatGPT-ready analysis prompt for your Commander deck. Paste an Archidekt or Moxfield deck and get a structured AI review in one round-trip.";
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;

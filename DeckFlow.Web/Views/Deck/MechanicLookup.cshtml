@@ -1,7 +1,8 @@
 @model DeckFlow.Web.Models.MechanicLookupViewModel
 @{
     var hasResult = !string.IsNullOrWhiteSpace(Model.RulesText);
-    ViewData["Title"] = "Mechanic Rules";
+    ViewData["Title"] = "MTG Keyword & Mechanic Rules Lookup";
+    ViewData["Description"] = "Look up the official rules for any Magic: The Gathering keyword or mechanic. Fast reference for Commander and cEDH players mid-game.";
 }
 
 <section class="hero">

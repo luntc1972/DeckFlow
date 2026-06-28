@@ -21,7 +21,8 @@
     targetUsesArchidektVersion = string.Equals(targetName, "Archidekt", StringComparison.OrdinalIgnoreCase);
     var sourceLabelKind = string.Equals(sourceName, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "categories" : "tags";
     var targetLabelKind = string.Equals(targetName, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "categories" : "tags";
-    ViewData["Title"] = "Deck Sync";
+    ViewData["Title"] = "Sync MTG Decks Between Archidekt & Moxfield";
+    ViewData["Description"] = "Compare two Commander decks and see exactly which cards were added or cut. Pulls live deck lists from Archidekt and Moxfield. Free, no signup.";
 }
 
 <section class="hero">

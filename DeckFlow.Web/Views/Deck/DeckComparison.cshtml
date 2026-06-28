@@ -1,6 +1,7 @@
 @model DeckFlow.Web.Models.DeckComparisonViewModel
 @{
-    ViewData["Title"] = "Deck Comparison";
+    ViewData["Title"] = "Compare Two MTG Commander Decks with AI";
+    ViewData["Description"] = "Compare two Commander decks side by side and generate a ChatGPT-ready prompt to decide which build is stronger. Built for cEDH deck-builders.";
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;

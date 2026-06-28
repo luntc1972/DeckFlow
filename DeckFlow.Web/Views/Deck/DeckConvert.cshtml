@@ -2,7 +2,8 @@
 @{
     var inputSource = Model.Request.InputSource;
     var isMoxfieldSource = string.Equals(Model.Request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase);
-    ViewData["Title"] = "Convert Deck";
+    ViewData["Title"] = "Convert MTG Deck Lists: Moxfield & Archidekt";
+    ViewData["Description"] = "Convert a Magic: The Gathering deck list between Moxfield and Archidekt formats instantly. Paste your decklist, copy the converted output.";
 }
 
 <section class="hero">

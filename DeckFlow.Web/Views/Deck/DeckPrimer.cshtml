@@ -2,7 +2,8 @@
 @using System.Text.Json
 @model DeckFlow.Web.Models.DeckPrimerViewModel
 @{
-    ViewData["Title"] = "Deck Primer";
+    ViewData["Title"] = "Generate an MTG Commander Deck Primer";
+    ViewData["Description"] = "Turn your Commander decklist into a ChatGPT-ready primer prompt covering strategy, lines, and key combos. Paste from Archidekt or Moxfield.";
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var selectedBracket = DeckFlow.Web.Models.CommanderBracketCatalog.Find(Model.Request.TargetCommanderBracket)
