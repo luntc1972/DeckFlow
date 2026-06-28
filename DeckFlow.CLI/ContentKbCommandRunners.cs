@@ -504,29 +504,16 @@ internal static class ContentKbCommandRunners
         IFfmpegAudioChunker chunker)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dbPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(artifactRoot);
-        ArgumentNullException.ThrowIfNull(distiller);
-        ArgumentNullException.ThrowIfNull(lister);
-        ArgumentNullException.ThrowIfNull(transcriptSource);
-        ArgumentNullException.ThrowIfNull(chunker);
 
-        return new ContentKbOrchestrator(
-            new ContentSourceStore(dbPath),
-            new ContentVideoStore(dbPath),
-            new ContentSiteIndexStore(dbPath),
-            new BlockedVideoStore(dbPath),
-            new ContentHarvestRunStore(dbPath),
-            new LlmSpendLedger(dbPath),
-            new WhisperSpendLedger(dbPath),
+        // M4: the store-set + orchestrator graph is declared once in ContentKbOrchestratorFactory.
+        // The SQLite path is just a connection built from the db path.
+        return ContentKbOrchestratorFactory.Create(
+            RelationalDatabaseConnection.FromSqlitePath(dbPath),
+            artifactRoot,
             distiller,
             lister,
             transcriptSource,
-            chunker,
-            () => DateTimeOffset.UtcNow,
-            new ContentKbOrchestratorOptions
-            {
-                ArtifactRoot = artifactRoot,
-            });
+            chunker);
     }
 
     private static ContentKbOrchestrator CreateConnectionOrchestrator(
@@ -537,30 +524,14 @@ internal static class ContentKbCommandRunners
         ITranscriptSource transcriptSource,
         IFfmpegAudioChunker chunker)
     {
-        ArgumentNullException.ThrowIfNull(connection);
-        ArgumentException.ThrowIfNullOrWhiteSpace(artifactRoot);
-        ArgumentNullException.ThrowIfNull(distiller);
-        ArgumentNullException.ThrowIfNull(lister);
-        ArgumentNullException.ThrowIfNull(transcriptSource);
-        ArgumentNullException.ThrowIfNull(chunker);
-
-        return new ContentKbOrchestrator(
-            new ContentSourceStore(connection),
-            new ContentVideoStore(connection),
-            new ContentSiteIndexStore(connection),
-            new BlockedVideoStore(connection),
-            new ContentHarvestRunStore(connection),
-            new LlmSpendLedger(connection),
-            new WhisperSpendLedger(connection),
+        // M4: same single-source graph as the SQLite path, over the supplied connection.
+        return ContentKbOrchestratorFactory.Create(
+            connection,
+            artifactRoot,
             distiller,
             lister,
             transcriptSource,
-            chunker,
-            () => DateTimeOffset.UtcNow,
-            new ContentKbOrchestratorOptions
-            {
-                ArtifactRoot = artifactRoot,
-            });
+            chunker);
     }
 
     private static int WriteErrorAndReturn(string? message, int exitCode)
