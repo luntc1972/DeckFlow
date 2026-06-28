@@ -25,6 +25,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 
     public List<(IReadOnlyList<(string Type, string Value)> Keys, bool Visible)> VisibilityKeyCalls { get; } = new();
 
+    // Batch-upsert call tracking
+    public List<IReadOnlyList<ContentSiteIndexRow>> BatchUpsertCalls { get; } = new();
+
     // ── Fault-injection hooks (47-03) ─────────────────────────────────────────
     // Natural keys (YoutubeVideoId ?? RssGuid) that should throw from the content-columns-only
     // upsert; drives the per-row partial-failure + HIGH-2 secret-leak tests.
@@ -74,6 +77,40 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         }
 
         Rows.Add(row);
+        return Task.CompletedTask;
+    }
+
+    public Task UpsertContentColumnsOnlyBatchAsync(
+        IReadOnlyList<ContentSiteIndexRow> rows,
+        CancellationToken cancellationToken = default)
+    {
+        UpsertMethodCalls.Add("UpsertContentColumnsOnlyBatchAsync");
+        BatchUpsertCalls.Add(rows);
+
+        // Why: true all-or-nothing in-memory — scan ALL rows for a fail key before adding ANY
+        // to Rows, mirroring the transactional rollback semantics of the real implementation.
+        // A partial-add followed by an exception would leave Rows in an inconsistent state.
+        foreach (var row in rows)
+        {
+            var key = row.YoutubeVideoId ?? row.RssGuid ?? string.Empty;
+            if (KeysToFailOnUpsert.Contains(key))
+            {
+                // Throw without adding any row — no partial state.
+                throw new ContentSiteIndexBatchUpsertException(
+                    row.Title,
+                    row.YoutubeVideoId is not null ? ContentSourceType.Youtube : ContentSourceType.Podcast,
+                    key,
+                    $"Simulated batch rollback at row '{row.Title}'",
+                    new InvalidOperationException(UpsertFailureMessage));
+            }
+        }
+
+        // All rows passed — add all.
+        foreach (var row in rows)
+        {
+            Rows.Add(row);
+        }
+
         return Task.CompletedTask;
     }
 

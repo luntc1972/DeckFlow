@@ -139,9 +139,11 @@ public sealed class DirectPushPageTests : BunitContext
     [Fact]
     public void DirectPush_DiffPreview_ShowsNewUpdatedCounts()
     {
-        // PUB-05/SC1: 1 new key + 1 key already in prod -> New: 1, Updated: 1.
-        var local = new[] { MakeApprovedRow(1, "vid-new"), MakeApprovedRow(2, "vid-existing") };
-        var prod = new[] { MakeApprovedRow(2, "vid-existing") };
+        // PUB-05/SC1 (M2): 1 new key + 1 key in prod with different title -> New: 1, Updated: 1.
+        // Why (M2): the prod row must have different content (title) from the local row so it is
+        // classified as Updated rather than Unchanged (content-aware diff, not presence-only).
+        var local = new[] { MakeApprovedRow(1, "vid-new"), MakeApprovedRow(2, "vid-existing") with { Title = "New Title" } };
+        var prod = new[] { MakeApprovedRow(2, "vid-existing") with { Title = "Old Title" } };
         var (cut, _, _, _, _, _) = RenderDirectPush(local, prod);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
@@ -215,7 +217,8 @@ public sealed class DirectPushPageTests : BunitContext
     [Fact]
     public void DirectPush_UsesContentColumnsOnlyUpsert()
     {
-        // PUB-04/SC3/D-08: only UpsertContentColumnsOnlyAsync runs on the prod store.
+        // PUB-04/SC3/D-08 (H4): only UpsertContentColumnsOnlyBatchAsync runs on the prod store
+        // (a single batch call replaces the old per-row loop — H4 transactional batch).
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var (cut, _, prodStore, _, _, _) = RenderDirectPush(local);
 
@@ -229,7 +232,9 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Equal(2, prodStore.UpsertMethodCalls.Count(c => c == "UpsertContentColumnsOnlyAsync"));
+            // Exactly one batch call (not per-row calls).
+            Assert.Equal(1, prodStore.UpsertMethodCalls.Count(c => c == "UpsertContentColumnsOnlyBatchAsync"));
+            Assert.DoesNotContain("UpsertContentColumnsOnlyAsync", prodStore.UpsertMethodCalls);
             Assert.DoesNotContain("UpsertRowAsync", prodStore.UpsertMethodCalls);
             Assert.DoesNotContain("UpsertRowPreservingVisibilityAsync", prodStore.UpsertMethodCalls);
         });
@@ -259,9 +264,13 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_DbPartialFailure_PerRowListShown()
+    public void DirectPush_DbBatchFailure_AllOrNothingRollback_MessageShown()
     {
-        // PUB-05/SC4: one failed row -> per-row Failed; SCP success summary not re-locked/removed.
+        // PUB-05/SC4 (H4): batch throws ContentSiteIndexBatchUpsertException → all-or-nothing:
+        // zero rows committed, failure rows show "Rolled back", rollback copy shown.
+        // SCP success summary still present — Stage 2 not re-locked.
+        // Why (H4): replaced per-row partial-failure model; a single failure rolls back the
+        // entire batch rather than leaving prod partially written.
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var prodStore = new FakeContentSiteIndexStore();
         prodStore.KeysToFailOnUpsert.Add("vid2");
@@ -276,11 +285,14 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            // Per-row failure surfaced.
-            Assert.Contains("Failed", cut.Markup);
-            Assert.Contains("reconcile only the failed rows", cut.Markup);
+            // Rollback message shown (all-or-nothing).
+            Assert.Contains("NOTHING was written to production", cut.Markup);
+            // Per-row "Rolled back" status shown.
+            Assert.Contains("Rolled back", cut.Markup);
             // SCP success summary still present — Stage 2 not re-locked.
             Assert.Contains("uploaded to production /data", cut.Markup);
+            // Zero rows committed.
+            Assert.Empty(prodStore.Rows);
         });
     }
 
@@ -354,8 +366,9 @@ public sealed class DirectPushPageTests : BunitContext
     [Fact]
     public void DirectPush_DbWriteFailure_SecretsNeverSurface()
     {
-        // Codex HIGH-2: prod upsert throws a sentinel-bearing message on one row -> sanitized
-        // Reason cell shown, none of the sentinel substrings reach the markup.
+        // Codex HIGH-2 (H4): prod batch upsert throws ContentSiteIndexBatchUpsertException
+        // carrying a sentinel-bearing UpsertFailureMessage in InnerException → sanitized
+        // rollback copy shown; none of the sentinel substrings reach the markup (D-07 / SC5).
         var local = new[] { MakeApprovedRow(1, "vid1") };
         var prodStore = new FakeContentSiteIndexStore { UpsertFailureMessage = SentinelSecret };
         prodStore.KeysToFailOnUpsert.Add("vid1");
@@ -368,7 +381,8 @@ public sealed class DirectPushPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
 
-        cut.WaitForAssertion(() => Assert.Contains("Prod upsert failed for this row", cut.Markup));
+        // H4 rollback copy — never "reconcile only the failed rows" (that was pre-H4).
+        cut.WaitForAssertion(() => Assert.Contains("NOTHING was written to production", cut.Markup));
 
         foreach (var s in SentinelSubstrings)
         {
@@ -500,6 +514,179 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.Equal(2, localStore.VisibilityKeyCalls[0].Keys.Count);
             Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
             Assert.All(prodStore.Rows, row => Assert.True(row.IsVisible));
+        });
+    }
+
+    // ── M2: content-aware diff classification ─────────────────────────────────
+
+    [Fact]
+    public void M2_ComputeDiff_ClassifiesNewUpdatedUnchanged_Correctly()
+    {
+        // New: key absent from prod.
+        // Updated: key present in prod but title differs (content changed).
+        // Unchanged: key present in prod with identical content signature.
+        var localNew = MakeApprovedRow(1, "vid-new");
+        var localUpdated = MakeApprovedRow(2, "vid-updated") with { Title = "Updated Title" };
+        var localUnchanged = MakeApprovedRow(3, "vid-unchanged");
+
+        // Prod has "vid-updated" with a different title and "vid-unchanged" with the exact same content.
+        var prodUpdated = MakeApprovedRow(2, "vid-updated") with { Title = "Old Title" };
+        var prodUnchanged = MakeApprovedRow(3, "vid-unchanged");
+
+        var local = new[] { localNew, localUpdated, localUnchanged };
+        var prod = new[] { prodUpdated, prodUnchanged };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, prod);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("New: 1", cut.Markup);
+            Assert.Contains("Updated: 1", cut.Markup);
+            Assert.Contains("Unchanged: 1", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void M2_BatchWrite_ExcludesUnchangedRows()
+    {
+        // Only New + Updated rows must be passed to the batch upsert; Unchanged is excluded.
+        var localNew = MakeApprovedRow(1, "vid-new");
+        var localUpdated = MakeApprovedRow(2, "vid-updated") with { Title = "Updated Title" };
+        var localUnchanged = MakeApprovedRow(3, "vid-unchanged");
+
+        var prodUpdated = MakeApprovedRow(2, "vid-updated") with { Title = "Old Title" };
+        var prodUnchanged = MakeApprovedRow(3, "vid-unchanged");
+
+        var local = new[] { localNew, localUpdated, localUnchanged };
+        var prod = new[] { prodUpdated, prodUnchanged };
+        var (cut, _, prodStore, _, _, _) = RenderDirectPush(local, prod);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(prodStore.BatchUpsertCalls);
+            var batchRows = prodStore.BatchUpsertCalls[0];
+            Assert.Equal(2, batchRows.Count);
+            Assert.Contains(batchRows, r => r.YoutubeVideoId == "vid-new");
+            Assert.Contains(batchRows, r => r.YoutubeVideoId == "vid-updated");
+            Assert.DoesNotContain(batchRows, r => r.YoutubeVideoId == "vid-unchanged");
+        });
+    }
+
+    [Fact]
+    public void M2_AllUnchanged_Stage2And3CardsDoNotRender()
+    {
+        // When every approved local row matches prod by content signature, Stage 2 and 3 must
+        // not render (no publish needed), and the "already up to date" copy must show.
+        var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
+        var prod = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
+        var (cut, _, prodStore, _, _, _) = RenderDirectPush(local, prod);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Diff Preview", cut.Markup);
+            Assert.Contains("already up to date", cut.Markup);
+            // Stage 2 and 3 upload/write buttons must not be rendered.
+            Assert.DoesNotContain("Upload Artifacts to Prod /data", cut.Markup);
+            Assert.DoesNotContain("Write Approved Rows to Prod DB", cut.Markup);
+            // No batch call was made.
+            Assert.Empty(prodStore.BatchUpsertCalls);
+        });
+    }
+
+    // ── H4: atomic batch commit ───────────────────────────────────────────────
+
+    [Fact]
+    public void H4_Success_BatchMethodCalled_AllRowsWritten_StampAndVisibilityRan()
+    {
+        // H4: all publish rows pass through a single batch call; stamp + visibility run on success.
+        var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            // Exactly one batch call with both rows.
+            Assert.Single(prodStore.BatchUpsertCalls);
+            Assert.Equal(2, prodStore.BatchUpsertCalls[0].Count);
+
+            // All rows show "Written" in the per-row table.
+            Assert.Contains("Written", cut.Markup);
+
+            // Stamp and visibility ran on both stores.
+            Assert.Single(prodStore.StampCalls);
+            Assert.Single(localStore.StampCalls);
+            Assert.Single(prodStore.VisibilityKeyCalls);
+            Assert.Single(localStore.VisibilityKeyCalls);
+        });
+    }
+
+    // ── H4: atomic batch rollback ────────────────────────────────────────────
+
+    [Fact]
+    public void H4_BatchRollback_ZeroRowsCommitted_TitleSurfaced_NoSecretLeak_NoStamp()
+    {
+        // H4: when the batch throws ContentSiteIndexBatchUpsertException, ZERO rows are committed,
+        // the failing row's title appears in the UI, nothing was written message shows, no secret
+        // substrings reach the markup, and stamp/visibility were NOT called.
+        var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2-bad") };
+        var prodStore = new FakeContentSiteIndexStore { UpsertFailureMessage = SentinelSecret };
+        prodStore.KeysToFailOnUpsert.Add("vid2-bad");
+        var (cut, localStore, _, _, _, capturedLog) = RenderDirectPush(local, prodStoreOverride: prodStore);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            // Prod store committed ZERO rows (all-or-nothing rollback).
+            Assert.Empty(prodStore.Rows);
+
+            // Failing row title surfaced.
+            Assert.Contains("Video 2", cut.Markup);
+
+            // "nothing was written" copy present.
+            Assert.Contains("NOTHING was written to production", cut.Markup);
+
+            // SentinelSecret substrings must NOT reach the markup (D-07 / SC5 / T-qyc-02).
+            foreach (var s in SentinelSubstrings)
+            {
+                Assert.DoesNotContain(s, cut.Markup);
+            }
+
+            // Exception must have been logged (so "see logs" guidance is true).
+            var errorEntries = capturedLog.Entries
+                .Where(e => e.Level == LogLevel.Error && e.Exception is not null)
+                .ToList();
+            Assert.True(errorEntries.Count >= 1,
+                "Expected at least one Error-level log entry with an exception from the batch rollback");
+
+            // Stamp and visibility must NOT have run (PUB-01 / T-qyc-04).
+            Assert.Empty(prodStore.StampCalls);
+            Assert.Empty(localStore.StampCalls);
+            Assert.Empty(prodStore.VisibilityKeyCalls);
+            Assert.Empty(localStore.VisibilityKeyCalls);
         });
     }
 }
