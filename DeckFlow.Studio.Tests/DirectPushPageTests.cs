@@ -7,8 +7,39 @@ using DeckFlow.Studio.Pages;
 using DeckFlow.Studio.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Studio.Tests;
+
+// Why: M3 — minimal ILogger capture so tests can assert that exceptions reach the Serilog
+// sink via ILogger (not the markup), without pulling in a heavyweight logging library.
+internal sealed class CapturingLogger : ILogger
+{
+    public List<(LogLevel Level, Exception? Exception, string Message)> Entries { get; } = new();
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        Entries.Add((logLevel, exception, formatter(state, exception)));
+    }
+}
+
+internal sealed class CapturingLoggerProvider : ILoggerProvider
+{
+    public CapturingLogger Logger { get; } = new();
+
+    public ILogger CreateLogger(string categoryName) => Logger;
+
+    public void Dispose() { }
+}
 
 /// <summary>
 /// bUnit behavioral tests for DirectPush.razor (Direct Prod-DB + SCP publish path).
@@ -49,7 +80,8 @@ public sealed class DirectPushPageTests : BunitContext
              FakeContentSiteIndexStore LocalStore,
              FakeContentSiteIndexStore ProdStore,
              FakeSshArtifactUploader Uploader,
-             FakeProdStoreFactory ProdFactory)
+             FakeProdStoreFactory ProdFactory,
+             CapturingLogger CapturedLog)
         RenderDirectPush(
             IEnumerable<ContentSiteIndexRow>? localApproved = null,
             IEnumerable<ContentSiteIndexRow>? prodRows = null,
@@ -61,6 +93,7 @@ public sealed class DirectPushPageTests : BunitContext
         var prodStore = prodStoreOverride ?? new FakeContentSiteIndexStore();
         var uploader = new FakeSshArtifactUploader();
         var prodFactory = new FakeProdStoreFactory(prodStore);
+        var logProvider = new CapturingLoggerProvider();
 
         foreach (var r in localApproved ?? Enumerable.Empty<ContentSiteIndexRow>())
         {
@@ -84,9 +117,12 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
+        // Why: M3 — wire a capturing logger so tests can assert exceptions reach the
+        // Serilog sink (ILogger<DirectPush>) without inspecting rendered markup.
+        Services.AddLogging(b => b.AddProvider(logProvider));
 
         var cut = Render<DirectPush>();
-        return (cut, localStore, prodStore, uploader, prodFactory);
+        return (cut, localStore, prodStore, uploader, prodFactory, logProvider.Logger);
     }
 
     // Drives the page through Stage 1 (Compute Prod Diff) and checks the confirmation box.
@@ -106,7 +142,7 @@ public sealed class DirectPushPageTests : BunitContext
         // PUB-05/SC1: 1 new key + 1 key already in prod -> New: 1, Updated: 1.
         var local = new[] { MakeApprovedRow(1, "vid-new"), MakeApprovedRow(2, "vid-existing") };
         var prod = new[] { MakeApprovedRow(2, "vid-existing") };
-        var (cut, _, _, _, _) = RenderDirectPush(local, prod);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, prod);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
@@ -123,7 +159,7 @@ public sealed class DirectPushPageTests : BunitContext
     {
         // PUB-04/SC2: the SCP (btn-danger) button is disabled until the confirmation checkbox is checked.
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _) = RenderDirectPush(local);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
@@ -153,7 +189,7 @@ public sealed class DirectPushPageTests : BunitContext
     {
         // PUB-04/SC2: Stage-3 (DB) button disabled before SCP; enabled after full SCP success.
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _) = RenderDirectPush(local);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local);
 
         ComputeDiffAndConfirm(cut);
 
@@ -181,7 +217,7 @@ public sealed class DirectPushPageTests : BunitContext
     {
         // PUB-04/SC3/D-08: only UpsertContentColumnsOnlyAsync runs on the prod store.
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
-        var (cut, _, prodStore, _, _) = RenderDirectPush(local);
+        var (cut, _, prodStore, _, _, _) = RenderDirectPush(local);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
@@ -204,7 +240,7 @@ public sealed class DirectPushPageTests : BunitContext
     {
         // PUB-05/SC4: one failed file -> Failed badge + Stage-3 stays locked.
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
-        var (cut, _, _, uploader, _) = RenderDirectPush(local);
+        var (cut, _, _, uploader, _, _) = RenderDirectPush(local);
 
         // Fail the second row's artifact (keyed by remote relative path = ArtifactPath).
         uploader.FilesToFail.Add("content-kb/test-channel/vid2.md");
@@ -229,7 +265,7 @@ public sealed class DirectPushPageTests : BunitContext
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var prodStore = new FakeContentSiteIndexStore();
         prodStore.KeysToFailOnUpsert.Add("vid2");
-        var (cut, _, _, _, _) = RenderDirectPush(local, prodStoreOverride: prodStore);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, prodStoreOverride: prodStore);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
@@ -253,7 +289,7 @@ public sealed class DirectPushPageTests : BunitContext
     {
         // SC5: presence-only render — no conn-string/host substrings; "PRODUCTION" present.
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _) = RenderDirectPush(local);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
 
@@ -280,7 +316,7 @@ public sealed class DirectPushPageTests : BunitContext
         string? alsoExpectedBanner)
     {
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _) = RenderDirectPush(
+        var (cut, _, _, _, _, _) = RenderDirectPush(
             local, isProdConfigured: isProdConfigured, isScpConfigured: isScpConfigured);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
@@ -302,7 +338,7 @@ public sealed class DirectPushPageTests : BunitContext
         // none of the sentinel substrings reach the markup.
         var local = new[] { MakeApprovedRow(1, "vid1") };
         var prodStore = new FakeContentSiteIndexStore { ReadFailureMessage = SentinelSecret };
-        var (cut, _, _, _, _) = RenderDirectPush(local, prodStoreOverride: prodStore);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, prodStoreOverride: prodStore);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
@@ -323,7 +359,7 @@ public sealed class DirectPushPageTests : BunitContext
         var local = new[] { MakeApprovedRow(1, "vid1") };
         var prodStore = new FakeContentSiteIndexStore { UpsertFailureMessage = SentinelSecret };
         prodStore.KeysToFailOnUpsert.Add("vid1");
-        var (cut, _, _, _, _) = RenderDirectPush(local, prodStoreOverride: prodStore);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, prodStoreOverride: prodStore);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
@@ -346,7 +382,7 @@ public sealed class DirectPushPageTests : BunitContext
         // Codex MEDIUM-1: invoking Stage 3 before SCP success must early-return; prod upsert
         // is never called (UpsertMethodCalls stays empty).
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, prodStore, _, _) = RenderDirectPush(local);
+        var (cut, _, prodStore, _, _, _) = RenderDirectPush(local);
 
         // Compute diff + confirm, but do NOT run SCP — Stage 3 is still locked.
         ComputeDiffAndConfirm(cut);
@@ -367,7 +403,7 @@ public sealed class DirectPushPageTests : BunitContext
     public void DirectPush_Success_StampsLocalAndProd_WithSameInstant()
     {
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
-        var (cut, localStore, prodStore, _, _) = RenderDirectPush(local);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
@@ -398,7 +434,7 @@ public sealed class DirectPushPageTests : BunitContext
         // H3: the diff path is strictly read-only — EnsureSchemaAsync must never be called
         // on the prod store (prod schema is managed by the DeckFlow.Web app startup).
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, prodStore, _, _) = RenderDirectPush(local);
+        var (cut, _, prodStore, _, _, _) = RenderDirectPush(local);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
@@ -408,10 +444,39 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
+    public void ComputeDiffAsync_DiffReadFailure_LogsErrorWithException()
+    {
+        // M3: when the prod-store read throws, Logger.LogError must be called with the exception
+        // (so "see logs" is true). The exception must NOT appear in the rendered markup (SC5/D-07).
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var prodStore = new FakeContentSiteIndexStore { ReadFailureMessage = SentinelSecret };
+        var (cut, _, _, _, _, capturedLog) = RenderDirectPush(local, prodStoreOverride: prodStore);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+
+        cut.WaitForAssertion(() => Assert.Contains("Could not read production", cut.Markup));
+
+        // Exactly one Error-level entry with a non-null exception must have been logged.
+        var errorEntries = capturedLog.Entries
+            .Where(e => e.Level == LogLevel.Error && e.Exception is not null)
+            .ToList();
+
+        Assert.True(errorEntries.Count >= 1,
+            "Expected at least one Error-level log entry with an exception from the diff failure");
+
+        // Sentinel substrings must NOT appear in the rendered markup (secret-leak guard).
+        foreach (var s in SentinelSubstrings)
+        {
+            Assert.DoesNotContain(s, cut.Markup);
+        }
+    }
+
+    [Fact]
     public void DirectPush_Success_PublishesRowsVisible_LocalAndProd()
     {
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
-        var (cut, localStore, prodStore, _, _) = RenderDirectPush(local);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
 
         // Precondition: approved rows start hidden (KB ships dark) — Studio would derive Pushed-hidden
         // without the publish-visible step.

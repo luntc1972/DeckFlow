@@ -6,6 +6,7 @@
 @using DeckFlow.Core.Storage
 @using DeckFlow.Studio.Services
 @using Microsoft.Extensions.Configuration
+@using Microsoft.Extensions.Logging
 @using System.Text.Json
 
 <PageTitle>Publish to Production (Direct)</PageTitle>
@@ -408,6 +409,11 @@ unlocks only after every file uploads.</p>
     [Inject]
     private ContentKbOrchestratorOptions Options { get; set; } = default!;
 
+    // Why: M3 — logs caught exceptions to the Serilog file/console sink so "see logs" guidance
+    // in sanitized UI messages is actually true. Never log ex.Message to the UI (D-07 / SC5).
+    [Inject]
+    private ILogger<DirectPush> Logger { get; set; } = default!;
+
     // ── Init state ──────────────────────────────────────────────────────────
     private bool _initInFlight = true;
     private string? _initError;
@@ -577,10 +583,11 @@ unlocks only after every file uploads.</p>
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Why: an Npgsql connection exception can carry host/database/user — NEVER surface
-            // ex.Message here. Use the sanitized literal only (SC5 / D-07 / Codex HIGH-2).
+            // Why: M3 — log full exception to the Serilog sink BEFORE setting the sanitized UI
+            // message; ex.Message can carry host/db/credentials (D-07 / SC5 / Codex HIGH-2).
+            Logger.LogError(ex, "Compute Prod Diff failed");
             _diffError = "Could not read production — check the prod connection configuration and try again. Nothing was written.";
             _diffComputeInFlight = false;
             _operationInFlight = false;
@@ -653,10 +660,11 @@ unlocks only after every file uploads.</p>
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Why: SshException.Message may contain hostname / remote path (D-07) — use sanitized
-            // copy only, never ex.Message.
+            // Why: M3 — SshException.Message may contain hostname / remote path (D-07);
+            // log to sink only, never surface ex.Message to the UI.
+            Logger.LogError(ex, "Artifact SCP upload failed");
             _scpError = "SSH connection failed — check SCP configuration and Render SSH access.";
             _scpInFlight = false;
             _operationInFlight = false;
@@ -704,10 +712,11 @@ unlocks only after every file uploads.</p>
                     {
                         throw;
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        // Why: an Npgsql exception can carry host/database/user — NEVER surface
-                        // ex.Message. Use the sanitized literal only (SC5 / D-07 / Codex HIGH-2).
+                        // Why: M3 — Npgsql can carry host/database/user in ex.Message (D-07 / SC5);
+                        // log full exception to the sink, surface sanitized "see logs" copy only.
+                        Logger.LogError(ex, "Prod content upsert failed for row {Title}", row.Title);
                         localResults.Add(new RowResult(row.Title, keyType, keyValue, false,
                             "Prod upsert failed for this row — see logs."));
                     }
@@ -764,9 +773,11 @@ unlocks only after every file uploads.</p>
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Why: never surface ex.Message — an Npgsql exception can carry host/db/user (D-07).
+            // Why: M3 — Npgsql can carry host/db/user in ex.Message (D-07 / SC5); log full
+            // exception to the sink only, surface sanitized copy to the UI.
+            Logger.LogError(ex, "Prod DB write failed");
             _dbError = "Database write failed — check the prod connection configuration and try again.";
             _dbInFlight = false;
             _operationInFlight = false;
