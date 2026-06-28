@@ -247,11 +247,20 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         return Task.FromResult(count);
     }
 
+    // If set, StampPushedToProdAsync throws this exception. Lets the PublishCoordinator
+    // local-stamp-failed (non-fatal) path be exercised without a live store.
+    public Exception? ThrowOnStamp { get; set; }
+
     public Task<int> StampPushedToProdAsync(
         IReadOnlyList<(string Type, string Value)> keys,
         DateTimeOffset pushedUtc,
         CancellationToken cancellationToken = default)
     {
+        if (ThrowOnStamp is not null)
+        {
+            throw ThrowOnStamp;
+        }
+
         StampCalls.Add((keys, pushedUtc));
         var count = 0;
         for (var i = 0; i < Rows.Count; i++)

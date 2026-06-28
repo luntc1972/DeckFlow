@@ -72,6 +72,9 @@ public sealed class PublishPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(store);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         Services.AddSingleton<PublishStateDeriver>();
+        // Why: the page now resolves its orchestration through PublishCoordinator (H1 split); the
+        // coordinator is built from the fakes registered above, so page behavior is unchanged.
+        Services.AddScoped<DeckFlow.Studio.ViewModels.PublishCoordinator>();
 
         var cut = Render<Publish>();
         return (cut, git, orchestrator, store);
