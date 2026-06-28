@@ -143,8 +143,9 @@ public partial class Program
             builder.Services.AddSingleton<PublishStateDeriver>();
             builder.Services.AddScoped<ContentKbOrchestratorSmokeService>();
             // Why: DirectPush page orchestration (prod read / diff / SCP / transactional write),
-            // extracted from the page code-behind (H1). Stateless; scoped per circuit.
-            builder.Services.AddScoped<DeckFlow.Studio.ViewModels.DirectPushCoordinator>();
+            // extracted from the page code-behind (H1). Stateless and all its dependencies are
+            // singletons, so it is registered as a singleton too.
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.DirectPushCoordinator>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
 

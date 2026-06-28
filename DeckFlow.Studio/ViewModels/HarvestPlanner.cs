@@ -10,6 +10,9 @@ namespace DeckFlow.Studio.ViewModels;
 /// I/O, no rendering, no component state — so the selection/visibility rules, channel grouping, and
 /// auto-approve key selection are unit-testable without a bUnit render. The page keeps the I/O loops
 /// (orchestrator calls, log streaming, cancellation) and calls into these helpers for the decisions.
+/// Unlike DirectPush — whose linear read→diff→upload→write pipeline lifted cleanly into an injectable
+/// <c>DirectPushCoordinator</c> — Harvest's I/O is interleaved with UI state (log streaming, per-channel
+/// progress, VideoViewModel.Status mutation), so only the stateless decisions were extracted here.
 /// </summary>
 public static class HarvestPlanner
 {
