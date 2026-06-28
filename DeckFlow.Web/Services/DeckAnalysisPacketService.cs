@@ -1055,7 +1055,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         builder.AppendLine();
         builder.AppendLine("cards:");
-        builder.AppendLine("[current_deck] = active deck. [candidate_include:sideboard] and [candidate_include:maybeboard] = optional candidates only.");
+        // Only describe the candidate_include scope when the user opted in to sideboard/maybeboard
+        // references. With the box unchecked no candidate cards are emitted, so naming the scope here
+        // would be dead legend (and would prime the AI to look for candidates that aren't present).
+        builder.AppendLine(request.IncludeCandidateReferencesInAnalysis
+            ? "[current_deck] = active deck. [candidate_include:sideboard] and [candidate_include:maybeboard] = optional candidates only."
+            : "[current_deck] = active deck.");
         if (cardReferences.Count == 0)
         {
             builder.AppendLine("(none)");

@@ -221,6 +221,9 @@ Maybeboard
         Assert.Contains("Possible Includes", result.AnalysisPromptText);
         Assert.Contains("1 Swords to Plowshares", result.AnalysisPromptText);
         Assert.Contains("1 Smothering Tithe", result.AnalysisPromptText);
+        // Opted in: the reference legend and the candidate_include evidence rule are present.
+        Assert.Contains("[candidate_include:sideboard] and [candidate_include:maybeboard] = optional candidates only", result.ReferenceText);
+        Assert.Contains("Cards labeled candidate_include", result.AnalysisPromptText);
     }
 
     [Fact]
@@ -256,6 +259,9 @@ Maybeboard
         Assert.DoesNotContain("Possible Includes\n1 Swords to Plowshares", result.AnalysisPromptText.Replace("\r\n", "\n", StringComparison.Ordinal));
         Assert.DoesNotContain("Swords to Plowshares", result.AnalysisPromptText);
         Assert.DoesNotContain("Smothering Tithe", result.AnalysisPromptText);
+        // Opted out: no candidate_include legend or evidence rule anywhere in the prompt or reference.
+        Assert.DoesNotContain("candidate_include", result.ReferenceText);
+        Assert.DoesNotContain("candidate_include", result.AnalysisPromptText);
     }
 
     [Fact]

@@ -96,7 +96,10 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("- When a conclusion is based on inference from deck construction, curve, redundancy, or play patterns, label it as an inference.");
         builder.AppendLine("- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.");
         builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
-        builder.AppendLine("- Cards labeled candidate_include in the reference are not part of the current deck. Treat them only as candidate additions.");
+        if (request.IncludeCandidateReferencesInAnalysis)
+        {
+            builder.AppendLine("- Cards labeled candidate_include in the reference are not part of the current deck. Treat them only as candidate additions.");
+        }
         builder.AppendLine("- Do not recommend cards from the official Commander banned list (see banned list in the reference section below).");
         builder.AppendLine("- Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.");
         builder.AppendLine();
