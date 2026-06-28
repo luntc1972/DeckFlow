@@ -117,8 +117,9 @@ internal static class ManabaseCommandRunner
                 deck, manabaseMode, CommanderImportance.Standard, costOverrides: null,
                 useManaQuantity: true, colorAwareMulligan: true, gateRampOnCastable: true);
 
-            // Plain-language verdict + ramp/draw advisory mirror the web tool: both are Casual-only
-            // (cEDH leaves them null, matching ManabaseAnalysisService).
+            // Plain-language verdict + ramp/draw advisory are Casual-only here (cEDH leaves them
+            // null). The web tool computes the same Core surfaces but additionally gates them behind
+            // its plain-language-verdict flag; the CLI always shows them in Casual by design.
             ManabaseRampDrawBudget? budget = null;
             ManabaseVerdict? verdict = null;
             if (manabaseMode == ManabaseMode.Casual)
@@ -278,24 +279,10 @@ internal static class ManabaseCommandRunner
     private static void WriteInvariant(FormattableString line) =>
         Console.WriteLine(line.ToString(CultureInfo.InvariantCulture));
 
-    // Map the --mode option to the Core enum. Case-insensitive; anything else is rejected.
-    private static bool TryParseMode(string mode, out ManabaseMode parsed)
-    {
-        switch (mode?.Trim().ToLowerInvariant())
-        {
-            case "casual":
-            case "":
-            case null:
-                parsed = ManabaseMode.Casual;
-                return true;
-            case "cedh":
-                parsed = ManabaseMode.Cedh;
-                return true;
-            default:
-                parsed = ManabaseMode.Casual;
-                return false;
-        }
-    }
+    // Map the --mode option to the Core enum. The "casual"/"cedh" inputs match the enum names
+    // case-insensitively; IsDefined rejects out-of-range numeric strings.
+    private static bool TryParseMode(string? mode, out ManabaseMode parsed)
+        => Enum.TryParse(mode?.Trim(), ignoreCase: true, out parsed) && Enum.IsDefined(parsed);
 
     /// <summary>Scryfall <c>cards/collection</c> request body.</summary>
     private sealed record CollectionRequest(
