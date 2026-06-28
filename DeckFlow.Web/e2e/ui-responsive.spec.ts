@@ -3,9 +3,20 @@ import { expect, test } from '@playwright/test';
 // Guards the Phase-1 mobile UI changes so desktop behavior stays intact while
 // mobile-specific navigation, layout defaults, and overflow fixes remain covered.
 
+// Retries a navigation up to twice on a non-ok response. Under fullyParallel CI
+// the SQLite store can briefly return a 5xx ("database is locked") when many
+// workers hit pages at once; a re-navigate clears it. Mirrors scripts.spec.ts.
+async function gotoOk(page: import('@playwright/test').Page, route: string) {
+  let response = await page.goto(route);
+  for (let attempt = 0; attempt < 2 && !response?.ok(); attempt++) {
+    response = await page.goto(route);
+  }
+  return response;
+}
+
 test('tool nav collapses on mobile, expanded on desktop', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
-  const response = await page.goto('/deck-analysis');
+  const response = await gotoOk(page, '/deck-analysis');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -30,7 +41,7 @@ test('tool nav collapses on mobile, expanded on desktop', async ({ page }) => {
 
 test('verbosity layout picker available on mobile and defaults to Compact', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
-  const response = await page.goto('/deck-analysis');
+  const response = await gotoOk(page, '/deck-analysis');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -52,7 +63,7 @@ test('verbosity layout picker available on mobile and defaults to Compact', asyn
 
 test('download-session button is not the primary run-button on mobile', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
-  const response = await page.goto('/deck-analysis');
+  const response = await gotoOk(page, '/deck-analysis');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -75,7 +86,7 @@ test('download-session button is not the primary run-button on mobile', async ({
 
 test('mobile workflow stepper is compact (no hidden scroll, numbers shown)', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
-  const response = await page.goto('/deck-analysis');
+  const response = await gotoOk(page, '/deck-analysis');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -100,7 +111,7 @@ test('mobile workflow stepper is compact (no hidden scroll, numbers shown)', asy
 
 test('deck primer section groups collapse on mobile', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
-  const response = await page.goto('/deck-primer');
+  const response = await gotoOk(page, '/deck-primer');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -124,7 +135,7 @@ test('deck primer section groups collapse on mobile', async ({ page }) => {
 
 test('content kb filters collapse on mobile', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
-  const response = await page.goto('/content-kb');
+  const response = await gotoOk(page, '/content-kb');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -148,7 +159,7 @@ test('content kb filters collapse on mobile', async ({ page }) => {
 });
 
 test('content kb card is tappable', async ({ page }) => {
-  const response = await page.goto('/content-kb');
+  const response = await gotoOk(page, '/content-kb');
 
   expect(response?.ok()).toBeTruthy();
 
@@ -177,7 +188,7 @@ test('content kb search box is not oversized on desktop', async ({ page }) => {
     test.skip();
   }
 
-  const response = await page.goto('/content-kb');
+  const response = await gotoOk(page, '/content-kb');
   expect(response?.ok()).toBeTruthy();
 
   const search = page.locator('[data-kb-search]');
@@ -209,7 +220,7 @@ test('content kb search box is not oversized on desktop', async ({ page }) => {
 
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {
   test(`no horizontal overflow on key pages: ${route}`, async ({ page }) => {
-    const response = await page.goto(route);
+    const response = await gotoOk(page, route);
 
     expect(response?.ok()).toBeTruthy();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
