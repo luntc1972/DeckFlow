@@ -550,15 +550,20 @@ unlocks only after every file uploads.</p>
                 // rows are excluded from both SCP upload and DB write, stopping no-op re-writes
                 // and reducing prod write surface. A HashSet presence check is insufficient
                 // because it classifies every existing key as "Updated" even if nothing changed.
+                // Why: key the diff map on the FULL natural key (type + value), not the bare value.
+                // Keying on value alone (youtube id OR rss guid) lets a prod podcast row and a local
+                // youtube row that share a value collide; under M2 a collision whose content also
+                // matches would misclassify the local row as Unchanged and silently SKIP its publish
+                // (data loss). The composite key makes "Unchanged" provably the same record.
                 var prodByKey = new Dictionary<string, ContentSiteIndexRow>(
                     prodRows.Count,
                     StringComparer.Ordinal);
                 foreach (var r in prodRows)
                 {
-                    var k = r.YoutubeVideoId ?? r.RssGuid ?? string.Empty;
-                    if (!string.IsNullOrEmpty(k))
+                    var (prodKeyType, prodKeyValue) = DeriveNaturalKey(r);
+                    if (!string.IsNullOrEmpty(prodKeyValue))
                     {
-                        prodByKey[k] = r;
+                        prodByKey[$"{prodKeyType} {prodKeyValue}"] = r;
                     }
                 }
 
@@ -568,7 +573,7 @@ unlocks only after every file uploads.</p>
                 foreach (var row in localRows)
                 {
                     var (keyType, key) = DeriveNaturalKey(row);
-                    if (!prodByKey.TryGetValue(key, out var prodRow))
+                    if (!prodByKey.TryGetValue($"{keyType} {key}", out var prodRow))
                     {
                         newCount++;
                         publishRows.Add(row);

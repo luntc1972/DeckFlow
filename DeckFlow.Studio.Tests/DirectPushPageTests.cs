@@ -549,6 +549,30 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
+    public void M2_ComputeDiff_DifferentKeyTypeSameValue_NotMisclassifiedUnchanged()
+    {
+        // Regression (Codex MED): keying the diff on the bare value let a prod PODCAST row and a
+        // local YOUTUBE row that share a key value collide. With identical content signatures the
+        // local row would be misclassified Unchanged and silently skipped (publish data loss).
+        // The full (type, value) composite key must treat them as distinct → local row is New.
+        var localYoutube = MakeApprovedRow(1, "shared-key");
+        // Same content columns, but a podcast natural key (YoutubeVideoId null, RssGuid set) so the
+        // content signature is identical while the key TYPE differs.
+        var prodPodcast = localYoutube with { Id = 99, YoutubeVideoId = null, RssGuid = "shared-key" };
+
+        var (cut, _, _, _, _, _) = RenderDirectPush(new[] { localYoutube }, new[] { prodPodcast });
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("New: 1", cut.Markup);
+            Assert.Contains("Unchanged: 0", cut.Markup);
+        });
+    }
+
+    [Fact]
     public void M2_BatchWrite_ExcludesUnchangedRows()
     {
         // Only New + Updated rows must be passed to the batch upsert; Unchanged is excluded.
