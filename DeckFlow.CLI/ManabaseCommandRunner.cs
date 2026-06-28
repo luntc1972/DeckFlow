@@ -29,13 +29,25 @@ internal static class ManabaseCommandRunner
     /// <summary>Resolve a deck and print its mana-base report. Returns a process exit code.</summary>
     /// <param name="archidektUrl">Public Archidekt deck URL, or null.</param>
     /// <param name="moxfieldUrl">Public Moxfield deck URL, or null.</param>
-    public static async Task<int> RunAsync(string? archidektUrl, string? moxfieldUrl)
+    /// <param name="mode">Analysis profile: "casual" (default) or "cedh".</param>
+    /// <param name="includeSwapPrompt">When true, also print the paste-ready LLM swap prompt.</param>
+    public static async Task<int> RunAsync(
+        string? archidektUrl,
+        string? moxfieldUrl,
+        string mode = "casual",
+        bool includeSwapPrompt = false)
     {
         bool hasArchidekt = !string.IsNullOrWhiteSpace(archidektUrl);
         bool hasMoxfield = !string.IsNullOrWhiteSpace(moxfieldUrl);
         if (hasArchidekt == hasMoxfield)
         {
             Console.Error.WriteLine("Specify exactly one of --archidekt-url or --moxfield-url.");
+            return 1;
+        }
+
+        if (!TryParseMode(mode, out ManabaseMode manabaseMode))
+        {
+            Console.Error.WriteLine("--mode must be 'casual' or 'cedh'.");
             return 1;
         }
 
@@ -92,10 +104,42 @@ internal static class ManabaseCommandRunner
             }
 
             IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-            ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-            ManabaseReport report = ManabaseAnalyzer.Analyze(deck);
 
-            PrintReport(report, unresolved, notFound);
+            // Mirror the production web defaults so the CLI verdict matches the live site. These
+            // four flags (MQ-02 mana-quantity, MQ-03 ramp-credit-v2, MQ-05 color-aware-mulligan,
+            // and 70-03b land-ramp-sim) are seeded ON in prod; the CLI has no flag store, so they
+            // are pinned ON here. The health-band flags are seeded OFF in prod, so they are left at
+            // their false defaults. ramp-credit-v2 + land-ramp-sim change the classifier's land
+            // target/ramp credit (printed), so threading them keeps the CLI numbers aligned.
+            ManabaseDeck deck = ManabaseClassifier.Classify(
+                facts, isSingleton: true, rampCreditV2: true, landRampSim: true);
+            ManabaseReport report = ManabaseAnalyzer.Analyze(
+                deck, manabaseMode, CommanderImportance.Standard, costOverrides: null,
+                useManaQuantity: true, colorAwareMulligan: true, gateRampOnCastable: true);
+
+            // Plain-language verdict + ramp/draw advisory mirror the web tool: both are Casual-only
+            // (cEDH leaves them null, matching ManabaseAnalysisService).
+            ManabaseRampDrawBudget? budget = null;
+            ManabaseVerdict? verdict = null;
+            if (manabaseMode == ManabaseMode.Casual)
+            {
+                budget = ManabaseRampDrawBudgetCalculator.Calculate(deck);
+                verdict = ManabaseVerdictSynthesizer.Synthesize(report, manabaseMode, budget);
+            }
+
+            PrintReport(report, verdict, budget, unresolved, notFound);
+
+            if (includeSwapPrompt)
+            {
+                string decklistText = string.Join(
+                    "\n",
+                    deckCards.Select(e => $"{e.Quantity} {e.Name}"));
+                Console.WriteLine();
+                Console.WriteLine("--- ChatGPT swap prompt ---");
+                Console.WriteLine(ManabaseSwapPromptBuilder.Build(
+                    report, deckName: null, decklistText, manabaseMode, verdict, budget));
+            }
+
             return 0;
         }
         catch (Exception exception)
@@ -159,6 +203,8 @@ internal static class ManabaseCommandRunner
 
     private static void PrintReport(
         ManabaseReport report,
+        ManabaseVerdict? verdict,
+        ManabaseRampDrawBudget? budget,
         IReadOnlyList<string> unresolved,
         IReadOnlyList<string> notFound)
     {
@@ -178,6 +224,42 @@ internal static class ManabaseCommandRunner
         Console.WriteLine();
         Console.WriteLine(report.Summary);
 
+        if (verdict is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine(verdict.Headline);
+            if (verdict.HasIssues)
+            {
+                foreach (string line in verdict.Lines)
+                {
+                    Console.WriteLine($"- {line}");
+                }
+            }
+            else
+            {
+                Console.WriteLine(verdict.NoIssueReason);
+            }
+        }
+
+        if (budget is not null)
+        {
+            Console.WriteLine();
+            WriteInvariant(
+                $"Ramp/draw budget: {budget.RampCount:0.#} ramp / {budget.DrawCount:0.#} draw (target ~{budget.TargetRamp}/{budget.TargetDraw}).");
+            if (budget.IsRampLight)
+            {
+                WriteInvariant($"  Ramp looks light — about {budget.RampShort} more ramp piece(s) suggested.");
+            }
+            else if (budget.IsRampHeavy)
+            {
+                Console.WriteLine("  Ramp looks heavy for this curve.");
+            }
+            if (budget.IsDrawLight)
+            {
+                WriteInvariant($"  Card draw looks light — about {budget.DrawShort} more draw piece(s) suggested.");
+            }
+        }
+
         if (notFound.Count > 0)
         {
             Console.WriteLine();
@@ -195,6 +277,25 @@ internal static class ManabaseCommandRunner
     // decimals render with a "." regardless of the host culture.
     private static void WriteInvariant(FormattableString line) =>
         Console.WriteLine(line.ToString(CultureInfo.InvariantCulture));
+
+    // Map the --mode option to the Core enum. Case-insensitive; anything else is rejected.
+    private static bool TryParseMode(string mode, out ManabaseMode parsed)
+    {
+        switch (mode?.Trim().ToLowerInvariant())
+        {
+            case "casual":
+            case "":
+            case null:
+                parsed = ManabaseMode.Casual;
+                return true;
+            case "cedh":
+                parsed = ManabaseMode.Cedh;
+                return true;
+            default:
+                parsed = ManabaseMode.Casual;
+                return false;
+        }
+    }
 
     /// <summary>Scryfall <c>cards/collection</c> request body.</summary>
     private sealed record CollectionRequest(
