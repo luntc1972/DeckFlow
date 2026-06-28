@@ -54,8 +54,9 @@ public partial class DirectPush
     // coordinator's classification in a single pass.
     private IReadOnlyList<ContentSiteIndexRow> _publishRows = Array.Empty<ContentSiteIndexRow>();
 
-    // Per-row diff display rows (New + Updated only, shown in the diff table)
-    private List<DirectPushDiffRow> _diffRows = new();
+    // Per-row diff display rows (New + Updated only, shown in the diff table). Read-only: built once
+    // by the coordinator, parallel to _publishRows; never mutated here.
+    private IReadOnlyList<DirectPushDiffRow> _diffRows = Array.Empty<DirectPushDiffRow>();
 
     // ── Confirmation gate (D-09) ────────────────────────────────────────────
     private bool _prodReviewed;
@@ -134,7 +135,7 @@ public partial class DirectPush
                 await InvokeAsync(() =>
                 {
                     _publishRows = diff.PublishRows;
-                    _diffRows = diff.DiffRows.ToList();
+                    _diffRows = diff.DiffRows;
                     _newCount = diff.NewCount;
                     _updatedCount = diff.UpdatedCount;
                     _unchangedCount = diff.UnchangedCount;

@@ -63,8 +63,7 @@ public sealed class DirectPushCoordinator
     {
         var localRows = await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
 
-        var rawConnStr = _configuration["Studio:ProdConnectionString"] ?? string.Empty;
-        var prodStore = _prodStoreFactory.Create(rawConnStr);
+        var prodStore = CreateProdStore();
         var prodRows = await prodStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
 
         return ClassifyDiff(localRows, prodRows);
@@ -119,7 +118,7 @@ public sealed class DirectPushCoordinator
             }
         }
 
-        return new DirectPushDiff(localRows, publishRows, diffRows, newCount, updatedCount, unchangedCount);
+        return new DirectPushDiff(publishRows, diffRows, newCount, updatedCount, unchangedCount);
     }
 
     /// <summary>
@@ -159,8 +158,7 @@ public sealed class DirectPushCoordinator
     {
         ArgumentNullException.ThrowIfNull(publishRows);
 
-        var rawConnStr = _configuration["Studio:ProdConnectionString"] ?? string.Empty;
-        var prodStore = _prodStoreFactory.Create(rawConnStr);
+        var prodStore = CreateProdStore();
 
         await prodStore.UpsertContentColumnsOnlyBatchAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
@@ -176,12 +174,18 @@ public sealed class DirectPushCoordinator
         await _localStore.SetVisibilityAsync(keys, true, cancellationToken).ConfigureAwait(false);
     }
 
-    // Why: the diff loop and the push loop derive the same (display keyType, key value) pair.
-    // KeyType is the local diff label ("youtube"/"podcast"), intentionally NOT the store's
-    // youtube_channel/podcast_rss discriminator — matching is on the key value, not the type.
+    // Builds the on-demand prod store from the ephemeral connection string (D-03) — never at DI
+    // startup. Shared by the diff read and the publish write so the config key lives in one place.
+    private IContentSiteIndexStore CreateProdStore()
+        => _prodStoreFactory.Create(_configuration["Studio:ProdConnectionString"] ?? string.Empty);
+
+    // Why: the display natural key used by the content diff (ClassifyDiff). KeyType is the local diff
+    // label ("youtube"/"podcast"), intentionally NOT the store's youtube_channel/podcast_rss
+    // discriminator — matching is on the key value, not the type. The write path keys instead via
+    // ContentIndexExportRow.From (the store discriminator). KeyValue reuses ContentSiteIndexRow.PinId.
     private static (string KeyType, string KeyValue) DeriveNaturalKey(ContentSiteIndexRow row)
         => (row.YoutubeVideoId is not null ? "youtube" : "podcast",
-            row.YoutubeVideoId ?? row.RssGuid ?? string.Empty);
+            row.PinId ?? string.Empty);
 }
 
 /// <summary>Approved-row count and resolved data root for the DirectPush page init.</summary>
@@ -191,11 +195,10 @@ public sealed record DirectPushInitData(int ApprovedCount, string DataRoot);
 public sealed record DirectPushDiffRow(string Title, string KeyType, string KeyValue, bool IsNew, string ArtifactFile);
 
 /// <summary>
-/// Result of the content-aware diff: the approved local rows, the publish set (New + Updated only),
-/// the per-row display rows, and the New/Updated/Unchanged counts.
+/// Result of the content-aware diff: the publish set (New + Updated only), the per-row display rows,
+/// and the New/Updated/Unchanged counts.
 /// </summary>
 public sealed record DirectPushDiff(
-    IReadOnlyList<ContentSiteIndexRow> ApprovedRows,
     IReadOnlyList<ContentSiteIndexRow> PublishRows,
     IReadOnlyList<DirectPushDiffRow> DiffRows,
     int NewCount,
