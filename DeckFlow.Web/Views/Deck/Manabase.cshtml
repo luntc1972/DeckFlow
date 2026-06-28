@@ -288,7 +288,7 @@
                     {
                         <span>Your ramp/draw split looks balanced. </span>
                     }
-                    <span>You run <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@budget.Threshold.ToString("0.#") threshold a common split is @budget.TargetRamp / @budget.TargetDraw.</span>
+                    <span>You run <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@(budget.Threshold.ToString("0.#")) threshold a common split is @budget.TargetRamp / @budget.TargetDraw.</span>
                     @if (budget.OverlapCount > 0)
                     {
                         <span> (@budget.OverlapCount do both)</span>
