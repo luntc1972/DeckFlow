@@ -154,7 +154,21 @@ public partial class Program
             var app = builder.Build();
             using (var scope = app.Services.CreateScope())
             {
-                _ = scope.ServiceProvider.GetRequiredService<ContentKbOrchestratorSmokeService>();
+                // Why (L3): actually RUN the read-only smoke probe at startup. The previous code only
+                // resolved the service and discarded it, proving DI could construct it but never that
+                // the content database / orchestrator slice is reachable — a broken content-kb.db went
+                // unnoticed until first use. Log the result; log (not crash) on failure so the operator
+                // still gets the app + error UI rather than a dead double-clicked exe.
+                var smoke = scope.ServiceProvider.GetRequiredService<ContentKbOrchestratorSmokeService>();
+                try
+                {
+                    var blockedCount = await smoke.ProbeAsync();
+                    Log.Information("Content KB smoke check passed: orchestrator reachable, {BlockedCount} blocked row(s).", blockedCount);
+                }
+                catch (Exception smokeException)
+                {
+                    Log.Error(smokeException, "Content KB smoke check failed — the content database or orchestrator wiring may be broken.");
+                }
             }
 
             Log.Information("Studio prod connection: {Status}", isProdConfigured ? "configured" : "not configured");
