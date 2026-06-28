@@ -101,4 +101,60 @@ public sealed class LoopbackBindGuardTests
         Assert.Single(urls);
         Assert.Equal("http://localhost:5271", urls[0]);
     }
+
+    // ── HTTP_PORTS / HTTPS_PORTS bypass (Codex HIGH) ───────────────────────────
+
+    [Fact]
+    public void GatherConfiguredBindUrls_HttpPortsWithoutUrls_SurfacesWildcardAndIsCaught()
+    {
+        // ASPNETCORE_HTTP_PORTS without ASPNETCORE_URLS → Kestrel binds wildcard on all
+        // interfaces. The guard must surface a non-loopback bind so startup fails (H2).
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["http_ports"] = "8080;8081",
+            })
+            .Build();
+
+        var urls = LoopbackBindGuard.GatherConfiguredBindUrls(config);
+
+        Assert.Contains("http://+:8080", urls);
+        Assert.Contains("http://+:8081", urls);
+        Assert.NotEmpty(LoopbackBindGuard.FindNonLoopbackBindings(urls));
+    }
+
+    [Fact]
+    public void GatherConfiguredBindUrls_HttpsPortsWithoutUrls_SurfacesWildcardAndIsCaught()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["https_ports"] = "443",
+            })
+            .Build();
+
+        var urls = LoopbackBindGuard.GatherConfiguredBindUrls(config);
+
+        Assert.Contains("https://+:443", urls);
+        Assert.NotEmpty(LoopbackBindGuard.FindNonLoopbackBindings(urls));
+    }
+
+    [Fact]
+    public void GatherConfiguredBindUrls_HttpPortsIgnoredWhenUrlsSet_NoFalseRefusal()
+    {
+        // Kestrel ignores HTTP_PORTS when urls is set. A loopback "urls" with a stray http_ports
+        // must NOT produce a non-loopback bind (no false-positive startup refusal).
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["urls"] = "http://localhost:5271",
+                ["http_ports"] = "8080",
+            })
+            .Build();
+
+        var urls = LoopbackBindGuard.GatherConfiguredBindUrls(config);
+
+        Assert.DoesNotContain("http://+:8080", urls);
+        Assert.Empty(LoopbackBindGuard.FindNonLoopbackBindings(urls));
+    }
 }
