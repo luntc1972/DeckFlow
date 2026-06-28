@@ -43,6 +43,25 @@ public sealed class ResilientHttpHandler : DelegatingHandler
                 ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
                     .HandleResult(static r => IsTransient(r.StatusCode))
                     .Handle<HttpRequestException>(),
+                // Why: honor a 429/503 Retry-After when the server sends one, instead of hammering a
+                // rate-limited upstream on our local backoff. Returning null falls back to the
+                // configured exponential backoff + jitter.
+                DelayGenerator = static args =>
+                {
+                    var retryAfter = args.Outcome.Result?.Headers.RetryAfter;
+                    if (retryAfter?.Delta is { } delta)
+                    {
+                        return new ValueTask<TimeSpan?>(delta);
+                    }
+
+                    if (retryAfter?.Date is { } date)
+                    {
+                        var wait = date - DateTimeOffset.UtcNow;
+                        return new ValueTask<TimeSpan?>(wait > TimeSpan.Zero ? wait : null);
+                    }
+
+                    return new ValueTask<TimeSpan?>((TimeSpan?)null);
+                },
             })
             .Build();
     }
@@ -59,11 +78,39 @@ public sealed class ResilientHttpHandler : DelegatingHandler
             return base.SendAsync(request, cancellationToken);
         }
 
+        // Why: an HttpRequestMessage cannot be sent twice — replaying the SAME instance across Polly
+        // retries throws InvalidOperationException. Each attempt sends a fresh clone (GET/HEAD carry
+        // no content, so only method/URI/version/headers/options are copied).
         return _pipeline
             .ExecuteAsync(
-                async token => await base.SendAsync(request, token).ConfigureAwait(false),
+                async token =>
+                {
+                    var attempt = CloneRequest(request);
+                    return await base.SendAsync(attempt, token).ConfigureAwait(false);
+                },
                 cancellationToken)
             .AsTask();
+    }
+
+    private static HttpRequestMessage CloneRequest(HttpRequestMessage request)
+    {
+        var clone = new HttpRequestMessage(request.Method, request.RequestUri)
+        {
+            Version = request.Version,
+            VersionPolicy = request.VersionPolicy,
+        };
+
+        foreach (var header in request.Headers)
+        {
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        foreach (var option in (IEnumerable<KeyValuePair<string, object?>>)request.Options)
+        {
+            ((IDictionary<string, object?>)clone.Options)[option.Key] = option.Value;
+        }
+
+        return clone;
     }
 
     private static bool IsTransient(HttpStatusCode statusCode)
