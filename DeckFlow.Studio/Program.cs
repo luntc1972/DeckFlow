@@ -113,7 +113,10 @@ public partial class Program
                     return null;
                 }));
             builder.Services.AddSingleton<IWhisperSpendLedger>(_ => new WhisperSpendLedger(contentKbDatabasePath));
-            builder.Services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(15) });
+            // Why (M1): wrap the shared HttpClient in ResilientHttpHandler so long YouTube-list /
+            // transcript GETs retry transient blips (408/429/5xx, HttpRequestException) with backoff
+            // instead of failing a whole harvest. POST (LLM/Whisper) is not retried (see the handler).
+            builder.Services.AddSingleton(_ => new HttpClient(new ResilientHttpHandler()) { Timeout = TimeSpan.FromMinutes(15) });
             // Why: Factory-resolved from the single providerEnv so the distiller and spend flag
             // are always consistent. When provider=openai: metered LlmDistillationService, cap enforced.
             // When provider=claude: subscription CliLlmDistillationService ($0), cap bypassed. (HIGH-1)
