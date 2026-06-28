@@ -56,6 +56,8 @@ var cardLookupNameOption = new Option<string>("--name") { IsRequired = true };
 var manabaseCommand = new Command("manabase", "Fetch a public deck and run the Karsten §6 mana-base analysis.");
 var manabaseArchidektUrlOption = new Option<string?>("--archidekt-url") { Description = "Public Archidekt deck URL." };
 var manabaseMoxfieldUrlOption = new Option<string?>("--moxfield-url") { Description = "Public Moxfield deck URL." };
+var manabaseModeOption = new Option<string>("--mode", () => "casual") { Description = "Analysis profile: casual | cedh (cedh lowers the land target)." };
+var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description = "Also print a paste-ready LLM prompt asking for specific land swaps." };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -128,6 +130,8 @@ categoryFindCommand.AddOption(categoryFindTimeoutOption);
 cardLookupCommand.AddOption(cardLookupNameOption);
 manabaseCommand.AddOption(manabaseArchidektUrlOption);
 manabaseCommand.AddOption(manabaseMoxfieldUrlOption);
+manabaseCommand.AddOption(manabaseModeOption);
+manabaseCommand.AddOption(manabaseSwapPromptOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
@@ -259,10 +263,10 @@ cardLookupCommand.SetHandler((string cardName) =>
     Environment.ExitCode = DeckCommandRunners.RunCardLookupAsync(cardName).GetAwaiter().GetResult();
 }, cardLookupNameOption);
 
-manabaseCommand.SetHandler((string? archidektUrl, string? moxfieldUrl) =>
+manabaseCommand.SetHandler((string? archidektUrl, string? moxfieldUrl, string mode, bool swapPrompt) =>
 {
-    Environment.ExitCode = ManabaseCommandRunner.RunAsync(archidektUrl, moxfieldUrl).GetAwaiter().GetResult();
-}, manabaseArchidektUrlOption, manabaseMoxfieldUrlOption);
+    Environment.ExitCode = ManabaseCommandRunner.RunAsync(archidektUrl, moxfieldUrl, mode, swapPrompt).GetAwaiter().GetResult();
+}, manabaseArchidektUrlOption, manabaseMoxfieldUrlOption, manabaseModeOption, manabaseSwapPromptOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
