@@ -156,6 +156,10 @@ public partial class Program
             // containment + read), extracted from the page code-behind (H1). Stateless and both its
             // dependencies are singletons, so it is registered as a singleton too.
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.ReviewCoordinator>();
+            // Why: PullFromProd page orchestration (read-only prod pull + local-only adopt apply),
+            // extracted from the page code-behind (H1). Stateless and all its dependencies are
+            // singletons, so it is registered as a singleton too.
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
 
