@@ -523,7 +523,9 @@ unlocks only after every file uploads.</p>
                 // Build on-demand prod store (D-03) — never at DI startup
                 var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
                 var prodStore = ProdStoreFactory.Create(rawConnStr);
-                await prodStore.EnsureSchemaAsync(Cts.Token).ConfigureAwait(false);
+                // Why: the diff is strictly read-only — no DDL against prod (H3).
+                // Prod schema is managed by the DeckFlow.Web app startup (DeckFlow.Web/Program.cs:256).
+                // ProdContentReader also runs zero DDL by design; this path mirrors that precedent.
 
                 // Read prod rows (all rows regardless of visibility) — diff base
                 var prodRows = await prodStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
@@ -686,6 +688,7 @@ unlocks only after every file uploads.</p>
                 var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
                 var prodStore = ProdStoreFactory.Create(rawConnStr);
 
+                // Why: prod schema is web-app-managed (H3); the write path needs no DDL bootstrap.
                 var localResults = new List<RowResult>();
                 foreach (var row in _approvedRows)
                 {

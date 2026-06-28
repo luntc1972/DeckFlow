@@ -393,6 +393,21 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
+    public void ComputeDiffAsync_ReadOnlyDiff_EnsureSchemaNotCalledOnProdStore()
+    {
+        // H3: the diff path is strictly read-only — EnsureSchemaAsync must never be called
+        // on the prod store (prod schema is managed by the DeckFlow.Web app startup).
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, prodStore, _, _) = RenderDirectPush(local);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("Diff Preview"));
+
+        Assert.Equal(0, prodStore.EnsureSchemaCallCount);
+    }
+
+    [Fact]
     public void DirectPush_Success_PublishesRowsVisible_LocalAndProd()
     {
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
