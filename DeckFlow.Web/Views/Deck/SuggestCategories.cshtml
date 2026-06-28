@@ -8,7 +8,8 @@
     var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
     var hasExact = !string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText);
     var hasInferred = !string.IsNullOrWhiteSpace(Model.InferredCategoriesText);
-    ViewData["Title"] = "Category Suggestions";
+    ViewData["Title"] = "MTG Deck Category & Tag Suggestions";
+    ViewData["Description"] = "Get suggested categories and tags for every card in your Commander deck, drawn from crawled deck history. Speeds up Archidekt deck organization.";
 }
 
 <section class="hero">

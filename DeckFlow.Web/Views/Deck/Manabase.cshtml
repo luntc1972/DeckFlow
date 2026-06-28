@@ -2,7 +2,8 @@
 @using DeckFlow.Web.Models
 @model DeckFlow.Web.Models.ManabaseViewModel
 @{
-    ViewData["Title"] = "Mana Base";
+    ViewData["Title"] = "MTG Commander Mana Base Analyzer";
+    ViewData["Description"] = "Analyze your Commander mana base for color consistency and castability using Karsten-based math. Get a plain-language verdict and fixes.";
     var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
     var report = Model.Report;
     var mode = Model.Request.Mode;

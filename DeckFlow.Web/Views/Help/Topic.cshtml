@@ -1,6 +1,10 @@
 @model DeckFlow.Web.Models.HelpTopic
 @{
     ViewData["Title"] = Model.Title;
+    if (!string.IsNullOrWhiteSpace(Model.Summary))
+    {
+        ViewData["Description"] = Model.Summary;
+    }
 }
 
 <nav class="help-breadcrumb" aria-label="Breadcrumb">

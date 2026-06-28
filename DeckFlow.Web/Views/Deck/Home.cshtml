@@ -3,7 +3,8 @@
 @inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @inject DeckFlow.Web.Services.Tools.IToolRegistry ToolRegistry
 @{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "MTG Deck Analysis Tools for Commander & cEDH";
+    ViewData["Description"] = "Free Magic: The Gathering deck tools for Commander and cEDH. Sync, compare, and analyze decks, then generate ChatGPT-ready prompts in one paste.";
     var sections = ToolVisibility.VisibleBySection(ToolRegistry.All, FlagCache);
     var headlineWorkflow = sections
         .SelectMany(section => section.Tools)
