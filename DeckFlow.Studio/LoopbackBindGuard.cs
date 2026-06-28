@@ -103,15 +103,34 @@ internal static class LoopbackBindGuard
 
         // 1. ASPNETCORE_URLS / --urls (semicolon-separated, highest priority).
         var urlsValue = configuration["urls"];
-        if (!string.IsNullOrWhiteSpace(urlsValue))
+        var hasExplicitUrls = !string.IsNullOrWhiteSpace(urlsValue);
+        if (hasExplicitUrls)
         {
-            foreach (var part in urlsValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var part in urlsValue!.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
                 var trimmed = part.Trim();
                 if (!string.IsNullOrEmpty(trimmed))
                 {
                     collected.Add(trimmed);
                 }
+            }
+        }
+        else
+        {
+            // 1b. ASPNETCORE_HTTP_PORTS / ASPNETCORE_HTTPS_PORTS (config keys "http_ports" /
+            // "https_ports", semicolon- or comma-separated). Kestrel ignores these when "urls" is
+            // set, so they only matter in the else-branch. When present they create WILDCARD binds
+            // (http://*:port on all interfaces) — a non-loopback bind that would otherwise bypass
+            // the guard (Codex HIGH). Model each as "http(s)://+:port" so IsLoopbackBindUrl
+            // classifies it as non-loopback via the "+" wildcard host.
+            foreach (var port in SplitPorts(configuration["http_ports"]))
+            {
+                collected.Add($"http://+:{port}");
+            }
+
+            foreach (var port in SplitPorts(configuration["https_ports"]))
+            {
+                collected.Add($"https://+:{port}");
             }
         }
 
@@ -134,5 +153,29 @@ internal static class LoopbackBindGuard
 
         // Deduplicate while preserving insertion order.
         return collected.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// Splits an ASPNETCORE_HTTP_PORTS / ASPNETCORE_HTTPS_PORTS value (semicolon- or
+    /// comma-separated port list) into trimmed, non-empty port tokens. Returns empty when the
+    /// value is null/whitespace.
+    /// </summary>
+    /// <param name="portsValue">Raw ports configuration value, e.g. "8080;8081".</param>
+    /// <returns>Trimmed port tokens in order.</returns>
+    private static IEnumerable<string> SplitPorts(string? portsValue)
+    {
+        if (string.IsNullOrWhiteSpace(portsValue))
+        {
+            yield break;
+        }
+
+        foreach (var part in portsValue.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = part.Trim();
+            if (!string.IsNullOrEmpty(trimmed))
+            {
+                yield return trimmed;
+            }
+        }
     }
 }
