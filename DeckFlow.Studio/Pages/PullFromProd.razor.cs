@@ -114,14 +114,18 @@ public partial class PullFromProd
         _applyError = string.Empty;
         _rowResults = new();
 
-        // Why: Progress<T> created here captures the Blazor sync context, so its callbacks marshal
+        // Why: Progress<T> created here captures the Blazor sync context, so its log callbacks marshal
         // back automatically — no manual InvokeAsync needed for each line (Codex MEDIUM).
         var log = new Progress<string>(line =>
         {
             AppendProgressLine(line);
             SafeStateHasChanged();
         });
-        var onStage = new Progress<string>(stage => _pullStage = stage);
+        // Why: stage is a SYNCHRONOUS callback (not Progress<T>) so a fault in the background task
+        // reads the exact stage in flight — Progress<T> posts asynchronously and could leave
+        // _pullStage one stage stale in the failure copy (Codex MED). It is a plain string field set
+        // on the background thread and read only in the catch, matching the original inline behavior.
+        Action<string> onStage = stage => _pullStage = stage;
 
         try
         {
