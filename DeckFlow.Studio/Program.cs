@@ -196,6 +196,24 @@ public partial class Program
                 });
             }
 
+            // Why: H2 — Studio is an unauthenticated prod-publish tool; it closes the only
+            // network-exposure hole by refusing to bind any non-loopback address. Wildcards
+            // (0.0.0.0, +, *, [::]) and routable IPs/hostnames are rejected here so Kestrel
+            // never gets to bind them. Fix ASPNETCORE_URLS or Kestrel:Endpoints:*:Url and relaunch.
+            var configuredUrls = LoopbackBindGuard.GatherConfiguredBindUrls(builder.Configuration);
+            var offending = LoopbackBindGuard.FindNonLoopbackBindings(configuredUrls);
+            if (offending.Count > 0)
+            {
+                Log.Fatal(
+                    "DeckFlow Studio refuses to start: non-loopback bind address(es) detected: {Offending}. "
+                    + "Studio is an unauthenticated prod-publish tool and may only bind loopback "
+                    + "(localhost / 127.0.0.1 / [::1]). "
+                    + "Fix ASPNETCORE_URLS or Kestrel:Endpoints:*:Url and relaunch.",
+                    string.Join(", ", offending));
+                throw new InvalidOperationException(
+                    $"DeckFlow Studio refuses to bind a non-loopback address: {string.Join(", ", offending)}");
+            }
+
             await app.RunAsync();
         }
         catch (Exception exception)
