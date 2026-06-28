@@ -683,7 +683,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             {
                 // Why: propagate cancellation directly — do not wrap in ContentSiteIndexBatchUpsertException
                 // as the caller already handles it and the transaction will be cleaned up by Dispose.
-                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                // Roll back with CancellationToken.None: the incoming token is already cancelled here, so
+                // passing it would abort the rollback itself; None ensures the rollback actually runs.
+                await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
                 throw;
             }
             catch (Exception ex)
