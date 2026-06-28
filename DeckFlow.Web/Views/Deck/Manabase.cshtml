@@ -86,11 +86,10 @@
     <details class="manabase-overrides" @(Model.HasSuggestions || !string.IsNullOrWhiteSpace(Model.Request.CostOverridesText) ? "open" : null)>
         <summary>Companion &amp; reduced costs (optional)</summary>
         <div class="field">
-            <label for="manabase-companion-name">
-                Companion (optional) - auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.
-            </label>
+            <label for="manabase-companion-name">Companion name</label>
+            <p class="sync-column__hint" id="manabase-companion-hint">Auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.</p>
             <input id="manabase-companion-name" type="text" name="CompanionName" spellcheck="false" autocomplete="off"
-                   placeholder="e.g. Jegantha, the Wellspring…" value="@(Model.CompanionCallout?.Name ?? Model.Request.CompanionName)" />
+                   placeholder="e.g. Jegantha, the Wellspring…" value="@(Model.CompanionCallout?.Name ?? Model.Request.CompanionName)" aria-describedby="manabase-companion-hint" />
         </div>
         <div class="field">
             <label for="manabase-cost-overrides">
@@ -259,7 +258,7 @@
 
         @if (Model.PlainLanguageVerdict is { } verdict)
         {
-            <section class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")" aria-label="@verdict.Headline">
+            <section class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")">
                 <p class="manabase-verdict-heading">@verdict.Headline</p>
                 @if (verdict.HasIssues)
                 {
@@ -300,7 +299,7 @@
 
         @if (Model.ShowCommanderCastability && Model.ShowCastability && commanderRows.Count > 0)
         {
-            <section class="manabase-cmd-castability" aria-label="Command-zone castability">
+            <section class="manabase-cmd-castability">
                 <p class="manabase-verdict-heading">Command-zone castability</p>
                 @foreach (var c in commanderRows)
                 {

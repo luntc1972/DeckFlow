@@ -173,11 +173,10 @@ Do not omit any fields from the schema.
             <details class="deck-analysis-overrides">
                 <summary>Companion (optional)</summary>
                 <div class="field">
-                    <label for="deck-analysis-companion-name">
-                        Auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.
-                    </label>
+                    <label for="deck-analysis-companion-name">Companion name</label>
+                    <p class="sync-column__hint" id="deck-analysis-companion-hint">Auto-detected from Moxfield; name it here for Archidekt or pasted lists, or to override.</p>
                     <input id="deck-analysis-companion-name" type="text" name="CompanionName" spellcheck="false" autocomplete="off"
-                           placeholder="e.g. Jegantha, the Wellspring…" value="@Model.Request.CompanionName" />
+                           placeholder="e.g. Jegantha, the Wellspring…" value="@Model.Request.CompanionName" aria-describedby="deck-analysis-companion-hint" />
                 </div>
             </details>
         }
