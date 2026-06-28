@@ -5,6 +5,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Services;
+using DeckFlow.Studio.ViewModels;
 
 namespace DeckFlow.Studio.Pages;
 
@@ -253,12 +254,8 @@ public partial class Harvest
     // Rendering, Select-All, and the harvested set all route through this so a row hidden by the
     // filter or by skip can never be harvested even if it was selected before being hidden.
     private IReadOnlyList<VideoViewModel> GetVisibleChannelVideos()
-        => _channelVideos
-            .Where(vm => !_skippedVideoIds.Contains(vm.VideoId)
-                && (_showAllVideos || vm.Status == VideoStatus.NotHarvested)
-                && (string.IsNullOrEmpty(_browsCreatorFilter)
-                    || CreatorNameResolver.FromChannelTitle(vm.ChannelTitle) == _browsCreatorFilter))
-            .ToList();
+        => HarvestPlanner.FilterVisibleChannelVideos(
+            _channelVideos, _skippedVideoIds, _showAllVideos, _browsCreatorFilter);
 
     // Markup-facing alias for the canonical visible projection (render loop + empty-state gate).
     private IReadOnlyList<VideoViewModel> VisibleChannelVideos => GetVisibleChannelVideos();
@@ -411,13 +408,9 @@ public partial class Harvest
 
     // ── Section 3: Harvest Trigger (HARV-04) ────────────────────────────────
     private IReadOnlyList<VideoViewModel> GetAllSelectedVideos()
-    {
         // Codex HIGH: only VISIBLE channel videos count — a row selected then hidden by the
         // unharvested filter or by skip must not be harvested.
-        return GetVisibleChannelVideos().Where(v => v.Selected)
-            .Concat(_queueVideos.Where(v => v.Selected))
-            .ToList();
-    }
+        => HarvestPlanner.CombineSelected(GetVisibleChannelVideos(), _queueVideos);
 
     // ── DB-backed pending-distill loader (quick task 260615-p4d) ─────────────
 
@@ -427,13 +420,7 @@ public partial class Harvest
     /// Used by the Distill section only — the Harvest section keeps <see cref="GetAllSelectedVideos"/>.
     /// </summary>
     private IReadOnlyList<VideoViewModel> GetAllSelectedForDistill()
-    {
-        return GetAllSelectedVideos()
-            .Concat(_pendingDistillVideos.Where(v => v.Selected))
-            .GroupBy(v => v.VideoId)
-            .Select(g => g.First())
-            .ToList();
-    }
+        => HarvestPlanner.CombineForDistill(GetAllSelectedVideos(), _pendingDistillVideos);
 
     /// <summary>
     /// Loads harvested-but-not-yet-distilled videos across all enabled sources from the local DB so
@@ -695,26 +682,12 @@ public partial class Harvest
         // Videos from the explicit-id queue carry ChannelId from YouTube metadata;
         // browsed videos carry ChannelId from the playlist/channel feed.
         // _lastBrowsedChannel is a fallback for videos without ChannelId.
-        var resolvable = new List<(string ChannelUrl, string ChannelName, VideoViewModel Video)>();
-        var unresolvedIds = new List<string>();
+        // Resolve a channel URL/name per selected video and group by channel so each channel gets
+        // exactly one EnsureYoutubeSourceAsync + one HarvestAsync call (pure logic in HarvestPlanner).
+        var plan = HarvestPlanner.ResolveChannelGroups(selectedVideos, _lastBrowsedChannel);
+        var groups = plan.Groups;
 
-        foreach (var v in selectedVideos)
-        {
-            string? channelUrl = !string.IsNullOrWhiteSpace(v.ChannelId)
-                ? $"https://www.youtube.com/channel/{v.ChannelId}"
-                : (!string.IsNullOrWhiteSpace(_lastBrowsedChannel) ? _lastBrowsedChannel : null);
-
-            if (channelUrl is null)
-            {
-                unresolvedIds.Add(v.VideoId);
-                continue;
-            }
-
-            var channelName = v.ChannelTitle ?? v.ChannelId ?? _lastBrowsedChannel;
-            resolvable.Add((channelUrl, channelName ?? channelUrl, v));
-        }
-
-        if (resolvable.Count == 0)
+        if (groups.Count == 0)
         {
             // All selected videos are unresolved — abort cleanly without throwing.
             _logLines.Add("Could not determine a channel for the selected video(s).");
@@ -722,20 +695,10 @@ public partial class Harvest
             return false;
         }
 
-        if (unresolvedIds.Count > 0)
+        if (plan.UnresolvedVideoIds.Count > 0)
         {
-            _logLines.Add($"Warning: skipping {unresolvedIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", unresolvedIds)}");
+            _logLines.Add($"Warning: skipping {plan.UnresolvedVideoIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", plan.UnresolvedVideoIds)}");
         }
-
-        // Group resolvable videos by channel URL so each channel gets exactly one
-        // EnsureYoutubeSourceAsync call and one HarvestAsync call.
-        var groups = resolvable
-            .GroupBy(x => x.ChannelUrl)
-            .Select(g => (
-                ChannelUrl: g.Key,
-                ChannelName: g.First().ChannelName,
-                VideoIds: g.Select(x => x.Video.VideoId).ToList().AsReadOnly()))
-            .ToList();
 
         var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
 
@@ -815,15 +778,13 @@ public partial class Harvest
     /// </summary>
     private async Task<int> ApplyAutoApproveAsync(DistillResult result)
     {
-        if (!_autoApproveSettings.Enabled || result.DistilledVideos.Count == 0)
-        {
-            return 0;
-        }
-
-        var keys = result.DistilledVideos
-            .Where(v => AutoApproveSignal.ShouldAutoApprove(v.ClipCount, _autoApproveSettings.Cutoff))
-            .Select(v => (v.NaturalKeyType, v.NaturalKeyValue))
-            .ToList();
+        // Why: pure key selection (enabled + clip-count cutoff via the swappable signal) lives in
+        // HarvestPlanner; the page keeps the store write + cancellation. Empty selection => no call.
+        var keys = HarvestPlanner.SelectAutoApproveKeys(
+            result.DistilledVideos,
+            _autoApproveSettings.Enabled,
+            _autoApproveSettings.Cutoff,
+            AutoApproveSignal);
 
         if (keys.Count == 0)
         {
@@ -1258,39 +1219,5 @@ public partial class Harvest
         _distillTickerCts?.Cancel();
         _distillTickerCts?.Dispose();
         _distillStopwatch?.Stop();
-    }
-
-    // ── Video view model ─────────────────────────────────────────────────────
-    private sealed class VideoViewModel
-    {
-        public string VideoId { get; }
-        public string Url { get; }
-        public string Title { get; }
-        public DateTimeOffset? PublishedUtc { get; }
-        public VideoStatus Status { get; set; }
-        public bool Selected { get; set; }
-        public bool PendingBlock { get; set; }
-        /// <summary>YouTube channel id for this video's author, when available from the listing source.</summary>
-        public string? ChannelId { get; }
-        /// <summary>Display name of the YouTube channel that published this video, when available.</summary>
-        public string? ChannelTitle { get; }
-
-        public VideoViewModel(
-            string videoId,
-            string url,
-            string title,
-            DateTimeOffset? publishedUtc,
-            VideoStatus status,
-            string? channelId = null,
-            string? channelTitle = null)
-        {
-            VideoId = videoId;
-            Url = url;
-            Title = title;
-            PublishedUtc = publishedUtc;
-            Status = status;
-            ChannelId = channelId;
-            ChannelTitle = channelTitle;
-        }
     }
 }
