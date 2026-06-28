@@ -38,7 +38,14 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     // sentinel-bearing string to prove the diff catch never surfaces ex.Message.
     public string? ReadFailureMessage { get; set; }
 
-    public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    // Schema call tracking — lets H3 tests assert the read-only diff path never issues DDL.
+    public int EnsureSchemaCallCount { get; private set; }
+
+    public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureSchemaCallCount++;
+        return Task.CompletedTask;
+    }
 
     public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
