@@ -462,6 +462,18 @@ Full detail archived in `.planning/milestones/cycle10-ROADMAP.md`. Shipped phase
 
 ## Backlog
 
+### Server-side Content-KB publish — move Studio DirectPush prod-WRITE off the laptop (BACKLOG — captured 2026-06-28; design Codex-approved; address in a future milestone)
+
+**Goal:** Studio stops writing prod Postgres directly and stops SCP-uploading artifacts. Instead it POSTs an approved bundle (index rows + artifact text) to two authenticated endpoints on deckflow.gg (DeckFlow.Web), which already runs on Render with the SAME prod Postgres + `/data` disk. Web writes the artifacts to `/data` and does the transactional upsert+stamp+visibility itself. Removes the prod WRITE connection string + SCP-upload key from the operator laptop. Origin: Studio best-practice assessment item #11 (`scratchpad-research/studio-improvement-best-practice-report.md`); design fork B chosen 2026-06-28.
+
+**Design (Codex gpt-5.4 plan-reviewed 2026-06-28 — APPROVED, 4 HIGH baked in):** `GET /api/content-kb/prod-rows` (minimal diff DTO, read-only) + `POST /api/content-kb/publish` (bundle). Auth = dedicated `DECKFLOW_PUBLISH_TOKEN` bearer (NOT human Basic creds), fixed-time compare, per-token/IP rate-limit + single in-flight publish lock + hard timeout, 503-when-unset, SameOrigin defense-in-depth, body-size cap. HIGH items: (1) server-DERIVES the `content-kb/<slug>/<key>.md` path from the natural key — never trusts client path; (2) idempotency via client `PublishOperationId` + `publish_operations` table (dup returns original result — `StampPushedToProd` mutates state); (3) new Core `PublishBatchAsync` doing upsert+stamp+visibility in ONE transaction (closes today's partial-failure window); (4) valid-token abuse limits. Temp-dir artifact staging; no web feature flag (FeatureFlagCache fails OPEN — gate on token-unset). Studio path behind `directpush.server-side-publish` flag (fails safe to legacy).
+
+**Scope:** IN = DirectPush WRITE path + its prod read (move server-side). OUT (follow-up) = PullFromProd (read + SCP-download), Publish-to-Git. "Zero prod creds on laptop" is true for the WRITE path only until PullFromProd is also migrated.
+
+**Waves:** (1) Core contracts + server-derived path guard + `PublishBatchAsync` + op-store; (2) Web auth/rate-limit/audit, ship token-UNSET→503; (3) Web publish service (temp-stage→PublishBatchAsync) + idempotency + endpoints; (4) Studio client behind flag; (5) prod canary (deploy Web, verify 503, seed token, one publish, keep legacy creds); (6) bake → flip flag → remove old write string + SCP + legacy path + docs/rotation.
+
+**Source:** full hardened plan at `.planning/phases/server-side-content-kb-publish/SPEC.md`. **Requirements:** TBD. **Plans:** 0 plans. Promote via `/gsd-review-backlog`.
+
 ### Harden deck-source host matching (SSRF/abuse) (BACKLOG — captured 2026-06-20; HIGH priority — address at next milestone START)
 
 **Goal:** Close a host-spoofing hole in deck-URL loading shared by every deck tool. Origin: Codex code review of the mana-base feature (2026-06-20), deferred out of that feature branch because the fix is in shared code touching all deck tools.
