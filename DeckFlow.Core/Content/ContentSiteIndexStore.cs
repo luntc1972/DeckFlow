@@ -625,6 +625,103 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    public async Task UpsertContentColumnsOnlyBatchAsync(
+        IReadOnlyList<ContentSiteIndexRow> rows,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: validation runs inside the transaction loop (not all up-front) so a bad row
+        // aborts AFTER prior rows have been written in the current statement scope, proving
+        // true rollback semantics — not just "skip the bad row" (T-qyc-01).
+        foreach (var row in rows)
+        {
+            (string Type, string Value) naturalKey;
+            try
+            {
+                ArgumentNullException.ThrowIfNull(row);
+                ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
+                ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
+                ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
+                ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
+                ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
+                ArgumentNullException.ThrowIfNull(row.BracketTags);
+                ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
+
+                naturalKey = GetNaturalKey(row);
+                ValidateArtifactPath(row.ArtifactPath);
+
+                await connection.ExecuteAsync(new CommandDefinition(
+                    UpsertContentColumnsOnlySql,
+                    new
+                    {
+                        source = row.Source,
+                        title = row.Title,
+                        videoUrl = row.VideoUrl,
+                        artifactPath = row.ArtifactPath,
+                        publishedUtc = row.PublishedUtc,
+                        indexedUtc = row.IndexedUtc,
+                        archetypeTags = ContentArtifactSpec.SerializeTags(row.ArchetypeTags),
+                        bracketTags = ContentArtifactSpec.SerializeTags(row.BracketTags),
+                        cardCategoryTags = ContentArtifactSpec.SerializeTags(row.CardCategoryTags),
+                        naturalKeyType = naturalKey.Type,
+                        naturalKeyValue = naturalKey.Value
+                    },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Why: propagate cancellation directly — do not wrap in ContentSiteIndexBatchUpsertException
+                // as the caller already handles it and the transaction will be cleaned up by Dispose.
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                // Why: only the non-secret row identity is carried in ContentSiteIndexBatchUpsertException;
+                // the secret-bearing DB exception stays in InnerException for the log sink,
+                // never surfaced to the UI (D-07 / SC5 / T-qyc-02).
+                var rowTitle = row?.Title ?? "(unknown)";
+                var keyType = "(unknown)";
+                var keyValue = "(unknown)";
+                try
+                {
+                    if (row is not null)
+                    {
+                        var k = GetNaturalKey(row);
+                        keyType = k.Type;
+                        keyValue = k.Value;
+                    }
+                }
+                catch
+                {
+                    // Swallow — we're already in the error path; use the placeholders.
+                }
+
+                throw new ContentSiteIndexBatchUpsertException(
+                    rowTitle,
+                    keyType,
+                    keyValue,
+                    $"Batch upsert aborted at row '{rowTitle}' — entire batch was rolled back.",
+                    ex);
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<int> SetVisibilityAsync(
         IReadOnlyList<(string Type, string Value)> keys,
         bool visible,
