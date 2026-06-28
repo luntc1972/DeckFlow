@@ -122,16 +122,16 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var downloader = new FakeSshArtifactDownloader();
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, downloader);
         var log = new ListProgress<string>();
-        var stage = new ListProgress<string>();
+        var stage = new List<string>();
 
-        var entries = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage, CancellationToken.None);
+        var entries = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None);
 
         var entry = Assert.Single(entries);
         Assert.Equal(SyncDiffKind.MissingLocally, entry.Kind);
         Assert.True(entry.ArtifactDownloaded);
         Assert.Equal(1, prodReader.ReadCallCount);
         // Stage names drive the diagnostic copy on failure.
-        Assert.Contains("classify", stage.Items);
+        Assert.Contains("classify", stage);
         // Human-readable log includes a completion summary and the per-artifact downloaded line.
         Assert.Contains(log.Items, l => l.StartsWith("Done — 1 differing", StringComparison.Ordinal));
         Assert.Contains(log.Items, l => l.Contains("downloaded content-kb/test-channel/vid1.md", StringComparison.Ordinal));
@@ -146,13 +146,29 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         downloader.FilesToFail.Add("content-kb/test-channel/vid1.md");
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, downloader);
         var log = new ListProgress<string>();
-        var stage = new ListProgress<string>();
+        var stage = new List<string>();
 
-        var entries = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage, CancellationToken.None);
+        var entries = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None);
 
         var entry = Assert.Single(entries);
         Assert.False(entry.ArtifactDownloaded);
         Assert.Contains(log.Items, l => l.Contains("not downloaded: content-kb/test-channel/vid1.md", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PullAndClassifyAsync_ReadFails_StageReflectsReadStageSynchronously()
+    {
+        // Why: the stage callback is synchronous (not Progress<T>) so a fault leaves the stage list's
+        // last entry equal to the stage in flight — this is what the page's failure copy reads (Codex MED).
+        var prodReader = new FakeProdContentReader { ReadFailureMessage = "Host=secret-prod-db;Password=hunter2" };
+        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, new FakeSshArtifactDownloader());
+        var log = new ListProgress<string>();
+        var stage = new List<string>();
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None));
+
+        Assert.Equal("read production content_site_index", stage[^1]);
     }
 
     // ── ApplyAdoptionsAsync ────────────────────────────────────────────────────

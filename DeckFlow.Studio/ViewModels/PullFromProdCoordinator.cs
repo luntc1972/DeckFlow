@@ -62,19 +62,20 @@ public sealed class PullFromProdCoordinator
     /// <summary>
     /// Reads the live production content index (read-only, NO DDL), downloads each prod artifact into
     /// an isolated staging area, and classifies the result against the local store — returning only
-    /// the differing entries with their per-entry artifact-downloaded flag stamped. Emits the current
-    /// stage name to <paramref name="onStage"/> (for diagnostic copy) and human-readable progress
-    /// lines to <paramref name="log"/>. NEVER writes to production.
+    /// the differing entries with their per-entry artifact-downloaded flag stamped. Sets the current
+    /// stage name via <paramref name="onStage"/> (a synchronous callback so a fault reads the exact
+    /// stage in flight — diagnostic copy) and emits human-readable progress lines to
+    /// <paramref name="log"/>. NEVER writes to production.
     /// </summary>
     public async Task<IReadOnlyList<SyncDiffEntry>> PullAndClassifyAsync(
         string stagingRoot,
         IProgress<string> log,
-        IProgress<string> onStage,
+        Action<string> onStage,
         CancellationToken cancellationToken)
     {
         // Wipe + recreate staging so a partial prior pull never promotes stale files. Staging is
         // isolated from the live content-kb/ tree (Pitfall 4).
-        onStage.Report("prepare staging");
+        onStage("prepare staging");
         log.Report("Preparing staging area...");
 
         if (Directory.Exists(stagingRoot))
@@ -85,7 +86,7 @@ public sealed class PullFromProdCoordinator
         Directory.CreateDirectory(stagingRoot);
 
         // R1: read prod via the read-only reader — plain SELECT, NO EnsureSchemaAsync/DDL.
-        onStage.Report("read production content_site_index");
+        onStage("read production content_site_index");
         log.Report("Reading production content_site_index...");
 
         // Why: the prod conn string is read ephemerally here, never materialized into DI state (D-03/D-07).
@@ -94,7 +95,7 @@ public sealed class PullFromProdCoordinator
 
         log.Report($"  {prodRows.Count} row(s) read from production.");
 
-        onStage.Report("download artifacts");
+        onStage("download artifacts");
         log.Report($"Downloading {prodRows.Count} artifact(s)...");
 
         // Download each prod artifact into staging (remote + local both traversal-guarded inside the
@@ -116,7 +117,7 @@ public sealed class PullFromProdCoordinator
             downloadResults.Where(r => r.Success).Select(r => r.RemoteRelativePath),
             StringComparer.Ordinal);
 
-        onStage.Report("classify");
+        onStage("classify");
         log.Report("Classifying diff against local store...");
 
         var localRows = await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
