@@ -5,6 +5,7 @@ using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio;
 using DeckFlow.Studio.Pages;
 using DeckFlow.Studio.Services;
+using DeckFlow.Studio.ViewModels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -117,6 +118,9 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
+        // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
+        // register it over the same fakes so the bUnit render wires up identically to production.
+        Services.AddScoped<DirectPushCoordinator>();
         // Why: M3 — wire a capturing logger so tests can assert exceptions reach the
         // Serilog sink (ILogger<DirectPush>) without inspecting rendered markup.
         Services.AddLogging(b => b.AddProvider(logProvider));

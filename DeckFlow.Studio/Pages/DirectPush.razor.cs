@@ -1,45 +1,29 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
-using DeckFlow.Core.Orchestration;
-using DeckFlow.Core.Storage;
 using DeckFlow.Studio;
 using DeckFlow.Studio.Services;
+using DeckFlow.Studio.ViewModels;
 
 namespace DeckFlow.Studio.Pages;
 
 /// <summary>
-/// Code-behind for the Direct Push (publish-to-production) page. Extracted from
-/// the inline @code block (H1 god-component split). Behavior unchanged. The M2
-/// composite-key delimiter now uses the U+0000 escape instead of a raw NUL
-/// source byte - identical resulting string, keeps this file valid UTF-8 text.
+/// Code-behind for the Direct Push (publish-to-production) page. The prod read / diff / upload /
+/// transactional write orchestration lives in <see cref="DirectPushCoordinator"/> (H1 split); this
+/// page keeps only UI state, busy guards, sanitized error copy, exception logging, cancellation,
+/// and re-render marshalling. Behavior is identical to the prior inline implementation.
 /// </summary>
 public partial class DirectPush
 {
     // ── Injected services ───────────────────────────────────────────────────
+    // Why: all prod/SCP/store I/O is delegated to the coordinator so this page is thin UI glue and
+    // the orchestration is unit-testable without bUnit (H1).
     [Inject]
-    private IContentSiteIndexStore IndexStore { get; set; } = default!;
-
-    [Inject]
-    private ISshArtifactUploader SshUploader { get; set; } = default!;
-
-    [Inject]
-    private IProdStoreFactory ProdStoreFactory { get; set; } = default!;
+    private DirectPushCoordinator Coordinator { get; set; } = default!;
 
     [Inject]
     private StudioConfig Config { get; set; } = default!;
-
-    // Why: IConfiguration injected (not a singleton string holder) so the prod conn
-    // string is ephemeral in the publish action, never materialized into DI state (D-03/D-07).
-    [Inject]
-    private IConfiguration Configuration { get; set; } = default!;
-
-    [Inject]
-    private ContentKbOrchestratorOptions Options { get; set; } = default!;
 
     // Why: M3 — logs caught exceptions to the Serilog file/console sink so "see logs" guidance
     // in sanitized UI messages is actually true. Never log ex.Message to the UI (D-07 / SC5).
@@ -51,9 +35,7 @@ public partial class DirectPush
     private string? _initError;
     private int _approvedCount;
 
-    // dataRoot = parent of ArtifactRoot = {studioDataDirectory}
-    // Why: ArtifactPath already carries content-kb/; combining with ArtifactRoot would
-    // double the segment. The data root is the correct base (D-01/D-03/D-10).
+    // dataRoot = parent of ArtifactRoot = {studioDataDirectory}; resolved by the coordinator.
     private string _dataRoot = string.Empty;
 
     // ── Shared in-flight guard ──────────────────────────────────────────────
@@ -67,16 +49,13 @@ public partial class DirectPush
     private int _updatedCount;
     private int _unchangedCount;
 
-    // All approved local rows (reference; SCP + DB operate on _publishRows only).
-    private IReadOnlyList<ContentSiteIndexRow> _approvedRows = Array.Empty<ContentSiteIndexRow>();
-
     // Why (M2): only New + Updated rows are uploaded and written; Unchanged rows are skipped
-    // entirely — their artifacts were uploaded on a prior push and their content signature is
-    // identical to what is already in prod.
+    // entirely. _publishRows and _diffRows are parallel (same set, same order) — both come from the
+    // coordinator's classification in a single pass.
     private IReadOnlyList<ContentSiteIndexRow> _publishRows = Array.Empty<ContentSiteIndexRow>();
 
     // Per-row diff display rows (New + Updated only, shown in the diff table)
-    private List<DiffRow> _diffRows = new();
+    private List<DirectPushDiffRow> _diffRows = new();
 
     // ── Confirmation gate (D-09) ────────────────────────────────────────────
     private bool _prodReviewed;
@@ -93,16 +72,7 @@ public partial class DirectPush
     private string _dbError = string.Empty;
     private List<RowResult> _rowResults = new();
 
-    private sealed record DiffRow(string Title, string KeyType, string KeyValue, bool IsNew, string ArtifactFile);
-
     private sealed record RowResult(string Title, string KeyType, string KeyValue, bool Success, string? Reason);
-
-    // Why: the diff loop and the push loop derive the same (display keyType, key value) pair.
-    // KeyType is the local diff label ("youtube"/"podcast"), intentionally NOT the store's
-    // youtube_channel/podcast_rss discriminator — matching is on the key value, not the type.
-    private static (string KeyType, string KeyValue) DeriveNaturalKey(ContentSiteIndexRow row)
-        => (row.YoutubeVideoId is not null ? "youtube" : "podcast",
-            row.YoutubeVideoId ?? row.RssGuid ?? string.Empty);
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
@@ -110,15 +80,9 @@ public partial class DirectPush
         try
         {
             // Why: Task.Run moves store calls off the Blazor sync context (Pitfall 7).
-            var (approvedCount, dataRoot) = await Task.Run(async () =>
-            {
-                var rows = await IndexStore.GetApprovedRowsAsync(Cts.Token).ConfigureAwait(false);
-                var dr = Path.GetDirectoryName(Options.ArtifactRoot) ?? Options.ArtifactRoot;
-                return (rows.Count, dr);
-            }, Cts.Token);
-
-            _approvedCount = approvedCount;
-            _dataRoot = dataRoot;
+            var initData = await Task.Run(() => Coordinator.LoadInitDataAsync(Cts.Token), Cts.Token);
+            _approvedCount = initData.ApprovedCount;
+            _dataRoot = initData.DataRoot;
         }
         catch (OperationCanceledException)
         {
@@ -163,73 +127,17 @@ public partial class DirectPush
         {
             await Task.Run(async () =>
             {
-                // Read local approved rows
-                var localRows = await IndexStore.GetApprovedRowsAsync(Cts.Token).ConfigureAwait(false);
-
-                // Build on-demand prod store (D-03) — never at DI startup
-                var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
-                var prodStore = ProdStoreFactory.Create(rawConnStr);
-                // Why: the diff is strictly read-only — no DDL against prod (H3).
-                // Prod schema is managed by the DeckFlow.Web app startup (DeckFlow.Web/Program.cs:256).
-                // ProdContentReader also runs zero DDL by design; this path mirrors that precedent.
-
-                // Read prod rows (all rows regardless of visibility) — diff base
-                var prodRows = await prodStore.GetAllRowsAsync(Cts.Token).ConfigureAwait(false);
-
-                // Why (M2): content-aware diff — compare actual content columns so unchanged
-                // rows are excluded from both SCP upload and DB write, stopping no-op re-writes
-                // and reducing prod write surface. A HashSet presence check is insufficient
-                // because it classifies every existing key as "Updated" even if nothing changed.
-                // Why: key the diff map on the FULL natural key (type + value), not the bare value.
-                // Keying on value alone (youtube id OR rss guid) lets a prod podcast row and a local
-                // youtube row that share a value collide; under M2 a collision whose content also
-                // matches would misclassify the local row as Unchanged and silently SKIP its publish
-                // (data loss). The composite key makes "Unchanged" provably the same record.
-                var prodByKey = new Dictionary<string, ContentSiteIndexRow>(
-                    prodRows.Count,
-                    StringComparer.Ordinal);
-                foreach (var r in prodRows)
-                {
-                    var (prodKeyType, prodKeyValue) = DeriveNaturalKey(r);
-                    if (!string.IsNullOrEmpty(prodKeyValue))
-                    {
-                        prodByKey[$"{prodKeyType}\u0000{prodKeyValue}"] = r;
-                    }
-                }
-
-                int newCount = 0, updatedCount = 0, unchangedCount = 0;
-                var diffRows = new List<DiffRow>();
-                var publishRows = new List<ContentSiteIndexRow>();
-                foreach (var row in localRows)
-                {
-                    var (keyType, key) = DeriveNaturalKey(row);
-                    if (!prodByKey.TryGetValue($"{keyType}\u0000{key}", out var prodRow))
-                    {
-                        newCount++;
-                        publishRows.Add(row);
-                        diffRows.Add(new DiffRow(row.Title, keyType, key, true, Path.GetFileName(row.ArtifactPath)));
-                    }
-                    else if (!ContentSiteIndexContentSignature.AreContentEqual(row, prodRow))
-                    {
-                        updatedCount++;
-                        publishRows.Add(row);
-                        diffRows.Add(new DiffRow(row.Title, keyType, key, false, Path.GetFileName(row.ArtifactPath)));
-                    }
-                    else
-                    {
-                        // Unchanged: content signature matches — skip SCP and DB write entirely.
-                        unchangedCount++;
-                    }
-                }
+                // Why (M2/H3): coordinator reads local + prod (read-only, no DDL) and runs the
+                // content-aware classification; Unchanged rows are excluded from the publish set.
+                var diff = await Coordinator.ComputeDiffAsync(Cts.Token).ConfigureAwait(false);
 
                 await InvokeAsync(() =>
                 {
-                    _approvedRows = localRows;
-                    _publishRows = publishRows;
-                    _diffRows = diffRows;
-                    _newCount = newCount;
-                    _updatedCount = updatedCount;
-                    _unchangedCount = unchangedCount;
+                    _publishRows = diff.PublishRows;
+                    _diffRows = diff.DiffRows.ToList();
+                    _newCount = diff.NewCount;
+                    _updatedCount = diff.UpdatedCount;
+                    _unchangedCount = diff.UnchangedCount;
                     _diffReady = true;
                     _diffComputeInFlight = false;
                     _operationInFlight = false;
@@ -274,14 +182,6 @@ public partial class DirectPush
         {
             await Task.Run(async () =>
             {
-                // Why (M2): only _publishRows (New + Updated) are uploaded; Unchanged rows
-                // already have identical artifacts in prod from a prior push.
-                var requests = _publishRows
-                    .Select(r => new SshUploadRequest(
-                        Path.GetFullPath(Path.Combine(_dataRoot, r.ArtifactPath)),
-                        r.ArtifactPath))
-                    .ToList();
-
                 // Progress streams per-file results into _fileResults via disposal-safe InvokeAsync.
                 var progress = new Progress<SshUploadResult>(result =>
                 {
@@ -292,7 +192,8 @@ public partial class DirectPush
                     });
                 });
 
-                var results = await SshUploader.UploadArtifactsAsync(requests, progress, Cts.Token)
+                var results = await Coordinator
+                    .UploadArtifactsAsync(_publishRows, _dataRoot, progress, Cts.Token)
                     .ConfigureAwait(false);
 
                 var allOk = results.All(r => r.Success);
@@ -353,42 +254,14 @@ public partial class DirectPush
         {
             await Task.Run(async () =>
             {
-                var rawConnStr = Configuration["Studio:ProdConnectionString"] ?? string.Empty;
-                var prodStore = ProdStoreFactory.Create(rawConnStr);
+                // Why (H4): coordinator runs the single transactional batch upsert + prod-first
+                // stamp/visibility, all-or-nothing. Throws on any row failure (rolled back).
+                await Coordinator.WritePublishAsync(_publishRows, Cts.Token).ConfigureAwait(false);
 
-                // Why (H4): single transactional batch call — one connection, one DbTransaction,
-                // all-or-nothing. Replaces the per-row loop that left prod partially written on
-                // mid-batch failure (T-qyc-01). Prod schema is web-app-managed (H3); no DDL here.
-                // SC3 / D-08: only the content-columns-only upsert may run on prod — never a
-                // full-row upsert (preserves is_visible / is_evergreen on existing rows).
-                await prodStore.UpsertContentColumnsOnlyBatchAsync(_publishRows, Cts.Token).ConfigureAwait(false);
-
-                // All rows succeeded — build result list and run stamp/visibility.
-                var successResults = _publishRows
-                    .Select(row =>
-                    {
-                        var (keyType, keyValue) = DeriveNaturalKey(row);
-                        return new RowResult(row.Title, keyType, keyValue, true, null);
-                    })
+                // All rows succeeded — _diffRows is parallel to _publishRows (New + Updated set).
+                var successResults = _diffRows
+                    .Select(d => new RowResult(d.Title, d.KeyType, d.KeyValue, true, null))
                     .ToList();
-
-                var keys = _publishRows
-                    .Select(row => ContentIndexExportRow.From(row))
-                    .Select(row => (
-                        Type: row.NaturalKeyType,
-                        Value: row.NaturalKeyValue))
-                    .ToList();
-                var pushedUtc = DateTimeOffset.UtcNow;
-
-                // Why: write PRODUCTION state first (stamp + publish-visible), then advance the
-                // local store. If a prod write fails, the local row stays behind (un-stamped /
-                // hidden) rather than deriving Published while prod is not — local must never
-                // over-report prod (PUB-01/HIGH-3). DirectPush publishes its rows visible so both
-                // the prod /Admin and Studio surfaces derive Published once local catches up.
-                await prodStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
-                await prodStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
-                await IndexStore.StampPushedToProdAsync(keys, pushedUtc, Cts.Token).ConfigureAwait(false);
-                await IndexStore.SetVisibilityAsync(keys, true, Cts.Token).ConfigureAwait(false);
 
                 await InvokeAsync(() =>
                 {
@@ -407,12 +280,8 @@ public partial class DirectPush
             // goes only to the log sink (D-07 / SC5 / T-qyc-02). The entire batch was rolled back
             // on any row failure — stamp/visibility MUST NOT run (PUB-01 / T-qyc-04).
             Logger.LogError(ex, "Prod batch upsert rolled back at row {Title}", ex.FailedRowTitle);
-            var rollbackResults = _publishRows
-                .Select(row =>
-                {
-                    var (keyType, keyValue) = DeriveNaturalKey(row);
-                    return new RowResult(row.Title, keyType, keyValue, false, "Rolled back — not written");
-                })
+            var rollbackResults = _diffRows
+                .Select(d => new RowResult(d.Title, d.KeyType, d.KeyValue, false, "Rolled back — not written"))
                 .ToList();
             _rowResults = rollbackResults;
             _dbError = $"Row '{ex.FailedRowTitle}' failed — the entire batch was rolled back. " +
@@ -447,11 +316,4 @@ public partial class DirectPush
     // internal method lets the test invoke the handler in the pre-SCP state and assert no upsert
     // ran. It calls the exact production handler — no behavior is duplicated.
     internal Task InvokeWriteRowsForTest() => WriteRowsAsync();
-
-    // ── IDisposable: cancel in-flight ops on circuit drop ───────────────────
-    /// <summary>
-    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
-    /// prod read, SCP upload, or DB write is stopped when the operator closes the tab or the
-    /// SignalR circuit drops (D-09).
-    /// </summary>
 }
