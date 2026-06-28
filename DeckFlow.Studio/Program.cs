@@ -152,6 +152,10 @@ public partial class Program
             // stage-and-commit), extracted from the page code-behind (H1). Scoped because it depends
             // on the scoped IContentKbOrchestrator — a singleton would capture it (captive dependency).
             builder.Services.AddScoped<DeckFlow.Studio.ViewModels.PublishCoordinator>();
+            // Why: Review page orchestration (queue load / approval-status writes / artifact path
+            // containment + read), extracted from the page code-behind (H1). Stateless and both its
+            // dependencies are singletons, so it is registered as a singleton too.
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.ReviewCoordinator>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
 
