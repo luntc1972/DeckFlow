@@ -83,6 +83,10 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
+        // Why: the page now resolves its prod-pull + local-apply orchestration through
+        // PullFromProdCoordinator (H1 split); the coordinator is built from the fakes registered
+        // above (ILogger comes from AddLogging), so page behavior is unchanged.
+        Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
 
         var cut = Render<PullFromProd>();
         return (cut, localStore, prodReader, downloader);
