@@ -264,6 +264,52 @@ Maybeboard
         Assert.DoesNotContain("candidate_include", result.AnalysisPromptText);
     }
 
+    [Theory]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
+    public async Task BuildAsync_GatesCandidateIncludeRule_PerPlatform(string platform)
+    {
+        var service = CreateService();
+        const string deckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Arcane Signet
+
+Sideboard
+1 Swords to Plowshares
+
+Maybeboard
+1 Smothering Tithe
+""";
+
+        var optInResult = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = deckSource,
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = platform,
+            SelectedAnalysisQuestions = ["strengths-weaknesses"],
+            IncludeCandidateReferencesInAnalysis = true
+        });
+
+        var optOutResult = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = deckSource,
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = platform,
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        // Each platform's prompt variant emits the candidate_include rule only when opted in.
+        Assert.Contains("candidate_include", optInResult.AnalysisPromptText);
+        Assert.DoesNotContain("candidate_include", optOutResult.AnalysisPromptText);
+    }
+
     [Fact]
     public async Task BuildAsync_DoesNotGenerateAnalysis_WhenOnSetupStep()
     {
