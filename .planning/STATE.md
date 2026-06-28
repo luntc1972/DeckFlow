@@ -34,7 +34,7 @@ See: .planning/PROJECT.md
 Phase: 73 — COMPLETE
 Plan: 4 of 4
 Status: Phase 73 complete
-Last activity: 2026-06-28 -- Completed quick task 260627-p55: DeckFlow.Studio safety wins
+Last activity: 2026-06-28 -- Completed quick task 260627-qyc: DeckFlow.Studio DirectPush prod-write integrity
 
 ## Roadmap Summary
 
@@ -107,6 +107,7 @@ Last activity: 2026-06-28 -- Completed quick task 260627-p55: DeckFlow.Studio sa
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260627-p55 | DeckFlow.Studio safety wins: loopback-bind guard (H2), EnsureSchema out of read-only diff path (H3), DirectPush exception logging (M3) | 2026-06-28 | 38bf6355 | [260627-p55-deckflow-studio-safety-wins-loopback-bin](./quick/260627-p55-deckflow-studio-safety-wins-loopback-bin/) |
+| 260627-qyc | DeckFlow.Studio DirectPush prod-write integrity: H4 transactional all-or-nothing batch upsert + M2 content-aware diff (skip no-op upserts) | 2026-06-28 | 2ce8e47c | [260627-qyc-deckflow-studio-directpush-prod-write-in](./quick/260627-qyc-deckflow-studio-directpush-prod-write-in/) |
 
 ### Carry-Forward (still open from prior cycles)
 
