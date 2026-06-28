@@ -75,4 +75,23 @@ public sealed class LlmDistillationProviderFactoryTests
 
         Assert.Equal("httpClient", exception.ParamName);
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("openai")]
+    [InlineData("OpenAI")]
+    [InlineData("  openai  ")]
+    public void IsSubscriptionProvider_MeteredOrUnset_ReturnsFalse(string? providerEnv)
+        => Assert.False(LlmDistillationProviderFactory.IsSubscriptionProvider(providerEnv));
+
+    [Theory]
+    [InlineData("claude")]
+    [InlineData("CLAUDE")]
+    [InlineData("  claude  ")]
+    [InlineData("codex")]
+    [InlineData("anything-else")]
+    public void IsSubscriptionProvider_NonOpenAi_ReturnsTrue(string providerEnv)
+        => Assert.True(LlmDistillationProviderFactory.IsSubscriptionProvider(providerEnv));
 }

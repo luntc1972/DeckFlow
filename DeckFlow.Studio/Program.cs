@@ -93,12 +93,11 @@ public partial class Program
             builder.Services.AddSingleton<IAutoApproveSignal, ClipCountAutoApproveSignal>();
             // Why: Read DECKFLOW_LLM_PROVIDER ONCE so the factory-resolved distiller and
             // StudioDistillConfig.IsSubscriptionProvider are always derived from the same value
-            // and can never disagree (HIGH-1 / D-01).
-            // Replicates DeckFlow.CLI/ContentKbCommandRunners.cs lines 95-97.
+            // and can never disagree (HIGH-1 / D-01). The subscription rule lives in one place
+            // (LlmDistillationProviderFactory.IsSubscriptionProvider), shared with the CLI.
             var providerEnv = builder.Configuration[LlmDistillationProviderFactory.EnvironmentVariableName]
                 ?? Environment.GetEnvironmentVariable(LlmDistillationProviderFactory.EnvironmentVariableName);
-            var isSubscriptionProvider = !string.IsNullOrWhiteSpace(providerEnv)
-                && !string.Equals(providerEnv.Trim(), "openai", StringComparison.OrdinalIgnoreCase);
+            var isSubscriptionProvider = LlmDistillationProviderFactory.IsSubscriptionProvider(providerEnv);
 
             // Why: SessionCapOverride registered first so the resolver closure can capture the reference.
             // The same singleton ledger instance is injected into both the Harvest page and the orchestrator,

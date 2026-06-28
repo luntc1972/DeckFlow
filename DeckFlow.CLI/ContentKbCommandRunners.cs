@@ -93,8 +93,7 @@ internal static class ContentKbCommandRunners
             var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
             using var llmHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var providerEnv = Environment.GetEnvironmentVariable(LlmDistillationProviderFactory.EnvironmentVariableName);
-            var isSubscriptionProvider = !string.IsNullOrWhiteSpace(providerEnv)
-                && !string.Equals(providerEnv.Trim(), "openai", StringComparison.OrdinalIgnoreCase);
+            var isSubscriptionProvider = LlmDistillationProviderFactory.IsSubscriptionProvider(providerEnv);
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
