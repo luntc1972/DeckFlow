@@ -76,6 +76,7 @@ internal static class PacketArtifactStore
     {
         "00-primer-input-summary.txt",
         "01-primer-request-context.txt",
+        "02-primer-deck-hash.txt",
         "10-primer-deck-list.txt",
         "10b-primer-deck-original.txt",
         "30-primer-chatgpt-prompt.txt",
@@ -216,6 +217,7 @@ internal static class PacketArtifactStore
     /// <param name="geminiPromptText">Gemini primer prompt text, when enabled.</param>
     /// <param name="canonicalDeckListText">Normalized decklist text.</param>
     /// <param name="originalDeckText">Original pasted deck text, when applicable.</param>
+    /// <param name="generatedPrimerHash">Generation-time deck multiset hash, when stale detection is enabled.</param>
     /// <returns>A zip archive containing the primer packet artifacts.</returns>
     public static byte[] BuildPrimerZip(
         DeckPrimerRequest request,
@@ -225,7 +227,8 @@ internal static class PacketArtifactStore
         string? claudePromptText,
         string? geminiPromptText,
         string? canonicalDeckListText = null,
-        string? originalDeckText = null)
+        string? originalDeckText = null,
+        string? generatedPrimerHash = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -233,6 +236,7 @@ internal static class PacketArtifactStore
         [
             ("00-primer-input-summary.txt", "PRIMER INPUT SUMMARY", inputSummary),
             ("01-primer-request-context.txt", "PRIMER REQUEST CONTEXT", requestContextText),
+            ("02-primer-deck-hash.txt", "PRIMER DECK HASH", generatedPrimerHash),
             ("10-primer-deck-list.txt", "PRIMER DECK LIST", canonicalDeckListText),
             ("10b-primer-deck-original.txt", "PRIMER DECK ORIGINAL TEXT", originalDeckText),
             ("30-primer-chatgpt-prompt.txt", "CHATGPT PRIMER PROMPT", chatGptPromptText),
@@ -476,6 +480,41 @@ internal static class PacketArtifactStore
     private static string? NullIfBlank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.TrimEnd();
 
+    private static string? TrimNullIfBlank(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static PrimerZipRestore BuildPrimerZipRestore(IReadOnlyDictionary<string, string> entries)
+    {
+        entries.TryGetValue("02-primer-deck-hash.txt", out var generatedPrimerHash);
+        entries.TryGetValue("10-primer-deck-list.txt", out var canonicalDeckList);
+        entries.TryGetValue("10b-primer-deck-original.txt", out var originalDeckText);
+        entries.TryGetValue("00-primer-input-summary.txt", out var inputSummary);
+
+        var promptTextsByPlatform = new Dictionary<string, string>(StringComparer.Ordinal);
+        AddPrimerPromptText(promptTextsByPlatform, AiPlatform.ChatGpt, entries, "30-primer-chatgpt-prompt.txt");
+        AddPrimerPromptText(promptTextsByPlatform, AiPlatform.Claude, entries, "30-primer-claude-prompt.txt");
+        AddPrimerPromptText(promptTextsByPlatform, AiPlatform.Gemini, entries, "30-primer-gemini-prompt.txt");
+
+        return new PrimerZipRestore(
+            GeneratedPrimerHash: TrimNullIfBlank(generatedPrimerHash),
+            GenerationDeckSnapshotText: NullIfBlank(canonicalDeckList) ?? NullIfBlank(originalDeckText),
+            PrimerPromptTextsByPlatform: promptTextsByPlatform,
+            InputSummary: NullIfBlank(inputSummary));
+    }
+
+    private static void AddPrimerPromptText(
+        Dictionary<string, string> promptTextsByPlatform,
+        AiPlatform platform,
+        IReadOnlyDictionary<string, string> entries,
+        string fileName)
+    {
+        if (entries.TryGetValue(fileName, out var promptText)
+            && !string.IsNullOrWhiteSpace(promptText))
+        {
+            promptTextsByPlatform[platform.Key] = promptText.TrimEnd();
+        }
+    }
+
     /// <summary>
     /// Rehydrates a saved cEDH meta-gap zip back into a request.
     /// </summary>
@@ -575,17 +614,18 @@ internal static class PacketArtifactStore
     /// </summary>
     /// <param name="zipStream">Zip payload stream.</param>
     /// <param name="request">Deck-primer request to restore.</param>
-    public static void LoadPrimerFromZip(Stream zipStream, DeckPrimerRequest request)
+    public static PrimerZipRestore LoadPrimerFromZip(Stream zipStream, DeckPrimerRequest request)
     {
         ArgumentNullException.ThrowIfNull(zipStream);
         ArgumentNullException.ThrowIfNull(request);
 
         var entries = ReadEntries(zipStream, PrimerAllowedNames);
+        var restore = BuildPrimerZipRestore(entries);
         entries.TryGetValue("01-primer-request-context.txt", out var requestContextText);
 
         if (string.IsNullOrWhiteSpace(requestContextText))
         {
-            return;
+            return restore;
         }
 
         var normalized = requestContextText.Replace("\r\n", "\n", StringComparison.Ordinal)
@@ -661,6 +701,8 @@ internal static class PacketArtifactStore
         {
             request.SelectedSectionIds = selectedSectionIds;
         }
+
+        return restore;
     }
 
     private static IReadOnlyList<EdhTop16Entry> TryDeserializeFetchedEntries(string? json)
@@ -852,6 +894,19 @@ internal static class PacketArtifactStore
         return trimmed.Trim();
     }
 }
+
+/// <summary>
+/// Display-side primer artifacts restored from a deck-primer zip on re-upload.
+/// </summary>
+/// <param name="GeneratedPrimerHash">Generation-time deck multiset hash, when present.</param>
+/// <param name="GenerationDeckSnapshotText">Generation deck snapshot used for no-fetch staleness comparison.</param>
+/// <param name="PrimerPromptTextsByPlatform">Restored primer prompt texts keyed by AI platform key.</param>
+/// <param name="InputSummary">Restored primer input summary, when present.</param>
+public sealed record PrimerZipRestore(
+    string? GeneratedPrimerHash,
+    string? GenerationDeckSnapshotText,
+    IReadOnlyDictionary<string, string> PrimerPromptTextsByPlatform,
+    string? InputSummary);
 
 /// <summary>
 /// Display-side artifacts restored from a comparison zip on re-upload.

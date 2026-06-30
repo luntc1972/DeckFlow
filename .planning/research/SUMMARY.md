@@ -1,222 +1,171 @@
 # Project Research Summary
 
-**Project:** DeckFlow v1.7 — Local Harvest & Publish Studio
-**Domain:** Standalone local Blazor Server curation tool + admin grid perf fix
-**Researched:** 2026-06-13
-**Confidence:** HIGH
+**Project:** DeckFlow Cycle 13 — Deck Evaluation & Creator Output
+**Domain:** Commander/cEDH deck evaluation + AI paste-artifact engine extension
+**Researched:** 2026-06-27
+**Confidence:** HIGH (stack verified against live codebase and live Scryfall API; bracket definitions verified against WotC official announcements through Feb 2026)
 
 ## Executive Summary
 
-DeckFlow v1.7 adds a standalone local tool (DeckFlow.Studio) that gives the operator a browser-based UI for the entire content-KB pipeline: discover YouTube videos, harvest+distill them, review and approve in a queue, and publish to deckflow.gg via either a git commit-then-deploy path (primary) or a direct prod-Postgres + SCP write (secondary). The milestone also fixes the admin commander grid's synchronous count+aggregate query with lazy AJAX paging. The most important finding from all four research files is that no new NuGet packages are needed: YoutubeExplode 6.6.0 and Npgsql 10.0.0 are already in DeckFlow.Core, and all other operations use the existing RestSharp/Polly pattern, shell-out git/scp, and dotnet user-secrets.
+Cycle 13 adds four deck-evaluation and creator-output features to an existing ASP.NET 10 paste-artifact engine. Every feature builds entirely on in-solution components — zero new NuGet packages, zero new npm packages. The Bracket Classifier detects which of the five WotC tiers a deck falls in; the Balancer generates a "cuts to reach bracket N" paste artifact (the only tool in the space to do this). Multi-Axis Deck Score (Power/Speed/Control/Consistency 0-5) replaces single-number scoring in the analysis packet. Auto-Refreshing Primer detects deck staleness against a stored canonical hash and flags the primer for regeneration. Tap Analyzer surfaces untapped-source frequency and turn-1 availability already computed inside the CastabilitySimulator but never previously reported.
 
-The single biggest architectural decision — and a prerequisite to everything else — is extracting the harvest/distill orchestration out of DeckFlow.CLI into DeckFlow.Core as IContentKbOrchestrator. This is blocked by the fact that CLI is an executable project; Studio cannot reference it as a library. The extraction simultaneously closes the v1.6 backlog item "ContentKbCommandRunners god-class split." Once IContentKbOrchestrator lives in Core, the CLI's public Run*Async methods become thin path-resolver adapters, and Studio's Blazor services call the same domain logic directly via DI.
+The recommended approach is Core-first and additive. All four scoring and classification engines are pure functions of already-modeled deck facts and belong in `DeckFlow.Core`. The Web layer only hydrates Scryfall facts (reusing the existing `IScryfallCardResolver`/`ScryfallCardFactMapper` path), renders the three decoupled prompt variants per ADR-0001, and owns feature flags. The Tap Analyzer is the simplest and most independent — accumulate two counters inside the existing 20,000-trial Monte-Carlo loop, add additive fields to `ManabaseReport`, surface in the paste text. It has no dependency on any other Cycle 13 feature and should ship first.
 
-Three pitfalls impose hard ordering constraints on the build sequence. First, a safe content-columns-only upsert overload (UpsertContentColumnsOnlyAsync) must exist before any direct prod-write phase ships, because the two existing overloads both clobber is_visible/is_evergreen on UPDATE — silently erasing admin curation. Second, the approval_status column and filtered export (GetApprovedRowsAsync) must land before the commit-publish phase, otherwise rejected content enters the public repo's seed JSON and prod Postgres. Third, the Studio project scaffold with gitignore entries and user-secrets wiring must be the very first phase, because the prod connection string has no safe home until that foundation exists.
+The dominant risk across all four features is the correctness and honesty of the paste artifacts. A wrong bracket classification, an unjustifiable axis weight, a falsely-stale primer flag, or a tap metric that contradicts the sim's own cast-rate all erode trust in the artifact the user pastes into ChatGPT — the core product value. Prevention is uniform: externalize living data (Game Changers list must be a versioned data file, not a `.cs` constant), document every signal-to-score formula with `// Why:`, source each metric from a single place, and instrument every artifact with enough disclosed inputs that the AI can detect and correct DeckFlow's gaps.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new NuGet packages are required. YoutubeExplode 6.6.0 (already in DeckFlow.Core) covers all YouTube operations — channel listing, video metadata, and keyword search — with no API key and no quota ceiling. Npgsql 10.0.0 (already in Core) handles prod Postgres writes via the existing RelationalDatabaseConnection pattern. Git automation shells out to the system git binary using the existing ProcessOutput helper from FfmpegAudioChunker.cs; this inherits the developer's SSH auth automatically and avoids LibGit2Sharp's credential-resolution complexity. Secrets live in dotnet user-secrets (UserSecretsId GUID in the csproj; actual values outside the repo tree), consistent with Render's env-var pattern for the deployed app.
+All four features are pure builds on the existing stack. No new technology decisions are required. The in-solution components that enable each feature are: RestSharp + Polly `scryfall` pipeline + IMemoryCache (Bracket: reuse banlist pattern); `System.Security.Cryptography.SHA256` BCL already used in `PacketSessionCache` (Primer fingerprint); `RelationalDatabaseConnection` dual-dialect (one new `primer_snapshots` table); `DeckFlow.Core/Manabase` (Tap Analyzer: additive fields only). The existing `DeckStatClassifier`, `DeckStatAggregator`, `CardFact`, and `DeckStatSummary` types are the primary inputs to the bracket and scoring engines.
 
-The Studio UI is ASP.NET Core + Blazor Server running on localhost via dotnet run. Blazor Server's SignalR connection handles real-time progress updates from the long-running harvest/distill pipelines via StateHasChanged(), and the async UI model is familiar from DeckFlow.Web's MVC/Razor skill. The Studio project is added to DeckFlow.sln but excluded from the Dockerfile restore (which stays scoped to DeckFlow.Web/DeckFlow.Web.csproj — do not change this to a solution-level restore).
-
-**Core technologies:**
-- ASP.NET Core + Blazor Server 10.0: Studio UI host — dotnet run on localhost, real-time progress via SignalR, ProjectReference to Core
-- YoutubeExplode 6.6.0 (already in Core): channel listing + video metadata + keyword search — no API key, no quota
-- Npgsql 10.0.0 (already in Core): direct prod Postgres writes via existing RelationalDatabaseConnection
-- git CLI (shelled out): commit-then-deploy publish path — inherits SSH auth, reuses ProcessOutput pattern
-- dotnet user-secrets: prod connection string + Render SSH address — stays outside the public repo tree
-- scp CLI (shelled out): markdown artifact files to Render /data disk — secondary path only; requires one-time SSH key setup in Render dashboard
+**Core technologies (all in-solution — no changes):**
+- `DeckFlow.Core/Analysis/` — pure-CPU bracket classification + multi-axis scoring; pure-CPU locale for all new engines
+- RestSharp `scryfall-rest` + Polly `scryfall` + IMemoryCache — Game Changers seed verification; 24h cache; reuse `ICommanderBanListService` pattern
+- `System.Security.Cryptography.SHA256` (BCL) — deck fingerprint for primer staleness; already used in `PacketSessionCache.ComputeKey`
+- `RelationalDatabaseConnection` (`IRelationalDialect`) — primer snapshot store; same pattern as `FeedbackStore`/`CategoryKnowledgeStore`
+- `CastabilitySimulator` (existing, Core) — Tap Analyzer: add counters inside existing 20k-trial loop; zero new simulation
 
 ### Expected Features
 
-**Must have (table stakes — v1.7 core):**
-- Paste URL/ID → harvest+distill with LLM spend preview (dry-run gate before every distill)
-- Distill-status tracking and per-item review queue (summary + clips + tags)
-- Approve / reject individual items (approval_status column: pending / approved / rejected)
-- Blocked-video management in UI (parity with existing CLI block/unblock/list)
-- Seed-export + git commit-then-deploy publish path (proven mechanism, primary path)
-- Lazy AJAX numbered paging for AdminHarvestController commander grid (independent, low-risk)
+**Must have (table stakes — launch with):**
+- Bracket Classifier: Game Changers data table (versioned + dated) + hard-floor detection (mass land denial, extra-turn chains, 2-card combos via Spellbook) + bracket number with disclosed reasons
+- Multi-Axis Score Speed + Consistency axes: ~80% reuse of existing manabase + ramp/draw + combo signals; ship in the analysis paste packet immediately
+- Tap Analyzer surface: untapped land count/fraction + turn-1 untapped availability in report and paste text; the manabase engine already computes this, it just never surfaced it
 
-**Should have (v1.7 complete):**
-- Channel browse UI — list recent videos by known handle/URL with harvested-status badge
-- Multi-select batch harvest from browse results
-- "What will change" diff before publish (git diff for commit path; prod-DB query for direct path)
-- Direct prod-DB + SCP publish path (secondary; only after commit path is proven)
-- Inline tag editing before publish
+**Should have (uncontested differentiators — complete in Cycle 13):**
+- Bracket Balancer paste artifact: "cuts to hit target bracket N" with per-cut justification anchored to objective gates; no incumbent ships this
+- Multi-Axis Score Control + Power axes: Control needs a new interaction classifier (board-wipe/removal/counter oracle text or category-knowledge); Power axis delegates card-strength judgment to the AI round-trip
+- Auto-Refreshing Primer (flag-stale tier): store canonical deck fingerprint alongside primer artifact; show "Deck changed — regenerate?" banner naming the delta; reuses `DiffEngine` + `PacketSessionCache.ComputeKey`
 
-**Defer (v1.8+):**
-- Real-time SSE/polling progress during harvest+distill (high complexity)
-- YouTube Data API v3 creator search by name (quota risk — 100 units/call; handle browse covers the core case)
-- Post-publish verification via HTTP scrape or prod-DB read
-- Scheduled/cron harvest (local tool is not always running; defeats review-before-publish guarantee)
+**Defer (next cycle):**
+- Auto-Refreshing Primer section-scoped regenerate: section to card dependency map + per-section prompt assembly; HIGH complexity; validate the flag-stale tier first
+- Bracket Balancer fair-replacement automation: local replacement-suggestion engine (vs delegating fair-swap judgment to the AI round-trip); only if AI-delegated version proves insufficient
 
 ### Architecture Approach
 
-The solution gains one new project (DeckFlow.Studio) and two new files in DeckFlow.Core (IContentKbOrchestrator, ContentKbOrchestrator). DeckFlow.CLI's ContentKbCommandRunners is thinned to path-resolver adapters. DeckFlow.Web is unchanged except for the lazy-paging partial endpoint on AdminHarvestController. The approval_status column is local-SQLite-only — it is never propagated to prod Postgres by either publish path. Prod Postgres has no concept of it.
+The existing DeckFlow Core/Web split governs all four features. Pure scoring/classification logic goes in `DeckFlow.Core/Analysis/` alongside the existing `DeckStatClassifier`/`DeckStatAggregator`. Web services hydrate Scryfall facts (reusing `IScryfallCardResolver`), call Core, and render three decoupled prompt variant families per ADR-0001. Tap Analyzer is the exception: it stays entirely in `DeckFlow.Core/Manabase/` because it is literally an additional readout of `CastabilitySimulator` state. Primer staleness splits: thin `PrimerStalenessEvaluator` in Core (wraps `DiffEngine.Compare`) + `PrimerSnapshotStore` in Web (new dialect-pluggable persistence). A new `BracketController : DeckToolControllerBase` follows the established controller pattern with `[FeatureFlagGate]`.
 
-**Major components:**
-1. IContentKbOrchestrator / ContentKbOrchestrator (Core, NEW) — extracted domain logic for harvest, distill, block/unblock, corpus-reset, export; accepts interfaces, returns result records (not int exit codes); both CLI and Studio call it
-2. DeckFlow.Studio Blazor Server app (NEW) — five Studio services (StudioHarvestService, StudioDistillService, StudioDiscoveryService, StudioReviewService, StudioPublishService) backed by Core interfaces; Blazor pages for Discovery, Queue, Publish, Admin
-3. ContentSiteIndexStore + IContentSiteIndexStore (Core, MODIFIED) — add approval_status self-healing ALTER migration; add GetPendingApprovalAsync, SetApprovalStatusAsync, GetApprovedRowsAsync; add UpsertContentColumnsOnlyAsync overload that preserves is_visible/is_evergreen on UPDATE
-4. ContentKbCommandRunners (CLI, MODIFIED) — public Run*Async become thin adapters; internal static domain methods move to Core
-5. AdminHarvestController (Web, MODIFIED) — add GET /Admin/Harvest/commanders partial endpoint; initial Index renders skeleton, JS replaces grid on DOMContentLoaded
+**Major new components:**
+1. `GameChangerCatalog` (Core/Analysis) — static embedded versioned card-name set with effective-date; loaded from a seed JSON file at startup, NOT a hardcoded `.cs` literal
+2. `BracketClassifier` (Core/Analysis) — pure: `CardFact[]` + `DeckStatSummary` + `GameChangerCatalog` -> `BracketResult { Tier, Reasons[], GameChangerHits[] }`
+3. `BracketBalancer` (Core/Analysis) — pure: deck + target tier -> ranked `IReadOnlyList<BracketCut>` anchored to objective gate violations
+4. `DeckScorer` (Core/Analysis) — pure: `DeckStatSummary` + combo count + tutor count -> `DeckScore(Power, Speed, Control, Consistency)` clamped 0-5
+5. `BracketAnalysisService` (Web/Services/Bracket/) — hydrate `CardFact[]` via existing Scryfall path; call Core; render 3 prompt variants; own flag `tool.bracket.enabled`
+6. `PrimerStalenessEvaluator` (Core/Diffing) — thin wrapper over existing `DiffEngine.Compare`; returns stale-bool + change-count
+7. `PrimerSnapshotStore` (Web/Services/Persistence/) — dialect-pluggable (`RelationalDatabaseConnection`); persists `{ deckKey, fingerprint, decklistText, generatedUtc }`
+8. Tap accumulation (inline, Core/Manabase/CastabilitySimulator) — two `out int` counters added to existing `SimulateGame`; additive fields on `CardCastability`/`ManabaseReport`
 
 ### Critical Pitfalls
 
-1. **Direct prod-write clobbers is_visible/is_evergreen** — UpsertRowAsync overwrites every column including admin curation; UpsertRowPreservingVisibilityAsync hardcodes FALSE on INSERT and ignores visibility on UPDATE. A third overload (UpsertContentColumnsOnlyAsync) whose DO UPDATE SET clause explicitly excludes is_visible, is_evergreen, and approval_status is required before any direct prod-write phase. Add an integration test: upsert a row with is_visible=TRUE, call the new method, assert is_visible remains TRUE.
+1. **Game Changers staleness treadmill** — A hardcoded `string[]` or `HashSet<string>` in `.cs` goes silently stale on every WotC update, producing wrong bracket classifications in the most trusted artifact. Prevention: externalize as a versioned seed JSON file (same pattern as `ContentKbSeedLoader`) with an `effective_date` field. Stamp every bracket classification artifact with the list date. The Scryfall `is:gamechanger` API can validate/update the seed out-of-band; the classifier itself reads only the local cached data.
 
-2. **Export includes unapproved entries in seed commit** — RunContentIndexExportAsync calls GetAllRowsAsync() with no filter. When the Studio commits the seed JSON, rejected/pending content enters the public repo and prod Postgres. Prevention: Studio publish must call a filtered GetApprovedRowsAsync() export; add --approved-only flag to CLI export command. The approval_status column must exist before the commit-publish phase ships.
+2. **Tutor restrictions were REMOVED in October 2025** — The Oct 21 2025 WotC update explicitly dropped all tutor-count bracket gates. Classifier logic that hard-gates on tutor count is wrong. Tutors are a soft Consistency axis signal only. Any research or document predating October 2025 that gates brackets on tutors is stale.
 
-3. **Secret leakage to public repo** — three sub-modes: appsettings file committed, connection string in Serilog structured logs, or secrets.json inside the Studio project directory. Prevention: dotnet user-secrets exclusively; DeckFlow.Studio/appsettings*.local.json and secrets.json added to .gitignore on project creation; never pass the connection string to any ILogger call (log "configured" / "not configured" only).
+3. **Mis-detecting gating mechanics (mass land denial, extra turns, 2-card combos)** — The existing `DeckStatClassifier` substring heuristics (`"extra turn"`, `"destroy all"`) are too coarse for bracket gating where a single Armageddon flips a bracket. Use exact name matching against a small curated named-card list for mass land denial and extra-turn chains. For 2-card combos, use the existing Commander Spellbook integration but treat a `null` return (API down) as "combo detection unavailable, disclosed in artifact," never as "zero combos."
 
-4. **Partial write — DB row written but SCP failed** — direct push path creates a content_site_index row with an artifact_path referencing a file that never arrived on /data. Prevention: implement as two explicit sequential UI steps — Step 1 SCP artifacts, Step 2 push DB rows. Step 2 is blocked if Step 1 fails. File-first ordering must be in the plan's success criteria.
+4. **Primer auto-rebuild default triggers regeneration thrashing** — `DeckPrimerPacketService` is ~750 LOC and pulls category knowledge, Commander Spellbook combos, and EdhTop16 matchups per build. Auto-rebuilding on any deck-text difference (including whitespace/reorder changes) hammers upstreams and chews the 512MB RAM cap. Prevention: stale-FLAG is the default; rebuild on explicit user action only. Staleness key must be a canonical multiset hash (name+quantity, sorted) — the existing `TryComputeCacheKeyAsync` / `PacketSessionCache.ComputeKey` machinery is the correct primitive.
 
-5. **YoutubeExplode AngleSharp concurrency** — concurrent calls to IYouTubeChannelVideoLister corrupt each other's parse output (same bug hit in v1.6, resolved by serializing to concurrency=1). Prevention: SemaphoreSlim(1) in StudioDiscoveryService; no Task.WhenAll across lister invocations.
+5. **3-variant triplication drift (ADR-0001)** — A developer adds a bracket block to the ChatGPT variant, forgets Claude and Gemini, ships a broken artifact for 2 of 3 platforms. Prevention: treat "new artifact section" as a mandatory 3-variant checklist item in every phase's success criteria. Add a parity test asserting the new section appears in all three variants (the codebase has `PrimerPromptVariantTests` as the model). Never extract a shared base class — that violates ADR-0001 and will be reverted.
 
 ## Implications for Roadmap
 
-Based on research, the recommended build sequence is 8 phases. Phases 1-5 are strictly ordered by dependency. Phase 6 (admin grid fix) is fully independent and can be scheduled anywhere. Phases 7-8 depend on Phase 5 and Phase 4 respectively.
+Based on combined research, the recommended phase structure is four phases ordered by dependency and risk. The Core-first build sequence from ARCHITECTURE.md is the canonical reference: pure-Core components land first within each feature, Web wiring follows.
 
----
+### Phase 1: Tap Analyzer Surface
 
-### Phase 1: Studio Scaffold + Secrets Wiring
-**Rationale:** The prod connection string has no safe home until this project exists with .gitignore entries and user-secrets configured. All subsequent Studio phases depend on this foundation. Must come first — Pitfall 3 (secret leakage) is a permanent risk if any Studio config file is committed before .gitignore is wired.
-**Delivers:** DeckFlow.Studio project in solution; ProjectReference to Core; dotnet user-secrets init; appsettings*.local.json + secrets.json added to .gitignore; Program.cs DI scaffold; first Blazor page renders at http://localhost:<port>; Dockerfile constraint documented (restore stays scoped to Web project)
-**Avoids:** Pitfall 3 (secret leakage via appsettings commit)
-**Research flag:** Standard patterns — Blazor Server scaffold is well-documented; no deeper research needed
+**Rationale:** Zero dependency on other Cycle 13 features. The manabase engine already models tapped/untapped per trial — this is a readout, not a new model. The additive-field discipline (MQ-02..05 precedent) makes it the lowest-risk change in the cycle and delivers an immediate visible win on the existing manabase page.
+**Delivers:** `UntappedLandCount`, `TappedLandCount`, `UntappedLandFraction`, `UntappedSourcesByColor` on `ManabaseReport`; turn-1 untapped availability metric; new "Land Quality" section in the manabase report text (paste artifact) and in `Manabase.cshtml` view; flag `analysis.manabase.tap-analyzer`.
+**Addresses:** Tap Analyzer surface feature (full scope); Salubrious Snail parity on the untapped-frequency metric.
+**Avoids:** Pitfall 8 (misreading sim tapped state) by sourcing ALL dynamic metrics from inside the existing sim loop. Pitfall 11 (Monte-Carlo perf regression) by using only pre-allocated primitive counters in the hot loop — no LINQ, no allocation, no second pass.
+**Research flag:** SKIP deeper research — the sim internals are fully verified; the additive-field pattern is established.
 
----
+### Phase 2: Bracket Classifier + Balancer
 
-### Phase 2: Extract IContentKbOrchestrator to Core
-**Rationale:** The architectural blocker. CLI is an executable; Studio cannot reference it. This extraction unlocks all subsequent harvest/distill/export work in Studio. Also closes the v1.6 backlog god-class split. Must precede any phase that invokes pipeline logic from Studio.
-**Delivers:** IContentKbOrchestrator + ContentKbOrchestrator in DeckFlow.Core/Content/; ContentKbCommandRunners public Run*Async thinned to adapters; all existing CLI tests continue to pass (internal test surface moves to Core with InternalsVisibleTo); ILogger dependency changed from Serilog.ILogger to ILogger<ContentKbOrchestrator> (MEL abstraction — Core convention is Microsoft.Extensions.Logging.Abstractions)
-**Avoids:** Anti-pattern of duplicating distill pipeline in Studio; god-class accumulation
-**Research flag:** Standard patterns — the extraction is mechanical (internal static methods move to Core). Open question: confirm whether Core already has a transitive Serilog reference (see Gaps section).
+**Rationale:** The classifier is the dependency gate for the balancer. Both share the same Core input model (`CardFact[]` + `DeckStatSummary`) and the same Web hydration path (reuse `IScryfallCardResolver`). Shipping classifier and balancer together avoids a mid-cycle integration seam. This is the headline differentiator of Cycle 13 — the balancer paste artifact has no incumbent. It is also the phase with the most domain-accuracy risk (Game Changers list versioning, gating mechanic detection) and must address those risks up front.
+**Delivers:** `GameChangerCatalog` (versioned seed JSON + startup load + effective-date stamp); `BracketClassifier` + `BracketBalancer` in `DeckFlow.Core/Analysis/`; `BracketAnalysisService` in Web; `BracketController` (`DeckToolControllerBase` subclass); three bracket prompt variants (`ChatGpt/Claude/Gemini`) per ADR-0001; parity test; `/bracket` view; `tool.bracket.enabled` flag (seeded OFF). The balancer artifact frames cuts as "objective gate violations for AI evaluation," not as an authoritative cut list.
+**Addresses:** Bracket Classifier (full), Bracket Balancer (full P1 scope, AI-delegated fair-swap suggestions).
+**Avoids:** Pitfall 1 (staleness treadmill) via versioned seed file with effective-date stamp. Pitfall 2 (mis-detecting gating mechanics) via exact name matching for Game Changers + curated named-card list for mass-land-denial/extra-turns + Spellbook `null` disclosed. Pitfall 3 (over-claiming balancer authority) by framing the artifact as "here are the gate violations" not "cut these cards." CRITICAL: do NOT gate brackets on tutor count (Oct 2025 WotC change).
+**Research flag:** NEEDS care on the Game Changers seed file format and the curated mass-land-denial + extra-turn named-card lists — verify these are complete and auditable before execution. The bracket rule thresholds (GC count per bracket, combo-timing definitions for B3) should be documented in the seed data with source citations.
 
----
+### Phase 3: Multi-Axis Deck Score
 
-### Phase 3: approval_status Column + Safe Upsert Overload
-**Rationale:** Two of the three hard ordering constraints from PITFALLS converge here. The safe UpsertContentColumnsOnlyAsync overload must exist before any direct prod-write phase. The approval_status column + filtered export must exist before the commit-publish phase. Both constraints are satisfied by this single phase. This phase has no Studio UI dependency — it is pure Core + schema work.
-**Delivers:** approval_status column on content_site_index via self-healing ALTER migration (same pattern as is_evergreen); GetPendingApprovalAsync, SetApprovalStatusAsync, GetApprovedRowsAsync on IContentSiteIndexStore; UpsertContentColumnsOnlyAsync overload whose DO UPDATE excludes is_visible, is_evergreen, approval_status; integration test: set is_visible=TRUE, call new overload, assert unchanged; filtered export (Studio calls GetApprovedRowsAsync, not GetAllRowsAsync)
-**Avoids:** Pitfall 1 (is_visible/is_evergreen clobbered on prod write); Pitfall 4 (unapproved entries in seed commit)
-**Research flag:** Standard patterns — self-healing ALTER is established in this codebase; no research needed
+**Rationale:** `DeckScorer` depends on `GameChangerCatalog` (Game Changer count feeds the Power axis) from Phase 2 and on `ManabaseReport` tap fields from Phase 1. Speed and Consistency axes are ~80% reuse of existing signals. Folding the score into the existing analysis packet variants (hand-edit all 3, ADR-0001) enriches every existing deck analysis without a new tool surface. Control and Power axes can follow if schedule allows; they are P2, not blockers.
+**Delivers:** `DeckScorer` + `DeckScore` record in `DeckFlow.Core/Analysis/`; score block injected into all 3 existing `Analysis` prompt variants (Speed + Consistency axes in the MVP pass; Control + Power in a follow-on pass if schedule allows); parity test asserting all 3 variants contain the score block; optional standalone score display on the analysis page.
+**Addresses:** Multi-Axis Deck Score (Speed + Consistency P1; Control + Power P2).
+**Avoids:** Pitfall 4 (arbitrary weights) by computing every axis from documented signals with `// Why:` inline rationale and a bracket cross-check test (cEDH golden deck must score higher Power/Speed than a battlecruiser deck). Pitfall 5 (missing card-level data) by sharing the existing per-request enrichment cache and disclosing partial coverage in the artifact. Pitfall 13 (cross-tool number disagreement) by sharing `DeckStatSummary` tallies as the single signal source for bracket, score, and manabase budget.
+**Research flag:** SKIP for Speed + Consistency axes (fully verified inputs). NEEDS one planning spike to decide the Control interaction classifier approach (oracle-text heuristics vs category-knowledge labels vs hybrid) before authoring that axis.
 
----
+### Phase 4: Auto-Refreshing Primer (Flag-Stale Tier)
 
-### Phase 4: Harvest + Distill UI (Studio core pipeline)
-**Rationale:** First Studio phase that delivers end-user value. Depends on Phase 2 (orchestrator in Core) and Phase 1 (Studio scaffold). The distill dry-run gate (Pitfall 5) and Blazor background-task pattern (Pitfall 7) must be requirements in the plan, not enhancements.
-**Delivers:** Paste URL/ID form → harvest via IContentKbOrchestrator.HarvestAsync; LLM spend dry-run shown before distill; distill via IContentKbOrchestrator.DistillAsync; dedup surfacing; background Task.Run + InvokeAsync(StateHasChanged) pattern with CTS tied to component disposal; blocked-video management page (100% reuse of existing CLI block/unblock/list)
-**Avoids:** Pitfall 5 (re-distill LLM spend surprise — dry-run gate required); Pitfall 7 (Blazor circuit blocking — background Task pattern required)
-**Research flag:** Needs plan-time design decision: specify the exact IAsyncDisposable CTS teardown pattern to avoid orphaned operations after circuit close
-
----
-
-### Phase 5: Review Queue + Commit-Publish Path
-**Rationale:** The review queue (approve/reject) and the commit-publish path are tightly coupled — you cannot publish without approved entries, and the export filter from Phase 3 gates what enters the seed. The two-stage commit/push separation (Pitfall 8) must be a plan requirement.
-**Delivers:** Review queue page showing approval_status='pending' entries with summary + clips + tags preview; approve/reject actions per item; seed export filtered to approval_status='approved' rows; two-stage publish: Stage 1 = git commit (shows diff first, reversible); Stage 2 = git push (separate button, requires checkbox acknowledge); CRLF prevention in exported JSON (LF forced in write step, not relying on gitattributes normalization)
-**Avoids:** Pitfall 4 (unapproved entries in seed commit); Pitfall 8 (accidental push to main without review); Pitfall 10 (CRLF in seed JSON)
-**Research flag:** Standard patterns — git shell-out and two-stage UI are well-understood; no research needed
-
----
-
-### Phase 6: Admin Commander Grid Lazy AJAX Paging (independent)
-**Rationale:** Fully independent of the Studio pipeline. Can be scheduled at any point. Fixes the existing /Admin/Harvest slow initial load caused by GetDistinctProcessedCommanderCountAsync + GetPagedProcessedCommandersAsync running synchronously on every page request. The missing partial expression index on LOWER(commander_name) WHERE processed=1 should ship with this phase.
-**Delivers:** New GET /Admin/Harvest/commanders partial endpoint on AdminHarvestController; _CommanderGrid.cshtml Razor partial; JS/TS page-click handler (replaces only the grid section via fetch + DOM replace, matching existing AdminHarvest/Status polling pattern); SameOriginRequestValidator on the new endpoint; partial expression index on LOWER(commander_name) WHERE processed=1 in CategoryKnowledgeRepository; initial Index renders skeleton (no count/aggregate queries on first load)
-**Uses:** Existing GetPagedProcessedCommandersAsync and GetDistinctProcessedCommanderCountAsync — no store changes needed
-**Avoids:** Performance trap: count aggregate query on every page load
-**Research flag:** Standard patterns — AJAX partial replacement is established in this codebase; no research needed
-
----
-
-### Phase 7: Channel Browse UI + Discovery
-**Rationale:** Depends on Phase 4 (Studio pipeline running). Adds the discovery workflow so the operator can browse channels without copy-pasting video IDs. AngleSharp SemaphoreSlim(1) constraint must be in the plan.
-**Delivers:** Channel handle/URL input → IYouTubeChannelVideoLister.ListRecentAsync → video grid with thumbnail (img src to i.ytimg.com), duration, published date, harvested-status badge (batch GetVideoByYoutubeIdAsync overlay); multi-select → batch harvest; SemaphoreSlim(1) in StudioDiscoveryService enforced
-**Avoids:** Pitfall 6 (AngleSharp concurrency — SemaphoreSlim required)
-**Research flag:** Standard patterns — channel listing via existing interface; no research needed
-
----
-
-### Phase 8: Direct Prod-DB + SCP Publish Path
-**Rationale:** Depends on Phase 3 (safe upsert overload exists) and Phase 5 (commit path proven). Secondary publish path — skips the 2-4 min Render deploy cycle. The file-first ordering (SCP before DB push) and two-stage UI confirmation are non-negotiable requirements from Pitfall 2. Render SSH key setup is a one-time manual gate.
-**Delivers:** StudioPublishService.PublishViaDirectPushAsync() — Step 1: SCP all approved artifact .md files to Render /data (tar bundle for >20 files); Step 2: construct prod Postgres ContentSiteIndexStore from user-secrets connection string, call UpsertContentColumnsOnlyAsync per approved row; StudioPublishService.GetProdDiffAsync() — query prod Postgres for existing natural keys, diff against local approved rows; schema migration runs via EnsureSchemaAsync on first prod connect; post-push verification query for dangling artifact_path rows
-**Avoids:** Pitfall 1 (is_visible clobber — uses safe overload from Phase 3); Pitfall 2 (partial write — SCP before DB push, Step 2 blocked if Step 1 fails); Pitfall 9 (schema drift — EnsureSchemaAsync runs on prod connect)
-**Research flag:** SCP bundling approach (tar + single handshake for large artifact sets) and Render SSH key registration are operationally new — plan should include a manual setup checklist
-
----
+**Rationale:** Depends on no other Cycle 13 feature. The core primitive is already in `DeckPrimerPacketService` (`TryComputeCacheKeyAsync`). The `DiffEngine` (Core) is already the diff primitive. The new work is thin: a `PrimerStalenessEvaluator` wrapper, a `PrimerSnapshotStore` (dialect-pluggable), a staleness check in the primer service, and a "Regenerate?" banner in the primer view. This is DeckFlow's clearest creator-lane differentiator — no incumbent auto-flags primer staleness. Ship the flag-stale tier here; defer section-scoped regenerate to the next cycle.
+**Delivers:** `PrimerStalenessEvaluator` (Core, wraps `DiffEngine.Compare`); `PrimerSnapshotStore` (Web, dialect-pluggable; stores `{ deckKey, fingerprint, decklistText, generatedUtc }`); `DeckPrimerPacketService` modification to store fingerprint on build + check on revisit; stale banner in `DeckPrimer.cshtml` naming the changed-card count; golden tests asserting the equivalence relation (reorder/printing = not stale; card swap/quantity change = stale).
+**Addresses:** Auto-Refreshing Primer (flag-stale tier, full P2 scope).
+**Avoids:** Pitfall 6 (regeneration thrashing) by defaulting to stale-FLAG + explicit user-initiated regenerate — never auto-rebuild. Pitfall 7 (false-positive/negative) by using the canonical multiset hash (name+quantity, sorted) as the staleness key, not raw textarea text, with golden tests asserting both directions.
+**Research flag:** SKIP — established patterns throughout (DiffEngine, PacketSessionCache, RelationalDatabaseConnection, FeedbackStore as model).
 
 ### Phase Ordering Rationale
 
-- Phase 1 before everything: secrets have no safe home until .gitignore + user-secrets are wired
-- Phase 2 before Phases 4-5-7-8: CLI cannot be referenced as a library; orchestration must be in Core first
-- Phase 3 before Phase 5: export filter blocks on approval_status column; safe upsert blocks on Phase 8
-- Phase 4 before Phase 5: queue cannot show reviewed items until harvest+distill pipeline runs
-- Phase 5 before Phase 8: direct push is secondary; commit path must be proven first
-- Phase 4 before Phase 7: channel browse is a discovery-to-harvest flow; harvest UI must exist first
-- Phase 6 is independent: no dependency on Studio pipeline; schedule at any point (good early win)
+- Tap Analyzer first: independent, lowest risk, validates the additive-field discipline before heavier bracket work.
+- Bracket before Score: `DeckScorer` consumes `GameChangerCatalog` (GC count feeds the Power axis); bracket service also completes the Scryfall hydration path the score needs.
+- Score before Primer: Primer is fully independent but Score benefits from the full bracket signal. Either can swap without breaking the other.
+- Primer last: most independent feature; its value is clearest once the bracket and score artifacts have demonstrated the paste-artifact thesis.
+- Core-first discipline within each phase (models -> pure logic -> Web wiring -> view) enables unit testing of pure functions before any Web integration.
 
 ### Research Flags
 
-Phases needing specific design decisions during planning:
-- **Phase 4:** Blazor Server background-task + IAsyncDisposable CTS teardown pattern — plan must specify the exact lifecycle approach to avoid orphaned operations after circuit close
-- **Phase 8:** Render SSH key setup procedure and SCP tar-bundle strategy for large artifact sets — plan should include a manual ops checklist
+Phases likely needing planning-time research attention:
+- **Phase 2 (Bracket):** The Game Changers seed file format + startup loading mechanism needs a design decision before phase planning. The curated mass-land-denial and extra-turn card lists need to be authored and cited. The Spellbook-null disclosure copy needs to be agreed before prompt variant authoring.
 
-Phases with standard, well-documented patterns (no research phase needed):
-- **Phase 1:** Blazor Server scaffold + user-secrets — standard .NET 10 CLI commands
-- **Phase 2:** Mechanical code extraction — internal static methods moved to Core; no new patterns
-- **Phase 3:** Self-healing ALTER migration — established pattern in this codebase (is_evergreen precedent)
-- **Phase 5:** Git shell-out + two-stage commit/push — ProcessOutput pattern already in Core
-- **Phase 6:** AJAX partial replacement — existing pattern in AdminHarvest/Status polling
-- **Phase 7:** Channel browse via IYouTubeChannelVideoLister — existing interface, no new dependencies
+Phases with standard patterns (no additional research needed):
+- **Phase 1 (Tap Analyzer):** Additive-field pattern fully established by MQ-02..05; CastabilitySimulator internals verified directly.
+- **Phase 3 (Multi-Axis Score) Speed+Consistency:** All input signals verified against live codebase.
+- **Phase 4 (Auto-Refreshing Primer):** DiffEngine, PacketSessionCache, RelationalDatabaseConnection all verified; FeedbackStore is the persistence pattern model.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All key deps verified directly in csproj files; Render SCP verified against official docs; LibGit2Sharp tradeoffs verified against NuGet |
-| Features | HIGH | Grounded in existing codebase; every feature traced to a specific existing method or a bounded new addition |
-| Architecture | HIGH | All component boundaries verified by reading the actual files named; no speculative claims |
-| Pitfalls | HIGH | Every pitfall traced to a specific file, SQL statement, or documented incident (MEMORY: harvest_lister_concurrency_crash, Phase 20 CR-01 spend-recording order) |
+| Stack | HIGH | Verified directly against live codebase; zero new dependencies confirmed; Scryfall `is:gamechanger` API verified via live curl returning 53 cards |
+| Features | HIGH | Bracket definitions verified against WotC official announcements through Feb 2026; Oct 2025 tutor-restriction removal confirmed; competitor landscape verified against live tools |
+| Architecture | HIGH | All integration points traced to specific source files; no speculative claims |
+| Pitfalls | HIGH (codebase); MEDIUM (GC domain) | Codebase-integration pitfalls traced to specific files; GC list update cadence is externally controlled by WotC |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-These are open questions that need a human decision before or during planning — not research gaps:
-
-- **Studio in DeckFlow.sln vs separate solution:** Architecture research recommends adding to DeckFlow.sln (one workspace, one build, no cross-solution reference friction). The Dockerfile constraint (restore stays scoped to DeckFlow.Web/DeckFlow.Web.csproj) is already identified and safe. Recommended path unless the user prefers a clean separation. **Decision needed from user before Phase 1 plan.**
-
-- **ILogger abstraction in Core orchestrator:** ContentKbCommandRunners.cs currently passes Serilog.ILogger to its internal methods. Moving them to Core should switch to ILogger<ContentKbOrchestrator> (MEL abstraction — Core convention is Microsoft.Extensions.Logging.Abstractions). Verify whether Core already takes a transitive Serilog reference that would make this a no-op concern. **Confirm during Phase 2 plan.**
-
-- **Prod connection string storage location:** Research recommends dotnet user-secrets. The alternative (env var STUDIO_PROD_CONNECTION_STRING set in terminal before dotnet run) is also valid and avoids the user-secrets init step. Both are safe for the public repo. **Decision needed before Phase 1 plan.**
-
-- **approval_status scope:** Architecture research recommends the column is local-SQLite-only and never propagated to prod. If the admin ever wants to audit which videos were approved vs rejected, the history would be local-only and lost on a DB reset. **Confirm this is acceptable during Phase 3 plan.**
+- **Game Changers list format decision:** Three approaches proposed across research files (static Core HashSet vs versioned seed JSON vs live Scryfall call). Recommended resolution: versioned seed JSON file loaded at startup into IMemoryCache (ContentKbSeedLoader pattern) with effective-date field. Lock this before Phase 2 planning.
+- **Multi-axis Control axis classifier:** Exact approach (oracle-text keyword patterns vs category-knowledge labels vs hybrid) is unresolved. Decide in Phase 3 planning.
+- **Bracket B3 "early-game combo" timing threshold:** WotC defines B3 as "no combos that reliably win before ~turn 6-7" — a prose definition, not a crisp turn number. The Spellbook data does not include a "fastest-win-turn" field. Resolution: disclose the approximation in the artifact and let the AI flag ambiguous cases. Confirm this is acceptable in Phase 2 planning.
+- **Multi-axis score calibration golden decks:** No ground-truth dataset exists to validate axis weights. Define a set of golden decks (a known cEDH list, a known battlecruiser list) as the sanity anchor in Phase 3 planning.
 
 ## Sources
 
-### Primary (HIGH confidence — verified directly against codebase)
-- DeckFlow.Core/DeckFlow.Core.csproj — YoutubeExplode 6.6.0, Npgsql 10.0.0 confirmed as existing deps
-- DeckFlow.Core/Content/ContentSiteIndexStore.cs — UpsertSql behavior, UpsertPreservingVisibilitySql behavior, self-healing ALTER pattern
-- DeckFlow.CLI/ContentKbCommandRunners.cs — internal static method signatures, GetAllRowsAsync export, video-IDs distill bypass, spend-recording order
-- DeckFlow.Core/Integration/YouTubeChannelVideoLister.cs — AngleSharp concurrency constraint, concurrency=1 fix
-- DeckFlow.Web/Controllers/Admin/AdminHarvestController.cs — synchronous count+page queries on Index; SameOriginRequestValidator pattern
-- DeckFlow.Core/Knowledge/CategoryKnowledgeRepository.cs — COUNT(DISTINCT LOWER(commander_name)) full table scan; no index on LOWER(commander_name)
-- DeckFlow.Web/Services/ContentKbSeedLoader.cs — UpsertRowPreservingVisibilityAsync upsert behavior on deploy
-- Dockerfile — restore scoped to DeckFlow.Web/DeckFlow.Web.csproj (line 29)
-- render.yaml — autoDeploy:true, /data disk mount, Postgres provider env var
+### Primary (HIGH confidence)
+- `DeckFlow.Core/Manabase/CastabilitySimulator.cs` — verified `CardKind.{Untapped,Tapped}Land`, per-land `OnlineTurn` semantics, 20k-trial loop structure, existing `out int` param pattern
+- `DeckFlow.Core/Manabase/ManabaseModels.cs` — verified `ManaSource.EntersUntapped`, `CardCastability` additive-field discipline, `AvgOnCurvePercent` computed-getter rollup pattern
+- `DeckFlow.Core/Analysis/DeckStatClassifier.cs` + `DeckStatAggregator.cs` — confirmed reusable role predicates and `DeckStatSummary` as bracket/score input
+- `DeckFlow.Core/Diffing/DiffEngine.cs` — confirmed `DeckDiff` add/remove/mismatch output for primer staleness
+- `DeckFlow.Web/Services/DeckPrimerPacketService.cs` — confirmed `TryComputeCacheKeyAsync` + `PacketSessionCache.ComputeKey` canonical-deck fingerprint = the staleness signal
+- `DeckFlow.Web/Models/CommanderBracketCatalog.cs` — confirmed current brackets are hard-coded option records (staleness anti-pattern to NOT replicate for Game Changers)
+- `docs/decisions/0001-prompt-variants-decoupled.md` — confirmed 3-variant decoupled pattern; no shared text; hand-edit all 3
+- Scryfall `is:gamechanger` API (live curl) — verified `total_cards: 53`, confirmed JSON structure, June 2026
+- WotC Commander Brackets Beta Update Oct 21 2025 — tutor restrictions REMOVED; 10 GCs removed; 48-card post-update list
+- WotC Commander Brackets Beta Update Feb 9 2026 — +Farewell, +Biorhythm; total 53 cards confirmed
 
-### Primary (HIGH confidence — official docs)
-- Render Persistent Disks docs (https://render.com/docs/disks) — SCP is the only file-write mechanism; no REST API for /data; Starter plan supported
-- Render SSH docs (https://render.com/docs/ssh) — SSH available on Starter+; scp -s supported
-- YouTube Data API v3 quota table (https://developers.google.com/youtube/v3/determine_quota_cost) — search.list = 100 units/call, 100-calls/day dedicated bucket
-- Microsoft user-secrets docs (https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) — works in non-ASP.NET projects via ConfigurationBuilder.AddUserSecrets<Program>()
-- NuGet LibGit2Sharp 0.31.0 (https://www.nuget.org/packages/LibGit2Sharp/) — .NET 10 compatible; SSH credential-resolution complexity documented
+### Secondary (MEDIUM confidence)
+- EDHRank (mtgmana.rocks) — 4-axis Power/Speed/Control/Consistency definitions and decimal example
+- Spellweave bracket guide — "53 cards as of Feb 2026" cross-check; combo-timing table for B3
+- ScrollVault bracket calculator — classifier pipeline; confirms no cut suggestions exist (DeckFlow balancer is uncontested)
+- Salubrious Snail manabase tool — Tap Analyzer untapped-frequency + opening-turn sim; cast-rate/avg-delay benchmarks
+- Rate My Decks — confirmed it does NOT split into 4 axes (confirms DeckFlow multi-axis decomposition is a differentiator)
+- Moxfield help + BlazeHero primer guide — confirmed primer section structure is manual, no deck-link staleness detection
+- `scratchpad-research/commander-feature-wants-report.md` — feature-gap basis for all four Cycle 13 features
 
-### Secondary (MEDIUM confidence — inference from codebase patterns)
-- ProcessOutput pattern from FfmpegAudioChunker.cs — assumed to generalize to git/scp shell-out; not directly verified for git use case
-- Blazor Server SignalR circuit timeout (~3 minutes default) — standard framework behavior; not verified against a specific .NET 10 changelog entry
+### Tertiary (LOW confidence)
+- MTGSalvation primer status thread — "manually updating to match changes" decay pattern confirms the pain point
 
 ---
-*Research completed: 2026-06-13*
+*Research completed: 2026-06-27*
 *Ready for roadmap: yes*

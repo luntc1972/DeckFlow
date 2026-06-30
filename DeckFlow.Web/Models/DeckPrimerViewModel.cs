@@ -36,6 +36,30 @@ public sealed class DeckPrimerViewModel
     public string? PrimerPromptText { get; init; }
 
     /// <summary>
+    /// Gets whether <c>tool.primer.stale-flag</c> is enabled for this render; gates both the hidden
+    /// staleness field and banner so flag-OFF markup stays byte-identical.
+    /// </summary>
+    public bool StaleDetectionEnabled { get; init; }
+
+    /// <summary>
+    /// Gets the generation-time deck multiset hash used to re-arm the hidden field when stale
+    /// detection is enabled; null when flag-OFF to preserve byte-identical output.
+    /// </summary>
+    public string? GeneratedPrimerHash { get; init; }
+
+    /// <summary>
+    /// Gets whether the current deck differs from the deck that generated the restored primer; false
+    /// on all flag-OFF paths so output stays byte-identical.
+    /// </summary>
+    public bool IsStale { get; init; }
+
+    /// <summary>
+    /// Gets the add/remove/quantity-change count for a stale restored primer, or null when flag-OFF or
+    /// when no saved generation snapshot is available.
+    /// </summary>
+    public int? ChangedCardCount { get; init; }
+
+    /// <summary>
     /// Gets a short summary of the timing taken by upstream calls during this workflow step.
     /// </summary>
     public string? TimingSummary { get; init; }

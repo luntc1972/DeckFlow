@@ -18,7 +18,9 @@ using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Analytics;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.Harvest;
+using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.Http;
 using Microsoft.Extensions.Options;
 
@@ -87,6 +89,7 @@ public partial class Program
             builder.Services.AddDeckFlowScryfallServices();
 
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
+            builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
@@ -172,10 +175,15 @@ public partial class Program
                     sp.GetRequiredService<IDeckEntryLoader>()));
             builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
             builder.Services.AddScoped<DeckFlow.Web.Services.Manabase.IManabaseAnalysisService, DeckFlow.Web.Services.Manabase.ManabaseAnalysisService>();
+            builder.Services.AddScoped<IBracketClassificationService>(sp =>
+                new BracketClassificationService(
+                    sp.GetRequiredService<IDeckEntryLoader>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetRequiredService<IGameChangerCatalogService>(),
+                    sp.GetRequiredService<BracketPromptVariantRegistry>(),
+                    sp.GetService<ILogger<BracketClassificationService>>()));
             builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
             builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
-            builder.Services.AddTransient<MoxfieldParser>();
-            builder.Services.AddTransient<ArchidektParser>();
 
             var app = builder.Build();
 
@@ -265,6 +273,10 @@ public partial class Program
             app.Logger.LogInformation("Ensuring analytics store schema during startup.");
             await app.Services.GetRequiredService<IRequestMetricsStore>().EnsureSchemaAsync();
             app.Logger.LogInformation("Analytics store schema ensured during startup.");
+
+            app.Logger.LogInformation("Warming Game Changer catalog into memory cache during startup.");
+            app.Services.GetRequiredService<IGameChangerCatalogService>().GetCatalog();
+            app.Logger.LogInformation("Game Changer catalog warm-loaded.");
 
             // Resolve the IP-hash salt once at startup so the analytics middleware does not
             // perform DB I/O on the hot path. Uses CreateHarvestStateConnection for explicit

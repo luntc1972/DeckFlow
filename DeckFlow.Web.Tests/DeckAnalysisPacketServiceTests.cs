@@ -1,12 +1,14 @@
 using System.Net;
 using System.IO;
 using System.Text;
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
@@ -21,7 +23,7 @@ namespace DeckFlow.Web.Tests;
 /// Covers staged prompt generation, validation, and artifact output for the deck-analysis
 /// workflow served by <see cref="DeckAnalysisPacketService"/> across all supported AI platforms.
 /// </summary>
-public sealed class DeckAnalysisPacketServiceTests
+public sealed partial class DeckAnalysisPacketServiceTests
 {
     /// <summary>
     /// Builds the deck summary and schema from pasted deck text on the setup step.
@@ -1787,9 +1789,65 @@ Commander
         Assert.Contains("How does this deck compare to a typical Atraxa superfriends build?", result.AnalysisPromptText);
     }
 
+    /// <summary>
+    /// When the score flag is ON and a combo question is ALSO selected, the widened combo gate must
+    /// still fire Commander Spellbook exactly once — the single fetch is reused for both the prompt
+    /// combo-reference text and the score's combo-density signal (no double-fetch; Codex HIGH).
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_ScoreFlagOn_WithComboQuestion_FetchesCommanderSpellbookExactlyOnce()
+    {
+        var importer = new FakeMoxfieldDeckImporter(
+            entries: CreateCompanionFixtureEntries(includeBackgroundCommander: true));
+        var spellbook = new CountingCommanderSpellbookService();
+        var flagOn = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.multi-axis-score"] = true
+        });
+
+        var service = CreateService(
+            moxfieldDeckImporter: importer,
+            flagCache: flagOn,
+            spellbookService: spellbook);
+
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-score-combo-once",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["combo-in-deck"]
+        };
+
+        var result = await service.BuildAsync(request);
+
+        Assert.Equal(1, spellbook.CallCount);
+        Assert.NotNull(result.Score);
+    }
+
+    /// <summary>
+    /// Counts FindCombosAsync invocations to prove the combo fetch is not duplicated when both the
+    /// score flag and a combo question are active. Returns an empty result (detection ran, no combos).
+    /// </summary>
+    private sealed class CountingCommanderSpellbookService : ICommanderSpellbookService
+    {
+        public int CallCount { get; private set; }
+
+        public Task<CommanderSpellbookResult?> FindCombosAsync(
+            IReadOnlyList<DeckEntry> entries,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult<CommanderSpellbookResult?>(
+                new CommanderSpellbookResult(Array.Empty<SpellbookCombo>(), Array.Empty<SpellbookAlmostCombo>()));
+        }
+    }
+
     private static DeckAnalysisPacketService CreateService(
         IMoxfieldDeckImporter? moxfieldDeckImporter = null,
         IFeatureFlagCache? flagCache = null,
+        IGameChangerCatalogService? catalogService = null,
+        ICommanderSpellbookService? spellbookService = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
@@ -1812,7 +1870,8 @@ Commander
             new FakeMechanicLookupService(),
             new FakeCommanderBanListService(),
             new FakeScryfallSetService(),
-            new FakeCommanderSpellbookService(),
+            spellbookService ?? new FakeCommanderSpellbookService(),
+            catalogService ?? new FakeGameChangerCatalogService(EmptyGameChangerCatalog()),
             new AnalysisPromptVariantRegistry(new IAnalysisPromptVariant[]
             {
                 new ChatGptAnalysisPromptVariant(),
@@ -1828,6 +1887,25 @@ Commander
             new PacketSessionCache(),
             flagCache,
             NullLogger<DeckAnalysisPacketService>.Instance);
+    }
+
+    /// <summary>An empty catalog: no Game Changers / MLD / extra-turn cards. Bracket classification still
+    /// runs (combo-driven gating), which is all the score wiring needs from the catalog here.</summary>
+    private static GameChangerCatalog EmptyGameChangerCatalog()
+        => new(
+            new DateOnly(2026, 2, 1),
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            Array.Empty<BracketTier>());
+
+    private sealed class FakeGameChangerCatalogService : IGameChangerCatalogService
+    {
+        private readonly GameChangerCatalog _catalog;
+
+        public FakeGameChangerCatalogService(GameChangerCatalog catalog) => _catalog = catalog;
+
+        public GameChangerCatalog GetCatalog() => _catalog;
     }
 
     private static List<DeckEntry> CreateCompanionFixtureEntries(bool includeBackgroundCommander)

@@ -13,6 +13,7 @@ public sealed class DeckAnalysisRequest
     private string _metaNotes = string.Empty;
     private string _companionName = string.Empty;
     private string _deckProfileJson = string.Empty;
+    private string _scoreJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
     private List<string> _selectedAnalysisQuestions = [];
@@ -129,6 +130,17 @@ public sealed class DeckAnalysisRequest
     {
         get => _deckProfileJson;
         set => _deckProfileJson = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Serialized multi-axis deck-score JSON round-tripped between workflow steps. The score is computed
+    /// at Step 2 (when the <c>analysis.multi-axis-score</c> flag is on) and carried in this hidden field so
+    /// the Step 3 early-return path — which has no live Scryfall data to recompute from — can restore it.
+    /// </summary>
+    public string ScoreJson
+    {
+        get => _scoreJson;
+        set => _scoreJson = value ?? string.Empty;
     }
 
     /// <summary>

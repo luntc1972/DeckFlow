@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 
 namespace DeckFlow.Web.Controllers;
 
@@ -16,6 +17,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     private readonly IDeckPrimerPacketService _deckPrimerPacketService;
     private readonly PacketSessionCache _packetCache;
     private readonly ILogger<DeckPrimerController> _logger;
+    private readonly IFeatureFlagCache? _flagCache;
 
     /// <summary>
     /// Creates the deck-primer controller.
@@ -23,7 +25,8 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     public DeckPrimerController(
         IDeckPrimerPacketService deckPrimerPacketService,
         PacketSessionCache packetCache,
-        ILogger<DeckPrimerController> logger)
+        ILogger<DeckPrimerController> logger,
+        IFeatureFlagCache? flagCache = null)
     {
         ArgumentNullException.ThrowIfNull(deckPrimerPacketService);
         ArgumentNullException.ThrowIfNull(packetCache);
@@ -32,7 +35,13 @@ public sealed class DeckPrimerController : DeckToolControllerBase
         _deckPrimerPacketService = deckPrimerPacketService;
         _packetCache = packetCache;
         _logger = logger;
+        _flagCache = flagCache;
     }
+
+    private bool IsStaleDetectionEnabled()
+        => _flagCache is not null
+            && _flagCache.Snapshot().TryGetValue(DeckPrimerPacketService.StaleFlag, out var on)
+            && on;
 
     /// <summary>
     /// Renders the staged deck-primer workflow.
@@ -67,6 +76,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
         {
             var result = await _deckPrimerPacketService.BuildAsync(request, HttpContext.RequestAborted);
             var selectedPlatformKey = AiPlatform.Normalize(request.TargetAiPlatform).Key;
+            var staleDetectionEnabled = IsStaleDetectionEnabled();
             return View("DeckPrimer", new DeckPrimerViewModel
             {
                 ActiveTab = DeckPageTab.DeckPrimer,
@@ -74,6 +84,10 @@ public sealed class DeckPrimerController : DeckToolControllerBase
                 InputSummary = result.InputSummary,
                 SuggestedChatTitle = result.SuggestedChatTitle,
                 PrimerPromptText = result.PromptTextsByPlatform.GetValueOrDefault(selectedPlatformKey) ?? string.Empty,
+                StaleDetectionEnabled = staleDetectionEnabled,
+                GeneratedPrimerHash = staleDetectionEnabled ? result.DeckMultisetHash : null,
+                IsStale = false,
+                ChangedCardCount = null,
                 TimingSummary = result.TimingSummary,
                 ImportWarning = result.ImportWarning,
             });
@@ -141,7 +155,8 @@ public sealed class DeckPrimerController : DeckToolControllerBase
                 result.PromptTextsByPlatform.GetValueOrDefault("Claude"),
                 result.PromptTextsByPlatform.GetValueOrDefault("Gemini"),
                 result.DecklistText,
-                PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                IsStaleDetectionEnabled() ? result.DeckMultisetHash : null);
             var fileName = PacketArtifactStore.SuggestPrimerZipFileName(result.ResolvedCommanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
@@ -182,12 +197,14 @@ public sealed class DeckPrimerController : DeckToolControllerBase
     /// Restores a deck-primer workflow from a previously downloaded packet zip.
     /// </summary>
     /// <param name="zipFile">Packet zip uploaded from a prior deck-primer session.</param>
+    /// <param name="request">Current primer workflow request posted by the page form.</param>
     [HttpPost("/deck-primer/upload")]
     [FeatureFlagGate("tool.deck-primer.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> DeckPrimerUpload(IFormFile zipFile)
+    public async Task<IActionResult> DeckPrimerUpload(IFormFile zipFile, DeckPrimerRequest request)
     {
+        request ??= new DeckPrimerRequest();
         if (zipFile is null || zipFile.Length == 0)
         {
             return View("DeckPrimer", new DeckPrimerViewModel
@@ -214,22 +231,65 @@ public sealed class DeckPrimerController : DeckToolControllerBase
             });
         }
 
-        var request = new DeckPrimerRequest();
+        var staleDetectionEnabled = IsStaleDetectionEnabled();
+        var userSuppliedCurrentDeck = !string.IsNullOrWhiteSpace(request.DeckText);
+        var submittedDeckText = request.DeckText;
+        var activeRequest = request;
         try
         {
             using var stream = zipFile.OpenReadStream();
-            PacketArtifactStore.LoadPrimerFromZip(stream, request);
-            var result = await _deckPrimerPacketService.BuildAsync(request, HttpContext.RequestAborted);
-            var selectedPlatformKey = AiPlatform.Normalize(request.TargetAiPlatform).Key;
+            if (!staleDetectionEnabled)
+            {
+                var restoredRequest = new DeckPrimerRequest();
+                activeRequest = restoredRequest;
+                PacketArtifactStore.LoadPrimerFromZip(stream, restoredRequest);
+                var result = await _deckPrimerPacketService.BuildAsync(restoredRequest, HttpContext.RequestAborted);
+                var selectedPlatformKey = AiPlatform.Normalize(restoredRequest.TargetAiPlatform).Key;
+                return View("DeckPrimer", new DeckPrimerViewModel
+                {
+                    ActiveTab = DeckPageTab.DeckPrimer,
+                    Request = restoredRequest,
+                    InputSummary = result.InputSummary,
+                    SuggestedChatTitle = result.SuggestedChatTitle,
+                    PrimerPromptText = result.PromptTextsByPlatform.GetValueOrDefault(selectedPlatformKey) ?? string.Empty,
+                    TimingSummary = result.TimingSummary,
+                    ImportWarning = result.ImportWarning,
+                });
+            }
+
+            var restore = PacketArtifactStore.LoadPrimerFromZip(stream, request);
+            var restoredPlatformKey = AiPlatform.Normalize(request.TargetAiPlatform).Key;
+            var restoredPrimerPromptText = restore.PrimerPromptTextsByPlatform.GetValueOrDefault(restoredPlatformKey)
+                ?? restore.PrimerPromptTextsByPlatform.Values.FirstOrDefault()
+                ?? string.Empty;
+            PrimerStaleness staleness;
+            if (userSuppliedCurrentDeck)
+            {
+                var currentEntries = _deckPrimerPacketService.TryParseDeckTextLocal(submittedDeckText);
+                var savedEntries = _deckPrimerPacketService.TryParseDeckTextLocal(restore.GenerationDeckSnapshotText);
+                staleness = _deckPrimerPacketService.EvaluateStaleness(restore.GeneratedPrimerHash, currentEntries, savedEntries);
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(restore.GenerationDeckSnapshotText))
+                {
+                    request.DeckText = restore.GenerationDeckSnapshotText.TrimEnd();
+                    request.DeckInputSource = DeckInputSource.PasteText;
+                }
+
+                staleness = new PrimerStaleness(IsStale: false, ChangedCardCount: null, CurrentDeckHash: null);
+            }
+
             return View("DeckPrimer", new DeckPrimerViewModel
             {
                 ActiveTab = DeckPageTab.DeckPrimer,
                 Request = request,
-                InputSummary = result.InputSummary,
-                SuggestedChatTitle = result.SuggestedChatTitle,
-                PrimerPromptText = result.PromptTextsByPlatform.GetValueOrDefault(selectedPlatformKey) ?? string.Empty,
-                TimingSummary = result.TimingSummary,
-                ImportWarning = result.ImportWarning,
+                InputSummary = restore.InputSummary,
+                PrimerPromptText = restoredPrimerPromptText,
+                StaleDetectionEnabled = true,
+                GeneratedPrimerHash = restore.GeneratedPrimerHash,
+                IsStale = staleness.IsStale,
+                ChangedCardCount = staleness.ChangedCardCount,
             });
         }
         catch (InvalidOperationException exception)
@@ -264,7 +324,7 @@ public sealed class DeckPrimerController : DeckToolControllerBase
             return View("DeckPrimer", new DeckPrimerViewModel
             {
                 ActiveTab = DeckPageTab.DeckPrimer,
-                Request = request,
+                Request = activeRequest,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
         }

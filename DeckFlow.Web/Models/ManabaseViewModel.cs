@@ -47,6 +47,9 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the command-zone castability affordances.</summary>
     public bool ShowCommanderCastability { get; init; }
 
+    /// <summary>Whether the UI should surface the tap-analyzer card and its paste-artifact section.</summary>
+    public bool ShowTapAnalyzer { get; init; }
+
     /// <summary>Optional companion castability row surfaced outside the 99 table.</summary>
     public CardCastability? CompanionCallout { get; init; }
 

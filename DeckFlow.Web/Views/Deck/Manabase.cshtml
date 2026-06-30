@@ -224,6 +224,45 @@
                 }
             </div>
         }
+        @if (Model.ShowTapAnalyzer && Model.HasResult && report.TapAnalysis is { } tap)
+        {
+            <div class="manabase-lens manabase-taplens" role="group" aria-label="Untapped sources">
+                <p class="manabase-lens-label">Untapped sources</p>
+                <div class="manabase-taplens-split">
+                    <div>
+                        <div class="manabase-lens-big">@tap.Turn1UntappedPercent%<span>turn-1 untapped</span></div>
+                        <span class="manabase-lens-pill">share of games with an untapped source of a needed color on turn 1</span>
+                    </div>
+                    <div>
+                        <div class="manabase-lens-row">
+                            <span class="manabase-lens-color">Overall</span>
+                            <span><strong>@tap.OverallUntappedPercent% untapped</strong></span>
+                        </div>
+                        @if (report.ColorFindings.Count > 1)
+                        {
+                            @foreach (var (color, tf) in tap.ColorTap)
+                            {
+                                var tm = ManabaseDisplay.TapMarker(tf.UntappedPercent);
+                                <div class="manabase-lens-row">
+                                    <span class="manabase-lens-color">@color</span>
+                                    <span>
+                                        <strong>@tf.UntappedPercent% untapped</strong>
+                                        <span class="manabase-lens-muted">(@tf.UntappedSources.ToString("F1") / @tf.TotalSources.ToString("F1"))</span>
+                                        <span class="@tm.Css" aria-hidden="true">@tm.Marker</span>
+                                        <span class="sr-only">@(tf.UntappedPercent >= 80 ? "meets target" : "below target")</span>
+                                    </span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+                <p class="manabase-lens-note">How often a colored source can be spent the turn it's available — tapped lands (Temples, tri-lands, taplands) can't make mana the turn they enter, so they push back your earliest castable turn. Drawn from the same simulation as the cast rate above, so it never contradicts it.</p>
+                @if (showPlainLanguage)
+                {
+                    <p class="manabase-lens-gloss">@ManabaseDisplay.TapAnalyzerGloss</p>
+                }
+            </div>
+        }
 
         <p class="manabase-context">
             Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong> ·

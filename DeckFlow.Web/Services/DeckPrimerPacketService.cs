@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using DeckFlow.Core.Diffing;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
@@ -32,6 +33,35 @@ public interface IDeckPrimerPacketService
     /// <param name="request">Current deck-primer request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<string?> TryComputeCacheKeyAsync(DeckPrimerRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Evaluates whether the current deck has drifted from the deck a primer was generated against.
+    /// PURE and synchronous: performs no I/O and never fetches or rebuilds. The deck-only multiset hash
+    /// is computed identically to the primer cache key's deck component so fresh/stale never disagrees
+    /// with cache behavior (PRIMER-02). When the deck differs, the changed-card count is computed from
+    /// the in-hand saved/current decks via a loose diff, excluding printing-only differences (PRIMER-04).
+    /// </summary>
+    /// <param name="generatedPrimerHash">Deck-only multiset hash captured when the primer was generated
+    /// (browser hidden field or uploaded zip); null/empty resolves to fresh.</param>
+    /// <param name="currentDeckEntries">The in-hand current deck entries; null/empty means no comparison is possible.</param>
+    /// <param name="savedGenerationDeckEntries">The deck entries the primer was generated from, when
+    /// available; null/empty suppresses the changed-card count.</param>
+    /// <returns>Stale flag, optional changed-card count, and the current deck's multiset hash.</returns>
+    PrimerStaleness EvaluateStaleness(
+        string? generatedPrimerHash,
+        IReadOnlyList<DeckEntry>? currentDeckEntries,
+        IReadOnlyList<DeckEntry>? savedGenerationDeckEntries)
+        => new(IsStale: false, ChangedCardCount: null, CurrentDeckHash: null);
+
+    /// <summary>
+    /// Parses pasted deck export text into entries using ONLY the local Moxfield/Archidekt text parsers.
+    /// Network-free: an absolute Moxfield/Archidekt URL is rejected (returns null) rather than imported,
+    /// so this primitive can never trigger an upstream call (PRIMER-03). Blank or unrecognized input
+    /// returns null and never throws.
+    /// </summary>
+    /// <param name="deckExportText">Untrusted user paste text.</param>
+    /// <returns>Parsed entries, or null when blank, a deck URL, or unrecognized.</returns>
+    IReadOnlyList<DeckEntry>? TryParseDeckTextLocal(string? deckExportText) => null;
 }
 
 /// <summary>
@@ -45,6 +75,8 @@ public interface IDeckPrimerPacketService
 /// <param name="ImportWarning">Optional warning surfaced when deck import succeeds with caveats.</param>
 /// <param name="ResolvedCommanderName">Resolved commander name when known.</param>
 /// <param name="DecklistText">Normalized decklist text block.</param>
+/// <param name="DeckMultisetHash">Deck-only multiset hash of the generation deck, used by the controller
+/// to re-arm the staleness hidden field and persist the hash into the download zip.</param>
 // Why: this positional record must stay JSON-round-trippable; do not convert properties to get-only
 // accessors because System.Text.Json drops get-only positional members in modern runtimes.
 // PromptTextsByPlatform intentionally contains only the currently enabled AI platforms.
@@ -56,7 +88,19 @@ public sealed record DeckPrimerPacketResult(
     string? TimingSummary,
     string? ImportWarning = null,
     string? ResolvedCommanderName = null,
-    string? DecklistText = null);
+    string? DecklistText = null,
+    string? DeckMultisetHash = null);
+
+/// <summary>
+/// Result of a pure deck-staleness evaluation: whether the current deck drifted from the deck a
+/// primer was generated against, the optional changed-card count (null when suppressed), and the
+/// current deck's multiset hash (null when no current deck was available).
+/// </summary>
+/// <param name="IsStale">True when the current deck differs from the generated primer's deck.</param>
+/// <param name="ChangedCardCount">Add + remove + quantity-change count (printing swaps excluded), or
+/// null when there is no saved generation snapshot to diff against.</param>
+/// <param name="CurrentDeckHash">Deck-only multiset hash of the current deck, or null when absent.</param>
+public sealed record PrimerStaleness(bool IsStale, int? ChangedCardCount, string? CurrentDeckHash);
 
 /// <summary>
 /// Builds deck-primer packets by loading a deck, grounding combo/category/matchup context once,
@@ -64,6 +108,15 @@ public sealed record DeckPrimerPacketResult(
 /// </summary>
 public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
 {
+    /// <summary>
+    /// Feature-flag key that, when enabled, surfaces a "deck changed since this primer was generated"
+    /// stale banner on the Deck Primer page (shown only on resume-without-rebuild when the current deck
+    /// differs from the generated primer's deck). Default-off (seeded FALSE); never auto-rebuilds or
+    /// re-fetches, so output and zips are byte-identical when off. D-04 / RESEARCH §"Resolved Open
+    /// Questions #6".
+    /// </summary>
+    public const string StaleFlag = "tool.primer.stale-flag";
+
     private const string ComboRankingVerdict = "sufficient"; // 31-SPIKE.md verdict: active branch = priority-rank.
     private const string CedhArchetypeVerdict = "meta-query-available"; // 31-SPIKE.md verdict: use GetTopArchetypesAsync.
     private const int CedhArchetypeCount = 8;
@@ -77,7 +130,10 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     private readonly PacketSessionCache _packetCache;
     private readonly ILogger<DeckPrimerPacketService> _logger;
     private readonly AiPlatformOptions _aiPlatformOptions;
+    private readonly MoxfieldParser _moxfieldParser;
+    private readonly ArchidektParser _archidektParser;
     private readonly Func<string, CancellationToken, Task<List<DeckEntry>>>? _loadDeckEntriesAsyncOverride;
+    private readonly Func<string, IReadOnlyList<DeckEntry>?>? _parseDeckTextLocalOverride;
     private readonly Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? _findCombosAsyncOverride;
     private readonly Func<int, CancellationToken, Task<IReadOnlyList<EdhTop16Entry>>>? _getTopArchetypesAsyncOverride;
     private readonly Func<string, CancellationToken, Task<IReadOnlyList<CategoryKnowledgeRow>>>? _getCategoryRowsForCommanderAsyncOverride;
@@ -92,6 +148,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     /// <param name="primerPromptRegistry">Primer prompt variant registry.</param>
     /// <param name="packetCache">Dedicated packet cache.</param>
     /// <param name="aiPlatformOptions">AI-platform options controlling Gemini enablement.</param>
+    /// <param name="moxfieldParser">Local Moxfield text parser.</param>
+    /// <param name="archidektParser">Local Archidekt text parser.</param>
     /// <param name="logger">Optional logger.</param>
     internal DeckPrimerPacketService(
         IDeckEntryLoader deckEntryLoader,
@@ -101,6 +159,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         PrimerPromptVariantRegistry primerPromptRegistry,
         PacketSessionCache packetCache,
         IOptions<AiPlatformOptions> aiPlatformOptions,
+        MoxfieldParser moxfieldParser,
+        ArchidektParser archidektParser,
         ILogger<DeckPrimerPacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -110,6 +170,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         ArgumentNullException.ThrowIfNull(primerPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         ArgumentNullException.ThrowIfNull(aiPlatformOptions);
+        ArgumentNullException.ThrowIfNull(moxfieldParser);
+        ArgumentNullException.ThrowIfNull(archidektParser);
 
         _deckEntryLoader = deckEntryLoader;
         _commanderSpellbookService = commanderSpellbookService;
@@ -118,6 +180,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         _primerPromptRegistry = primerPromptRegistry;
         _packetCache = packetCache;
         _aiPlatformOptions = aiPlatformOptions.Value;
+        _moxfieldParser = moxfieldParser;
+        _archidektParser = archidektParser;
         _logger = logger ?? NullLogger<DeckPrimerPacketService>.Instance;
     }
 
@@ -128,6 +192,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? findCombosAsyncOverride = null,
         Func<int, CancellationToken, Task<IReadOnlyList<EdhTop16Entry>>>? getTopArchetypesAsyncOverride = null,
         Func<string, CancellationToken, Task<IReadOnlyList<CategoryKnowledgeRow>>>? getCategoryRowsForCommanderAsyncOverride = null,
+        Func<string, IReadOnlyList<DeckEntry>?>? parseDeckTextLocalOverride = null,
         bool geminiEnabled = false,
         ILogger<DeckPrimerPacketService>? logger = null)
     {
@@ -142,6 +207,13 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         _findCombosAsyncOverride = findCombosAsyncOverride;
         _getTopArchetypesAsyncOverride = getTopArchetypesAsyncOverride;
         _getCategoryRowsForCommanderAsyncOverride = getCategoryRowsForCommanderAsyncOverride;
+        _parseDeckTextLocalOverride = parseDeckTextLocalOverride;
+
+        // Why: TryParseDeckTextLocal must exercise the real local parsers in unit tests that do not
+        // supply parseDeckTextLocalOverride; the parsers are network-free so default-constructing them
+        // here keeps the primitive's no-fetch contract while leaving the override as the bypass seam.
+        _moxfieldParser = new MoxfieldParser();
+        _archidektParser = new ArchidektParser();
     }
 
     /// <inheritdoc/>
@@ -262,6 +334,11 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             entries = loaded.Entries;
         }
         timings.Add(("Deck load", loadStopwatch.ElapsedMilliseconds, null));
+
+        // Deck-only multiset hash over ALL loaded entries (matching the cache key's deck component) so
+        // the controller can re-arm the staleness hidden field and persist it into the download zip.
+        var deckMultisetHash = PacketSessionCache.ComputeKey(BuildCanonicalDeckSourceText(entries));
+
         var playableEntries = entries
             .Where(entry =>
                 !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
@@ -342,7 +419,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             TimingSummary: BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds),
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
-            DecklistText: decklistText);
+            DecklistText: decklistText,
+            DeckMultisetHash: deckMultisetHash);
 
         if (!string.IsNullOrWhiteSpace(cacheKey))
         {
@@ -507,7 +585,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             + (result.TimingSummary?.Length ?? 0)
             + (result.ImportWarning?.Length ?? 0)
             + (result.ResolvedCommanderName?.Length ?? 0)
-            + (result.DecklistText?.Length ?? 0);
+            + (result.DecklistText?.Length ?? 0)
+            + (result.DeckMultisetHash?.Length ?? 0);
     }
 
     private static IReadOnlyList<AiPlatform> GetEnabledPlatforms(bool geminiEnabled)
@@ -716,7 +795,10 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildCanonicalDeckSourceText(IReadOnlyList<DeckEntry> entries)
+    // Why: internal (not private) so the staleness primitives and golden tests reuse the EXACT
+    // canonicalization the primer cache key hashes — guarantees fresh/stale never diverges from cache
+    // behavior (Pitfall 1: no second hash path). Order/format MUST NOT change.
+    internal static string BuildCanonicalDeckSourceText(IReadOnlyList<DeckEntry> entries)
     {
         var builder = new StringBuilder();
         foreach (var entry in entries
@@ -733,6 +815,79 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    /// <inheritdoc/>
+    public PrimerStaleness EvaluateStaleness(
+        string? generatedPrimerHash,
+        IReadOnlyList<DeckEntry>? currentDeckEntries,
+        IReadOnlyList<DeckEntry>? savedGenerationDeckEntries)
+    {
+        var currentDeckHash = currentDeckEntries is null || currentDeckEntries.Count == 0
+            ? null
+            : PacketSessionCache.ComputeKey(BuildCanonicalDeckSourceText(currentDeckEntries));
+
+        // No generation/current hash to compare, or same multiset (incl. reorder / printing-only swap) → fresh.
+        if (string.IsNullOrEmpty(generatedPrimerHash)
+            || currentDeckHash is null
+            || string.Equals(currentDeckHash, generatedPrimerHash, StringComparison.Ordinal))
+        {
+            return new PrimerStaleness(IsStale: false, ChangedCardCount: null, CurrentDeckHash: currentDeckHash);
+        }
+
+        // Deck changed but we have no generation snapshot to diff against → stale, count suppressed.
+        if (savedGenerationDeckEntries is null || savedGenerationDeckEntries.Count == 0)
+        {
+            return new PrimerStaleness(IsStale: true, ChangedCardCount: null, CurrentDeckHash: currentDeckHash);
+        }
+
+        // Changed-card count = add + remove + quantity-change; printing-only swaps land in
+        // PrintingConflicts and are intentionally EXCLUDED (locked decision #3). Clamped >= 0.
+        var diff = new DiffEngine(MatchMode.Loose).Compare(
+            savedGenerationDeckEntries.ToList(),
+            currentDeckEntries!.ToList());
+        var changedCardCount = Math.Max(0, diff.ToAdd.Count + diff.CountMismatch.Count + diff.OnlyInArchidekt.Count);
+
+        return new PrimerStaleness(IsStale: true, ChangedCardCount: changedCardCount, CurrentDeckHash: currentDeckHash);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<DeckEntry>? TryParseDeckTextLocal(string? deckExportText)
+    {
+        if (_parseDeckTextLocalOverride is not null)
+        {
+            return _parseDeckTextLocalOverride(deckExportText ?? string.Empty);
+        }
+
+        if (string.IsNullOrWhiteSpace(deckExportText))
+        {
+            return null;
+        }
+
+        // Reject absolute Moxfield/Archidekt URLs: importing them would require a network call, which
+        // this primitive must never do (PRIMER-03 — proves "no fetch on resume").
+        if (Uri.TryCreate(deckExportText.Trim(), UriKind.Absolute, out var uri)
+            && (DeckSourceHost.IsMoxfield(uri) || DeckSourceHost.IsArchidekt(uri)))
+        {
+            return null;
+        }
+
+        try
+        {
+            return _moxfieldParser.ParseText(deckExportText);
+        }
+        catch (DeckParseException)
+        {
+        }
+
+        try
+        {
+            return _archidektParser.ParseText(deckExportText);
+        }
+        catch (DeckParseException)
+        {
+            return null;
+        }
     }
 }
 

@@ -66,8 +66,21 @@ public static class FeatureFlagCatalog
                 "Show a plain-language 'Reading your deck' verdict, friendly one-line explanations for each manabase metric, and (Casual only) a ramp vs. draw slot-budget advisory. Off by default; recommendations are heuristic and never change the land count, color counts, castability, or health rating.",
             ["analysis.manabase.commander-castability"] =
                 "Shows command-zone castability - individual cast probability for each commander/partner/background, plus (Casual only) a companion's on-curve chance including the +3 generic 'to hand' rule tax (a heuristic); off by default.",
+            ["analysis.manabase.tap-analyzer"] =
+                "Surface untapped-source frequency and turn-1 untapped availability on the mana base page and its " +
+                "paste artifact. Off = byte-identical output.",
             ["analysis.command-zone-awareness"] =
                 "Names the full command zone - all partners/Background plus any companion as side metadata - in the /deck-analysis prompt for all three AI variants; off by default, output byte-identical when off.",
+            ["tool.bracket.enabled"] =
+                "Enable the Bracket Check tool — auto-classify a Commander deck into its official 1-5 bracket " +
+                "and generate a balancer prompt. Off = byte-identical to pre-Phase-76.",
+            ["analysis.multi-axis-score"] =
+                "Show a four-axis Power/Speed/Control/Consistency score block in the deck-analysis " +
+                "Step-3 results and include the score in all three prompt artifacts. Off = byte-identical.",
+            ["tool.primer.stale-flag"] =
+                "Surface a 'deck changed since this primer was generated' stale banner on the Deck Primer " +
+                "page, shown only on resume-without-rebuild when the current deck differs from the generated " +
+                "primer's deck. Never auto-rebuilds or re-fetches. Off = byte-identical output and zips.",
         };
 
     /// <summary>

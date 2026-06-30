@@ -34,11 +34,19 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
         await store.EnsureSchemaAsync();
 
         var seeded = await store.GetAllAsync();
-        Assert.Equal(14, expectedKeys.Count);
+
+        // Why: some tool flags are intentionally dark-launched (seeded present but disabled
+        // so the UI stays byte-identical before the operator flips them on): tool.bracket.enabled
+        // (BRACKET-05) and tool.primer.stale-flag (PRIMER-01, phase 78). All other tool flags
+        // default to enabled.
+        Assert.Equal(16, expectedKeys.Count);
         Assert.All(expectedKeys, key =>
         {
             Assert.True(seeded.TryGetValue(key, out var enabled), $"Missing seeded key '{key}'.");
-            Assert.True(enabled, $"Seeded key '{key}' should default to enabled.");
+            if (key == "tool.bracket.enabled" || key == "tool.primer.stale-flag")
+                Assert.False(enabled, $"'{key}' is a dark-launched tool flag: seeded present but disabled.");
+            else
+                Assert.True(enabled, $"Seeded key '{key}' should default to enabled.");
         });
 
         await store.SetEnabledAsync("tool.deck-primer.enabled", false);

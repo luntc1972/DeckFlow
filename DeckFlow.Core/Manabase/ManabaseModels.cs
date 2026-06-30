@@ -166,6 +166,14 @@ public sealed record CardCastability
     /// is capped at <c>lastSimulatedTurn + 1</c>, so the metric is bounded. Supporting context only.
     /// </summary>
     public double AverageDelay { get; init; }
+
+    /// <summary>
+    /// TAP-02: count of simulated trials (out of the simulator's trial budget) in which the player
+    /// had at least one mana source available to spend on turn 1. Additive — safe default 0 so
+    /// existing construction/serialization is unaffected. Divided by the trial budget and averaged
+    /// across non-commander rows to produce <see cref="ManabaseTapAnalysis.Turn1UntappedPercent"/>.
+    /// </summary>
+    public int Turn1UntappedTrials { get; init; }
 }
 
 /// <summary>The kinds of spell an always-on cost reducer applies to.</summary>
@@ -365,6 +373,14 @@ public sealed record ColorSourceFinding
     /// alive). The three breakdown fields sum (within rounding) to <see cref="ActualSources"/>.
     /// </summary>
     public double ConditionalSources { get; init; }
+
+    /// <summary>
+    /// TAP-01: raw (un-rounded) weight of this color's sources that enter untapped, from
+    /// <c>EffectiveSources(color, untappedOnly: true)</c>. Additive — safe default 0.0. The numerator
+    /// for the per-color untapped fraction; the denominator is the raw total (NOT the rounded
+    /// <see cref="ActualSources"/> display field).
+    /// </summary>
+    public double UntappedSources { get; init; }
 
     /// <summary>Required minus actual; positive means under-supported.</summary>
     public double Deficit => RequiredSources - ActualSources;
@@ -853,6 +869,14 @@ public sealed record ManabaseReport
     public ManabaseLandTargetBreakdown? LandTarget { get; init; }
 
     /// <summary>
+    /// TAP-01/TAP-02: tap-quality metrics (untapped-source composition + turn-1 untapped
+    /// availability), or null when not computed. Additive — defaults null so existing
+    /// serialization/tests are unaffected. Populated by <see cref="ManabaseAnalyzer"/> when the
+    /// tap-analyzer flag is on.
+    /// </summary>
+    public ManabaseTapAnalysis? TapAnalysis { get; init; }
+
+    /// <summary>
     /// Count of non-land mana sources in the deck — mana rocks and dorks (artifacts/creatures that
     /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
     /// </summary>
@@ -948,4 +972,48 @@ public sealed record ManabaseReport
             return new ManabasePrimaryFix { Kind = ManabaseFixKind.None };
         }
     }
+}
+
+/// <summary>
+/// TAP-01/TAP-02: tap-quality metrics for a deck — untapped-source composition (overall and per
+/// color) plus the turn-1 untapped availability figure. Derived from the existing castability
+/// simulation pass; no second simulation. All fields are additive <c>{ get; init; }</c> with safe
+/// defaults so the record round-trips through System.Text.Json without dropping members.
+/// </summary>
+public sealed record ManabaseTapAnalysis
+{
+    /// <summary>Overall untapped fraction (0–100) across all weighted colored sources.</summary>
+    public int OverallUntappedPercent { get; init; }
+
+    /// <summary>Weighted untapped source count (numerator for <see cref="OverallUntappedPercent"/>).</summary>
+    public double UntappedSources { get; init; }
+
+    /// <summary>Total weighted source count (denominator for <see cref="OverallUntappedPercent"/>).</summary>
+    public double TotalSources { get; init; }
+
+    /// <summary>
+    /// TAP-02 (deck-level): share of simulated games (0–100) where the player had ≥1 mana source
+    /// available to spend on turn 1. Averaged across non-commander castability rows (decision D1/D3).
+    /// </summary>
+    public int Turn1UntappedPercent { get; init; }
+
+    /// <summary>Per-color untapped composition (key = <see cref="ManaColor"/>). Empty, never null.</summary>
+    public IReadOnlyDictionary<ManaColor, ColorTapFinding> ColorTap { get; init; }
+        = new Dictionary<ManaColor, ColorTapFinding>();
+}
+
+/// <summary>One color's untapped-source composition for <see cref="ManabaseTapAnalysis"/>.</summary>
+public sealed record ColorTapFinding
+{
+    /// <summary>Weighted untapped sources of this color.</summary>
+    public double UntappedSources { get; init; }
+
+    /// <summary>
+    /// Raw weighted total sources of this color (un-rounded EffectiveSources;
+    /// <see cref="ColorSourceFinding.ActualSources"/> is the rounded display value).
+    /// </summary>
+    public double TotalSources { get; init; }
+
+    /// <summary>Rounded untapped fraction (0–100).</summary>
+    public int UntappedPercent { get; init; }
 }

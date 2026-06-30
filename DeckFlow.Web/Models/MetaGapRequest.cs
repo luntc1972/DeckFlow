@@ -10,6 +10,7 @@ public sealed class MetaGapRequest
     private string _metaGapResponseJson = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
     private string _fetchedEntriesJson = string.Empty;
+    private string _metaGapPromptText = string.Empty;
 
     /// <summary>
     /// Tracks the current step in the multi-step cEDH meta-gap workflow.
@@ -92,5 +93,17 @@ public sealed class MetaGapRequest
     {
         get => _fetchedEntriesJson;
         set => _fetchedEntriesJson = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Hidden form field carrying the generated Step-2 prompt between submits so a Step-3
+    /// render (including a restored session) keeps the prompt available for display and zip
+    /// download without rebuilding it — the rebuild needs a reference-deck selection that a
+    /// restored request may not carry. Empty by default; safe to leave blank for fresh flows.
+    /// </summary>
+    public string MetaGapPromptText
+    {
+        get => _metaGapPromptText;
+        set => _metaGapPromptText = value ?? string.Empty;
     }
 }

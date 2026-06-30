@@ -92,6 +92,46 @@ public sealed class ManabaseControllerDownloadTests
     }
 
     [Fact]
+    public async Task Download_FlagOff_ArtifactDoesNotContainUntappedSourcesSection()
+    {
+        // TAP-04 byte-identity: flag OFF → no tap block in the artifact.
+        var service = new StubService(ReportWithTapAnalysis(), showTapAnalyzer: false);
+        var controller = BuildController(service);
+
+        var result = await controller.Download(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            DeckName = "Test Deck",
+        });
+
+        var file = Assert.IsType<FileContentResult>(result);
+        string text = Encoding.UTF8.GetString(file.FileContents);
+        Assert.DoesNotContain("Untapped Sources:", text);
+    }
+
+    [Fact]
+    public async Task Download_FlagOn_ArtifactContainsUntappedSourcesAndTurn1Sections()
+    {
+        // TAP-04: flag ON → tap block present (RED until 75-02 appends the block + 75-03 wires the
+        // controller to pass tap).
+        var service = new StubService(ReportWithTapAnalysis(), showTapAnalyzer: true);
+        var controller = BuildController(service);
+
+        var result = await controller.Download(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            DeckName = "Test Deck",
+        });
+
+        var file = Assert.IsType<FileContentResult>(result);
+        string text = Encoding.UTF8.GetString(file.FileContents);
+        Assert.Contains("Untapped Sources:", text);
+        Assert.Contains("Turn-1 untapped availability:", text);
+    }
+
+    [Fact]
     public async Task Download_InvalidEnumValues_CoercedToDefaults()
     {
         // Out-of-range Mode/CommanderImportance must produce a file, not a 500 — mirrors
@@ -176,17 +216,20 @@ public sealed class ManabaseControllerDownloadTests
         private readonly ManabaseVerdict? _verdict;
         private readonly ManabaseRampDrawBudget? _budget;
         private readonly bool _showPlainLanguage;
+        private readonly bool _showTapAnalyzer;
 
         public StubService(
             ManabaseReport report,
             ManabaseVerdict? verdict = null,
             ManabaseRampDrawBudget? budget = null,
-            bool showPlainLanguage = false)
+            bool showPlainLanguage = false,
+            bool showTapAnalyzer = false)
         {
             _report = report;
             _verdict = verdict;
             _budget = budget;
             _showPlainLanguage = showPlainLanguage;
+            _showTapAnalyzer = showTapAnalyzer;
         }
 
         public ManabaseAnalysisOptions? LastOptions { get; private set; }
@@ -200,7 +243,7 @@ public sealed class ManabaseControllerDownloadTests
             LastOptions = options ?? new ManabaseAnalysisOptions();
             return Task.FromResult(CreateResult(
                 _report, "1 cards · 36 lands", "prompt", Array.Empty<CostSuggestion>(),
-                _verdict, _budget, _showPlainLanguage));
+                _verdict, _budget, _showPlainLanguage, _showTapAnalyzer));
         }
 
         public Task<ManabaseLoadResult> LoadAsync(
@@ -237,12 +280,55 @@ public sealed class ManabaseControllerDownloadTests
         IReadOnlyList<CostSuggestion> suggestions,
         ManabaseVerdict? verdict,
         ManabaseRampDrawBudget? budget,
-        bool showPlainLanguage)
+        bool showPlainLanguage,
+        bool showTapAnalyzer = false)
     {
         ConstructorInfo constructor = typeof(ManabaseAnalysisResult).GetConstructors().Single();
         object?[] args = constructor.GetParameters().Length == 9
             ? new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions, verdict, budget, showPlainLanguage }
             : new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions };
-        return (ManabaseAnalysisResult)constructor.Invoke(args);
+        var result = (ManabaseAnalysisResult)constructor.Invoke(args);
+        // ShowTapAnalyzer is an additive init-only property (not a ctor param) — set via `with`.
+        return result with { ShowTapAnalyzer = showTapAnalyzer };
     }
+
+    /// <summary>A report carrying populated tap analysis, used by the download flag-gating facts.</summary>
+    private static ManabaseReport ReportWithTapAnalysis() => new()
+    {
+        ActualLands = 36,
+        TargetLands = 37.0,
+        ColorFindings = new List<ColorSourceFinding>
+        {
+            new()
+            {
+                Color = ManaColor.White,
+                ActualSources = 20.0,
+                RequiredSources = 18,
+                DrivingSpell = "Swords to Plowshares",
+                UntappedSources = 16.0,
+            },
+            new()
+            {
+                Color = ManaColor.Blue,
+                ActualSources = 16.0,
+                RequiredSources = 14,
+                DrivingSpell = "Counterspell",
+                UntappedSources = 13.5,
+            },
+        },
+        Mode = ManabaseMode.Casual,
+        Summary = "Mana base looks fine for this test.",
+        TapAnalysis = new ManabaseTapAnalysis
+        {
+            OverallUntappedPercent = 82,
+            UntappedSources = 29.5,
+            TotalSources = 36.0,
+            Turn1UntappedPercent = 76,
+            ColorTap = new Dictionary<ManaColor, ColorTapFinding>
+            {
+                [ManaColor.White] = new() { UntappedSources = 16.0, TotalSources = 20.0, UntappedPercent = 80 },
+                [ManaColor.Blue] = new() { UntappedSources = 13.5, TotalSources = 16.0, UntappedPercent = 84 },
+            },
+        },
+    };
 }

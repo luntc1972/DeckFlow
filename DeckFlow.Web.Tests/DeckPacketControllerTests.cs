@@ -396,4 +396,98 @@ public sealed class DeckPacketControllerTests
         var model = Assert.IsType<DeckComparisonViewModel>(view.Model);
         Assert.Equal("The comparison form contains invalid values. Review the highlighted fields and try again.", model.ErrorMessage);
     }
+
+    [Fact]
+    public async Task CedhMetaGapCommanderSearch_ReturnsSuggestionsAsJson()
+    {
+        var cardSearch = new StubCardSearchService("Stella Lee, Wild Card", "Stella, Wandering Star");
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: null,
+            cardSearchService: cardSearch)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.CedhMetaGapCommanderSearch("stella");
+
+        var json = Assert.IsType<JsonResult>(result);
+        var names = Assert.IsAssignableFrom<IReadOnlyList<string>>(json.Value);
+        Assert.Equal(new[] { "Stella Lee, Wild Card", "Stella, Wandering Star" }, names);
+        Assert.Equal("stella", cardSearch.LastCommanderQuery);
+    }
+
+    [Fact]
+    public async Task CedhMetaGapCommanderSearch_ReturnsEmptyArray_WhenCardSearchUnavailable()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance);
+
+        var result = await controller.CedhMetaGapCommanderSearch("stella");
+
+        var json = Assert.IsType<JsonResult>(result);
+        var names = Assert.IsAssignableFrom<IReadOnlyList<string>>(json.Value);
+        Assert.Empty(names);
+    }
+
+    [Fact]
+    public async Task CedhMetaGapCommanderSearch_Returns503_WhenScryfallFails()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: null,
+            cardSearchService: new ThrowingCardSearchService(
+                new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.CedhMetaGapCommanderSearch("stella");
+
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, status.StatusCode);
+    }
+
+    [Fact]
+    public async Task CedhMetaGapCommanderSearch_Returns503_WhenSearchThrowsInvalidOperation()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: null,
+            cardSearchService: new ThrowingCardSearchService(
+                new InvalidOperationException("Scryfall returned an unreadable response payload.")))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.CedhMetaGapCommanderSearch("stella");
+
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, status.StatusCode);
+    }
 }

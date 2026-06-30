@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: Cycle 12
-milestone_name: — Manabase Accuracy, Command-Zone Awareness & Cross-Tool Persistence
-status: completed
-stopped_at: "Cycle 12 SHIPPED to main (2026.06.9) — phases 70-74 + flag-key namespacing. Phase 73 (deck-analysis command-zone awareness) fully complete: operator visual checkpoint APPROVED, Codex review APPROVE, verifier PASS 6/6, build 0/0, Web suite 929 pass. main fast-forwarded to c3e14b8e; tag 2026.06.9. New feature flags seeded OFF in prod; manual prod deploy owed (autodeploy OFF)."
-last_updated: "2026-06-27T22:30:00.000Z"
-last_activity: 2026-06-27 -- Cycle 12 shipped + tagged 2026.06.9
+milestone: Cycle 13
+milestone_name: Deck Evaluation & Creator Output
+status: executing
+stopped_at: Completed 77-05-PLAN.md (score block rendered in /deck-analysis Step-3 — four-axis grid + bracket cross-check gated on Model.Score so OFF byte-identical; hidden ScoreJson round-trip field; score CSS confined to site-common.css with baked-hex band pills and no per-theme fork; IRazorViewEngine render test proves OFF byte-identity + ON grid; Web build 0/0; full Web suite 1011 pass / 12 skip / 0 fail).
+last_updated: "2026-06-29T21:41:18.640Z"
+last_activity: 2026-06-29 -- Phase 78 execution started
 progress:
-  total_phases: 6
+  total_phases: 4
   completed_phases: 3
-  total_plans: 15
-  completed_plans: 13
-  percent: 50
+  total_plans: 19
+  completed_plans: 17
+  percent: 75
 ---
 
 # Project State
@@ -21,144 +21,98 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 73 — deck-analysis-command-zone-awareness-ad-hoc-trunk-main
-
-## Branch reconciliation (resolved 2026-06-22; re-merged 2026-06-25)
-
-- The shipped **Manabase Analyzer** feature (built ad-hoc on `main`, deployed to prod 2026-06-22) is MERGED into `cycle11`. Tracked as un-numbered trunk features: `phases/manabase-modes-castability`, `phases/manabase-accuracy`, `phases/manabase-alt-cost` (de-numbered out of slot 64 so Cycle 11 owns phase 64).
-- **2026-06-25 re-merge:** `main` had advanced 92 commits (Phase 70 manabase-accuracy: health-band coupling, ramp disclosure, manabase download action, set-packet scoring, Admin/Flags descriptions, SQLitePCLRaw 3.0.3 override). Merged main→cycle11. Only STATE.md conflicted (planning — took cycle11). The 3 overlapping code files (ManabaseController.cs, FeatureFlagStore.cs, admin-common.css) auto-merged; integration follow-up: Phase 70's new `/manabase` action(s) must carry the Phase 66 `[FeatureFlagGate]` or `ToolRouteGateCoverageTests` fails (the gate doing its job).
-- Going forward: Cycle 11 ships via `cycle11→main` once Phase 69 lands. main is now merged in, so the ship is a fast-forward (no manabase loss).
+**Current focus:** Phase 78 — auto-refreshing-primer
 
 ## Current Position
 
-Phase: 73 — COMPLETE
-Plan: 4 of 4
-Status: Phase 73 complete
-Last activity: 2026-06-28 -- Completed quick task 260627-qyc: DeckFlow.Studio DirectPush prod-write integrity
+Phase: 78 (auto-refreshing-primer) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 78
+Last activity: 2026-06-29 -- Phase 78 execution started
+
+Progress: [█████████░] 94%
 
 ## Roadmap Summary
 
 | # | Phase | Requirements | Status |
 |---|-------|-------------|--------|
-| 64 | Deck-Source Host Hardening | SEC-01, SEC-02, SEC-03 | ✅ Complete |
-| 65 | Prod Content Artifact Reconcile | DATA-01, DATA-02 | ✅ Executed (operator-gated reconcile) |
-| 66 | Admin Tool-Visibility Toggles + Tool Registry | TOGGLE-01..07 | ✅ Code-complete + reviewed (operator UAT pending) |
-| 67 | Content KB Value A/B Validation | KBVAL-01, KBVAL-02 | ✅ Complete (decision: MARGINAL/NEGATIVE) |
-| 68 | Creator-Philosophy Representation Research | CREATOR-01 (conditional on 67) | ⊘ Dropped (67 marginal) |
-| 69 | Studio UI Design Pass — Shell, Dashboard & Responsive | STUI-01, STUI-02, STUI-03 | ✅ Complete + verified (11/11; sweep PASSED) |
+| 75 | Tap Analyzer Surface | TAP-01, TAP-02, TAP-03, TAP-04 | Complete (4/4 plans) |
+| 76 | Bracket Classifier + Balancer | BRACKET-01, BRACKET-02, BRACKET-03, BRACKET-04, BRACKET-05 | Not started |
+| 77 | Multi-Axis Deck Score | SCORE-01, SCORE-02, SCORE-03, SCORE-04 | Executing (5/6 plans) |
+| 78 | Auto-Refreshing Primer | PRIMER-01, PRIMER-02, PRIMER-03, PRIMER-04 | Not started |
 
 **Phase ordering rationale:**
 
-- **64 first**: SSRF/host-spoof is HIGH priority and lives in shared Core (`DeckEntryLoader`, `MoxfieldApiDeckImporter`) touching every deck tool; isolate it so the fix + regression tests land clean before other phases churn those files.
-- **65 second**: Prod artifact gap is HIGH but largely investigation + an operator-run reconcile (AI stays read-only against prod); independent of the code phases.
-- **66 third**: Largest feature (tool registry + nav/tiles/help/admin cascade + empty-section collapse); self-contained. Runs after the security fix so it isn't interleaved with shared-Core edits.
-- **67 gate**: KBVAL must complete before creator-philosophy; its lift/marginal verdict decides whether Phase 68 runs at all and whether `content.kb.enabled` flips.
-- **68 conditional**: Drops if KBVAL-02 is marginal. Research/design only — no production build of the philosophy layer this cycle.
-- **69 last**: Studio UI pass is independent of the public-site work; presentation polish runs over settled surfaces last.
+- **75 first**: independent, zero risk, additive counters only; validates additive-field discipline before bracket work
+- **76 second**: headline differentiator; produces `GameChangerCatalog` that gates Phase 77's Power axis
+- **77 third**: depends on `GameChangerCatalog` from 76; folds score into existing analysis packet (no new tile)
+- **78 last**: independent of 75-77; thin new work over existing `DiffEngine`/`TryComputeCacheKeyAsync` primitives
 
 ## Performance Metrics
 
-**Velocity (Cycle 9 reference — most recent shipped):**
+**Velocity (Cycle 12 reference — most recent shipped):**
 
-- 4 phases (55-58), 11 plans (2026-06-18 → 2026-06-19)
-- Cross-AI execution: Codex codes, Claude reviews (TEMP OVERRIDE: Claude implements until ~2026-06-24)
-- Final test gate: Core 475/475, Studio 49/49; build 0/0
+- Phases 70-74 + flag-key namespacing; build 0/0; Web suite 929 pass
+- Claude (Opus 4.8) implements, Codex reviews (rule effective 2026-06-27)
 
 ## Accumulated Context
 
-### Key Decisions
+### Key Decisions (Cycle 13)
 
-- **Phase 73 Plan 04 (flag-gated companion designator UI + controller plumbing, 2026-06-27 — CHECKPOINT PENDING):** Surfaced the manual companion designator on `/deck-analysis` Step 1 behind `analysis.command-zone-awareness`. Added `bool CommandZoneAwarenessEnabled { get; init; }` (server-computed, init-only, NOT form-bound — T-73-05) to `DeckAnalysisViewModel`; injected optional `IFeatureFlagCache? = null` into `DeckPacketController` and a single `IsCommandZoneAwarenessEnabled()` default-OFF-snapshot helper stamped on ALL 11 `new DeckAnalysisViewModel` sites incl. error/upload paths (Codex MED-1: no path renders the wrong UI). View renders EXACTLY ONE `name=CompanionName` input in a collapsible `<details class="deck-analysis-overrides">` (no hidden mirror — single form would duplicate-bind, unlike Manabase's two-form layout). Layout CSS in site-common.css (`.deck-analysis-overrides`), not a per-theme fork. README + Help/deck-analysis.md document the flag + designator. 4 controller tests (flag ON/OFF/missing-cache + validation-error-path stamping). Playwright smoke `deck-analysis-command-zone.spec.ts` (toggles flag via /Admin/Flags, asserts input present ON / absent OFF) authored — NOT run live (Task 3 operator checkpoint). Build 0/0; full Web suite 927/0/12; controller 14/14; CompanionName count=1; format-gate clean (fixed 10 nested stamp lines from 12→16 spaces). Commits 17eb642b (feat) + 532facfa (test). **Task 3 = blocking operator cross-theme/mobile visual sign-off — PENDING; plan NOT marked complete.**
-- **Phase 73 Plan 03 (companion rendering in 3 decoupled variants, 2026-06-27):** Rendered the resolved companion into the prompt TEXT — ChatGpt + Gemini each emit a guarded `companion: {name} (this deck's companion; applies its companion deckbuilding restriction)` line directly after the `commander:` line in DECK CONTEXT (plain text, value NOT encoded); Claude emits a guarded XML-escaped `<companion>{SecurityElement.Escape(name)}</companion>` element + `<companion_note>` between `<commander>` and `<bracket>`. Three independent hand-edits, NO shared helper (ADR 0001). Awareness-only — no "outside the 99"/zone claim (Codex HIGH-1); Claude XML-escape keeps a single well-formed element for `</companion>...`/`a & b` inputs (Codex HIGH-2). Tests: `BuildAsync_CommandZoneAwareness_RendersCompanion` (companion surfaces for all 3 platforms + decklist-region byte-identity flag-ON==flag-OFF, no deck-text mutation) and `..._CompanionInput_PreservesPromptShape` (`[Theory]` malicious values → exactly one Claude `<companion>`/`</companion>` pair + single-line ChatGpt `companion:`). DeckAnalysisPacketServiceTests 64/64; full Web suite 923/0 (1 transient Admin-e2e flake, did not reproduce on rerun); build 0/0; format-gate clean; LF + raw-string carve-outs preserved. Commits 98298278 + 4b074821. Wave 4 (73-04) adds the flag-gated Step-1 designator input + controller plumbing + docs.
-- **Phase 73 Plan 02 (command-zone enrichment + companion resolution, 2026-06-27):** Wired `analysis.command-zone-awareness` into `DeckAnalysisPacketService.BuildAsync` — flag ON collects all `Board=="commander"` names, oracle-resolves EACH individually then joins 2+ with `" & "` (resolve-then-join, Pitfall 1), and resolves the companion (designator-wins via `request.CompanionName`, else `loaded.DetectedCompanionName`) through `BoundCompanionName` (reuses the file's existing `CollapseWhitespace` for the single-line CR/LF strip — HIGH-2 — then trim + 200-char cap). `companionName` is forwarded to `BuildAnalysisPrompt` as side metadata only; deck text, cache key (`TryComputeCacheKeyAsync`/`ResolvePreScryfallCommanderState`) untouched. Flag-OFF byte-identity proven across ChatGPT/Claude/Gemini by a `[Theory]` (Codex HIGH-1: no companion-absence assertion). Targeted 60/60 green; full Web suite 919 passed/12 skipped/0 failed; build 0/0. Commits f356840a (feat) + 3e5d6739 (test). Variants still render the companion in Plan 73-03.
-- **Phase 64 Plan 02 (4-site adoption + SC2 fix, 2026-06-21):** Spoof-URL test asserts null-capture (importer not called), not InvalidOperationException — MoxfieldParser accepts URL strings as implicit-quantity-1 card names, so both parsers succeed and no exception is thrown. Canonical Spellbook URL (`https://moxfield.com/decks/{deckId}`) always reconstructed from the already-parsed deckId, never forwarded from originalUrl. Three commits (aebfd8e8, de6d212a, 934b6789). 612 Core + 677 Web tests green.
-- **Phase 64 Plan 01 (DeckSourceHost predicate, 2026-06-21):** `DeckSourceHost.IsMoxfield(Uri)` / `IsArchidekt(Uri)` use exact-or-approved-subdomain matching (`host == apex || host.EndsWith("." + apex)`). No `TrimEnd('.')` — trimming trailing dot would re-open confusable-domain surface. The `-warnaserror` flag cannot be used as the local gate because pre-existing NU1903/CS0618/CS1574 warnings are present; CI is the authoritative gate. 16/16 acceptance tests pass locally.
-- **Phase 63 added 2026-06-20 (DIST-01):** Package DeckFlow.Studio as a self-contained single-file win-x64 executable runnable without a .NET install; produce publish profile/script + document build/run steps. Last phase of Cycle 10 (after Phase 62 Studio UI Polish). Not planned yet → `/gsd-plan-phase 63`.
-- **Branch rule reaffirmed 2026-06-20:** ALWAYS branch per milestone — Cycle 10 work belongs on its own `cycle10` branch, never piled on local main. ⚠ ANOMALY: a concurrent session switched the tree to `feat/analysis-prompt-recency-gate` mid phase-59 execution and interleaved unrelated manabase/analysis-prompt commits with the 59 commits. Needs operator decision to re-home Cycle 10 onto a clean `cycle10` branch once the concurrent session settles.
-- **Cycle 10 roadmap created 2026-06-20:** 4 phases (59-62), 16/16 requirements mapped (AUTO, SYNC, SRC, HSEL, SUI). Phase numbering continues from 58. (Phase 63 DIST-01 appended 2026-06-20.)
-- **Granularity = coarse:** 4 phases is the natural minimum. Automation (Core orchestrator slice) and the novel prod-read sync lane each earn their own phase; the 11 Studio-surface requirements split into one selection-mechanics pass (SRC + HSEL — persisted data + behavior) and one presentation-polish pass (SUI — over the same `Harvest.razor`/Studio shell).
-- **Phase 59 owns the AUTO-02 quality-signal open risk:** A per-distill quality/confidence signal may not exist yet. Phase 59 must derive or add one from existing distill output (tag/clip/summary-completeness heuristics or returned model confidence) — NO distill provider/model swap permitted.
-- **Phase 60 = Pull-from-Prod (promoted from backlog):** Read mirror of the existing DirectPush write path; read-only against prod (no write-back from this lane); uses the operator-local secret connection convention. Most novel/risky lane → isolated phase.
-- **SRC/HSEL co-locate in Phase 61, SUI in Phase 62:** Both touch `Harvest.razor` + the Studio shell, but 61 is data/behavior (creator store, skip/ignore store, default filter) and 62 is presentation. Surface-grouping avoids redoing polish after 61 reshapes the surfaces.
-- **SUI-01 reuses the Cycle 9 status engine** (`PublishStateDeriver` / `VideoStatusResolver`) — no duplicate status logic. **SUI-06 is a one-line MainLayout.razor About-link fix.**
-- **Phase 59 Plan 03 (one-click harvest→auto-distill→auto-approve, AUTO-01/AUTO-02) executed 2026-06-20:** New Studio Harvest "Harvest + Auto-distill" button (beside the kept "Harvest Selected" fallback, D-12). Subscription path: harvest → `ListPendingDistillAsync` ∩ selected = harvest-ready ids (HIGH #2/D-10, excludes skipped/no-caption/already-distilled) → inline `DistillAsync(dryRun:false)` → shared `ApplyAutoApproveAsync` (batch `SetApprovalStatusAsync('approved')` for distills ≥ persisted cutoff via `IAutoApproveSignal`; approval_status only, T-59-06). Metered providers harvest then STOP with a requires-subscription message — no DistillAsync, no silent spend (D-08 AMENDED, SC4; Core refuses at ContentKbOrchestrator.cs:244). `ApplyAutoApproveAsync` is SHARED — also wired into manual `RunDistillStageBAsync` so a manual subscription distill auto-approves too (D-09 reuse); metered auto-approve DEFERRED. Single per-video outcome card, all counts canonical-sourced (D-11/HIGH #3). `IAutoApproveSignal` DI registered. Studio.Tests HarvestPage 18/18 green (8 one-click + 1 manual Stage B added); build 0err. README documents the subscription-only one-click default + auto-approve panel. Commits 7a5cbd95 (RED) + e9ae01c9 (GREEN) + 729b5e4d (unpushed, on branch feat/analysis-prompt-recency-gate). **Task 3 = operator end-to-end human-verify checkpoint (blocking) PENDING.**
-- **Phase 59 Plan 02 (auto-approve settings UI, AUTO-02) executed 2026-06-20:** `AutoApproveSettings` record (Default ON/5 sourced from `ClipCountAutoApproveSignal.DefaultCutoff`, D-03/D-06) + file-backed `AutoApproveSettingsStore` (`auto-approve-settings.json` in studio data dir, persists across restarts D-07) with a semantic clamp applied on Load AND Save (negative→5, >MaxCutoff 1000→1000, T-59-03; corrupt JSON → safe defaults, never throws). Harvest-page "Auto-approve" panel (toggle + cutoff, disabled-when-off, saved on commit not keystroke — Codex MEDIUM). DI singleton wired. Studio.Tests 8 store + 3 bUnit green; no regression. Commits a881c4c1 + 6360aaa8 (unpushed). Plan 03 reads these settings to drive one-click auto-approval.
-- **Phase 59 Plan 01 (AUTO-02 signal) executed 2026-06-20:** Auto-approve decision isolated behind `IAutoApproveSignal` (swappable, D-02) with `ClipCountAutoApproveSignal` (`clipCount >= cutoff`, `DefaultCutoff = 5`, D-03). `DistillResult.DistilledVideos` surfaces natural key (YouTube OR podcast) + clip count per distilled video (D-01, D-11). Distill schema/provider/model unchanged — no confidence field (SC4). Core records the count only; approval_status flip is the Studio host's job (Plan 03). Core.Tests 511/0. Commits 44d9d630 + e1c15c79 (unpushed).
+- **Granularity = coarse:** 4 phases is the natural minimum — one per coherent capability.
+- **Tap Analyzer (Phase 75):** additive counters ONLY inside the existing 20k-trial loop; `{ get; init; }` fields only (never `required`); flag `analysis.manabase.tap-analyzer` seeded OFF.
+- **Phase 75 Wave 0 (plan 75-01):** type surface + full RED xUnit suite landed before any computation; `TapMarker` (flat 80%, D4) implemented as a pure helper (GREEN); computation lands in 75-02, flag/view wiring in 75-03.
+- **Phase 75 Wave 2 (plan 75-03):** flag `analysis.manabase.tap-analyzer` registered + seeded OFF in BOTH dialects (idempotent `ON CONFLICT DO NOTHING`); read fail-safe-OFF via `IsFlagOn` and threaded service→result→controller→download; download passes `tap` only when ON (TAP-04 byte-identity when OFF). 75-04 page UI card still pending.
+- **Phase 75 Wave 3 (plan 75-04) — DONE, phase complete:** flag-guarded "Untapped sources" card on /manabase (reuses `.manabase-lens` chrome) + two layout-only CSS classes (`.manabase-taplens`, `.manabase-taplens-split`, 640px collapse) in `site-common.css` (no theme-fork edit); per-color list gated on `ColorFindings.Count > 1`, cEDH renders full card (D2), ✓/⚠ via flat-80% `TapMarker` (D4). Entire card inside `@if` → byte-identical when OFF, enforced by an `IRazorViewEngine` OFF/ON render test (a source-text scan can't discriminate). **Deviation:** dropped the planned `report?.TapAnalysis` null-conditional for `report.TapAnalysis` (report non-null under the outer result guard) to avoid a new CS8602 warning. Human-verify APPROVED (Classic/Azorius/Nyx + mobile; screenshots under `.planning/ui-design/cycle13/screenshots/`). TAP-01/02/04 complete; flag still seeded OFF in prod.
+- **Game Changers data (Phase 76):** versioned seed file + `IMemoryCache`, NOT a `.cs` literal; existing `CommanderBracketCatalog.cs` hardcoded data migrated to Core; tutors are NOT a bracket gate (Oct-2025 WotC change).
+- **Bracket surface (Phase 76):** flag `tool.bracket.enabled` seeded OFF; Spellbook null = disclosed in artifact, never silent "zero combos".
+- **Multi-Axis Score (Phase 77):** folds into existing `/deck-analysis` paste packet; no new tool tile; all 3 prompt variants hand-edited per ADR-0001; no shared helper (shared helpers have been reverted before).
+- **Auto-Refreshing Primer (Phase 78):** stale-FLAG only (no auto-rebuild, no silent re-fetch); canonical name+quantity multiset hash as the staleness key (not raw textarea text).
+- **ADR-0001 holds:** every new artifact section (bracket, score, stale-banner if in prompt) must be hand-edited into all 3 variants — ChatGpt/Claude/Gemini — with a parity test.
+- **Phase 77 (plan 77-05) — DONE:** the on-page render of `Model.Score`. Score block inserted in `/deck-analysis` Step-3 (between `<h3>Analysis Summary</h3>` and the per-category `<div class="stack">`) gated on `@if (Model.Score is not null)` — server-computed init-only, never form-bound — so the flag-OFF/absent path is byte-identical. Four `.chatgpt-score-card`s (Power/Speed/Control/Consistency) each encode the band **4 redundant ways** (numeral, `aria-hidden` 5-pip meter, word pill, baked-hex color) + `role="group"` and a full `aria-label="@axis score: @band of 5, @BandLabel"` (never color-only, UI-SPEC §9). Bracket cross-check note `--agree`/`--diverge` with a leading `✓`/`⚠` glyph + class + text, `role="note"`. Hidden `<textarea name="ScoreJson" hidden>` beside `DeckProfileJson`, gated on `Request.ScoreJson` non-empty, round-trips the score across the Step-3 re-post without adding a field on the OFF page. All score values render through auto-encoding Razor `@`-expressions (no `@Html.Raw`, T-77-05-01). **All CSS in `site-common.css` ONLY** (responsive 4->2->1 grid, baked-hex `.chatgpt-score-band--0..--5` pills that carry their own legible ink so NO per-theme fork is needed — `grep -c chatgpt-score site.css` == 0, Pitfall 7); cross-check borrows `var(--success)`/`var(--gold-warning)` left-border. OFF byte-identity proven by an `IRazorViewEngine` render test (`DeckAnalysisScoreViewTests`) asserting prefix+suffix exact-equality around the **excised** score block after neutralizing the per-render antiforgery token — not mere class-string absence (Codex MED). Web build 0/0; full Web suite **1011 pass / 12 skip / 0 fail**. Commits `3ffcbd61` (view), `34b0fc4e` (CSS), `c7a77778` (test). Deviations (Rule 3): render harness uses `DeckPacketController` (no `DeckController` exists) + registers `IOptions<AiPlatformOptions>` for `_AiSelector`; antiforgery token neutralized before byte-compare (Rule 1). 77-06 (README + theme/mobile human-verify) still pending.
+- **Phase 77 (plan 77-04) — DONE:** end-to-end score wiring behind `analysis.multi-axis-score` (seeded OFF in BOTH dialects, idempotent `ON CONFLICT DO NOTHING`; lockstep seed+catalog guards updated). `BuildAsync` reads the flag via the explicit `_flagCache.Snapshot().TryGetValue` default-OFF pattern (never `IsEnabled`), computes `DeckStatAggregator.Compute` (current-deck non-commander refs) + `BracketClassifier.Classify` + `MultiAxisScorer.Score`, and builds the paste-safe ASCII `BuildScoreBlockText` (UI-SPEC §10) threaded into all 3 variants via the 77-03 `scoreBlockText` param. **ONE combo fetch reused** (widened the single `comboTask` gate to `scoreEnabled || RequiresComboLookup`; `grep -c FindCombosAsync` unchanged — no second `comboForScoreTask`, Codex HIGH avoided); the prompt receives `promptComboResult = RequiresComboLookup ? comboResult : null` and the Spellbook timing row stays gated so OFF output is byte-identical. `comboDetectionAvailable = comboResult is not null` threaded (Pitfall 1). `ScoreJson` Step-3 round-trip is untrusted-input hardened: length-capped (8192) typed deserialize in try/catch -> null (`TryDeserializeScore`, threat T-77-04-01). `IGameChangerCatalogService` injected (DI + TestServiceFactory + DiComposition test registered). `DeckAnalysisViewModel.Score` surfaced + controller serializes `request.ScoreJson` (render lands in 77-05 — KNOWN STUB: Score populated, not yet rendered in `DeckAnalysis.cshtml`). Web build 0/0; full Web suite **1008 pass / 12 skip / 0 fail** (entire byte-identity suite green proves OFF path unchanged). Commits `6203ee9e` (flag), `6429771d` (models), `59cc42c3` (wiring+tests). SCORE-01..04 marked complete. Deviation: persistence tests as a `partial` of `DeckAnalysisPacketServiceTests` to reuse the `CreateService` fake graph (DRY); catalog registered in 2 hand-rolled test compositions (Rule 3 blocking).
+- **Phase 77 (plan 77-03) — DONE:** `string? scoreBlockText = null` threaded as the last trailing optional param through `IAnalysisPromptVariant.Build`, `AnalysisPromptVariantRegistry.Build`, and all three concrete variants. Each variant hand-inserts its own guard `if (!IsNullOrWhiteSpace(scoreBlockText)) { AppendLine(); AppendLine(scoreBlockText); }` at its own position (ChatGPT/Gemini after `## DECK CONTEXT`, before `## EVIDENCE RULES`; Claude after the `<commander>` block) — ADR-0001, NO shared helper. Variants do NOT build the text; the caller (77-04) supplies the pre-built string, so the param defaults to null and the OFF path is byte-identical today. `AnalysisScorePromptParityTests` (9 tests = 3×3 platforms): present / OFF-path **excision byte-identity** (not marker-absence, per Codex HIGH) / all-four-axis figures-match. Deviation: updated `StubTestAnalysisVariant` (AiPlatformExtensionTests) for the new param (Rule 3 blocking). Web build 0/0; full Web suite 995 pass / 12 skip / 0 fail. SCORE-04 prompt-threading done; actual score wiring (`BuildScoreBlockText` + `BuildAnalysisPrompt` call) lands in 77-04.
+- **Phase 77 Wave 1 (plan 77-02) — DONE:** the deterministic scorer heart. `DeckMultiAxisScore` + `DeckScoreRationale` sealed records (positional, XML doc) and a pure static `MultiAxisScorer.Score(stats, gameChangerCount, twoCardComboCount, comboDetectionAvailable, bracketNumber)` guarded by `ArgumentNullException.ThrowIfNull`. Four axes via **chained-if threshold gates** (NOT switch — re-indent carve-out): Power GC-dominant + combo/fast-mana modifiers; Speed avg-MV-driven + fast-mana + ramp/draw-under-3; Control interaction + wipes + counters; Consistency tutors + combo redundancy + curve smoothness. `BandLabel` is the ONLY switch expression (None/Low/Modest/Moderate/High/Extreme, `>5` clamps). Every band `Math.Clamp(0,5)` — no decimals (SCORE-01). Combo-unavailable discloses `combo data unavailable` (never `0 combos`). Cross-check misaligns only on gross contradiction (Power>=4 & bracket<=2, or Power<=1 & bracket>=4) with ASCII ` - ` divergence copy. Rationale strings ASCII + InvariantCulture decimals (locale-deterministic, paste-safe). 18 `MultiAxisScorerTests` GREEN on FIRST calibration (golden cEDH Power/Speed>=4 vs battlecruiser<=2, Control>=4, Consistency>=4, BandLabel theory, combo-disclosure, cross-check align/diverge, null guard) — no cutpoint retuning needed. Core build 0/0; full Core suite 944 pass (+18). Commits `5a2bda0b` feat, `3f0b27d4` test. SCORE-02 band derivation done; packet wiring (`BuildScoreBlockText` + `BuildAnalysisPrompt` call + flag) still lands in 77-04.
+- **Phase 77 Wave 0 (plan 77-01) — DONE:** four deck signals added to Core — `DeckStatClassifier.IsTutorCard/IsFastManaCard/IsRampOrDrawUnderThreeMv/IsCounterspellCard` predicates + `DeckStatSummary.Tutors/FastMana/RampDrawUnderThreeMv/Counters` as additive `{ get; init; }` fields (never positional, never `required`), quantity-weighted in `DeckStatAggregator.Compute`. Land-fetch ramp excluded from tutor count (basic land / land card / land onto the battlefield); MV>=1 rocks (Sol Ring) excluded from fast mana. Core build 0/0; 926 Core tests pass. SCORE-02 NOT yet complete — it spans plans 01/02/04 (signal derivation lands in 77-02).
 
 ### Key Pitfalls to Watch
 
-- **AUTO-01 must keep the spend dry-run / cap gate:** Auto-distill on harvest cannot bypass the existing spend ceiling or the `LlmDistillationProviderFactory` (no provider/model swap).
-- **AUTO-02 signal sourcing:** Derive the quality/confidence signal from existing distill output only. If no usable signal exists, deriving a heuristic is in-scope; a model swap to obtain one is NOT.
-- **SYNC lane is prod-READ-only:** The pull path must never write back to prod (AI-never-writes-prod rule). It writes LOCAL only. The artifact pull needs a NEW SCP-download counterpart — only SCP upload (`ISshArtifactUploader`) exists today.
-- **SYNC merge semantics unresolved:** `approval_status` (prod `pending` vs local `approved`), `is_visible`/`is_hidden`/`pushed_to_prod_utc` reconciliation, prod-wins vs local-wins — resolve at `/gsd-plan-phase 60`.
-- **HSEL skip/ignore ≠ Block:** Skip is a lightweight "don't surface this candidate again" — NO artifact hard-delete, NO blocklist entry. Block (hard-delete + blocklist, Phase 37.6 / Cycle 9) stays separate.
-- **Studio is the stock Blazor template:** Per-page badge colors are defined ad-hoc today; SUI-01 must unify them through the shared status engine, not add yet another ad-hoc color set.
+- **Do NOT gate bracket on tutor count** (Oct-2025 WotC rule change explicitly removed tutor gates).
+- **Do NOT rebuild the CastabilitySimulator for Tap Analyzer** — accumulate counters in the existing loop only.
+- **Do NOT extract shared prompt text** across the 3 prompt variants — ADR-0001 forbids it and reverts have already happened.
+- **Do NOT auto-rebuild the primer on stale detection** — stale flag only; explicit user regenerate.
+- **Spellbook null must be disclosed**, not silently treated as "zero combos."
 
 ### Pending Todos
 
-- 15 pre-v1.5 open artifacts (stale 999.x/v13 debug sessions, May quick-task refs, empty todos) — acknowledged cruft; clean via `/gsd-cleanup` when convenient.
+None for Cycle 13 yet.
 
 ### Blockers/Concerns
 
-- **AUTO-02 quality/confidence signal may not exist yet** — flagged as Phase 59 open risk; resolution (derive vs add heuristic) decided at plan-phase.
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260627-p55 | DeckFlow.Studio safety wins: loopback-bind guard (H2), EnsureSchema out of read-only diff path (H3), DirectPush exception logging (M3) | 2026-06-28 | 38bf6355 | [260627-p55-deckflow-studio-safety-wins-loopback-bin](./quick/260627-p55-deckflow-studio-safety-wins-loopback-bin/) |
-| 260627-qyc | DeckFlow.Studio DirectPush prod-write integrity: H4 transactional all-or-nothing batch upsert + M2 content-aware diff (skip no-op upserts) | 2026-06-28 | 2ce8e47c | [260627-qyc-deckflow-studio-directpush-prod-write-in](./quick/260627-qyc-deckflow-studio-directpush-prod-write-in/) |
+- **Phase 77 Control axis classifier approach** (oracle-text heuristics vs category-knowledge labels vs hybrid) is unresolved — decide in Phase 77 planning.
+- **Phase 76 B3 "early-game combo" timing threshold** is a prose WotC definition, not a crisp turn number; resolution is to disclose the approximation in the artifact — confirm this is acceptable at Phase 76 planning.
 
 ### Carry-Forward (still open from prior cycles)
 
 | Item | Status |
 |------|--------|
-| `deckflow_admin` credential deletion (password rotated; deletion owed by operator) | Operator task — not a code requirement |
-| Operator live Gemini paste + `DECKFLOW_GEMINI_ENABLED` prod flip | Operator manual verification — out of Cycle 10 scope |
-| Full dual-dialect branch collapse (gated on PG DDL parity test) | Backlog — deferred |
-| Prod-DB dedup SQL for @salubrioussnail duplicate grid rows | Operator task — tracked in `project_cycle8_contentkb_cleanup.md` |
-| Prod harvest green-run not yet observed since F-51-PG-01 deploy | Operator verification — may surface during Cycle 10 dogfooding |
-| `e3qGnuupp8U` durability (in prod DB, not git seed) | A future reset+reseed omits it until a full git-Publish — Phase 60 Pull-from-Prod may surface this |
-| Phase 62-studio-ui-polish P02 | 40m | 7 tasks | 6 files |
-| Phase 62-studio-ui-polish P03 | 25m | 7 tasks | 4 files |
-| Phase 62-studio-ui-polish P04 | 25m | 6 tasks | 5 files |
-
-## Deferred Items
-
-**Cycle 10 v2 (deferred this cycle, tracked in REQUIREMENTS.md):**
-
-- KBVAL-01/02 — KB-value A/B harness + `content.kb.enabled` decision gate
-- AUTO-03 — scheduled/cron harvest cadence
-- AUTO-04 — bulk/at-scale creator-source onboarding
-
-**Acknowledged at Cycle 10 close (2026-06-21):**
-
-| Category | Item | Status |
-|----------|------|--------|
-| uat | Phase 62 live-UI operator smoke (creator filters Harvest+Review, Pull-from-Prod live streaming, grouped nav + About link) | DEFERRED — operator validates live later; backed by bUnit + 62-VERIFICATION 6/6 |
-| uat | Phase 51 `51-UAT-RESULTS.md` / `51-STUDIO-UAT-RESULTS.md` (stale Cycle-8 artifacts) | 0 pending scenarios — informational only |
-| backlog | Prod-artifact gap: 86/109 content rows have no `.md` on Render `/data` | HIGH priority — see ROADMAP Backlog |
-
-**Open / carried forward:**
-
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| tech_debt | Gemini paste-limit workaround | DEFERRED (flag-gated `DECKFLOW_GEMINI_ENABLED`) | v1.5 scoping |
-| arch | Full dual-dialect branch collapse (PG DDL parity prereq) | DEFERRED (backlog) | Cycle 8 Phase 53 |
-| housekeeping | 15 pre-v1.5 open artifacts | ACKNOWLEDGED — clean via `/gsd-cleanup` | v1.5 close 2026-06-10 |
-| ops | SEL-02 expert-pin live-pin re-confirm | PENDING — needs KB-enable window | v1.5 close |
-| ops | `deckflow_admin` credential deletion | Operator task (password already rotated) | Cycle 8 Phase 52 |
-| growth | SEO/growth/ops lane (SEO-01..05) | DEFERRED — separate lane | Cycle 10 scoping |
+| Operator owed: flip Cycle 12 manabase/analysis flags in prod | Operator task |
+| Operator owed: manual prod deploy (autodeploy OFF since 2026-06-27) | Operator task |
+| `deckflow_admin` credential deletion (password rotated) | Operator task |
+| Full dual-dialect branch collapse (PG DDL parity prereq) | Backlog |
+| SEO/growth lane (SEO-01..05) | Deferred |
+| Scheduled/bulk harvest (AUTO-03/04) | Deferred |
+| Phase 75 P01 | 30min | 3 tasks | 11 files |
+| Phase 75 P03 | ~20min | 3 tasks | 7 files |
+| Phase 77 P01 | ~5 min | 2 tasks | 4 files |
+| Phase 77 P02 | ~10 min | 2 tasks | 3 files |
+| Phase 77 P03 | ~12 min | 2 tasks | 6 files |
+| Phase 77 P04 | ~40 min | 3 tasks | 14 files |
+| Phase 77 P04 | 40min | 3 tasks | 14 files |
+| Phase 77 P05 | ~25min | 3 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-06-27T21:55:00.000Z
-Stopped at: Phase 73 Plan 04 IMPLEMENTATION EXECUTED (17eb642b + 532facfa) on `plan/phase-73-deck-analysis-command-zone` worktree — flag-gated companion designator on /deck-analysis Step 1, single CompanionName input, centralized 11-site controller flag plumbing, README/Help, Playwright smoke. Build 0/0; full Web suite 927/0/12; controller 14/14; format-gate clean. Task 3 blocking checkpoint:human-verify (operator cross-theme/mobile visual sign-off) PENDING — plan NOT fully complete.
-Resume: Operator runs the Task 3 visual sign-off (start `scripts/run-web-test.sh`, enable `analysis.command-zone-awareness` via /Admin/Flags, verify the companion input on /deck-analysis Step 1 across desktop ≥1200px + mobile ≤480px, default + one guild theme, light + dark; confirm it disappears when the flag is OFF; enter a companion on an Archidekt deck and confirm it is named in the generated prompt with no duplicate-bind error). Type "approved" to finalize the plan, or describe layout issues to fix. Optionally run the smoke headless: from DeckFlow.Web/ `npx --no-install playwright test e2e/deck-analysis-command-zone.spec.ts`.
-
-## Operator Next Steps
-
-- Cycle 11 work continues HERE in `../deckflow-cycle11` (branch `cycle11`).
-- Next: `/gsd-verify-work 64`, then `/gsd-plan-phase 65`.
-- Push when ready: `cycle11` (this merge) and `main` (de-number commit `64fc72e9`) — AI awaits explicit push confirmation.
-- `.manabase-brago-facts.json` at repo root is a harness cache — `git clean` it or add to `.gitignore` (do-not-modify list → operator).
+Last session: 2026-06-29T18:18:12.912Z
+Stopped at: Completed 77-05-PLAN.md (score block rendered in /deck-analysis Step-3 — four-axis grid + bracket cross-check gated on Model.Score so OFF byte-identical; hidden ScoreJson round-trip field; score CSS confined to site-common.css with baked-hex band pills and no per-theme fork; IRazorViewEngine render test proves OFF byte-identity + ON grid; Web build 0/0; full Web suite 1011 pass / 12 skip / 0 fail).
+Resume: `/gsd:execute-phase 77` to run the remaining Phase 77 plan (77-06 README + theme/mobile human-verify).

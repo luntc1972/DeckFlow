@@ -61,6 +61,88 @@ public sealed class MetaGapServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_Step3WithResponseAndDeck_RendersWithoutRequiringReferenceSelection()
+    {
+        // Restored session at Step 3: deck + response JSON are present but the request carries
+        // no SelectedReferenceIndexes. Rendering the already-computed analysis must not fail with
+        // "select a reference deck" — the prompt rebuild is skipped when a response is in hand.
+        var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
+        {
+            CreateDeckEntry("Kinnan, Bonder Prodigy", "commander"),
+            CreateDeckEntry("Sol Ring")
+        });
+        var edhTop16Client = new FakeEdhTop16Client(
+            new EdhTop16Entry
+            {
+                Standing = 1,
+                PlayerName = "Pilot",
+                TournamentDate = new DateOnly(2026, 4, 10),
+                MainDeck = new[] { new EdhTop16Card { Name = "Sol Ring", Type = "Artifact" } }
+            });
+
+        var service = CreateService(importer, new FakeArchidektDeckImporter(), edhTop16Client, new FakeCommanderSpellbookService());
+
+        var result = await service.BuildAsync(new MetaGapRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = "https://www.moxfield.com/decks/test-list",
+            MetaGapResponseJson = """
+                {
+                  "meta_gap": {
+                    "commander": "Kinnan, Bonder Prodigy",
+                    "readiness_score": 9.7,
+                    "meta_summary": "Same archetype.",
+                    "optimization_path": "Trim flex slots."
+                  }
+                }
+                """,
+            // No reference decks selected — the historical failure path.
+            SelectedReferenceIndexes = new List<int>()
+        });
+
+        Assert.NotNull(result.AnalysisResponse);
+        Assert.Equal("Kinnan, Bonder Prodigy", result.AnalysisResponse!.MetaGap.Commander);
+        Assert.Equal(9.7, result.AnalysisResponse.MetaGap.ReadinessScore, 3);
+        // Prompt rebuild is skipped when the analysis is already available; with no carried
+        // prompt the result simply has none (render still succeeds).
+        Assert.Null(result.PromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_Step3WithResponse_PreservesCarriedPromptText()
+    {
+        // A restored Step-3 render carries the previously generated prompt through the request
+        // so the Step-2 panel and re-download zip keep it instead of dropping it on render.
+        var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
+        {
+            CreateDeckEntry("Kinnan, Bonder Prodigy", "commander"),
+            CreateDeckEntry("Sol Ring")
+        });
+        var edhTop16Client = new FakeEdhTop16Client(
+            new EdhTop16Entry
+            {
+                Standing = 1,
+                PlayerName = "Pilot",
+                TournamentDate = new DateOnly(2026, 4, 10),
+                MainDeck = new[] { new EdhTop16Card { Name = "Sol Ring", Type = "Artifact" } }
+            });
+
+        var service = CreateService(importer, new FakeArchidektDeckImporter(), edhTop16Client, new FakeCommanderSpellbookService());
+
+        var result = await service.BuildAsync(new MetaGapRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = "https://www.moxfield.com/decks/test-list",
+            MetaGapResponseJson = """{"meta_gap":{"commander":"Kinnan, Bonder Prodigy","meta_summary":"x"}}""",
+            MetaGapPromptText = "Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap",
+            SelectedReferenceIndexes = new List<int>()
+        });
+
+        Assert.NotNull(result.AnalysisResponse);
+        Assert.Equal("Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap", result.PromptText);
+    }
+
+    [Fact]
     public async Task BuildAsync_ParsesFencedResponseWithTrailingFenceNoise()
     {
         var service = CreateService(
@@ -107,6 +189,29 @@ public sealed class MetaGapServiceTests
         var exception = Assert.Throws<InvalidOperationException>(() => MetaGapService.ParseResponse("{\"meta_gap\":{}}"));
 
         Assert.Equal("The submitted AI response did not contain a valid meta_gap payload.", exception.Message);
+    }
+
+    [Fact]
+    public void ParseResponse_DecimalReadinessScore_Parses()
+    {
+        // AIs routinely return a fractional 0-10 readiness score (e.g. 9.7). The model
+        // must accept it rather than throwing on int coercion and 500-ing the page.
+        var json = """{"meta_gap":{"commander":"Stella Lee, Wild Card","readiness_score":9.7}}""";
+
+        var result = MetaGapService.ParseResponse(json);
+
+        Assert.Equal(9.7, result.MetaGap.ReadinessScore, 3);
+    }
+
+    [Fact]
+    public void ParseResponse_StructuralTypeMismatch_ThrowsLockedMessage()
+    {
+        // A payload that parses as JSON but maps a field to the wrong shape must surface
+        // the friendly truncated-response message, not an uncaught JsonException.
+        var json = """{"meta_gap":{"commander":"Stella Lee, Wild Card","win_lines":"not-an-object"}}""";
+
+        var exception = Assert.Throws<InvalidOperationException>(() => MetaGapService.ParseResponse(json));
+        Assert.Equal(ResponseParsers.TruncatedResponseMessage, exception.Message);
     }
 
     [Fact]

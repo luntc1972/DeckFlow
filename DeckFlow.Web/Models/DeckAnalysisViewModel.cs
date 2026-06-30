@@ -1,3 +1,5 @@
+using DeckFlow.Core.Analysis;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>
@@ -22,6 +24,14 @@ public sealed class DeckAnalysisViewModel
     /// cache and init-only, so it is never form-bound and a crafted POST cannot enable the feature.
     /// </summary>
     public bool CommandZoneAwarenessEnabled { get; init; }
+
+    /// <summary>
+    /// Gets the computed four-axis deck score (Power/Speed/Control/Consistency), when the
+    /// <c>analysis.multi-axis-score</c> flag is on and the deck was loaded. Null when the flag is off
+    /// (the default), keeping the rendered page byte-identical to baseline. Init-only and server-computed,
+    /// so it is never form-bound.
+    /// </summary>
+    public DeckMultiAxisScore? Score { get; init; }
 
     /// <summary>
     /// Gets the user-facing error message for form or upstream failures.

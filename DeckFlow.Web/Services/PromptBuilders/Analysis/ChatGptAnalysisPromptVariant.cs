@@ -31,7 +31,8 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
         bool includeCardVersions,
-        string? companionName = null)
+        string? companionName = null,
+        string? scoreBlockText = null)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardNames, request.BudgetUpgradeAmount);
@@ -87,6 +88,14 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         }
 
         builder.AppendLine();
+
+        // --- Deck score (when supplied) — folds the four-axis band block in after deck context ---
+        // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.
+        if (!string.IsNullOrWhiteSpace(scoreBlockText))
+        {
+            builder.AppendLine();
+            builder.AppendLine(scoreBlockText);
+        }
 
         // --- Evidence and authority rules ---
         builder.AppendLine("## EVIDENCE RULES");

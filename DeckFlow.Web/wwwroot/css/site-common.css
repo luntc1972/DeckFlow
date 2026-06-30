@@ -279,6 +279,12 @@ summary:focus-visible,
   color: var(--muted);
 }
 
+/* Why: reuses the notice geometry and swaps the rail to the warning-gold token so "deck changed" reads as caution; token-only, inherited by all themes. */
+.deck-restored-notice--stale {
+  border-left-color: var(--gold-warning, #c8a040);
+  color: var(--ink);
+}
+
 .deck-restored-notice__clear {
   flex-shrink: 0;
   padding: 0.28rem 0.65rem;
@@ -2784,6 +2790,27 @@ label.field > span,
   }
 }
 
+/* .manabase-taplens — full-width tap-analyzer card; ties to .manabase-twolens above it.
+   No color tokens — chrome from composed .manabase-lens; layout-only per theme constraint. */
+.manabase-taplens {
+  margin: -0.25rem 0 1rem;
+}
+
+/* .manabase-taplens-split — headline column | per-color column internal grid. */
+.manabase-taplens-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1rem 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  /* Same breakpoint as the .manabase-twolens collapse above. */
+  .manabase-taplens-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The two FORMULA-01 disclosure panels. */
 .manabase-formula > summary {
   cursor: pointer;
@@ -2819,5 +2846,307 @@ label.field > span,
 
   .manabase-pill {
     justify-content: center;
+  }
+}
+
+/* Phase 76 — bracket tool ------------------------------------------------------------ */
+
+/* .bracket-badge: the prominent classified-tier headline block. Soft card with a 4px left
+   accent; level modifiers --b1..--b5 apply baked health-palette accents so the five tiers
+   read consistently with .manabase-health--* on every theme. */
+.bracket-badge {
+  padding: 1rem 1.25rem;
+  border-left: 4px solid var(--accent-strong, #7c3aed);
+  background: color-mix(in srgb, var(--accent-strong, #7c3aed) 14%, var(--panel-soft-bg, transparent));
+  border-radius: 0 0.5rem 0.5rem 0;
+  margin-bottom: 1rem;
+}
+
+.bracket-badge__eyebrow {
+  font-size: var(--fs-xs, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #718096);
+  margin: 0 0 0.25rem;
+}
+
+.bracket-badge__tier {
+  font-size: var(--fs-2xl, 2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 0.15rem;
+  color: var(--ink, #2d3748);
+}
+
+.bracket-badge__name {
+  font-size: var(--fs-lg, 1.125rem);
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+  color: var(--ink, #2d3748);
+}
+
+.bracket-badge__meta {
+  font-size: var(--fs-sm, 0.875rem);
+  color: var(--muted, #718096);
+  margin: 0;
+}
+
+/* Bracket level modifiers — accent colors mirror the four .manabase-health--* baked hex
+   values plus --accent-strong for B3 so no new raw colors are introduced. */
+.bracket-badge--b1 {
+  border-left-color: #166534;
+  background: color-mix(in srgb, #166534 14%, var(--panel-soft-bg, transparent));
+}
+
+.bracket-badge--b2 {
+  border-left-color: #1d4ed8;
+  background: color-mix(in srgb, #1d4ed8 14%, var(--panel-soft-bg, transparent));
+}
+
+.bracket-badge--b3 {
+  border-left-color: var(--accent-strong, #7c3aed);
+  background: color-mix(in srgb, var(--accent-strong, #7c3aed) 14%, var(--panel-soft-bg, transparent));
+}
+
+.bracket-badge--b4 {
+  border-left-color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 14%, var(--panel-soft-bg, transparent));
+}
+
+.bracket-badge--b5 {
+  border-left-color: #b91c1c;
+  background: color-mix(in srgb, #b91c1c 14%, var(--panel-soft-bg, transparent));
+}
+
+/* .bracket-violation-list: unstyled list wrapper for floor-violation rows. */
+.bracket-violation-list {
+  list-style: none;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+}
+
+/* .bracket-violation: one floor-violation row (card name + category tag pill). */
+.bracket-violation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+}
+
+.bracket-violation:last-child {
+  border-bottom: none;
+}
+
+.bracket-violation__name {
+  color: var(--ink, #2d3748);
+  font-size: var(--fs-sm, 0.875rem);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Tag pills: small tokenized chips, category-colored via color-mix on theme tokens. */
+.bracket-violation__tag {
+  font-size: var(--fs-xs, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.bracket-violation__tag--gamechanger {
+  background: color-mix(in srgb, var(--warning, #d69e2e) 20%, transparent);
+  border-color: var(--warning, #d69e2e);
+  color: var(--ink, #2d3748);
+}
+
+.bracket-violation__tag--combo {
+  background: color-mix(in srgb, var(--danger, #e53e3e) 20%, transparent);
+  border-color: var(--danger, #e53e3e);
+  color: var(--ink, #2d3748);
+}
+
+.bracket-violation__tag--mld {
+  background: color-mix(in srgb, var(--info, #3182ce) 20%, transparent);
+  border-color: var(--info, #3182ce);
+  color: var(--ink, #2d3748);
+}
+
+/* .bracket-stamp: effective-date + re-confirm advisory (BRACKET-05). Quieter than
+   .bracket-badge — left rule in --accent, small muted text so it does not compete visually. */
+.bracket-stamp {
+  font-size: var(--fs-xs, 0.75rem);
+  color: var(--muted, #718096);
+  border-left: 3px solid var(--accent, #6b7280);
+  padding: 0.4rem 0.75rem;
+  margin: 0.75rem 0;
+  background: color-mix(in srgb, var(--accent, #6b7280) 8%, transparent);
+  border-radius: 0 0.25rem 0.25rem 0;
+}
+
+/* Responsive: .bracket-violation flex row wraps below 480 px so long card names
+   never clip the tag pill. */
+@media (max-width: 480px) {
+  .bracket-violation {
+    flex-wrap: wrap;
+  }
+
+  .bracket-violation__name {
+    flex: 1 1 100%;
+  }
+}
+
+/* ── Multi-Axis Deck Score (SCORE-01/04, Phase 77) ────────────────────────
+   Four coarse 0-5 magnitude bands rendered in the deck-analysis Step-3 panel.
+   Layout lives here in site-common.css (never site.css) so every guild theme
+   inherits it without a per-theme fork. The band pills carry BAKED hex bg+ink
+   (mirrors .manabase-health--*): the per-theme --info/--warning tokens are
+   surface colors, not status colors, so a band must ship its own legible ink
+   to read on both light (site.css) and dark (site-nyx.css) themes. The ramp is
+   a single-hue light->dark blue intensity scale (more filled = more of this
+   axis), NOT a green=good/red=bad heat ramp — a high band is "more", not "better". */
+.chatgpt-score {
+  margin: 0 0 1.25rem;
+}
+
+.chatgpt-score__eyebrow {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.chatgpt-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.chatgpt-score-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  background: var(--panel-soft-bg, var(--surface, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.chatgpt-score-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.chatgpt-score-value {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.chatgpt-score-meter {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.chatgpt-score-pip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.3));
+}
+
+.chatgpt-score-pip--filled {
+  background: var(--accent-strong, var(--accent, #3b82f6));
+  border-color: var(--accent-strong, var(--accent, #3b82f6));
+}
+
+.chatgpt-score-band {
+  display: inline-block;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+/* Baked-hex band fills (None -> Extreme); each carries its own legible ink. */
+.chatgpt-score-band--0 { background: #cbd5e1; color: #1c1917; }
+.chatgpt-score-band--1 { background: #93c5fd; color: #1c1917; }
+.chatgpt-score-band--2 { background: #60a5fa; color: #0b1220; }
+.chatgpt-score-band--3 { background: #3b82f6; color: #ffffff; }
+.chatgpt-score-band--4 { background: #2563eb; color: #ffffff; }
+.chatgpt-score-band--5 { background: #1e3a8a; color: #ffffff; }
+
+.chatgpt-score-rationale {
+  font-size: var(--fs-xs, 0.74rem);
+  color: var(--muted, #5a6472);
+  line-height: 1.35;
+}
+
+.chatgpt-score-crosscheck {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent-strong);
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
+  padding: 16px;
+  margin-top: 1rem;
+}
+
+.chatgpt-score-crosscheck--agree {
+  border-left-color: var(--success, #2f855a);
+}
+
+.chatgpt-score-crosscheck--diverge {
+  border-left-color: var(--gold-warning, var(--warning, #c8a040));
+}
+
+.chatgpt-score-crosscheck__label {
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: var(--fs-sm, 0.82rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-strong);
+}
+
+/* Responsive: 4 -> 2 columns. The grid holds 2-up down to phone widths (a 2x2
+   block) rather than stacking 1-up, so the score block stays compact and the
+   page does not grow excessively long on mobile; card chrome tightens below
+   520px. The cross-check note is full width at every breakpoint. */
+@media (max-width: 860px) {
+  .chatgpt-score-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .chatgpt-score-grid {
+    gap: 0.6rem;
+  }
+
+  .chatgpt-score-card {
+    padding: 0.6rem 0.5rem;
+    gap: 0.3rem;
+  }
+
+  .chatgpt-score-value {
+    font-size: 1.9rem;
+  }
+
+  .chatgpt-score-rationale {
+    font-size: 0.68rem;
   }
 }

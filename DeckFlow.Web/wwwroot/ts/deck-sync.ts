@@ -88,6 +88,13 @@ const panelConfigs: PanelConfig[] = [
     urlSelector: '[data-sync-panel="primer-deck-url"]',
     textSelector: '[data-sync-panel="primer-deck-text"]',
   },
+  {
+    // Bracket Check reuses the DeckInputSource select; its panels are absent on other
+    // tools so this config no-ops there (togglePanel ignores missing selectors).
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="bracket-deck-url"]',
+    textSelector: '[data-sync-panel="bracket-deck-text"]',
+  },
 ];
 
 type MoxfieldImportTask = {
@@ -2783,6 +2790,7 @@ const bootstrapDeckSync = (): void => {
   attachMoxfieldExtensionImport();
   loadSetOptionsAsync();
   attachConvertForm();
+  attachCommanderSearchInputs();
 };
 
 deckFlowWindow.DeckFlow = deckFlowWindow.DeckFlow ?? {};
@@ -2810,26 +2818,45 @@ const attachConvertForm = (): void => {
   inputSourceSelect?.addEventListener('change', syncConvertPanels);
   sourceFormatSelect?.addEventListener('change', syncConvertPanels);
   syncConvertPanels();
+};
 
-  const commanderInput = form.querySelector<HTMLInputElement>('input[data-commander-search]');
-  if (commanderInput) {
-    const endpoint = commanderInput.dataset.commanderSearch!;
-    const datalist = document.getElementById('commander-suggestions') as HTMLDataListElement | null;
+// Wires every commander-name datalist typeahead on the page. Used by the deck
+// convert form and the cEDH meta-gap commander override. Each input resolves its
+// own <datalist> via its `list` attribute so the helper is form-agnostic — the
+// meta-gap commander field needs the exact EDH Top 16 card name (e.g. "Stella Lee,
+// Wild Card"), so the suggestion picker prevents partial-name lookup misses.
+const attachCommanderSearchInputs = (): void => {
+  document.querySelectorAll<HTMLInputElement>('input[data-commander-search]').forEach(commanderInput => {
+    const endpoint = commanderInput.dataset.commanderSearch;
+    if (!endpoint) return;
+
+    const listId = commanderInput.getAttribute('list');
+    const datalist = listId ? (document.getElementById(listId) as HTMLDataListElement | null) : null;
     let debounceTimer: number | undefined;
+    let inFlight: AbortController | undefined;
 
     commanderInput.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
       const query = commanderInput.value.trim();
       if (query.length < 2) {
+        // Cancel any in-flight request too, so a late response for a longer query
+        // can't repopulate the list the user just cleared.
+        inFlight?.abort();
         if (datalist) datalist.innerHTML = '';
         return;
       }
 
       debounceTimer = window.setTimeout(async () => {
+        // Abort any request the previous keystroke left in flight so a slow stale
+        // response can't overwrite newer suggestions or waste a Scryfall throttle slot.
+        inFlight?.abort();
+        inFlight = new AbortController();
         try {
-          const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`);
+          const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`, { signal: inFlight.signal });
           if (!response.ok || !datalist) return;
           const names = await response.json() as string[];
+          // Drop the result if the input moved on while we were fetching.
+          if (commanderInput.value.trim() !== query) return;
           datalist.innerHTML = '';
           names.forEach(name => {
             const option = document.createElement('option');
@@ -2841,7 +2868,7 @@ const attachConvertForm = (): void => {
         }
       }, 300);
     });
-  }
+  });
 };
 
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);

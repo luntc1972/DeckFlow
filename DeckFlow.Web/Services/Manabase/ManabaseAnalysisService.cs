@@ -90,6 +90,9 @@ public sealed record ManabaseAnalysisResult(
     /// <summary>Whether the command-zone castability affordances were enabled for this result.</summary>
     public bool CommanderCastabilityEnabled { get; init; }
 
+    /// <summary>Whether the tap-analyzer card and paste-artifact section were enabled for this result.</summary>
+    public bool ShowTapAnalyzer { get; init; }
+
     /// <summary>Optional companion castability row modeled outside the analyzed 99.</summary>
     public CardCastability? CompanionRow { get; init; }
 }
@@ -179,6 +182,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string CommanderCastabilityFlagKey = "analysis.manabase.commander-castability";
 
+    /// <summary>
+    /// Phase-75 flag key: seeded OFF; gates the tap-analyzer card on the mana base page plus the
+    /// "Untapped Sources:" block in the paste artifact. Read fail-safe OFF; off = byte-identical output.
+    /// </summary>
+    public const string TapAnalyzerFlagKey = "analysis.manabase.tap-analyzer";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -214,6 +223,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool rampCreditV2 = IsFlagOn(RampCreditV2FlagKey);
         bool landRampSim = IsFlagOn(LandRampSimFlagKey);
         bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
+        bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
 
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
                 deckSource,
@@ -288,6 +298,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         {
             CommanderCastabilityEnabled = commanderCastability,
             CompanionRow = companionRow,
+            ShowTapAnalyzer = showTapAnalyzer,
         };
     }
 

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phase 78 — Auto-Refreshing Primer (stale flag) mockup</title>
+
+  <!-- Real CSS, relative to .planning/ui-design/cycle13/ : common first, then theme, then overrides + mobile -->
+  <link rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site-common.css" />
+  <link id="theme-css" rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site.css" />
+  <link rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site-theme-overrides.css" />
+  <link rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site-mobile.css" />
+
+  <style>
+    /* ── NET-NEW (Phase 78): one tokenized modifier on the reused .deck-restored-notice ──
+       Stale-primer caution tone — reuses .deck-restored-notice geometry, swaps the
+       neutral --accent rail for warning gold so "deck changed" reads as caution.
+       Token-only so all 22 themes inherit. Ships in site-common.css. */
+    .deck-restored-notice--stale {
+      border-left-color: var(--gold-warning, #c8a040);
+      color: var(--ink);
+    }
+    /* message side: glyph + text, allowed to wrap on narrow viewports */
+    .deck-restored-notice--stale .primer-stale-msg {
+      display: flex;
+      align-items: baseline;
+      gap: 0.45rem;
+      min-width: 0;
+    }
+    @media (max-width: 480px) {
+      .deck-restored-notice--stale { flex-wrap: wrap; }
+      .deck-restored-notice--stale .run-button { width: 100%; }
+    }
+
+    /* ── mockup chrome only (NOT shipped) ── */
+    .mock-switcher {
+      position: fixed; top: 0.6rem; right: 0.6rem; z-index: 9999;
+      display: flex; gap: 0.4rem; align-items: center;
+      padding: 0.4rem 0.6rem; border-radius: 10px;
+      background: rgba(0,0,0,0.78); color: #fff; font: 13px/1.2 system-ui, sans-serif;
+    }
+    .mock-switcher select { font: inherit; }
+    .mock-note {
+      margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-radius: 8px;
+      border: 1px dashed var(--line); color: var(--muted); font-size: var(--fs-sm);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mock-switcher">
+    <label>Theme
+      <select id="theme-pick">
+        <option value="site.css">Jeskai (default)</option>
+        <option value="site-azorius.css">Azorius</option>
+        <option value="site-nyx.css">Nyx</option>
+      </select>
+    </label>
+    <label>State
+      <select id="state-pick">
+        <option value="stale">Stale (banner)</option>
+        <option value="fresh">Fresh (no banner)</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="page-shell">
+    <div class="page-frame">
+      <main class="content-shell">
+
+        <section class="hero">
+          <h1>Deck Primer</h1>
+          <p class="page-lede">Generate a paste-ready deck primer prompt for ChatGPT, Claude, or Gemini.</p>
+        </section>
+
+        <p class="mock-note">
+          Static mockup — Phase 78 stale-flag affordance only. Showing the Step 2 / Step 3 results
+          area of <code>/deck-primer</code>. Toggle the <strong>State</strong> switch to compare the
+          stale banner against the fresh (no-banner) case. Deck: a Najeela cEDH combo-turbo list.
+        </p>
+
+        <!-- ───────────────── Step 3 — Results ───────────────── -->
+        <section class="result-panel" id="primer-step-panel-3">
+          <div class="chatgpt-step-heading">
+            <div>
+              <p class="chatgpt-step-eyebrow">Step 3</p>
+              <h2>Copy the generated primer prompt</h2>
+              <p>The prompt below is the variant for the currently selected AI platform.</p>
+            </div>
+            <span class="chatgpt-step-badge">Paste-ready output</span>
+          </div>
+
+          <!-- STALE BANNER (PRIMER-01): reuse .deck-restored-notice shape + .warning-banner tone.
+               role=status (polite, not alert). Glyph + text + gold rail = three non-color signals. -->
+          <div class="deck-restored-notice deck-restored-notice--stale" id="primer-stale-banner" role="status">
+            <span class="primer-stale-msg">
+              <span class="sr-only">Status:</span>
+              <span aria-hidden="true">⚠</span>
+              <span>Deck changed since this primer was generated — 3 cards differ. Regenerate to refresh the primer.</span>
+            </span>
+            <!-- Regenerate = a real submit that re-posts the existing primer form (no silent auto-rebuild, PRIMER-03). -->
+            <button type="submit" class="run-button">Regenerate primer</button>
+          </div>
+
+          <section class="result-panel nested-panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Suggested ChatGPT conversation title</h3>
+                <p>Rename the AI conversation to this before pasting the primer prompt.</p>
+              </div>
+              <button type="button" class="copy-button">Copy</button>
+            </div>
+            <input type="text" readonly value="Najeela cEDH — Combo Turbo Primer" />
+          </section>
+
+          <section class="result-panel nested-panel summary-panel">
+            <h3>Deck Summary</h3>
+            <pre spellcheck="false">100 cards · Commander: Najeela, the Blade-Blossom (5C)
+Game Changers: Thassa's Oracle, Demonic Tutor, Mana Crypt, Cyclonic Rift
+Plan: combo-turbo — assemble Najeela + Derevi/blink loops, win via infinite warriors
+or Thassa's Oracle after a deck-empty line.</pre>
+          </section>
+
+          <section class="result-panel nested-panel">
+            <div class="panel-heading">
+              <div>
+                <h3>primer.txt</h3>
+                <p>Paste this into ChatGPT to have it draft the primer in the structure implied by your selected sections.</p>
+                <p class="prompt-size-note">Prompt size: ~6.4 KB</p>
+              </div>
+              <button type="button" class="copy-button">Copy</button>
+            </div>
+            <textarea autocomplete="off" readonly spellcheck="false">You are a Commander deck-primer writer. Write a polished primer for the deck below.
+
+Commander: Najeela, the Blade-Blossom
+Bracket target: Optimized / cEDH
+Sections to cover, in order:
+1. Overview &amp; game plan
+2. Commander deep-dive
+3. Combo lines (Najeela infinite combat; Thassa's Oracle finish)
+4. Fast mana &amp; ramp package
+5. Interaction suite &amp; stax
+6. Matchups &amp; mulligan guide
+...</textarea>
+          </section>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // Mockup-only wiring (not shipped). Theme swap + state toggle.
+    var themeLink = document.getElementById('theme-css');
+    document.getElementById('theme-pick').addEventListener('change', function (e) {
+      themeLink.setAttribute('href', '../../../DeckFlow.Web/wwwroot/css/' + e.target.value);
+    });
+    var banner = document.getElementById('primer-stale-banner');
+    document.getElementById('state-pick').addEventListener('change', function (e) {
+      // Fresh = server simply omits the banner; here we hide it to preview that state.
+      banner.style.display = (e.target.value === 'fresh') ? 'none' : '';
+    });
+  </script>
+</body>
+</html>

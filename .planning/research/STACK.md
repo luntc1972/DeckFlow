@@ -1,402 +1,357 @@
 # Stack Research
 
-**Domain:** Local harvest-and-publish studio tool for a .NET 10 codebase
-**Researched:** 2026-06-13
-**Confidence:** HIGH (existing codebase verified directly; external APIs verified against official docs)
+**Domain:** Cycle 13 — Bracket Classifier + Balancer, Multi-Axis Deck Score, Auto-Refreshing Primer, Tap Analyzer Surface
+**Researched:** 2026-06-27
+**Confidence:** HIGH (existing codebase verified directly; Scryfall API verified via live curl; bracket definitions verified against WotC official announcement pages)
 
 ---
 
 ## Scope
 
-This research covers ONLY the NEW standalone local tool for v1.7. The existing deployed
-stack (.NET 10, ASP.NET Core Razor MVC, RestSharp/Polly, Npgsql, SQLite) is pinned and
-not re-researched here. All recommendations must be compatible with `<ProjectReference>`
-to `DeckFlow.Core`.
+This research covers ONLY the STACK ADDITIONS needed for the 4 Cycle 13 features. The pinned stack
+(ASP.NET 10, Razor MVC, RestSharp + Polly v8, Npgsql/SQLite, IMemoryCache, Serilog) is not
+re-researched. All four features can be built entirely from existing in-solution dependencies.
+
+**Verdict: zero new NuGet packages. Zero new npm packages.**
 
 ---
 
-## Existing YouTube Library (Already in DeckFlow.Core)
+## Feature 1 — Bracket Classifier + Balancer
 
-**YoutubeExplode 6.6.0** — already a dependency in `DeckFlow.Core.csproj`.
+### Data Source: Game Changers List
 
-`YouTubeChannelVideoLister` and `YouTubeTranscriptFetcher` in
-`DeckFlow.Core/Integration/` use it to:
-- List recent channel uploads (`youtube.Channels.GetUploadsAsync`)
-- Fetch video metadata by ID (`youtube.Videos.GetAsync`)
-- Fetch closed captions (`youtube.Videos.ClosedCaptions`)
+**Authoritative source:** Scryfall `is:gamechanger` search filter.
 
-YoutubeExplode 6.x ALSO supports keyword search via
-`youtube.Search.GetResultBatchesAsync("query")`, returning
-`VideoSearchResult`, `ChannelSearchResult`, and `PlaylistSearchResult`.
-This is the discovery vector v1.7 needs.
-
-**YoutubeExplode does NOT use the YouTube Data API v3.** It reverse-engineers
-YouTube's internal web endpoints. No API key required, no quota.
-
-**Recommendation: reuse YoutubeExplode 6.6.0 for ALL YouTube operations** —
-listing, search, and video-by-ID. Adding `Google.Apis.YouTube.v3` would be
-additive cost and complexity for zero gain given YoutubeExplode already covers
-every required operation. See "Alternatives Considered" for the full comparison.
-
----
-
-## 1. UI Host for the New Standalone Local Tool
-
-### Recommendation: ASP.NET Core Minimal-API + Blazor Server, run locally as `dotnet run`
-
-**Rationale:**
-
-The tool runs on localhost only (`http://localhost:<port>`). "Standalone" means
-`dotnet run --project DeckFlow.Studio` opens a browser, not that it must be a
-native .exe with embedded WebView. A self-hosted ASP.NET Core + Blazor Server
-app satisfies all constraints:
-
-- **Reuse of Core stores**: `<ProjectReference>` to `DeckFlow.Core` — same
-  `ContentVideoStore`, `ContentSiteIndexStore`, `ContentSourceStore`, all stores
-  compile in. No adapter layer.
-- **Lowest new surface**: Blazor Server is already the in-org skill (DeckFlow.Web
-  is ASP.NET Core MVC/Razor). Blazor's component model is familiar. No WPF
-  XAML, no MAUI, no Photino native interop.
-- **Windows-first, WSL-friendly**: `dotnet run` works in both WSL2 and Windows
-  CMD/PowerShell. Chromium/Edge opens the localhost URL. No installer, no
-  NativeAOT, no app store.
-- **Rich async UI**: harvest + distill are long-running async pipelines. Blazor
-  Server's SignalR connection handles real-time progress updates trivially via
-  `StateHasChanged()`. WPF/WinForms would need Dispatcher marshaling.
-- **No deployment needed**: this tool never ships to Render. Binaries stay local.
-  Zero concern about the 512MB Render RAM cap.
-- **Minimal friction**: `dotnet new blazorserver` in `DeckFlow.Studio/`, add
-  `<ProjectReference>`, wire the existing stores into DI. First page renders in
-  ~30 min.
-
-**Project structure:**
+Scryfall tracks the official WotC Commander Game Changers list and updates within hours of each WotC
+announcement. The API endpoint is clean JSON:
 
 ```
-DeckFlow.Studio/
-  DeckFlow.Studio.csproj        ← net10.0, Sdk="Microsoft.NET.Sdk.Web"
-  Program.cs                    ← AddDeckFlowStudio() DI, app.Run()
-  Components/                   ← Blazor .razor components
-  Pages/                        ← Blazor page routes
+GET https://api.scryfall.com/cards/search?q=is%3Agamechanger&order=name&unique=names
 ```
 
-**Add to solution:** `dotnet sln add DeckFlow.Studio/DeckFlow.Studio.csproj`
+Response shape (verified live, June 2026):
+```json
+{
+  "object": "list",
+  "total_cards": 53,
+  "has_more": false,
+  "data": [
+    { "name": "Ad Nauseam", "oracle_id": "...", "type_line": "Instant", ... },
+    ...
+  ]
+}
+```
 
-**Excluded from Dockerfile** — the Studio project is never published in the
-container build. Add to `Dockerfile` restore COPY only for `DeckFlow.Core` and
-`DeckFlow.Web`; ignore Studio.
+53 cards as of June 2026. The 53 cards include (not exhaustive):
+Ad Nauseam, Ancient Tomb, Aura Shards, Biorhythm, Bolas's Citadel, Braids (Cabal Minion),
+Chrome Mox, Coalition Victory, Consecrated Sphinx, Crop Rotation, Cyclonic Rift, Demonic Tutor,
+Drannith Magistrate, Enlightened Tutor, Farewell, Field of the Dead, Fierce Guardianship,
+Force of Will, Gaea's Cradle, Gamble, Gifts Ungiven, Glacial Chasm, Grand Arbiter Augustin IV,
+Grim Monolith, Humility, Imperial Seal, Intuition, Jeska's Will, Lion's Eye Diamond, Mana Vault,
+Mishra's Workshop, Mox Diamond, Mystical Tutor, Narset (Parter of Veils), Natural Order,
+Necropotence, Notion Thief, Opposition Agent, Orcish Bowmasters, Panoptic Mirror, Rhystic Study,
+Seedborn Muse, Serra's Sanctum, Smothering Tithe, Survival of the Fittest, Teferi's Protection,
+The One Ring, The Tabernacle at Pendrell Vale, Underworld Breach, Vampiric Tutor, Worldly Tutor.
 
-### Alternatives Considered
+(Two more names were added in Feb 2026: Farewell and Biorhythm.)
 
-| Option | Why Not |
-|--------|---------|
-| **WPF / WinForms** | Windows-only (acceptable), but XAML + Dispatcher async is higher friction than Blazor for a data-heavy tool. No code reuse with existing Razor knowledge. |
-| **Blazor Hybrid (WPF host)** | Adds WPF dependency just to host a WebView. Blazor Server running in a browser tab is simpler and equivalent for a local tool. |
-| **MAUI** | Cross-platform overhead, MAUI workload install, iOS/Android surface area. Overkill for a Windows-only CLI-owner tool. |
-| **Avalonia** | Excellent cross-plat, but introduces a new XAML dialect (no existing Razor/MVC skill). Adds a new dependency with no existing project pattern. |
-| **Photino** | Lightweight native-window host for Blazor. No .NET 10 prebuilt binaries verified at research time; small community. Riskier than plain Blazor Server. |
-| **Separate SPA (React/Vue) + API** | TypeScript tooling already exists in DeckFlow.Web, but a full SPA adds build pipeline, npm deps, and cross-process IPC. More complexity than Blazor Server. |
+**Ingestion mechanism:** A new `IGameChangersService` in `DeckFlow.Web/Services/`, following the
+exact pattern of the existing `ICommanderBanListService`:
+- RestSharp GET to the Scryfall search endpoint (reusing the `scryfall-rest` named `IHttpClientFactory`
+  client and the existing `scryfall` `ResiliencePipeline<RestResponse>`)
+- Cache result in `IMemoryCache` with 24-hour TTL (the list changes at most a few times per year)
+- Return `IReadOnlyList<string>` of card names
+- `ScryfallThrottle.ExecuteAsync` wraps the call (same as all other Scryfall calls)
+
+**No new NuGet package required.** The RestSharp + Polly + IMemoryCache pattern is already in-place.
+
+**Refresh cadence:** 24-hour IMemoryCache TTL is sufficient. Updates happen at official bracket
+announcements (roughly quarterly). If exact real-time freshness is needed, bump TTL to 6 hours —
+still zero new dependency. Do NOT store the list in Postgres; it is read-only reference data.
+
+### Bracket Definitions (to hardcode)
+
+The 5-tier WotC bracket system. Definitions are stable (rules updated quarterly at most):
+
+| Bracket | Name | Game Changers | Two-Card Combos | Mass Land Denial | Extra Turns |
+|---------|------|---------------|-----------------|------------------|-------------|
+| B1 | Exhibition | 0 | Prohibited | Prohibited | Prohibited |
+| B2 | Core | 0 | Prohibited | Prohibited | Minimal, not chained |
+| B3 | Upgraded | 1–3 | No early-game | Prohibited | Allowed |
+| B4 | Optimized | Any | Allowed | Allowed | Allowed |
+| B5 | cEDH | Any | Allowed | Allowed | Allowed |
+
+Bracket assignment algorithm (pure C# in `DeckFlow.Core/Bracket/BracketClassifier.cs`):
+1. Count Game Changers in deck (intersect normalized card names with the cached list from Feature 1).
+2. Count two-card combos via Commander Spellbook results (reuse existing `ICommanderSpellbookService`).
+3. Check for mass land denial cards (short hardcoded list: Armageddon, Ravages of War, Catastrophe,
+   Obliterate, Jokulhaups, Cataclysm, Winter Orb — these are not Game Changers but are B1/B2
+   prohibited).
+4. Check for extra-turn spells (hardcoded list: Time Warp, Temporal Manipulation, Capture of Jingzhou,
+   Temporal Mastery, Nexus of Fate, etc.).
+5. Apply bracket rules top-down: any condition that disqualifies a lower bracket escalates to next.
+
+**Balancer prompt**: after computing bracket, build a "cuts to reach bracket N" suggestion list:
+- Flag each Game Changer present, sorted by replaceability
+- Flag two-card combos present (Spellbook data already supplies this)
+- This feeds a new prompt artifact (ChatGpt/Claude/Gemini variants, per ADR-0001)
+
+**No new NuGet package required.** `ICommanderSpellbookService` already exists and is already
+called from `DeckPrimerPacketService`.
 
 ---
 
-## 2. YouTube Discovery
+## Feature 2 — Multi-Axis Deck Score
 
-### Library: YoutubeExplode 6.6.0 (already in DeckFlow.Core — NO NEW DEP)
+### Score Dimensions (all computable from existing data)
 
-**Operations available and their equivalent quota cost:**
+| Axis | 0–5 scale | Input Source | Already Available? |
+|------|-----------|-------------|-------------------|
+| Power | Combo density + Game Changers count + tutor count | CommanderSpellbook (combos), Game Changers from Feature 1, card name/type matching | YES (after F1) |
+| Speed | Avg MV + ramp quantity + fast mana count | `ManabaseDeck.AverageManaValue`, `ManabaseDeck.RampAndDrawUnderThree`, `ManabaseDeck.FastMana` | YES — already in ManabaseDeck |
+| Control | Interaction count (removal + counterspells) | `CategoryKnowledgeStore` category labels ("Removal", "Counterspell", "Interaction") | YES |
+| Consistency | Tutor count + draw count + single-combo redundancy | `ManabaseDeck.DrawPieceCount`, tutor count (name/oracle text), Spellbook near-combos | YES |
 
-| Operation | YoutubeExplode method | YouTube Data API v3 equivalent | API v3 quota cost |
-|-----------|----------------------|-------------------------------|-------------------|
-| Channel video listing | `youtube.Channels.GetUploadsAsync(channelId)` | `playlistItems.list` | 1 unit/page |
-| Video metadata by ID | `youtube.Videos.GetAsync(videoId)` | `videos.list` | 1 unit/page |
-| Keyword search | `youtube.Search.GetResultBatchesAsync("query")` | `search.list` | **100 units/call** (separate bucket, 100 calls/day max) |
-| Channel info by handle | `youtube.Channels.GetByHandleAsync(handle)` | `channels.list` | 1 unit/call |
+All four axis inputs come from existing computed data. No new external API call needed.
 
-**Key quota fact (YouTube Data API v3):** `search.list` has its own dedicated
-quota bucket of 100 calls/day, with each call costing 100 units against the
-general 10,000-unit/day pool. At 10 calls/day of search, you exhaust 1,000
-general units AND burn 10% of the dedicated search bucket. For a local curation
-tool doing daily discovery, this is tight.
+**Implementation:** A new static class `DeckScorer` in `DeckFlow.Core/Bracket/DeckScorer.cs`:
+- Pure function: `DeckScore Score(ManabaseDeck deck, IReadOnlyList<SpellbookCombo> combos, IReadOnlyList<string> gameChangers, IReadOnlyList<CategoryKnowledgeEntry> categories)`
+- Returns a `sealed record DeckScore(int Power, int Speed, int Control, int Consistency)` with
+  each axis 0–5 and a derived `int Overall` (average, rounded)
+- Scorer thresholds hardcoded with named constants (same pattern as manabase mode thresholds)
 
-**YoutubeExplode has no quota.** It scrapes YouTube's internal web API. This
-means search, channel listing, and video metadata are unlimited for a
-single-operator tool. The existing concurrency constraint (serialized to 1 due
-to AngleSharp shared static state — see comment in `YouTubeChannelVideoLister.cs`)
-applies only to the metadata lookup phase, not listing/search.
+**Integration point:** `DeckScorer` is called from `DeckAnalysisPacketService` and the new
+Bracket service. Scores fold into the paste artifact packet as a new section in the prompt text.
 
-**Auth model for Google.Apis.YouTube.v3 (for reference only):**
-- API key (server-side): sufficient for read-only search/listing; no user OAuth
-  needed for public data.
-- OAuth 2.0: required only if accessing private data or user's channel. Not
-  needed here.
-
-**Recommendation: do not add `Google.Apis.YouTube.v3`.** YoutubeExplode already
-covers every v1.7 operation with no quota ceiling and no new dependency.
+**No new NuGet package required.**
 
 ---
 
-## 3. Git Automation for Commit-Then-Deploy Path
+## Feature 3 — Auto-Refreshing Primer
 
-### Recommendation: Shell out to `git` (Process.Start)
+### Deck Fingerprint
 
-**Rationale:**
+A deck fingerprint is already computable: `PacketSessionCache.ComputeKey(fieldBag)` performs
+SHA-256 over a deterministic JSON-serialized field bag (`System.Security.Cryptography.SHA256`,
+BCL — no package needed). The fingerprint for auto-refresh uses only the deck content fields
+(normalized decklist text or URL), NOT the section selections or AI platform, so only actual
+deck changes trigger staleness.
 
-The commit-then-deploy publish path produces one commit per publish event:
-stage `content-kb/seed/index-seed.json` + markdown artifacts, commit, push to
-`main`. This is a low-frequency, single-repo, single-author operation.
+**Storage:** The existing `PacketArtifactStore` persists primer zip artifacts to the `/data`
+disk. Add a new column `deck_fingerprint TEXT` to the primer artifact metadata row. On each
+primer generation, store the fingerprint alongside the artifact. On each primer page load:
 
-**Shell out is simpler and safer here:**
+1. Hash the current deck input (URL or text, normalized).
+2. Query the stored fingerprint for the most recent artifact for this commander/deck.
+3. If hashes differ → show "Stale — your deck changed since this primer was written. Regenerate?"
+4. If hashes match → show artifact as current.
 
-- No new NuGet package.
-- `git` is guaranteed to be on PATH in WSL2 and Windows (this codebase already
-  uses `git` CLI everywhere — Codex, GSD scripts, etc.).
-- Authentication (SSH key or Windows Credential Manager) is already configured
-  in the dev environment for pushing to GitHub. Shelling out inherits that
-  config automatically. LibGit2Sharp requires re-implementing credential
-  resolution (SSH agent, credential helper) in managed code.
-- `ProcessOutput` helper already exists in `DeckFlow.Core/Integration/ProcessOutput.cs`
-  and `FfmpegAudioChunker.cs` demonstrates the process-spawn pattern. Reuse it.
-- Error output from `git` is human-readable and already what the developer
-  expects to see in the UI.
+**Schema change:** One new column on the existing `packet_artifacts` table (or equivalent
+primer-specific table). Uses the existing `IRelationalDialect` + `RelationalDatabaseConnection`
+dialect-pluggable pattern. No new ORM or migration framework.
 
-**LibGit2Sharp tradeoffs:**
+**Staleness signal in the prompt artifact:** When the user regenerates, the new artifact
+replaces the old one and updates the stored fingerprint. The AI artifact itself can include
+a "primer generated on [date] for deck version [short hash]" line — uses existing `DateTime`
+and `Convert.ToHexString` (BCL only).
 
-LibGit2Sharp 0.31.0 (published 2024-12-03) targets net8.0+ and is compatible
-with .NET 10. It supports stage/commit/push. However:
+**No new NuGet package required.** `System.Security.Cryptography.SHA256` is BCL; the rest
+reuses `PacketArtifactStore` + `RelationalDatabaseConnection`.
 
-- Push with SSH requires native `libgit2` SSH bindings, which have had
-  intermittent issues on WSL2/Windows depending on the build.
-- Credential helper passthrough is not automatic — you must explicitly wire
-  `CredentialsHandler` callbacks.
-- For a UI tool where the user watches a log panel, shelling out gives the
-  exact same feedback as a terminal would, which is what the developer expects.
+---
 
-**Use LibGit2Sharp if:** you need programmatic diff inspection, branch management,
-or status queries without spawning processes. For v1.7's simple stage-commit-push
-loop, shelling out wins on simplicity.
+## Feature 4 — Tap Analyzer Surface
 
-**Shell-out pattern (reuse existing `ProcessOutput`):**
+### What Already Exists
+
+The manabase engine already models untapped vs. tapped:
+
+- `ManaSource.EntersUntapped` (bool, `ManabaseModels.cs:27`) — set by `ManabaseClassifier.EntersTapped()` from
+  oracle text heuristics.
+- `ManabaseAnalyzer.EffectiveSources(deck, color, untappedOnly: true)` — already called internally
+  for turn-1 color access in `Analyze()` (`ManabaseAnalyzer.cs:442-443`).
+- `CastabilitySimulator` tracks `CardKind.UntappedLand` vs `CardKind.TappedLand` in every trial.
+
+**What is missing:** These computed values are not surfaced in `ManabaseReport`. They are computed
+and used internally but discarded before the report is returned.
+
+### What to Add
+
+New fields on `ManabaseReport` (no schema change, no API change — just new init-properties on the
+existing sealed record):
 
 ```csharp
-// Stage
-await RunGitAsync("add", "content-kb/seed/index-seed.json", repoRoot);
-await RunGitAsync("add", "content-kb/artifacts/", repoRoot);
-// Commit
-await RunGitAsync("commit", "-m", "content(kb): publish approved entries", repoRoot);
-// Push
-await RunGitAsync("push", "origin", "main", repoRoot);
+/// <summary>Count of lands that enter untapped in the deck.</summary>
+public int UntappedLandCount { get; init; }
+
+/// <summary>Count of lands that enter tapped in the deck.</summary>
+public int TappedLandCount { get; init; }
+
+/// <summary>
+/// Fraction of lands that enter untapped (0.0–1.0). Convenience for the view.
+/// </summary>
+public double UntappedLandFraction => UntappedLandCount + TappedLandCount > 0
+    ? (double)UntappedLandCount / (UntappedLandCount + TappedLandCount) : 0;
+
+/// <summary>
+/// Per-color untapped source count for turn-1 access (the count that
+/// ManabaseAnalyzer already computes via EffectiveSources(untappedOnly: true)).
+/// Keyed by ManaColor; empty for colorless/mono decks that never call turn-1 check.
+/// </summary>
+public IReadOnlyDictionary<ManaColor, double> UntappedSourcesByColor { get; init; }
+    = new Dictionary<ManaColor, double>();
 ```
 
----
+The `ManabaseAnalyzer.Analyze()` method already computes `untappedSources` per color in its
+`BuildColorFindings` loop — it just needs to be captured and set on the report instead of
+discarded. The land counts come from iterating `deck.Sources` and counting
+`IsLand && EntersUntapped` vs. `IsLand && !EntersUntapped`.
 
-## 4. Direct Prod-Write Path
+**No new NuGet package required.** All computation is pure C# in `DeckFlow.Core`.
 
-### 4a. Database (Npgsql — already in DeckFlow.Core)
+**UI surface:** The existing `/manabase` page renders `ManabaseReport`. The new fields render
+as a new "Land Quality" row in the land-count table and a per-color untapped breakdown column
+in the color-source table. Uses existing Razor + site-common.css; no TypeScript changes needed.
 
-**Verdict: fully supported.** `RelationalDatabaseConnection` with
-`RelationalDatabaseProvider.Postgres` already takes a connection string at
-construction time. The Studio tool passes the prod Render Postgres internal
-connection string, and all existing store methods (`ContentSiteIndexStore`,
-`ContentVideoStore`, etc.) work against it unchanged.
-
-The `RunCorpusResetAsync` command in `ContentKbCommandRunners.cs` (line 159)
-already demonstrates this pattern — it accepts `--connection-string` and
-constructs Postgres stores directly.
-
-No new code needed for DB writes. Just pass the creds.
-
-### 4b. Markdown Artifact Files on Render /data Disk
-
-**Verdict: SCP/SFTP is the mechanism. It works on the Starter plan. It is NOT a
-zero-effort path — it requires SSH key setup and a shell-out per publish.**
-
-**Findings (from Render docs):**
-
-- Persistent disks are available on Starter ($7/mo) and above. DeckFlow already
-  runs on Starter, so this is available.
-- After setting up an SSH public key in Render Account Settings, you can SCP
-  files to the disk-backed service:
-  ```
-  scp -s ./content-kb/artifacts/source-slug/video-id.md \
-      SERVICE_ID@ssh.REGION.render.com:/data/content-kb/artifacts/source-slug/video-id.md
-  ```
-  (The `-s` flag uses SFTP protocol over the SSH connection.)
-- There is **no Render REST API for writing files to /data**. SCP is the only
-  remote write mechanism.
-- The disk is accessible only at runtime of the running service instance. You
-  are SCP-ing into the running web service container, not a separate storage
-  endpoint.
-- SSH access requires the public key to be registered in the Render dashboard.
-
-**Operational implication:** the direct-push path for markdown artifacts requires:
-1. Render SSH key configured (one-time setup).
-2. A shell-out to `scp` per artifact file OR a `tar` bundle + single SCP.
-3. The Studio tool must know the Render service SSH address
-   (`<service-id>.ssh.<region>.render.com`).
-
-**Recommendation for v1.7:** make the commit-then-deploy path the **primary
-publish path** and treat direct prod-DB + SCP as the **secondary/power-user
-path**. The SCP path works but has more moving parts (SSH key registration,
-service address configuration, no retry/resume built in). The seed commit path
-is simpler and already proven.
-
-For the direct path, the DB write is easy (existing Npgsql stores); the markdown
-SCP is achievable but adds complexity. Consider implementing it as two separate
-actions in the UI: "Push DB" (Npgsql, easy) and "Push Artifacts" (SCP,
-requires SSH config).
-
----
-
-## 5. Secret Handling for the Local Tool
-
-**Context:** public repo (`luntc1972/DeckFlow`), Windows dev machine, the Studio
-project holds prod Postgres creds + (optionally) a YouTube API key.
-
-### Recommendation: `dotnet user-secrets` via `Microsoft.Extensions.Configuration.UserSecrets`
-
-**Why:**
-
-- `dotnet user-secrets` stores secrets in
-  `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json` on Windows —
-  outside the repo tree, never committed.
-- The `.csproj` gets a `<UserSecretsId>` GUID element only; no secret values
-  appear in any tracked file.
-- Works in non-ASP.NET projects: add
-  `Microsoft.Extensions.Configuration.UserSecrets` (already transitively
-  available in any .NET 10 app using `Microsoft.Extensions.Configuration`)
-  and call `.AddUserSecrets<Program>()` on `ConfigurationBuilder`.
-- Consistent with how the deployed app handles secrets (env vars in Render
-  dashboard, `sync: false`). Local dev uses user-secrets; CI/Render uses
-  environment variables.
-- No new `appsettings.local.json` pattern that could accidentally be committed
-  if `.gitignore` drifts.
-
-**What NOT to do:**
-
-- Do NOT create `appsettings.Production.json` or any local override file with
-  secrets — already in the "Do Not Modify" list.
-- Do NOT read from `.env` files — no existing pattern in this project.
-- Do NOT hardcode the Render Postgres connection string in any source file.
-
-**Setup (one-time per developer):**
-
-```bash
-cd DeckFlow.Studio
-dotnet user-secrets init
-dotnet user-secrets set "Studio:ProdConnectionString" "postgres://..."
-dotnet user-secrets set "Studio:RenderSshAddress" "srv-xxx@ssh.oregon.render.com"
-# YouTube API key only needed if Google.Apis.YouTube.v3 is ever added
-# dotnet user-secrets set "Studio:YouTubeApiKey" "AIza..."
-```
-
-**In Program.cs:**
-
-```csharp
-var config = new ConfigurationBuilder()
-    .AddUserSecrets<Program>()
-    .AddEnvironmentVariables()   // allows CI/Render to override
-    .Build();
-```
+**Paste artifact integration:** `ManabaseReportTextBuilder` and `ManabaseSwapPromptBuilder`
+already emit the manabase data as text blocks. Add "untapped land %, turn-1 untapped by color"
+lines to the text output. These feed the deck analysis paste packet.
 
 ---
 
 ## Recommended Stack Summary
 
-### Core Technologies
+### Core Technologies (all in-solution — no changes)
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| ASP.NET Core + Blazor Server | 10.0 (in-solution) | UI host for DeckFlow.Studio | Reuses existing .NET/Razor skill; trivial async UI updates via SignalR; `<ProjectReference>` to Core; runs as `dotnet run` on localhost |
-| YoutubeExplode | 6.6.0 (already in Core) | YouTube channel listing, video metadata, keyword search | Already present; covers all v1.7 discovery ops; no API key; no quota |
-| Npgsql | 10.0.0 (already in Core) | Direct prod Postgres writes via existing stores | Zero new code; `RelationalDatabaseConnection` already accepts a connection string |
-| git (CLI, shelled out) | system git | Commit-then-deploy seed export | Inherits SSH auth; zero new deps; `ProcessOutput` pattern already in Core |
-| Microsoft.Extensions.Configuration.UserSecrets | 10.x (transitively available) | Local secret storage (prod creds) | Keeps secrets outside repo; consistent with Render env-var pattern |
+| Technology | Version | Purpose | Notes |
+|------------|---------|---------|-------|
+| ASP.NET Core MVC 10.0 | 10.0 | HTTP controllers + Razor views | Pinned; no change |
+| RestSharp | 114.0.0 | HTTP client for all upstream calls including new Game Changers fetch | Reuse `scryfall-rest` named client |
+| Polly v8 | 8.x | Resilience for Game Changers Scryfall call | Reuse existing `scryfall` named pipeline |
+| IMemoryCache (BCL) | built-in | 24-hour cache for Game Changers list | Same as banlist cache pattern |
+| System.Security.Cryptography (BCL) | built-in | SHA-256 for deck fingerprint (Auto-Refresh Primer) | Already used in `PacketSessionCache` |
+| RelationalDatabaseConnection | in-solution | Store primer deck fingerprint | One new column, existing dialect |
+| DeckFlow.Core/Manabase | in-solution | Tap Analyzer — expose untapped metrics | New fields on `ManabaseReport` |
 
-### Supporting Libraries
+### Supporting Libraries (all already in solution)
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| Serilog.AspNetCore | 9.0.0 (already in Web) | Structured logging in Studio | Wire same Serilog config as DeckFlow.CLI for consistent log format |
-| LibGit2Sharp | 0.31.0 | Programmatic git operations | Only if shell-out git proves insufficient (e.g., status queries for UI display) |
-| SCP/SFTP (via `scp` CLI) | system scp | Upload markdown artifacts to Render /data | Only for "Push Artifacts" secondary path; shell out, same pattern as git |
+| Library | Used For | Feature |
+|---------|---------|---------|
+| `ICommanderSpellbookService` | Combo count for Bracket Classifier + Power axis | F1, F2 |
+| `ICategoryKnowledgeStore` | Interaction/draw counts for Multi-Axis Score | F2 |
+| `ManabaseDeck.AverageManaValue`, `FastMana`, `RampAndDrawUnderThree` | Speed axis | F2 |
+| `PacketArtifactStore` | Store primer fingerprint | F3 |
+| `PacketSessionCache.ComputeKey()` | Deck fingerprint hashing | F3 |
+| `ScryfallThrottle` | Rate-gate the Game Changers refresh call | F1 |
 
 ### What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `Google.Apis.YouTube.v3` | YoutubeExplode 6.6.0 already in Core covers every needed operation at zero quota cost; adds 5+ transitive Google deps | YoutubeExplode already in Core |
-| `Microsoft.Extensions.Http.Resilience` standard handler | Project constraint: use existing RestSharp + Polly v8 direct pattern; standard handler has known incompatibility with existing pattern | RestSharp + Polly v8 (existing) |
-| MAUI / WPF host for Blazor Hybrid | Unnecessary wrapper; Blazor Server in browser tab is simpler for a localhost tool | ASP.NET Core + Blazor Server |
-| `.env` files | No existing project pattern; risk of accidental commit | `dotnet user-secrets` |
-| Render REST API for /data writes | Does not exist — no API endpoint for persistent disk file writes | SCP via SSH (after SSH key setup) |
+| Any external bracket API or WotC scraper | WotC has no bracket API; their pages are not stable scrape targets; the bracket RULES change rarely | Hardcode bracket rules as C# constants; fetch only the Game Changers CARD LIST via Scryfall `is:gamechanger` |
+| MTGGoldfish / EDHREC card-power APIs | No public machine-readable API; rate-limit hostile; single-source risk | Pure in-house scoring on parsed deck composition, already-available Scryfall data, and SpellbookService combos |
+| A dedicated card-tagging service for bracket card classification | Adds a new external dependency with no uptime guarantee | Use Scryfall `is:gamechanger` (already proven, already integrated) + hardcoded lists for mass land denial / extra turns |
+| Any scoring NuGet library | No .NET library covers EDH-specific scoring axes | Pure domain logic in `DeckFlow.Core/Bracket/DeckScorer.cs` |
+| An ORM (EF Core, Dapper) for the primer fingerprint column | Already ruled out by project patterns; existing `RelationalDatabaseConnection` + raw SQL suffices | Existing `IRelationalDialect` + inline SQL |
+| `Microsoft.Extensions.Http.Resilience` standard handler | Project constraint: do NOT migrate from RestSharp + Polly v8 direct pattern | RestSharp + Polly v8 (existing) |
 
 ---
 
-## Installation
+## Integration Map
 
-```bash
-# Create the Studio project
-dotnet new blazorserver -o DeckFlow.Studio --no-restore
-dotnet sln add DeckFlow.Studio/DeckFlow.Studio.csproj
+```
+Cycle 13 Features — Integration with Existing Code
+═══════════════════════════════════════════════════
 
-# Add Core reference (no new NuGet packages needed for Core reuse)
-# In DeckFlow.Studio.csproj:
-#   <ProjectReference Include="..\DeckFlow.Core\DeckFlow.Core.csproj" />
+Feature 1: Bracket Classifier
+  ← IGameChangersService (new, DeckFlow.Web/Services)
+      uses: RestSharp scryfall-rest + Polly scryfall + IMemoryCache (all existing)
+      calls: Scryfall api.scryfall.com/cards/search?q=is:gamechanger
+  ← BracketClassifier (new, DeckFlow.Core/Bracket)
+      uses: IGameChangersService + ICommanderSpellbookService (existing) + hardcoded lists
+  → DeckBracketPacketService (new) → 3 prompt variants (ChatGpt/Claude/Gemini, ADR-0001)
 
-# Initialize user-secrets for local secret storage
-cd DeckFlow.Studio
-dotnet user-secrets init
+Feature 2: Multi-Axis Deck Score
+  ← DeckScorer (new, DeckFlow.Core/Bracket)
+      uses: ManabaseDeck (existing fields) + BracketClassifier output (F1) +
+            CommanderSpellbook combos (existing) + CategoryKnowledgeStore (existing)
+  → score fields on DeckAnalysisPacketResult (existing record, new fields)
+  → 3 decoupled prompt variant blocks (per ADR-0001)
 
-# Set prod secrets (one-time per developer; never committed)
-dotnet user-secrets set "Studio:ProdConnectionString" "<render-postgres-url>"
-dotnet user-secrets set "Studio:RenderSshAddress" "<service-id>@ssh.oregon.render.com"
+Feature 3: Auto-Refreshing Primer
+  ← PacketSessionCache.ComputeKey() (existing SHA-256 primitive)
+      scoped to decklist only (URL or normalized text, not sections/platform)
+  ← PacketArtifactStore schema: new deck_fingerprint column (existing dialect)
+  → staleness badge in DeckPrimerViewModel (new bool DeckChanged)
+  → "Stale" UI state triggers regenerate; artifact includes generation date + short hash
+
+Feature 4: Tap Analyzer Surface
+  ← ManabaseAnalyzer.Analyze() (existing)
+      - capture untappedSources (already computed, currently discarded)
+      - count IsLand&&EntersUntapped vs IsLand&&!EntersUntapped (deck.Sources loop)
+  → new fields on ManabaseReport: UntappedLandCount, TappedLandCount,
+      UntappedSourcesByColor (dict, new; computed alongside existing ColorFindings)
+  → existing /manabase Razor view: new "Land Quality" row
+  → ManabaseReportTextBuilder: new lines in text output for paste artifact
 ```
 
-No new NuGet packages are required beyond what is already in the solution.
-`YoutubeExplode`, `Npgsql`, `RestSharp`, `Polly`, `Serilog` all come in
-via `DeckFlow.Core`'s existing deps.
+---
+
+## Data Sources (Authoritative)
+
+### Bracket Definitions
+
+Source: WotC official announcement pages (not an API — read as documentation):
+- Introduction: https://magic.wizards.com/en/news/announcements/introducing-commander-brackets-beta
+- April 2025 update: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-april-22-2025
+- October 2025 update: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025
+- February 2026 update: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026
+
+**These are read-only documentation** — hardcode the bracket rule set in C# constants and update
+them when WotC publishes a new announcement (roughly quarterly). The CARD LIST is not hardcoded;
+only the RULES are.
+
+### Game Changers Card List
+
+Source: Scryfall `is:gamechanger` search (live, JSON, no auth required):
+```
+https://api.scryfall.com/cards/search?q=is%3Agamechanger&order=name&unique=names
+```
+- Returns `total_cards: 53` as of June 2026 (verified via live curl)
+- Scryfall updates this within hours of WotC announcements
+- Confidence: HIGH — Scryfall explicitly maintains this as a tracked filter
 
 ---
 
 ## Version Compatibility
 
-| Package | Version | .NET 10 status |
-|---------|---------|----------------|
-| YoutubeExplode | 6.6.0 | Compatible (targets netstandard2.0 / net5.0+) |
-| LibGit2Sharp | 0.31.0 | Compatible (targets net8.0+, computed net10.0 support) |
-| Npgsql | 10.0.0 | Native .NET 10 release |
-| Microsoft.Data.Sqlite | 10.0.0 | Native .NET 10 release |
+All Cycle 13 features use BCL types and in-solution packages. No new version-pinning is needed.
 
----
-
-## Key Architectural Constraints Carried Forward
-
-- **ScryfallThrottle**: static `SemaphoreSlim` in DeckFlow.Web — do not reference
-  from Studio. Studio does not call Scryfall.
-- **AngleSharp concurrency bug**: `YouTubeChannelVideoLister` must remain
-  serialized (concurrency = 1). Do not parallelize the metadata lookup phase in
-  the Studio UI.
-- **Public repo invariant**: `DeckFlow.Studio/` must be excluded from `.gitignore`
-  compiled-output dirs (`obj/`, `bin/`) and user-secrets must never surface in
-  tracked files.
-- **Render /data SCP path requires SSH key registered in Render dashboard**:
-  this is a one-time setup gate. Document in a `DeckFlow.Studio/README-setup.md`
-  (not committed to the public repo's root).
+| Component | Package | Version | Note |
+|-----------|---------|---------|------|
+| SHA-256 fingerprint | System.Security.Cryptography | BCL | Already used in PacketSessionCache |
+| Scryfall Game Changers API | RestSharp | 114.0.0 (existing) | Reuse scryfall-rest named client |
+| Manabase untapped surface | DeckFlow.Core | in-solution | New fields on existing record |
+| Bracket/Scoring logic | DeckFlow.Core | in-solution | New classes in new Bracket/ subfolder |
 
 ---
 
 ## Sources
 
-- `DeckFlow.Core/DeckFlow.Core.csproj` — verified YoutubeExplode 6.6.0, Npgsql 10.0.0 as existing deps
-- `DeckFlow.Core/Integration/YouTubeChannelVideoLister.cs` — verified YoutubeExplode search capability and concurrency constraint
-- `DeckFlow.CLI/ContentKbCommandRunners.cs` — verified `--connection-string` Postgres pattern for direct DB writes
-- `render.yaml` / `Dockerfile` — verified Starter plan disk, /data mount, no Render API for file writes
-- [Render Persistent Disks docs](https://render.com/docs/disks) — confirmed SCP is the file upload mechanism; no REST API for /data; Starter plan supported
-- [Render SSH docs](https://render.com/docs/ssh) — confirmed SSH available on paid plans (Starter+); SCP with `-s` flag is supported
-- [YouTube Data API v3 quota cost table](https://developers.google.com/youtube/v3/determine_quota_cost) — confirmed `search.list` = 100 units/call, dedicated 100-calls/day bucket
-- [NuGet LibGit2Sharp 0.31.0](https://www.nuget.org/packages/LibGit2Sharp/) — confirmed .NET 10 compatibility, published 2024-12-03
-- [Microsoft Blazor Hybrid docs](https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid/) — confirmed WPF/MAUI host options; verified Blazor Server simpler for localhost-only tool
-- [Microsoft user-secrets docs](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) — confirmed works in non-ASP.NET projects via `ConfigurationBuilder.AddUserSecrets<Program>()`
+- `DeckFlow.Core/Manabase/ManabaseModels.cs` — verified `EntersUntapped` on `ManaSource`; `IReadOnlyDictionary<ManaColor, double>` pattern
+- `DeckFlow.Core/Manabase/ManabaseAnalyzer.cs:442-443` — verified `untappedSources` already computed per-color; confirmed it is currently discarded
+- `DeckFlow.Core/Manabase/CastabilitySimulator.cs:384` — verified `UntappedLand`/`TappedLand` enum in simulator
+- `DeckFlow.Web/Services/CommanderBanListService.cs` — verified the RestSharp + IMemoryCache pattern to replicate for `IGameChangersService`
+- `DeckFlow.Web/Services/PacketSessionCache.cs:57` — verified `SHA256.HashData` already in use
+- `DeckFlow.Web/Models/DeckPrimerRequest.cs` — verified existing `TargetCommanderBracket` field on primer request
+- `DeckFlow.Web/Services/PromptBuilders/Primer/ChatGptPrimerPromptVariant.cs` — confirmed ADR-0001 three-variant decoupled prompt pattern applies to bracket/score artifacts too
+- [Scryfall `is:gamechanger` API](https://api.scryfall.com/cards/search?q=is%3Agamechanger&order=name&unique=names) — live curl returning `total_cards: 53`, confirmed JSON structure
+- [WotC Commander Brackets introduction](https://magic.wizards.com/en/news/announcements/introducing-commander-brackets-beta) — B1 Exhibition / B2 Core / B3 Upgraded (≤3 GC) / B4 Optimized / B5 cEDH definitions
+- [WotC October 2025 bracket update](https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025) — 10 cards removed; confirmed 47 remaining post-update
+- [WotC February 2026 bracket update](https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026) — Farewell + Biorhythm added; total 53 cards confirmed
+- [ScrollVault Game Changers list](https://scrollvault.net/guides/game-changers.html) — cross-checked 53 card count, June 2026
+- [Scryfall is:gamechanger search](https://scryfall.com/search?q=is%3Agamechanger) — confirmed Scryfall tracks the WotC list as a named filter
 
 ---
-*Stack research for: DeckFlow v1.7 Local Harvest & Publish Studio — new standalone local tool*
-*Researched: 2026-06-13*
+*Stack research for: DeckFlow Cycle 13 — Bracket Classifier, Multi-Axis Score, Auto-Refreshing Primer, Tap Analyzer*
+*Researched: 2026-06-27*

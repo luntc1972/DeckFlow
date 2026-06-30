@@ -33,7 +33,8 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
         bool includeCardVersions,
-        string? companionName = null)
+        string? companionName = null,
+        string? scoreBlockText = null)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(
@@ -61,6 +62,13 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine($"<commander>{commanderName}</commander>");
             builder.AppendLine();
+        }
+
+        // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.
+        if (!string.IsNullOrWhiteSpace(scoreBlockText))
+        {
+            builder.AppendLine();
+            builder.AppendLine(scoreBlockText);
         }
 
         if (!string.IsNullOrWhiteSpace(companionName))

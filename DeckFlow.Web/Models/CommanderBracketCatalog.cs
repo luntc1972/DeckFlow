@@ -1,3 +1,6 @@
+using System.Text.Json;
+using DeckFlow.Core.Bracket;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>Selectable Commander bracket option used to describe expected deck power and pace.</summary>
@@ -11,38 +14,21 @@ public sealed record CommanderBracketOption(
     string Summary,
     string TurnsExpectation);
 
-/// <summary>Provides the Commander bracket options used by deck analysis prompts.</summary>
+/// <summary>
+/// Provides the Commander bracket options used by deck analysis prompts.
+/// Why: The tier literal was migrated to bracket-data.json per BRACKET-02 so the
+/// canonical bracket data lives in a single versioned source (DeckFlow.Web/Data/bracket-data.json),
+/// rather than being duplicated between CommanderBracketCatalog.cs and the JSON seed file.
+/// This shim reads that same file once via a Lazy static so all 17 flag-independent
+/// callers (analysis/primer/set-upgrade prompts) continue to work without DI.
+/// </summary>
 public static class CommanderBracketCatalog
 {
+    private static readonly Lazy<IReadOnlyList<CommanderBracketOption>> _options =
+        new Lazy<IReadOnlyList<CommanderBracketOption>>(LoadOptions, LazyThreadSafetyMode.PublicationOnly);
+
     /// <summary>Ordered Commander bracket options from casual exhibition through cEDH.</summary>
-    public static IReadOnlyList<CommanderBracketOption> Options { get; } =
-    [
-        new(
-            "Exhibition",
-            "Bracket 1: Exhibition",
-            "Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization.",
-            "Expect to play at least nine turns before you win or lose."),
-        new(
-            "Core",
-            "Bracket 2: Core",
-            "Unoptimized and straightforward decks with incremental, disruptable wins and low-pressure gameplay.",
-            "Expect to play at least eight turns before you win or lose."),
-        new(
-            "Upgraded",
-            "Bracket 3: Upgraded",
-            "Strong synergy, high card quality, meaningful interaction, and explosive but earned wins.",
-            "Expect to play at least six turns before you win or lose."),
-        new(
-            "Optimized",
-            "Bracket 4: Optimized",
-            "Fast, lethal, efficient decks with strong game changers, fast mana, tutors, and explosive play.",
-            "Expect to play at least four turns before you win or lose."),
-        new(
-            "cEDH",
-            "Bracket 5: cEDH",
-            "Metagame-tuned competitive Commander decks built for maximum efficiency and consistency.",
-            "Games can end on any turn.")
-    ];
+    public static IReadOnlyList<CommanderBracketOption> Options => _options.Value;
 
     /// <summary>Finds a Commander bracket option by its posted value.</summary>
     /// <param name="value">Bracket value to match, ignoring case.</param>
@@ -58,5 +44,22 @@ public static class CommanderBracketCatalog
     public static bool IsCedh(string? bracketValue)
     {
         return string.Equals(Find(bracketValue)?.Value, "cEDH", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<CommanderBracketOption> LoadOptions()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Data", "bracket-data.json");
+        var json = File.ReadAllText(path);
+        var opts = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var catalog = JsonSerializer.Deserialize<GameChangerCatalog>(json, opts)
+            ?? throw new InvalidOperationException("bracket-data.json could not be deserialized");
+
+        return catalog.Tiers
+            .Select(tier => new CommanderBracketOption(
+                Value: tier.Name,
+                Label: tier.Label,
+                Summary: tier.Summary,
+                TurnsExpectation: tier.TurnsExpectation))
+            .ToList();
     }
 }
