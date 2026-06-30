@@ -36,7 +36,20 @@ public sealed record DeckStatSummary(
     int Interaction,
     int Wipes,
     int Recursion,
-    int ClosingPower);
+    int ClosingPower)
+{
+    /// <summary>Count of tutor effects (search library for a non-land card).</summary>
+    public int Tutors { get; init; }
+
+    /// <summary>Count of fast-mana sources (zero-cost mana artifacts: Mana Crypt, Jeweled Lotus, etc.).</summary>
+    public int FastMana { get; init; }
+
+    /// <summary>Count of ramp or draw pieces with estimated mana value &lt;= 2.</summary>
+    public int RampDrawUnderThreeMv { get; init; }
+
+    /// <summary>Count of cards that counter target spells (subset of Interaction).</summary>
+    public int Counters { get; init; }
+}
 
 /// <summary>
 /// Aggregates a deck's cards into a <see cref="DeckStatSummary"/> using <see cref="DeckStatClassifier"/>
@@ -75,6 +88,10 @@ public static class DeckStatAggregator
         var wipes = 0;
         var recursion = 0;
         var closingPower = 0;
+        var tutors = 0;
+        var fastMana = 0;
+        var rampDrawUnderThreeMv = 0;
+        var counters = 0;
 
         foreach (var card in cards)
         {
@@ -154,6 +171,26 @@ public static class DeckStatAggregator
             {
                 closingPower += quantity;
             }
+
+            if (DeckStatClassifier.IsTutorCard(oracleText))
+            {
+                tutors += quantity;
+            }
+
+            if (DeckStatClassifier.IsFastManaCard(typeLine, oracleText, card.ManaCost))
+            {
+                fastMana += quantity;
+            }
+
+            if (DeckStatClassifier.IsRampOrDrawUnderThreeMv(typeLine, oracleText, card.ManaCost))
+            {
+                rampDrawUnderThreeMv += quantity;
+            }
+
+            if (DeckStatClassifier.IsCounterspellCard(oracleText))
+            {
+                counters += quantity;
+            }
         }
 
         var averageManaValue = nonlandCardCount == 0 ? 0m : Math.Round(manaValueTotal / nonlandCardCount, 2);
@@ -169,7 +206,13 @@ public static class DeckStatAggregator
             interaction,
             wipes,
             recursion,
-            closingPower);
+            closingPower)
+        {
+            Tutors = tutors,
+            FastMana = fastMana,
+            RampDrawUnderThreeMv = rampDrawUnderThreeMv,
+            Counters = counters,
+        };
     }
 
     /// <summary>

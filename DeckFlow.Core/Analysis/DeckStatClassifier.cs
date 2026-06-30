@@ -85,6 +85,52 @@ public static class DeckStatClassifier
             || oracleText.Contains("whenever this creature attacks", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("+X/+X", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Returns <see langword="true"/> when the card tutors a card from the library, excluding
+    /// land-fetch ramp (basic-land search, generic land-card search, or land onto the battlefield).
+    /// </summary>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    public static bool IsTutorCard(string oracleText)
+        => oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
+            && !oracleText.Contains("basic land", StringComparison.OrdinalIgnoreCase)
+            // Exclude land-fetch ramp ("a land card") but NOT nonland tutors: strip "nonland card"
+            // first so its trailing "land card" substring does not trip the land-fetch exclusion.
+            && !oracleText.Replace("nonland card", " ", StringComparison.OrdinalIgnoreCase)
+                .Contains("land card", StringComparison.OrdinalIgnoreCase)
+            && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the card is fast mana: a zero-mana-value artifact that
+    /// produces mana (e.g. Mana Crypt, Jeweled Lotus). Mana rocks with MV &gt;= 1 (e.g. Sol Ring) are excluded.
+    /// </summary>
+    /// <param name="typeLine">Card type line.</param>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    /// <param name="manaCost">Mana cost string (e.g. "{1}"); blank for zero-cost artifacts.</param>
+    public static bool IsFastManaCard(string typeLine, string oracleText, string manaCost)
+        => DeckStatAggregator.EstimateManaValue(manaCost) == 0
+            && typeLine.Contains("Artifact", StringComparison.OrdinalIgnoreCase)
+            && (oracleText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
+                || oracleText.Contains("Add {", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the card is a ramp or draw piece with estimated mana value
+    /// of 2 or less — the early acceleration/consistency signal the multi-axis scorer consumes.
+    /// </summary>
+    /// <param name="typeLine">Card type line.</param>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    /// <param name="manaCost">Mana cost string (e.g. "{1}{U}").</param>
+    public static bool IsRampOrDrawUnderThreeMv(string typeLine, string oracleText, string manaCost)
+        => DeckStatAggregator.EstimateManaValue(manaCost) <= 2
+            && (IsRampCard(typeLine, oracleText) || IsDrawCard(oracleText));
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the card counters a target spell. Ability counters
+    /// (e.g. "counter target activated or triggered ability") are excluded.
+    /// </summary>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    public static bool IsCounterspellCard(string oracleText)
+        => oracleText.Contains("counter target spell", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Parses a single mana symbol token (the text between <c>{</c> and <c>}</c>) into its
     /// converted mana cost contribution.  Numeric tokens return their integer value; X returns 0;
     /// hybrid symbols (containing '/') return 1; everything else returns 1.

@@ -100,6 +100,22 @@ public sealed class ManabaseViewModelTests
         Assert.True(GetBoolProperty(vm, "ShowPlainLanguage"));
     }
 
+    [Fact]
+    public void ShowTapAnalyzer_DefaultsToFalse()
+    {
+        var vm = new ManabaseViewModel();
+
+        Assert.False(GetBoolProperty(vm, "ShowTapAnalyzer"));
+    }
+
+    [Fact]
+    public void ShowTapAnalyzer_RoundTrip()
+    {
+        var vm = new ManabaseViewModel { ShowTapAnalyzer = true };
+
+        Assert.True(GetBoolProperty(vm, "ShowTapAnalyzer"));
+    }
+
     private static T? GetOptionalProperty<T>(object target, string name)
         where T : class
     {

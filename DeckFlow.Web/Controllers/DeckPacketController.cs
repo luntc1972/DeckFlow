@@ -25,6 +25,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     private readonly PacketSessionCache _packetCache;
     private readonly ILogger<DeckPacketController> _logger;
     private readonly IFeatureFlagCache? _flagCache;
+    private readonly ICardSearchService? _cardSearchService;
 
     /// <summary>
     /// Creates the packet-workflow controller.
@@ -35,7 +36,8 @@ public sealed class DeckPacketController : DeckToolControllerBase
         IMetaGapService metaGapService,
         PacketSessionCache packetCache,
         ILogger<DeckPacketController> logger,
-        IFeatureFlagCache? flagCache = null)
+        IFeatureFlagCache? flagCache = null,
+        ICardSearchService? cardSearchService = null)
     {
         ArgumentNullException.ThrowIfNull(deckAnalysisPacketService);
         ArgumentNullException.ThrowIfNull(deckComparisonService);
@@ -49,6 +51,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
         _packetCache = packetCache;
         _logger = logger;
         _flagCache = flagCache;
+        _cardSearchService = cardSearchService;
     }
 
     /// <summary>
@@ -106,6 +109,36 @@ public sealed class DeckPacketController : DeckToolControllerBase
     }
 
     /// <summary>
+    /// Returns commander-eligible card name suggestions for the cEDH meta-gap commander
+    /// override typeahead. EDH Top 16 requires the exact canonical card name, so the picker
+    /// steers users to a real commander instead of a partial query that returns no results.
+    /// </summary>
+    /// <param name="q">Partial commander name.</param>
+    [HttpGet("/cedh-meta-gap/commander-search")]
+    [FeatureFlagGate("tool.cedh-meta-gap.enabled")]
+    public async Task<IActionResult> CedhMetaGapCommanderSearch(string q)
+    {
+        if (_cardSearchService is null)
+        {
+            return Json(Array.Empty<string>());
+        }
+
+        try
+        {
+            var names = await _cardSearchService.SearchCommandersAsync(q ?? string.Empty, HttpContext.RequestAborted);
+            return Json(names);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            _logger.LogWarning(exception, "cEDH meta-gap commander search autocomplete failed for query {Query}.", q);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                Message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)
+            });
+        }
+    }
+
+    /// <summary>
     /// Processes a ChatGPT workflow postback and regenerates the next packet outputs.
     /// </summary>
     /// <param name="request">Current workflow request.</param>
@@ -119,6 +152,13 @@ public sealed class DeckPacketController : DeckToolControllerBase
         try
         {
             var result = await _deckAnalysisPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            // Carry the computed score forward through the hidden ScoreJson form field so the Step-3
+            // early-return (no live Scryfall data to recompute from) can restore it. Omitting this write
+            // would silently drop the score at Step 3 even though it renders at Step 2 via Model.Score.
+            if (result.Score is not null)
+            {
+                request.ScoreJson = JsonSerializer.Serialize(result.Score);
+            }
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
@@ -132,6 +172,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 SetUpgradePromptText = result.SetUpgradePromptText,
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
+                Score = result.Score,
                 SetUpgradeResponse = result.SetUpgradeResponse,
                 SetUpgradeCardText = result.SetUpgradeCardText ?? EmptySetUpgradeCardText,
                 ImportWarning = result.ImportWarning,
@@ -284,6 +325,10 @@ public sealed class DeckPacketController : DeckToolControllerBase
             await using var stream = zipFile.OpenReadStream();
             PacketArtifactStore.LoadFromZip(stream, request);
             var result = await _deckAnalysisPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            if (result.Score is not null)
+            {
+                request.ScoreJson = JsonSerializer.Serialize(result.Score);
+            }
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
@@ -297,6 +342,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 SetUpgradePromptText = result.SetUpgradePromptText,
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
+                Score = result.Score,
                 SetUpgradeResponse = result.SetUpgradeResponse,
                 SetUpgradeCardText = result.SetUpgradeCardText ?? EmptySetUpgradeCardText,
                 ImportWarning = result.ImportWarning,

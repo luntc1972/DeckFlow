@@ -30,12 +30,12 @@ public sealed class ToolVisibilityTests
 
         Assert.Collection(
             sections,
-            section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "deck-comparison", "cedh-meta-gap", "manabase"),
+            section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "deck-comparison", "cedh-meta-gap", "manabase", "bracket"),
             section => AssertSection(section, ToolNavSection.Build, "deck-sync", "convert", "deck-primer"),
             section => AssertSection(section, ToolNavSection.Reference, "card-lookup", "mechanic-lookup", "judge-questions", "content-kb"),
             section => AssertSection(section, ToolNavSection.Categories, "suggest-categories", "commander-categories"));
 
-        Assert.Equal(13, sections.Sum(section => section.Tools.Count));
+        Assert.Equal(14, sections.Sum(section => section.Tools.Count));
     }
 
     [Fact]
@@ -48,6 +48,7 @@ public sealed class ToolVisibilityTests
             ["tool.deck-comparison.enabled"] = false,
             ["tool.cedh-meta-gap.enabled"] = false,
             ["tool.manabase.enabled"] = false,
+            ["tool.bracket.enabled"] = false,
         });
 
         var sections = ToolVisibility.VisibleBySection(registry.All, cache);

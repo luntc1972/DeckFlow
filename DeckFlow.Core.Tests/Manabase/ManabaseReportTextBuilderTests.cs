@@ -430,4 +430,90 @@ public sealed class ManabaseReportTextBuilderTests
         Assert.Contains("5.0", output);
         Assert.Contains("Demonic Tutor", output);
     }
+
+    // --- TAP-01/TAP-02 (Phase 75) ----------------------------------------
+    // Byte-identity is GREEN now (tap=null appends nothing). The content/omit facts are RED until
+    // plan 75-02 appends the "Untapped Sources:" block.
+
+    private static ManabaseTapAnalysis MultiColorTap() => new()
+    {
+        OverallUntappedPercent = 82,
+        UntappedSources = 29.5,
+        TotalSources = 36.0,
+        Turn1UntappedPercent = 76,
+        ColorTap = new Dictionary<ManaColor, ColorTapFinding>
+        {
+            [ManaColor.White] = new() { UntappedSources = 16.0, TotalSources = 20.0, UntappedPercent = 80 },
+            [ManaColor.Blue] = new() { UntappedSources = 13.5, TotalSources = 16.0, UntappedPercent = 84 },
+        },
+    };
+
+    [Fact]
+    public void Build_NullTap_OutputByteIdenticalToOverloadWithoutTapParam()
+    {
+        ManabaseReport report = HealthyCasualReport();
+
+        string withoutTap = ManabaseReportTextBuilder.Build(report, "Test", null);
+        string withNullTap = ManabaseReportTextBuilder.Build(report, "Test", null, tap: null);
+
+        Assert.Equal(withoutTap, withNullTap);
+    }
+
+    [Fact]
+    public void Build_WithTapAnalysis_ContainsUntappedSourcesSection()
+    {
+        string text = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(), "Test", null, tap: MultiColorTap());
+
+        Assert.Contains("Untapped Sources:", text);
+        Assert.Contains("Turn-1 untapped availability:", text);
+        // TAP-02 color-matched microcopy (overridden 2026-06-28): the parenthetical must call out
+        // that the untapped source has to be a NEEDED COLOR, not merely any untapped mana.
+        Assert.Contains(
+            "(share of games with an untapped source of a needed color on turn 1)",
+            text,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_SingleColorDeckWithTap_OmitsPerColorTable()
+    {
+        var report = new ManabaseReport
+        {
+            ActualLands = 36,
+            TargetLands = 37.0,
+            ColorFindings = new List<ColorSourceFinding>
+            {
+                new()
+                {
+                    Color = ManaColor.Green,
+                    ActualSources = 30.0,
+                    RequiredSources = 18,
+                    DrivingSpell = "Craterhoof Behemoth",
+                },
+            },
+            Mode = ManabaseMode.Casual,
+            Summary = "Mono-green mana base.",
+        };
+        var tap = new ManabaseTapAnalysis
+        {
+            OverallUntappedPercent = 90,
+            UntappedSources = 27.0,
+            TotalSources = 30.0,
+            Turn1UntappedPercent = 88,
+            ColorTap = new Dictionary<ManaColor, ColorTapFinding>
+            {
+                [ManaColor.Green] = new() { UntappedSources = 27.0, TotalSources = 30.0, UntappedPercent = 90 },
+            },
+        };
+
+        string text = ManabaseReportTextBuilder.Build(report, "Mono Green", null, tap: tap);
+
+        // The block exists (RED until 75-02) ...
+        Assert.Contains("Untapped Sources:", text);
+        // ... but for a single-color deck the per-color table is omitted (Pitfall 5).
+        int blockStart = text.IndexOf("Untapped Sources:", StringComparison.Ordinal);
+        string block = blockStart >= 0 ? text[blockStart..] : text;
+        Assert.DoesNotContain("Color", block.Replace("colored sources", string.Empty));
+    }
 }

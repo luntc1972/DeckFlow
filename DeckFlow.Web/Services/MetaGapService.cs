@@ -228,8 +228,16 @@ public sealed class MetaGapService : IMetaGapService
 
         var inputSummary = BuildInputSummary(loadedDeck, resolvedCommanderName, request, fetchedEntries);
         var schemaJson = MetaGapSchemaJson;
-        string? promptText = null;
-        if (request.WorkflowStep >= 2)
+        // Skip the Step-2 prompt rebuild once we already hold a parsed analysis response
+        // (Step 3 render of a restored session): the prompt is not needed to display the
+        // analysis, and rebuilding it would require a reference-deck selection that the
+        // restored request may not carry, failing the render the user just asked for.
+        // Carry the previously generated prompt through the request so the Step-2 panel and
+        // the re-download zip still expose it instead of dropping it on the Step-3 render.
+        string? promptText = analysisResponse is not null && !string.IsNullOrWhiteSpace(request.MetaGapPromptText)
+            ? request.MetaGapPromptText
+            : null;
+        if (request.WorkflowStep >= 2 && analysisResponse is null)
         {
             var selectedEntries = ResolveSelectedEntries(request.SelectedReferenceIndexes, fetchedEntries);
             var oracleNameMap = await ResolveOracleNameMapAsync(loadedDeck.PlayableEntries, selectedEntries, cancellationToken).ConfigureAwait(false);
@@ -899,7 +907,18 @@ public sealed class MetaGapService : IMetaGapService
                 payload = JsonSerializer.SerializeToElement(new { meta_gap = metaGapElement });
             }
 
-            var result = JsonSerializer.Deserialize<MetaGapResponse>(payload.GetRawText(), JsonOptions);
+            MetaGapResponse? result;
+            try
+            {
+                result = JsonSerializer.Deserialize<MetaGapResponse>(payload.GetRawText(), JsonOptions);
+            }
+            catch (JsonException)
+            {
+                // A payload that parses as a document but maps a field to the wrong shape
+                // (e.g. an object field sent as a string) must surface the friendly message
+                // rather than escaping as an uncaught JsonException and 500-ing the page.
+                throw new InvalidOperationException(ResponseParsers.TruncatedResponseMessage);
+            }
 
             if (result is null || !HasMeaningfulMetaGapContent(result))
             {

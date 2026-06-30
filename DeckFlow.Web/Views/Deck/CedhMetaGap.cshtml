@@ -52,6 +52,7 @@
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
     <input type="hidden" name="FetchedEntriesJson" value="@Model.Request.FetchedEntriesJson" />
+    <input type="hidden" name="MetaGapPromptText" value="@Model.PromptText" />
     <details class="chatgpt-resume" data-chatgpt-resume>
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
@@ -108,8 +109,15 @@
 
                 <label class="field">
                     <span>Commander name <small>(optional override)</small></span>
-                    <input type="text" name="CommanderName" value="@Model.Request.CommanderName" />
-                    <small class="sync-column__hint">Leave blank to infer the commander from the submitted deck list. Use this only if the deck export is ambiguous.</small>
+                    <input type="text"
+                           name="CommanderName"
+                           value="@Model.Request.CommanderName"
+                           placeholder="Start typing a commander name…"
+                           autocomplete="off"
+                           list="cedh-commander-suggestions"
+                           data-commander-search="@Url.Content("~/cedh-meta-gap/commander-search")" />
+                    <datalist id="cedh-commander-suggestions"></datalist>
+                    <small class="sync-column__hint">Leave blank to infer the commander from the submitted deck list, or pick a suggestion to match the exact EDH Top 16 name.</small>
                 </label>
 
                 <label class="field">
@@ -367,7 +375,7 @@
         </label>
 
         <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="3">Render Meta Gap Analysis</button>
+            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="3" data-busy-title="Rendering cEDH Meta Gap Analysis" data-busy-message="Reading your pasted analysis and building the report.">Render Meta Gap Analysis</button>
         </div>
 
         @if (Model.AnalysisResponse is not null)

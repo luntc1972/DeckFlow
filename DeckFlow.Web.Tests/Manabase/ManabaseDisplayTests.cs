@@ -41,6 +41,25 @@ public sealed class ManabaseDisplayTests
     }
 
     [Theory]
+    [InlineData(80, "manabase-lens-met", "✓")]   // flat 80% threshold (D4): meets target
+    [InlineData(100, "manabase-lens-met", "✓")]
+    [InlineData(79, "manabase-lens-short", "⚠")] // just below threshold
+    [InlineData(0, "manabase-lens-short", "⚠")]
+    public void TapMarker_MapsPercentToCorrectCssAndGlyph(int percent, string expectedCss, string expectedMarker)
+    {
+        var (css, marker) = ManabaseDisplay.TapMarker(percent);
+
+        Assert.Equal(expectedCss, css);
+        Assert.Equal(expectedMarker, marker);
+    }
+
+    [Fact]
+    public void TapAnalyzerGloss_IsNonEmpty()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(ManabaseDisplay.TapAnalyzerGloss));
+    }
+
+    [Theory]
     [InlineData("color:", "color")]            // empty color suffix → bare "color"
     [InlineData("color:  ", "color")]          // whitespace-only suffix → bare "color"
     [InlineData("COLOR:U", "color: U")]        // case-insensitive prefix

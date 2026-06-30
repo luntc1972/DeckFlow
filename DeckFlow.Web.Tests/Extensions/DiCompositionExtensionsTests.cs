@@ -61,10 +61,13 @@ public sealed class DiCompositionExtensionsTests
         // Prompt variants (the Task-2 extension)
         services.AddDeckFlowPromptVariants();
 
-        // IDeckEntryLoader and ICategoryKnowledgeStore are registered inline in Program.cs,
-        // not part of the packet-services group. Provide stubs so ValidateOnBuild resolves.
+        // IDeckEntryLoader, ICategoryKnowledgeStore, and IGameChangerCatalogService are registered
+        // inline in Program.cs, not part of the packet-services group. Provide them so ValidateOnBuild
+        // resolves (DeckAnalysisPacketService takes IGameChangerCatalogService as of Phase 77-04).
         services.AddScoped<IDeckEntryLoader, StubDeckEntryLoader>();
         services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
+        services.AddSingleton<DeckFlow.Web.Services.Bracket.IGameChangerCatalogService,
+            DeckFlow.Web.Services.Bracket.GameChangerCatalogService>();
 
         // Packet services (the Task-2 extension)
         services.AddDeckFlowPacketServices();

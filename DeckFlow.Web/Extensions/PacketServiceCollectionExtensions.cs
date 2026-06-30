@@ -1,6 +1,8 @@
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
@@ -41,6 +43,8 @@ public static class PacketServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<PacketSessionCache>();
+        services.AddTransient<MoxfieldParser>();
+        services.AddTransient<ArchidektParser>();
 
         services.AddScoped<IDeckAnalysisPacketService>(sp =>
             new DeckAnalysisPacketService(
@@ -50,6 +54,7 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<ICommanderBanListService>(),
                 sp.GetRequiredService<IScryfallSetService>(),
                 sp.GetRequiredService<ICommanderSpellbookService>(),
+                sp.GetRequiredService<IGameChangerCatalogService>(),
                 sp.GetRequiredService<AnalysisPromptVariantRegistry>(),
                 sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
@@ -81,6 +86,8 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<PrimerPromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
                 sp.GetRequiredService<IOptions<AiPlatformOptions>>(),
+                sp.GetRequiredService<MoxfieldParser>(),
+                sp.GetRequiredService<ArchidektParser>(),
                 sp.GetService<ILogger<DeckPrimerPacketService>>()));
 
         return services;

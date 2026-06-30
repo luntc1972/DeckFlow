@@ -1,8 +1,11 @@
 using System.Net.Http;
+using System;
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
@@ -122,11 +125,26 @@ internal static class TestServiceFactory
             commanderBanListService,
             scryfallSetService,
             commanderSpellbookService,
+            new EmptyGameChangerCatalogService(),
             BuildAnalysisPromptRegistry(),
             BuildSetUpgradePromptRegistry(),
             new PacketSessionCache(),
             flagCache: null,
             logger: logger);
+
+    /// <summary>Empty catalog (no Game Changers / MLD / extra-turn cards) for tests that do not exercise
+    /// the multi-axis score path; bracket classification still runs from combo signals alone.</summary>
+    private sealed class EmptyGameChangerCatalogService : IGameChangerCatalogService
+    {
+        private static readonly GameChangerCatalog Catalog = new(
+            new DateOnly(2026, 2, 1),
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            Array.Empty<BracketTier>());
+
+        public GameChangerCatalog GetCatalog() => Catalog;
+    }
 
     public static DeckComparisonService CreateDeckComparisonService(
         IMoxfieldDeckImporter moxfieldDeckImporter,

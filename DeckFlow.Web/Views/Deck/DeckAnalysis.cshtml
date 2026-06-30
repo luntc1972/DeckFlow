@@ -1,4 +1,5 @@
 @model DeckFlow.Web.Models.DeckAnalysisViewModel
+@using DeckFlow.Core.Analysis
 @{
     ViewData["Title"] = "MTG Commander Deck Analysis for ChatGPT";
     ViewData["Description"] = "Generate a ChatGPT-ready analysis prompt for your Commander deck. Paste an Archidekt or Moxfield deck and get a structured AI review in one round-trip.";
@@ -512,6 +513,13 @@ Do not omit any fields from the schema.
             <small class="sync-column__hint">Required for rendering the analysis summary and for the optional set-upgrade step. You can paste the fenced <code>```json</code> block directly.</small>
         </label>
 
+        @if (!string.IsNullOrEmpty(Model.Request.ScoreJson))
+        {
+            @* Round-trips the multi-axis score across the Step-3 re-post; rendered only when present
+               so the flag-OFF page stays byte-identical to baseline (no extra field). *@
+            <textarea name="ScoreJson" hidden aria-hidden="true" tabindex="-1">@Model.Request.ScoreJson</textarea>
+        }
+
         <div class="toolbar chatgpt-step-actions">
             <button type="submit" class="run-button" data-chatgpt-submit-step="3">Render Analysis Summary</button>
         </div>
@@ -528,6 +536,42 @@ Do not omit any fields from the schema.
                     </button>
                 </div>
                 <h3>Analysis Summary</h3>
+                @if (Model.Score is not null)
+                {
+                    <div class="chatgpt-score" role="region" aria-label="Multi-Axis Deck Score">
+                        <p class="chatgpt-score__eyebrow">Deck Score &middot; four coarse bands (0&ndash;5) from your decklist signals</p>
+                        <div class="chatgpt-score-grid">
+                            @foreach (var (axisLabel, band, rationale) in new[]
+                            {
+                                ("POWER", Model.Score.PowerBand, Model.Score.PowerRationale.SignalText),
+                                ("SPEED", Model.Score.SpeedBand, Model.Score.SpeedRationale.SignalText),
+                                ("CONTROL", Model.Score.ControlBand, Model.Score.ControlRationale.SignalText),
+                                ("CONSISTENCY", Model.Score.ConsistencyBand, Model.Score.ConsistencyRationale.SignalText),
+                            })
+                            {
+                                <div class="chatgpt-score-card"
+                                     role="group"
+                                     aria-label="@axisLabel score: @band of 5, @MultiAxisScorer.BandLabel(band)">
+                                    <div class="chatgpt-score-label">@axisLabel</div>
+                                    <div class="chatgpt-score-value">@band</div>
+                                    <div class="chatgpt-score-meter" aria-hidden="true">
+                                        @for (int pip = 1; pip <= 5; pip++)
+                                        {
+                                            <span class="chatgpt-score-pip@(pip <= band ? " chatgpt-score-pip--filled" : "")"></span>
+                                        }
+                                    </div>
+                                    <div class="chatgpt-score-band chatgpt-score-band--@band">@MultiAxisScorer.BandLabel(band)</div>
+                                    <div class="chatgpt-score-rationale">@rationale</div>
+                                </div>
+                            }
+                        </div>
+                        <div class="chatgpt-score-crosscheck chatgpt-score-crosscheck--@(Model.Score.ScoreAlignsBracket ? "agree" : "diverge")"
+                             role="note">
+                            <span class="chatgpt-score-crosscheck__label">@(Model.Score.ScoreAlignsBracket ? "✓ " : "⚠ ")CROSS-CHECK</span>
+                            @Model.Score.BracketCrossCheckText
+                        </div>
+                    </div>
+                }
                 <div class="stack">
                     <section class="result-panel nested-panel">
                         <h4>Overview</h4>

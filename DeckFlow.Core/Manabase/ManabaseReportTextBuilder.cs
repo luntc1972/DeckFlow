@@ -22,6 +22,11 @@ public static class ManabaseReportTextBuilder
     /// </param>
     /// <param name="verdict">Optional synthesized plain-language verdict.</param>
     /// <param name="budget">Optional ramp/draw budget advisory.</param>
+    /// <param name="tap">
+    /// Optional tap-quality metrics (TAP-01/TAP-02). When null the "Untapped Sources:" block is
+    /// skipped entirely so the output is byte-identical to the flag-off artifact. The block append
+    /// itself lands in plan 75-02; this parameter only establishes the signature.
+    /// </param>
     /// <returns>A paste-ready plain-text string containing the full mana-base verdict.</returns>
     public static string Build(
         ManabaseReport report,
@@ -29,7 +34,8 @@ public static class ManabaseReportTextBuilder
         string? decklistText,
         ManabaseMode mode = ManabaseMode.Casual,
         ManabaseVerdict? verdict = null,
-        ManabaseRampDrawBudget? budget = null)
+        ManabaseRampDrawBudget? budget = null,
+        ManabaseTapAnalysis? tap = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -135,6 +141,16 @@ public static class ManabaseReportTextBuilder
         }
         sb.AppendLine();
 
+        // --- Untapped sources (TAP-01/TAP-02) --------------------------------
+        // Only when tap metrics were computed (flag on). tap == null appends zero bytes, so the
+        // flag-off artifact stays byte-identical. Placed after the "Biggest fix" callout so the
+        // per-color untapped table never collides with that callout's "Colors:" wording.
+        if (tap is not null)
+        {
+            AppendTapAnalysisBlock(sb, tap, report.ColorFindings.Count);
+            sb.AppendLine();
+        }
+
         // --- Castability table (Casual mode only, when non-empty) ------------
         if (mode == ManabaseMode.Casual && report.Castability.Count > 0)
         {
@@ -185,6 +201,31 @@ public static class ManabaseReportTextBuilder
         }
 
         return sb.ToString();
+    }
+
+    // TAP-01/TAP-02: the "Untapped Sources:" section (UI-SPEC Section 9). The numbers are the exact
+    // values from the ManabaseTapAnalysis record (single source of truth — no recompute). The per-color
+    // fixed-width table is emitted only for multi-color decks; a single-color deck has no color-screw
+    // axis, so it shows just the Turn-1 + Overall lines.
+    private static void AppendTapAnalysisBlock(StringBuilder sb, ManabaseTapAnalysis tap, int colorCount)
+    {
+        sb.AppendLine("Untapped Sources:");
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"Turn-1 untapped availability: {tap.Turn1UntappedPercent}% (share of games with an untapped source of a needed color on turn 1)"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"Overall: {tap.OverallUntappedPercent}% of colored sources enter untapped"));
+
+        if (colorCount > 1)
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"{"Color",-12} {"Untapped",10}   Sources"));
+            sb.AppendLine(new string('-', 60));
+            foreach ((ManaColor color, ColorTapFinding f) in tap.ColorTap)
+            {
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                    $"{color,-12} {f.UntappedPercent,9}%   {f.UntappedSources:F1} of {f.TotalSources:F1}"));
+            }
+        }
     }
 
     private static void AppendVerdictBlock(

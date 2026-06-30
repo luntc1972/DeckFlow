@@ -154,6 +154,90 @@ public sealed class DeckStatClassifierTests
     }
 
     // -----------------------------------------------------------------------
+    // IsTutorCard
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Search your library for a card, then shuffle.", true)]            // generic tutor
+    [InlineData("Search your library for a creature card, reveal it.", true)]      // typed non-land tutor
+    [InlineData("Search your library for a nonland card, exile it, then shuffle.", true)]  // nonland tutor must not match the "land card" land-fetch exclusion
+    public void IsTutorCard_TrueCases(string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard(oracleText));
+    }
+
+    [Theory]
+    [InlineData("Search your library for a basic land card and put it onto the battlefield.", false)]  // Rampant Growth
+    [InlineData("Search your library for up to two basic land cards, then shuffle.", false)]           // Cultivate
+    [InlineData("Search your library for a Mountain, then put that land onto the battlefield.", false)]  // land onto battlefield
+    [InlineData("Draw a card.", false)]                                                                  // not a tutor
+    public void IsTutorCard_FalseCases(string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard(oracleText));
+    }
+
+    // -----------------------------------------------------------------------
+    // IsFastManaCard
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Artifact", "{T}: Add {C}{C}.", "", true)]            // Mana Crypt: MV 0, artifact, produces mana
+    [InlineData("Artifact", "Add {C}{C}{C}.", "", true)]              // Jeweled-Lotus-style: MV 0, "Add {"
+    public void IsFastManaCard_TrueCases(string typeLine, string oracleText, string manaCost, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsFastManaCard(typeLine, oracleText, manaCost));
+    }
+
+    [Theory]
+    [InlineData("Artifact", "{T}: Add {C}.", "{1}", false)]           // Sol Ring: MV 1, not fast mana
+    [InlineData("Creature — Elf", "{T}: Add {G}.", "{G}", false)]     // mana dork, not artifact
+    [InlineData("Artifact", "{T}: Tap target creature.", "", false)]  // MV 0 artifact but produces no mana
+    public void IsFastManaCard_FalseCases(string typeLine, string oracleText, string manaCost, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsFastManaCard(typeLine, oracleText, manaCost));
+    }
+
+    // -----------------------------------------------------------------------
+    // IsRampOrDrawUnderThreeMv
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Sorcery", "Draw two cards.", "{1}{U}", true)]                       // MV 2, draw
+    [InlineData("Artifact", "{T}: Add one mana of any color.", "{2}", true)]         // MV 2, ramp
+    public void IsRampOrDrawUnderThreeMv_TrueCases(string typeLine, string oracleText, string manaCost, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsRampOrDrawUnderThreeMv(typeLine, oracleText, manaCost));
+    }
+
+    [Theory]
+    [InlineData("Sorcery", "Draw four cards.", "{4}{U}", false)]                     // MV 5, over threshold
+    [InlineData("Instant", "Counter target spell.", "{U}", false)]                   // MV 1 but neither ramp nor draw
+    public void IsRampOrDrawUnderThreeMv_FalseCases(string typeLine, string oracleText, string manaCost, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsRampOrDrawUnderThreeMv(typeLine, oracleText, manaCost));
+    }
+
+    // -----------------------------------------------------------------------
+    // IsCounterspellCard
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Counter target spell.", true)]
+    [InlineData("Counter target spell unless its controller pays {3}.", true)]
+    public void IsCounterspellCard_TrueCases(string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsCounterspellCard(oracleText));
+    }
+
+    [Theory]
+    [InlineData("Counter target activated or triggered ability.", false)]  // ability counter, not spell
+    [InlineData("Destroy target creature.", false)]                        // not a counter
+    public void IsCounterspellCard_FalseCases(string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsCounterspellCard(oracleText));
+    }
+
+    // -----------------------------------------------------------------------
     // ParseManaToken
     // -----------------------------------------------------------------------
 

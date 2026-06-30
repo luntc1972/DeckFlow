@@ -98,6 +98,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     RampDrawBudget = result.Budget,
                     ShowPlainLanguage = result.ShowPlainLanguage,
                     ShowCommanderCastability = result.CommanderCastabilityEnabled,
+                    ShowTapAnalyzer = result.ShowTapAnalyzer,
                     CompanionCallout = result.CompanionRow,
                 });
             });
@@ -125,7 +126,8 @@ public sealed class ManabaseController : DeckToolControllerBase
                 var result = await RunAnalysisAsync(request, token);
 
                 string text = ManabaseReportTextBuilder.Build(
-                    result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget);
+                    result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget,
+                    tap: result.ShowTapAnalyzer ? result.Report.TapAnalysis : null);
                 string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
                 return File(

@@ -5,11 +5,13 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Globalization;
 using DeckFlow.Core.Analysis;
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using Microsoft.Extensions.Logging.Abstractions;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using Polly;
@@ -59,7 +61,8 @@ public sealed record DeckAnalysisPacketResult(
     string? ImportWarning = null,
     string? ResolvedCommanderName = null,
     string? DecklistText = null,
-    IReadOnlyDictionary<string, string>? SetUpgradeCardText = null);
+    IReadOnlyDictionary<string, string>? SetUpgradeCardText = null,
+    DeckMultiAxisScore? Score = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompt packets by hydrating decks via Scryfall, banlist, and Commander Spellbook lookups, then composing the JSON-bound prompt artifacts saved to the session zip.
@@ -77,6 +80,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
+    private readonly IGameChangerCatalogService _catalogService;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly ILogger<DeckAnalysisPacketService> _logger;
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
@@ -116,6 +120,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     internal const string CommandZoneAwarenessFlag = "analysis.command-zone-awareness";
 
     /// <summary>
+    /// Feature-flag key that, when enabled, computes a four-axis Power/Speed/Control/Consistency deck
+    /// score, renders it in the Step-3 results, and folds it into all three prompt artifacts. Default-off
+    /// (seeded FALSE); output is byte-identical when off. Gated on the EXPLICIT snapshot value (absent key,
+    /// null cache, or store-read failure all resolve to off) — never via IsEnabled() default-on semantics.
+    /// </summary>
+    internal const string MultiAxisScoreFlag = "analysis.multi-axis-score";
+
+    /// <summary>
     /// Upper bound (characters) applied to a resolved companion name before it reaches any prompt.
     /// Mirrors the manabase companion cap; combined with the single-line collapse it defeats
     /// newline/length-based prompt-structure injection from the free-form companion designator.
@@ -129,6 +141,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
         ICommanderSpellbookService commanderSpellbookService,
+        IGameChangerCatalogService catalogService,
         AnalysisPromptVariantRegistry analysisPromptRegistry,
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
@@ -141,6 +154,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(commanderBanListService);
         ArgumentNullException.ThrowIfNull(scryfallSetService);
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
+        ArgumentNullException.ThrowIfNull(catalogService);
         ArgumentNullException.ThrowIfNull(analysisPromptRegistry);
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
@@ -150,6 +164,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _commanderBanListService = commanderBanListService;
         _scryfallSetService = scryfallSetService;
         _commanderSpellbookService = commanderSpellbookService;
+        _catalogService = catalogService;
         _analysisPromptRegistry = analysisPromptRegistry;
         _setUpgradePromptRegistry = setUpgradePromptRegistry;
         _packetCache = packetCache;
@@ -378,6 +393,15 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 string.IsNullOrWhiteSpace(savedAnalysisResponse.Format) ? request.Format : savedAnalysisResponse.Format,
                 savedAnalysisResponse.DeckVersions.Count > 0);
             var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
+            // Score has no live Scryfall data to recompute on this early-return; restore it from the
+            // round-tripped ScoreJson hidden field (untrusted client input — deserialized into the typed
+            // record inside TryDeserializeScore, which returns null on malformed/oversized/invalid input).
+            // Gate the restore on the SAME explicit flag snapshot used at Step 2 so a crafted POST cannot
+            // surface the score UI while the flag is OFF — the OFF path stays byte-identical.
+            var scoreFlagEnabled = _flagCache is not null
+                && _flagCache.Snapshot().TryGetValue(MultiAxisScoreFlag, out var scoreFlagOn)
+                && scoreFlagOn;
+            var savedScore = scoreFlagEnabled ? TryDeserializeScore(request.ScoreJson) : null;
             return new DeckAnalysisPacketResult(
                 InputSummary: BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
                 SuggestedChatTitle: BuildSuggestedChatTitle(request, savedAnalysisResponse.Commander),
@@ -388,7 +412,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 RequestContextText: null,
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse,
-                ResolvedCommanderName: savedAnalysisResponse.Commander);
+                ResolvedCommanderName: savedAnalysisResponse.Commander,
+                Score: savedScore);
         }
 
         if (request.WorkflowStep == 5
@@ -531,6 +556,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         string? setUpgradePromptText = null;
         DeckAnalysisResponse? analysisResponse = null;
         SetUpgradeResponse? setUpgradeResponse = null;
+        DeckMultiAxisScore? computedScore = null;
 
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
@@ -608,9 +634,20 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     .ToList();
                 var cardReferenceRequests = BuildAnalysisCardReferenceRequests(deckEntries, analysisPossibleIncludeEntries);
 
+                // Multi-axis score (default-OFF). Gate on the EXPLICIT snapshot value (absent key, null
+                // cache, or store-read failure all resolve to off) so a flag-system fault never mutates
+                // output and the flag-OFF path stays byte-identical. NEVER IsEnabled() (default-on).
+                var scoreEnabled = _flagCache is not null
+                    && _flagCache.Snapshot().TryGetValue(MultiAxisScoreFlag, out var scoreOn)
+                    && scoreOn;
+
                 // Start combo lookup immediately — only needs deckEntries, independent of Scryfall lookups.
+                // Widen the SINGLE combo gate so the one fetch ALSO fires when the score flag is on (Power /
+                // Consistency need combo density even when no combo question was selected). The result is
+                // reused for BOTH the prompt combo-reference text and the score — never double-fetched.
                 var comboStopwatch = Stopwatch.StartNew();
-                var comboTask = AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions)
+                var requiresComboLookup = AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions);
+                var comboTask = (scoreEnabled || requiresComboLookup)
                     ? _commanderSpellbookService.FindCombosAsync(deckEntries, cancellationToken)
                     : Task.FromResult<CommanderSpellbookResult?>(null);
 
@@ -654,7 +691,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff, deckStatsText);
 
                 var comboResult = await comboTask.ConfigureAwait(false);
-                if (AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions))
+                // Keep the timing line gated on the prompt-side combo requirement so a score-only fetch
+                // does not add a "Commander Spellbook" timing row that the OFF path would not emit.
+                if (requiresComboLookup)
                 {
                     timings.Add(("Commander Spellbook", comboStopwatch.ElapsedMilliseconds, $"{comboResult?.IncludedCombos.Count ?? 0} combos, {comboResult?.AlmostIncludedCombos.Count ?? 0} near-combos"));
                 }
@@ -663,6 +702,38 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     comboStopwatch.ElapsedMilliseconds,
                     comboResult?.IncludedCombos.Count ?? 0,
                     comboResult?.AlmostIncludedCombos.Count ?? 0);
+
+                // Multi-axis score (flag-gated). Compute from the CURRENT-deck resolved card references
+                // (mirrors BuildDeckStatsText input prep), the bracket classification (Game Changers +
+                // two-card combos), and the reused combo result. comboDetectionAvailable distinguishes a
+                // null combo result (API unavailable) from an empty one (ran, found none) so the scorer
+                // never reports "0 combos" when detection simply failed (Pitfall 1).
+                string? scoreBlockText = null;
+                if (scoreEnabled)
+                {
+                    var comboDetectionAvailable = comboResult is not null;
+                    var scoreStats = DeckStatAggregator.Compute(cardReferenceBundle.CardReferences
+                        .Where(card => IsCurrentDeckScope(card.Scope) && !card.IsCommander)
+                        .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost)));
+
+                    IReadOnlyList<TwoCardCombo>? scoreTwoCardCombos = comboResult is null
+                        ? null
+                        : comboResult.IncludedCombos
+                            .Where(combo => combo.CardNames.Count == 2)
+                            .Select(combo => new TwoCardCombo(combo.CardNames, combo.Results))
+                            .ToList();
+
+                    var bracketClassification = BracketClassifier.Classify(
+                        deckEntries, _catalogService.GetCatalog(), scoreTwoCardCombos);
+
+                    computedScore = MultiAxisScorer.Score(
+                        scoreStats,
+                        bracketClassification.DetectedGameChangers.Count,
+                        scoreTwoCardCombos?.Count ?? 0,
+                        comboDetectionAvailable,
+                        bracketClassification.BracketNumber);
+                    scoreBlockText = BuildScoreBlockText(computedScore);
+                }
 
                 // Resolve commander name to oracle name if the deck used a renamed printing.
                 if (commanderName is not null && cardReferenceBundle.OracleNameMap.TryGetValue(commanderName, out var oracleCommanderName))
@@ -702,7 +773,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 var analysisDecklistText = includeCardVersions
                     ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
                     : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions, companionName);
+                // Keep the prompt-side combo-reference gate intact: only emit combo text when a combo
+                // question was selected, so widening the fetch for the score never changes prompt output.
+                var promptComboResult = requiresComboLookup ? comboResult : null;
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -743,7 +817,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ImportWarning: _lastImportNotice,
             ResolvedCommanderName: commanderName,
             DecklistText: decklistText,
-            SetUpgradeCardText: setUpgradeCardText);
+            SetUpgradeCardText: setUpgradeCardText,
+            Score: computedScore);
 
         // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
         // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
@@ -1193,14 +1268,89 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null)
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null)
     {
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
             commanderName, selectedQuestionIds, bannedCards,
-            comboResult, includeCardVersions, companionName);
+            comboResult, includeCardVersions, companionName, scoreBlockText);
     }
+
+    /// <summary>
+    /// Renders the multi-axis deck score as a paste-safe ASCII artifact block (UI-SPEC §10) folded into
+    /// each analysis prompt variant. Header, four aligned "Axis: N/5 Label (rationale)" lines, the bracket
+    /// cross-check note, and the heuristic disclaimer. ASCII only — plain hyphens, no em/en dashes.
+    /// Internal-static for direct unit testing via <c>[InternalsVisibleTo]</c>.
+    /// </summary>
+    /// <param name="score">The computed four-axis score.</param>
+    internal static string BuildScoreBlockText(DeckMultiAxisScore score)
+    {
+        ArgumentNullException.ThrowIfNull(score);
+        var builder = new StringBuilder();
+        builder.AppendLine("DECK SCORE (coarse 0-5 bands - magnitude, not quality)");
+        builder.AppendLine(FormatScoreAxisLine("Power", score.PowerBand, score.PowerRationale.SignalText));
+        builder.AppendLine(FormatScoreAxisLine("Speed", score.SpeedBand, score.SpeedRationale.SignalText));
+        builder.AppendLine(FormatScoreAxisLine("Control", score.ControlBand, score.ControlRationale.SignalText));
+        builder.AppendLine(FormatScoreAxisLine("Consistency", score.ConsistencyBand, score.ConsistencyRationale.SignalText));
+        builder.AppendLine($"Cross-check: {score.BracketCrossCheckText}");
+        builder.Append("(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)");
+        return builder.ToString();
+    }
+
+    /// <summary>Formats one score axis line: <c>"  Power:       4/5  High      (rationale)"</c>.</summary>
+    private static string FormatScoreAxisLine(string axisLabel, int band, string rationale)
+        => $"  {(axisLabel + ":").PadRight(12)} {band}/5  {MultiAxisScorer.BandLabel(band).PadRight(9)} ({rationale})";
+
+    /// <summary>
+    /// Deserializes the round-tripped <c>ScoreJson</c> hidden field (untrusted client input) into the
+    /// typed <see cref="DeckMultiAxisScore"/>. Returns <see langword="null"/> on empty, malformed, or
+    /// oversized input — never throws, never reflects/evals the client string (threat T-77-04-01).
+    /// </summary>
+    /// <param name="scoreJson">The serialized score from the hidden form field.</param>
+    private static DeckMultiAxisScore? TryDeserializeScore(string? scoreJson)
+    {
+        if (string.IsNullOrWhiteSpace(scoreJson) || scoreJson.Length > MaxScoreJsonLength)
+        {
+            return null;
+        }
+
+        try
+        {
+            var score = JsonSerializer.Deserialize<DeckMultiAxisScore>(scoreJson);
+            return IsStructurallyValidScore(score) ? score : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Validates a deserialized <see cref="DeckMultiAxisScore"/> from untrusted client input. Well-formed
+    /// JSON can still omit the nested rationale records or carry out-of-range bands; the Razor view
+    /// dereferences each rationale's <c>SignalText</c>, so an unchecked null would crash the request.
+    /// Returns <see langword="false"/> for any null rationale/text/cross-check or any band outside 0..5,
+    /// so <see cref="TryDeserializeScore"/> yields a null score instead (threat T-77-04-01).
+    /// </summary>
+    private static bool IsStructurallyValidScore(DeckMultiAxisScore? score)
+        => score is not null
+            && score.PowerRationale?.SignalText is not null
+            && score.SpeedRationale?.SignalText is not null
+            && score.ControlRationale?.SignalText is not null
+            && score.ConsistencyRationale?.SignalText is not null
+            && score.BracketCrossCheckText is not null
+            && score.PowerBand is >= 0 and <= 5
+            && score.SpeedBand is >= 0 and <= 5
+            && score.ControlBand is >= 0 and <= 5
+            && score.ConsistencyBand is >= 0 and <= 5;
+
+    /// <summary>
+    /// Upper bound (characters) on the round-tripped ScoreJson hidden field. The serialized score is a
+    /// handful of ints plus four short ASCII rationale strings; this cap defeats an oversized-payload DoS
+    /// from a crafted form post before deserialization runs (threat T-77-04-01).
+    /// </summary>
+    private const int MaxScoreJsonLength = 8192;
 
 
     /// <summary>

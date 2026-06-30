@@ -25,6 +25,11 @@ public static class ManabaseDisplay
     public const string DemandingCardsGloss =
         "The hardest spells to cast on time with this mana base - the cards most likely to expose weak support.";
 
+    /// <summary>Plain-language gloss for the tap-analyzer card (shown when ShowPlainLanguage is also on).</summary>
+    public const string TapAnalyzerGloss =
+        "Tapped lands (Temples, tri-lands, taplands) can't tap for mana the turn they enter, " +
+        "so they push back your first castable turn. Higher untapped % = faster, smoother starts.";
+
     /// <summary>
     /// Maps a <see cref="CardCastability.LimitingFactor"/> token (<c>"mana"</c>, <c>"color:U"</c>,
     /// <c>"both"</c>) to a human-readable phrase for the table's "Limiting" column.
@@ -74,6 +79,16 @@ public static class ManabaseDisplay
 
         return ("manabase-chip--good", "good");
     }
+
+    /// <summary>
+    /// Maps an untapped-source percentage to a (cssClass, glyph) pair for the tap-analyzer card.
+    /// ≥80% = met (✓); below = short (⚠). Flat 80% threshold (decision D4), mode-independent and
+    /// informational only — never contradicts or affects the health verdict.
+    /// </summary>
+    public static (string Css, string Marker) TapMarker(int untappedPercent)
+        => untappedPercent >= 80
+            ? ("manabase-lens-met", "✓")
+            : ("manabase-lens-short", "⚠");
 
     /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
     public static string HealthLabel(ManabaseHealth health) => ManabaseLabels.Health(health);

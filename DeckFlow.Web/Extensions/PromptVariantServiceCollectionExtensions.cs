@@ -1,4 +1,5 @@
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
@@ -10,14 +11,14 @@ namespace DeckFlow.Web.Extensions;
 
 /// <summary>
 /// DI registration extension for the AiPlatform prompt-builder strategy registries
-/// (Phase 15-02). One extension call wires all six prompt-variant families (Analysis,
-/// SetUpgrade, Comparison, FollowUp, MetaGap, Primer) — ChatGpt/Claude/Gemini variants
+/// (Phase 15-02). One extension call wires all seven prompt-variant families (Analysis,
+/// SetUpgrade, Comparison, FollowUp, MetaGap, Primer, Bracket) — ChatGpt/Claude/Gemini variants
 /// plus their per-family registries.
 /// </summary>
 public static class PromptVariantServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the six prompt-variant families and their registries as singletons.
+    /// Registers the seven prompt-variant families and their registries as singletons.
     /// Each family has three platform-specific implementations (ChatGpt, Claude, Gemini)
     /// and a registry that selects the correct variant at runtime.
     /// </summary>
@@ -52,6 +53,11 @@ public static class PromptVariantServiceCollectionExtensions
         services.AddSingleton<IPrimerPromptVariant, ClaudePrimerPromptVariant>();
         services.AddSingleton<IPrimerPromptVariant, GeminiPrimerPromptVariant>();
         services.AddSingleton<PrimerPromptVariantRegistry>();
+        // Phase 76: Bracket classification + balancer prompt variants (ADR-0001 — decoupled)
+        services.AddSingleton<IBracketPromptVariant, ChatGptBracketPromptVariant>();
+        services.AddSingleton<IBracketPromptVariant, ClaudeBracketPromptVariant>();
+        services.AddSingleton<IBracketPromptVariant, GeminiBracketPromptVariant>();
+        services.AddSingleton<BracketPromptVariantRegistry>();
 
         return services;
     }

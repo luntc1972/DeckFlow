@@ -223,7 +223,11 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.health-band-headline-floor', TRUE),
           ('analysis.manabase.plain-language-verdict', FALSE),
           ('analysis.manabase.commander-castability', FALSE),
-          ('analysis.command-zone-awareness', FALSE)
+          ('analysis.manabase.tap-analyzer', FALSE),
+          ('analysis.command-zone-awareness', FALSE),
+          ('tool.bracket.enabled', FALSE),
+          ('analysis.multi-axis-score', FALSE),
+          ('tool.primer.stale-flag', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -255,7 +259,11 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.health-band-headline-floor', 1),
           ('analysis.manabase.plain-language-verdict', 0),
           ('analysis.manabase.commander-castability', 0),
-          ('analysis.command-zone-awareness', 0)
+          ('analysis.manabase.tap-analyzer', 0),
+          ('analysis.command-zone-awareness', 0),
+          ('tool.bracket.enabled', 0),
+          ('analysis.multi-axis-score', 0),
+          ('tool.primer.stale-flag', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 

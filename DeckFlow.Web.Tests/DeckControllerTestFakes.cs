@@ -209,6 +209,27 @@ internal sealed class ThrowingCardSearchService : ICardSearchService
         => Task.FromException<IReadOnlyList<string>>(_exception);
 }
 
+internal sealed class StubCardSearchService : ICardSearchService
+{
+    private readonly IReadOnlyList<string> _commanderResults;
+
+    public StubCardSearchService(params string[] commanderResults)
+    {
+        _commanderResults = commanderResults;
+    }
+
+    public string? LastCommanderQuery { get; private set; }
+
+    public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+
+    public Task<IReadOnlyList<string>> SearchCommandersAsync(string query, CancellationToken cancellationToken = default)
+    {
+        LastCommanderQuery = query;
+        return Task.FromResult(_commanderResults);
+    }
+}
+
 internal sealed class FakeCardLookupService : ICardLookupService
 {
     public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)

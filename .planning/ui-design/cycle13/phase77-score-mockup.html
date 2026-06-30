@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phase 77 — Multi-Axis Deck Score (mockup)</title>
+
+<!-- Real DeckFlow CSS: common first (layout, all themes inherit), then the theme fork. -->
+<link id="theme-common" rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site-common.css" />
+<link id="theme-link" rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site.css" />
+<link rel="stylesheet" href="../../../DeckFlow.Web/wwwroot/css/site-mobile.css" />
+
+<style>
+  /* =====================================================================
+     NET-NEW classes introduced by Phase 77 (UI-SPEC §4). Defined inline
+     here only so the mockup previews; the real home is site-common.css.
+     All colors are var(--token) so they re-theme on the switcher.
+     ===================================================================== */
+
+  /* Proposed band-color tokens — sequential intensity ramp (light->dark),
+     theme-independent + baked ink (same pattern as .manabase-health--*),
+     so a band pill reads on light AND dark themes without relying on the
+     per-theme surface --info/--warning tokens. Lives in every theme :root. */
+  :root {
+    --score-band-0-bg: #cbd5e1; --score-band-0-ink: #1c1917; /* None     */
+    --score-band-1-bg: #93c5fd; --score-band-1-ink: #1c1917; /* Low      */
+    --score-band-2-bg: #60a5fa; --score-band-2-ink: #0b1220; /* Modest   */
+    --score-band-3-bg: #3b82f6; --score-band-3-ink: #ffffff; /* Moderate */
+    --score-band-4-bg: #2563eb; --score-band-4-ink: #ffffff; /* High     */
+    --score-band-5-bg: #1e3a8a; --score-band-5-ink: #ffffff; /* Extreme  */
+  }
+
+  .chatgpt-score { margin: 0.5rem 0 1.25rem; }
+
+  .chatgpt-score__eyebrow {
+    margin: 0 0 0.6rem;
+    font-size: var(--fs-xs, 0.75rem);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted, #5a6472);
+  }
+
+  .chatgpt-score-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .chatgpt-score-card {
+    background: var(--panel-soft-bg, var(--surface, transparent));
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+    border-radius: 12px;
+    padding: 0.85rem 0.85rem 0.95rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .chatgpt-score-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted, #5a6472);
+    font-weight: 600;
+  }
+
+  .chatgpt-score-value {
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent-strong, var(--accent, inherit));
+  }
+  .chatgpt-score-value > span { /* the "/5" denominator */
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted, #5a6472);
+    margin-left: 0.15rem;
+  }
+
+  /* Pip meter — non-color redundancy for the band level (a11y, decorative). */
+  .chatgpt-score-meter {
+    display: flex;
+    gap: 4px;
+  }
+  .chatgpt-score-pip {
+    width: 16px;
+    height: 8px;
+    border-radius: 3px;
+    background: transparent;
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.3));
+  }
+  .chatgpt-score-pip--filled {
+    background: var(--accent-strong, var(--accent, #1e4f82));
+    border-color: var(--accent-strong, var(--accent, #1e4f82));
+  }
+
+  .chatgpt-score-band {
+    display: inline-block;
+    padding: 0.12rem 0.7rem;
+    border-radius: 999px;
+    font-size: var(--fs-sm, 0.8rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+  }
+  .chatgpt-score-band--0 { background: var(--score-band-0-bg); color: var(--score-band-0-ink); }
+  .chatgpt-score-band--1 { background: var(--score-band-1-bg); color: var(--score-band-1-ink); }
+  .chatgpt-score-band--2 { background: var(--score-band-2-bg); color: var(--score-band-2-ink); }
+  .chatgpt-score-band--3 { background: var(--score-band-3-bg); color: var(--score-band-3-ink); }
+  .chatgpt-score-band--4 { background: var(--score-band-4-bg); color: var(--score-band-4-ink); }
+  .chatgpt-score-band--5 { background: var(--score-band-5-bg); color: var(--score-band-5-ink); }
+
+  .chatgpt-score-rationale {
+    margin: 0.15rem 0 0;
+    font-size: var(--fs-xs, 0.75rem);
+    line-height: 1.35;
+    color: var(--muted, #5a6472);
+  }
+
+  /* Bracket cross-check note — bracket-callout shape (left border + soft bg). */
+  .chatgpt-score-crosscheck {
+    margin: 1rem 0 0;
+    padding: 0.7rem 0.9rem;
+    border-left: 4px solid var(--accent-strong, var(--accent, #1e4f82));
+    border-radius: 8px;
+    background: var(--panel-soft-bg, rgba(127, 127, 127, 0.08));
+    font-size: var(--fs-sm, 0.85rem);
+  }
+  .chatgpt-score-crosscheck__label {
+    display: block;
+    margin-bottom: 0.2rem;
+    font-size: var(--fs-xs, 0.72rem);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted, #5a6472);
+  }
+  .chatgpt-score-crosscheck--agree   { border-left-color: var(--success, #2f855a); }
+  .chatgpt-score-crosscheck--diverge { border-left-color: var(--gold-warning, var(--warning, #c8a040)); }
+
+  @media (max-width: 860px) {
+    .chatgpt-score-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 520px) {
+    .chatgpt-score-grid { grid-template-columns: 1fr; }
+  }
+
+  /* mockup-only theme switcher chrome (not shipped) */
+  .mockup-theme-switch {
+    position: fixed; top: 12px; right: 12px; z-index: 9999;
+    display: flex; gap: 6px; align-items: center;
+    padding: 6px 8px; border-radius: 8px;
+    background: rgba(20,20,28,0.82); color: #fff;
+    font: 600 12px/1 system-ui, sans-serif;
+  }
+  .mockup-theme-switch button {
+    cursor: pointer; border: 1px solid #ffffff55; background: transparent;
+    color: #fff; border-radius: 5px; padding: 4px 8px; font: inherit;
+  }
+  .mockup-theme-switch button:hover { background: #ffffff22; }
+</style>
+</head>
+<body>
+
+<div class="mockup-theme-switch" aria-hidden="true">
+  <span>Theme</span>
+  <button type="button" data-theme="site.css">Jeskai</button>
+  <button type="button" data-theme="site-azorius.css">Azorius</button>
+  <button type="button" data-theme="site-nyx.css">Nyx</button>
+</div>
+
+<div class="page-shell">
+  <div class="page-frame">
+    <main class="content-shell">
+
+      <section class="hero">
+        <h1>Deck Analysis</h1>
+        <p class="page-lede">Generate a prompt to paste into ChatGPT, Claude, or Gemini.</p>
+      </section>
+
+      <!-- Step 3 results panel (existing host). Najeela cEDH-leaning mid list. -->
+      <section class="result-panel chatgpt-step-panel" role="tabpanel" aria-label="Step 3: Analysis Results">
+        <div class="chatgpt-step-heading">
+          <div>
+            <p class="chatgpt-step-eyebrow">Step 3</p>
+            <h2>Analysis results</h2>
+          </div>
+          <span class="chatgpt-step-badge">Review results</span>
+        </div>
+
+        <section class="result-panel nested-panel summary-panel">
+          <h3>Analysis Summary</h3>
+
+          <!-- ============ NET-NEW: Multi-Axis Deck Score (above per-category) ============ -->
+          <div class="chatgpt-score">
+            <p class="chatgpt-score__eyebrow">Deck Score · four coarse bands (0–5) from your decklist signals</p>
+
+            <div class="chatgpt-score-grid">
+
+              <!-- POWER = 4 / High -->
+              <div class="chatgpt-score-card" role="group" aria-label="Power score: 4 of 5, High">
+                <span class="chatgpt-score-label">Power</span>
+                <span class="chatgpt-score-value">4<span>/5</span></span>
+                <span class="chatgpt-score-meter" aria-hidden="true">
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip"></span>
+                </span>
+                <span class="chatgpt-score-band chatgpt-score-band--4">High</span>
+                <p class="chatgpt-score-rationale">4 Game Changers · 2 two-card combos · 9 fast-mana sources</p>
+              </div>
+
+              <!-- SPEED = 3 / Moderate -->
+              <div class="chatgpt-score-card" role="group" aria-label="Speed score: 3 of 5, Moderate">
+                <span class="chatgpt-score-label">Speed</span>
+                <span class="chatgpt-score-value">3<span>/5</span></span>
+                <span class="chatgpt-score-meter" aria-hidden="true">
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip"></span>
+                  <span class="chatgpt-score-pip"></span>
+                </span>
+                <span class="chatgpt-score-band chatgpt-score-band--3">Moderate</span>
+                <p class="chatgpt-score-rationale">avg MV 2.6 · 9 fast-mana · 7 ramp/draw under 3 MV</p>
+              </div>
+
+              <!-- CONTROL = 4 / High -->
+              <div class="chatgpt-score-card" role="group" aria-label="Control score: 4 of 5, High">
+                <span class="chatgpt-score-label">Control</span>
+                <span class="chatgpt-score-value">4<span>/5</span></span>
+                <span class="chatgpt-score-meter" aria-hidden="true">
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip"></span>
+                </span>
+                <span class="chatgpt-score-band chatgpt-score-band--4">High</span>
+                <p class="chatgpt-score-rationale">11 interaction pieces · 4 board wipes · 3 counters</p>
+              </div>
+
+              <!-- CONSISTENCY = 3 / Moderate -->
+              <div class="chatgpt-score-card" role="group" aria-label="Consistency score: 3 of 5, Moderate">
+                <span class="chatgpt-score-label">Consistency</span>
+                <span class="chatgpt-score-value">3<span>/5</span></span>
+                <span class="chatgpt-score-meter" aria-hidden="true">
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip chatgpt-score-pip--filled"></span>
+                  <span class="chatgpt-score-pip"></span>
+                  <span class="chatgpt-score-pip"></span>
+                </span>
+                <span class="chatgpt-score-band chatgpt-score-band--3">Moderate</span>
+                <p class="chatgpt-score-rationale">8 tutors · 2 redundant combo lines · smooth 2.6 curve</p>
+              </div>
+
+            </div>
+
+            <!-- Bracket cross-check (agreement variant shown) -->
+            <div class="chatgpt-score-crosscheck chatgpt-score-crosscheck--agree" role="note">
+              <span class="chatgpt-score-crosscheck__label">✓ Cross-check</span>
+              Score aligns with the Bracket 4 classification — high Power + high Speed + 2 two-card combos
+              are consistent with B4.
+            </div>
+          </div>
+          <!-- ============ /Multi-Axis Deck Score ============ -->
+
+          <!-- Stub per-category analysis (existing breakdown, abbreviated) -->
+          <div class="stack">
+            <section class="result-panel nested-panel">
+              <h4>Overview</h4>
+              <p><strong>Commander:</strong> Najeela, the Blade-Blossom</p>
+              <p><strong>Game plan:</strong> Warrior tokens into infinite combat via Najeela + untap, backed by a dense interaction shell.</p>
+              <p><strong>Assessed bracket:</strong> Bracket 4 — Optimized</p>
+            </section>
+
+            <div class="sync-columns">
+              <section class="result-panel nested-panel">
+                <h4>Strengths</h4>
+                <ul>
+                  <li>Fast, redundant combo finish (Najeela untap loop).</li>
+                  <li>Dense interaction package protects the combo turn.</li>
+                  <li>Mana Crypt / Jeweled Lotus enable explosive starts.</li>
+                </ul>
+              </section>
+              <section class="result-panel nested-panel">
+                <h4>Weaknesses</h4>
+                <ul>
+                  <li>Relies on the commander; heavy on removal bait.</li>
+                  <li>Consistency capped without more tutors-to-combo.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- Divergence-state reference (so reviewers can see the second cross-check style) -->
+      <section class="result-panel nested-panel" style="margin-top:1rem;">
+        <p class="chatgpt-score__eyebrow">Reference · divergence state of the cross-check note</p>
+        <div class="chatgpt-score-crosscheck chatgpt-score-crosscheck--diverge" role="note">
+          <span class="chatgpt-score-crosscheck__label">⚠ Cross-check</span>
+          Score and bracket disagree — verify with your AI. Power reads 5 (Extreme) but the deck
+          classified as Bracket 2. Re-check Game Changers membership and combo count before trusting
+          either figure.
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  // Mockup-only: swap the theme stylesheet, keep site-common.css loaded first.
+  document.querySelectorAll('.mockup-theme-switch button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('theme-link').setAttribute(
+        'href', '../../../DeckFlow.Web/wwwroot/css/' + btn.dataset.theme);
+    });
+  });
+</script>
+</body>
+</html>

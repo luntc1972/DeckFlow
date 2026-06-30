@@ -363,6 +363,50 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_TapAnalyzerFlagAbsent_ShowTapAnalyzerFalse()
+    {
+        var (entries, cards) = CurveFixture();
+        // No cache at all → IsFlagOn(TapAnalyzerFlagKey) returns false (fail-safe OFF).
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.False(GetResultShowTapAnalyzer(result));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_TapAnalyzerFlagExplicitlyFalse_ShowTapAnalyzerFalse()
+    {
+        var (entries, cards) = CurveFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.TapAnalyzerFlagKey] = false,
+            }));
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.False(GetResultShowTapAnalyzer(result));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_TapAnalyzerFlagOn_ShowTapAnalyzerTrue()
+    {
+        var (entries, cards) = CurveFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.TapAnalyzerFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.True(GetResultShowTapAnalyzer(result));
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DefaultMode_IsCasual()
     {
         var (entries, cards) = CurveFixture();
@@ -676,6 +720,13 @@ public sealed class ManabaseAnalysisServiceTests
     {
         PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("CommanderCastabilityEnabled")
             ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.CommanderCastabilityEnabled property missing.");
+        return (bool)(property.GetValue(result) ?? false);
+    }
+
+    private static bool GetResultShowTapAnalyzer(ManabaseAnalysisResult result)
+    {
+        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowTapAnalyzer")
+            ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowTapAnalyzer property missing.");
         return (bool)(property.GetValue(result) ?? false);
     }
 

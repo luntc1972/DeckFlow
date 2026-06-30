@@ -38,10 +38,11 @@ public sealed class MetaGapData
     public int RefDeckCount { get; init; }
 
     /// <summary>
-    /// Overall cEDH readiness score used to rank how close the deck is to the reference meta.
+    /// Overall cEDH readiness score (0-10) used to rank how close the deck is to the reference
+    /// meta. Stored as a double because AIs routinely return a fractional value (e.g. 9.7).
     /// </summary>
     [JsonPropertyName("readiness_score")]
-    public int ReadinessScore { get; init; }
+    public double ReadinessScore { get; init; }
 
     /// <summary>
     /// Explanation for the readiness score shown alongside the numeric rating.

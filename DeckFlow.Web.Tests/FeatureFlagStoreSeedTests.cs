@@ -37,7 +37,11 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.health-band-headline-floor", true)]
     [InlineData("analysis.manabase.plain-language-verdict", false)]
     [InlineData("analysis.manabase.commander-castability", false)]
+    [InlineData("analysis.manabase.tap-analyzer", false)] // TAP-04: seeded OFF
     [InlineData("analysis.command-zone-awareness", false)]
+    [InlineData("tool.bracket.enabled", false)] // BRACKET-05: seeded OFF
+    [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
+    [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);

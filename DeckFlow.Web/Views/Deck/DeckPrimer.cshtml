@@ -86,6 +86,10 @@
         </button>
     </div>
     @Html.AntiForgeryToken()
+    @if (Model.StaleDetectionEnabled && !string.IsNullOrEmpty(Model.GeneratedPrimerHash))
+    {
+        <input type="hidden" name="GeneratedPrimerHash" value="@Model.GeneratedPrimerHash" />
+    }
 
     <details class="chatgpt-resume">
         <summary>Resume from a saved session (.zip)</summary>
@@ -283,6 +287,26 @@
             </div>
             <span class="chatgpt-step-badge">Paste-ready output</span>
         </div>
+
+        @if (Model.StaleDetectionEnabled && Model.IsStale && !string.IsNullOrWhiteSpace(Model.PrimerPromptText))
+        {
+            var count = Model.ChangedCardCount;
+            <div class="deck-restored-notice deck-restored-notice--stale" role="status">
+                <span>
+                    <span class="sr-only">Status: </span>
+                    @if (count.HasValue && count > 0)
+                    {
+                        var differ = count == 1 ? "1 card differs" : $"{count} cards differ";
+                        <span>⚠ Deck changed since this primer was generated — @differ. Regenerate to refresh the primer.</span>
+                    }
+                    else
+                    {
+                        <span>⚠ Deck changed since this primer was generated. Regenerate to refresh the primer.</span>
+                    }
+                </span>
+                <button type="submit" class="run-button">Regenerate primer</button>
+            </div>
+        }
 
         @if (!string.IsNullOrWhiteSpace(Model.SuggestedChatTitle))
         {

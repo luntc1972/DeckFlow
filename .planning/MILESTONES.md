@@ -1,5 +1,18 @@
 # Milestones
 
+## Cycle 13 — Deck Evaluation & Creator Output (Shipped: 2026-06-30, `2026.06.10`)
+
+**Phases:** 75-78, developed on branch `plan/cycle-13-deck-eval` and squash-merged to `main` (per the one-branch-per-cycle convention), capped by the `2026.06.10` tag.
+
+**Key accomplishments:**
+
+- **Tap Analyzer surface (Phase 75):** the manabase report and paste artifact expose untapped-source frequency (overall + per color) and turn-1 untapped availability — discrete metrics read off counters already accumulated inside the existing 20k-trial castability simulation (no second pass). Flag `analysis.manabase.tap-analyzer`.
+- **Bracket Classifier + Balancer (Phase 76):** auto-classify a deck into the official 5-tier Commander bracket (B1-B5) from Game Changers, two-card combos (Commander Spellbook), and mass land denial — with why-this-bracket reasons, tier-aware floor violations, and a balancer paste artifact for the cuts to reach a target bracket. Game Changers migrated to a versioned `bracket-data.json` (out of `.cs` literals). Tutors are not a bracket gate (Oct-2025 rubric). Own tool tile, flag `tool.bracket.enabled`.
+- **Multi-Axis Deck Score (Phase 77):** a four-axis Power / Speed / Control / Consistency score (coarse 0-5 bands) folded into the `/deck-analysis` results panel and all three paste variants (ChatGPT/Claude/Gemini), with a bracket cross-check note. Deterministic `DeckFlow.Core` heuristics — no AI round-trip for the numbers. Flag `analysis.multi-axis-score`.
+- **Auto-Refreshing Primer (Phase 78):** a stale-flag caution banner on the Deck Primer when the current deck differs from the deck a saved primer was generated against. Activates on the resume-without-rebuild path (upload a saved `.zip` while Step 1 holds a different deck) — renders the old primer verbatim, no auto-rebuild and no upstream re-fetch. Staleness is a card-name + quantity multiset hash (reorder / printing-swap stay fresh). Flag `tool.primer.stale-flag`.
+
+**Quality:** build 0/0; Core suite 945 pass, Web suite 1062 (1049 pass / 12 skipped at close, the 13th gap fixed). CI green on `main` after merge. Per-phase: gsd-verifier PASS (75-77), operator live theme/mobile sign-off (75-04, 76, 77-06, 78-03). All four cycle flags (`analysis.manabase.tap-analyzer`, `tool.bracket.enabled`, `analysis.multi-axis-score`, `tool.primer.stale-flag`) seeded OFF — operator flips them in prod when ready. Manual prod deploy owed (autodeploy OFF).
+
 ## Cycle 12 — Manabase Accuracy, Command-Zone Awareness & Cross-Tool Persistence (Shipped: 2026-06-27, `2026.06.9`)
 
 **Phases:** 70-74 + flag-key namespacing, shipped as trunk/ad-hoc work on `main` (linear history, capped by the `2026.06.9` tag — not a single squash, since the phases were ff-pushed individually as they shipped).

@@ -46,4 +46,7 @@ public enum DeckPageTab
 
     /// <summary>Mana-base analysis page.</summary>
     Manabase = 14,
+
+    /// <summary>Bracket classifier and balancer page.</summary>
+    Bracket = 15,
 }

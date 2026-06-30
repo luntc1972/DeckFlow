@@ -1,0 +1,338 @@
+@using DeckFlow.Core.Bracket
+@using DeckFlow.Web.Models
+@model DeckFlow.Web.Models.BracketViewModel
+@{
+    ViewData["Title"] = "Bracket Check";
+    var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
+    var cl = Model.Classification;
+
+    // Tiers: from the classification result or a static fallback so the pill picker always renders.
+    var tiers = (IReadOnlyList<BracketTier>)(Model.Tiers ?? new[]
+    {
+        new BracketTier(1, "Exhibition", "Bracket 1: Exhibition", "Theme-first showcase decks; optimization takes a back seat.", "Expect 9+ turns", 0),
+        new BracketTier(2, "Core", "Bracket 2: Core", "Unoptimized, straightforward decks with incremental, disruptable wins.", "Expect 8+ turns", 0),
+        new BracketTier(3, "Upgraded", "Bracket 3: Upgraded", "Strong synergy and card quality with meaningful interaction; explosive but earned wins.", "Expect 6+ turns", 3),
+        new BracketTier(4, "Optimized", "Bracket 4: Optimized", "Fast, lethal, efficient decks with Game Changers, fast mana, and explosive lines.", "Expect 4+ turns", -1),
+        new BracketTier(5, "cEDH", "Bracket 5: cEDH", "Metagame-tuned competitive Commander built for maximum efficiency and consistency.", "Games can end any turn", -1),
+    });
+
+    // Target-tier lookup (for bracket cap and labels in the result panel).
+    var targetTier = Model.TargetBracketNumber.HasValue
+        ? tiers.FirstOrDefault(t => t.Number == Model.TargetBracketNumber.Value)
+        : null;
+    var currentTier = cl is not null ? tiers.FirstOrDefault(t => t.Number == cl.BracketNumber) : null;
+}
+
+<section class="hero">
+    <h1>Bracket Check</h1>
+    <p class="lede">Classify a Commander deck into its official 1-5 bracket and balance it toward a target — the classification is computed locally, no AI needed.</p>
+    <details class="hero-detail">
+        <summary>How it works</summary>
+        <p>The official bracket system (effective late 2025) sorts decks by what they do, not how strong each card is: how many Game Changers they run, whether they pack a two-card win combo, and whether they lean on mass land denial, extra turns, or mass extra-card draw. There is no separate tutor-count gate — the old "count your tutors" rule was dropped in 2025 — but specific powerful tutors such as Demonic Tutor and Vampiric Tutor appear on the official Game Changers list and still count. Pick a target bracket and we list the specific cards pushing you over it, plus starter cuts — then a copy-ready prompt has an AI refine them into fair swaps.</p>
+    </details>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="error-banner @(string.IsNullOrWhiteSpace(Model.ErrorMessage) ? "hidden" : string.Empty)" role="alert">
+    @Model.ErrorMessage
+</div>
+
+<form method="post" action="@Url.Content("~/bracket")" class="result-panel"
+      data-busy-title="Classifying deck"
+      data-busy-message="Loading the deck and checking for Game Changers, combos, and mass land denial."
+      data-busy-progress="Loading the deck|Detecting Game Changers|Checking combos|Building the result">
+    @Html.AntiForgeryToken()
+
+    <div class="field">
+        <label for="bracket-input-source">Input method</label>
+        <select id="bracket-input-source" name="DeckInputSource" data-df-select>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
+        </select>
+    </div>
+
+    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="bracket-deck-url">
+        <label for="bracket-deck-url">Archidekt or Moxfield deck URL</label>
+        <input id="bracket-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
+               placeholder="https://moxfield.com/decks/…" value="@Model.Request.DeckUrl" />
+        @await Html.PartialAsync("_DeckFlowBridgeHint")
+    </div>
+
+    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="bracket-deck-text">
+        <label for="bracket-deck-text">Paste a decklist (one card per line)</label>
+        <textarea id="bracket-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
+                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
+    </div>
+
+    <div class="field">
+        <label for="bracket-deck-name">Deck name (optional)</label>
+        <input id="bracket-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
+               placeholder="e.g. Najeela Stax" value="@Model.Request.DeckName" />
+    </div>
+
+    <fieldset class="manabase-segmented" role="radiogroup">
+        <legend>Target bracket (optional)</legend>
+        <div class="manabase-pills">
+            @foreach (var tier in tiers)
+            {
+                <label class="manabase-pill @(Model.Request.TargetBracketNumber == tier.Number ? "is-selected" : null)">
+                    <input type="radio" name="TargetBracketNumber" value="@tier.Number"
+                           checked="@(Model.Request.TargetBracketNumber == tier.Number ? "checked" : null)" />
+                    <span>B@(tier.Number) @tier.Name</span>
+                </label>
+            }
+        </div>
+        <p class="manabase-help">Leave unset to just classify. Pick a target to get the cards that exceed it plus suggested cuts.</p>
+    </fieldset>
+
+    @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
+
+    <div class="toolbar">
+        <button type="submit" class="run-button">Classify deck</button>
+        <a href="@Url.Content("~/bracket")" class="clear-cache-button" role="button" data-no-busy>Start over</a>
+    </div>
+</form>
+
+@if (Model.HasResult && cl is not null)
+{
+    <section class="result-panel" data-scroll-on-load>
+        @* Bracket badge — classified tier headline *@
+        @{
+            var badgeModifier = "bracket-badge--b" + cl.BracketNumber.ToString();
+            var currentTierName = currentTier?.Name ?? cl.BracketNumber.ToString();
+            var badgeAriaLabel = "Classified as bracket " + cl.BracketNumber.ToString() + ", " + currentTierName;
+        }
+        <div class="bracket-badge @badgeModifier" aria-label="@badgeAriaLabel">
+            <p class="bracket-badge__eyebrow">THIS DECK CLASSIFIES AS</p>
+            <p class="bracket-badge__tier">B@(cl.BracketNumber)</p>
+            <p class="bracket-badge__name">@(currentTier?.Name ?? string.Empty)</p>
+            <p class="bracket-badge__meta">@(currentTier?.Summary ?? string.Empty)</p>
+        </div>
+
+        @* Target comparison line *@
+        @if (Model.HasTarget && targetTier is not null)
+        {
+            if (Model.IsOverTarget)
+            {
+                var bracketDiff = cl.BracketNumber - Model.TargetBracketNumber!.Value;
+                var overText = "Target: B" + targetTier.Number.ToString() + " " + targetTier.Name
+                    + " — this deck is " + bracketDiff.ToString()
+                    + " bracket" + (bracketDiff == 1 ? string.Empty : "s") + " over.";
+                <p>@overText</p>
+            }
+            else
+            {
+                <p>Meets your B@(targetTier.Number) @targetTier.Name target — nothing to cut.</p>
+            }
+        }
+
+        @* WHY THIS BRACKET reasons verdict *@
+        @{
+            var gcCount = cl.DetectedGameChangers.Count;
+            var targetMaxGC = targetTier?.MaxGameChangers ?? -1;
+
+            // Build the Game Changers summary line.
+            string gcLine;
+            if (targetTier is not null && targetMaxGC >= 0)
+            {
+                // Current bracket may or may not have a cap.
+                var currentCapPart = cl.BracketNumber >= 4 ? "has no cap" : "allows up to " + (currentTier?.MaxGameChangers >= 0 ? currentTier!.MaxGameChangers.ToString() : "0");
+                gcLine = gcCount.ToString() + " Game Changer" + (gcCount != 1 ? "s" : string.Empty)
+                    + " (B" + cl.BracketNumber.ToString() + " " + currentCapPart
+                    + "; B" + targetTier.Number.ToString() + " allows up to " + targetMaxGC.ToString() + ").";
+            }
+            else if (cl.BracketNumber >= 4)
+            {
+                gcLine = gcCount.ToString() + " Game Changer" + (gcCount != 1 ? "s" : string.Empty)
+                    + " (no cap at B" + cl.BracketNumber.ToString() + ").";
+            }
+            else
+            {
+                gcLine = gcCount.ToString() + " Game Changer" + (gcCount != 1 ? "s" : string.Empty) + ".";
+            }
+        }
+        <section class="manabase-verdict manabase-verdict--issues" aria-label="Why this bracket">
+            <p class="manabase-verdict-heading">WHY THIS BRACKET</p>
+            <ul class="manabase-verdict-list">
+                <li>@gcLine</li>
+
+                @* Two-card win combos *@
+                @if (cl.TwoCardCombos is { } combos && combos.Count > 0)
+                {
+                    foreach (var combo in combos)
+                    {
+                        <li>1 two-card win combo: @string.Join(" + ", combo.CardNames).</li>
+                    }
+                }
+
+                @* Mass land denial *@
+                @if (cl.DetectedMassLandDenial.Count > 0)
+                {
+                    <li>@cl.DetectedMassLandDenial.Count mass land denial: @string.Join(", ", cl.DetectedMassLandDenial).</li>
+                }
+
+                @* Extra-turn cards (informational) + static extra-card-draw line (RESEARCH A2:
+                   mass extra-card-draw is covered by Game Changers; this is a fixed informational line
+                   with no detected count or list behind it — always shows "0 mass extra-card draw". *@
+                <li>@(cl.DetectedExtraTurnCards.Count) extra-turn loop@(cl.DetectedExtraTurnCards.Count != 1 ? "s" : string.Empty) · 0 mass extra-card draw.</li>
+            </ul>
+            <p class="manabase-help">No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors on the Game Changers list (e.g., Demonic Tutor, Vampiric Tutor) still count as Game Changers.</p>
+        </section>
+
+        @* Combo-unavailable disclosure (graceful degradation — never assert "no combos" when unavailable) *@
+        @if (!cl.ComboDetectionAvailable)
+        {
+            <p role="note" class="manabase-help">Combo detection is temporarily unavailable, so a two-card win combo could place this deck a bracket higher than shown. The copied prompt asks the AI to double-check for combos.</p>
+        }
+
+        @* Floor violations and starter cuts (only when over target) *@
+        @if (Model.IsOverTarget && targetTier is not null)
+        {
+            @* FIX B + FIX C: violations and cuts wrapped in a single div so @{} is in HTML context.
+               tier-aware via FloorViolations domain method; extra-turn cards never shown as violations. *@
+            <div>
+                @{
+                    // FIX C: derive tier-aware violation set from domain method.
+                    // Extra-turn cards are never included (FIX B: informational only per WotC rubric).
+                    // B4 target with B5-via-heuristic deck: count advisory only, no per-GC violations (FIX C).
+                    var violations = cl.FloorViolations(targetTier);
+
+                    // Build starter cuts list up front so both sections share the same data.
+                    var starterCuts = new System.Collections.Generic.List<string>();
+
+                    // FIX C: cEDH count advisory cut (B5→B4 via GC heuristic; B4 is uncapped so
+                    // individual GCs are not violations, but trimming below 10 exits B5 auto-classification).
+                    if (violations.IsCedhCountAdvisory)
+                    {
+                        starterCuts.Add($"Trim Game Changers below {BracketRubricThresholds.CedhGameChangerCount} (currently "
+                            + violations.GameChangerCount.ToString()
+                            + ") to drop from B5 to B4.");
+                    }
+
+                    // Combo cuts (tier-aware via FloorViolationSet: only populated when target < B4)
+                    if (violations.ComboViolations.Count > 0)
+                    {
+                        foreach (var combo in violations.ComboViolations)
+                        {
+                            starterCuts.Add("Cut " + string.Join(" or ", combo.CardNames) + " — breaks the two-card win.");
+                        }
+                    }
+
+                    // MLD cuts (tier-aware via FloorViolationSet: only populated when target < B4)
+                    if (violations.MldViolations.Count > 0)
+                    {
+                        foreach (var card in violations.MldViolations)
+                        {
+                            starterCuts.Add("Cut " + card + " — no mass land denial at B" + targetTier.Number.ToString() + ".");
+                        }
+                    }
+
+                    // GC excess cuts (when the target has a GC cap and the deck exceeds it)
+                    if (violations.GameChangerViolations.Count > 0 && targetTier.MaxGameChangers >= 0)
+                    {
+                        var excessCount = violations.GameChangerCount - targetTier.MaxGameChangers;
+                        var gcListStr = string.Join(", ", violations.GameChangerViolations);
+                        starterCuts.Add("Trim " + excessCount.ToString() + " of: " + gcListStr
+                            + " — B" + targetTier.Number.ToString() + " allows up to " + targetTier.MaxGameChangers.ToString()
+                            + " Game Changer" + (targetTier.MaxGameChangers != 1 ? "s" : string.Empty)
+                            + "; you run " + violations.GameChangerCount.ToString() + ".");
+                    }
+                }
+                <p class="manabase-verdict-heading">FLOOR VIOLATIONS — cards that exceed B@(targetTier.Number)</p>
+                <ul class="bracket-violation-list">
+                    @* FIX C: B5→B4 via 10+ GC heuristic — count advisory instead of per-card violations *@
+                    @if (violations.IsCedhCountAdvisory)
+                    {
+                        <li class="bracket-violation">
+                            <span class="bracket-violation__name">@(violations.GameChangerCount) Game Changers (currently)</span>
+                            <span class="bracket-violation__tag bracket-violation__tag--gamechanger">Trim below @BracketRubricThresholds.CedhGameChangerCount to reach B4</span>
+                        </li>
+                    }
+                    @foreach (var card in violations.GameChangerViolations)
+                    {
+                        <li class="bracket-violation">
+                            <span class="bracket-violation__name">@card</span>
+                            <span class="bracket-violation__tag bracket-violation__tag--gamechanger">Game Changer</span>
+                        </li>
+                    }
+                    @foreach (var combo in violations.ComboViolations)
+                    {
+                        foreach (var cardName in combo.CardNames)
+                        {
+                            <li class="bracket-violation">
+                                <span class="bracket-violation__name">@cardName</span>
+                                <span class="bracket-violation__tag bracket-violation__tag--combo">Combo half</span>
+                            </li>
+                        }
+                    }
+                    @foreach (var card in violations.MldViolations)
+                    {
+                        <li class="bracket-violation">
+                            <span class="bracket-violation__name">@card</span>
+                            <span class="bracket-violation__tag bracket-violation__tag--mld">Mass land denial</span>
+                        </li>
+                    }
+                    @* Extra-turn cards are informational only — never floor violations (FIX B) *@
+                </ul>
+                @if (starterCuts.Count > 0)
+                {
+                    <p class="manabase-verdict-heading">STARTER CUTS to reach B@(targetTier.Number)</p>
+                    <ul class="manabase-verdict-list">
+                        @foreach (var cut in starterCuts)
+                        {
+                            <li>@cut</li>
+                        }
+                    </ul>
+                    <p class="manabase-help">A starting point, not a verdict — the prompt below has an AI turn these into power-equivalent swaps.</p>
+                }
+            </div>
+        }
+
+        @* Effective-date stamp (BRACKET-05) *@
+        <aside class="bracket-stamp">
+            Game Changers list effective @cl.EffectiveDate. The copied prompt asks the AI to re-confirm current Game Changers membership before suggesting swaps, so a stale list degrades gracefully instead of misclassifying silently.
+        </aside>
+
+        @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
+        {
+            <p class="manabase-help">@Model.ImportWarning</p>
+        }
+
+        @* Copy-prompt collapsible (balancer artifact) *@
+        @if (!string.IsNullOrWhiteSpace(Model.PromptArtifact))
+        {
+            <details class="result-panel nested-panel">
+                <summary>
+                    <span class="panel-heading">Want fair swaps? Copy this prompt for ChatGPT / Claude / Gemini</span>
+                </summary>
+                <p class="manabase-help">The cuts above are a starting point. Paste this to have an AI replace each over-bracket card with a power-equivalent legal swap and re-confirm the bracket.</p>
+                <button type="button" class="copy-button" data-copy-target="#bracket-prompt">Copy</button>
+                <textarea id="bracket-prompt" readonly spellcheck="false">@Model.PromptArtifact</textarea>
+            </details>
+        }
+    </section>
+}
+
+@* Always-on methodology collapsible *@
+<details class="result-panel nested-panel">
+    <summary>How brackets are determined</summary>
+    <div>
+        <p>The official Commander bracket system (WotC Brackets Beta, October 2025) classifies decks by measurable signals — not raw card power. The four signals are:</p>
+        <ul>
+            <li><strong>Game Changers</strong> — cards on the official WotC Game Changers list. Three or fewer keeps a deck in Bracket 3; four or more pushes to Bracket 4; ten or more (product heuristic) signals Bracket 5 territory.</li>
+            <li><strong>Two-card win combos</strong> — any pair of cards that produces an automatic win when assembled. A single two-card win combo hard-floors a deck at Bracket 4.</li>
+            <li><strong>Mass land denial</strong> — cards like Armageddon that destroy all lands at once. Any MLD card hard-floors at Bracket 4.</li>
+            <li><strong>Extra turns</strong> — informational; does not change the bracket number per the current WotC rubric.</li>
+        </ul>
+        <p>There is no separate tutor-count gate: the October 2025 update dropped the old tutor-density rule. However, specific powerful tutors such as Demonic Tutor, Vampiric Tutor, and Worldly Tutor appear on the official Game Changers list and still count as Game Changers.</p>
+        <p>Bracket 1 (Exhibition) is self-declared and is never auto-assigned. Zero signals defaults to Bracket 2 (Core).</p>
+        <p class="manabase-help">The classification is computed directly in DeckFlow — no AI needed for the bracket number itself. The AI prompt is only for the optional balancer step (fair swaps to reach a target bracket).</p>
+    </div>
+</details>
+
+@section Scripts {
+    <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}

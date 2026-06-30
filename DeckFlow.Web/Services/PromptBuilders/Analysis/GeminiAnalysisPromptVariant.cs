@@ -33,7 +33,8 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
         bool includeCardVersions,
-        string? companionName = null)
+        string? companionName = null,
+        string? scoreBlockText = null)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardNames, request.BudgetUpgradeAmount);
@@ -92,6 +93,13 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         }
 
         builder.AppendLine();
+
+        // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.
+        if (!string.IsNullOrWhiteSpace(scoreBlockText))
+        {
+            builder.AppendLine();
+            builder.AppendLine(scoreBlockText);
+        }
 
         builder.AppendLine("## EVIDENCE RULES");
         builder.AppendLine("- Use the mechanic definitions and card reference supplied below as authoritative. Read all supplied card entries before beginning the analysis.");

@@ -200,6 +200,7 @@ public static class CastabilitySimulator
         int manaShortFailures = 0; // had wrong/short mana count regardless of colors
         int colorShortFailures = 0; // had enough total mana but couldn't cover the pips
         long delaySum = 0; // sum of max(0, firstCastableTurn - onCurveTurn) over all trials
+        int turn1UntappedSuccesses = 0; // TAP-02: trials with >=1 untapped/usable source on turn 1
 
         // Scratch arrays reused across trials to keep allocations low.
         int[] deck0 = new int[library.Count];
@@ -241,11 +242,17 @@ public static class CastabilitySimulator
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
-                gateRampOnCastable, out bool manaShort, out bool colorShort, out int firstCastableTurn);
+                gateRampOnCastable, out bool manaShort, out bool colorShort, out int firstCastableTurn,
+                out bool hadUntappedT1);
 
             // Delay this trial: how many turns LATE the spell first became castable, floored at 0
             // (a spell never tests as castable before its on-curve turn, so this is already >= 0).
             delaySum += Math.Max(0, firstCastableTurn - turn);
+
+            if (hadUntappedT1)
+            {
+                turn1UntappedSuccesses++;
+            }
 
             if (success)
             {
@@ -275,6 +282,7 @@ public static class CastabilitySimulator
             IsCommander = spell.IsCommander,
             IsCostOverridden = spell.IsCostOverridden,
             AverageDelay = averageDelay,
+            Turn1UntappedTrials = turn1UntappedSuccesses,
         };
     }
 
@@ -480,10 +488,12 @@ public static class CastabilitySimulator
         bool gateRampOnCastable,
         out bool manaShort,
         out bool colorShort,
-        out int firstCastableTurn)
+        out int firstCastableTurn,
+        out bool hadUntappedT1)
     {
         manaShort = false;
         colorShort = false;
+        hadUntappedT1 = false;
 
         // Snail's metric forgives a short delay; lower drops get a slightly wider window (a 1-drop is
         // rarely cast exactly on turn 1, but a player will still happily cast it on turn 2-3). The
@@ -588,6 +598,18 @@ public static class CastabilitySimulator
                 }
 
                 rampSpentThisTurn = TryDeployRamp(library, active, hand, rampOnBoard, availableNow, currentTurn, onlineForRamp);
+            }
+
+            // TAP-02 (color-matched, overridden 2026-06-28 after Codex review): record whether any
+            // mana source online on turn 1 can produce an untapped source of a NEEDED COLOR on turn 1
+            // (colorless spells accept any source). An untapped land played T1 (OnlineTurn == 1) or
+            // 0-cost fast mana deployed T1 qualifies only when its color mask intersects the spell's
+            // needed colors. A 1-bit observation inside the existing loop (no second sim, no RNG draw,
+            // so determinism is preserved). Evaluated BEFORE the on-curve early-continue so it is
+            // always set on turn 1 regardless of the spell's effective turn.
+            if (currentTurn == 1)
+            {
+                hadUntappedT1 = HasColorMatchedUntappedT1(landsOnBoard, rampOnBoard, pipReq);
             }
 
             // From the effective turn onward, test castability; succeed on the first turn it lands.
@@ -880,6 +902,43 @@ public static class CastabilitySimulator
         }
 
         return mana;
+    }
+
+    /// <summary>
+    /// TAP-02 (color-matched): true when at least one online turn-1 source can produce a color the
+    /// spell needs. Colorless spells (no colored pips) accept any online source. A 1-bit observation
+    /// over existing board state — no RNG draw, so determinism is preserved.
+    /// </summary>
+    private static bool HasColorMatchedUntappedT1(
+        List<(int Mask, int OnlineTurn, int Amount)> landsOnBoard,
+        List<(int Mask, int Cost, int OnlineTurn, int Amount)> rampOnBoard,
+        (int Bit, int Count)[] pipReq)
+    {
+        int neededMask = 0;
+        foreach ((int Bit, int Count) pip in pipReq)
+        {
+            neededMask |= pip.Bit;
+        }
+
+        bool colorless = neededMask == 0;
+
+        foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+        {
+            if (land.OnlineTurn <= 1 && (colorless || (land.Mask & neededMask) != 0))
+            {
+                return true;
+            }
+        }
+
+        foreach ((int Mask, int Cost, int OnlineTurn, int Amount) ramp in rampOnBoard)
+        {
+            if (ramp.OnlineTurn <= 1 && (colorless || (ramp.Mask & neededMask) != 0))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int TotalMana(List<(int Mask, int Amount)> sources)

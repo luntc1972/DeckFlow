@@ -11,6 +11,7 @@ public sealed class DeckPrimerRequest
     private string _deckName = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
+    private string _generatedPrimerHash = string.Empty;
     private List<string> _selectedSectionIds = [];
 
     /// <summary>
@@ -103,6 +104,16 @@ public sealed class DeckPrimerRequest
     /// Controls the output style the primer prompt should request from the AI.
     /// </summary>
     public PrimerOutputStyle PrimerStyle { get; set; } = PrimerOutputStyle.Standard;
+
+    /// <summary>
+    /// Generation-time deck multiset hash round-tripped in-session to re-arm staleness detection
+    /// (PRIMER-01/02). This is untrusted client input and is used only for an equality compare.
+    /// </summary>
+    public string GeneratedPrimerHash
+    {
+        get => _generatedPrimerHash;
+        set => _generatedPrimerHash = value ?? string.Empty;
+    }
 
     /// <summary>
     /// Identifiers of the primer sections the user selected from the catalog.

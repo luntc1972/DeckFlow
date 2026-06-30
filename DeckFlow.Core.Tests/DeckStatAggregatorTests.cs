@@ -68,6 +68,37 @@ public sealed class DeckStatAggregatorTests
     }
 
     [Fact]
+    public void Compute_TalliesNewSignalFields()
+    {
+        var summary = DeckStatAggregator.Compute(new[]
+        {
+            Card(1, "Sorcery", "Search your library for a card, then shuffle.", "{1}{B}"), // tutor x1
+            Card(2, "Artifact", "{T}: Add {C}{C}.", ""),                                   // fast mana x2 (MV 0)
+            Card(1, "Instant", "Counter target spell.", "{U}{U}"),                          // counter x1
+            Card(1, "Sorcery", "Draw two cards.", "{1}{U}"),                                // ramp/draw <=MV2 x1
+        });
+
+        Assert.Equal(1, summary.Tutors);
+        Assert.Equal(2, summary.FastMana);              // quantity-weighted
+        Assert.Equal(1, summary.Counters);
+        Assert.Equal(1, summary.RampDrawUnderThreeMv);
+    }
+
+    [Fact]
+    public void Compute_NoMatchingCards_LeavesNewSignalFieldsZero()
+    {
+        var summary = DeckStatAggregator.Compute(new[]
+        {
+            Card(1, "Creature — Beast", "", "{2}{G}"),  // matches none of the four new signals
+        });
+
+        Assert.Equal(0, summary.Tutors);
+        Assert.Equal(0, summary.FastMana);
+        Assert.Equal(0, summary.Counters);
+        Assert.Equal(0, summary.RampDrawUnderThreeMv);
+    }
+
+    [Fact]
     public void Compute_SkipsNonPositiveQuantities()
     {
         var summary = DeckStatAggregator.Compute(new[]

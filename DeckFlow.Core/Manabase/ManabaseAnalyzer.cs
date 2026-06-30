@@ -179,6 +179,9 @@ public static class ManabaseAnalyzer
             ColorSpellCounts = colorSpellCounts,
             CommanderColors = CommanderColors(deck).ToArray(),
             LandTarget = landTarget,
+            // TAP-01/TAP-02: tap-quality metrics derived from the same castability rows + color
+            // findings (no second sim). Always computed in Core; the Web layer flag-gates display.
+            TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials),
             DemandingCards = demandingCards,
             // Genuine mana rocks/dorks only: artifacts/creatures that tap for mana (weight 0.5 dork
             // / 0.75 rock). Excludes conditional "granted" creatures (a creature handed a mana
@@ -573,6 +576,9 @@ public static class ManabaseAnalyzer
                 DirectSources = direct,
                 SharedSources = shared,
                 ConditionalSources = conditional,
+                // TAP-01: the RAW (un-rounded) untapped weight for this color. ActualSources above is
+                // rounded for display; tap math must divide by the raw total, so keep this un-rounded.
+                UntappedSources = untappedSources,
             });
         }
 
@@ -812,6 +818,60 @@ public static class ManabaseAnalyzer
         }
 
         return total;
+    }
+
+    // TAP-01/TAP-02: build the tap-quality metrics from the already-computed color findings and
+    // castability rows — no second simulation pass. Composition (overall + per color) divides the RAW
+    // (un-rounded) untapped weight by the RAW total weight; using the rounded ColorSourceFinding
+    // .ActualSources would skew whole-percent outputs (Codex HIGH-2 / D5). Turn-1 availability is the
+    // mean of CardCastability.Turn1UntappedTrials over NON-COMMANDER rows (D1/D3; fall back to all rows
+    // only when there are none), divided by the trial budget. All divisions guard against zero.
+    private static ManabaseTapAnalysis ComputeTapAnalysis(
+        ManabaseDeck deck,
+        IReadOnlyList<ColorSourceFinding> colorFindings,
+        IReadOnlyList<CardCastability> castability,
+        int defaultTrials)
+    {
+        double totalUntapped = 0.0;
+        double totalAll = 0.0;
+        var colorTap = new Dictionary<ManaColor, ColorTapFinding>();
+        foreach (ColorSourceFinding f in colorFindings)
+        {
+            // RAW (un-rounded) numerator + denominator — never the rounded f.ActualSources.
+            double rawUntapped = f.UntappedSources;
+            double rawTotal = EffectiveSources(deck, f.Color, untappedOnly: false);
+            totalUntapped += rawUntapped;
+            totalAll += rawTotal;
+            colorTap[f.Color] = new ColorTapFinding
+            {
+                UntappedSources = rawUntapped,
+                TotalSources = rawTotal,
+                UntappedPercent = rawTotal > 0
+                    ? (int)Math.Round(100.0 * rawUntapped / rawTotal)
+                    : 0,
+            };
+        }
+
+        int overallPct = totalAll > 0
+            ? (int)Math.Round(100.0 * totalUntapped / totalAll)
+            : 0;
+
+        // D1/D3: average T1 availability over non-commander rows (a commander is rarely a T1 play);
+        // fall back to all rows only when the deck has no non-commander castability rows.
+        var nonCommanderRows = castability.Where(r => !r.IsCommander).ToList();
+        IReadOnlyList<CardCastability> avgRows = nonCommanderRows.Count > 0 ? nonCommanderRows : castability;
+        int turn1Pct = avgRows.Count > 0 && defaultTrials > 0
+            ? (int)Math.Round(100.0 * avgRows.Average(r => r.Turn1UntappedTrials) / defaultTrials)
+            : 0;
+
+        return new ManabaseTapAnalysis
+        {
+            OverallUntappedPercent = overallPct,
+            UntappedSources = totalUntapped,
+            TotalSources = totalAll,
+            Turn1UntappedPercent = turn1Pct,
+            ColorTap = colorTap,
+        };
     }
 
     // Display-only: split a color's total weighted sources into direct (mono-color, the dedicated
