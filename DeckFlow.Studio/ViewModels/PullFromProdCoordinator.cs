@@ -1,4 +1,5 @@
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Services;
@@ -9,9 +10,9 @@ namespace DeckFlow.Studio.ViewModels;
 
 /// <summary>
 /// Orchestration for the Pull-from-Production workflow, extracted from the <c>PullFromProd</c> page
-/// code-behind (H1 god-component split). Owns the read-only prod pull (staging prep, read-only prod
-/// read, SCP artifact download, local classify) and the local-only adopt apply (content upsert +
-/// approval mirror + staged-artifact promotion). This type performs no rendering and holds no
+/// code-behind (H1 god-component split). Owns the read-only prod pull (read-only prod
+/// read, local git-tree body resolution, local classify) and the local-only adopt apply (content
+/// upsert + approval mirror + body copy). This type performs no rendering and holds no
 /// per-page UI state — the page keeps the progress log, resolution map, busy guards, cancellation,
 /// and <c>StateHasChanged</c>. It NEVER writes to production. Behavior is identical to the prior
 /// inline implementation.
@@ -19,29 +20,29 @@ namespace DeckFlow.Studio.ViewModels;
 public sealed class PullFromProdCoordinator
 {
     private readonly IContentSiteIndexStore _indexStore;
-    private readonly ISshArtifactDownloader _sshDownloader;
+    private readonly IGitRepository _git;
     private readonly IProdContentReader _prodReader;
     private readonly IConfiguration _configuration;
     private readonly ContentKbOrchestratorOptions _options;
     private readonly ILogger<PullFromProdCoordinator> _logger;
 
-    /// <summary>Creates the coordinator with the local store, SSH downloader, read-only prod reader, config, options, and logger.</summary>
+    /// <summary>Creates the coordinator with the local store, git repository, read-only prod reader, config, options, and logger.</summary>
     public PullFromProdCoordinator(
         IContentSiteIndexStore indexStore,
-        ISshArtifactDownloader sshDownloader,
+        IGitRepository git,
         IProdContentReader prodReader,
         IConfiguration configuration,
         ContentKbOrchestratorOptions options,
         ILogger<PullFromProdCoordinator> logger)
     {
         ArgumentNullException.ThrowIfNull(indexStore);
-        ArgumentNullException.ThrowIfNull(sshDownloader);
+        ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(prodReader);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
         _indexStore = indexStore;
-        _sshDownloader = sshDownloader;
+        _git = git;
         _prodReader = prodReader;
         _configuration = configuration;
         _options = options;
@@ -60,9 +61,9 @@ public sealed class PullFromProdCoordinator
     }
 
     /// <summary>
-    /// Reads the live production content index (read-only, NO DDL), downloads each prod artifact into
-    /// an isolated staging area, and classifies the result against the local store — returning only
-    /// the differing entries with their per-entry artifact-downloaded flag stamped. Sets the current
+    /// Reads the live production content index (read-only, NO DDL), resolves each prod body from the
+    /// local git tree, and classifies the result against the local store — returning only the
+    /// differing entries with their per-entry artifact-available flag stamped. Sets the current
     /// stage name via <paramref name="onStage"/> (a synchronous callback so a fault reads the exact
     /// stage in flight — diagnostic copy) and emits human-readable progress lines to
     /// <paramref name="log"/>. NEVER writes to production.
@@ -73,17 +74,7 @@ public sealed class PullFromProdCoordinator
         Action<string> onStage,
         CancellationToken cancellationToken)
     {
-        // Wipe + recreate staging so a partial prior pull never promotes stale files. Staging is
-        // isolated from the live content-kb/ tree (Pitfall 4).
-        onStage("prepare staging");
-        log.Report("Preparing staging area...");
-
-        if (Directory.Exists(stagingRoot))
-        {
-            Directory.Delete(stagingRoot, recursive: true);
-        }
-
-        Directory.CreateDirectory(stagingRoot);
+        _ = stagingRoot;
 
         // R1: read prod via the read-only reader — plain SELECT, NO EnsureSchemaAsync/DDL.
         onStage("read production content_site_index");
@@ -95,26 +86,27 @@ public sealed class PullFromProdCoordinator
 
         log.Report($"  {prodRows.Count} row(s) read from production.");
 
-        onStage("download artifacts");
-        log.Report($"Downloading {prodRows.Count} artifact(s)...");
+        onStage("resolve local repo bodies");
+        log.Report($"Resolving {prodRows.Count} body/bodies from local repository...");
 
-        // Download each prod artifact into staging (remote + local both traversal-guarded inside the
-        // downloader). RemoteRelativePath == LocalRelativePath == ArtifactPath.
-        var requests = prodRows
-            .Select(r => new SshDownloadRequest(r.ArtifactPath, r.ArtifactPath))
-            .ToList();
+        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+        var availableSet = new HashSet<string>(
+            prodRows
+                .Where(r =>
+                {
+                    if (!TryBuildContainedPath(repoRoot, r.ArtifactPath, out var repoBody))
+                    {
+                        log.Report("  body SKIPPED (invalid path)");
+                        return false;
+                    }
 
-        // Why: per-artifact progress is kept to only RemoteRelativePath + Success + sanitized
-        // FailureReason — NEVER LocalPath or ex.Message (D-07 / T-62-04).
-        var artifactProgress = new Progress<SshDownloadResult>(result =>
-            log.Report(BuildArtifactLine(result)));
-
-        var downloadResults = await _sshDownloader
-            .DownloadArtifactsAsync(requests, stagingRoot, artifactProgress, cancellationToken)
-            .ConfigureAwait(false);
-
-        var downloadedSet = new HashSet<string>(
-            downloadResults.Where(r => r.Success).Select(r => r.RemoteRelativePath),
+                    var present = File.Exists(repoBody);
+                    log.Report(present
+                        ? $"  body present: {r.ArtifactPath}"
+                        : $"  body MISSING (run 'git pull'): {r.ArtifactPath}");
+                    return present;
+                })
+                .Select(r => r.ArtifactPath),
             StringComparer.Ordinal);
 
         onStage("classify");
@@ -124,18 +116,18 @@ public sealed class PullFromProdCoordinator
 
         // Classify (omits in-sync pairs, R3), then stamp ArtifactDownloaded per entry.
         var entries = ContentSyncDiffClassifier.Classify(prodRows, localRows)
-            .Select(e => e with { ArtifactDownloaded = downloadedSet.Contains(e.ArtifactPath) })
+            .Select(e => e with { ArtifactDownloaded = availableSet.Contains(e.ArtifactPath) })
             .ToList();
 
         log.Report($"Done — {entries.Count} differing entry/entries found. "
-            + $"{downloadedSet.Count}/{requests.Count} artifact(s) downloaded.");
+            + $"{availableSet.Count}/{prodRows.Count} body/bodies resolved from the local repo.");
 
         return entries;
     }
 
     /// <summary>
     /// Applies "adopt prod" resolutions to the LOCAL store only: content-columns-only upsert +
-    /// approval-status mirror, then best-effort promotion of the staged artifact into the live tree.
+    /// approval-status mirror, then best-effort copy of the git-tree body into the live tree.
     /// Production is never modified. Reports the running per-entry result list to
     /// <paramref name="progress"/> after each entry so the page can render incrementally. The caller
     /// pre-filters <paramref name="adoptEntries"/> to entries whose resolution is "adopt prod", that
@@ -149,6 +141,7 @@ public sealed class PullFromProdCoordinator
         CancellationToken cancellationToken)
     {
         var results = new List<PullApplyRowResult>();
+        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
 
         foreach (var entry in adoptEntries)
         {
@@ -176,45 +169,30 @@ public sealed class PullFromProdCoordinator
                 await _indexStore.SetApprovalStatusAsync(keyType, keyValue, prodRow.ApprovalStatus, cancellationToken).ConfigureAwait(false);
 
                 var note = "row updated; approval mirrored from prod";
-                if (entry.ArtifactDownloaded)
+                var validSource = TryBuildContainedPath(repoRoot, entry.ArtifactPath, out var repoBody);
+                var validDest = TryBuildContainedPath(dataRoot, entry.ArtifactPath, out var liveDest);
+                if (!validSource || !validDest)
                 {
-                    // Promote the staged artifact into the live tree (local only). The row upsert above
-                    // is the primary effect of adopt and has already succeeded; artifact promotion is
+                    note = "row updated; body path invalid, not copied; approval mirrored from prod";
+                }
+                else if (File.Exists(repoBody))
+                {
+                    // Copy the git-tree body into the live tree (local only). The row upsert above
+                    // is the primary effect of adopt and has already succeeded; body copy is
                     // best-effort and must NOT fail the whole entry.
-                    var stagedPath = Path.Combine(stagingRoot, entry.ArtifactPath);
-                    var liveDest = Path.Combine(dataRoot, entry.ArtifactPath);
+                    var liveDir = Path.GetDirectoryName(liveDest);
+                    if (!string.IsNullOrEmpty(liveDir))
+                    {
+                        Directory.CreateDirectory(liveDir);
+                    }
 
-                    if (File.Exists(stagedPath))
-                    {
-                        var liveDir = Path.GetDirectoryName(liveDest);
-                        if (!string.IsNullOrEmpty(liveDir))
-                        {
-                            Directory.CreateDirectory(liveDir);
-                        }
-
-                        File.Move(stagedPath, liveDest, overwrite: true);
-                        note = "row updated + artifact promoted; approval mirrored from prod";
-                    }
-                    else if (File.Exists(liveDest))
-                    {
-                        // Staged source already consumed (e.g. a prior apply moved it) but the artifact
-                        // is already present locally — adopt is still complete.
-                        note = "row updated; artifact already present locally; approval mirrored from prod";
-                    }
-                    else
-                    {
-                        // Marked downloaded but neither staged nor live copy exists — promote is
-                        // skipped, row adopt still stands (do not fail the entry).
-                        _logger.LogWarning(
-                            "Pull-from-prod adopt: artifact marked downloaded but no staged or live file for {KeyType}:{KeyValue}; promoted skipped.",
-                            keyType, keyValue);
-                        note = "row updated; artifact file missing, not promoted; approval mirrored from prod";
-                    }
+                    File.Copy(repoBody, liveDest, overwrite: true);
+                    note = "row updated + body copied from local repo; approval mirrored from prod";
                 }
                 else
                 {
-                    // R4: partial pull — upsert + approval still applied; skip ONLY File.Move.
-                    note = "row updated; artifact not promoted (not downloaded)";
+                    // R4: partial local repo — upsert + approval still applied; skip ONLY File.Copy.
+                    note = "row updated; body not in local repo — run 'git pull' to sync; approval mirrored from prod";
                 }
 
                 results.Add(new PullApplyRowResult(entry.Title, entry.NaturalKeyType, keyValue, true, "Adopted", note));
@@ -239,18 +217,64 @@ public sealed class PullFromProdCoordinator
         return results;
     }
 
-    private static string BuildArtifactLine(SshDownloadResult result) =>
-        result.Success
-            ? $"  downloaded {result.RemoteRelativePath}"
-            : $"  not downloaded: {result.RemoteRelativePath}"
-              + (string.IsNullOrEmpty(result.FailureReason)
-                  ? string.Empty
-                  : $" — {result.FailureReason}");
+    private static bool TryBuildContainedPath(string root, string artifactPath, out string resolvedPath)
+    {
+        resolvedPath = string.Empty;
+        if (!IsSafeArtifactPath(artifactPath))
+        {
+            return false;
+        }
+
+        var rootFull = Path.GetFullPath(root);
+        var rootWithSeparator = rootFull.EndsWith(Path.DirectorySeparatorChar)
+            ? rootFull
+            : rootFull + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(Path.Combine(rootFull, artifactPath));
+        if (!candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        resolvedPath = candidate;
+        return true;
+    }
+
+    private static bool IsSafeArtifactPath(string artifactPath)
+    {
+        if (string.IsNullOrWhiteSpace(artifactPath))
+        {
+            return false;
+        }
+
+        if (Path.IsPathRooted(artifactPath)
+            || IsWindowsRootedPath(artifactPath)
+            || artifactPath[0] == '/'
+            || artifactPath[0] == '\\')
+        {
+            return false;
+        }
+
+        if (!artifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var segments = artifactPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length > 0
+            && !segments.Any(segment => string.Equals(segment, "..", StringComparison.Ordinal));
+    }
+
+    private static bool IsWindowsRootedPath(string artifactPath)
+        => artifactPath.Length >= 3
+            && char.IsLetter(artifactPath[0])
+            && artifactPath[1] == ':'
+            && (artifactPath[2] == '\\' || artifactPath[2] == '/');
+
 }
 
 /// <summary>Data root + isolated pull-staging directory resolved for the Pull-from-Prod page.</summary>
 /// <param name="DataRoot">Studio data root (parent of <c>ArtifactRoot</c>).</param>
-/// <param name="StagingRoot">Isolated directory pulled artifacts are downloaded into before adopt.</param>
+/// <param name="StagingRoot">Legacy isolated staging directory path retained for page compatibility.</param>
 public sealed record PullPaths(string DataRoot, string StagingRoot);
 
 /// <summary>One per-entry outcome of applying a Pull-from-Prod adopt resolution to the local store.</summary>
