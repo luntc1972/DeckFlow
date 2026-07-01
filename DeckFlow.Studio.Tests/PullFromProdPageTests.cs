@@ -260,8 +260,7 @@ public sealed class PullFromProdPageTests : BunitContext
 
         Assert.Contains("UpsertContentColumnsOnlyAsync", localStore.UpsertMethodCalls);
         Assert.Single(localStore.SingleApprovalCalls);
-        Assert.Contains("body not in local repo", cut.Markup); // File.Copy skipped, no exception
-        Assert.Contains("git pull", cut.Markup);
+        Assert.Contains("body not in local git repo (prod-only or unpublished), not copied", cut.Markup);
     }
 
     // ── secret leak (D-07) ──────────────────────────────────────────────────
@@ -292,7 +291,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Pull(cut);
 
         cut.WaitForAssertion(() =>
-            Assert.Contains("body MISSING (run 'git pull'): content-kb/test-channel/vid-a.md", cut.Markup));
+            Assert.Contains("body not in local git repo (prod-only/unpublished): content-kb/test-channel/vid-a.md", cut.Markup));
         Assert.DoesNotContain(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, '/'), cut.Markup,
             StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SSH download failed", cut.Markup);
@@ -348,10 +347,10 @@ public sealed class PullFromProdPageTests : BunitContext
 
         Pull(cut);
 
-        // Missing body: "body MISSING ... <ArtifactPath>" — no local filesystem path in markup.
+        // Missing body: repo-relative ArtifactPath only — no local filesystem path in markup.
         // WaitForAssertion: per-body line renders via a fire-and-forget Progress<T> hop.
         cut.WaitForAssertion(() =>
-            Assert.Contains("body MISSING (run 'git pull'): content-kb/test-channel/vid-a.md", cut.Markup));
+            Assert.Contains("body not in local git repo (prod-only/unpublished): content-kb/test-channel/vid-a.md", cut.Markup));
     }
 
     [Fact]

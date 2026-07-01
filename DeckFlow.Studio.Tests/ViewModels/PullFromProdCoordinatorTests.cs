@@ -154,7 +154,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var entry = Assert.Single(entries);
         Assert.False(entry.ArtifactDownloaded);
-        Assert.Contains(log.Items, l => l.Contains("body MISSING (run 'git pull'): content-kb/test-channel/vid1.md", StringComparison.Ordinal));
+        Assert.Contains(log.Items, l => l.Contains("body not in local git repo (prod-only/unpublished): content-kb/test-channel/vid1.md", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -207,8 +207,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var rr = Assert.Single(results);
         Assert.True(rr.Success);
         Assert.Equal("Adopted", rr.Action);
-        Assert.Contains("body not in local repo", rr.Note, StringComparison.Ordinal);
-        Assert.Contains("git pull", rr.Note, StringComparison.Ordinal);
+        Assert.Equal("row updated; body not in local git repo (prod-only or unpublished), not copied; approval mirrored from prod", rr.Note);
         Assert.Contains("UpsertContentColumnsOnlyAsync", store.UpsertMethodCalls);
         Assert.Single(store.SingleApprovalCalls);
         Assert.Equal("approved", store.SingleApprovalCalls[0].Status);
