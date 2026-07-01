@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace DeckFlow.Studio.Pages;
 
 /// <summary>
-/// Code-behind for the Pull-from-Production page. The read-only prod pull (staging prep, prod read,
-/// SCP download, local classify) and the local-only adopt apply live in
+/// Code-behind for the Pull-from-Production page. The read-only prod pull (prod read, local
+/// git-tree body resolution, local classify) and the local-only adopt apply live in
 /// <see cref="PullFromProdCoordinator"/> (H1 split); this page keeps the progress log, resolution
 /// map, busy guards, sanitized top-level error copy, cancellation, and re-render marshalling. The
 /// page never writes to production. Behavior is identical to the prior inline implementation.
@@ -15,12 +15,12 @@ namespace DeckFlow.Studio.Pages;
 public partial class PullFromProd
 {
     // ── Injected services ───────────────────────────────────────────────────
-    // Why: all prod read / SCP / store I/O is delegated to the coordinator so this page is thin UI
+    // Why: all prod read / git body resolution / store I/O is delegated to the coordinator so this page is thin UI
     // glue and the pull/apply sequences are unit-testable without bUnit (H1).
     [Inject]
     private PullFromProdCoordinator Coordinator { get; set; } = default!;
 
-    // Config stays injected here: the markup gates the Pull button on IsProdConfigured/IsScpConfigured.
+    // Config stays injected here: the markup gates the Pull button on IsProdConfigured.
     [Inject]
     private StudioConfig Config { get; set; } = default!;
 
@@ -98,7 +98,7 @@ public partial class PullFromProd
     // ── Stage 1: Pull & Classify ────────────────────────────────────────────
     private async Task PullAndClassifyAsync()
     {
-        if (_operationInFlight || !Config.IsProdConfigured || !Config.IsScpConfigured)
+        if (_operationInFlight || !Config.IsProdConfigured)
         {
             return;
         }
@@ -152,11 +152,11 @@ public partial class PullFromProd
         }
         catch (Exception ex)
         {
-            // Why: an Npgsql or SSH exception can carry host/db/user/path — NEVER surface ex.Message
+            // Why: an Npgsql or git exception can carry host/db/user/path — NEVER surface ex.Message
             // in the UI (D-07). But DO log the full exception server-side (Serilog file sink) with the
             // failing stage so a failed pull is diagnosable; the operator reads the log, not the page.
             Logger.LogError(ex, "Pull from prod failed during stage: {PullStage}.", _pullStage);
-            _pullError = $"Could not pull from production while trying to {_pullStage} — check the prod connection and SCP configuration and try again. Nothing was written. (See the Studio log for details.)";
+            _pullError = $"Could not pull from production while trying to {_pullStage} — check the prod connection and local git repo, then try again. Nothing was written. (See the Studio log for details.)";
             _pullInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(() =>

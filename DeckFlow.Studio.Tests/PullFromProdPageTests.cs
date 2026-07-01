@@ -1,5 +1,6 @@
 using Bunit;
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Pages;
@@ -49,18 +50,20 @@ public sealed class PullFromProdPageTests : BunitContext
     private (IRenderedComponent<PullFromProd> Cut,
              FakeContentSiteIndexStore LocalStore,
              FakeProdContentReader ProdReader,
-             FakeSshArtifactDownloader Downloader)
+             FakeGitRepository Git)
         RenderPull(
             IEnumerable<ContentSiteIndexRow>? localRows = null,
             IEnumerable<ContentSiteIndexRow>? prodRows = null,
             FakeProdContentReader? prodReaderOverride = null,
-            FakeSshArtifactDownloader? downloaderOverride = null,
+            IEnumerable<string>? missingRepoBodies = null,
             bool isProdConfigured = true,
             bool isScpConfigured = true)
     {
         var localStore = new FakeContentSiteIndexStore();
         var prodReader = prodReaderOverride ?? new FakeProdContentReader();
-        var downloader = downloaderOverride ?? new FakeSshArtifactDownloader();
+        var repoRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests-pull-repo", Path.GetRandomFileName());
+        var git = new FakeGitRepository { CannedRepoRoot = repoRoot };
+        var missing = new HashSet<string>(missingRepoBodies ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
 
         foreach (var r in localRows ?? Enumerable.Empty<ContentSiteIndexRow>())
         {
@@ -70,6 +73,12 @@ public sealed class PullFromProdPageTests : BunitContext
         foreach (var r in prodRows ?? Enumerable.Empty<ContentSiteIndexRow>())
         {
             prodReader.Rows.Add(r);
+            if (!missing.Contains(r.ArtifactPath))
+            {
+                var repoBody = Path.Combine(repoRoot, r.ArtifactPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(repoBody)!);
+                File.WriteAllText(repoBody, $"repo body for {r.ArtifactPath}");
+            }
         }
 
         var configuration = new ConfigurationBuilder().Build();
@@ -79,7 +88,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddLogging();
         Services.AddSingleton<IContentSiteIndexStore>(localStore);
         Services.AddSingleton<IProdContentReader>(prodReader);
-        Services.AddSingleton<ISshArtifactDownloader>(downloader);
+        Services.AddSingleton<IGitRepository>(git);
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
@@ -89,7 +98,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
 
         var cut = Render<PullFromProd>();
-        return (cut, localStore, prodReader, downloader);
+        return (cut, localStore, prodReader, git);
     }
 
     private static void Pull(IRenderedComponent<PullFromProd> cut)
@@ -112,28 +121,31 @@ public sealed class PullFromProdPageTests : BunitContext
     }
 
     [Fact]
-    public void Pull_ScpUnconfigured_ShowsWarningAndDisablesButton()
+    public void Pull_ScpUnconfigured_DoesNotGatePull()
     {
         var (cut, _, _, _) = RenderPull(isScpConfigured: false);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
-        Assert.Contains("SCP: not configured", cut.Markup);
-        Assert.True(cut.Find("button.btn-outline-primary").HasAttribute("disabled"));
+        Assert.DoesNotContain("SCP: not configured", cut.Markup);
+        Assert.False(cut.Find("button.btn-outline-primary").HasAttribute("disabled"));
     }
 
     // ── Stage 1 wiring + R2 ─────────────────────────────────────────────────
 
     [Fact]
-    public void Pull_InvokesReadOnlyProdReaderAndDownloaderPerRow()
+    public void Pull_InvokesReadOnlyProdReaderAndResolvesBodiesFromRepo()
     {
         var prod = new[] { MakeRow(1, "vid-a"), MakeRow(2, "vid-b") };
-        var (cut, _, prodReader, downloader) = RenderPull(prodRows: prod);
+        var (cut, _, prodReader, _) = RenderPull(prodRows: prod);
 
         Pull(cut);
 
         Assert.Equal(1, prodReader.ReadCallCount);
-        Assert.Equal(2, downloader.DownloadedFiles.Count);
-        Assert.Contains(downloader.DownloadedFiles, d => d.RemoteRelativePath == "content-kb/test-channel/vid-a.md");
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("body present: content-kb/test-channel/vid-a.md", cut.Markup);
+            Assert.Contains("body present: content-kb/test-channel/vid-b.md", cut.Markup);
+        });
     }
 
     [Fact]
@@ -233,22 +245,23 @@ public sealed class PullFromProdPageTests : BunitContext
     // ── R4 partial pull ─────────────────────────────────────────────────────
 
     [Fact]
-    public void Resolve_AdoptProd_PartialPull_StillUpserts_SkipsPromotion()
+    public void Resolve_AdoptProd_BodyAbsentFromRepo_StillUpserts_SkipsPromotion()
     {
-        var downloader = new FakeSshArtifactDownloader();
-        downloader.FilesToFail.Add("content-kb/test-channel/vid-a.md"); // artifact not downloaded
         var prod = new[] { MakeRow(1, "vid-a", approvalStatus: "approved") };
-        var (cut, localStore, _, _) = RenderPull(prodRows: prod, downloaderOverride: downloader);
+        var (cut, localStore, _, _) = RenderPull(
+            prodRows: prod,
+            missingRepoBodies: new[] { "content-kb/test-channel/vid-a.md" });
 
         Pull(cut);
-        // adopt-prod stays selectable even though the artifact failed to download (R4).
+        // adopt-prod stays selectable even though the body is missing from the local repo tree (R4).
         cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube:vid-a']").Change(true));
         cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
         cut.WaitForState(() => cut.Markup.Contains("Resolutions applied"));
 
         Assert.Contains("UpsertContentColumnsOnlyAsync", localStore.UpsertMethodCalls);
         Assert.Single(localStore.SingleApprovalCalls);
-        Assert.Contains("not promoted", cut.Markup); // File.Move skipped, no exception
+        Assert.Contains("body not in local repo", cut.Markup); // File.Copy skipped, no exception
+        Assert.Contains("git pull", cut.Markup);
     }
 
     // ── secret leak (D-07) ──────────────────────────────────────────────────
@@ -270,27 +283,19 @@ public sealed class PullFromProdPageTests : BunitContext
     }
 
     [Fact]
-    public void Pull_DownloadFailureReasonWithSentinel_ProgressLineContainsOnlyRelativePathAndReason()
+    public void Pull_MissingRepoBody_ProgressLineContainsOnlyRelativePath()
     {
-        // SshDownloadResult.FailureReason is guaranteed sanitized by the ISshArtifactDownloader
-        // contract (never contains host/key/path secrets or ex.Message). The progress panel
-        // renders it as part of the "not downloaded:" line — that is by design. This test
-        // verifies the panel renders the RemoteRelativePath and FailureReason from the result,
-        // and does NOT additionally surface the LocalPath or raw exception text.
-        // The "injected" reason is what FakeSshArtifactDownloader uses by default.
-        var downloader = new FakeSshArtifactDownloader();
-        downloader.FilesToFail.Add("content-kb/test-channel/vid-a.md");
-        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, downloaderOverride: downloader);
+        var (cut, _, _, _) = RenderPull(
+            prodRows: new[] { MakeRow(1, "vid-a") },
+            missingRepoBodies: new[] { "content-kb/test-channel/vid-a.md" });
 
         Pull(cut);
 
-        // Progress panel shows the "not downloaded:" line with RemoteRelativePath. The line renders
-        // asynchronously as the (faked) download fails, so wait for it rather than asserting on a
-        // bare snapshot — matches every other render assertion in this file (flaky otherwise).
-        cut.WaitForAssertion(() => Assert.Contains("not downloaded: content-kb/test-channel/vid-a.md", cut.Markup));
-        // LocalPath is empty string on failure; regardless, the temp dir must never appear.
+        cut.WaitForAssertion(() =>
+            Assert.Contains("body MISSING (run 'git pull'): content-kb/test-channel/vid-a.md", cut.Markup));
         Assert.DoesNotContain(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, '/'), cut.Markup,
             StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("SSH download failed", cut.Markup);
     }
 
     // ── SUI-03 live progress panel ─────────────────────────────────────────
@@ -307,15 +312,14 @@ public sealed class PullFromProdPageTests : BunitContext
         Assert.NotEmpty(cut.FindAll("[data-testid='progress-panel']"));
 
         // Stage lines must appear — these are the fixed sanitized strings, never ex.Message.
-        Assert.Contains("Preparing staging area", cut.Markup);
         Assert.Contains("Reading production content_site_index", cut.Markup);
-        Assert.Contains("Downloading", cut.Markup);
+        Assert.Contains("Resolving", cut.Markup);
         Assert.Contains("Classifying diff", cut.Markup);
         Assert.Contains("Done —", cut.Markup);
     }
 
     [Fact]
-    public void Pull_RendersPerArtifactDownloadLines_WithRemoteRelativePath()
+    public void Pull_RendersPerBodyPresenceLines_WithRepoRelativePath()
     {
         var prod = new[] { MakeRow(1, "vid-a"), MakeRow(2, "vid-b") };
         var (cut, _, _, _) = RenderPull(prodRows: prod);
@@ -330,34 +334,31 @@ public sealed class PullFromProdPageTests : BunitContext
         {
             Assert.Contains("content-kb/test-channel/vid-a.md", cut.Markup);
             Assert.Contains("content-kb/test-channel/vid-b.md", cut.Markup);
-            // Downloaded artifacts produce "downloaded <path>" lines.
-            Assert.Contains("downloaded content-kb/test-channel/vid-a.md", cut.Markup);
+            Assert.Contains("body present: content-kb/test-channel/vid-a.md", cut.Markup);
         });
     }
 
     [Fact]
-    public void Pull_FailedArtifact_ProgressLine_UsesRemoteRelativePath_NotLocalPath()
+    public void Pull_MissingBody_ProgressLine_UsesRepoRelativePath_NotLocalPath()
     {
-        var downloader = new FakeSshArtifactDownloader();
-        downloader.FilesToFail.Add("content-kb/test-channel/vid-a.md");
         var prod = new[] { MakeRow(1, "vid-a") };
-        var (cut, _, _, _) = RenderPull(prodRows: prod, downloaderOverride: downloader);
+        var (cut, _, _, _) = RenderPull(
+            prodRows: prod,
+            missingRepoBodies: new[] { "content-kb/test-channel/vid-a.md" });
 
         Pull(cut);
 
-        // Failed artifact: "not downloaded: <RemoteRelativePath>" — no LocalPath in markup.
-        // WaitForAssertion: per-artifact line renders via a fire-and-forget Progress<T> hop.
+        // Missing body: "body MISSING ... <ArtifactPath>" — no local filesystem path in markup.
+        // WaitForAssertion: per-body line renders via a fire-and-forget Progress<T> hop.
         cut.WaitForAssertion(() =>
-            Assert.Contains("not downloaded: content-kb/test-channel/vid-a.md", cut.Markup));
-        // LocalPath is empty on failure; regardless, no raw local filesystem path must appear.
-        // (The page must never render SshDownloadResult.LocalPath.)
+            Assert.Contains("body MISSING (run 'git pull'): content-kb/test-channel/vid-a.md", cut.Markup));
     }
 
     [Fact]
     public void Pull_ProgressPanel_NeverContainsLocalPath()
     {
-        // Arrange: successful download — LocalPath is set inside FakeSshArtifactDownloader
-        // (it writes a real temp file). The progress panel must never render that local path.
+        // Arrange: successful repo body resolution. The progress panel must never render the
+        // absolute repo path.
         var prod = new[] { MakeRow(1, "vid-a") };
         var (cut, _, _, _) = RenderPull(prodRows: prod);
 

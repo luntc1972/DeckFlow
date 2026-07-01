@@ -8,9 +8,9 @@
 <PageTitle>Pull from Production</PageTitle>
 
 <h1 class="h4 fw-semibold">Pull from Production</h1>
-<p class="text-muted">Read the live production content index and artifacts down into a local staging
-area, see a per-entry diff against your local store, and resolve each one locally. This is the read
-mirror of Direct Push — it NEVER writes to production.</p>
+<p class="text-muted">Read the live production content index, resolve bodies from the local git
+tree, see a per-entry diff against your local store, and resolve each one locally. This is the read
+mirror of Publish — it NEVER writes to production.</p>
 
 <article class="content px-4">
 
@@ -39,19 +39,12 @@ mirror of Direct Push — it NEVER writes to production.</p>
                 to enable the pull.
             </div>
         }
-        @if (!Config.IsScpConfigured)
-        {
-            <div class="alert alert-warning py-2 mt-3">
-                SCP: not configured. Set the Render SSH target in user-secrets to enable
-                artifact download.
-            </div>
-        }
-
         @* ─── Read-only assurance banner ─── *@
         <div class="alert alert-info py-2 mt-3">
             <span class="oi oi-shield" aria-hidden="true"></span>
             <strong> READ-ONLY toward production.</strong> This page only reads prod rows and
-            downloads artifacts. Every resolution you apply writes to your LOCAL store only.
+            resolves bodies from your local git tree. Every resolution you apply writes to your
+            LOCAL store only.
         </div>
 
         @* ─── Stage 1 — Pull & classify ─── *@
@@ -68,7 +61,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
 
                 <button class="btn btn-outline-primary"
                         @onclick="PullAndClassifyAsync"
-                        disabled="@(_operationInFlight || !Config.IsProdConfigured || !Config.IsScpConfigured)">
+                        disabled="@(_operationInFlight || !Config.IsProdConfigured)">
                     @if (_pullInFlight)
                     {
                         <span class="spinner-border spinner-border-sm text-primary"
@@ -170,11 +163,11 @@ mirror of Direct Push — it NEVER writes to production.</p>
                                                         }
                                                         else if (entry.ArtifactDownloaded)
                                                         {
-                                                            <span class="badge bg-success">downloaded</span>
+                                                            <span class="badge bg-success">in repo</span>
                                                         }
                                                         else
                                                         {
-                                                            <span class="badge bg-warning text-dark">not downloaded</span>
+                                                            <span class="badge bg-warning text-dark">missing</span>
                                                         }
                                                     </td>
                                                     <td>
@@ -200,7 +193,7 @@ mirror of Direct Push — it NEVER writes to production.</p>
                                                             </div>
                                                             @if (!entry.ArtifactDownloaded)
                                                             {
-                                                                <div class="text-warning small">artifact not downloaded — adopting updates the row only</div>
+                                                                <div class="text-warning small">body missing in local repo — adopting updates the row only</div>
                                                             }
                                                         }
                                                     </td>
