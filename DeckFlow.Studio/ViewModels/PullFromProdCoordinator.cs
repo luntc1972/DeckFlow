@@ -103,7 +103,7 @@ public sealed class PullFromProdCoordinator
                     var present = File.Exists(repoBody);
                     log.Report(present
                         ? $"  body present: {r.ArtifactPath}"
-                        : $"  body MISSING (run 'git pull'): {r.ArtifactPath}");
+                        : $"  body not in local git repo (prod-only/unpublished): {r.ArtifactPath}");
                     return present;
                 })
                 .Select(r => r.ArtifactPath),
@@ -192,7 +192,7 @@ public sealed class PullFromProdCoordinator
                 else
                 {
                     // R4: partial local repo — upsert + approval still applied; skip ONLY File.Copy.
-                    note = "row updated; body not in local repo — run 'git pull' to sync; approval mirrored from prod";
+                    note = "row updated; body not in local git repo (prod-only or unpublished), not copied; approval mirrored from prod";
                 }
 
                 results.Add(new PullApplyRowResult(entry.Title, entry.NaturalKeyType, keyValue, true, "Adopted", note));
