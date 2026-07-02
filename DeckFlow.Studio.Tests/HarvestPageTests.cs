@@ -53,7 +53,7 @@ namespace DeckFlow.Studio.Tests
             cut.WaitForAssertion(() => Assert.Contains("vidA", maint.BlockCalls));
 
             // HSEL-01: once blocked, the row leaves the unharvested-only default view; show all to assert the badge.
-            cut.Find("#showAllVideos").Change(true);
+            cut.InvokeAsync(() => cut.Find("#showAllVideos").Change(true));
 
             cut.WaitForAssertion(() => Assert.Contains(">Blocked<", cut.Markup));
         }
@@ -105,7 +105,7 @@ namespace DeckFlow.Studio.Tests
 
             BrowseChannel(cut);
             // HSEL-01: blocked rows are hidden in the unharvested-only default view; show all to assert the badge.
-            cut.Find("#showAllVideos").Change(true);
+            cut.InvokeAsync(() => cut.Find("#showAllVideos").Change(true));
 
             cut.WaitForAssertion(() =>
             {
@@ -125,7 +125,7 @@ namespace DeckFlow.Studio.Tests
                 index,
                 byIds: Array.Empty<YouTubeChannelVideo>());
 
-            cut.Find("#pasteQueue").Change("notavideo");
+            cut.InvokeAsync(() => cut.Find("#pasteQueue").Change("notavideo"));
             cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Add to Queue", StringComparison.Ordinal)).Click());
 
             cut.WaitForAssertion(() =>
@@ -149,7 +149,7 @@ namespace DeckFlow.Studio.Tests
 
             BrowseChannel(cut);
             // HSEL-01: approved/published rows are hidden in the unharvested-only default; show all to assert badges.
-            cut.Find("#showAllVideos").Change(true);
+            cut.InvokeAsync(() => cut.Find("#showAllVideos").Change(true));
 
             cut.WaitForAssertion(() =>
             {
@@ -177,8 +177,8 @@ namespace DeckFlow.Studio.Tests
 
             cut.WaitForAssertion(() => Assert.Equal(3, cut.FindAll("tbody tr").Count));
 
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
-            cut.Find("input[aria-label='Select Vid 2']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 2']").Change(true));
 
             cut.WaitForAssertion(() =>
             {
@@ -222,7 +222,7 @@ namespace DeckFlow.Studio.Tests
                 new MapBlockedStore(),
                 new MapSiteIndexStore());
 
-            cut.Find("#autoApproveEnabled").Change(false);
+            cut.InvokeAsync(() => cut.Find("#autoApproveEnabled").Change(false));
 
             // Persisted to disk (D-04/D-07): a fresh store over the same dir reads back Enabled=false.
             var reloaded = new AutoApproveSettingsStore(_autoApproveDir).Load();
@@ -239,7 +239,7 @@ namespace DeckFlow.Studio.Tests
                 new MapBlockedStore(),
                 new MapSiteIndexStore());
 
-            cut.Find("#autoApproveCutoff").Change("7");
+            cut.InvokeAsync(() => cut.Find("#autoApproveCutoff").Change("7"));
 
             var reloaded = new AutoApproveSettingsStore(_autoApproveDir).Load();
             Assert.Equal(7, reloaded.Cutoff);
@@ -267,7 +267,7 @@ namespace DeckFlow.Studio.Tests
             var (cut, _, _, _) = RenderHarvest(new[] { Vid("v1", "Vid 1") }, blocked, index, distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() =>
@@ -299,9 +299,9 @@ namespace DeckFlow.Studio.Tests
                 distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
-            cut.Find("input[aria-label='Select Vid 2']").Change(true);
-            cut.Find("input[aria-label='Select Vid 3']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 2']").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 3']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() =>
@@ -333,7 +333,7 @@ namespace DeckFlow.Studio.Tests
             var (cut, _, _, _) = RenderHarvest(new[] { Vid("v1", "Vid 1") }, blocked, index, distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() =>
@@ -365,7 +365,7 @@ namespace DeckFlow.Studio.Tests
             var (cut, _, _, _) = RenderHarvest(new[] { Vid("v1", "Vid 1") }, blocked, index, distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
             ClickOneClick(cut);
 
             // No video qualifies → no batch approval call at all (empty list is skipped).
@@ -395,7 +395,7 @@ namespace DeckFlow.Studio.Tests
             var (cut, _, _, _) = RenderHarvest(new[] { Vid("v1", "Vid 1") }, blocked, index, distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() => Assert.True(distill.LiveDistillCalled));
@@ -421,7 +421,7 @@ namespace DeckFlow.Studio.Tests
                 isSubscriptionProvider: false);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() => Assert.Contains("subscription provider", cut.Markup, StringComparison.OrdinalIgnoreCase));
@@ -455,8 +455,8 @@ namespace DeckFlow.Studio.Tests
                 distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
-            cut.Find("input[aria-label='Select Vid 2']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 2']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() => Assert.Contains("v2", cut.Markup));
@@ -487,8 +487,8 @@ namespace DeckFlow.Studio.Tests
                 distill: distill);
 
             BrowseChannel(cut);
-            cut.Find("input[aria-label='Select Vid 1']").Change(true);
-            cut.Find("input[aria-label='Select Vid 2']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 2']").Change(true));
             ClickOneClick(cut);
 
             cut.WaitForAssertion(() =>
@@ -532,7 +532,7 @@ namespace DeckFlow.Studio.Tests
                 .Click());
             cut.WaitForAssertion(() => Assert.Contains("Select v1", cut.Markup));
 
-            cut.Find("input[aria-label='Select v1']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select v1']").Change(true));
 
             cut.WaitForAssertion(() =>
             {
@@ -614,7 +614,7 @@ namespace DeckFlow.Studio.Tests
                 skipped: skipped);
 
             BrowseChannel(cut);
-            cut.Find("#showAllVideos").Change(true);
+            cut.InvokeAsync(() => cut.Find("#showAllVideos").Change(true));
 
             cut.WaitForAssertion(() =>
             {
@@ -663,12 +663,12 @@ namespace DeckFlow.Studio.Tests
             BrowseChannel(cut);
 
             // Show all so the Distilled row is visible + selectable, then select both.
-            cut.Find("#showAllVideos").Change(true);
-            cut.Find("input[aria-label='Select New']").Change(true);
-            cut.Find("input[aria-label='Select Distilled']").Change(true);
+            cut.InvokeAsync(() => cut.Find("#showAllVideos").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select New']").Change(true));
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Distilled']").Change(true));
 
             // Toggle back to default — the Distilled row is now hidden.
-            cut.Find("#showAllVideos").Change(false);
+            cut.InvokeAsync(() => cut.Find("#showAllVideos").Change(false));
 
             cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
 
@@ -767,7 +767,7 @@ namespace DeckFlow.Studio.Tests
             });
 
             // Select "Alice" from the filter.
-            cut.Find("#browseCreatorFilter").Change("Alice");
+            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
 
             cut.WaitForAssertion(() =>
             {
@@ -790,11 +790,11 @@ namespace DeckFlow.Studio.Tests
                 new MapSiteIndexStore());
 
             BrowseChannel(cut);
-            cut.Find("#browseCreatorFilter").Change("Alice");
+            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
             cut.WaitForAssertion(() => Assert.DoesNotContain("Beta", cut.Markup));
 
             // Reset to "All creators" (empty string).
-            cut.Find("#browseCreatorFilter").Change(string.Empty);
+            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change(string.Empty));
 
             cut.WaitForAssertion(() =>
             {
@@ -832,7 +832,7 @@ namespace DeckFlow.Studio.Tests
             });
 
             // Apply creator filter "Alice" — only Alice-NotHarvested remains.
-            cut.Find("#browseCreatorFilter").Change("Alice");
+            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
 
             cut.WaitForAssertion(() =>
             {
@@ -866,7 +866,7 @@ namespace DeckFlow.Studio.Tests
             // The filter dropdown is rendered because Alice+Bob = 2 distinct creators.
             cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#browseCreatorFilter")));
 
-            cut.Find("#browseCreatorFilter").Change("Alice");
+            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
 
             cut.WaitForAssertion(() =>
             {
@@ -896,10 +896,10 @@ namespace DeckFlow.Studio.Tests
             cut.WaitForAssertion(() => Assert.Contains("Alice-Video", cut.Markup));
 
             // Select Alice's video (both creators visible, no filter yet).
-            cut.Find("input[aria-label='Select Alice-Video']").Change(true);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Alice-Video']").Change(true));
 
             // Switch filter to Bob — Alice-Video is now hidden.
-            cut.Find("#browseCreatorFilter").Change("Bob");
+            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Bob"));
 
             cut.WaitForAssertion(() =>
             {
@@ -1034,7 +1034,7 @@ namespace DeckFlow.Studio.Tests
 
         private static void BrowseChannel(IRenderedComponent<Harvest> cut)
         {
-            cut.Find("#channelInput").Change("https://youtube.com/@chan");
+            cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@chan"));
             cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Browse", StringComparison.Ordinal)).Click());
             cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup));
         }
