@@ -3,11 +3,33 @@ using Microsoft.AspNetCore.Hosting;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
+/// Describes the result of resolving a Content KB artifact path.
+/// </summary>
+public enum ContentKbArtifactResolution
+{
+    /// <summary>
+    /// The stored path is structurally unsafe or escapes the allowed subtree.
+    /// </summary>
+    InvalidPath,
+
+    /// <summary>
+    /// The stored path is valid, but no artifact file exists under the git or overlay roots.
+    /// </summary>
+    MissingFile,
+
+    /// <summary>
+    /// A matching artifact file was found and resolved safely.
+    /// </summary>
+    Resolved,
+}
+
+/// <summary>
 /// Resolves the Content KB base directory for seed loading and artifact reads.
 /// </summary>
 public sealed class ContentKbArtifactPathResolver
 {
     private readonly ILogger<ContentKbArtifactPathResolver> _logger;
+    private static readonly char[] PathSeparators = ['/', '\\'];
 
     /// <summary>
     /// Creates a resolver using the configured content base candidates.
@@ -26,6 +48,7 @@ public sealed class ContentKbArtifactPathResolver
 
         _logger = logger;
         ContentBase = ResolveContentBase(environment, configuration);
+        DataOverlayBase = ResolveDataOverlayBase(configuration);
         var contentKbExists = Directory.Exists(Path.Combine(ContentBase, "content-kb"));
         _logger.LogInformation(
             "Content KB content base resolved to {ContentBase}; content-kb exists: {ContentKbExists}.",
@@ -44,6 +67,11 @@ public sealed class ContentKbArtifactPathResolver
     public string SeedFilePath => Path.Combine(ContentBase, "content-kb", "seed", "index-seed.json");
 
     /// <summary>
+    /// Gets the optional persistent data overlay root containing the <c>content-kb</c> artifact tree.
+    /// </summary>
+    public string? DataOverlayBase { get; }
+
+    /// <summary>
     /// Resolves a stored artifact path to an absolute filesystem path.
     /// </summary>
     /// <param name="artifactPath">Stored relative artifact path.</param>
@@ -53,6 +81,53 @@ public sealed class ContentKbArtifactPathResolver
         ArgumentException.ThrowIfNullOrWhiteSpace(artifactPath);
 
         return Path.GetFullPath(Path.Combine(ContentBase, artifactPath));
+    }
+
+    /// <summary>
+    /// Resolves a stored artifact path to an existing artifact under the git root or optional data overlay.
+    /// </summary>
+    /// <param name="artifactPath">Stored relative artifact path.</param>
+    /// <param name="resolvedFullPath">Resolved absolute path when found.</param>
+    /// <returns>The resolution state for the requested artifact path.</returns>
+    public ContentKbArtifactResolution TryResolveExistingArtifact(string artifactPath, out string resolvedFullPath)
+    {
+        resolvedFullPath = string.Empty;
+        if (!IsSafeArtifactPath(artifactPath))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
+
+        var gitRoot = Path.Combine(ContentBase, "content-kb");
+        var gitPath = Path.GetFullPath(Path.Combine(ContentBase, artifactPath));
+        if (!IsContainedUnderRoot(gitPath, gitRoot))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
+
+        if (File.Exists(gitPath))
+        {
+            resolvedFullPath = gitPath;
+            return ContentKbArtifactResolution.Resolved;
+        }
+
+        if (DataOverlayBase is null)
+        {
+            return ContentKbArtifactResolution.MissingFile;
+        }
+
+        var overlayPath = Path.GetFullPath(Path.Combine(DataOverlayBase, artifactPath["content-kb/".Length..]));
+        if (!IsContainedUnderRoot(overlayPath, DataOverlayBase))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
+
+        if (File.Exists(overlayPath))
+        {
+            resolvedFullPath = overlayPath;
+            return ContentKbArtifactResolution.Resolved;
+        }
+
+        return ContentKbArtifactResolution.MissingFile;
     }
 
     private string ResolveContentBase(IWebHostEnvironment environment, IConfiguration configuration)
@@ -82,5 +157,48 @@ public sealed class ContentKbArtifactPathResolver
         yield return Path.GetFullPath(environment.ContentRootPath);
         yield return Path.GetFullPath(Path.Combine(environment.ContentRootPath, ".."));
         yield return Path.GetFullPath(Directory.GetCurrentDirectory());
+    }
+
+    private static string? ResolveDataOverlayBase(IConfiguration configuration)
+    {
+        var dataDir = configuration["MTG_DATA_DIR"];
+        if (string.IsNullOrWhiteSpace(dataDir))
+        {
+            dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        }
+
+        return string.IsNullOrWhiteSpace(dataDir)
+            ? null
+            : Path.GetFullPath(Path.Combine(dataDir, "content-kb"));
+    }
+
+    private static bool IsSafeArtifactPath(string artifactPath)
+    {
+        if (string.IsNullOrWhiteSpace(artifactPath) ||
+            Path.IsPathRooted(artifactPath) ||
+            !artifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var segment in artifactPath.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment == "..")
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsContainedUnderRoot(string candidatePath, string rootPath)
+    {
+        var fullRoot = Path.GetFullPath(rootPath);
+        var comparisonRoot = fullRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? fullRoot
+            : fullRoot + Path.DirectorySeparatorChar;
+
+        return candidatePath.StartsWith(comparisonRoot, StringComparison.OrdinalIgnoreCase);
     }
 }

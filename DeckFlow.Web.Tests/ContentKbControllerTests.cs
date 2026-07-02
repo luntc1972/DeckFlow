@@ -102,6 +102,26 @@ public sealed class ContentKbControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_ServesBody_WhenPresentOnlyInOverlay()
+    {
+        var overlayRoot = Path.Combine(Path.GetTempPath(), "kbctl-overlay-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "content-kb"));
+        _tempDirs.Add(overlayRoot);
+
+        var (controller, store) = Build(new Dictionary<string, string?> { ["MTG_DATA_DIR"] = overlayRoot });
+        var rel = "content-kb/edhrecast/overlay.md";
+        WriteArtifact(overlayRoot, rel, "# Overlay only\n\nVisible body.");
+        store.Rows.Add(Row(6, artifactPath: rel, visible: true));
+
+        var result = await controller.Detail(6);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        Assert.False(model.ArtifactUnavailable);
+        Assert.Contains("Visible body.", model.CleanBodyText);
+    }
+
+    [Fact]
     public async Task Index_ProjectsPublishedRowsOnly()
     {
         var (controller, store) = Build();
@@ -120,13 +140,22 @@ public sealed class ContentKbControllerTests : IDisposable
         => Build(out _);
 
     private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build(out string baseDir)
+        => Build(new Dictionary<string, string?>(), out baseDir);
+
+    private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build(Dictionary<string, string?> config)
+        => Build(config, out _);
+
+    private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build(
+        Dictionary<string, string?> config,
+        out string baseDir)
     {
         baseDir = Path.Combine(Path.GetTempPath(), "kbctl-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(baseDir, "content-kb"));
         _tempDirs.Add(baseDir);
 
+        config["ContentKb:ContentBase"] = baseDir;
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir })
+            .AddInMemoryCollection(config)
             .Build();
         var resolver = new ContentKbArtifactPathResolver(
             new StubWebHostEnvironment(baseDir),
