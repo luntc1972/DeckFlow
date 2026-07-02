@@ -101,14 +101,13 @@ public sealed class ContentKbController : Controller
             return NotFound();
         }
 
-        var allowedRoot = Path.GetFullPath(Path.Combine(_resolver.ContentBase, "content-kb"));
-        var resolved = _resolver.ResolveArtifactFullPath(row.ArtifactPath);
-        if (!resolved.StartsWith(allowedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        var resolution = _resolver.TryResolveExistingArtifact(row.ArtifactPath, out var resolved);
+        if (resolution == ContentKbArtifactResolution.InvalidPath)
         {
             return NotFound();
         }
 
-        if (!System.IO.File.Exists(resolved))
+        if (resolution == ContentKbArtifactResolution.MissingFile)
         {
             _logger.LogWarning("Content KB artifact file was unavailable for row {ContentKbRowId}.", row.Id);
             return View("Detail", BuildDetailModel(row, new HtmlString(string.Empty), string.Empty, artifactUnavailable: true));

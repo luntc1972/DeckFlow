@@ -88,6 +88,79 @@ public sealed class ContentKbArtifactPathResolverTests : IDisposable
             resolved);
     }
 
+    [Fact]
+    public void TryResolveExistingArtifact_ReturnsOverlayFile_WhenPresentOnlyUnderDataOverlay()
+    {
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        var overlayFile = WriteFile(Path.Combine(dataDir, "content-kb", "edhrecast", "overlay.md"), "# Overlay");
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir });
+
+        var result = resolver.TryResolveExistingArtifact("content-kb/edhrecast/overlay.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.Resolved, result);
+        Assert.Equal(Path.GetFullPath(Path.Combine(dataDir, "content-kb")), resolver.DataOverlayBase);
+        Assert.Equal(overlayFile, resolved);
+    }
+
+    [Fact]
+    public void TryResolveExistingArtifact_PrefersGitRoot_WhenGitAndOverlayBothContainBody()
+    {
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        var gitFile = WriteFile(Path.Combine(contentRoot, "content-kb", "edhrecast", "same.md"), "# Git");
+        WriteFile(Path.Combine(dataDir, "content-kb", "edhrecast", "same.md"), "# Overlay");
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir });
+
+        var result = resolver.TryResolveExistingArtifact("content-kb/edhrecast/same.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.Resolved, result);
+        Assert.Equal(gitFile, resolved);
+    }
+
+    [Theory]
+    [InlineData("content-kb/../escape.md")]
+    [InlineData("/content-kb/edhrecast/rooted.md")]
+    public void TryResolveExistingArtifact_ReturnsInvalidPath_ForTraversalOrRootedPath(string artifactPath)
+    {
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir });
+
+        var result = resolver.TryResolveExistingArtifact(artifactPath, out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.InvalidPath, result);
+        Assert.Equal(string.Empty, resolved);
+    }
+
+    [Fact]
+    public void TryResolveExistingArtifact_ReturnsMissingFile_WhenPathIsValidButAbsent()
+    {
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir });
+
+        var result = resolver.TryResolveExistingArtifact("content-kb/edhrecast/missing.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.MissingFile, result);
+        Assert.Equal(string.Empty, resolved);
+    }
+
+    [Fact]
+    public void TryResolveExistingArtifact_IgnoresOverlay_WhenMtgDataDirUnset()
+    {
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        WriteFile(Path.Combine(dataDir, "content-kb", "edhrecast", "overlay-only.md"), "# Overlay");
+        var resolver = Build(contentRoot, new());
+
+        var result = resolver.TryResolveExistingArtifact("content-kb/edhrecast/overlay-only.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.MissingFile, result);
+        Assert.Null(resolver.DataOverlayBase);
+        Assert.Equal(string.Empty, resolved);
+    }
+
     private ContentKbArtifactPathResolver Build(string contentRootPath, Dictionary<string, string?> config)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
@@ -111,6 +184,13 @@ public sealed class ContentKbArtifactPathResolverTests : IDisposable
         Directory.CreateDirectory(dir);
         _tempDirs.Add(dir);
         return dir;
+    }
+
+    private static string WriteFile(string path, string content)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+        return Path.GetFullPath(path);
     }
 
     public void Dispose()
