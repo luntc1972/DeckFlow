@@ -56,4 +56,10 @@ Copy the prompt, paste it into ChatGPT, Claude, or Gemini, and the AI returns th
 
 ## Saving and resuming a session
 
-Use **Download session (.zip)** to save the current setup — deck source, bracket, AI platform, and selected sections — along with the generated prompt variants and the normalized decklist. Use **Upload & Resume** later to restore that setup from the `.zip`; the primer is regenerated on restore in case upstream combo or meta data has changed.
+Use **Download session (.zip)** to save the current setup — deck source, bracket, AI platform, and selected sections — along with the generated prompt variants and the normalized decklist. Use **Upload & Resume** later to restore that setup from the `.zip`. The saved primer is restored **verbatim** — DeckFlow does not auto-rebuild it or re-fetch combo/meta data on resume. To refresh a primer against newer data, regenerate it explicitly with **Generate Primer** (or the **Regenerate primer** button described below).
+
+## Staleness banner (optional)
+
+When the site operator has enabled the `tool.primer.stale-flag` feature flag, Step 3 warns you when a restored primer no longer matches the deck currently in Step 1. If you **Upload & Resume** a primer `.zip` while Step 1 holds a *different* deck, the old primer still renders verbatim, but a caution banner appears — *"Deck changed since this primer was generated — N cards differ. Regenerate to refresh the primer."* — with a **Regenerate primer** button.
+
+Staleness is a card-name-and-quantity comparison: reordering cards or swapping printings does **not** flag stale, while adding or removing a card, or changing a quantity, does. Nothing rebuilds on its own — regeneration is always the explicit button press. With the flag off, Step 3 and the downloaded zips are unchanged.

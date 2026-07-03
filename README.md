@@ -1,11 +1,11 @@
 # DeckFlow
 
-DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, a deterministic mana-base analyzer, Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
+DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, head-to-head deck comparison, and deck-primer generation; a deterministic mana-base analyzer and a local bracket classifier; Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
 
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks and generates paste-ready AI prompts (analysis, deck primer, comparison, cEDH meta-gap), plus a mana-base analyzer, deck diffs, card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG content-creator knowledge base. Live at deckflow.gg.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks and generates paste-ready AI prompts (analysis, deck primer, comparison, cEDH meta-gap), plus a mana-base analyzer, bracket check, deck diffs, card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG creator knowledge base. Live at deckflow.gg.
 
 ## User Feedback
 
@@ -141,6 +141,13 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - **Cross-tool deck-input persistence (Phase 74):** paste a deck once and the single-deck tools carry it for you (sessionStorage, silent fill-if-empty), with a "Restored your last deck" notice and a **Start Over** that clears the carried deck.
 - **Deck Primer output-style toggle:** the Deck Primer gains a style toggle — **Moxfield-rich** formatting and a **Full cEDH** competitive-depth style (visible at the cEDH bracket).
 - **Feature-flag key namespacing:** operator feature-flag keys are namespaced (`tool.*` / `service.*` / `analysis.*` / `manabase.*`), existing rows are migrated with their toggle state preserved, and the Admin → Flags page adds an instant client-side key-prefix filter and per-`tool.*` descriptions.
+
+### What's new in Cycle 13 — Deck Evaluation & Creator Output (shipped 2026-06-10, `2026.06.10`)
+Four deck-evaluation and creator-output features. All four are flag-gated and ship **OFF** by default, so existing pages and paste artifacts stay byte-identical until an admin enables them. Each is detailed in its tool section below.
+- **Bracket Check (`/bracket`, Phase 76, flag `tool.bracket.enabled`):** auto-classify a Commander deck into its official 1–5 bracket from Game Changers, two-card combos, and mass land denial — computed locally, no AI needed for the number — with an optional balancer prompt to hit a target bracket. See [Bracket classifier and balancer](#bracket-classifier-and-balancer).
+- **Tap analyzer (Mana Base, Phase 75, flag `analysis.manabase.tap-analyzer`):** the `/manabase` report and its paste artifact surface untapped-source quality — overall untapped frequency, turn-1 untapped availability, and a per-color untapped breakdown for multi-color decks. Informational only; never changes the land count or verdict.
+- **Multi-axis deck score (Deck Analysis, Phase 77, flag `analysis.multi-axis-score`):** `/deck-analysis` adds a four-axis **Power / Speed / Control / Consistency** 0–5 score to the Step-3 results and all three paste artifacts, with a bracket cross-check. Deterministic heuristic bands computed in `DeckFlow.Core` — no AI round-trip for the numbers.
+- **Auto-refreshing Deck Primer staleness banner (Phase 78, flag `tool.primer.stale-flag`):** the Deck Primer flags on Step 3 when the deck in Step 1 differs from the deck a resumed primer was generated against ("Deck changed since this primer was generated — N cards differ") with a **Regenerate primer** button. Resume renders the saved primer verbatim — no auto-rebuild, no upstream re-fetch; regeneration is the explicit button press.
 
 ### What's new in v1.3
 - **AI-agnostic workflow URLs (v1.3 / Phase 12):** `/chatgpt-deck-analysis`, `/chatgpt-deck-comparison`, and `/chatgpt-cedh-meta-gap` now 301-redirect to `/deck-analysis`, `/deck-comparison`, and `/cedh-meta-gap`; page H1s, nav labels, hub labels, and artifact zip filenames use AI-agnostic wording.

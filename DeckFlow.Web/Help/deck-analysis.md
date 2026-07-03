@@ -55,6 +55,12 @@ Paste the fenced `deck_profile` JSON block or raw JSON payload returned from you
 - Per-question answers with basis notes
 - Full deck versions when versioning questions were requested
 
+### Multi-axis deck score (optional)
+
+When the site operator has enabled the `analysis.multi-axis-score` feature flag, Step 3 leads with a four-axis **Power / Speed / Control / Consistency** score (it also rides along inside all three paste artifacts). Each axis shows a coarse **0–5** band (*None* … *Extreme*) with a numeral, a 5-pip meter, a band pill, and a one-line rationale, plus a note cross-checking whether the **Power** band agrees with the deck's computed bracket.
+
+The bands are **deterministic heuristic estimates** computed in DeckFlow from signals like tutors, fast mana, ramp/draw, counters, the bracket, and combo availability — there is no AI round-trip for the numbers. They are framed in the prompt as a starting read the AI re-checks, not a final grade. The flag defaults off, so the page and the artifacts are unchanged until an admin enables it.
+
 This step is local to the returned JSON. It does not regenerate the analysis packet or call upstream services again.
 
 ## Step 4 — Set Upgrade (optional)
