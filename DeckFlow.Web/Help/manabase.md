@@ -69,6 +69,16 @@ When you name a companion, DeckFlow estimates its castability by adding the comp
 
 A standing **"analysis is in beta"** notice sits at the top of every manabase result, whether or not the command-zone flag is enabled. It is a reminder that these numbers are a heuristic guide for comparing options, not a guarantee - treat them as directional.
 
+### Untapped-source (Tap) analyzer
+
+When the `analysis.manabase.tap-analyzer` feature flag is enabled, the report (and its paste artifact) add an **untapped-source** readout — a land that enters tapped can't help you cast on curve, so this measures how much of your mana is available right away:
+
+- **Untapped-source frequency** — the overall share of your mana sources that come in untapped.
+- **Turn-1 untapped availability** — the deck-level chance you have an untapped source to spend on turn one.
+- **Per-color untapped breakdown** (multi-color decks only) — the same untapped view split by color, so you can see which color is stuck behind tapped lands.
+
+This layer is **informational only**. It never changes the land count, color counts, castability table, or health verdict. The flag defaults off, so the report and the downloaded `.txt` stay unchanged until an admin enables it.
+
 ### Reading your deck
 
 When the admin enables the plain-language layer, the result can also show a short **Reading your deck** advisory:
