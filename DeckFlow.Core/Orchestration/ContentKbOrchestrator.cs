@@ -796,36 +796,54 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
 
+        var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
+        var approvedPaths = exportRows.Select(r => r.ArtifactPath).ToList();
+
+        // Why: delegate to the explicit-path copy so the containment guard + copy loop live in ONE
+        // place; this method just supplies the approved set's paths (DRY with CopyArtifactsToRepoAsync).
+        return await CopyArtifactsToRepoAsync(dataRoot, repoRoot, approvedPaths, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<string>> CopyArtifactsToRepoAsync(
+        string dataRoot,
+        string repoRoot,
+        IReadOnlyList<string> artifactPaths,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentNullException.ThrowIfNull(artifactPaths);
+
         var dataRootFull = Path.GetFullPath(dataRoot);
         var repoRootFull = Path.GetFullPath(repoRoot);
 
-        var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
-
-        var copiedPaths = new List<string>(exportRows.Count);
-        foreach (var row in exportRows)
+        var copiedPaths = new List<string>(artifactPaths.Count);
+        foreach (var artifactPath in artifactPaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             // Why: containment-guard both source (under dataRoot) and dest (under repoRoot)
             // to prevent path traversal out of the data dir or the repo tree (T-46-02-06).
-            var sourceFull = ResolveContainedPath(dataRootFull, row.ArtifactPath);
-            var destFull = ResolveContainedPath(repoRootFull, row.ArtifactPath);
+            var sourceFull = ResolveContainedPath(dataRootFull, artifactPath);
+            var destFull = ResolveContainedPath(repoRootFull, artifactPath);
 
             // Why: missing/unreadable source is a publish-blocking error (D-10); never
             // silently skip — callers must not commit a seed referencing absent files.
             if (!File.Exists(sourceFull))
             {
                 throw new InvalidOperationException(
-                    $"Approved artifact source missing: {row.ArtifactPath}");
+                    $"Approved artifact source missing: {artifactPath}");
             }
 
             Directory.CreateDirectory(Path.GetDirectoryName(destFull)!);
             File.Copy(sourceFull, destFull, overwrite: true);
 
-            copiedPaths.Add(row.ArtifactPath);
+            copiedPaths.Add(artifactPath);
         }
 
-        return copiedPaths;
+        return Task.FromResult<IReadOnlyList<string>>(copiedPaths);
     }
 
     /// <summary>

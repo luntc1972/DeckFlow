@@ -1,4 +1,6 @@
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Core.Storage;
@@ -22,25 +24,53 @@ public sealed class DirectPushCoordinator
     private readonly IProdStoreFactory _prodStoreFactory;
     private readonly IConfiguration _configuration;
     private readonly ContentKbOrchestratorOptions _options;
+    private readonly IGitRepository _git;
+    private readonly IContentKbOrchestrator _orchestrator;
 
-    /// <summary>Creates the coordinator with the stores, uploader, configuration, and KB options.</summary>
+    // Why: the git commit carries the Render deploy-skip phrase. Render honors [skip render] /
+    // [render skip] (NOT the CI-only [skip ci]) to suppress an auto-deploy on push — content is
+    // already live via the web /data overlay, so the git push is durability only and must not
+    // trigger a redundant production redeploy.
+    private const string RenderSkipPhrase = "[skip render]";
+
+    // Why: the fixed subject prefix of every durability commit. Shared by the commit-message template
+    // AND the classifier regex so the two can never drift (refuted-but-noted dup from review).
+    private const string CommitSubjectPrefix = "content: direct-push";
+
+    // Why (review R2-2): the foreign-commit guard must match ONLY the exact subject shape this stage
+    // writes — "content: direct-push {n} body|bodies to prod [skip render]" — not merely a subject
+    // that starts with the prefix and contains the token. Built from the two shared consts so it stays
+    // locked to the template. This narrows accidental false-positives (e.g. "content: direct-push
+    // notes [skip render]") to effectively zero; it is not an anti-tamper control (the operator owns
+    // the repo and could always craft any commit — that is not the threat model).
+    private static readonly Regex DurabilityCommitSubjectPattern = new(
+        "^" + Regex.Escape(CommitSubjectPrefix) + @" \d+ (?:body|bodies) to prod " + Regex.Escape(RenderSkipPhrase) + "$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, and orchestrator.</summary>
     public DirectPushCoordinator(
         IContentSiteIndexStore localStore,
         ISshArtifactUploader uploader,
         IProdStoreFactory prodStoreFactory,
         IConfiguration configuration,
-        ContentKbOrchestratorOptions options)
+        ContentKbOrchestratorOptions options,
+        IGitRepository git,
+        IContentKbOrchestrator orchestrator)
     {
         ArgumentNullException.ThrowIfNull(localStore);
         ArgumentNullException.ThrowIfNull(uploader);
         ArgumentNullException.ThrowIfNull(prodStoreFactory);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(git);
+        ArgumentNullException.ThrowIfNull(orchestrator);
         _localStore = localStore;
         _uploader = uploader;
         _prodStoreFactory = prodStoreFactory;
         _configuration = configuration;
         _options = options;
+        _git = git;
+        _orchestrator = orchestrator;
     }
 
     /// <summary>
@@ -174,6 +204,161 @@ public sealed class DirectPushCoordinator
         await _localStore.SetVisibilityAsync(keys, true, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Durability stage (runs LAST, after prod DB + /data are already live): copies ONLY the pushed
+    /// (New + Updated) bodies into the repo tree, commits exactly those body paths, and pushes the
+    /// current branch to <c>origin</c> (the remote is fixed, not a parameter).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Resolves the anti-pattern: this commits body files ONLY — it never invokes the approved-only
+    /// seed export, so the committed <c>index-seed.json</c> (the full published set in git) is left
+    /// untouched. A partial Studio store can therefore never overwrite the seed here.
+    /// </para>
+    /// <para>
+    /// The commit message carries <c>[skip render]</c> so the push does not trigger a production
+    /// redeploy — the content is already serving live from the web /data overlay; git is durability
+    /// only. Any git failure is the caller's to surface as non-fatal (content stays live).
+    /// </para>
+    /// </remarks>
+    public async Task<DirectPushGitResult> CommitAndPushBodiesAsync(
+        IReadOnlyList<ContentSiteIndexRow> publishRows,
+        string dataRoot,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(publishRows);
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+
+        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+
+        // Resolve the branch up front so a detached HEAD fails fast BEFORE any file copy or commit —
+        // rev-parse --abbrev-ref returns the literal "HEAD" when detached, which would otherwise push
+        // to a bogus refs/heads/HEAD branch (Codex LOW).
+        var branch = await _git.GetCurrentBranchAsync(repoRoot, cancellationToken).ConfigureAwait(false);
+        if (string.Equals(branch, "HEAD", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(branch))
+        {
+            throw new InvalidOperationException(
+                "Direct Push requires a checked-out branch; the repository is in a detached-HEAD state.");
+        }
+
+        // Ahead-of-origin inspection (reviews F2 / R2-1 / R2-2): pushing the branch ref publishes HEAD
+        // AND every ancestor not already on origin — not just our durability commit. Before pushing we
+        // must PROVE the only thing published is our own [skip render] durability commit(s). Read what
+        // is currently ahead of origin/{branch}.
+        IReadOnlyList<string>? aheadSubjects;
+        try
+        {
+            aheadSubjects = await _git
+                .GetSubjectsAheadOfRemoteAsync(repoRoot, "origin", branch, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (GitCommandException)
+        {
+            aheadSubjects = null;
+        }
+
+        // Fail CLOSED when the ahead state cannot be determined (review R2-1): a missing origin/{branch}
+        // remote-tracking ref (never fetched) means we cannot prove a push would publish only our own
+        // commits, so refuse to auto-push rather than risk publishing unreviewed history. Nothing has
+        // been committed yet — the operator resolves this by fetching, then retrying.
+        if (aheadSubjects is null)
+        {
+            throw new DirectPushPushBlockedException(
+                branch,
+                $"the branch's remote state could not be verified — origin/{branch} was not found. " +
+                $"If the branch has never been pushed, run 'git push -u origin {branch}'; otherwise run " +
+                "'git fetch'. Then retry");
+        }
+
+        // Foreign-commit guard: if ANY commit ahead of origin is one this stage did not author (not an
+        // exact-shape [skip render] durability commit), refuse — Stage 4 must never publish unreviewed
+        // commits (the project rule is "AI commits, the operator pushes after review").
+        var foreignAhead = aheadSubjects.Count(s => !IsDurabilityCommitSubject(s));
+        if (foreignAhead > 0)
+        {
+            throw new DirectPushUnreviewedCommitsException(foreignAhead, branch);
+        }
+
+        // Only the pushed bodies — distinct in case two rows share an artifact path. Filter blank AND
+        // whitespace paths (review F6) so a stray whitespace ArtifactPath cannot turn the durability
+        // backup into a hard failure inside the containment guard.
+        var artifactPaths = publishRows
+            .Select(r => r.ArtifactPath)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        // Defensive (review R3-3): the publish set has rows but every ArtifactPath was blank/whitespace
+        // (data corruption or an upstream mapping bug). Nothing can be backed up — refuse rather than
+        // fall through to an "already in sync / git-durable" success on zero bodies.
+        if (publishRows.Count > 0 && artifactPaths.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Direct Push git stage: the publish set has rows but no usable artifact paths to commit.");
+        }
+
+        var copied = await _orchestrator
+            .CopyArtifactsToRepoAsync(dataRoot, repoRoot, artifactPaths, cancellationToken)
+            .ConfigureAwait(false);
+
+        // No-op gate (Codex MED): an Updated row whose DB columns changed but whose .md body is
+        // byte-identical to HEAD produces nothing to commit — do NOT let StageAndCommitAsync throw
+        // "nothing to commit". changedCount is also the ACCURATE committed-body count (review R3-2):
+        // copied.Count includes those byte-identical bodies that git does not actually commit.
+        var changedCount = await _git.CountWorkingChangesAsync(repoRoot, copied, cancellationToken).ConfigureAwait(false);
+
+        string? sha = null;
+        if (changedCount > 0)
+        {
+            var noun = changedCount == 1 ? "body" : "bodies";
+            var message = $"{CommitSubjectPrefix} {changedCount} {noun} to prod {RenderSkipPhrase}";
+
+            // Bodies ONLY — the seed path is deliberately never staged here (anti-pattern guard). A
+            // commit failure propagates before the push (nothing is left half-published on the remote).
+            sha = await _git.StageAndCommitAsync(repoRoot, copied, message, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Decide what actually gets published. aheadSubjects is resolved and all-own (foreign rejected):
+        //  - committed this run (sha != null)          → push it, outcome Committed.
+        //  - no commit but own durability commit(s) still unpushed (Count > 0) → catch-up push, outcome
+        //    PushedExistingCommits.
+        //  - no commit AND in sync (Count == 0)        → nothing to push; return AlreadyInSync WITHOUT
+        //    pushing so the UI never falsely claims a push happened (review R2-3 / F4).
+        if (sha is null && aheadSubjects.Count == 0)
+        {
+            return new DirectPushGitResult(null, branch, changedCount, DirectPushGitOutcome.AlreadyInSync);
+        }
+
+        var outcome = sha is null
+            ? DirectPushGitOutcome.PushedExistingCommits
+            : DirectPushGitOutcome.Committed;
+
+        // Push is a SEPARATE recoverable step (Codex MED): if a commit landed but the push fails, the
+        // bodies are already durable locally — surface the SHA (null when nothing was committed this
+        // run) + branch so the operator can push by hand. A genuine cancellation must surface AS
+        // cancellation, not as a push failure (review F3), so it is rethrown before the generic wrap.
+        try
+        {
+            await _git.PushAsync(repoRoot, "origin", branch, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new DirectPushPushException(sha, branch, ex);
+        }
+
+        return new DirectPushGitResult(sha, branch, changedCount, outcome);
+    }
+
+    // Why: our own durability commits are the only commits Stage 4 is allowed to publish. They are
+    // identified by the EXACT subject shape CommitAndPushBodiesAsync writes (regex built from the same
+    // consts). Anything else ahead of origin is foreign and blocks the push.
+    private static bool IsDurabilityCommitSubject(string subject)
+        => DurabilityCommitSubjectPattern.IsMatch(subject);
+
     // Builds the on-demand prod store from the ephemeral connection string (D-03) — never at DI
     // startup. Shared by the diff read and the publish write so the config key lives in one place.
     private IContentSiteIndexStore CreateProdStore()
@@ -190,6 +375,95 @@ public sealed class DirectPushCoordinator
 
 /// <summary>Approved-row count and resolved data root for the DirectPush page init.</summary>
 public sealed record DirectPushInitData(int ApprovedCount, string DataRoot);
+
+/// <summary>Discriminates the outcome of the DirectPush git durability stage.</summary>
+public enum DirectPushGitOutcome
+{
+    /// <summary>A new durability commit was created and pushed.</summary>
+    Committed,
+
+    /// <summary>Nothing new to commit, but our own previously-unpushed durability commit(s) were pushed (catch-up).</summary>
+    PushedExistingCommits,
+
+    /// <summary>Nothing to commit and the branch was already in sync with origin — no push occurred.</summary>
+    AlreadyInSync,
+}
+
+/// <summary>
+/// Result of the DirectPush git durability stage: the commit SHA (<see langword="null"/> when nothing
+/// was committed this run), the current branch, the body count, and the outcome discriminator.
+/// </summary>
+public sealed record DirectPushGitResult(string? Sha, string Branch, int BodyCount, DirectPushGitOutcome Outcome);
+
+/// <summary>
+/// Thrown when the DirectPush git stage committed the bodies locally but the subsequent push failed.
+/// Carries the created commit SHA and branch so the page can tell the operator exactly what landed
+/// locally and how to push it by hand. The inner exception (which may carry the remote URL) is logged
+/// to the sink only, never surfaced to the UI (D-07 / SC5).
+/// </summary>
+public sealed class DirectPushPushException : Exception
+{
+    /// <summary>Creates the exception with the local commit SHA (null when nothing was committed this run), the branch, and the underlying push failure.</summary>
+    public DirectPushPushException(string? sha, string branch, Exception inner)
+        : base("Bodies committed locally but the push to origin failed.", inner)
+    {
+        Sha = sha;
+        Branch = branch;
+    }
+
+    /// <summary>Gets the SHA of the commit that landed locally before the push failed, or <see langword="null"/> when this run had nothing new to commit and only re-attempted the push.</summary>
+    public string? Sha { get; }
+
+    /// <summary>Gets the branch the failed push targeted.</summary>
+    public string Branch { get; }
+}
+
+/// <summary>
+/// Thrown when the DirectPush git stage detects commits ahead of <c>origin/{branch}</c> that were NOT
+/// authored by this stage (not <c>[skip render]</c> durability commits). Pushing the branch would
+/// publish those unreviewed commits, so the stage refuses. The operator must review and push (or
+/// reset) them by hand first. Non-fatal: the content is already live in production.
+/// </summary>
+public sealed class DirectPushUnreviewedCommitsException : Exception
+{
+    /// <summary>Creates the exception with the count of foreign unpushed commits and the branch.</summary>
+    public DirectPushUnreviewedCommitsException(int foreignCommitCount, string branch)
+        : base($"{foreignCommitCount} unreviewed commit(s) ahead of origin/{branch} would be published by this push.")
+    {
+        ForeignCommitCount = foreignCommitCount;
+        Branch = branch;
+    }
+
+    /// <summary>Gets the number of foreign (non-durability) commits ahead of the remote.</summary>
+    public int ForeignCommitCount { get; }
+
+    /// <summary>Gets the branch that would have been pushed.</summary>
+    public string Branch { get; }
+}
+
+/// <summary>
+/// Thrown when the DirectPush git stage cannot PROVE a push would publish only its own durability
+/// commits (e.g. the <c>origin/{branch}</c> remote-tracking ref is missing), so it fails closed and
+/// refuses to auto-push rather than risk publishing unverified history. Nothing is committed or
+/// pushed. Non-fatal: the content is already live in production; the operator resolves the stated
+/// reason (typically <c>git fetch</c>) and retries.
+/// </summary>
+public sealed class DirectPushPushBlockedException : Exception
+{
+    /// <summary>Creates the exception with the branch and the operator-facing (secret-free) reason.</summary>
+    public DirectPushPushBlockedException(string branch, string reason)
+        : base($"Direct Push refused to auto-push {branch}: {reason}")
+    {
+        Branch = branch;
+        Reason = reason;
+    }
+
+    /// <summary>Gets the branch that would have been pushed.</summary>
+    public string Branch { get; }
+
+    /// <summary>Gets the operator-facing reason (contains no secrets — safe to surface in the UI).</summary>
+    public string Reason { get; }
+}
 
 /// <summary>A single New/Updated row shown in the diff preview table.</summary>
 public sealed record DirectPushDiffRow(string Title, string KeyType, string KeyValue, bool IsNew, string ArtifactFile);

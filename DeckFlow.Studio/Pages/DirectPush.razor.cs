@@ -75,6 +75,20 @@ public partial class DirectPush
 
     private sealed record RowResult(string Title, string KeyType, string KeyValue, bool Success, string? Reason);
 
+    // ── Stage 4 — git durability (commit bodies + push; gated on _dbSuccess) ─
+    private bool _gitInFlight;
+    private bool _gitSuccess;
+    private bool _gitNoOp;
+    private bool _gitPushed;
+    private string _gitError = string.Empty;
+    // Why: the manual-recovery command is rendered in its own <code> element (not inlined into the
+    // error prose) so the operator can read/copy it verbatim, matching how every other command on
+    // the page is presented.
+    private string _gitManualPushCommand = string.Empty;
+    private string _gitSha = string.Empty;
+    private string _gitBranch = string.Empty;
+    private int _gitBodyCount;
+
     // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
@@ -123,6 +137,19 @@ public partial class DirectPush
         _rowResults = new();
         _publishRows = Array.Empty<ContentSiteIndexRow>();
         _unchangedCount = 0;
+        // Why (review F1): recomputing the diff starts a FRESH batch and hides the Stage 4 card
+        // (it re-gates on _dbSuccess). The Stage 4 git-result fields MUST reset here too, or a prior
+        // batch's green "already committed/pushed" alert re-appears the moment the new batch's DB
+        // write flips _dbSuccess back to true — the operator would think the new bodies are already
+        // git-durable and skip Stage 4, losing them on the next redeploy.
+        _gitSuccess = false;
+        _gitNoOp = false;
+        _gitPushed = false;
+        _gitError = string.Empty;
+        _gitManualPushCommand = string.Empty;
+        _gitSha = string.Empty;
+        _gitBranch = string.Empty;
+        _gitBodyCount = 0;
 
         try
         {
@@ -310,6 +337,122 @@ public partial class DirectPush
         }
     }
 
+    // ── Stage 4: Commit Bodies to Git + Push (gated on _dbSuccess) ──────────
+    private async Task CommitAndPushAsync()
+    {
+        // Why: hard-guard — the git durability stage must never run before the prod DB write
+        // succeeded (the bodies are only "pushed" once their rows are live). The disabled button
+        // alone is not sufficient (mirrors the Stage 3 guard).
+        if (!_dbSuccess || _operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _gitInFlight = true;
+        _gitError = string.Empty;
+        _gitManualPushCommand = string.Empty;
+        _gitSuccess = false;
+        _gitNoOp = false;
+        _gitPushed = false;
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                // Why: coordinator copies ONLY the pushed bodies into the repo, commits exactly
+                // those paths (never the seed), and pushes the current branch with [skip render].
+                var result = await Coordinator
+                    .CommitAndPushBodiesAsync(_publishRows, _dataRoot, Cts.Token)
+                    .ConfigureAwait(false);
+
+                await InvokeAsync(() =>
+                {
+                    _gitSha = result.Sha ?? string.Empty;
+                    _gitBranch = result.Branch;
+                    _gitBodyCount = result.BodyCount;
+                    // Committed = new commit + push. PushedExistingCommits = no new commit, but our own
+                    // prior durability commit(s) were pushed (catch-up). AlreadyInSync = nothing to
+                    // commit AND no push occurred — the UI must NOT claim a push (review R2-3).
+                    _gitNoOp = result.Outcome != DirectPushGitOutcome.Committed;
+                    _gitPushed = result.Outcome != DirectPushGitOutcome.AlreadyInSync;
+                    _gitSuccess = true;
+                    _gitInFlight = false;
+                    _operationInFlight = false;
+                    SafeStateHasChanged();
+                });
+            }, Cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _gitError = "Git commit/push was cancelled. Content is already live in production; " +
+                        "run the git backup again to persist the bodies.";
+            _gitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (DirectPushPushBlockedException ex)
+        {
+            // Why (review R2-1): the stage could not verify the branch was safe to auto-push (e.g.
+            // origin/{branch} not fetched) and failed CLOSED — nothing was committed or pushed. The
+            // Reason is secret-free by construction. Non-fatal: content is already live.
+            Logger.LogWarning("Direct Push git stage blocked on {Branch}: {Reason}", ex.Branch, ex.Reason);
+            _gitError = $"Stage 4 stopped: {ex.Reason}. Nothing was committed or pushed. " +
+                        "Content is already LIVE in production. Resolve that, then retry.";
+            _gitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (DirectPushUnreviewedCommitsException ex)
+        {
+            // Why (review F2): the branch has commits ahead of origin that this stage did not author.
+            // Pushing would publish them unreviewed, so the stage refused BEFORE committing anything.
+            // This is non-fatal — content is already live; the operator handles their own commits.
+            Logger.LogWarning(
+                "Direct Push git stage refused: {Count} unreviewed commit(s) ahead of origin/{Branch}",
+                ex.ForeignCommitCount, ex.Branch);
+            _gitError = $"Stage 4 stopped: {ex.ForeignCommitCount} other unpushed commit(s) on " +
+                        $"'{ex.Branch}' would be published by this push and have not been reviewed. " +
+                        "Nothing was committed or pushed. Review and push (or reset) them yourself " +
+                        "first, then retry. Content is already LIVE in production.";
+            _gitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (DirectPushPushException ex)
+        {
+            // Why: the commit LANDED locally; only the push failed. Preserve the SHA/branch and tell the
+            // operator exactly how to push by hand — a blind retry would report "nothing to commit"
+            // (Codex MED). Log the inner exception (may carry the remote URL) to the sink only (D-07).
+            Logger.LogError(ex, "Git push failed after commit {Sha} on {Branch}", ex.Sha ?? "(none)", ex.Branch);
+            _gitSha = ex.Sha ?? string.Empty;
+            _gitBranch = ex.Branch;
+            var committedClause = ex.Sha is null
+                ? "The bodies are already committed locally"
+                : $"Committed the bodies locally as {ex.Sha}";
+            _gitError = $"{committedClause}, but the push to origin FAILED. " +
+                        "Content is already LIVE in production. To back it up, run:";
+            _gitManualPushCommand = $"git push origin HEAD:refs/heads/{ex.Branch}";
+            _gitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            // Why: M3 — a git error message can carry the repo path / remote URL / credential hints
+            // (D-07 / SC5); log the full exception to the sink only and surface sanitized copy. This
+            // stage is NON-FATAL: prod DB + /data already hold the live content, so the git backup
+            // failing does not lose anything the user can see.
+            Logger.LogError(ex, "Git commit/push (durability stage) failed");
+            _gitError = "Could not commit or push the bodies to git — check the Studio git repo and " +
+                        "credentials. Content is already LIVE in production; only the git backup did " +
+                        "not complete. You can retry, or run 'git push' manually.";
+            _gitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     // ── Test seam (Codex MEDIUM-1) ──────────────────────────────────────────
     // Why: exercises the WriteRowsAsync hard-guard directly. bUnit will not dispatch a click to a
     // disabled button, so the guard (which protects against a stale render / future refactor
@@ -317,4 +460,9 @@ public partial class DirectPush
     // internal method lets the test invoke the handler in the pre-SCP state and assert no upsert
     // ran. It calls the exact production handler — no behavior is duplicated.
     internal Task InvokeWriteRowsForTest() => WriteRowsAsync();
+
+    // Why: exercises the CommitAndPushAsync hard-guard directly — bUnit will not dispatch a click to
+    // a disabled button, so the guard (no git run before prod DB success) is otherwise unreachable in
+    // a test. Calls the exact production handler; no behavior is duplicated.
+    internal Task InvokeCommitAndPushForTest() => CommitAndPushAsync();
 }

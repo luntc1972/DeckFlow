@@ -203,10 +203,92 @@ public sealed class GitRepository : IGitRepository
         return sha.Trim();
     }
 
+    /// <inheritdoc />
+    public async Task PushAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("push");
+        startInfo.ArgumentList.Add(remote);
+        // Why: explicit HEAD:refs/heads/{branch} so the push targets the named branch regardless of
+        // upstream tracking config, and never a branch the operator is not currently on.
+        startInfo.ArgumentList.Add($"HEAD:refs/heads/{branch}");
+
+        await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountWorkingChangesAsync(
+        string repoRoot,
+        IReadOnlyList<string> paths,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentNullException.ThrowIfNull(paths);
+
+        if (paths.Count == 0)
+        {
+            return 0;
+        }
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("status");
+        startInfo.ArgumentList.Add("--porcelain");
+        startInfo.ArgumentList.Add("--");
+        foreach (var path in paths)
+        {
+            startInfo.ArgumentList.Add(path);
+        }
+
+        var stdout = await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+
+        // Why: porcelain emits exactly one line per changed/untracked path; the line count is the
+        // number of the scoped paths that differ from HEAD (modified, staged, or untracked-new).
+        return stdout
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Count(line => !string.IsNullOrWhiteSpace(line));
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> GetSubjectsAheadOfRemoteAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("log");
+        startInfo.ArgumentList.Add("--format=%s");
+        // Why: {remote}/{branch}..HEAD = commits reachable from HEAD but not from the remote-tracking
+        // ref. RunAndCaptureAsync throws GitCommandException when that ref does not exist (never
+        // fetched) — the caller treats that as "cannot determine" and proceeds best-effort.
+        startInfo.ArgumentList.Add($"{remote}/{branch}..HEAD");
+
+        var stdout = await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+
+        return stdout
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────────
 
     private static ProcessStartInfo BuildStartInfo(string workingDirectory)
-        => new(GitExecutable)
+    {
+        var startInfo = new ProcessStartInfo(GitExecutable)
         {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
@@ -214,6 +296,15 @@ public sealed class GitRepository : IGitRepository
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+
+        // Why: never let git block the process on an interactive credential/passphrase prompt —
+        // a missing credential must fail fast with a non-zero exit (surfaced as GitCommandException)
+        // rather than hang the Studio UI waiting on stdin that will never come. Harmless for the
+        // read-only sub-commands; essential for PushAsync.
+        startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+
+        return startInfo;
+    }
 
     private static async Task<string> RunAndCaptureAsync(
         ProcessStartInfo startInfo,
