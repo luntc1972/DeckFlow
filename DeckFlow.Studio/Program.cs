@@ -144,10 +144,11 @@ public partial class Program
             // per-request. Pages inject it via [Inject] to derive publish state from ContentSiteIndexRow fields.
             builder.Services.AddSingleton<PublishStateDeriver>();
             builder.Services.AddScoped<ContentKbOrchestratorSmokeService>();
-            // Why: DirectPush page orchestration (prod read / diff / SCP / transactional write),
-            // extracted from the page code-behind (H1). Stateless and all its dependencies are
-            // singletons, so it is registered as a singleton too.
-            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.DirectPushCoordinator>();
+            // Why: DirectPush page orchestration (prod read / diff / SCP / transactional write /
+            // git durability push), extracted from the page code-behind (H1). Scoped because the
+            // git durability stage depends on the scoped IContentKbOrchestrator — a singleton would
+            // capture it (captive dependency), same as PublishCoordinator below.
+            builder.Services.AddScoped<DeckFlow.Studio.ViewModels.DirectPushCoordinator>();
             // Why: Publish page orchestration (git repo-info load / export / artifact-copy / diff /
             // stage-and-commit), extracted from the page code-behind (H1). Scoped because it depends
             // on the scoped IContentKbOrchestrator — a singleton would capture it (captive dependency).

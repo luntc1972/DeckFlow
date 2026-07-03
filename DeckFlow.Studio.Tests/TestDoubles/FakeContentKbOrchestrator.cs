@@ -28,6 +28,7 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
     // ── Call recording ──────────────────────────────────────────────────────
     public List<string> ExportToFilePaths { get; } = new();
     public int CopyApprovedCallCount { get; private set; }
+    public List<IReadOnlyList<string>> CopyArtifactsCalls { get; } = new();
     public List<string> UnblockCalls { get; } = new();
     public List<string> BlockCalls { get; } = new();
 
@@ -56,6 +57,23 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
         }
 
         return Task.FromResult(CannedCopiedArtifactPaths);
+    }
+
+    public Task<IReadOnlyList<string>> CopyArtifactsToRepoAsync(
+        string dataRoot,
+        string repoRoot,
+        IReadOnlyList<string> artifactPaths,
+        CancellationToken cancellationToken = default)
+    {
+        CopyArtifactsCalls.Add(artifactPaths);
+        if (ThrowOnCopy is not null)
+        {
+            throw ThrowOnCopy;
+        }
+
+        // Why: echo the requested paths so tests can assert the commit stages exactly the pushed
+        // bodies (not a canned set) — the real orchestrator returns the copied paths verbatim.
+        return Task.FromResult(artifactPaths);
     }
 
     public Task<ContentIndexExportResult> ExportIndexAsync(

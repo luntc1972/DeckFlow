@@ -16,12 +16,29 @@ internal sealed class FakeGitRepository : IGitRepository
     public string CannedHeadSeed { get; set; } = string.Empty;
     public string CannedCommitSha { get; set; } = "abc1234";
 
+    /// <summary>
+    /// Controls CountWorkingChangesAsync. Null (default) = "all supplied paths changed" (returns
+    /// paths.Count), so commits proceed with the full copied set in most tests. Set to 0 to simulate
+    /// a byte-identical no-op, or to a specific count to simulate only some bodies actually changing.
+    /// </summary>
+    public int? CannedWorkingChangeCount { get; set; }
+
+    /// <summary>Subjects returned by GetSubjectsAheadOfRemoteAsync — default empty (branch in sync).</summary>
+    public List<string> CannedSubjectsAhead { get; set; } = new();
+
+    /// <summary>When set, GetSubjectsAheadOfRemoteAsync throws it (simulates a missing remote-tracking ref).</summary>
+    public Exception? ThrowOnSubjectsAhead { get; set; }
+
     // ── Fault injection ─────────────────────────────────────────────────────
     /// <summary>When set, StageAndCommitAsync throws this exception instead of succeeding.</summary>
     public Exception? ThrowOnCommit { get; set; }
 
+    /// <summary>When set, PushAsync throws this exception instead of succeeding.</summary>
+    public Exception? ThrowOnPush { get; set; }
+
     // ── Call recording ──────────────────────────────────────────────────────
     public List<(string RepoRoot, IReadOnlyList<string> Paths, string Message)> CommitCalls { get; } = new();
+    public List<(string RepoRoot, string Remote, string Branch)> PushCalls { get; } = new();
 
     // ── IGitRepository ──────────────────────────────────────────────────────
     public Task<string> GetCurrentBranchAsync(string repoRoot, CancellationToken ct = default)
@@ -50,5 +67,30 @@ internal sealed class FakeGitRepository : IGitRepository
         }
 
         return Task.FromResult(CannedCommitSha);
+    }
+
+    public Task PushAsync(string repoRoot, string remote, string branch, CancellationToken ct = default)
+    {
+        PushCalls.Add((repoRoot, remote, branch));
+
+        if (ThrowOnPush is not null)
+        {
+            throw ThrowOnPush;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<int> CountWorkingChangesAsync(string repoRoot, IReadOnlyList<string> paths, CancellationToken ct = default)
+        => Task.FromResult(CannedWorkingChangeCount ?? paths.Count);
+
+    public Task<IReadOnlyList<string>> GetSubjectsAheadOfRemoteAsync(string repoRoot, string remote, string branch, CancellationToken ct = default)
+    {
+        if (ThrowOnSubjectsAhead is not null)
+        {
+            throw ThrowOnSubjectsAhead;
+        }
+
+        return Task.FromResult<IReadOnlyList<string>>(CannedSubjectsAhead);
     }
 }

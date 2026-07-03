@@ -53,8 +53,9 @@ public interface IGitRepository
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Why: Studio never pushes (D-01) — only the operator runs <c>git push</c> after reviewing
-    /// the commit. This method intentionally has no push counterpart.
+    /// Why: the git-only <c>Publish</c> page never pushes (D-01) — the operator runs <c>git push</c>
+    /// after reviewing the commit. The Direct Push page instead calls <see cref="PushAsync"/> so one
+    /// operator action publishes bodies to git AND production; see that method's remarks.
     /// </para>
     /// <para>
     /// Why: pathspec-scoped commit + foreign-staged guard so a pre-staged unrelated hunk is
@@ -79,5 +80,82 @@ public interface IGitRepository
         string repoRoot,
         IReadOnlyList<string> paths,
         string message,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Pushes the current <c>HEAD</c> to <paramref name="branch"/> on <paramref name="remote"/>
+    /// via <c>git push {remote} HEAD:refs/heads/{branch}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Why: the Direct Push page needs one operator action to make content live in production AND
+    /// durable in git. This runs as the operator (their local machine, their configured git
+    /// credentials); it is not an automated CI push. Terminal credential prompts are disabled
+    /// (<c>GIT_TERMINAL_PROMPT=0</c>) so a missing credential fails fast instead of hanging the UI.
+    /// </para>
+    /// <para>
+    /// Why: <c>HEAD:refs/heads/{branch}</c> pushes whatever the operator currently has checked out
+    /// to the named branch — the caller passes the current branch so a push never targets a branch
+    /// the operator is not on.
+    /// </para>
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="remote">The remote name (e.g. <c>origin</c>).</param>
+    /// <param name="branch">The destination branch name (e.g. <c>main</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="GitCommandException">
+    /// Thrown when the push exits with a non-zero code (auth failure, non-fast-forward, no network).
+    /// </exception>
+    Task PushAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the NUMBER of <paramref name="paths"/> that have an uncommitted change (modified,
+    /// staged, or untracked) relative to the working tree, via <c>git status --porcelain -- {paths}</c>
+    /// (one output line per changed path).
+    /// </summary>
+    /// <remarks>
+    /// Why: Direct Push copies the pushed bodies into the tree and must (1) distinguish "there is
+    /// something to commit" from "the bodies are byte-identical to what is already committed" — the
+    /// latter is a legitimate no-op — and (2) report how many bodies the commit ACTUALLY contains.
+    /// An <c>Updated</c> row whose DB columns changed but whose body file did not is copied but not
+    /// committed, so the copied count overstates the commit; this count reflects only changed files.
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="paths">Repo-relative paths to inspect.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The count of the supplied paths that differ from the working tree/index (0 = none).</returns>
+    Task<int> CountWorkingChangesAsync(
+        string repoRoot,
+        IReadOnlyList<string> paths,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the subject lines of the commits on <c>HEAD</c> that are NOT yet on
+    /// <c>{remote}/{branch}</c>, newest first, via <c>git log --format=%s {remote}/{branch}..HEAD</c>.
+    /// </summary>
+    /// <remarks>
+    /// Why: pushing a branch ref publishes <c>HEAD</c> AND every ancestor not already on the remote,
+    /// not just the last commit. Before Direct Push pushes, the caller inspects these subjects to
+    /// distinguish its own durability commits (safe to publish) from foreign unpushed commits (which
+    /// must not be published without review) — and to detect a truly in-sync branch so a pointless
+    /// push is skipped.
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="remote">The remote name (e.g. <c>origin</c>).</param>
+    /// <param name="branch">The branch name (e.g. <c>main</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The unpushed commit subjects (empty when the branch is in sync).</returns>
+    /// <exception cref="GitCommandException">
+    /// Thrown when the remote-tracking ref <c>{remote}/{branch}</c> is unknown (never fetched) or the
+    /// command otherwise fails; the caller treats this as "cannot determine" and proceeds best-effort.
+    /// </exception>
+    Task<IReadOnlyList<string>> GetSubjectsAheadOfRemoteAsync(
+        string repoRoot,
+        string remote,
+        string branch,
         CancellationToken ct = default);
 }

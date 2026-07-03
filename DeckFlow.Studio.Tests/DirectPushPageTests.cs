@@ -88,7 +88,9 @@ public sealed class DirectPushPageTests : BunitContext
             IEnumerable<ContentSiteIndexRow>? prodRows = null,
             FakeContentSiteIndexStore? prodStoreOverride = null,
             bool isProdConfigured = true,
-            bool isScpConfigured = true)
+            bool isScpConfigured = true,
+            FakeGitRepository? gitOverride = null,
+            FakeContentKbOrchestrator? orchestratorOverride = null)
     {
         var localStore = new FakeContentSiteIndexStore();
         var prodStore = prodStoreOverride ?? new FakeContentSiteIndexStore();
@@ -118,6 +120,10 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
+        // Why: the git durability stage (Stage 4) resolves IGitRepository + IContentKbOrchestrator
+        // through the coordinator; register fakes so no real git process or file copy runs in bUnit.
+        Services.AddSingleton<DeckFlow.Core.Integration.IGitRepository>(gitOverride ?? new FakeGitRepository());
+        Services.AddSingleton<IContentKbOrchestrator>(orchestratorOverride ?? new FakeContentKbOrchestrator());
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
         // register it over the same fakes so the bUnit render wires up identically to production.
         Services.AddScoped<DirectPushCoordinator>();
@@ -414,6 +420,100 @@ public sealed class DirectPushPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Empty(prodStore.UpsertMethodCalls);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Stage4InvokedBeforeDbWrite_NoCommitOrPush()
+    {
+        // The git durability stage must early-return before the prod DB write succeeds — no commit,
+        // no push (the disabled button alone is not sufficient; a stale render must not reach git).
+        var git = new FakeGitRepository();
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
+
+        // Compute diff + confirm, but never run SCP or the DB write — Stage 4 is still locked.
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.Instance.InvokeCommitAndPushForTest());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Empty(git.CommitCalls);
+            Assert.Empty(git.PushCalls);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Stage4_AfterDbWrite_CommitsBodiesAndPushes_NoRedeploy()
+    {
+        var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
+
+        // Drive Stage 1 (diff+confirm) → Stage 2 (SCP) → Stage 3 (DB write).
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForState(() => cut.Markup.Contains("written to production"));
+
+        // Stage 4 button (btn-outline-primary) is now the LAST outline-primary button (Stage 1 is first).
+        cut.WaitForAssertion(() =>
+        {
+            var outlineButtons = cut.FindAll("button.btn-outline-primary");
+            Assert.False(outlineButtons[^1].HasAttribute("disabled"));
+        });
+        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
+
+        cut.WaitForState(() => cut.Markup.Contains("pushed to"));
+        cut.WaitForAssertion(() =>
+        {
+            // Committed exactly the pushed body path (never the seed) and pushed to origin/main.
+            var commit = Assert.Single(git.CommitCalls);
+            Assert.Equal(new[] { "content-kb/test-channel/vid1.md" }, commit.Paths);
+            Assert.DoesNotContain(commit.Paths, p => p.Contains("index-seed.json", StringComparison.Ordinal));
+            Assert.Contains("[skip render]", commit.Message);
+
+            var push = Assert.Single(git.PushCalls);
+            Assert.Equal("origin", push.Remote);
+            Assert.Equal("main", push.Branch);
+
+            Assert.Contains("origin/main", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Stage4_AlreadyInSync_DoesNotClaimAPush()
+    {
+        // Review R2-3: when the bodies are already committed AND the branch is in sync with origin,
+        // the coordinator returns AlreadyInSync WITHOUT pushing — the success alert must NOT claim a
+        // push happened.
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedWorkingChangeCount = 0,   // nothing to commit
+            // CannedSubjectsAhead defaults empty = in sync → no push.
+        };
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForState(() => cut.Markup.Contains("written to production"));
+
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-outline-primary")[^1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
+
+        cut.WaitForState(() => cut.Markup.Contains("in sync"));
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Empty(git.PushCalls);                              // coordinator did not push
+            Assert.Contains("nothing to push", cut.Markup);          // honest copy
+            Assert.DoesNotContain("pushed to", cut.Markup);          // no false push claim
         });
     }
 

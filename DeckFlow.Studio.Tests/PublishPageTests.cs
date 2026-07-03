@@ -373,16 +373,30 @@ public sealed class PublishPageTests : BunitContext
         });
     }
 
-    // ── PUB-03: IGitRepository has no push method (structural contract) ──────
+    // ── PUB-03: the git-only Publish page commits but NEVER pushes (D-01) ────
 
     [Fact]
-    public void IGitRepository_HasNoPushMethod()
+    public void PublishFlow_CommitsButNeverPushes()
     {
-        // Assert: the interface contract has NO method with "push" in its name (case-insensitive).
-        // Studio never pushes — this is a structural/contractual guarantee.
-        var methods = typeof(IGitRepository).GetMethods();
-        var pushMethods = methods.Where(m => m.Name.Contains("Push", StringComparison.OrdinalIgnoreCase)).ToList();
-        Assert.Empty(pushMethods);
+        // The interface now HAS PushAsync (used only by the Direct Push page). The structural
+        // invariant that remains for the git-only Publish page is behavioral: it stages and commits
+        // the seed, but the operator runs `git push` — the Publish flow must never call PushAsync.
+        var rows = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, git, _, _) = RenderPublish(rows);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving repository info", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("Stage 2 — Commit"));
+        cut.InvokeAsync(() => cut.Find("input#diffReviewed").Change(true));
+        cut.WaitForAssertion(() => Assert.False(
+            cut.Find("button.btn-primary:not(.btn-outline-primary)").HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.Find("button.btn-primary:not(.btn-outline-primary)").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(git.CommitCalls);
+            Assert.Empty(git.PushCalls);
+        });
     }
 
     // ── PUB-03: GitForeignStagedChangesException surfaces specific error ─────
@@ -411,6 +425,11 @@ public sealed class PublishPageTests : BunitContext
         {
             Assert.Contains("unrelated changes are already staged", cut.Markup);
         });
+
+        // Assert (review F8): even on the foreign-staged EXCEPTION branch, the git-only Publish page
+        // never pushes (D-01). The old structural "interface has no push method" test was retired when
+        // PushAsync was added for Direct Push, so guard the invariant behaviorally on this error path.
+        cut.WaitForAssertion(() => Assert.Empty(git.PushCalls));
 
         // Assert: commit success was NOT set — no SHA shown, no push reminder
         cut.WaitForAssertion(() =>

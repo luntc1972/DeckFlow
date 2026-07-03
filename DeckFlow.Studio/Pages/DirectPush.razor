@@ -91,9 +91,11 @@ unlocks only after every file uploads.</p>
 
         @* ─── TARGET: PRODUCTION danger banner (always shown once configured) ─── *@
         <div class="alert alert-danger py-2 mt-3">
-            <span class="oi oi-warning" aria-hidden="true"></span>
-            <strong> TARGET: PRODUCTION</strong> — this writes directly to the live site database
-            and the Render /data disk. There is no undo.
+            <span class="oi oi-warning me-1" aria-hidden="true"></span>
+            <strong>TARGET: PRODUCTION</strong> — Stages 1&ndash;3 write directly to the live site
+            database and the Render /data disk. There is no undo. <strong>Stage 4 is a separate step
+            you click</strong> to commit the pushed bodies to git and push <code>origin</code> with
+            <code>[skip render]</code> (no redeploy) &mdash; it does not run automatically.
         </div>
 
         @* ─── Stage 1 — Compute Prod Diff ─── *@
@@ -381,6 +383,89 @@ unlocks only after every file uploads.</p>
                             Unchanged rows were already up to date and were skipped.
                             is_evergreen on existing rows was preserved.
                         </div>
+                    }
+                </div>
+            </div>
+
+            @* ─── Stage 4 — Commit Bodies to Git + Push (durability, no redeploy) ─── *@
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h2 class="h5 fw-semibold mb-0">Stage 4 — Commit Bodies to Git &amp; Push (durability)</h2>
+                </div>
+                <div class="card-body">
+
+                    <p class="text-muted small mb-2">
+                        Commits the pushed bodies to the git repo and pushes the current branch to
+                        <code>origin</code> with <code>[skip render]</code> so production is
+                        <strong>not</strong> redeployed. The content is already live via the web
+                        /data overlay; this makes the bodies git-durable. The index seed is
+                        <strong>not</strong> touched here.
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(_gitError))
+                    {
+                        <div class="alert alert-danger py-2">
+                            @_gitError
+                            @if (!string.IsNullOrEmpty(_gitManualPushCommand))
+                            {
+                                <div class="mt-1"><code>@_gitManualPushCommand</code></div>
+                            }
+                        </div>
+                    }
+
+                    @if (!_dbSuccess)
+                    {
+                        <p class="text-muted small mb-2">
+                            Locked until the rows have been written to the production database.
+                        </p>
+                    }
+
+                    <button class="btn btn-outline-primary"
+                            @onclick="CommitAndPushAsync"
+                            disabled="@(!_dbSuccess || _operationInFlight)"
+                            aria-label="@(_dbSuccess ? null : "Locked until the rows have been written to the production database")">
+                        @if (_gitInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm text-primary"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Committing and pushing bodies...</span>
+                        }
+                        else
+                        {
+                            <span>Commit Bodies to Git &amp; Push</span>
+                        }
+                    </button>
+
+                    @if (_gitSuccess)
+                    {
+                        @if (!_gitNoOp)
+                        {
+                            <div class="alert alert-success py-2 mt-3">
+                                Committed @_gitBodyCount @(_gitBodyCount == 1 ? "body" : "bodies")
+                                as <code>@_gitSha</code> and pushed to <code>origin/@_gitBranch</code>.
+                                No production redeploy (<code>[skip render]</code>) — the content was
+                                already live.
+                            </div>
+                        }
+                        else if (_gitPushed)
+                        {
+                            <div class="alert alert-success py-2 mt-3">
+                                No new commit needed — the bodies were already committed. Pushed your
+                                previously-unpushed durability commit(s) to
+                                <code>origin/@_gitBranch</code>. The row updates are live in production.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-success py-2 mt-3">
+                                Already committed and in sync with <code>origin/@_gitBranch</code> —
+                                nothing to push. The bodies are git-durable and the row updates are
+                                live in production.
+                            </div>
+                        }
                     }
                 </div>
             </div>

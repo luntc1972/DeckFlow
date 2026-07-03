@@ -71,4 +71,24 @@ public interface IContentIndexExporter
         string dataRoot,
         string repoRoot,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Materializes an EXPLICIT set of markdown artifacts (by repo-relative <c>ArtifactPath</c>)
+    /// from the Studio data root into the repo working tree, applying the same containment guards
+    /// as <see cref="CopyApprovedArtifactsToRepoAsync"/>. Unlike that method, the caller supplies the
+    /// exact paths — used by Direct Push to commit ONLY the pushed (New + Updated) bodies, never a
+    /// full-approved-set snapshot, so an unrelated seed/row set is never touched.
+    /// </summary>
+    /// <param name="dataRoot">The Studio data directory — the PARENT of <c>ArtifactRoot</c>.</param>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="artifactPaths">Repo-relative artifact paths to copy (each begins with <c>content-kb/</c>).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The list of repo-relative artifact paths that were copied, for use as commit pathspecs.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when a source artifact file is missing.</exception>
+    /// <exception cref="ArgumentException">Thrown when a path is rooted, traversing, or pathspec-magic.</exception>
+    Task<IReadOnlyList<string>> CopyArtifactsToRepoAsync(
+        string dataRoot,
+        string repoRoot,
+        IReadOnlyList<string> artifactPaths,
+        CancellationToken cancellationToken = default);
 }
