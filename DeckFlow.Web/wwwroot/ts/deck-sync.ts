@@ -948,6 +948,17 @@ const registerChatGptDownloadHandler = (): void => {
   });
 };
 
+// Print button on the Step 3 / Step 5 results panels. CSP blocks inline onclick
+// (script-src has no 'unsafe-inline'), so window.print() is wired here. The
+// @media print rules in site-common.css isolate the result panels on paper.
+const registerChatGptPrintHandler = (): void => {
+  document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-print]').forEach(button => {
+    button.addEventListener('click', () => {
+      window.print();
+    });
+  });
+};
+
 const formStateStoragePrefix = 'decksync-form-state-';
 const antiForgeryFieldName = '__RequestVerificationToken';
 // Phase 10 (D-15 race fix): track the auto-clear timer per form so a
@@ -2780,6 +2791,7 @@ const bootstrapDeckSync = (): void => {
   }
   scrollToOnLoadTarget();
   registerChatGptDownloadHandler();
+  registerChatGptPrintHandler();
   attachActionButtons();
   attachGenericPersistedForms();
   attachDeckSyncPersistence();

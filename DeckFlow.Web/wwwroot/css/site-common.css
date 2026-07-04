@@ -230,6 +230,32 @@ summary:focus-visible,
   border-color: inherit;
 }
 
+/* Secondary "Print results" button. Print is a utility action that should not
+   compete with the primary Download button beside it, but the theme system has
+   no secondary-button style yet. Give the print button an outline treatment
+   using the standard --accent / --accent-strong tokens that every guild theme
+   defines, so it reads as secondary in all themes from one place (no 24-file
+   fork). The compound selector (.run-button.chatgpt-print-button, 0-2-0) out-
+   specifies each theme's plain .run-button (0-1-0), so it wins regardless of
+   stylesheet load order. */
+.run-button.chatgpt-print-button {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.run-button.chatgpt-print-button:hover {
+  /* Keep the accent-colored label (its contrast against the page bg is already
+     theme-verified) on a subtle accent wash — do NOT fill with a hardcoded white
+     label, because --accent-strong is a LIGHT glow tint in several dark themes,
+     which would make a white label low-contrast on hover. color-mix degrades to
+     the transparent base where unsupported. */
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .back-to-top-button.is-theme-locked,
 .back-to-top-button.is-theme-locked:hover,
 .back-to-top-button.is-theme-locked:focus-visible {
@@ -3394,4 +3420,152 @@ label.field > span,
   .wincon-map-combo {
     padding: 0.55rem 0.65rem;
   }
+}
+
+/* ===========================================================================
+   Print — tool results to paper
+   Strips site chrome and page inputs, leaving only the rendered result panel on
+   each tool that opts in with `data-print-region` (deck-analysis, deck-comparison,
+   cedh-meta-gap, manabase). Fired by each tool's "Print results" button
+   (window.print, wired in TS because CSP blocks inline onclick) or the browser's
+   own print. Lives in site-common.css per the theme-system constraint (layout CSS
+   never goes in site.css / theme forks).
+
+   Model: the results container on each page is marked `data-print-region`. The
+   universal rule below drops every OTHER top-level block in `.content-shell`
+   (hero, tool tabs, timing, layout picker, banners, input forms), so pages whose
+   results sit in a container separate from their inputs need no per-page rules.
+   Deck-analysis is the exception: its results share the workflow <form> with the
+   inputs, so it adds page-scoped inner rules (keyed on `.chatgpt-packets-form`)
+   to reveal only the result-bearing step panels.
+   =========================================================================== */
+@media print {
+  /* Site chrome — never on paper. */
+  .skip-link,
+  .page-header,
+  .page-nav,
+  .theme-picker,
+  .back-to-top-button,
+  .page-footer,
+  footer {
+    display: none !important;
+  }
+
+  /* Universal: keep only the opted-in results container; drop all sibling
+     chrome/inputs. Applies on every tool page that marks a print region. */
+  .content-shell:has([data-print-region]) > *:not([data-print-region]) {
+    display: none !important;
+  }
+
+  /* Any toolbar inside a print region (Download / Print buttons) is not paper. */
+  [data-print-region] .toolbar,
+  [data-print-region] .chatgpt-step-actions {
+    display: none !important;
+  }
+
+  /* Workflow-form tools (deck-analysis, deck-comparison, cedh-meta-gap): results
+     and inputs share the same <form>, marked data-print-region="workflow". Reveal
+     just the result-bearing step panels (the ones holding a [data-print-result]
+     anchor), even if JS left an inactive one .hidden; drop the step heading, paste
+     fields, and footers that share those panels. Keyed on the "workflow" region
+     value so the separate-container tools (e.g. manabase) are untouched. */
+  [data-print-region="workflow"] > *:not(.chatgpt-step-panel) {
+    display: none !important;
+  }
+  [data-print-region="workflow"] .chatgpt-step-panel:not(:has([data-print-result])) {
+    display: none !important;
+  }
+  /* Reveal ONLY the currently-visible result step. An inactive result tab keeps
+     its .hidden (display:none) so, e.g., a populated Step 3 does not print
+     alongside the Step 5 the user is actually viewing. */
+  [data-print-region="workflow"] .chatgpt-step-panel:has([data-print-result]):not(.hidden) {
+    display: block !important;
+  }
+  [data-print-region="workflow"] .chatgpt-step-panel:has([data-print-result]):not(.hidden) > *:not([data-print-result]) {
+    display: none !important;
+  }
+  [data-print-result] {
+    display: block !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Ink-friendly: white page, dark text, no themed backgrounds bleeding to paper —
+     including the nested tinted result panels (score panel, manabase lens boxes,
+     audit/wincon blocks) that would otherwise print as color washes. The data-
+     encoding meters/pills opt back into color via print-color-adjust below. */
+  html,
+  body,
+  .page-shell,
+  .page-frame,
+  .content-shell,
+  [data-print-region],
+  [data-print-region] .result-panel,
+  [data-print-region] .nested-panel,
+  [data-print-region] .summary-panel,
+  [data-print-region] .panel-heading,
+  [data-print-region] .chatgpt-score,
+  [data-print-region] .interaction-audit,
+  [data-print-region] .wincon-map,
+  [data-print-region] .manabase-lens,
+  [data-print-region] .manabase-twolens,
+  [data-print-region] .manabase-beta-notice,
+  [data-print-region] .mode-note {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Flatten card chrome for paper: drop the rounded borders and drop shadows on
+     the result containers. The outer manabase card uses data-print-region (not
+     data-print-result), so its border + shadow previously survived to paper.
+     Table and data borders are untouched. */
+  [data-print-region],
+  [data-print-region] .result-panel,
+  [data-print-region] .nested-panel,
+  [data-print-region] .summary-panel,
+  [data-print-region] .panel-heading,
+  [data-print-region] .chatgpt-score,
+  [data-print-region] .interaction-audit,
+  [data-print-region] .wincon-map,
+  [data-print-region] .manabase-lens,
+  [data-print-region] .manabase-twolens,
+  [data-print-region] .manabase-beta-notice,
+  [data-print-region] .mode-note {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep the color meters/pips/bands (they encode data via color). */
+  .chatgpt-score-pip,
+  .chatgpt-score-band,
+  .chatgpt-score-crosscheck,
+  .interaction-audit-grid {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page breaks must not split a content section, list item, score card, or
+     combo block, and must not strand a heading at the foot of a page. */
+  section.result-panel,
+  .nested-panel,
+  .chatgpt-score,
+  .chatgpt-score-card,
+  .interaction-audit,
+  .wincon-map,
+  .wincon-map-combo,
+  li {
+    break-inside: avoid;
+    page-break-inside: avoid; /* legacy alias for print engines that need it */
+  }
+  h3,
+  h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
+
+/* Paper margins for the print output (browsers otherwise vary widely). */
+@page {
+  margin: 14mm;
 }

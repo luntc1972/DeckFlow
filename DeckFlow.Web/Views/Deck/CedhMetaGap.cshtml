@@ -39,7 +39,7 @@
 
 <div class="error-banner hidden" data-chatgpt-cedh-validation-error role="alert"></div>
 
-<form method="post" action="@Url.Content("~/cedh-meta-gap")" class="deck-form" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
+<form method="post" action="@Url.Content("~/cedh-meta-gap")" class="deck-form" data-print-region="workflow" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
         <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
@@ -381,13 +381,16 @@
         @if (Model.AnalysisResponse is not null)
         {
             var analysis = Model.AnalysisResponse.MetaGap;
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-cedh-result-anchor>
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-cedh-result-anchor data-print-result>
                 <div class="toolbar chatgpt-step-actions">
                     <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/cedh-meta-gap/download")"
                             formmethod="post"
                             formnovalidate>
                         Download meta-gap session (.zip)
+                    </button>
+                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                        Print results
                     </button>
                 </div>
                 <h3>Meta Gap Analysis</h3>
