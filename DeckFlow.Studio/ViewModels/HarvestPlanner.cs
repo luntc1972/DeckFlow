@@ -36,6 +36,25 @@ public static class HarvestPlanner
             .ToList();
 
     /// <summary>
+    /// The browsed videos that are hidden from the harvest list because they were skipped or blocked,
+    /// scoped to the creator filter. Kept separate from <see cref="FilterVisibleChannelVideos"/> so a
+    /// hidden row is never selectable/harvestable — it is surfaced only for un-skip / un-block.
+    /// </summary>
+    /// <param name="channelVideos">All browsed rows.</param>
+    /// <param name="skippedVideoIds">The set of skipped video ids.</param>
+    /// <param name="creatorFilter">Creator name to narrow to, or empty for all creators.</param>
+    /// <returns>The skipped or blocked rows matching the creator filter.</returns>
+    public static IReadOnlyList<VideoViewModel> FilterHiddenChannelVideos(
+        IReadOnlyList<VideoViewModel> channelVideos,
+        ISet<string> skippedVideoIds,
+        string creatorFilter)
+        => channelVideos
+            .Where(vm => (skippedVideoIds.Contains(vm.VideoId) || vm.Status == VideoStatus.Blocked)
+                && (string.IsNullOrEmpty(creatorFilter)
+                    || CreatorNameResolver.FromChannelTitle(vm.ChannelTitle) == creatorFilter))
+            .ToList();
+
+    /// <summary>
     /// All videos selected for harvest: the selected VISIBLE channel videos plus the selected queue
     /// videos. Callers pass the already-filtered visible list so a row hidden by the unharvested
     /// filter or by skip cannot be harvested (Codex HIGH).

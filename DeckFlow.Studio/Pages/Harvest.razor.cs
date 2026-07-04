@@ -259,6 +259,77 @@ public partial class Harvest
     // Markup-facing alias for the canonical visible projection (render loop + empty-state gate).
     private IReadOnlyList<VideoViewModel> VisibleChannelVideos => GetVisibleChannelVideos();
 
+    // Skipped/blocked rows for the browsed creator — surfaced only under the "Show hidden" toggle,
+    // for un-skip / un-block. Kept out of the harvestable list so a hidden row can never be harvested.
+    private bool _showHiddenVideos;
+
+    private IReadOnlyList<VideoViewModel> HiddenChannelVideos =>
+        HarvestPlanner.FilterHiddenChannelVideos(_channelVideos, _skippedVideoIds, _browsCreatorFilter);
+
+    // Un-skip a browsed row: drop it from the skip list so it returns to the harvest list. Non-fatal.
+    private async Task UnskipVideoAsync(VideoViewModel vm)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _blockError = string.Empty;
+        try
+        {
+            await SkippedStore.RemoveSkipAsync(vm.VideoId);
+            _skippedVideoIds.Remove(vm.VideoId);
+            await RefreshBadgesAsync(new[] { vm.VideoId });
+        }
+        catch (Exception)
+        {
+            _blockError = "Could not un-skip the video. Try again.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Un-block a browsed row via the maintenance orchestrator, then re-resolve its badge.
+    private async Task UnblockVideoRowAsync(VideoViewModel vm)
+    {
+        if (_operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _blockError = string.Empty;
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            var result = await Task.Run(
+                () => MaintenanceOrchestrator.UnblockVideoAsync(vm.VideoId, progress: null, _cts.Token),
+                _cts.Token);
+
+            if (result.Success)
+            {
+                await RefreshBadgesAsync(new[] { vm.VideoId });
+            }
+            else
+            {
+                _blockError = !string.IsNullOrWhiteSpace(result.Message)
+                    ? result.Message
+                    : "Unblock failed — try again.";
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            _blockError = "Unblock failed — try again.";
+        }
+        finally
+        {
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     private void ToggleAllChannelSelections()
     {
         _allChannelSelected = !_allChannelSelected;
